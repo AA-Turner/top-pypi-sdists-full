@@ -179,7 +179,7 @@ def poisson_means_test(
 class SomersDResult:
     statistic: Final[float]
     pvalue: Final[float]
-    table: Final[_Float2D]
+    table: Final[onp.Array2D[np.int_]]
 
 def somersd(
     x: onp.ToFloat1D | onp.ToFloat2D, y: onp.ToFloat1D | None = None, alternative: Alternative = "two-sided"
@@ -215,6 +215,6 @@ class TukeyHSDResult:
     #
     _ci: ConfidenceInterval | None
     _ci_cl: float | None
-    def confidence_interval(self, /, confidence_level: op.JustFloat | np.float64 = 0.95) -> ConfidenceInterval: ...
+    def confidence_interval(self, /, confidence_level: float | np.float64 = 0.95) -> ConfidenceInterval[_Float2D]: ...
 
 def tukey_hsd(arg0: onp.ToFloatND, arg1: onp.ToFloatND, /, *args: onp.ToFloatND, equal_var: bool = True) -> TukeyHSDResult: ...

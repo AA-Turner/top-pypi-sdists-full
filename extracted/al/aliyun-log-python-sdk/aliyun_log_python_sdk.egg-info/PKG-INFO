@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aliyun-log-python-sdk
-Version: 0.9.47
+Version: 0.9.48
 Summary: Aliyun log service Python client SDK
 Home-page: https://github.com/aliyun/aliyun-log-python-sdk
 Author: Aliyun
@@ -31,6 +31,14 @@ Requires-Dist: responses; extra == "test"
 Requires-Dist: lz4; extra == "test"
 Requires-Dist: virtualenv; extra == "test"
 Requires-Dist: zstandard; extra == "test"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 
 Python SDK for Alicloud Log Service

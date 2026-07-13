@@ -1984,7 +1984,7 @@ visibility = [
     "mindroom.matrix.stale_stream_cleanup",
     "mindroom.response_runner",
     "mindroom.routing",
-    "mindroom.thread_export",
+    "mindroom.thread_export.selection",
 ]
 
 [[modules]]
@@ -2033,22 +2033,84 @@ visibility = [
     "mindroom.matrix.client",
     "mindroom.matrix.conversation_cache",
     "mindroom.matrix.thread_room_scan",
-    "mindroom.thread_export",
+    "mindroom.thread_export.execution",
 ]
 
 [[modules]]
 path = "mindroom.thread_export"
 depends_on = [
+    "mindroom.thread_export.models",
+    "mindroom.thread_export.service",
+]
+
+[[modules]]
+path = "mindroom.thread_export.models"
+depends_on = []
+visibility = [
+    "mindroom.thread_export",
+    "mindroom.thread_export.execution",
+    "mindroom.thread_export.policy",
+    "mindroom.thread_export.selection",
+    "mindroom.thread_export.service",
+]
+
+[[modules]]
+path = "mindroom.thread_export.storage"
+depends_on = []
+visibility = [
+    "mindroom.thread_export.execution",
+    "mindroom.thread_export.service",
+]
+
+[[modules]]
+path = "mindroom.thread_export.policy"
+depends_on = ["mindroom.thread_export.models"]
+visibility = [
+    "mindroom.thread_export.execution",
+    "mindroom.thread_export.service",
+]
+
+[[modules]]
+path = "mindroom.thread_export.selection"
+depends_on = [
     "mindroom.constants",
     "mindroom.entity_resolution",
-    "mindroom.logging_config",
-    "mindroom.matrix.client_thread_history",
     "mindroom.matrix.client_visible_messages",
     "mindroom.matrix.identity",
+    "mindroom.matrix.invited_rooms_store",
     "mindroom.matrix.state",
     "mindroom.matrix.users",
     "mindroom.matrix_identifiers",
+    "mindroom.thread_export.models",
+]
+visibility = [
+    "mindroom.thread_export.execution",
+    "mindroom.thread_export.service",
+]
+
+[[modules]]
+path = "mindroom.thread_export.execution"
+depends_on = [
+    "mindroom.matrix.client_thread_history",
+    "mindroom.thread_export.models",
+    "mindroom.thread_export.policy",
+    "mindroom.thread_export.selection",
+    "mindroom.thread_export.storage",
+]
+visibility = ["mindroom.thread_export.service"]
+
+[[modules]]
+path = "mindroom.thread_export.service"
+depends_on = [
+    "mindroom.constants",
+    "mindroom.logging_config",
+    "mindroom.matrix.users",
     "mindroom.runtime_support",
+    "mindroom.thread_export.execution",
+    "mindroom.thread_export.models",
+    "mindroom.thread_export.policy",
+    "mindroom.thread_export.selection",
+    "mindroom.thread_export.storage",
 ]
 
 [[modules]]
@@ -2664,6 +2726,7 @@ visibility = [
 path = "mindroom.tool_system.skills"
 depends_on = [
     "mindroom.constants",
+    "mindroom.tool_system.output_files",
     "mindroom.tool_system.worker_routing",
 ]
 
@@ -3415,14 +3478,17 @@ from = ["mindroom.matrix.client_visible_messages"]
 [[interfaces]]
 expose = [
     "fetch_thread_event_sources_via_room_messages",
+    "BulkThreadRefreshStats",
     "RoomThreadsPageError",
     "ThreadRoomScanRootNotFoundError",
+    "bulk_refresh_room_thread_histories",
     "enumerate_room_thread_root_ids",
     "fetch_dispatch_thread_history",
     "fetch_dispatch_thread_snapshot",
     "fetch_thread_history",
     "get_room_threads_page",
     "refresh_thread_history_from_source",
+    "untrusted_cached_thread_ids",
 ]
 from = ["mindroom.matrix.client_thread_history"]
 
@@ -3500,6 +3566,7 @@ expose = [
     "safe_tool_init_override_fields",
     "sanitize_tool_init_overrides",
     "serialize_tool_validation_snapshot",
+    "unresolved_plugin_tool_sources_for_runtime",
     "validate_authored_tool_entry_overrides",
 ]
 from = ["mindroom.tool_system.metadata"]
@@ -3540,6 +3607,7 @@ expose = [
     "safe_tool_init_override_fields",
     "sanitize_tool_init_overrides",
     "serialize_tool_validation_snapshot",
+    "unresolved_plugin_tool_sources_for_runtime",
     "validate_authored_tool_entry_overrides",
 ]
 from = ["mindroom.tool_system.catalog"]
@@ -3642,6 +3710,15 @@ from = ["mindroom.tool_system.plugin_identity"]
 
 [[interfaces]]
 expose = [
+    "ThreadExportStats",
+    "ThreadExportTarget",
+    "export_threads_once",
+    "export_threads_to_targets_once",
+]
+from = ["mindroom.thread_export"]
+
+[[interfaces]]
+expose = [
     "ResolvedWorkerTarget",
     "ResolvedWorkerKeyScope",
     "SerializedToolExecutionIdentity",
@@ -3656,6 +3733,7 @@ expose = [
     "build_worker_target_from_runtime_env",
     "get_tool_execution_identity",
     "private_instance_scope_root_path",
+    "private_instance_state_root_for_requester",
     "parse_tool_execution_identity_payload",
     "require_worker_key_for_scope",
     "requires_explicit_private_agent_visibility",

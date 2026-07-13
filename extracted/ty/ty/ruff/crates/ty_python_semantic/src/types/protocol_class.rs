@@ -11,7 +11,6 @@ use crate::types::attribute_write::{
     FallbackAttributeWriteRequirement, InstanceAttributeWriteMember, attribute_write_requirement,
 };
 use crate::types::call::{CallArguments, CallDunderError};
-use crate::types::callable::CallableTypeKind;
 use crate::types::relation::{DisjointnessChecker, TypeRelationChecker};
 use crate::types::{TypeContext, UpcastPolicy};
 use crate::{
@@ -50,7 +49,7 @@ impl<'db> ClassType<'db> {
 }
 
 /// Representation of a single `Protocol` class definition.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, get_size2::GetSize, salsa::SalsaValue)]
 pub(super) struct ProtocolClass<'db>(ClassType<'db>);
 
 impl<'db> ProtocolClass<'db> {
@@ -452,7 +451,7 @@ impl<'db> VarianceInferable<'db> for ProtocolInterface<'db> {
 /// Property accessors remain as callables until a relation needs their read or write type. Once
 /// resolved, `Value` retains the accessor's binding context so that only its own `Self` type is
 /// rebound during protocol checks.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, get_size2::GetSize, salsa::SalsaValue)]
 enum ProtocolMemberType<'db> {
     Value {
         ty: Type<'db>,
@@ -575,7 +574,7 @@ impl<'db> ProtocolMemberType<'db> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
 /// The types supported by one way of accessing a protocol member.
 ///
 /// `read` is covariant and `write` is contravariant. Either operation can be absent: for example,
@@ -643,7 +642,7 @@ fn cycle_normalized_optional_type<'db>(
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, get_size2::GetSize, salsa::SalsaValue)]
 pub(super) struct ProtocolMemberData<'db> {
     kind: ProtocolMemberKind<'db>,
     qualifiers: TypeQualifiers,
@@ -826,7 +825,7 @@ impl<'db> ProtocolMemberData<'db> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, get_size2::GetSize, salsa::SalsaValue)]
 enum ProtocolMemberKind<'db> {
     Method(ProtocolMemberType<'db>),
     Property {
@@ -1980,6 +1979,7 @@ impl BoundOnClass {
 
 /// Inner Salsa query for [`ProtocolClass::interface`].
 #[salsa::tracked(
+    returns(copy),
     cycle_initial=|db, _, _| ProtocolInterface::empty(db),
     cycle_fn=proto_interface_cycle_recover,
     heap_size=ruff_memory_usage::heap_size,
@@ -2119,7 +2119,8 @@ fn proto_interface_cycle_recover<'db>(
     value.cycle_normalized(db, *previous, cycle)
 }
 
-/// Bind `self`, and *also* discard the functionlike-ness of the callable.
+/// Bind `self` unless this is a `Callable[P, R]` dunder, and *also* discard the functionlike-ness
+/// of the callable.
 ///
 /// This additional upcasting is required in order for protocols with `__call__` method
 /// members to be considered assignable to `Callable` types, since the `Callable` supertype
@@ -2129,12 +2130,7 @@ fn protocol_bind_self<'db>(
     callable: CallableType<'db>,
     self_type: Option<Type<'db>>,
 ) -> CallableType<'db> {
-    CallableType::new(
-        db,
-        callable.signatures(db).bind_self(db, self_type),
-        CallableTypeKind::Regular,
-        callable.provenance(db),
-    )
+    callable.bind_self(db, self_type).into_regular(db)
 }
 
 /// Return the possible output type of a callable unless any overload returns `Never`.

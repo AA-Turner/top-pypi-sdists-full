@@ -428,12 +428,13 @@ fn certificate_certifies_kkt_stationary_railed_optimum() {
 /// analytic Dense Hessian `[[1]]`) and certify at `theta_hat` with NO
 /// `operator_stop_reason` set — i.e. the non-flat-valley exit path a fit takes
 /// when it is already stationary at iteration 0. `objective_scale = 80` makes
-/// the absolute gradient floor `80·1e-9 = 8e-8`, mirroring the Gaussian-linear
-/// standard-REML fit.
+/// the arithmetic gradient floor `80·√ε`, mirroring the Gaussian-linear
+/// standard-REML fit's matrix-factorization resolution.
 fn audit_interior_with_dense_curvature(
     theta_hat: Array1<f64>,
 ) -> Result<OuterCriterionCertificate, EstimationError> {
     let config = OuterConfig {
+        tolerance: 1.0e-12,
         objective_scale: Some(80.0),
         ..OuterConfig::default()
     };
@@ -473,15 +474,16 @@ fn audit_interior_with_dense_curvature(
 /// The curvature-scaled widening is NOT gated to a `CostStallFlatValley` exit:
 /// a fit already stationary at iteration 0 (a 2-parameter Gaussian-linear REML
 /// with λ→0) reaches certification with `operator_stop_reason = None`, a
-/// projected gradient a hair ABOVE the absolute score·1e-9 floor, and a
+/// projected gradient above the arithmetic score·√ε floor, and a
 /// NEGLIGIBLE Newton decrement. The Newton decrement — not the exit reason — is
 /// the stationarity certificate, so the point must certify.
 #[test]
 fn curvature_widening_certifies_stationary_point_on_any_exit_reason() {
-    // |Pg| = 1.1e-7 > abs bound 8e-8, but ½·gᵀH⁻¹g = ½·(1.1e-7)² ≈ 6.0e-15,
+    let arithmetic_floor = 80.0 * f64::EPSILON.sqrt();
+    // |Pg| = 2e-6 > 80·√ε, but ½·gᵀH⁻¹g = ½·(2e-6)² = 2e-12,
     // orders of magnitude below any outer objective tolerance: stationary to
     // second order, must certify DESPITE operator_stop_reason = None.
-    let cert = audit_interior_with_dense_curvature(array![1.1e-7])
+    let cert = audit_interior_with_dense_curvature(array![2.0e-6])
         .expect("second-order-stationary point must certify via the curvature bound");
     assert!(
         cert.certifies(),
@@ -489,7 +491,7 @@ fn curvature_widening_certifies_stationary_point_on_any_exit_reason() {
         cert.summary(),
     );
     assert!(
-        cert.stationarity.projected_norm() > 8.0e-8,
+        cert.stationarity.projected_norm() > arithmetic_floor,
         "the test must exercise the ABOVE-solver-bound regime (else it proves \
          nothing about the widening): {}",
         cert.summary(),
@@ -509,6 +511,73 @@ fn curvature_widening_still_rejects_genuine_nonstationarity() {
         outcome.is_err(),
         "a genuinely non-stationary point must not be certified by the curvature bound",
     );
+}
+
+fn audit_gradient_only_roundoff_residual_2269(
+    residual: f64,
+) -> Result<OuterCriterionCertificate, EstimationError> {
+    let objective_scale = 80.0;
+    let config = OuterConfig {
+        tolerance: 1.0e-12,
+        objective_scale: Some(objective_scale),
+        ..OuterConfig::default()
+    };
+    // The value oracle is exactly flat. `residual` represents the forward-error
+    // remainder of its analytic matrix-factorization score: this is the
+    // gradient-only case, so no Hessian/decrement or trajectory-noise rescue is
+    // available to the final certificate.
+    let mut obj = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .build_objective(
+            (),
+            move |_: &mut (), _: &Array1<f64>| Ok(objective_scale),
+            move |_: &mut (), _: &Array1<f64>| {
+                Ok(OuterEval {
+                    cost: objective_scale,
+                    gradient: array![residual],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: None,
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+    let mut result = OuterResult::new(
+        array![0.0],
+        objective_scale,
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Bfgs,
+            hessian_source: HessianSource::BfgsApprox,
+        },
+    );
+    certify_outer_optimality(
+        &mut obj,
+        &config,
+        "gradient-only-roundoff-audit-2269",
+        &mut result,
+    )
+}
+
+#[test]
+fn gradient_only_certificate_uses_objective_roundoff_resolution_2269() {
+    let scale = 80.0;
+    let arithmetic_floor = scale * f64::EPSILON.sqrt();
+    let residual = 0.5 * arithmetic_floor;
+
+    let certificate = audit_gradient_only_roundoff_residual_2269(residual)
+        .expect("a flat score's sub-roundoff residual must certify without curvature or probes");
+    assert!(certificate.certifies());
+    assert!(certificate.stationarity.bound() >= arithmetic_floor);
+    assert!(certificate.stationarity.projected_norm() <= certificate.stationarity.bound());
+}
+
+#[test]
+fn gradient_only_certificate_rejects_residual_above_roundoff_2269() {
+    let arithmetic_floor = 80.0 * f64::EPSILON.sqrt();
+    assert!(audit_gradient_only_roundoff_residual_2269(2.0 * arithmetic_floor).is_err());
 }
 
 /// The projection must NOT blunt the certificate's real job: genuine
@@ -1001,7 +1070,12 @@ fn plan_penalty_like_without_fixed_point_stays_bfgs() {
 }
 
 #[test]
-fn plan_efs_not_selected_few_params_even_if_penalty_like() {
+fn plan_efs_selected_few_params_when_penalty_like() {
+    // The former ≤8-coordinate BFGS crossover routed exactly the failing
+    // small fits (2–7 ρ coords) into the fragile Wolfe/probe lane while large
+    // fits got the robust trace-based fixed point. A fixed-point-capable,
+    // all-penalty-like objective now routes to EFS at every dimension (see
+    // `SMALL_OUTER_BFGS_MAX_PARAMS`).
     let cap = OuterCapability {
         gradient: Derivative::Analytic,
         hessian: DeclaredHessianForm::Unavailable,
@@ -1013,8 +1087,8 @@ fn plan_efs_not_selected_few_params_even_if_penalty_like() {
         disable_fixed_point: false,
     };
     let p = plan(&cap);
-    assert_eq!(p.solver, Solver::Bfgs);
-    assert_eq!(p.hessian_source, HessianSource::BfgsApprox);
+    assert_eq!(p.solver, Solver::Efs);
+    assert_eq!(p.hessian_source, HessianSource::EfsFixedPoint);
 }
 
 #[test]
@@ -2868,7 +2942,11 @@ fn routing_marginal_slope_stays_on_arc_when_both_derivs_analytic() {
 }
 
 #[test]
-fn plan_hybrid_efs_not_selected_few_params() {
+fn plan_hybrid_efs_selected_few_params() {
+    // ψ-carrying fixed-point objectives route to HybridEfs at every
+    // dimension: the former ≤8-coordinate BFGS crossover sent exactly the
+    // failing small fits into the fragile Wolfe/probe lane (see
+    // `SMALL_OUTER_BFGS_MAX_PARAMS`).
     let cap = OuterCapability {
         gradient: Derivative::Analytic,
         hessian: DeclaredHessianForm::Unavailable,
@@ -2880,8 +2958,8 @@ fn plan_hybrid_efs_not_selected_few_params() {
         disable_fixed_point: false,
     };
     let p = plan(&cap);
-    assert_eq!(p.solver, Solver::Bfgs);
-    assert_eq!(p.hessian_source, HessianSource::BfgsApprox);
+    assert_eq!(p.solver, Solver::HybridEfs);
+    assert_eq!(p.hessian_source, HessianSource::HybridEfsFixedPoint);
 }
 
 #[test]
@@ -3368,6 +3446,7 @@ struct ReactiveDomainObjective {
     domain_open: bool,
     exact_seed_value_evals: usize,
     off_seed_value_evals: usize,
+    rho_value_evals: Vec<f64>,
     derivative_evals: usize,
     installed_scalar_states: Vec<crate::continuation_path::ContinuationScalarState>,
     checkpoint_domain_open: Option<bool>,
@@ -3381,6 +3460,7 @@ impl ReactiveDomainObjective {
             domain_open: matches!(mode, ReactiveDomainMode::FiniteAtColdSeed),
             exact_seed_value_evals: 0,
             off_seed_value_evals: 0,
+            rho_value_evals: Vec::new(),
             derivative_evals: 0,
             installed_scalar_states: Vec::new(),
             checkpoint_domain_open: None,
@@ -3422,6 +3502,7 @@ impl OuterObjective for ReactiveDomainObjective {
     }
 
     fn eval_cost(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
+        self.rho_value_evals.push(rho[0]);
         if self.is_exact_seed(rho) {
             self.exact_seed_value_evals += 1;
         } else {
@@ -3454,6 +3535,14 @@ impl OuterObjective for ReactiveDomainObjective {
 
     fn seed_inner_state(&mut self, _: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
         Ok(SeedOutcome::NoSlot)
+    }
+
+    fn outer_domain_upper_bound(&self) -> Result<Option<Array1<f64>>, EstimationError> {
+        Ok(Some(array![2.5]))
+    }
+
+    fn outer_domain_lower_bound(&self) -> Result<Option<Array1<f64>>, EstimationError> {
+        Ok(Some(array![-2.5]))
     }
 
     fn reactive_domain_scalar_contract(
@@ -3554,6 +3643,54 @@ fn reactive_domain_arrival_accepts_exact_finite_literal_seed() {
 }
 
 #[test]
+fn active_outer_domain_refuses_singleton_search_interval() {
+    let mut config = OuterConfig::default();
+    config.bounds = Some((array![-1_000.0], array![1_000.0]));
+    let error = install_objective_domain(&mut config, 1, Some(array![700.0]), Some(array![700.0]))
+        .expect_err("an active optimizer coordinate needs a nonzero-width interval");
+    let message = error.to_string();
+    assert!(
+        message.contains("no finite searchable interval")
+            && message.contains("fixed-rho")
+            && message.contains("lower < upper"),
+        "unexpected singleton-domain refusal: {message}"
+    );
+}
+
+#[test]
+fn custom_box_and_seed_are_intersected_with_both_objective_faces() {
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_bounds(array![-1_000.0], array![1_000.0])
+        .with_initial_rho(array![-900.0])
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        })
+        .with_max_iter(1);
+    let mut objective = ReactiveDomainObjective::new(0.125, ReactiveDomainMode::FiniteAtColdSeed);
+    drop(problem.run(&mut objective, "two-sided objective-domain intersection"));
+    assert!(!objective.rho_value_evals.is_empty());
+    assert!(
+        objective
+            .rho_value_evals
+            .iter()
+            .all(|&rho| (-2.5..=2.5).contains(&rho)),
+        "configured box or seed leaked past objective domain: {:?}",
+        objective.rho_value_evals
+    );
+    assert!(
+        objective
+            .rho_value_evals
+            .iter()
+            .any(|rho| rho.to_bits() == (-2.5_f64).to_bits()),
+        "the out-of-domain initial seed must project onto the exact lower face"
+    );
+}
+
+#[test]
 fn reactive_domain_arrival_rejects_an_earlier_waypoint() {
     let seed = array![0.125, -0.75];
     let state = reactive_arrival_state(array![0.25, -0.75], 3.5);
@@ -3622,6 +3759,20 @@ fn reactive_domain_entry_repairs_nonfinite_seed_from_heavy_side() {
     assert!(
         objective.off_seed_value_evals > 0,
         "the initially undefined seed must activate heavy continuation work"
+    );
+    assert!(
+        objective
+            .rho_value_evals
+            .iter()
+            .any(|rho| rho.to_bits() == 2.5_f64.to_bits()),
+        "reactive entry must evaluate the objective-owned legal upper face"
+    );
+    assert!(
+        objective
+            .rho_value_evals
+            .iter()
+            .all(|rho| rho.to_bits() != 30.0_f64.to_bits()),
+        "the generic +30 box must not leak past an objective-domain contract"
     );
     assert!(
         objective.exact_seed_value_evals >= 2,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Sequence
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import regex as re
@@ -17,12 +18,13 @@ from djlint.helpers import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
+    from typing import Final
 
     from djlint.settings import Config
     from djlint.types import LintError
 
 
-flags = {
+flags: Final = MappingProxyType({
     "re.A": re.A,
     "re.ASCII": re.ASCII,
     "re.I": re.I,
@@ -35,7 +37,8 @@ flags = {
     "re.VERBOSE": re.VERBOSE,
     "re.L": re.L,
     "re.LOCALE": re.LOCALE,
-}
+})
+_LINE_PATTERN: Final = re.compile(r"(?:.*\n)|(?:[^\n]+$)", cache_pattern=False)
 
 
 def build_flags(flag_list: str | int) -> int:
@@ -64,7 +67,7 @@ def linter(
     # build list of line ends for file
     line_ends = [
         {"start": m.start(), "end": m.end()}
-        for m in re.finditer(r"(?:.*\n)|(?:[^\n]+$)", html)
+        for m in _LINE_PATTERN.finditer(html)
     ]
 
     ignored_rules: set[str] = set()

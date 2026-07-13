@@ -137,7 +137,8 @@ class TestAssignPaths:
         # TDD: test file paired with impl
         assert any("backend/tests/test_campaigns" in p for p in path_strs)
 
-    def test_frontend_feature_gets_screen_and_test(self) -> None:
+    def test_frontend_feature_gets_screen_and_test(self, monkeypatch) -> None:
+        monkeypatch.delenv("SAGE_TESTING", raising=False)
         paths = assign_paths(
             Feature(name="login", description="x", layer="frontend", acceptance=["x"]),
             backend=None,

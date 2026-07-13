@@ -1,4 +1,92 @@
 //! P-IRLS regression and root-cause tests.
+
+// ── Test-only Tweedie density oracles ──────────────────────────────────────
+// Consumed by `tweedie_exact_series_tests` below. They live here (inside the
+// `pirls::tests` module) because the scanner forbids `#[cfg(test)]` on bare
+// src items and cross-module consumption rules out a private test_support
+// submodule in `deviance.rs`.
+use super::{LN_2PI, log_gamma_stirling_correction, tweedie_exact_series_loglik_from_eta};
+use gam_spec::is_valid_tweedie_power;
+
+#[inline]
+fn tweedie_unit_deviance(yi: f64, mui_c: f64, p: f64) -> f64 {
+    if !is_valid_tweedie_power(p) {
+        f64::NAN
+    } else if !valid_tweedie_response(yi) {
+        f64::NAN
+    } else if yi == 0.0 {
+        mui_c.powf(2.0 - p) / (2.0 - p)
+    } else {
+        yi.powf(2.0 - p) / ((1.0 - p) * (2.0 - p)) - yi * mui_c.powf(1.0 - p) / (1.0 - p)
+            + mui_c.powf(2.0 - p) / (2.0 - p)
+    }
+}
+
+/// Tweedie **saddlepoint** log-density (prior weight `w` ⇒ `φᵢ = φ/w`). Exact at
+/// `y = 0` for `1 < p < 2` (compound-Poisson point mass `exp(−wμ^{2−p}/((2−p)φ)`);
+/// the standard `(2πφᵢ V(y))^{-½} exp(−wd/φ)` approximation for `y > 0`, where
+/// `V(y) = y^p` and `d` is the unit deviance. The exponent matches the REML
+/// kernel's `−w·d/φ` term exactly; this only restores the `−½ln(2πφᵢ y^p)`
+/// prefactor. Homogeneous so `elpd(c·y) − elpd(y) = −n ln c` still holds.
+#[inline]
+fn tweedie_saddlepoint_loglik_approximation(
+    yi: f64,
+    mui: f64,
+    w: f64,
+    p: f64,
+    phi: f64,
+) -> f64 {
+    if w <= 0.0 {
+        // Zero prior weight excludes the observation (the y>0 prefactor's
+        // −ln wᵢ would otherwise diverge).
+        return 0.0;
+    }
+    let exponent = -w * tweedie_unit_deviance(yi, mui, p) / phi;
+    if yi <= 0.0 {
+        // Exact point mass at zero (no Jacobian prefactor for a mass atom).
+        exponent
+    } else {
+        // φᵢ = φ/w  ⇒  −½ ln(2π (φ/w) y^p).
+        exponent - 0.5 * (LN_2PI + phi.ln() - w.ln() + p * yi.ln())
+    }
+}
+
+/// Exact Tweedie (compound Poisson–gamma, `1 < p < 2`) log-density at one
+/// observation, evaluated by the Jørgensen / Dunn–Smyth infinite-series
+/// representation of the exponential-dispersion normalizer.
+///
+/// Unlike [`tweedie_saddlepoint_loglik_approximation`] — which is asymptotically exact only in
+/// the many-jumps (large-λ) limit and biases the maximum-likelihood variance
+/// power **low** at small/moderate λ (#2105) — this is the exact normalized
+/// density. It is what a profile likelihood of `p` must optimize (mgcv's
+/// `ldTweedie` uses the same series for exactly this reason); the saddlepoint's
+/// missing `O(1/λ)` normalizer correction, integrated across the sample, is what
+/// dragged `p̂` down (e.g. `p̂ ≈ 1.33` on `p = 1.5` data) and thereby inflated the
+/// reported Pearson dispersion `φ̂ = Σw(y−μ)²/μ^p / Σw` by `~13%`.
+///
+/// Density (prior weight `w` scales the dispersion, `φᵢ = φ/w`):
+/// ```text
+/// f(0)   = exp(−λ),                               λ = μ^{2−p} / (φᵢ (2−p))
+/// f(y>0) = Σ_{k≥1} Pois(k; λ) · Gamma(y; kα, γ),  α = (2−p)/(p−1),
+///                                                 γ = φᵢ (p−1) μ^{p−1}.
+/// ```
+/// Test adapter for the production eta-space exact-series oracle.
+#[inline]
+fn tweedie_series_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
+    if w == 0.0 {
+        return 0.0;
+    }
+    tweedie_exact_series_loglik_from_eta(0, yi, mui.ln(), w, p, phi.ln())
+        .expect("exact Tweedie test fixture")
+}
+
+/// Exact Tweedie log-density. This never switches to a saddlepoint: callers
+/// selecting an exact likelihood always receive the compound-Poisson–gamma
+/// series named by the API.
+#[inline]
+fn tweedie_exact_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
+    tweedie_series_loglik(yi, mui, w, p, phi)
+}
 //!
 //! The nested `#[cfg(test)] mod`s below address the rest of the solver through
 //! `super::`, which now resolves to this module; the re-imports here forward the
@@ -9,21 +97,23 @@ pub(crate) use super::*;
 
 #[cfg(test)]
 mod tests {
-    use super::log_link_working_state::{ETA_CLAMP, MIN_MU};
-    use super::loop_driver::default_beta_guess_external;
+    use super::loop_driver::{default_beta_guess_external, exact_lambdas_from_rho};
     use super::reweight::madsen_lm_accept_factor;
     use super::{
-        LinearInequalityConstraints, PenaltyConfig, PirlsConfig, PirlsLinearSolvePath,
-        PirlsProblem, PirlsWorkspace, WeightFamily, WeightLink, WorkingDerivativeBuffersMut,
-        bernoulli_geometry_from_jet, calculate_deviance, calculate_loglikelihood,
-        calculate_loglikelihood_omitting_constants, compute_constraint_kkt_diagnostics,
-        compute_observed_hessian_curvature_arrays, fit_model_for_fixed_rho,
-        observed_weight_dispatch, observed_weight_noncanonical, select_active_set_release,
-        should_log_pirls_decision_summary, should_use_sparse_native_pirls,
-        solve_newton_directionwith_linear_constraints, solve_newton_directionwith_lower_bounds,
-        tweedie_log_weight_mu_power, update_glmvectors, variance_jet_for_weight_family,
-        write_gamma_log_working_state, write_negative_binomial_log_working_state,
-        write_poisson_log_working_state, write_tweedie_log_working_state,
+        DENSE_OUTER_MAX_P, DevianceEtaRow, LinearInequalityConstraints, PenaltyConfig, PirlsConfig,
+        PirlsLinearSolvePath, PirlsProblem, PirlsWorkspace, SparseXtWxCache, WeightFamily,
+        WeightLink, WorkingDerivativeBuffersMut, bernoulli_geometry_from_jet,
+        calculate_deviance_from_eta, calculate_loglikelihood_omitting_constants_from_eta,
+        calculate_null_deviance, compute_constraint_kkt_diagnostics,
+        compute_observed_hessian_curvature_arrays, deviance_eta_row_with_log_measure_scale,
+        deviance_eta_rows_with_log_measure_scale, evaluate_full_log_likelihood_from_eta,
+        fit_model_for_fixed_rho, observed_weight_dispatch, observed_weight_noncanonical,
+        select_active_set_release, should_log_pirls_decision_summary,
+        should_use_sparse_native_pirls, solve_newton_directionwith_linear_constraints,
+        solve_newton_directionwith_lower_bounds, stable_finite_signed_sum, update_glmvectors,
+        variance_jet_for_weight_family, write_gamma_log_working_state,
+        write_negative_binomial_log_working_state, write_poisson_log_working_state,
+        write_tweedie_log_working_state,
     };
     use crate::active_set;
     use crate::estimate::EstimationError;
@@ -34,8 +124,31 @@ mod tests {
     use gam_math::probability::standard_normal_quantile;
     use gam_problem::{
         Coefficients, GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkComponent, LinkFunction,
-        LogSmoothingParamsView, MIN_WEIGHT, MixtureLinkSpec, ResponseFamily, StandardLink,
+        LogSmoothingParamsView, MixtureLinkSpec, ResponseFamily, StandardLink,
     };
+
+    // Test-only zero-log-measure-scale wrapper over the production single-row
+    // deviance/score oracle. Lives in this test module (its only consumer) rather
+    // than as a `#[cfg(test)]`-gated production fn, so the non-test lib build
+    // carries no unreferenced item.
+    fn deviance_eta_row(
+        row: usize,
+        y: f64,
+        eta: f64,
+        likelihood: &GlmLikelihoodSpec,
+        inverse_link: &InverseLink,
+        prior_weight: f64,
+    ) -> Result<DevianceEtaRow, EstimationError> {
+        deviance_eta_row_with_log_measure_scale(
+            row,
+            y,
+            eta,
+            likelihood,
+            inverse_link,
+            prior_weight,
+            0.0,
+        )
+    }
 
     // Full-operator Firth/Jeffreys diagnostics reference (#1575): bit-identical to
     // the production `jeffreys_pirls_diagnostics_from_factor` fast path, used here
@@ -87,6 +200,33 @@ mod tests {
             streamed[[0, 0]] < 0.0,
             "negative row weights must not be clipped through a sqrt(max(0,w)) Gram path"
         );
+    }
+
+    #[test]
+    fn sparse_spgemm_xtwx_preserves_signed_observed_weights() {
+        let p = DENSE_OUTER_MAX_P + 1;
+        let triplets = vec![
+            Triplet::new(0, 0, 1.0),
+            Triplet::new(0, 1, 2.0),
+            Triplet::new(1, 0, 3.0),
+            Triplet::new(1, 1, -1.0),
+        ];
+        let x = SparseColMat::try_new_from_triplets(2, p, &triplets).unwrap();
+        let mut cache = SparseXtWxCache::new(&x).unwrap();
+        cache.compute_numeric(&x, &array![2.0, -1.5]).unwrap();
+
+        let value = |row: usize, col: usize| {
+            let range = cache.xtwx_symbolic.col_range(col);
+            range
+                .clone()
+                .find_map(|index| {
+                    (cache.xtwx_symbolic.row_idx()[index] == row).then_some(cache.xtwxvalues[index])
+                })
+                .expect("requested entry must be in X^T X symbolic pattern")
+        };
+        assert_relative_eq!(value(0, 0), -11.5, epsilon = 1e-12);
+        assert_relative_eq!(value(0, 1), 8.5, epsilon = 1e-12);
+        assert_relative_eq!(value(1, 1), 6.5, epsilon = 1e-12);
     }
 
     #[test]
@@ -352,326 +492,402 @@ mod tests {
         assert!(madsen_lm_accept_factor(0.99) >= 1.0 / 3.0 - 1e-15);
     }
 
-    /// Outputs of a single log-link working-state write: `mu`, `weights`, `z`,
-    /// and the four derivative buffers. Used by the parity test to compare the
-    /// unified engine against the independent pre-unification reference math.
-    pub(crate) struct LogLinkWorkingOutputs {
-        pub(crate) mu: Array1<f64>,
-        pub(crate) weights: Array1<f64>,
-        pub(crate) z: Array1<f64>,
-        pub(crate) c: Array1<f64>,
-        pub(crate) d: Array1<f64>,
-        pub(crate) dmu_deta: Array1<f64>,
-        pub(crate) d2mu_deta2: Array1<f64>,
-        pub(crate) d3mu_deta3: Array1<f64>,
-    }
-
-    impl LogLinkWorkingOutputs {
-        pub(crate) fn zeros(n: usize) -> Self {
-            Self {
-                mu: Array1::zeros(n),
-                weights: Array1::zeros(n),
-                z: Array1::zeros(n),
-                c: Array1::zeros(n),
-                d: Array1::zeros(n),
-                dmu_deta: Array1::zeros(n),
-                d2mu_deta2: Array1::zeros(n),
-                d3mu_deta3: Array1::zeros(n),
-            }
+    #[test]
+    fn log_link_edges_are_exact_and_tiny_weights_are_not_floored() {
+        let eta = array![-700.0, 0.0, 700.0, -2.0];
+        let y = array![1.0, 1.0, 1.0, 0.0];
+        let prior = array![1.0, 1e-300, 1.0, 0.0];
+        let n = eta.len();
+        let mut mu = Array1::zeros(n);
+        let mut weights = Array1::zeros(n);
+        let mut z = Array1::zeros(n);
+        let mut c = Array1::zeros(n);
+        let mut d = Array1::zeros(n);
+        let mut d1 = Array1::zeros(n);
+        let mut d2 = Array1::zeros(n);
+        let mut d3 = Array1::zeros(n);
+        write_poisson_log_working_state(
+            y.view(),
+            &eta,
+            prior.view(),
+            &mut mu,
+            &mut weights,
+            &mut z,
+            Some(WorkingDerivativeBuffersMut {
+                c: &mut c,
+                d: &mut d,
+                dmu_deta: &mut d1,
+                d2mu_deta2: &mut d2,
+                d3mu_deta3: &mut d3,
+            }),
+        )
+        .expect("closed log-link domain must be represented exactly");
+        for i in 0..n {
+            assert_eq!(mu[i].to_bits(), eta[i].exp().to_bits());
+            assert_eq!(d1[i].to_bits(), mu[i].to_bits());
+            assert_eq!(d2[i].to_bits(), mu[i].to_bits());
+            assert_eq!(d3[i].to_bits(), mu[i].to_bits());
+            assert!(z[i].is_finite());
         }
-
-        pub(crate) fn assert_matches(&self, other: &Self, family: &str) {
-            for (name, lhs, rhs) in [
-                ("mu", &self.mu, &other.mu),
-                ("weights", &self.weights, &other.weights),
-                ("z", &self.z, &other.z),
-                ("c", &self.c, &other.c),
-                ("d", &self.d, &other.d),
-                ("dmu_deta", &self.dmu_deta, &other.dmu_deta),
-                ("d2mu_deta2", &self.d2mu_deta2, &other.d2mu_deta2),
-                ("d3mu_deta3", &self.d3mu_deta3, &other.d3mu_deta3),
-            ] {
-                for (i, (a, b)) in lhs.iter().zip(rhs.iter()).enumerate() {
-                    assert_eq!(
-                        a.to_bits(),
-                        b.to_bits(),
-                        "{family}: buffer `{name}` row {i} diverged from the \
-                         pre-unification reference: engine={a:?} reference={b:?}"
-                    );
-                }
-            }
-        }
-    }
-
-    /// Representative `(eta, y, prior_weight)` rows exercising the shared engine
-    /// edge cases: ordinary rows, the `eta` clamp (`|eta| > 700`), the
-    /// `MIN_WEIGHT` floor (tiny prior weight), and a zero-prior dropped row.
-    pub(crate) fn log_link_parity_rows() -> (Array1<f64>, Array1<f64>, Array1<f64>) {
-        let eta = array![-2.3, 0.0, 1.7, 4.2, -800.0, 900.0, -3.0, 0.5];
-        let y = array![0.0, 1.0, 3.0, 12.0, 0.0, 25.0, 2.0, 1.0];
-        // Row 6 carries a tiny prior weight to trip the MIN_WEIGHT floor; row 7
-        // carries zero prior weight to exercise the dropped-row branch.
-        let prior = array![1.0, 1.0, 2.0, 0.5, 1.0, 1.0, 1e-13, 0.0];
-        (eta, y, prior)
-    }
-
-    /// Pre-unification Poisson reference: `V(mu) = mu`, canonical-link curvature.
-    pub(crate) fn reference_poisson(
-        eta: &Array1<f64>,
-        y: &Array1<f64>,
-        prior: &Array1<f64>,
-    ) -> LogLinkWorkingOutputs {
-        let mut out = LogLinkWorkingOutputs::zeros(eta.len());
-        for i in 0..eta.len() {
-            let eta_raw = eta[i];
-            let eta_i = eta_raw.clamp(-ETA_CLAMP, ETA_CLAMP);
-            let mu_i = eta_i.exp().max(MIN_MU);
-            out.mu[i] = mu_i;
-            let raw_weight = prior[i].max(0.0) * mu_i;
-            let floor_active = raw_weight > 0.0 && raw_weight <= MIN_WEIGHT;
-            out.weights[i] = if raw_weight > 0.0 {
-                raw_weight.max(MIN_WEIGHT)
-            } else {
-                0.0
-            };
-            out.z[i] = eta_i + (y[i] - mu_i) / mu_i;
-            out.dmu_deta[i] = mu_i;
-            out.d2mu_deta2[i] = mu_i;
-            out.d3mu_deta3[i] = mu_i;
-            if !(floor_active || eta_raw != eta_i) {
-                out.c[i] = raw_weight;
-                out.d[i] = raw_weight;
-            }
-        }
-        out
-    }
-
-    /// Pre-unification Gamma reference: weight `prior * shape`, unfloored, no
-    /// curvature, `mu`-jet never zeroed on clamp.
-    pub(crate) fn reference_gamma(
-        eta: &Array1<f64>,
-        y: &Array1<f64>,
-        prior: &Array1<f64>,
-        shape: f64,
-    ) -> LogLinkWorkingOutputs {
-        let mut out = LogLinkWorkingOutputs::zeros(eta.len());
-        for i in 0..eta.len() {
-            let eta_i = eta[i].clamp(-ETA_CLAMP, ETA_CLAMP);
-            let mu_i = eta_i.exp().max(MIN_MU);
-            out.mu[i] = mu_i;
-            out.weights[i] = prior[i].max(0.0) * shape;
-            out.z[i] = eta_i + (y[i] - mu_i) / mu_i;
-            out.dmu_deta[i] = mu_i;
-            out.d2mu_deta2[i] = mu_i;
-            out.d3mu_deta3[i] = mu_i;
-        }
-        out
-    }
-
-    /// Pre-unification Tweedie reference: weight `prior * mu^(2-p) / phi`, the
-    /// `mu`-jet zeroed on clamp, curvature `(2-p) * w`, `(2-p)^2 * w`.
-    pub(crate) fn reference_tweedie(
-        eta: &Array1<f64>,
-        y: &Array1<f64>,
-        prior: &Array1<f64>,
-        p: f64,
-        phi: f64,
-    ) -> LogLinkWorkingOutputs {
-        let exponent = 2.0 - p;
-        let mut out = LogLinkWorkingOutputs::zeros(eta.len());
-        for i in 0..eta.len() {
-            let eta_raw = eta[i];
-            let eta_i = eta_raw.clamp(-ETA_CLAMP, ETA_CLAMP);
-            let clamp_active = eta_raw != eta_i;
-            let mu_i = eta_i.exp().max(MIN_MU);
-            out.mu[i] = mu_i;
-            let raw_weight = prior[i].max(0.0) * tweedie_log_weight_mu_power(mu_i, p) / phi;
-            let floor_active = raw_weight > 0.0 && raw_weight <= MIN_WEIGHT;
-            out.weights[i] = if raw_weight > 0.0 {
-                raw_weight.max(MIN_WEIGHT)
-            } else {
-                0.0
-            };
-            out.z[i] = eta_i + (y[i] - mu_i) / mu_i;
-            if !clamp_active {
-                out.dmu_deta[i] = mu_i;
-                out.d2mu_deta2[i] = mu_i;
-                out.d3mu_deta3[i] = mu_i;
-            }
-            if !(floor_active || clamp_active) {
-                out.c[i] = exponent * raw_weight;
-                out.d[i] = exponent * exponent * raw_weight;
-            }
-        }
-        out
-    }
-
-    /// Pre-unification negative-binomial reference: numerically-stable Fisher
-    /// weight `mu * theta / (theta + mu)`, curvature from the NB variance jet.
-    pub(crate) fn reference_negbin(
-        eta: &Array1<f64>,
-        y: &Array1<f64>,
-        prior: &Array1<f64>,
-        theta: f64,
-    ) -> LogLinkWorkingOutputs {
-        let mut out = LogLinkWorkingOutputs::zeros(eta.len());
-        for i in 0..eta.len() {
-            let eta_raw = eta[i];
-            let eta_i = eta_raw.clamp(-ETA_CLAMP, ETA_CLAMP);
-            let mu_i = eta_i.exp().max(MIN_MU);
-            let denom = theta + mu_i;
-            let negbin_weight = if theta > mu_i {
-                mu_i / (1.0 + mu_i / theta)
-            } else {
-                theta / (1.0 + theta / mu_i)
-            };
-            let raw_weight = prior[i].max(0.0) * negbin_weight;
-            let floor_active = raw_weight > 0.0 && raw_weight <= MIN_WEIGHT;
-            out.mu[i] = mu_i;
-            out.weights[i] = if raw_weight > 0.0 {
-                raw_weight.max(MIN_WEIGHT)
-            } else {
-                0.0
-            };
-            out.z[i] = eta_i + (y[i] - mu_i) / mu_i;
-            out.dmu_deta[i] = mu_i;
-            out.d2mu_deta2[i] = mu_i;
-            out.d3mu_deta3[i] = mu_i;
-            if !(floor_active || eta_raw != eta_i) {
-                out.c[i] = raw_weight * theta / denom;
-                out.d[i] = raw_weight * theta * (theta - mu_i) / (denom * denom);
-            }
-        }
-        out
-    }
-
-    /// Run a unified log-link writer through both its derivative and
-    /// no-derivative branches and collect the buffers.
-    pub(crate) fn run_unified<F>(
-        n: usize,
-        write: F,
-    ) -> (LogLinkWorkingOutputs, LogLinkWorkingOutputs)
-    where
-        F: Fn(
-            &mut Array1<f64>,
-            &mut Array1<f64>,
-            &mut Array1<f64>,
-            Option<WorkingDerivativeBuffersMut<'_>>,
-        ),
-    {
-        let mut with = LogLinkWorkingOutputs::zeros(n);
-        {
-            let mut c = Array1::zeros(n);
-            let mut d = Array1::zeros(n);
-            let mut dmu = Array1::zeros(n);
-            let mut d2 = Array1::zeros(n);
-            let mut d3 = Array1::zeros(n);
-            write(
-                &mut with.mu,
-                &mut with.weights,
-                &mut with.z,
-                Some(WorkingDerivativeBuffersMut {
-                    c: &mut c,
-                    d: &mut d,
-                    dmu_deta: &mut dmu,
-                    d2mu_deta2: &mut d2,
-                    d3mu_deta3: &mut d3,
-                }),
-            );
-            with.c = c;
-            with.d = d;
-            with.dmu_deta = dmu;
-            with.d2mu_deta2 = d2;
-            with.d3mu_deta3 = d3;
-        }
-        let mut without = LogLinkWorkingOutputs::zeros(n);
-        write(&mut without.mu, &mut without.weights, &mut without.z, None);
-        (with, without)
+        assert_eq!(weights[1].to_bits(), 1e-300_f64.to_bits());
+        assert_eq!(c[1].to_bits(), weights[1].to_bits());
+        assert_eq!(d[1].to_bits(), weights[1].to_bits());
+        assert_eq!(weights[3], 0.0);
+        assert_eq!(z[3].to_bits(), eta[3].to_bits());
     }
 
     #[test]
-    pub(crate) fn log_link_working_state_engine_matches_per_family_reference() {
-        // The unified `write_log_link_working_state` engine must reproduce the
-        // exact pre-unification per-family row math bit-for-bit: `mu`, `weights`,
-        // working response `z`, and the curvature buffers `c`/`d`, across every
-        // edge case (eta clamp, MIN_WEIGHT floor, zero-prior dropped row). The
-        // no-derivative branch must additionally agree with the derivative
-        // branch on `mu`/`weights`/`z`. Bounds are exact (bitwise), never
-        // weakened — any divergence is a real regression in a central solver
-        // path shared by Poisson, Gamma, Tweedie, and negative binomial.
-        let (eta, y, prior) = log_link_parity_rows();
+    fn every_log_link_family_uses_the_same_exact_row_and_derivative_surface() {
+        let eta = array![-2.0, 0.0, 2.0];
+        let y = array![1.0, 2.0, 4.0];
+        let prior = array![0.5, 1e-300, 0.0];
         let n = eta.len();
 
-        // Poisson.
-        let reference = reference_poisson(&eta, &y, &prior);
-        let (with, without) = run_unified(n, |mu, w, z, derivs| {
-            write_poisson_log_working_state(y.view(), &eta, prior.view(), mu, w, z, derivs);
-        });
-        with.assert_matches(&reference, "Poisson (derivatives)");
-        assert_eq!(with.mu.to_vec(), without.mu.to_vec(), "Poisson mu branch");
-        assert_eq!(
-            with.weights.to_vec(),
-            without.weights.to_vec(),
-            "Poisson weights branch"
-        );
-        assert_eq!(with.z.to_vec(), without.z.to_vec(), "Poisson z branch");
+        let check = |family: &str,
+                     with_mu: &Array1<f64>,
+                     with_w: &Array1<f64>,
+                     with_z: &Array1<f64>,
+                     without_mu: &Array1<f64>,
+                     without_w: &Array1<f64>,
+                     without_z: &Array1<f64>| {
+            assert_eq!(with_mu, without_mu, "{family} mu seam");
+            assert_eq!(with_w, without_w, "{family} weight seam");
+            assert_eq!(with_z, without_z, "{family} working-response seam");
+        };
 
-        // Gamma (fixed shape).
-        let shape = 2.5;
-        let reference = reference_gamma(&eta, &y, &prior, shape);
-        let (with, without) = run_unified(n, |mu, w, z, derivs| {
-            write_gamma_log_working_state(y.view(), &eta, prior.view(), shape, mu, w, z, derivs);
-        });
-        with.assert_matches(&reference, "Gamma (derivatives)");
-        assert_eq!(with.mu.to_vec(), without.mu.to_vec(), "Gamma mu branch");
-        assert_eq!(
-            with.weights.to_vec(),
-            without.weights.to_vec(),
-            "Gamma weights branch"
-        );
-        assert_eq!(with.z.to_vec(), without.z.to_vec(), "Gamma z branch");
+        // Gamma: W = prior * shape and both eta derivatives vanish.
+        {
+            let shape = 2.5;
+            let mut mu = Array1::zeros(n);
+            let mut w = Array1::zeros(n);
+            let mut z = Array1::zeros(n);
+            let mut c = Array1::zeros(n);
+            let mut d = Array1::zeros(n);
+            let mut d1 = Array1::zeros(n);
+            let mut d2 = Array1::zeros(n);
+            let mut d3 = Array1::zeros(n);
+            write_gamma_log_working_state(
+                y.view(),
+                &eta,
+                prior.view(),
+                shape,
+                &mut mu,
+                &mut w,
+                &mut z,
+                Some(WorkingDerivativeBuffersMut {
+                    c: &mut c,
+                    d: &mut d,
+                    dmu_deta: &mut d1,
+                    d2mu_deta2: &mut d2,
+                    d3mu_deta3: &mut d3,
+                }),
+            )
+            .unwrap();
+            let mut mu_plain = Array1::zeros(n);
+            let mut w_plain = Array1::zeros(n);
+            let mut z_plain = Array1::zeros(n);
+            write_gamma_log_working_state(
+                y.view(),
+                &eta,
+                prior.view(),
+                shape,
+                &mut mu_plain,
+                &mut w_plain,
+                &mut z_plain,
+                None,
+            )
+            .unwrap();
+            check("Gamma", &mu, &w, &z, &mu_plain, &w_plain, &z_plain);
+            for i in 0..n {
+                assert_eq!(w[i].to_bits(), (prior[i] * shape).to_bits());
+                assert_eq!(c[i], 0.0);
+                assert_eq!(d[i], 0.0);
+                assert_eq!(d1[i].to_bits(), mu[i].to_bits());
+            }
+        }
 
-        // Tweedie.
-        let p = 1.5;
-        let phi = 0.7;
-        let reference = reference_tweedie(&eta, &y, &prior, p, phi);
-        let (with, without) = run_unified(n, |mu, w, z, derivs| {
-            write_tweedie_log_working_state(y.view(), &eta, prior.view(), p, phi, mu, w, z, derivs)
-                .expect("valid Tweedie parameters");
-        });
-        with.assert_matches(&reference, "Tweedie (derivatives)");
-        assert_eq!(with.mu.to_vec(), without.mu.to_vec(), "Tweedie mu branch");
-        assert_eq!(
-            with.weights.to_vec(),
-            without.weights.to_vec(),
-            "Tweedie weights branch"
-        );
-        assert_eq!(with.z.to_vec(), without.z.to_vec(), "Tweedie z branch");
+        // Tweedie: W = prior * mu^(2-p)/phi and c,d are exact derivatives.
+        {
+            let (p, phi) = (1.5, 2.0);
+            let mut mu = Array1::zeros(n);
+            let mut w = Array1::zeros(n);
+            let mut z = Array1::zeros(n);
+            let mut c = Array1::zeros(n);
+            let mut d = Array1::zeros(n);
+            let mut d1 = Array1::zeros(n);
+            let mut d2 = Array1::zeros(n);
+            let mut d3 = Array1::zeros(n);
+            write_tweedie_log_working_state(
+                y.view(),
+                &eta,
+                prior.view(),
+                p,
+                phi,
+                &mut mu,
+                &mut w,
+                &mut z,
+                Some(WorkingDerivativeBuffersMut {
+                    c: &mut c,
+                    d: &mut d,
+                    dmu_deta: &mut d1,
+                    d2mu_deta2: &mut d2,
+                    d3mu_deta3: &mut d3,
+                }),
+            )
+            .unwrap();
+            let mut mu_plain = Array1::zeros(n);
+            let mut w_plain = Array1::zeros(n);
+            let mut z_plain = Array1::zeros(n);
+            write_tweedie_log_working_state(
+                y.view(),
+                &eta,
+                prior.view(),
+                p,
+                phi,
+                &mut mu_plain,
+                &mut w_plain,
+                &mut z_plain,
+                None,
+            )
+            .unwrap();
+            check("Tweedie", &mu, &w, &z, &mu_plain, &w_plain, &z_plain);
+            for i in 0..n {
+                assert_eq!(c[i].to_bits(), (0.5 * w[i]).to_bits());
+                assert_eq!(d[i].to_bits(), (0.25 * w[i]).to_bits());
+            }
+        }
 
-        // Negative binomial (fixed theta).
-        let theta = 3.0;
-        let reference = reference_negbin(&eta, &y, &prior, theta);
-        let (with, without) = run_unified(n, |mu, w, z, derivs| {
+        // NB2: express curvature through r = theta/(theta+mu), never a squared
+        // overflowing denominator.
+        {
+            let theta = 3.0;
+            let mut mu = Array1::zeros(n);
+            let mut w = Array1::zeros(n);
+            let mut z = Array1::zeros(n);
+            let mut c = Array1::zeros(n);
+            let mut d = Array1::zeros(n);
+            let mut d1 = Array1::zeros(n);
+            let mut d2 = Array1::zeros(n);
+            let mut d3 = Array1::zeros(n);
             write_negative_binomial_log_working_state(
                 y.view(),
                 &eta,
                 prior.view(),
                 theta,
-                mu,
-                w,
-                z,
-                derivs,
+                &mut mu,
+                &mut w,
+                &mut z,
+                Some(WorkingDerivativeBuffersMut {
+                    c: &mut c,
+                    d: &mut d,
+                    dmu_deta: &mut d1,
+                    d2mu_deta2: &mut d2,
+                    d3mu_deta3: &mut d3,
+                }),
             )
-            .expect("valid negative-binomial theta");
-        });
-        with.assert_matches(&reference, "NegBin (derivatives)");
-        assert_eq!(with.mu.to_vec(), without.mu.to_vec(), "NegBin mu branch");
-        assert_eq!(
-            with.weights.to_vec(),
-            without.weights.to_vec(),
-            "NegBin weights branch"
+            .unwrap();
+            let mut mu_plain = Array1::zeros(n);
+            let mut w_plain = Array1::zeros(n);
+            let mut z_plain = Array1::zeros(n);
+            write_negative_binomial_log_working_state(
+                y.view(),
+                &eta,
+                prior.view(),
+                theta,
+                &mut mu_plain,
+                &mut w_plain,
+                &mut z_plain,
+                None,
+            )
+            .unwrap();
+            check("NB2", &mu, &w, &z, &mu_plain, &w_plain, &z_plain);
+            for i in 0..n {
+                let r = theta / (theta + mu[i]);
+                assert_relative_eq!(c[i], w[i] * r, max_relative = 1e-15);
+                assert_relative_eq!(d[i], w[i] * r * (2.0 * r - 1.0), max_relative = 1e-15);
+            }
+        }
+    }
+
+    #[test]
+    fn every_log_link_rule_refuses_unrepresentable_row_products_atomically() {
+        fn sentinels() -> (Array1<f64>, Array1<f64>, Array1<f64>) {
+            (
+                Array1::from_elem(1, 11.0),
+                Array1::from_elem(1, 13.0),
+                Array1::from_elem(1, 17.0),
+            )
+        }
+        fn assert_atomic(mu: &Array1<f64>, w: &Array1<f64>, z: &Array1<f64>) {
+            assert_eq!(mu[0], 11.0);
+            assert_eq!(w[0], 13.0);
+            assert_eq!(z[0], 17.0);
+        }
+        let eta = array![700.0];
+        let y = array![1.0];
+
+        let (mut mu, mut w, mut z) = sentinels();
+        let err = write_poisson_log_working_state(
+            y.view(),
+            &eta,
+            array![1e10].view(),
+            &mut mu,
+            &mut w,
+            &mut z,
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            EstimationError::PirlsRowGeometryUnrepresentable { row: 0, .. }
+        ));
+        assert_atomic(&mu, &w, &z);
+
+        let (mut mu, mut w, mut z) = sentinels();
+        write_gamma_log_working_state(
+            y.view(),
+            &array![0.0],
+            array![2.0].view(),
+            1e308,
+            &mut mu,
+            &mut w,
+            &mut z,
+            None,
+        )
+        .unwrap_err();
+        assert_atomic(&mu, &w, &z);
+
+        let (mut mu, mut w, mut z) = sentinels();
+        write_tweedie_log_working_state(
+            y.view(),
+            &array![-700.0],
+            array![1.0].view(),
+            1.000_001,
+            1e308,
+            &mut mu,
+            &mut w,
+            &mut z,
+            None,
+        )
+        .unwrap_err();
+        assert_atomic(&mu, &w, &z);
+
+        let (mut mu, mut w, mut z) = sentinels();
+        write_negative_binomial_log_working_state(
+            y.view(),
+            &eta,
+            array![1e308].view(),
+            3.0,
+            &mut mu,
+            &mut w,
+            &mut z,
+            None,
+        )
+        .unwrap_err();
+        assert_atomic(&mu, &w, &z);
+    }
+
+    #[test]
+    fn fixed_rho_uses_the_shared_closed_log_strength_domain_without_projection() {
+        use gam_problem::{LOG_STRENGTH_MAX, LOG_STRENGTH_MIN};
+
+        let rho = array![LOG_STRENGTH_MIN, 0.0, LOG_STRENGTH_MAX];
+        let lambda = exact_lambdas_from_rho(
+            LogSmoothingParamsView::new(rho.view()).expect("closed strength domain"),
         );
-        assert_eq!(with.z.to_vec(), without.z.to_vec(), "NegBin z branch");
+        for i in 0..rho.len() {
+            assert_eq!(lambda[i].to_bits(), rho[i].exp().to_bits());
+        }
+
+        let invalid = array![0.0, LOG_STRENGTH_MAX + 1.0, LOG_STRENGTH_MIN - 1.0];
+        let err = LogSmoothingParamsView::new(invalid.view())
+            .expect_err("out-of-domain rho must be refused before exponentiation");
+        assert_eq!(err.coordinate, 1);
+        assert_eq!(err.value, LOG_STRENGTH_MAX + 1.0);
+    }
+
+    #[test]
+    fn log_link_refusal_is_atomic_and_reports_the_smallest_bad_row() {
+        let eta = array![0.0, 701.0, -701.0];
+        let y = array![1.0, 1.0, 1.0];
+        let prior = Array1::ones(3);
+        let mut mu = Array1::from_elem(3, 17.0);
+        let mut weights = Array1::from_elem(3, 19.0);
+        let mut z = Array1::from_elem(3, 23.0);
+        let err = write_poisson_log_working_state(
+            y.view(),
+            &eta,
+            prior.view(),
+            &mut mu,
+            &mut weights,
+            &mut z,
+            None,
+        )
+        .expect_err("out-of-domain eta must be refused");
+        assert!(matches!(
+            err,
+            EstimationError::InverseLinkDomainViolation { eta: 701.0, .. }
+        ));
+        assert_eq!(mu, Array1::from_elem(3, 17.0));
+        assert_eq!(weights, Array1::from_elem(3, 19.0));
+        assert_eq!(z, Array1::from_elem(3, 23.0));
+    }
+
+    #[test]
+    fn canonical_logit_tail_geometry_remains_exact_at_rounded_mean_endpoints() {
+        let eta = array![-700.0, -40.0, 40.0, 700.0];
+        let y = array![1.0, 1.0, 0.0, 0.0];
+        let prior = Array1::ones(4);
+        let mut mu = Array1::zeros(4);
+        let mut weights = Array1::zeros(4);
+        let mut z = Array1::zeros(4);
+        update_glmvectors(
+            y.view(),
+            &eta,
+            &InverseLink::Standard(StandardLink::Logit),
+            prior.view(),
+            &mut mu,
+            &mut weights,
+            &mut z,
+            None,
+        )
+        .expect("represented canonical-logit tails must not be projected");
+        assert_eq!(mu[2], 1.0);
+        assert_eq!(mu[3], 1.0);
+        for i in 0..4 {
+            let jet = crate::mixture_link::logit_inverse_link_jet5(eta[i]);
+            assert_eq!(weights[i].to_bits(), jet.d1.to_bits());
+            assert!(weights[i] > 0.0 && z[i].is_finite());
+        }
+    }
+
+    #[test]
+    fn canonical_logit_weight_derivative_matches_finite_difference_at_tail() {
+        let eta0 = 40.0;
+        let h = 1e-4;
+        let eval_weight = |eta_value: f64| {
+            let eta = array![eta_value];
+            let y = array![0.0];
+            let prior = array![1.0];
+            let mut mu = Array1::zeros(1);
+            let mut weight = Array1::zeros(1);
+            let mut z = Array1::zeros(1);
+            update_glmvectors(
+                y.view(),
+                &eta,
+                &InverseLink::Standard(StandardLink::Logit),
+                prior.view(),
+                &mut mu,
+                &mut weight,
+                &mut z,
+                None,
+            )
+            .unwrap();
+            weight[0]
+        };
+        let fd = (eval_weight(eta0 + h) - eval_weight(eta0 - h)) / (2.0 * h);
+        let analytic = crate::mixture_link::logit_inverse_link_jet5(eta0).d2;
+        assert_relative_eq!(fd, analytic, max_relative = 2e-8, epsilon = 1e-30);
     }
 
     #[test]
@@ -931,7 +1147,8 @@ mod tests {
             kronecker_factored: None,
         };
         let (fit, _) = fit_model_for_fixed_rho(
-            LogSmoothingParamsView::new(rho.view()),
+            LogSmoothingParamsView::new(rho.view())
+                .expect("test rho lies in exact strength domain"),
             problem,
             penalty,
             &config,
@@ -1505,7 +1722,8 @@ mod tests {
         };
 
         let (fit, _) = fit_model_for_fixed_rho(
-            LogSmoothingParamsView::new(rho.view()),
+            LogSmoothingParamsView::new(rho.view())
+                .expect("test rho lies in exact strength domain"),
             PirlsProblem {
                 x: x.view(),
                 offset: offset.view(),
@@ -1535,13 +1753,13 @@ mod tests {
             let jet = crate::quadrature::integrated_inverse_link_jet(
                 &ctx,
                 LinkFunction::Logit,
-                fit.final_eta[i].clamp(-ETA_CLAMP, ETA_CLAMP),
+                fit.final_eta[i],
                 covariate_se[i],
             )
             .expect("logit integrated inverse-link jet should evaluate");
             let expected = bernoulli_geometry_from_jet(
+                i,
                 fit.final_eta[i],
-                fit.final_eta[i].clamp(-ETA_CLAMP, ETA_CLAMP),
                 y[i],
                 w[i],
                 MixtureInverseLinkJet {
@@ -1550,7 +1768,8 @@ mod tests {
                     d2: jet.d2,
                     d3: jet.d3,
                 },
-            );
+            )
+            .expect("integrated Bernoulli row geometry must be representable");
             assert_relative_eq!(
                 fit.solve_dmu_deta[i],
                 jet.d1,
@@ -1685,19 +1904,293 @@ mod tests {
         let y = array![2.0, 5.0];
         let mu = array![1.0, 4.0];
         let w = array![1.5, 0.75];
-        let dev = calculate_deviance(
+        let eta = mu.mapv(f64::ln);
+        let inverse_link = InverseLink::Standard(StandardLink::Log);
+        let dev = calculate_deviance_from_eta(
             y.view(),
-            &mu,
+            &eta,
             &GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
                 ResponseFamily::Gamma,
-                InverseLink::Standard(StandardLink::Log),
+                inverse_link.clone(),
             )),
+            &inverse_link,
             w.view(),
-        );
+        )
+        .expect("Gamma eta deviance must be representable");
         let expected = 2.0
             * (1.5 * (2.0_f64 / 1.0 - 1.0 - (2.0_f64 / 1.0).ln())
                 + 0.75 * (5.0_f64 / 4.0 - 1.0 - (5.0_f64 / 4.0).ln()));
         assert_relative_eq!(dev, expected, epsilon = 1e-12, max_relative = 1e-12);
+    }
+
+    #[test]
+    fn null_deviance_preserves_boundaries_dormancy_and_beta_mle_geometry() {
+        let poisson = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+            ResponseFamily::Poisson,
+            InverseLink::Standard(StandardLink::Log),
+        ));
+        let zeros = array![0.0, 0.0, f64::NAN];
+        let dormant = array![1.0, 2.0, 0.0];
+        assert_eq!(
+            calculate_null_deviance(zeros.view(), &poisson, dormant.view()).unwrap(),
+            0.0,
+            "an all-zero positive-weight Poisson sample has a genuine boundary null deviance"
+        );
+        let negative = array![1.0, -1.0, 0.0];
+        assert!(calculate_null_deviance(zeros.view(), &poisson, negative.view()).is_err());
+
+        let phi = 7.0;
+        let beta = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::Beta { phi },
+                InverseLink::Standard(StandardLink::Logit),
+            ),
+            scale: gam_problem::LikelihoodScaleMetadata::EstimatedBetaPhi { phi },
+        };
+        let y = array![0.01, 0.2, 0.85];
+        let w = array![1.0, 3.0, 0.5];
+        let exact_null = calculate_null_deviance(y.view(), &beta, w.view()).unwrap();
+        let arithmetic_mean = y
+            .iter()
+            .zip(w.iter())
+            .map(|(&response, &weight)| response * weight)
+            .sum::<f64>()
+            / w.sum();
+        let arithmetic_eta = array![
+            arithmetic_mean.ln() - (-arithmetic_mean).ln_1p(),
+            arithmetic_mean.ln() - (-arithmetic_mean).ln_1p(),
+            arithmetic_mean.ln() - (-arithmetic_mean).ln_1p(),
+        ];
+        let arithmetic_deviance = calculate_deviance_from_eta(
+            y.view(),
+            &arithmetic_eta,
+            &beta,
+            &InverseLink::Standard(StandardLink::Logit),
+            w.view(),
+        )
+        .unwrap();
+        assert!(
+            exact_null < arithmetic_deviance,
+            "the fixed-precision Beta intercept MLE is not generally the weighted arithmetic mean"
+        );
+    }
+
+    #[test]
+    fn deviance_eta_row_value_and_score_are_one_surface_for_every_glm_family() {
+        let cases = [
+            (ResponseFamily::Gaussian, StandardLink::Identity, -0.4, 0.7),
+            (ResponseFamily::Poisson, StandardLink::Log, 3.0, 0.4),
+            (ResponseFamily::Gamma, StandardLink::Log, 1.7, -0.2),
+            (
+                ResponseFamily::Tweedie { p: 1.45 },
+                StandardLink::Log,
+                2.2,
+                0.3,
+            ),
+            (
+                ResponseFamily::NegativeBinomial {
+                    theta: 1.8,
+                    theta_fixed: true,
+                },
+                StandardLink::Log,
+                4.0,
+                0.6,
+            ),
+            (ResponseFamily::Binomial, StandardLink::Logit, 0.3, -0.8),
+            (
+                ResponseFamily::Beta { phi: 3.5 },
+                StandardLink::Logit,
+                0.35,
+                -0.3,
+            ),
+        ];
+        let prior_weight = 1.3;
+        let h = 2.0e-6;
+        for (family, link, y, eta) in cases {
+            let inverse_link = InverseLink::Standard(link);
+            let likelihood = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                family.clone(),
+                inverse_link.clone(),
+            ));
+            let row = deviance_eta_row(0, y, eta, &likelihood, &inverse_link, prior_weight)
+                .expect("central deviance row");
+            let plus = deviance_eta_row(0, y, eta + h, &likelihood, &inverse_link, prior_weight)
+                .expect("plus row")
+                .half_deviance;
+            let minus = deviance_eta_row(0, y, eta - h, &likelihood, &inverse_link, prior_weight)
+                .expect("minus row")
+                .half_deviance;
+            let finite_difference = (plus - minus) / (2.0 * h);
+            assert_relative_eq!(
+                row.eta_score,
+                finite_difference,
+                epsilon = 2.0e-7,
+                max_relative = 2.0e-6
+            );
+        }
+    }
+
+    #[test]
+    fn deviance_eta_row_preserves_extreme_balanced_value_and_score_channels() {
+        let canonical = |family, link| {
+            let inverse_link = InverseLink::Standard(link);
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(family, inverse_link.clone())),
+                inverse_link,
+            )
+        };
+
+        let (poisson, log) = canonical(ResponseFamily::Poisson, StandardLink::Log);
+        let far_left = deviance_eta_row(0, 1.0, -1.0e308, &poisson, &log, 1.0)
+            .expect("finite far-left Poisson row");
+        assert_relative_eq!(far_left.half_deviance, 1.0e308, max_relative = 2.0e-15);
+        assert_eq!(far_left.eta_score, -1.0);
+        let ratio_overflow = deviance_eta_row(0, 1.0e10, -700.0, &poisson, &log, 1.0)
+            .expect("Poisson deviance must not form y/mu");
+        assert!(ratio_overflow.half_deviance.is_finite());
+
+        let (negative_binomial, log) = canonical(
+            ResponseFamily::NegativeBinomial {
+                theta: 1.0,
+                theta_fixed: true,
+            },
+            StandardLink::Log,
+        );
+        let nb = deviance_eta_row(0, 2.0, -1.0e308, &negative_binomial, &log, 0.5)
+            .expect("finite far-left NB row");
+        assert_relative_eq!(nb.half_deviance, 1.0e308, max_relative = 2.0e-15);
+        assert_eq!(nb.eta_score, -1.0);
+        let (nb_positive_tail, log) = canonical(
+            ResponseFamily::NegativeBinomial {
+                theta: 3.0,
+                theta_fixed: true,
+            },
+            StandardLink::Log,
+        );
+        let nb_positive = deviance_eta_row(0, 2.0, 1.0e308, &nb_positive_tail, &log, 0.25)
+            .expect("finite far-right NB score/value");
+        assert_relative_eq!(nb_positive.eta_score, 0.75, max_relative = 2.0e-15);
+        assert!(nb_positive.half_deviance.is_finite());
+
+        let (binomial, logit) = canonical(ResponseFamily::Binomial, StandardLink::Logit);
+        let binomial_tail = deviance_eta_row(0, 0.5, -1.0e308, &binomial, &logit, 1.0)
+            .expect("finite logit natural-coordinate tail");
+        assert_relative_eq!(binomial_tail.half_deviance, 5.0e307, max_relative = 2.0e-15);
+        assert_eq!(binomial_tail.eta_score, -0.5);
+
+        let (gaussian, identity) = canonical(ResponseFamily::Gaussian, StandardLink::Identity);
+        let gaussian_balanced = deviance_eta_row(0, 1.0e200, 0.0, &gaussian, &identity, 1.0e-300)
+            .expect("weighted Gaussian square remains finite");
+        assert_relative_eq!(
+            gaussian_balanced.half_deviance,
+            5.0e99,
+            max_relative = 3.0e-14
+        );
+        assert_relative_eq!(
+            gaussian_balanced.eta_score,
+            -1.0e-100,
+            max_relative = 3.0e-14
+        );
+        let gaussian_overflowing_residual =
+            deviance_eta_row(0, f64::MAX, -f64::MAX, &gaussian, &identity, 1.0e-320)
+                .expect("weighted Gaussian opposite-sign residual remains finite");
+        assert!(gaussian_overflowing_residual.half_deviance.is_finite());
+        assert!(gaussian_overflowing_residual.eta_score.is_finite());
+
+        let (gamma, log) = canonical(ResponseFamily::Gamma, StandardLink::Log);
+        let gamma_balanced = deviance_eta_row(0, f64::MAX, -700.0, &gamma, &log, 1.0e-320)
+            .expect("weighted Gamma ratio remains finite");
+        assert!(gamma_balanced.half_deviance.is_finite());
+        assert!(gamma_balanced.eta_score.is_finite());
+
+        let (tweedie, log) = canonical(ResponseFamily::Tweedie { p: 1.5 }, StandardLink::Log);
+        let tweedie_balanced = deviance_eta_row(0, f64::MAX, -700.0, &tweedie, &log, 1.0e-300)
+            .expect("weighted Tweedie power product remains finite");
+        assert!(tweedie_balanced.half_deviance.is_finite());
+        assert!(tweedie_balanced.eta_score.is_finite());
+
+        for p in [
+            f64::from_bits(1.0_f64.to_bits() + 1),
+            f64::from_bits(2.0_f64.to_bits() - 1),
+        ] {
+            let (boundary, log) = canonical(ResponseFamily::Tweedie { p }, StandardLink::Log);
+            for eta in [-100.0, 100.0] {
+                let row = deviance_eta_row(0, 1.0, eta, &boundary, &log, 1.0)
+                    .expect("Tweedie boundary-power row");
+                let h = 1.0e-5;
+                let plus = deviance_eta_row(0, 1.0, eta + h, &boundary, &log, 1.0)
+                    .expect("boundary plus")
+                    .half_deviance;
+                let minus = deviance_eta_row(0, 1.0, eta - h, &boundary, &log, 1.0)
+                    .expect("boundary minus")
+                    .half_deviance;
+                assert_relative_eq!(
+                    row.eta_score,
+                    (plus - minus) / (2.0 * h),
+                    max_relative = 2.0e-6
+                );
+            }
+        }
+
+        let ignored = deviance_eta_row(
+            0,
+            f64::NAN,
+            f64::INFINITY,
+            &poisson,
+            &InverseLink::Standard(StandardLink::Log),
+            0.0,
+        )
+        .expect("zero-weight row has exactly zero statistical measure");
+        assert_eq!(ignored.half_deviance, 0.0);
+        assert_eq!(ignored.eta_score, 0.0);
+
+        let eta = array![-1000.0];
+        let y = array![0.0];
+        let weights = array![1.0];
+        assert_eq!(
+            deviance_eta_row(0, 0.0, eta[0], &poisson, &log, 1.0)
+                .expect("raw underflowed Poisson row")
+                .half_deviance,
+            0.0
+        );
+        let phi = f64::from_bits(1);
+        let scaled = deviance_eta_rows_with_log_measure_scale(
+            y.view(),
+            &eta,
+            &poisson,
+            &log,
+            weights.view(),
+            -phi.ln(),
+        )
+        .expect("scale is folded in before materializing the row");
+        assert!(scaled[0].half_deviance.is_finite() && scaled[0].half_deviance > 0.0);
+        assert!(scaled[0].eta_score.is_finite() && scaled[0].eta_score > 0.0);
+    }
+
+    #[test]
+    fn deviance_eta_batch_reports_the_smallest_invalid_row_atomically() {
+        let inverse_link = InverseLink::Standard(StandardLink::Log);
+        let likelihood = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+            ResponseFamily::Poisson,
+            inverse_link.clone(),
+        ));
+        let y = array![1.0, -1.0, -2.0];
+        let eta = array![0.0, 0.0, 0.0];
+        let weights = array![1.0, 1.0, 1.0];
+        assert!(matches!(
+            calculate_deviance_from_eta(y.view(), &eta, &likelihood, &inverse_link, weights.view(),),
+            Err(EstimationError::PirlsRowGeometryUnrepresentable { row: 1, .. })
+        ));
+    }
+
+    #[test]
+    fn signed_deviance_reduction_avoids_partial_sum_overflow() {
+        let values = [f64::MAX, f64::MAX, -f64::MAX];
+        assert_eq!(
+            stable_finite_signed_sum(&values, "signed deviance witness")
+                .expect("representable final sum"),
+            f64::MAX
+        );
     }
 
     /// Regression for issue #2126: `calculate_deviance` for a Gamma family must
@@ -1725,7 +2218,10 @@ mod tests {
         // scaled-deviance code path (× shape) would have been exercised.
         assert_eq!(likelihood.gamma_shape(), Some(shape));
 
-        let dev = calculate_deviance(y.view(), &mu, &likelihood, w.view());
+        let eta = mu.mapv(f64::ln);
+        let inverse_link = InverseLink::Standard(StandardLink::Log);
+        let dev = calculate_deviance_from_eta(y.view(), &eta, &likelihood, &inverse_link, w.view())
+            .expect("Gamma eta deviance must be representable");
 
         let sum_unit: f64 = w
             .iter()
@@ -1777,7 +2273,10 @@ mod tests {
         // old scaled-deviance code path (÷ φ) would have been exercised.
         assert_eq!(likelihood.fixed_phi(), Some(phi));
 
-        let dev = calculate_deviance(y.view(), &mu, &likelihood, w.view());
+        let eta = mu.mapv(f64::ln);
+        let inverse_link = InverseLink::Standard(StandardLink::Log);
+        let dev = calculate_deviance_from_eta(y.view(), &eta, &likelihood, &inverse_link, w.view())
+            .expect("Tweedie eta deviance must be representable");
 
         // Unscaled reference: 2·Σ wᵢ·d(yᵢ, μᵢ) with the Tweedie unit deviance
         // `d = y^{2-p}/((1-p)(2-p)) - y·μ^{1-p}/(1-p) + μ^{2-p}/(2-p)`.
@@ -1893,11 +2392,10 @@ mod tests {
         // legitimately goes non-positive on individual rows when a large
         // residual flips the sign of the residual-dependent correction `B`
         // (the link is non-canonical, so B ≠ 0). The observed-curvature array
-        // build must NOT hard-bail on such a finite-but-indefinite row: the
-        // inner Newton system floors it via `solver_hessian_weights_into` and
-        // the outer REML derivative path floors it via
-        // `outer_hessian_curvature_arrays`, both keeping the Hessian SPD. Before
-        // the fix the build aborted with "observed Hessian curvature is not
+        // build must NOT hard-bail on such a finite-but-indefinite row: signed
+        // row curvature is assembled exactly and any required PD stabilization
+        // is an explicit ridge on the assembled matrix. Before the fix the build
+        // aborted with "observed Hessian curvature is not
         // positive finite at row N", which propagated up as
         // "no candidate seeds passed outer startup validation
         // (mixture/SAS flexible link)" and made the whole joint solve fail.
@@ -1928,14 +2426,14 @@ mod tests {
         let y = array![1.0, 0.0, 0.0, 1.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(eta.len());
 
-        // Fisher weights at these η (positive, used as the SPD floor reference).
+        // Exact Fisher weights at these represented eta values.
         let mut fisher = Array1::<f64>::zeros(eta.len());
         for i in 0..eta.len() {
             let jet = crate::mixture_link::inverse_link_jet_for_inverse_link(&link, eta[i])
                 .expect("mixture jet");
             let mu = jet.mu;
-            let v = (mu * (1.0 - mu)).max(1e-12);
-            fisher[i] = (jet.d1 * jet.d1 / v).max(1e-12);
+            let v = mu * (1.0 - mu);
+            fisher[i] = jet.d1 * jet.d1 / v;
         }
 
         // Post-fix contract: the build SUCCEEDS (no bail) and returns finite
@@ -2059,9 +2557,18 @@ mod tests {
         .expect("external Poisson fit should converge");
 
         let eta = x.dot(&result.beta) + &offset;
-        let mu = eta.mapv(f64::exp);
-        let full = calculate_loglikelihood(y.view(), &mu, &likelihood, w.view());
-        let omit = calculate_loglikelihood_omitting_constants(y.view(), &mu, &likelihood, w.view());
+        let full =
+            evaluate_full_log_likelihood_from_eta(y.view(), eta.view(), &likelihood, w.view())
+                .expect("full eta log-likelihood")
+                .total();
+        let omit = calculate_loglikelihood_omitting_constants_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &InverseLink::Standard(StandardLink::Log),
+            w.view(),
+        )
+        .expect("exact eta log-likelihood");
         assert!(
             full <= 0.0,
             "Poisson reporting log-likelihood is a log-mass and must be <= 0, got {full}"
@@ -2117,7 +2624,8 @@ mod tests {
         };
 
         let (result, _) = fit_model_for_fixed_rho(
-            LogSmoothingParamsView::new(rho.view()),
+            LogSmoothingParamsView::new(rho.view())
+                .expect("test rho lies in exact strength domain"),
             PirlsProblem {
                 x: x.view(),
                 offset: offset.view(),
@@ -2147,7 +2655,8 @@ mod tests {
             .gamma_shape()
             .expect("gamma fit should expose fitted shape");
         let profiled_shape =
-            super::estimate_gamma_shape_from_eta(y.view(), &result.final_eta.to_owned(), w.view());
+            super::estimate_gamma_shape_from_eta(y.view(), &result.final_eta.to_owned(), w.view())
+                .expect("converged Gamma shape must be representable");
 
         assert!(fitted_shape > 1.0, "shape should not stay fixed at one");
         assert_relative_eq!(
@@ -2196,7 +2705,8 @@ mod tests {
         };
 
         let (fit, _) = fit_model_for_fixed_rho(
-            LogSmoothingParamsView::new(rho.view()),
+            LogSmoothingParamsView::new(rho.view())
+                .expect("test rho lies in exact strength domain"),
             PirlsProblem {
                 x: x.view(),
                 offset: offset.view(),
@@ -3658,7 +4168,8 @@ mod root_cause_tests {
 
         let (result, trace) = capture_pirls_penalized_deviance(|| {
             fit_model_for_fixed_rho(
-                LogSmoothingParamsView::new(rho.view()),
+                LogSmoothingParamsView::new(rho.view())
+                    .expect("test rho lies in exact strength domain"),
                 PirlsProblem {
                     x: x_data.view(),
                     offset: offset.view(),
@@ -3743,7 +4254,8 @@ mod root_cause_tests {
 
         let (result, trace) = capture_pirls_penalized_deviance(|| {
             fit_model_for_fixed_rho(
-                LogSmoothingParamsView::new(rho.view()),
+                LogSmoothingParamsView::new(rho.view())
+                    .expect("test rho lies in exact strength domain"),
                 PirlsProblem {
                     x: x_data.view(),
                     offset: offset.view(),
@@ -3848,7 +4360,8 @@ mod root_cause_tests {
 
             let (result, trace) = capture_pirls_penalized_deviance(|| {
                 fit_model_for_fixed_rho(
-                    LogSmoothingParamsView::new(rho.view()),
+                    LogSmoothingParamsView::new(rho.view())
+                        .expect("test rho lies in exact strength domain"),
                     PirlsProblem {
                         x: x_data.view(),
                         offset: offset.view(),
@@ -4153,7 +4666,7 @@ mod root_cause_tests {
 }
 
 /// Regression tests for the fully-normalized, scale-aware **reporting**
-/// log-likelihood kernels (`pointwise_loglikelihood` / `calculate_loglikelihood`)
+/// eta-space log-likelihood evaluation
 /// that back the user-facing AIC and PSIS-LOO elpd. These are distinct from the
 /// REML building-block `*_omitting_constants` kernels, which deliberately drop
 /// family/saturated normalizers. Root causes: #1581 (Poisson `−ln Γ(y+1)`),
@@ -4161,8 +4674,7 @@ mod root_cause_tests {
 #[cfg(test)]
 mod reporting_loglikelihood_tests {
     use super::super::{
-        calculate_loglikelihood, calculate_loglikelihood_omitting_constants,
-        pointwise_loglikelihood, pointwise_loglikelihood_omitting_constants,
+        calculate_loglikelihood_omitting_constants_from_eta, evaluate_full_log_likelihood_from_eta,
     };
     use gam_problem::{
         GlmLikelihoodSpec, InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, ResponseFamily,
@@ -4175,6 +4687,27 @@ mod reporting_loglikelihood_tests {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(family, InverseLink::Standard(link)))
     }
 
+    fn eta_fixture(mu: &Array1<f64>, link: StandardLink) -> Array1<f64> {
+        match link {
+            StandardLink::Identity => mu.clone(),
+            StandardLink::Log => mu.mapv(f64::ln),
+            StandardLink::Logit => mu.mapv(|value| value.ln() - (-value).ln_1p()),
+            other => panic!("reporting test fixture does not implement {other:?}"),
+        }
+    }
+
+    fn full_at_fixture(
+        y: &Array1<f64>,
+        mu: &Array1<f64>,
+        likelihood: &GlmLikelihoodSpec,
+        weights: &Array1<f64>,
+        link: StandardLink,
+    ) -> super::super::FullLogLikelihoodEvaluation {
+        let eta = eta_fixture(mu, link);
+        evaluate_full_log_likelihood_from_eta(y.view(), eta.view(), likelihood, weights.view())
+            .expect("full eta likelihood fixture")
+    }
+
     // ---- #1581: Poisson reporting log-likelihood is a true (negative) log-mass.
     #[test]
     fn poisson_full_loglik_is_log_mass_and_carries_count_normalizer() {
@@ -4183,7 +4716,8 @@ mod reporting_loglikelihood_tests {
         let w = Array1::<f64>::ones(y.len());
         let glm = canonical(ResponseFamily::Poisson, StandardLink::Log);
 
-        let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
+        let evaluation = full_at_fixture(&y, &mu, &glm, &w, StandardLink::Log);
+        let pw = evaluation.pointwise();
         // Every Poisson pointwise value is a log probability mass ≤ 0.
         for (i, &v) in pw.iter().enumerate() {
             assert!(v <= 0.0, "row {i}: Poisson log-mass must be ≤ 0, got {v}");
@@ -4197,7 +4731,7 @@ mod reporting_loglikelihood_tests {
                 log_term - mui - ln_gamma(yi + 1.0)
             })
             .sum();
-        let total = calculate_loglikelihood(y.view(), &mu, &glm, w.view());
+        let total = evaluation.total();
         assert!((total - analytic).abs() < 1e-10, "{total} vs {analytic}");
         assert!(
             total < 0.0,
@@ -4206,7 +4740,15 @@ mod reporting_loglikelihood_tests {
 
         // The reporting kernel differs from the REML building block by EXACTLY
         // the dropped −Σ ln Γ(y+1) count normalizer — the #1581 root cause.
-        let omitting = calculate_loglikelihood_omitting_constants(y.view(), &mu, &glm, w.view());
+        let eta = mu.mapv(f64::ln);
+        let omitting = calculate_loglikelihood_omitting_constants_from_eta(
+            y.view(),
+            &eta,
+            &glm,
+            &InverseLink::Standard(StandardLink::Log),
+            w.view(),
+        )
+        .expect("exact eta log-likelihood");
         let dropped: f64 = y.iter().map(|&yi| ln_gamma(yi + 1.0)).sum();
         assert!(
             (omitting - total - dropped).abs() < 1e-10,
@@ -4234,8 +4776,8 @@ mod reporting_loglikelihood_tests {
             StandardLink::Log,
         );
 
-        let ll_pois = calculate_loglikelihood(y.view(), &mu, &poisson, w.view());
-        let ll_nb = calculate_loglikelihood(y.view(), &mu, &negbin, w.view());
+        let ll_pois = full_at_fixture(&y, &mu, &poisson, &w, StandardLink::Log).total();
+        let ll_nb = full_at_fixture(&y, &mu, &negbin, &w, StandardLink::Log).total();
 
         // Both are proper negative log-masses.
         assert!(ll_pois < 0.0 && ll_nb < 0.0, "{ll_pois}, {ll_nb}");
@@ -4266,7 +4808,7 @@ mod reporting_loglikelihood_tests {
             scale: LikelihoodScaleMetadata::FixedDispersion { phi: s2 },
         };
 
-        let ll = calculate_loglikelihood(y.view(), &mu, &glm(sigma2), w.view());
+        let ll = full_at_fixture(&y, &mu, &glm(sigma2), &w, StandardLink::Identity).total();
         // Analytic profiled-Gaussian value −½ Σ[ln(2πσ²) + resid²/σ²].
         let analytic: f64 = y
             .iter()
@@ -4282,7 +4824,8 @@ mod reporting_loglikelihood_tests {
         for &c in &[0.5_f64, 2.0, 10.0] {
             let yc = y.mapv(|v| c * v);
             let muc = mu.mapv(|v| c * v);
-            let llc = calculate_loglikelihood(yc.view(), &muc, &glm(c * c * sigma2), w.view());
+            let llc = full_at_fixture(&yc, &muc, &glm(c * c * sigma2), &w, StandardLink::Identity)
+                .total();
             let shift = llc - ll;
             assert!(
                 (shift - (-n * c.ln())).abs() < 1e-9,
@@ -4292,8 +4835,8 @@ mod reporting_loglikelihood_tests {
         }
     }
 
-    // A profiled Gaussian whose scale was never concretized must yield NaN, not a
-    // silent unit-variance density — the guard against the #1583 regression.
+    // A profiled Gaussian whose scale was never concretized is rejected, not
+    // silently interpreted as a unit-variance density.
     #[test]
     fn gaussian_full_loglik_requires_concrete_scale() {
         let y = array![1.0, 2.0, 3.0];
@@ -4301,11 +4844,10 @@ mod reporting_loglikelihood_tests {
         let w = Array1::<f64>::ones(y.len());
         let glm = canonical(ResponseFamily::Gaussian, StandardLink::Identity);
         // canonical Gaussian ⇒ ProfiledGaussian ⇒ fixed_phi() == None.
-        let ll = calculate_loglikelihood(y.view(), &mu, &glm, w.view());
-        assert!(
-            ll.is_nan(),
-            "profiled Gaussian without a concrete σ̂² must be NaN, got {ll}"
-        );
+        let eta = eta_fixture(&mu, StandardLink::Identity);
+        let error = evaluate_full_log_likelihood_from_eta(y.view(), eta.view(), &glm, w.view())
+            .expect_err("unresolved profiled Gaussian scale must fail");
+        assert!(error.to_string().contains("explicit positive dispersion"));
     }
 
     // Gaussian prior weights act as inverse-variance scaling (Var = φ/wᵢ): the
@@ -4323,7 +4865,8 @@ mod reporting_loglikelihood_tests {
             ),
             scale: LikelihoodScaleMetadata::FixedDispersion { phi: sigma2 },
         };
-        let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
+        let evaluation = full_at_fixture(&y, &mu, &glm, &w, StandardLink::Identity);
+        let pw = evaluation.pointwise();
         for i in 0..2 {
             let r = y[i] - mu[i];
             let expect = -0.5
@@ -4345,7 +4888,8 @@ mod reporting_loglikelihood_tests {
         let mu = array![0.1, 0.3, 0.55, 0.9];
         let w = array![3.0, 4.0, 6.0, 2.0];
         let glm = canonical(ResponseFamily::Binomial, StandardLink::Logit);
-        let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
+        let evaluation = full_at_fixture(&y, &mu, &glm, &w, StandardLink::Logit);
+        let pw = evaluation.pointwise();
         for (i, &v) in pw.iter().enumerate() {
             assert!(
                 v <= 1e-12,
@@ -4363,20 +4907,29 @@ mod reporting_loglikelihood_tests {
         let yb = array![0.0, 1.0, 1.0, 0.0];
         let mub = array![0.2, 0.8, 0.6, 0.4];
         let wb = Array1::<f64>::ones(4);
-        let full = pointwise_loglikelihood(yb.view(), &mub, &glm, wb.view());
-        let omit = pointwise_loglikelihood_omitting_constants(yb.view(), &mub, &glm, wb.view());
+        let full = full_at_fixture(&yb, &mub, &glm, &wb, StandardLink::Logit);
+        let eta = eta_fixture(&mub, StandardLink::Logit);
+        let omit = calculate_loglikelihood_omitting_constants_from_eta(
+            yb.view(),
+            &eta,
+            &glm,
+            &glm.spec.link,
+            wb.view(),
+        )
+        .expect("Bernoulli omitted likelihood");
         for i in 0..4 {
+            let analytic = yb[i] * mub[i].ln() + (1.0 - yb[i]) * (1.0 - mub[i]).ln();
             assert!(
-                (full[i] - omit[i]).abs() < 1e-12,
-                "row {i}: {} vs {}",
-                full[i],
-                omit[i]
+                (full.pointwise()[i] - analytic).abs() < 1e-12,
+                "row {i}: {} vs {analytic}",
+                full.pointwise()[i],
             );
         }
+        assert!((full.total() - omit).abs() < 1e-12);
     }
 
     // Gamma reporting log-likelihood equals the analytic Gamma density (shape
-    // ν = 1/φ, mean μ), summed by calculate_loglikelihood.
+    // ν = 1/φ, mean μ), evaluated on the eta surface.
     #[test]
     fn gamma_full_loglik_matches_density() {
         let y = array![1.8, 0.7, 3.2];
@@ -4385,7 +4938,8 @@ mod reporting_loglikelihood_tests {
         // canonical Gamma ⇒ shape 1 ⇒ ν = 1.
         let glm = canonical(ResponseFamily::Gamma, StandardLink::Log);
         let nu = 1.0_f64;
-        let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
+        let evaluation = full_at_fixture(&y, &mu, &glm, &w, StandardLink::Log);
+        let pw = evaluation.pointwise();
         for i in 0..3 {
             let a = w[i] * nu;
             let expect =
@@ -4396,7 +4950,7 @@ mod reporting_loglikelihood_tests {
                 pw[i]
             );
         }
-        let total = calculate_loglikelihood(y.view(), &mu, &glm, w.view());
+        let total = evaluation.total();
         assert!((total - pw.sum()).abs() < 1e-12);
     }
 
@@ -4432,7 +4986,13 @@ mod reporting_loglikelihood_tests {
             } else {
                 (y.clone(), mu.clone())
             };
-            let pw = pointwise_loglikelihood(yy.view(), &mm, &glm, w.view());
+            let link = match &glm.spec.response {
+                ResponseFamily::Gaussian => StandardLink::Identity,
+                ResponseFamily::Binomial => StandardLink::Logit,
+                _ => StandardLink::Log,
+            };
+            let evaluation = full_at_fixture(&yy, &mm, &glm, &w, link);
+            let pw = evaluation.pointwise();
             for &v in pw.iter() {
                 assert_eq!(
                     v, 0.0,
@@ -4443,30 +5003,31 @@ mod reporting_loglikelihood_tests {
         }
     }
 
-    // calculate_loglikelihood is exactly the sum of the pointwise kernel.
+    // The certified total shares the pointwise kernel.
     #[test]
     fn scalar_equals_sum_of_pointwise() {
         let y = array![0.0, 2.0, 5.0, 1.0];
         let mu = array![1.0, 2.0, 4.0, 1.5];
-        let w = array![1.0, 1.0, 2.0, 0.5];
+        let w = array![1.0, 1.0, 2.0, 1.0];
         let glm = canonical(ResponseFamily::Poisson, StandardLink::Log);
-        let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
-        let total = calculate_loglikelihood(y.view(), &mu, &glm, w.view());
+        let evaluation = full_at_fixture(&y, &mu, &glm, &w, StandardLink::Log);
+        let pw = evaluation.pointwise();
+        let total = evaluation.total();
         assert!((total - pw.sum()).abs() < 1e-12);
     }
 }
 
 /// #2105: the exact compound-Poisson–gamma Tweedie density used for variance-
-/// power estimation. The reported AIC uses the saddlepoint approximation, but
-/// the `p`-profile MUST use the exact series (`tweedie_series_loglik` /
-/// `tweedie_exact_loglik_total`): the saddlepoint's missing `O(1/λ)` normalizer
+/// power estimation. Reporting and the `p`-profile both use the exact series
+/// (`tweedie_series_loglik` /
+/// `tweedie_exact_loglik_total_from_eta`): the saddlepoint's missing `O(1/λ)` normalizer
 /// biases the profile maximizer of `p` low, which inflates the reported Pearson
 /// dispersion `φ̂` and every SE / interval derived from it.
 #[cfg(test)]
 mod tweedie_exact_series_tests {
-    use super::super::{
-        tweedie_exact_loglik, tweedie_exact_loglik_total, tweedie_saddlepoint_loglik,
-        tweedie_series_loglik,
+    use super::super::tweedie_exact_loglik_total_from_eta;
+    use super::{
+        tweedie_exact_loglik, tweedie_saddlepoint_loglik_approximation, tweedie_series_loglik,
     };
     use ndarray::Array1;
     use rand::RngExt;
@@ -4539,7 +5100,11 @@ mod tweedie_exact_series_tests {
         // the p>1.5 / α<1 spike at the origin is an integrable singularity that a
         // uniform trapezoid cannot resolve (its density VALUES are certified
         // exact by `series_matches_brute_force_across_regimes`).
-        for (mu, phi, p) in [(2.0_f64, 0.6_f64, 1.5_f64), (1.0, 0.1, 1.3), (3.0, 0.4, 1.4)] {
+        for (mu, phi, p) in [
+            (2.0_f64, 0.6_f64, 1.5_f64),
+            (1.0, 0.1, 1.3),
+            (3.0, 0.4, 1.4),
+        ] {
             let lambda = mu.powf(2.0 - p) / (phi * (2.0 - p));
             let mass0 = (-lambda).exp();
             let hi = mu * 30.0;
@@ -4563,23 +5128,21 @@ mod tweedie_exact_series_tests {
     }
 
     #[test]
-    fn exact_loglik_transitions_seamlessly_to_saddlepoint() {
-        // Above the dominant-index threshold the exact fallback returns the
-        // saddlepoint verbatim (μ = 1e8, p = 1.5 ⇒ index ≈ λ = 4e4 > 1e4).
+    fn exact_loglik_never_switches_to_saddlepoint() {
         let (mu, phi, p) = (1.0e8_f64, 0.5_f64, 1.5_f64);
         let y = mu;
         let exact = tweedie_exact_loglik(y, mu, 1.0, p, phi);
-        let saddle = tweedie_saddlepoint_loglik(y, mu, 1.0, p, phi);
+        let series_at_large_index = tweedie_series_loglik(y, mu, 1.0, p, phi);
+        let saddle = tweedie_saddlepoint_loglik_approximation(y, mu, 1.0, p, phi);
+        assert_eq!(exact, series_at_large_index);
         assert!(
-            (exact - saddle).abs() < 1e-12,
-            "above the index threshold the exact path must equal the saddlepoint: \
+            (exact - saddle).abs() < 1e-3,
+            "the separately named approximation should converge toward the exact series: \
              {exact} vs {saddle}"
         );
-        // Just below the threshold the series is used and agrees with the
-        // saddlepoint to O(1/index) — a seamless (small-gap) crossover, no jump.
         let (mu2, phi2) = (5.0e3_f64, 1.0_f64); // index ≈ 283, below threshold
         let series = tweedie_series_loglik(mu2, mu2, 1.0, p, phi2);
-        let saddle2 = tweedie_saddlepoint_loglik(mu2, mu2, 1.0, p, phi2);
+        let saddle2 = tweedie_saddlepoint_loglik_approximation(mu2, mu2, 1.0, p, phi2);
         assert!(
             (series - saddle2).abs() < 1e-2,
             "series and saddlepoint must agree closely near the crossover: {series} vs {saddle2}"
@@ -4685,12 +5248,14 @@ mod tweedie_exact_series_tests {
 
         let exact_obj = |p: f64| {
             let phi = pearson_phi(&y, &mu, p);
-            tweedie_exact_loglik_total(y.view(), &mu, w.view(), p, phi)
+            let eta = mu.mapv(f64::ln);
+            tweedie_exact_loglik_total_from_eta(y.view(), eta.view(), w.view(), p, phi)
+                .expect("exact Tweedie profile row")
         };
         let saddle_obj = |p: f64| {
             let phi = pearson_phi(&y, &mu, p);
             (0..n)
-                .map(|i| tweedie_saddlepoint_loglik(y[i], mu[i], w[i], p, phi))
+                .map(|i| tweedie_saddlepoint_loglik_approximation(y[i], mu[i], w[i], p, phi))
                 .sum::<f64>()
         };
 

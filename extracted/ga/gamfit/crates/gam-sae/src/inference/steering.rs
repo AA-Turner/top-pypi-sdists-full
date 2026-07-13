@@ -82,6 +82,31 @@ const STEER_VALIDITY_STEPS: usize = 64;
 /// validity radius.
 const VALIDITY_DIVERGENCE_FRACTION: f64 = 0.1;
 
+/// Scientific status of the quadratic dose relative to the full output Fisher.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FisherDoseKind {
+    /// Euclidean/no-behavior metric: no nats dose exists.
+    Unavailable,
+    /// A behavioral factor metric exists, but no omitted-mass audit was supplied.
+    UnauditedFactorMetric,
+    /// The harvest reports zero omitted Fisher trace.
+    FullMass,
+    /// A non-negative Fisher tail was omitted; the local quadratic is a lower
+    /// bound on the full-Fisher local KL.
+    TruncatedLowerBound,
+}
+
+impl FisherDoseKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unavailable => "unavailable",
+            Self::UnauditedFactorMetric => "unaudited_factor_metric",
+            Self::FullMass => "full_mass",
+            Self::TruncatedLowerBound => "truncated_lower_bound",
+        }
+    }
+}
+
 /// The actionable output of a steering query over one atom.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SteerPlan {
@@ -106,6 +131,16 @@ pub struct SteerPlan {
     /// `None` when the metric carries no behavioral information (Euclidean
     /// provenance) — the dose is *not available*, not zero.
     pub predicted_nats: Option<f64>,
+    /// Whether `predicted_nats` is full-mass, unaudited, or a low-rank lower
+    /// bound. This prevents consumers from treating every factor rank as an
+    /// equally calibrated full-Fisher dose.
+    pub predicted_nats_kind: FisherDoseKind,
+    /// Captured trace `tr(U_n U_n^T)` at `metric_row`, when behavior is present.
+    pub fisher_mass_captured: Option<f64>,
+    /// Non-negative omitted Fisher trace supplied by the harvest, when audited.
+    pub fisher_mass_residual: Option<f64>,
+    /// `residual / (captured + residual)`, when audited.
+    pub fisher_mass_residual_fraction: Option<f64>,
     /// **VALIDITY RADIUS**: the latent step size (Euclidean norm of the move from
     /// `t_from`) at which the exact chord dose first diverges from the
     /// initial-tangent quadratic prediction by more than
@@ -406,8 +441,9 @@ pub fn steer_delta(
     }
 
     // --- the on-manifold activation-space delta -----------------------------
-    let g_from = decode_at(atom, t_from)?;
-    let g_to = decode_at(atom, t_to)?;
+    let tier0_scale = model.tier0_scale();
+    let g_from = decode_at(atom, t_from, tier0_scale)?;
+    let g_to = decode_at(atom, t_to, tier0_scale)?;
     let mut delta = Array1::<f64>::zeros(p);
     for i in 0..p {
         delta[i] = amplitude * (g_to[i] - g_from[i]);
@@ -416,6 +452,22 @@ pub fn steer_delta(
     // Whether the metric can/does match this term and carries behavior.
     let provenance = metric.provenance();
     let behavior_available = metric_carries_behavior(provenance);
+    let fisher_mass_captured = behavior_available.then(|| metric.row_traces()[metric_row]);
+    let fisher_mass_residual = behavior_available
+        .then(|| metric.truncation_mass_residual(metric_row))
+        .flatten();
+    let fisher_mass_residual_fraction = behavior_available
+        .then(|| metric.truncation_mass_residual_fraction(metric_row))
+        .flatten();
+    let predicted_nats_kind = if !behavior_available {
+        FisherDoseKind::Unavailable
+    } else {
+        match fisher_mass_residual {
+            None => FisherDoseKind::UnauditedFactorMetric,
+            Some(0.0) => FisherDoseKind::FullMass,
+            Some(_) => FisherDoseKind::TruncatedLowerBound,
+        }
+    };
 
     // --- off-manifold guard -------------------------------------------------
     // Project δ onto the span of the local decoder tangents ∂g_k/∂t and report
@@ -433,7 +485,7 @@ pub fn steer_delta(
             t_mid[a] = t_mid[a].rem_euclid(period);
         }
     }
-    let tangents = decode_tangents_at(atom, &t_mid)?;
+    let tangents = decode_tangents_at(atom, &t_mid, tier0_scale)?;
     let off_manifold_norm = off_manifold_residual_norm(&tangents, delta.view());
 
     // --- dosimetry: exact applied-delta Fisher endpoint KL ------------------
@@ -442,6 +494,7 @@ pub fn steer_delta(
     } else {
         let ctx = SteerContext {
             atom,
+            scale: tier0_scale,
             metric,
             row: metric_row,
             p,
@@ -464,6 +517,10 @@ pub fn steer_delta(
         metric_row,
         delta,
         predicted_nats,
+        predicted_nats_kind,
+        fisher_mass_captured,
+        fisher_mass_residual,
+        fisher_mass_residual_fraction,
         validity_radius,
         off_manifold_norm,
         metric_provenance: provenance,
@@ -517,8 +574,260 @@ pub fn predicted_response(
             atom.name
         )
     })?;
-    let tangents = decode_tangents_at(atom, t_at)?;
+    let tangents = decode_tangents_at(atom, t_at, model.tier0_scale())?;
     Ok(project_onto_tangent_span(&tangents, delta))
+}
+
+/// A patched-forward KL probe the target-dose loop plugs into: given an applied
+/// amplitude `a`, return the measured `KL(p_base ‖ p_patched)` in nats for the
+/// chord `a·(g(t_to) − g(t_from))`. The GPU re-measurement supplies a real
+/// model-in-the-loop forward here; the closed-form seed needs none.
+pub type PatchedForwardKl<'a> = dyn FnMut(f64) -> Result<f64, String> + 'a;
+
+/// Tuning for the closed-loop correction in [`steer_to_target_nats`].
+#[derive(Clone, Copy, Debug)]
+pub struct TargetDoseConfig {
+    /// Relative tolerance on measured KL vs the target that stops the loop.
+    pub tol_rel: f64,
+    /// Hard cap on secant iterations (each is one patched-forward probe).
+    pub max_iter: usize,
+    /// A probed amplitude counts as inside the readout-KL radius while its
+    /// measured KL matches the local quadratic within this relative tolerance.
+    pub readout_tol_rel: f64,
+}
+
+impl Default for TargetDoseConfig {
+    fn default() -> Self {
+        Self {
+            tol_rel: 1.0e-2,
+            max_iter: 12,
+            readout_tol_rel: 1.0e-1,
+        }
+    }
+}
+
+/// One target-dose solve on a fixed atom chord.
+///
+/// The model and row metric remain explicit execution context; everything that
+/// identifies and tunes the requested dose is carried together so callers
+/// cannot accidentally reorder a train of homogeneous scalar/slice arguments.
+#[derive(Clone, Copy, Debug)]
+pub struct TargetDoseRequest<'a> {
+    /// The atom whose coordinate is being steered.
+    pub atom_k: usize,
+    /// Exact fitted row whose output-Fisher block prices the move.
+    pub metric_row: usize,
+    /// Source on-manifold coordinate.
+    pub t_from: &'a [f64],
+    /// Target on-manifold coordinate, which fixes the chord direction.
+    pub t_to: &'a [f64],
+    /// Requested output-KL dose in nats.
+    pub target_nats: f64,
+    /// Closed-loop correction tuning.
+    pub config: TargetDoseConfig,
+}
+
+/// The amplitude that realizes a target output-KL dose on one atom's chord, plus
+/// the explicit dual-radius contract (gh#2249/#2263).
+#[derive(Clone, Debug)]
+pub struct TargetDosePlan {
+    /// Which atom was steered (index into [`SaeManifoldTerm::atoms`]).
+    pub atom: usize,
+    /// The atom's name.
+    pub atom_name: String,
+    /// The requested dose in nats of KL.
+    pub target_nats: f64,
+    /// Closed-form first-order amplitude `a0 = sqrt(2 q* / (dgᵀ M dg))`, exact in
+    /// the quadratic/in-radius regime.
+    pub seed_amplitude: f64,
+    /// Final amplitude: `seed_amplitude` when no probe was supplied, else the
+    /// closed-loop-corrected amplitude.
+    pub amplitude: f64,
+    /// Quadratic dose `½ a² dgᵀ M dg` at [`Self::amplitude`] (equals
+    /// [`Self::target_nats`] at the seed by construction).
+    pub predicted_nats: f64,
+    /// Full-mass / unaudited / low-rank-lower-bound status of the quadratic dose.
+    pub predicted_nats_kind: FisherDoseKind,
+    /// Probe-measured patched-forward KL at [`Self::amplitude`], when a callback
+    /// was supplied; `None` for the pure closed-form seed.
+    pub measured_nats: Option<f64>,
+    /// Number of patched-forward probes consumed (0 without a callback).
+    pub iterations: usize,
+    /// Whether the measured KL reached the target within `tol_rel`. Always
+    /// `false` without a callback: the closed form is *unvalidated* by
+    /// construction — it prices the second-order dose, not the true KL.
+    pub converged: bool,
+    /// **CHART radius** (as shipped by [`SteerPlan::validity_radius`]): the latent
+    /// step at which the decoder chord leaves its tangent linearization under the
+    /// fixed base-row metric. Amplitude-invariant. `None` under a no-behavior
+    /// metric. This certifies chart linearization ONLY — not that the quadratic
+    /// dose tracks the true output KL (that is the readout radius below).
+    pub chart_radius: Option<f64>,
+    /// **READOUT-KL radius**: the largest probed amplitude whose measured KL still
+    /// matched the local quadratic within `readout_tol_rel` — beyond it the true
+    /// softmax KL saturates and the quadratic ceases to be calibrated. `None` when
+    /// no callback was supplied (it cannot be established without the model) or
+    /// when even the smallest probed amplitude was already out of tolerance.
+    pub readout_kl_radius: Option<f64>,
+    /// Provenance of the metric the dose is read through.
+    pub metric_provenance: MetricProvenance,
+}
+
+/// One patched-forward probe with a finiteness/non-negativity guard on the
+/// returned KL. A free fn (not a closure) so the `&mut PatchedForwardKl<'_>`
+/// reborrow across the correction loop is unambiguous.
+fn probe_kl(probe: &mut PatchedForwardKl<'_>, a: f64) -> Result<f64, String> {
+    let kl = probe(a)?;
+    if !(kl.is_finite() && kl >= 0.0) {
+        return Err(format!(
+            "steer_to_target_nats: probe returned a non-finite/negative KL {kl} at amplitude {a}"
+        ));
+    }
+    Ok(kl)
+}
+
+/// Solve for the amplitude that lands a target output-KL dose `target_nats` (in
+/// nats) on atom `atom_k`'s chord from `t_from` to `t_to` (gh#2263 target-dose
+/// surface — `amplitude = 1` has no universal meaning, the dose does).
+///
+/// The closed form `a0 = sqrt(2 q* / (dgᵀ M dg))` (`dg` the unit-amplitude chord,
+/// `M` the row output-Fisher) is exact in the quadratic/in-radius regime — and is
+/// correctly scaled only because the chord and the metric now share the raw
+/// activation frame (gh#2249, `ace3b9af3`; a Tier-0 σ-mis-scale on `dg` would
+/// have poisoned `a0`). Past the readout-KL radius the true KL saturates, so an
+/// optional `probe` (a patched forward) drives a secant correction onto the
+/// measured curve and opportunistically records the readout-KL radius. With
+/// `probe = None` the result is the unvalidated closed-form seed: pure math and
+/// plumbing, no model in the loop.
+pub fn steer_to_target_nats(
+    model: &SaeManifoldTerm,
+    metric: &RowMetric,
+    request: TargetDoseRequest<'_>,
+    probe: Option<&mut PatchedForwardKl<'_>>,
+) -> Result<TargetDosePlan, String> {
+    let TargetDoseRequest {
+        atom_k,
+        metric_row,
+        t_from,
+        t_to,
+        target_nats,
+        config,
+    } = request;
+    if !(target_nats.is_finite() && target_nats > 0.0) {
+        return Err(format!(
+            "steer_to_target_nats: target_nats must be finite and positive, got {target_nats}"
+        ));
+    }
+    if !(config.tol_rel > 0.0) || config.max_iter == 0 || !(config.readout_tol_rel > 0.0) {
+        return Err(format!(
+            "steer_to_target_nats: config must have tol_rel>0, max_iter>0, readout_tol_rel>0; \
+             got {config:?}"
+        ));
+    }
+    // Unit-amplitude reference: predicted_nats(a) = a²·unit_nats, and the chart
+    // radius / provenance / dose kind are all amplitude-invariant.
+    let unit = steer_delta(model, metric, atom_k, metric_row, 1.0, t_from, t_to)?;
+    let unit_nats = unit.predicted_nats.ok_or_else(|| {
+        format!(
+            "steer_to_target_nats: atom {atom_k} has no behavioral (nats) metric \
+             (provenance {:?}); a target-nats dose is undefined",
+            unit.metric_provenance
+        )
+    })?;
+    if !(unit_nats > 0.0) {
+        return Err(format!(
+            "steer_to_target_nats: unit-amplitude dose is {unit_nats} (the chord carries no \
+             Fisher mass in metric row {metric_row}); cannot solve for a target amplitude"
+        ));
+    }
+    // Closed-form first-order seed: a0²·unit_nats = q*.
+    let seed_amplitude = (target_nats / unit_nats).sqrt();
+    let quad = |a: f64| a * a * unit_nats;
+
+    let mut plan = TargetDosePlan {
+        atom: atom_k,
+        atom_name: unit.atom_name.clone(),
+        target_nats,
+        seed_amplitude,
+        amplitude: seed_amplitude,
+        predicted_nats: quad(seed_amplitude),
+        predicted_nats_kind: unit.predicted_nats_kind,
+        measured_nats: None,
+        iterations: 0,
+        converged: false,
+        chart_radius: unit.validity_radius,
+        readout_kl_radius: None,
+        metric_provenance: unit.metric_provenance,
+    };
+
+    let probe = match probe {
+        Some(probe) => probe,
+        // No model in the loop: return the unvalidated closed-form seed.
+        None => return Ok(plan),
+    };
+
+    // Closed-loop secant correction on f(a) = KL(a) − q*, seeded by the closed
+    // form and a quadratic-informed second point. KL(a) is monotone increasing in
+    // a over the in-regime, so this converges in ~1 step in-radius and only does
+    // real work where saturation bends the curve. A probed amplitude whose
+    // measured KL still matches the local quadratic marks the readout-KL radius.
+    let mut a_prev = seed_amplitude;
+    let mut kl_prev = probe_kl(probe, a_prev)?;
+    plan.iterations += 1;
+    plan.amplitude = a_prev;
+    plan.measured_nats = Some(kl_prev);
+    plan.predicted_nats = quad(a_prev);
+    {
+        let q = quad(a_prev);
+        if q > 0.0 && (kl_prev - q).abs() / q <= config.readout_tol_rel {
+            plan.readout_kl_radius = Some(plan.readout_kl_radius.map_or(a_prev, |r| r.max(a_prev)));
+        }
+    }
+    if (kl_prev - target_nats).abs() / target_nats <= config.tol_rel {
+        plan.converged = true;
+        return Ok(plan);
+    }
+    // Quadratic-informed second point: if KL ≈ c·a², a·sqrt(q*/kl) lands near q*.
+    let mut a_curr =
+        (a_prev * (target_nats / kl_prev.max(f64::MIN_POSITIVE)).sqrt()).max(f64::MIN_POSITIVE);
+    while plan.iterations < config.max_iter {
+        let kl_curr = probe_kl(probe, a_curr)?;
+        plan.iterations += 1;
+        plan.amplitude = a_curr;
+        plan.measured_nats = Some(kl_curr);
+        plan.predicted_nats = quad(a_curr);
+        {
+            let q = quad(a_curr);
+            if q > 0.0 && (kl_curr - q).abs() / q <= config.readout_tol_rel {
+                plan.readout_kl_radius =
+                    Some(plan.readout_kl_radius.map_or(a_curr, |r| r.max(a_curr)));
+            }
+        }
+        if (kl_curr - target_nats).abs() / target_nats <= config.tol_rel {
+            plan.converged = true;
+            break;
+        }
+        // Secant update on f(a) = KL(a) − q*, with a quadratic-rescale fallback
+        // whenever the secant denominator degenerates or leaves the positive axis.
+        let f_prev = kl_prev - target_nats;
+        let f_curr = kl_curr - target_nats;
+        let denom = f_curr - f_prev;
+        let rescale = a_curr * (target_nats / kl_curr.max(f64::MIN_POSITIVE)).sqrt();
+        let a_next = if denom.abs() > 0.0 {
+            let step = a_curr - f_curr * (a_curr - a_prev) / denom;
+            if step.is_finite() && step > 0.0 {
+                step
+            } else {
+                rescale
+            }
+        } else {
+            rescale
+        };
+        a_prev = a_curr;
+        kl_prev = kl_curr;
+        a_curr = a_next.max(f64::MIN_POSITIVE);
+    }
+    Ok(plan)
 }
 
 /// Does this provenance carry behavioral (output-Fisher) information? Euclidean
@@ -535,17 +844,47 @@ fn metric_carries_behavior(p: MetricProvenance) -> bool {
 
 /// Evaluate the decoder output `g_k(t) = Φ_k(t) B_k ∈ ℝ^p` at an arbitrary
 /// latent coordinate `t` (length `d`) via the atom's installed evaluator.
-fn decode_at(atom: &SaeManifoldAtom, t: &[f64]) -> Result<Array1<f64>, String> {
+///
+/// `scale` is the owning term's Tier-0 column scale (`term.tier0_scale()`):
+/// under standardization/equilibration the fitted decoder lives in the
+/// internal per-column frame `B_int[:,c] = B_raw[:,c]/σ_c`, while the row
+/// metric `M = UUᵀ` is always built from raw activation-space probes. Every
+/// steering quantity that meets the metric (chords, tangents, doses) must
+/// therefore be mapped back to raw units, `g_raw[c] = σ_c·g_int[c]` (gh#2249
+/// calibration confound; the Tier-0 MEAN cancels in every consumer here
+/// because only chords/tangents are used, never absolute decodes).
+fn decode_at(
+    atom: &SaeManifoldAtom,
+    t: &[f64],
+    scale: Option<&Array1<f64>>,
+) -> Result<Array1<f64>, String> {
     let d = t.len();
     let coords = Array2::from_shape_vec((1, d), t.to_vec())
         .map_err(|e| format!("steer_delta::decode_at: coord shape: {e}"))?;
-    Ok(atom.decode_at_coords(coords.view())?.row(0).to_owned())
+    let mut out = atom.decode_at_coords(coords.view())?.row(0).to_owned();
+    if let Some(scale) = scale {
+        if scale.len() != out.len() {
+            return Err(format!(
+                "steer_delta::decode_at: tier0 scale length {} != output_dim {}",
+                scale.len(),
+                out.len()
+            ));
+        }
+        for (v, &s) in out.iter_mut().zip(scale.iter()) {
+            *v *= s;
+        }
+    }
+    Ok(out)
 }
 
 /// Evaluate the decoder tangents `∂g_k/∂t_a = Φ_k'(t) B_k ∈ ℝ^p`, one per latent
 /// axis `a ∈ 0..d`, at an arbitrary latent coordinate `t`. Returned as a
 /// `(p × d)` matrix whose column `a` is the tangent along axis `a`.
-fn decode_tangents_at(atom: &SaeManifoldAtom, t: &[f64]) -> Result<Array2<f64>, String> {
+fn decode_tangents_at(
+    atom: &SaeManifoldAtom,
+    t: &[f64],
+    scale: Option<&Array1<f64>>,
+) -> Result<Array2<f64>, String> {
     let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
         "steer_delta::decode_tangents_at: atom has no installed basis evaluator".to_string()
     })?;
@@ -578,6 +917,17 @@ fn decode_tangents_at(atom: &SaeManifoldAtom, t: &[f64]) -> Result<Array2<f64>, 
             for out_col in 0..p {
                 tang[[out_col, axis]] += dphi * decoder[[basis_col, out_col]];
             }
+        }
+    }
+    if let Some(scale) = scale {
+        if scale.len() != p {
+            return Err(format!(
+                "steer_delta::decode_tangents_at: tier0 scale length {} != output_dim {p}",
+                scale.len()
+            ));
+        }
+        for (out_col, &s) in scale.iter().enumerate() {
+            tang.row_mut(out_col).mapv_inplace(|v| v * s);
         }
     }
     Ok(tang)
@@ -687,6 +1037,10 @@ fn solve_spd_small(gram: &Array2<f64>, rhs: &Array1<f64>) -> Array1<f64> {
 /// its helpers take a single context rather than a long argument list.
 struct SteerContext<'a> {
     atom: &'a SaeManifoldAtom,
+    /// Tier-0 column scale of the owning term, when standardization /
+    /// equilibration is installed: decodes must be un-scaled back to raw
+    /// activation units before they meet the (always raw-frame) row metric.
+    scale: Option<&'a Array1<f64>>,
     metric: &'a RowMetric,
     /// The row whose per-row metric the dose is measured through.
     row: usize,
@@ -732,7 +1086,7 @@ fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64]) -> Result<f64, String
     let amp = ctx.amplitude;
 
     // Initial-tangent linear output move per unit τ: v0 = (∂g/∂t|_{t_from}) Δt.
-    let tang0 = decode_tangents_at(ctx.atom, t_from)?;
+    let tang0 = decode_tangents_at(ctx.atom, t_from, ctx.scale)?;
     let mut v0 = Array1::<f64>::zeros(p);
     for i in 0..p {
         let mut acc = 0.0_f64;
@@ -748,12 +1102,12 @@ fn validity_radius(ctx: &SteerContext<'_>, t_from: &[f64]) -> Result<f64, String
         return Ok(full_len);
     }
 
-    let g_from = decode_at(ctx.atom, t_from)?;
+    let g_from = decode_at(ctx.atom, t_from, ctx.scale)?;
     let steps = STEER_VALIDITY_STEPS;
     for s in 0..steps {
         let tau = (s as f64 + 1.0) / steps as f64;
         let t_mid = path_coordinate(t_from, dt, ctx.periods, tau);
-        let g_tau = decode_at(ctx.atom, &t_mid)?;
+        let g_tau = decode_at(ctx.atom, &t_mid, ctx.scale)?;
         let mut chord = Array1::<f64>::zeros(p);
         for i in 0..p {
             chord[i] = amp * (g_tau[i] - g_from[i]);
@@ -910,7 +1264,11 @@ pub fn collateral_curve(
         let mut frames = Vec::with_capacity(n);
         for row in 0..n {
             let t: Vec<f64> = coords.row(row).to_vec();
-            frames.push(decode_tangents_at(&model.atoms[atom_idx], &t)?);
+            frames.push(decode_tangents_at(
+                &model.atoms[atom_idx],
+                &t,
+                model.tier0_scale(),
+            )?);
         }
         Ok(frames)
     };

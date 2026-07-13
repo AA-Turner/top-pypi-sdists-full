@@ -7,7 +7,7 @@
 //! outer alternation (including its Λ nursery→promotion births), the #977/#997
 //! evidence-guarded structure search, every post-fit diagnostic
 //! (shape-uncertainty bands, trust/fit reports, coordinate fidelity, …), and
-//! the #1231/#1232 hard top-k projection split. A binding only needs to assemble
+//! the coherent fitted-model diagnostics. A binding only needs to assemble
 //! the incoming arrays into a configured [`SaeManifoldTerm`] and typed
 //! [`SaeFitRequest`], execute [`run_sae_manifold_fit`] on its worker thread, and
 //! marshal the returned [`SaeFitReport`].
@@ -31,6 +31,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use gam_math::probability::beta_quantile;
+use gam_problem::topology_certificates::CertificateLedger;
 use gam_problem::{EstimationError, MetricProvenance};
 use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
 use gam_solve::rho_optimizer::{OuterProblem, OuterResult};
@@ -42,9 +43,10 @@ use gam_terms::inference::structure_evidence::StructureLedger;
 use crate::structure_harvest;
 
 use super::{
-    AssignmentMode, SaeFitAssignmentKind, SaeManifoldFitDiagnostics, SaeManifoldLoss,
-    SaeManifoldOuterObjective, SaeManifoldRho, SaeManifoldTerm, SaeOuterTermination,
-    SaeShapeUncertainty, SaeTrustDiagnostics,
+    AmortizedEncoderConsistency, AssignmentMode, CoordinateFidelityCertificate,
+    SaeManifoldFitDiagnostics, SaeManifoldLoss, SaeManifoldOuterObjective, SaeManifoldRho,
+    SaeManifoldTerm, SaeOuterTermination, SaeOuterVerdict, SaeShapeUncertainty,
+    SaeTrustDiagnostics, TopologyPersistenceCertificate,
 };
 
 /// Hard cap on evidence-certified #2021 whitened-residual refit passes.
@@ -60,10 +62,11 @@ pub const STRUCTURED_RESIDUAL_PASSES_DEFAULT: usize = 2;
 /// A dictionary that explains the target to within this bound leaves only the
 /// fit's own numerical-convergence noise as "residual": there is genuinely no
 /// structured covariance to whiten. Fitting a residual-covariance model on that
-/// noise is DEGENERATE — the idiosyncratic diagonal `D` collapses toward zero
-/// (it is floored only at `f64::MIN_POSITIVE` in `residual_factor::fit_fixed_rank`),
+/// noise is DEGENERATE — the idiosyncratic diagonal `D` collapses toward its
+/// floor (`residual_factor` floors it at `1e-6 · mean_var`, still ~6 orders
+/// below a genuine noise scale on near-noiseless data),
 /// the whitening metric `1/D` becomes near-singular, and the whitened-residual
-/// REML the outer ρ-optimizer then descends is ill-conditioned with NO interior
+/// penalized quasi-Laplace criterion the outer ρ-optimizer then descends is ill-conditioned with no interior
 /// stationary point. The outer correctly refuses to certify a non-stationary
 /// optimum, so a fit that SHOULD succeed (its iid pass-0 already certified)
 /// instead fails. Skipping the structured pass when there is nothing to model is
@@ -149,7 +152,7 @@ fn sae_structured_residual_model(
     // numerical precision, the residual is pure convergence noise with no
     // structured covariance to model. Fitting a residual-factor model on it
     // collapses the idiosyncratic diagonal `D → 0`, the whitening `1/D` goes
-    // near-singular, and the whitened-residual REML the outer optimizer descends
+    // near-singular, and the whitened-residual penalized quasi-Laplace criterion the outer optimizer descends
     // has no interior stationary point (a fit that SHOULD certify then refuses).
     // Degrade to the pass-0 iid fit (which already certified) instead. Scale-free:
     // the floor is on the residual energy RELATIVE to the target energy. See
@@ -191,11 +194,14 @@ fn sae_structured_residual_model(
 pub struct SaeFitReport {
     pub term: SaeManifoldTerm,
     pub rho: SaeManifoldRho,
-    /// The smooth-optimization penalized loss (the UNPROJECTED model's score).
+    /// Penalized loss of the fitted model.
     pub loss: SaeManifoldLoss,
-    /// The projected-model penalized loss when a hard top-k gate applied (#1232);
-    /// `None` when no projection was applied (top-level score is `loss`).
-    pub post_topk_loss: Option<SaeManifoldLoss>,
+    /// Terminal custom penalized quasi-Laplace criterion at the outer stationary
+    /// state, including its PSD/Gauss--Newton factor and rank charges and preceding any optional
+    /// image-frozen post-fit chart canonicalization. It is not normalized
+    /// LAML, REML, or model evidence, and it is not
+    /// `-loss.total()`.
+    pub penalized_quasi_laplace_criterion: f64,
     pub assignments: Array2<f64>,
     pub fitted: Array2<f64>,
     pub active_mask: Vec<bool>,
@@ -206,17 +212,17 @@ pub struct SaeFitReport {
     pub structured_residual_diagnostics: Vec<StructuredResidualPassDiagnostic>,
     pub trust_diagnostics: SaeTrustDiagnostics,
     pub fit_diagnostics: SaeManifoldFitDiagnostics,
+    /// Consistency of the fitted native encoder with the converged latent solve.
+    pub amortized_encoder_consistency: AmortizedEncoderConsistency,
+    /// Unified conservative certificate ledger assembled from this fit's reports.
+    pub certificate_ledger: CertificateLedger,
     /// Serialized per-round structure-search ledger (#997) as a JSON string;
     /// `None` when the search did not run (skipped by K ceiling or
     /// `run_structure_search == false`).
     pub structure_search_json: Option<String>,
     /// The anytime-valid structure certificate (#1058/#984), serialized JSON.
     pub structure_certificate_json: String,
-    /// Whether a hard top-k gate projected the reported model (#1232).
-    pub top_k_will_project: bool,
-    pub pre_topk_assignments: Option<Array2<f64>>,
-    pub pre_topk_fitted: Option<Array2<f64>>,
-    /// The reported `log_alpha` (IBP concentration or the caller's α fallback).
+    /// The reported `log_alpha` (ordered Beta--Bernoulli concentration or the caller's α fallback).
     pub reported_log_alpha: f64,
 }
 
@@ -375,14 +381,20 @@ pub struct SaeFitRequest {
     pub learning_rate: f64,
     pub ridge_ext_coord: f64,
     pub ridge_beta: f64,
-    pub assignment_kind: SaeFitAssignmentKind,
     pub alpha: f64,
-    pub top_k: Option<usize>,
     pub isometry_pin_active: bool,
     pub metric_provenance: &'static str,
     pub promote_from_residual: bool,
     pub run_structure_search: bool,
     pub run_outer_rho_search: bool,
+    /// Number of structured-residual whitening passes (each installs a NEW
+    /// row-metric likelihood and re-runs the entire outer ρ search). `None` =
+    /// the historical default ([`STRUCTURED_RESIDUAL_PASSES_DEFAULT`] = 2);
+    /// `Some(0)` = the UNBUNDLED direct path: seed → single certified fit on
+    /// the iid likelihood. Together with `promote_from_residual = false` and
+    /// `run_structure_search = false` this is the stage-5 "which path did my
+    /// fit take" answer: exactly one.
+    pub structured_residual_passes: Option<usize>,
     pub cancel: Option<Arc<AtomicBool>>,
 }
 
@@ -431,26 +443,93 @@ pub fn run_sae_manifold_fit(mut request: SaeFitRequest) -> Result<SaeFitReport, 
     for mut row in request.target.rows_mut() {
         row -= &mu;
     }
+    // Tier-0 INPUT STANDARDIZATION — the conditioning half of the peel. There is
+    // no column equilibration anywhere else in the fit path, so a raw activation
+    // target's column-norm spread (measured ~1.3e4, joint Hessian κ ≈ 1e8 on
+    // #2015) directly sets the linear contraction rate of the majorized inner
+    // solver — the driver of the "~1e3 iterations then refusal" wall. Fit on
+    // `(Z − μ)/σ` with σ_c the per-column RMS of the centered target; the term
+    // stores σ next to μ and every reconstruction lifts back exactly
+    // (`μ + σ ⊙ x̂` in `add_tier0_mean_inplace`), so the model is self-contained
+    // in raw units and reconstruction is exact by construction — only the
+    // optimization geometry (and the equal-column-weight penalty pricing, the
+    // intended modeling change) differs.
+    //
+    // Gates: (a) a column whose centered RMS is below `√ε · max σ` is
+    // numerically empty — standardizing it would amplify representation noise,
+    // so it keeps unit scale (the scalar-type-derived floor, no tuning);
+    // (b) behavior / crosscoder fits are excluded: their targets carry the
+    // `√λ_y`-scaled block-encoding whose column magnitudes ARE the model (the
+    // λ_y Jacobian identity), not conditioning noise.
+    let standardizable = request.base_term.behavior.is_none()
+        && request.base_term.crosscoder_layout.is_none()
+        && request.target.nrows() > 0;
+    let sigma = if standardizable {
+        let n = request.target.nrows() as f64;
+        let mut sigma = Array1::<f64>::zeros(request.target.ncols());
+        for (col_idx, col) in request.target.columns().into_iter().enumerate() {
+            sigma[col_idx] = (col.iter().map(|v| v * v).sum::<f64>() / n).sqrt();
+        }
+        let sigma_max = sigma.iter().cloned().fold(0.0_f64, f64::max);
+        if sigma_max.is_finite() && sigma_max > 0.0 {
+            let floor = sigma_max * f64::EPSILON.sqrt();
+            for s in sigma.iter_mut() {
+                if !(*s > floor) {
+                    *s = 1.0;
+                }
+            }
+            for mut row in request.target.rows_mut() {
+                row /= &sigma;
+            }
+            // The standardization is a CHANGE OF COORDINATES on the output
+            // space, so it must map EVERY fit input into the internal frame —
+            // the target AND the seed state. The seed was constructed by the
+            // caller in raw units; leaving its decoder raw would hand the fit
+            // a warm start mis-scaled by up to the per-column RMS ratio
+            // (x̂_int must satisfy σ ⊙ x̂_int ≈ x_raw ⇒ B_int[:,c] =
+            // B_raw[:,c]/σ_c). Latent coordinates and gate logits are
+            // unit-free and untouched; a cold all-zero decoder is a no-op.
+            for atom in &mut request.base_term.atoms {
+                for (col_idx, s) in sigma.iter().enumerate() {
+                    for coeff in atom.decoder_coefficients.column_mut(col_idx).iter_mut() {
+                        *coeff /= *s;
+                    }
+                }
+            }
+            Some(sigma)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let mut report = run_sae_manifold_fit_on_target(request)?;
     report
         .term
         .set_tier0_mean(mu.clone())
         .map_err(SaeFitError::Fit)?;
-    // Lift the reported reconstructions back to raw-target space (the fit produced
-    // them against `Z − μ`); assignment masses carry no mean and are untouched.
-    add_tier0_mean_rows(&mut report.fitted, &mu);
-    if let Some(pre_topk) = report.pre_topk_fitted.as_mut() {
-        add_tier0_mean_rows(pre_topk, &mu);
+    if let Some(sigma) = sigma.as_ref() {
+        report
+            .term
+            .set_tier0_scale(sigma.clone())
+            .map_err(SaeFitError::Fit)?;
     }
+    // Lift the reported reconstructions back to raw-target space (the fit produced
+    // them against `(Z − μ)/σ`); assignment masses carry no mean/scale and are
+    // untouched.
+    lift_tier0_rows(&mut report.fitted, &mu, sigma.as_ref());
     Ok(report)
 }
 
-/// Add the Tier-0 shared mean `mu` (length `p`) to every row of an `N×p`
-/// reconstruction produced against the de-meaned target, lifting it back to
-/// raw-target space. Mirrors [`SaeManifoldTerm::add_tier0_mean_inplace`] for the
-/// report's standalone reconstruction arrays.
-fn add_tier0_mean_rows(recon: &mut Array2<f64>, mu: &Array1<f64>) {
+/// Lift an `N×p` reconstruction produced against the standardized de-meaned
+/// target back to raw-target space: `x̂ ← μ + σ ⊙ x̂`. Mirrors
+/// [`SaeManifoldTerm::add_tier0_mean_inplace`] for the report's standalone
+/// reconstruction arrays.
+fn lift_tier0_rows(recon: &mut Array2<f64>, mu: &Array1<f64>, sigma: Option<&Array1<f64>>) {
     for mut row in recon.rows_mut() {
+        if let Some(sigma) = sigma {
+            row *= sigma;
+        }
         row += mu;
     }
 }
@@ -469,14 +548,13 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         learning_rate,
         ridge_ext_coord,
         ridge_beta,
-        assignment_kind,
         alpha,
-        top_k,
         isometry_pin_active,
         metric_provenance: metric_provenance_initial,
         promote_from_residual,
         run_structure_search,
         run_outer_rho_search,
+        structured_residual_passes,
         cancel,
     } = request;
     let (n_obs, p_out) = z.dim();
@@ -485,6 +563,10 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     // The seed ρ vector the outer engine optimizes; its length is the objective's
     // declared `n_params`.
     let init_rho = init_rho.for_assignment(base_term.assignment.mode);
+    base_term
+        .assignment
+        .validate_rho_domain(&init_rho)
+        .map_err(SaeFitError::Fit)?;
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
 
@@ -525,7 +607,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         // the banked incumbent as the warm start and open the ρ search at the
         // banked coordinate. The resumed run must still CONVERGE on its own —
         // a checkpoint never mints a fit, it only saves the work.
-        let search_init_rho = match objective.try_resume_from_checkpoint(n_params) {
+        let search_init_rho = match objective.try_resume_from_checkpoint(n_params)? {
             Some(banked) => ndarray::Array1::from(banked),
             None => init_rho_flat.clone(),
         };
@@ -563,6 +645,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     let mut term = fitted_result.term;
     let mut rho = fitted_result.rho;
     let mut loss = fitted_result.loss;
+    let mut penalized_quasi_laplace_criterion = fitted_result.penalized_quasi_laplace_criterion;
 
     // #2021 (EXPERIMENT) — structured-residual OUTER ALTERNATION.
     // Pass 0 above is the iid fit (unchanged, bit-for-bit). When the caller's
@@ -583,13 +666,14 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     // (or, on the first structured pass, the MEASURED iid anchor φ̂·I —
     // `isotropic_dispersion`, #2243 cap #2: a unit-I anchor assumed unit noise,
     // so near-noiseless factors were whitened ~1/φ̂ too coarsely and the
-    // unit-dispersion REML criterion over-penalized them; anchoring at the
+    // unit-dispersion penalized quasi-Laplace criterion over-penalized them; anchoring at the
     // measured scale prices the smoothing penalty against the real
     // dispersion). A small, increasing γ schedule
     // γ_p = (p+1)/(N+1) ∈ (0,1) trusts the new estimate more each pass while
     // damping the early jump off the iid fit (γ is never 0 or 1, so every pass
     // builds a genuine WhitenedStructured blend).
-    let structured_passes = STRUCTURED_RESIDUAL_PASSES_DEFAULT;
+    let structured_passes =
+        structured_residual_passes.unwrap_or(STRUCTURED_RESIDUAL_PASSES_DEFAULT);
     let mut structured_residual_diagnostics: Vec<StructuredResidualPassDiagnostic> = Vec::new();
     if structured_passes > 0 && metric_provenance == "Euclidean" {
         let mut prev_model: Option<StructuredResidualModel> = None;
@@ -668,7 +752,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
             // Resume only the checkpoint for this exact structured phase. Earlier
             // phases have already been deterministically rebuilt on this run;
             // their distinct files cannot leak a differently-whitened state here.
-            let search_init_rho = match objective.try_resume_from_checkpoint(warm_flat.len()) {
+            let search_init_rho = match objective.try_resume_from_checkpoint(warm_flat.len())? {
                 Some(banked) => ndarray::Array1::from(banked),
                 None => warm_flat,
             };
@@ -709,6 +793,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
             term = fitted_result.term;
             rho = fitted_result.rho;
             loss = fitted_result.loss;
+            penalized_quasi_laplace_criterion = fitted_result.penalized_quasi_laplace_criterion;
             structured_residual_diagnostics.push(StructuredResidualPassDiagnostic {
                 pass: pass + 1,
                 gamma,
@@ -841,61 +926,33 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         if !run_structure_search {
             break 'structure None;
         }
-        // #1026 — structure search is a post-fit DISCOVERY pass: each round refits
-        // the full dictionary over ALL N rows. Scale rounds down with K and SKIP
-        // entirely past a ceiling so a fixed-K performance run returns the fitted
-        // dictionary without paying the search.
-        let structure_max_rounds = {
-            let k_now = term.k_atoms().max(1);
-            if k_now <= 2 {
-                3
-            } else if k_now <= 8 {
-                2
-            } else if k_now <= 64 {
-                1
-            } else {
-                0
-            }
-        };
-        if structure_max_rounds == 0 {
-            break 'structure None;
-        }
-        // Per-round harvest breadth derived from the fitted K (magic-by-default):
-        // propose at most a handful of each move kind, scaled gently with the
-        // dictionary size, with a small fixed floor so even a K=1 fit can grow.
-        let k_now = term.k_atoms().max(1);
-        let births_per_round = (k_now + 1).min(4);
-        let fissions_per_round = k_now.min(4);
+        // Structure search is a convergent greedy coordinate search. Each round
+        // proposes the strongest birth, fission, and fusion direction, permits
+        // one certified structural move, refits it to convergence, and repeats
+        // until a round applies no move. This keeps candidate memory bounded
+        // independently of K and p without a size-dependent skip or round cap.
         let harvest_params = structure_harvest::HarvestParams {
-            max_fusions: 4,
-            max_fissions: fissions_per_round,
-            max_births: births_per_round,
+            max_fusions: 1,
+            max_fissions: 1,
+            max_births: 1,
         };
-        // The per-candidate scoring refit is capped well below the outer fit's
-        // `max_iter`: a structural move yields a WARM child, so only the touched
-        // atom must re-equilibrate before the held-out evidence gate can rank the
-        // candidate. Each round's accepted winner is re-refit at the full
-        // `max_iter` before adoption (#1026, verified move-equivalent).
-        const STRUCTURE_SCORING_INNER_MAX_ITER: usize = 8;
         let refit_params = structure_harvest::ProductionRefitParams {
             inner_max_iter: max_iter,
-            scoring_inner_max_iter: STRUCTURE_SCORING_INNER_MAX_ITER.min(max_iter),
             learning_rate,
             ridge_ext_coord,
             ridge_beta,
         };
-        // Moves that may LAND this round (accepted births/fissions/fusions +
-        // demoted deaths); remaining proposals are recorded `Deferred` and
-        // replayed next round. Magic-by-default — a function of the fitted K.
-        let max_moves = k_now + births_per_round + fissions_per_round;
         let budget = MoveBudget {
-            max_moves,
+            max_moves: 1,
             alpha: 0.05,
         };
+        // The evaluation half is streamed one row per shard. The shard count is
+        // therefore derived from the sample size rather than an optimization
+        // knob, while memory remains O(N) for the row-index partition.
+        let n_shards = n_obs.saturating_sub(n_obs / 2).max(1);
         let config = structure_harvest::RoundDriverConfig {
-            n_shards: 4,
+            n_shards,
             budget,
-            max_rounds: structure_max_rounds,
             harvest_params,
             // Curl/flatten structure moves stay off in the production path until
             // the killer-demo gate graduates them (INTEGRATION_PLAN §8).
@@ -913,7 +970,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
                 structure_changed = result.structure_changed();
                 term = result.term;
                 rho = result.rho;
-                structure_harvest::rounds_to_json(&result.rounds).ok()
+                Some(structure_harvest::rounds_to_json(&result.rounds)?)
             }
             Err(e) => {
                 // Structure search is a post-fit audit pass; a failure must not
@@ -945,15 +1002,12 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     // #977 / #1230 — recompute the joint-Hessian shape bands when structure
     // search changed the model OR a finalization fallback fired: the pre-search
     // bands are stale. Rebuild the JOINT inverse-Hessian bands from the FINAL
-    // term + ρ for EVERY atom (seed and born); on a non-PD post-search Hessian
-    // fall back to the per-atom Laplace completion below.
+    // term + ρ for EVERY atom (seed and born). Failure to reform the final
+    // joint covariance is an inference failure, not a reason to substitute a
+    // different per-atom covariance model.
     if structure_changed || finalization_invalidated_shape_uncertainty {
         let joint_registry = registry.clone();
-        // Snapshot the fitted term: the optional joint recompute mutates `term`
-        // while re-solving, so a recoverable refusal must not leave the actual
-        // fitted model perturbed. Restore it before degrading to per-atom bands.
-        let saved_term_for_shape_recompute = term.clone();
-        match term.recompute_joint_shape_uncertainty(
+        shape_uncertainty = term.recompute_joint_shape_uncertainty(
             z.view(),
             &rho,
             Some(&joint_registry),
@@ -961,148 +1015,90 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
             learning_rate,
             ridge_ext_coord,
             ridge_beta,
+        )?;
+        // The certificate dispersion was seeded from the (now stale) φ̂;
+        // refresh it to the final joint recompute's value.
+        term.set_certificate_dispersion(shape_uncertainty.dispersion)?;
+    }
+    if shape_uncertainty.atoms.len() != term.k_atoms() {
+        return Err(SaeFitError::Fit(
+            "final joint shape uncertainty does not match the fitted atom count".to_string(),
+        ));
+    }
+    for (atom_idx, uncertainty) in shape_uncertainty.atoms.iter().enumerate() {
+        match (
+            &uncertainty.band_coords,
+            &uncertainty.band_mean,
+            &uncertainty.band_sd,
         ) {
-            Ok(joint) => {
-                shape_uncertainty = joint;
-                // The certificate dispersion was seeded from the (now stale)
-                // pre-search φ̂; refresh it to the joint recompute's final value.
-                term.set_certificate_dispersion(shape_uncertainty.dispersion)?;
+            (None, None, None) => {
+                if uncertainty.decoder_covariance.is_some() || uncertainty.band_sd_robust.is_some()
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has a partial unavailable shape-uncertainty payload"
+                    )));
+                }
             }
-            Err(e) => {
-                term = saved_term_for_shape_recompute;
-                // The joint factor could not be reformed at the final state. Fall
-                // back to the per-atom Laplace completion: invalidate the stale
-                // joint bands so `complete_born_atom_shape_bands` refills each from
-                // its OWN penalized inner Hessian.
-                log::warn!(
-                    "[shape-uncertainty] joint band recompute after structure/finalization \
-                     change failed ({e}); falling back to per-atom Laplace bands"
-                );
-                shape_uncertainty.invalidate_bands_for_recompute();
+            (Some(coords), Some(mean), Some(sd)) => {
+                if coords.nrows() != mean.nrows()
+                    || mean.dim() != sd.dim()
+                    || coords
+                        .iter()
+                        .chain(mean.iter())
+                        .chain(sd.iter())
+                        .any(|value| !value.is_finite())
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has inconsistent or non-finite joint shape uncertainty"
+                    )));
+                }
+                if let Some(covariance) = &uncertainty.decoder_covariance
+                    && covariance.iter().any(|value| !value.is_finite())
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has non-finite decoder covariance"
+                    )));
+                }
+                if let Some(robust) = &uncertainty.band_sd_robust
+                    && (robust.dim() != sd.dim() || robust.iter().any(|value| !value.is_finite()))
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has inconsistent robust shape uncertainty"
+                    )));
+                }
+            }
+            _ => {
+                return Err(SaeFitError::Fit(format!(
+                    "atom {atom_idx} has a partial joint shape-uncertainty band"
+                )));
             }
         }
     }
-    // Backstop: fill any atom the joint factor left unidentified (all-NaN) — a
-    // structure-search-born atom the pre-search Schur never covered, or a
-    // degenerate joint block — from its own inner Hessian. A no-op after a
-    // successful joint recompute.
-    term.complete_born_atom_shape_bands(&mut shape_uncertainty)?;
 
     // Additive post-fit diagnostics (#980): the two-score per-atom lens and the
     // residual-gauge certificate. Per-atom ARD variances (∝ exp(−log_precision))
     // are threaded in when native ARD was enabled, else `None` per atom.
-    let ard_variances: Vec<Option<Array1<f64>>> = rho
-        .log_ard
+    term.assignment
+        .validate_rho_domain(&rho)
+        .map_err(SaeFitError::Fit)?;
+    let ard_variances: Vec<Option<Array1<f64>>> = term
+        .validated_ard_precisions(&rho)
+        .map_err(SaeFitError::Fit)?
         .iter()
-        .map(|log_prec| {
-            if log_prec.is_empty() {
+        .map(|precision| {
+            if precision.is_empty() {
                 None
             } else {
-                Some(log_prec.mapv(|lp| (-lp).exp()))
+                Some(precision.mapv(|alpha| alpha.recip()))
             }
         })
         .collect();
-    let mut assignments = term.assignment.assignments();
-    let mut fitted = term.try_fitted_target_aware(z.view(), Some(&rho))?;
-    // #1232 — when a hard top-k gate is applied, the smooth optimization model
-    // differs from the projected inference model returned on the payload. Capture
-    // the optimization-era state before projection so the payload can expose both
-    // layers honestly.
-    let top_k_will_project = top_k.is_some_and(|k_top| k_top < k_atoms);
-    let pre_topk_assignments = if top_k_will_project {
-        Some(assignments.clone())
-    } else {
-        None
-    };
-    let pre_topk_fitted = if top_k_will_project {
-        Some(fitted.clone())
-    } else {
-        None
-    };
-    // Apply hard top-k projection per row, then recompute `fitted` from the
-    // projected assignments so the returned `assignments` and `fitted` stay
-    // mutually consistent. Smooth softmax (or IBP/JumpReLU) drives optimisation;
-    // the hard top-k gate is applied at inference time. For softmax mode the kept
-    // entries are renormalised; for the other modes they retain their unnormalised
-    // values.
-    let mut post_topk_loss: Option<SaeManifoldLoss> = None;
-    if let Some(k_top) = top_k {
-        if k_top < k_atoms {
-            let n_obs_local = z.nrows();
-            let renormalise = assignment_kind == SaeFitAssignmentKind::Softmax;
-            for row in 0..n_obs_local {
-                // Collect (value, atom_idx) pairs; pick the indices of the
-                // largest k_top values via an O(K) partial selection. The
-                // comparator (value desc, then atom index asc) is the total order
-                // the sort used, so the partition's first `k_top` elements are the
-                // sorted top-k_top set (identical `keep` mask, tie-breaking incl.).
-                let mut paired: Vec<(f64, usize)> = (0..k_atoms)
-                    .map(|atom_idx| (assignments[[row, atom_idx]], atom_idx))
-                    .collect();
-                let cmp = |a: &(f64, usize), b: &(f64, usize)| {
-                    b.0.partial_cmp(&a.0)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then(a.1.cmp(&b.1))
-                };
-                if k_top < k_atoms {
-                    paired.select_nth_unstable_by(k_top - 1, cmp);
-                }
-                let mut keep = vec![false; k_atoms];
-                for &(_, atom_idx) in paired.iter().take(k_top) {
-                    keep[atom_idx] = true;
-                }
-                if renormalise {
-                    let mut kept_sum = 0.0_f64;
-                    for atom_idx in 0..k_atoms {
-                        if keep[atom_idx] {
-                            kept_sum += assignments[[row, atom_idx]];
-                        }
-                    }
-                    if kept_sum > 0.0 {
-                        for atom_idx in 0..k_atoms {
-                            assignments[[row, atom_idx]] = if keep[atom_idx] {
-                                assignments[[row, atom_idx]] / kept_sum
-                            } else {
-                                0.0
-                            };
-                        }
-                    } else {
-                        // Pathological case: all kept entries are zero. Fall
-                        // back to uniform mass over the kept indices so the
-                        // contract `assignments.sum(axis=1) == 1` still holds.
-                        let inv = 1.0 / (k_top as f64);
-                        for atom_idx in 0..k_atoms {
-                            assignments[[row, atom_idx]] = if keep[atom_idx] { inv } else { 0.0 };
-                        }
-                    }
-                } else {
-                    for atom_idx in 0..k_atoms {
-                        if !keep[atom_idx] {
-                            assignments[[row, atom_idx]] = 0.0;
-                        }
-                    }
-                }
-            }
-            // Recompute `fitted` from the projected assignments through the
-            // SHARED collapse-aware assembler so the hard top-k projection
-            // composes with the #1026 hybrid collapse (#1233).
-            fitted =
-                term.reconstruct_from_assignments_target_aware(z.view(), assignments.view())?;
-            // #1232 — projected-model penalized loss: the reconstruction data-fit
-            // recomputed on the projected `fitted`, with the decoder/ρ penalties
-            // carried over unchanged (the top-k gate touches assignments, not the
-            // decoder smoothness / ARD / assignment-prior strength).
-            let projected_data_fit = term.data_fit_for_reconstruction(z.view(), fitted.view())?;
-            post_topk_loss = Some(SaeManifoldLoss {
-                data_fit: projected_data_fit,
-                ..loss
-            });
-        }
-    }
+    let assignments = term.assignment.assignments();
+    let fitted = term.try_fitted_target_aware(z.view(), Some(&rho))?;
     term.record_fit_data_collapse_if_needed(z.view(), fitted.view(), assignments.view(), max_iter)?;
     let trust_diagnostics = term.trust_diagnostics_report(assignments.view())?;
-    // Assignment-support diagnostics (atom lens) must read the SAME assignments
-    // the payload exposes — after any hard top-k projection (#1232).
+    // Assignment-support diagnostics read the exact assignments used by the
+    // reconstruction and objective.
     let fit_diagnostics = term.fit_diagnostics_report(
         Some(&ard_variances),
         isometry_pin_active,
@@ -1110,6 +1106,18 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         fitted.view(),
         Some(assignments.view()),
     )?;
+    let amortized_encoder_consistency = term.amortized_encoder_consistency(z.view(), &rho)?;
+    let mut certificate_ledger = CertificateLedger::new();
+    certificate_ledger.record(&fit_diagnostics.residual_gauge);
+    certificate_ledger.record(&CoordinateFidelityCertificate::new(
+        &fit_diagnostics.coordinate_fidelity,
+    ));
+    certificate_ledger.record(&TopologyPersistenceCertificate::new(
+        &fit_diagnostics.topology_persistence,
+    ));
+    if let Some(report) = &fit_diagnostics.incoherence_report {
+        certificate_ledger.record(report);
+    }
 
     let active_mask: Vec<bool> = (0..k_atoms)
         .map(|atom_idx| assignments.column(atom_idx).sum() > 1.0e-8)
@@ -1139,13 +1147,15 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     let reconstruction_r2 = if tss > 0.0 { 1.0 - rss / tss } else { 0.0 };
 
     let reported_log_alpha = match term.assignment.mode {
-        AssignmentMode::IBPMap { alpha, .. } => alpha.ln(),
+        AssignmentMode::OrderedBetaBernoulli { alpha, .. } => alpha.ln(),
         _ => alpha.ln(),
     };
 
     // Anytime-valid structure certificate (#1058 / #984): the e-BH certificate
     // over the ledger's per-claim e-processes at the search FDR level α = 0.05.
-    let structure_certificate = structure_ledger.certify(0.05);
+    let structure_certificate = structure_ledger
+        .certify(0.05)
+        .map_err(|error| error.to_string())?;
     let structure_certificate_json =
         serde_json::to_string(&structure_certificate).map_err(|e| e.to_string())?;
 
@@ -1153,7 +1163,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         term,
         rho,
         loss,
-        post_topk_loss,
+        penalized_quasi_laplace_criterion,
         assignments,
         fitted,
         active_mask,
@@ -1164,11 +1174,364 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         structured_residual_diagnostics,
         trust_diagnostics,
         fit_diagnostics,
+        amortized_encoder_consistency,
+        certificate_ledger,
         structure_search_json,
         structure_certificate_json,
-        top_k_will_project,
-        pre_topk_assignments,
-        pre_topk_fitted,
+        reported_log_alpha,
+    })
+}
+
+/// Fully typed request for the EVALUATION-ONLY certification entry (#2266):
+/// diagnostics + certificates for an externally-trained (torch-lane) fit,
+/// WITHOUT running any closed-form solve. `base_term` must already carry the
+/// external decoder / coordinates / gate logits exactly as a fit seed would
+/// (mirrors [`SaeFitRequest::base_term`]); `initial_rho` is installed as the
+/// certified ρ verbatim — the only transform applied is
+/// [`SaeManifoldRho::for_assignment`], which binds the flat-layout tag to the
+/// term's assignment family and touches no numeric value.
+///
+/// There are deliberately no pipeline flags beyond `run_structure_search`: no
+/// `promote_from_residual`, no `run_outer_rho_search`, no
+/// `structured_residual_passes` — this entry never runs an outer search or an
+/// inner solve, so those switches have nothing to govern.
+pub struct SaeCertifyRequest {
+    pub base_term: SaeManifoldTerm,
+    pub target: Array2<f64>,
+    pub registry: AnalyticPenaltyRegistry,
+    pub initial_rho: SaeManifoldRho,
+    pub max_iter: usize,
+    pub learning_rate: f64,
+    pub ridge_ext_coord: f64,
+    pub ridge_beta: f64,
+    pub alpha: f64,
+    pub isometry_pin_active: bool,
+    pub metric_provenance: &'static str,
+    /// #977/#997 evidence-guarded structure search around the installed
+    /// state. Default TRUE at the binding boundary (magic-by-default, the
+    /// same policy the fit entry applies): certification is still a genuine
+    /// dictionary-discovery boundary, not a pass-through of the caller's K.
+    pub run_structure_search: bool,
+    /// No outer search and no inner solve run on this path, so nothing polls
+    /// this flag; kept only for typed symmetry with [`SaeFitRequest::cancel`].
+    pub cancel: Option<Arc<AtomicBool>>,
+}
+
+/// Evaluation-only certification entry (#2266). Installs an
+/// externally-trained (torch-lane) SAE-manifold state VERBATIM — no outer ρ
+/// search, no inner solve, no #2021 structured-residual alternation, no
+/// residual-promotion — and then runs exactly the post-fit
+/// diagnostics/certificate pipeline [`run_sae_manifold_fit`] runs after ITS
+/// own solve (shape-uncertainty bands, trust/fit reports, coordinate
+/// fidelity, the optional #977/#997 structure search, and the anytime-valid
+/// structure certificate). This is how a fit produced outside the closed-form
+/// engine gets the same certificates as a native fit, without pretending a
+/// first-order stationarity certificate exists for state this entry never
+/// optimized: `outer_termination.verdict` reports
+/// [`SaeOuterVerdict::External`], and `penalized_quasi_laplace_criterion` is
+/// documented as the penalized objective evaluated AT the provided state, not
+/// a certified stationary criterion.
+///
+/// KEEP IN SYNC WITH `run_sae_manifold_fit_on_target`'s postlude (#2266): the
+/// shared post-fit pipeline is duplicated here rather than extracted into a
+/// common helper, because the source function is under concurrent edit
+/// elsewhere in this workspace and an extraction risked colliding with that
+/// churn. A change to one postlude must be mirrored in the other.
+pub fn run_sae_manifold_certify(request: SaeCertifyRequest) -> Result<SaeFitReport, SaeFitError> {
+    let SaeCertifyRequest {
+        base_term,
+        target: z,
+        registry,
+        initial_rho,
+        max_iter,
+        learning_rate,
+        ridge_ext_coord,
+        ridge_beta,
+        alpha,
+        isometry_pin_active,
+        metric_provenance,
+        run_structure_search,
+        cancel: _cancel,
+    } = request;
+    let (n_obs, p_out) = z.dim();
+    let mut term = base_term;
+    // Bind the flat assignment-strength layout tag to the term's assignment
+    // family; this changes no numeric value, so `rho` is otherwise installed
+    // verbatim from the caller.
+    let mut rho = initial_rho.for_assignment(term.assignment.mode);
+    term.assignment
+        .validate_rho_domain(&rho)
+        .map_err(SaeFitError::Fit)?;
+
+    // No outer search / inner solve ran, so there is no just-converged joint
+    // Hessian factor to read off an outer objective (contrast
+    // `run_sae_manifold_fit_on_target`'s `objective.decoder_shape_uncertainty()`
+    // before `into_fitted`). Form the joint shape bands directly off the
+    // CURRENT term + rho — the same rebuild `run_sae_manifold_fit_on_target`
+    // uses when a post-search structural change stales its pre-search bands.
+    let mut shape_uncertainty = term.recompute_joint_shape_uncertainty(
+        z.view(),
+        &rho,
+        Some(&registry),
+        max_iter,
+        learning_rate,
+        ridge_ext_coord,
+        ridge_beta,
+    )?;
+
+    {
+        let assignments = term.assignment.assignments();
+        let fitted = term.try_fitted_target_aware(z.view(), Some(&rho))?;
+        term.record_fit_data_collapse_if_needed(
+            z.view(),
+            fitted.view(),
+            assignments.view(),
+            max_iter,
+        )?;
+    }
+
+    term.clear_row_loss_weights();
+    term.set_certificate_dispersion(shape_uncertainty.dispersion)?;
+    term.set_atom_inner_fits(z.view(), shape_uncertainty.dispersion)?;
+
+    // #977 / #997 — the same evidence-guarded structure search
+    // `run_sae_manifold_fit_on_target` runs around a native fit, applied here
+    // around the installed external state.
+    let mut structure_ledger = StructureLedger::new();
+    let mut structure_changed = false;
+    let structure_search_json = 'structure: {
+        if !run_structure_search {
+            break 'structure None;
+        }
+        let harvest_params = structure_harvest::HarvestParams {
+            max_fusions: 1,
+            max_fissions: 1,
+            max_births: 1,
+        };
+        let refit_params = structure_harvest::ProductionRefitParams {
+            inner_max_iter: max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        };
+        let budget = MoveBudget {
+            max_moves: 1,
+            alpha: 0.05,
+        };
+        let n_shards = n_obs.saturating_sub(n_obs / 2).max(1);
+        let config = structure_harvest::RoundDriverConfig {
+            n_shards,
+            budget,
+            harvest_params,
+            curl: None,
+        };
+        match structure_harvest::run_production_structure_search(
+            term,
+            rho,
+            z.view(),
+            config,
+            refit_params,
+            &mut structure_ledger,
+        ) {
+            Ok(result) => {
+                structure_changed = result.structure_changed();
+                term = result.term;
+                rho = result.rho;
+                Some(structure_harvest::rounds_to_json(&result.rounds)?)
+            }
+            Err(e) => {
+                return Err(SaeFitError::Fit(format!(
+                    "structure search around SAE certify entry failed: {e}"
+                )));
+            }
+        }
+    };
+
+    // The structure search may have changed K or refit the dictionary; the
+    // shape bands / certificate dispersion / atom inner fits formed above are
+    // then stale and must be rebuilt from the FINAL term + ρ, exactly as
+    // `run_sae_manifold_fit_on_target` does when its own `structure_changed`.
+    if structure_changed {
+        shape_uncertainty = term.recompute_joint_shape_uncertainty(
+            z.view(),
+            &rho,
+            Some(&registry),
+            max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        )?;
+        term.set_certificate_dispersion(shape_uncertainty.dispersion)?;
+        term.set_atom_inner_fits(z.view(), shape_uncertainty.dispersion)?;
+    }
+
+    let k_atoms = term.k_atoms();
+    if shape_uncertainty.atoms.len() != k_atoms {
+        return Err(SaeFitError::Fit(
+            "final joint shape uncertainty does not match the certified atom count".to_string(),
+        ));
+    }
+    for (atom_idx, uncertainty) in shape_uncertainty.atoms.iter().enumerate() {
+        match (
+            &uncertainty.band_coords,
+            &uncertainty.band_mean,
+            &uncertainty.band_sd,
+        ) {
+            (None, None, None) => {
+                if uncertainty.decoder_covariance.is_some() || uncertainty.band_sd_robust.is_some()
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has a partial unavailable shape-uncertainty payload"
+                    )));
+                }
+            }
+            (Some(coords), Some(mean), Some(sd)) => {
+                if coords.nrows() != mean.nrows()
+                    || mean.dim() != sd.dim()
+                    || coords
+                        .iter()
+                        .chain(mean.iter())
+                        .chain(sd.iter())
+                        .any(|value| !value.is_finite())
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has inconsistent or non-finite joint shape uncertainty"
+                    )));
+                }
+                if let Some(covariance) = &uncertainty.decoder_covariance
+                    && covariance.iter().any(|value| !value.is_finite())
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has non-finite decoder covariance"
+                    )));
+                }
+                if let Some(robust) = &uncertainty.band_sd_robust
+                    && (robust.dim() != sd.dim() || robust.iter().any(|value| !value.is_finite()))
+                {
+                    return Err(SaeFitError::Fit(format!(
+                        "atom {atom_idx} has inconsistent robust shape uncertainty"
+                    )));
+                }
+            }
+            _ => {
+                return Err(SaeFitError::Fit(format!(
+                    "atom {atom_idx} has a partial joint shape-uncertainty band"
+                )));
+            }
+        }
+    }
+
+    term.assignment
+        .validate_rho_domain(&rho)
+        .map_err(SaeFitError::Fit)?;
+    let ard_variances: Vec<Option<Array1<f64>>> = term
+        .validated_ard_precisions(&rho)
+        .map_err(SaeFitError::Fit)?
+        .iter()
+        .map(|precision| {
+            if precision.is_empty() {
+                None
+            } else {
+                Some(precision.mapv(|alpha| alpha.recip()))
+            }
+        })
+        .collect();
+    let assignments = term.assignment.assignments();
+    let fitted = term.try_fitted_target_aware(z.view(), Some(&rho))?;
+    term.record_fit_data_collapse_if_needed(z.view(), fitted.view(), assignments.view(), max_iter)?;
+    let trust_diagnostics = term.trust_diagnostics_report(assignments.view())?;
+    let fit_diagnostics = term.fit_diagnostics_report(
+        Some(&ard_variances),
+        isometry_pin_active,
+        Some(shape_uncertainty.dispersion),
+        fitted.view(),
+        Some(assignments.view()),
+    )?;
+    let amortized_encoder_consistency = term.amortized_encoder_consistency(z.view(), &rho)?;
+    let mut certificate_ledger = CertificateLedger::new();
+    certificate_ledger.record(&fit_diagnostics.residual_gauge);
+    certificate_ledger.record(&CoordinateFidelityCertificate::new(
+        &fit_diagnostics.coordinate_fidelity,
+    ));
+    certificate_ledger.record(&TopologyPersistenceCertificate::new(
+        &fit_diagnostics.topology_persistence,
+    ));
+    if let Some(report) = &fit_diagnostics.incoherence_report {
+        certificate_ledger.record(report);
+    }
+
+    let active_mask: Vec<bool> = (0..k_atoms)
+        .map(|atom_idx| assignments.column(atom_idx).sum() > 1.0e-8)
+        .collect();
+    let mut means = vec![0.0_f64; p_out];
+    for row in 0..n_obs {
+        for out_col in 0..p_out {
+            means[out_col] += z[[row, out_col]];
+        }
+    }
+    if n_obs > 0 {
+        let inv_n = 1.0 / n_obs as f64;
+        for mean in means.iter_mut() {
+            *mean *= inv_n;
+        }
+    }
+    let mut rss = 0.0_f64;
+    let mut tss = 0.0_f64;
+    for row in 0..n_obs {
+        for out_col in 0..p_out {
+            let residual = z[[row, out_col]] - fitted[[row, out_col]];
+            let centered = z[[row, out_col]] - means[out_col];
+            rss += residual * residual;
+            tss += centered * centered;
+        }
+    }
+    let reconstruction_r2 = if tss > 0.0 { 1.0 - rss / tss } else { 0.0 };
+
+    let reported_log_alpha = match term.assignment.mode {
+        AssignmentMode::OrderedBetaBernoulli { alpha, .. } => alpha.ln(),
+        _ => alpha.ln(),
+    };
+
+    // Anytime-valid structure certificate (#1058 / #984), exactly as the fit
+    // entry produces it — empty ledger certifies trivially when the search did
+    // not run.
+    let structure_certificate = structure_ledger
+        .certify(0.05)
+        .map_err(|error| error.to_string())?;
+    let structure_certificate_json =
+        serde_json::to_string(&structure_certificate).map_err(|e| e.to_string())?;
+
+    // #2266 — no outer search and no inner solve ran; the returned scalars are
+    // evaluated AT the installed state, not certified as a stationary optimum.
+    let loss = term.loss(z.view(), &rho)?;
+    let penalized_quasi_laplace_criterion =
+        term.penalized_objective_total(z.view(), &rho, Some(&registry), 1.0)?;
+    let outer_termination = SaeOuterTermination {
+        verdict: SaeOuterVerdict::External,
+        evals: 0,
+        evals_since_improvement: 0,
+        wall: std::time::Duration::ZERO,
+    };
+
+    Ok(SaeFitReport {
+        term,
+        rho,
+        loss,
+        penalized_quasi_laplace_criterion,
+        assignments,
+        fitted,
+        active_mask,
+        reconstruction_r2,
+        outer_termination,
+        shape_uncertainty,
+        metric_provenance,
+        structured_residual_diagnostics: Vec::new(),
+        trust_diagnostics,
+        fit_diagnostics,
+        amortized_encoder_consistency,
+        certificate_ledger,
+        structure_search_json,
+        structure_certificate_json,
         reported_log_alpha,
     })
 }

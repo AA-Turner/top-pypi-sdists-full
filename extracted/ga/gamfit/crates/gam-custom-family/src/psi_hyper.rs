@@ -33,6 +33,8 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
     let ranges = block_param_ranges(specs);
     let total = beta_flat.len();
     let per_block = split_log_lambdas(&Array1::from_vec(rho.to_vec()), penalty_counts)?;
+    let per_block_lambdas =
+        exact_lambdas_by_block(&per_block, "psi hyper log strength").map_err(String::from)?;
 
     let mut coords = Vec::new();
     let mut psi_global = 0usize;
@@ -121,7 +123,8 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
             };
 
             // 2. Assemble S_ψ from penalty derivatives (block-local, not embedded).
-            let s_psi_local = assemble_block_local_s_psi(deriv, &per_block[block_idx], p_block);
+            let s_psi_local =
+                assemble_block_local_s_psi(deriv, &per_block_lambdas[block_idx], p_block);
 
             // 3. Build HyperCoord using block-local S_ψ (avoids full p×p materialization).
             let beta_block = beta_flat.slice(ndarray::s![start..end]);
@@ -384,6 +387,9 @@ pub fn build_contracted_psi_hook(
         &Array1::from_vec(rho.to_vec()),
         penalty_counts,
     )?);
+    let per_block_lambdas = Arc::new(
+        exact_lambdas_by_block(&per_block, "contracted psi log strength").map_err(String::from)?,
+    );
     let beta_arc = Arc::new(beta_flat.clone());
     let ranges_arc = Arc::new(ranges);
     let s_logdet_block_cache = Arc::new(s_logdet_blocks.map(|blocks| blocks.to_vec()));
@@ -403,7 +409,8 @@ pub fn build_contracted_psi_hook(
         let (start, end) = ranges_arc[block_idx];
         let p_block = end - start;
         for (local_idx, deriv) in block_derivs.iter().enumerate() {
-            let s_psi_local = assemble_block_local_s_psi(deriv, &per_block[block_idx], p_block);
+            let s_psi_local =
+                assemble_block_local_s_psi(deriv, &per_block_lambdas[block_idx], p_block);
             axes.push(PsiAxis {
                 block: block_idx,
                 local: local_idx,
@@ -566,7 +573,7 @@ pub fn build_contracted_psi_hook(
                 let s_ij = assemble_block_local_s_psi_psi(
                     deriv_i,
                     axis_j.local,
-                    &per_block[axis_i.block],
+                    &per_block_lambdas[axis_i.block],
                     p_block,
                 );
                 s_psi_psi_alpha.scaled_add(aj, &s_ij);
@@ -713,6 +720,10 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
         &Array1::from_vec(rho.to_vec()),
         penalty_counts,
     )?);
+    let per_block_lambdas = Arc::new(
+        exact_lambdas_by_block(&per_block, "psi-pair callback log strength")
+            .map_err(String::from)?,
+    );
     let specs_arc = Arc::new(specs.to_vec());
     let beta_arc = Arc::new(beta_flat.clone());
     let synced_arc = Arc::new(synced_states.to_vec());
@@ -747,7 +758,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
         let (start, end) = ranges_arc[block_idx];
         let p_block = end - start;
         for (local_idx, deriv) in block_derivs.iter().enumerate() {
-            let s_local = assemble_block_local_s_psi(deriv, &per_block[block_idx], p_block);
+            let s_local = assemble_block_local_s_psi(deriv, &per_block_lambdas[block_idx], p_block);
             // Store the block-local S_ψ matrix when penalty logdet is active;
             // PenaltyPseudologdet methods will handle pseudoinverse and leakage internally.
             let s_local_opt = if s_logdet_block_cache.is_some() {
@@ -878,7 +889,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
 
     // ψ-ψ pair callback
     let ext_ext = {
-        let per_block = Arc::clone(&per_block);
+        let per_block_lambdas = Arc::clone(&per_block_lambdas);
         let derivative_blocks = Arc::clone(&derivative_blocks);
         let specs_arc = Arc::clone(&specs_arc);
         let beta_arc = Arc::clone(&beta_arc);
@@ -982,7 +993,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
                 let s_local = assemble_block_local_s_psi_psi(
                     deriv_i,
                     cache_j.local_idx,
-                    &per_block[cache_i.block_idx],
+                    &per_block_lambdas[cache_i.block_idx],
                     p_block,
                 );
 
@@ -1061,7 +1072,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
 
     // ρ-ψ pair callback
     let rho_ext = {
-        let per_block = Arc::clone(&per_block);
+        let per_block_lambdas = Arc::clone(&per_block_lambdas);
         let derivative_blocks = Arc::clone(&derivative_blocks);
         let beta_arc = Arc::clone(&beta_arc);
         let psi_penalty_cache = Arc::clone(&psi_penalty_cache);
@@ -1084,7 +1095,7 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
             let ld_s = if rho_cache.block_idx == psi_cache.block_idx {
                 let p_block = rho_cache.end - rho_cache.start;
                 let deriv = &derivative_blocks[psi_cache.block_idx][psi_cache.local_idx];
-                let lambda_k = per_block[rho_cache.block_idx][rho_cache.penalty_idx].exp();
+                let lambda_k = per_block_lambdas[rho_cache.block_idx][rho_cache.penalty_idx];
                 let local = if let Some(ref components) = deriv.s_psi_penalty_components {
                     let mut m = Array2::<f64>::zeros((p_block, p_block));
                     for (penalty_idx, s_part) in components {
@@ -1364,18 +1375,12 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
         });
     }
     let ridge = effective_solverridge(options.ridge_floor);
-    let moderidge = if options.ridge_policy.include_quadratic_penalty {
+    let moderidge = if options.ridge_policy.accounts_for_objective() {
         ridge
     } else {
         0.0
     };
-    let extra_logdet_ridge = if options.ridge_policy.include_penalty_logdet
-        && !options.ridge_policy.include_quadratic_penalty
-    {
-        ridge
-    } else {
-        0.0
-    };
+    let extra_logdet_ridge = 0.0;
 
     refresh_all_block_etas(family, specs, &mut inner.block_states)?;
     let ranges = block_param_ranges(specs);
@@ -1477,12 +1482,15 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                 .map(|b| {
                     let spec = &specs[b];
                     let p = spec.design.ncols();
-                    let lambdas = per_block[b].mapv(f64::exp);
+                    let lambdas = exact_lambdas_from_log_strengths(
+                        &per_block[b],
+                        &format!("psi hyper logdet block {b} log strength"),
+                    )?;
                     let mut s_lambda = Array2::<f64>::zeros((p, p));
                     for (k, s) in spec.penalties.iter().enumerate() {
                         s.add_scaled_to(lambdas[k], &mut s_lambda);
                     }
-                    let ridge_hint = if options.ridge_policy.include_penalty_logdet {
+                    let ridge_hint = if options.ridge_policy.accounts_for_objective() {
                         for d in 0..p {
                             s_lambda[[d, d]] += ridge;
                         }
@@ -2206,8 +2214,8 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
             working_response: _,
             working_weights,
         } => with_block_geometry(family, &inner.block_states, spec, b, |x_dyn, _| {
-            let w = floor_positiveworking_weights(working_weights, options.minweight)?;
-            let (xtwx, _) = weighted_normal_equations(x_dyn, &w, None)?;
+            let w = certify_finite_working_weights(working_weights)?;
+            let (xtwx, _) = weighted_normal_equations(x_dyn, w, None)?;
             diagonal_design = Some(x_dyn.clone());
             Ok(xtwx)
         })?,
@@ -2259,7 +2267,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                 let x_dyn = diagonal_design.as_ref().ok_or_else(|| {
                     format!("missing dynamic design for block {b} diagonal correction")
                 })?;
-                let wwork = floor_positiveworking_weights(working_weights, options.minweight)?;
+                let wwork = certify_finite_working_weights(working_weights)?;
                 let x_dense = x_dyn.to_dense();
                 let n = x_dense.nrows();
 
@@ -2686,18 +2694,12 @@ pub(crate) fn evaluate_custom_family_joint_hyper_efs_internal_shared<
         .map_err(CustomFamilyError::from);
     }
     let ridge = effective_solverridge(options.ridge_floor);
-    let moderidge = if options.ridge_policy.include_quadratic_penalty {
+    let moderidge = if options.ridge_policy.accounts_for_objective() {
         ridge
     } else {
         0.0
     };
-    let extra_logdet_ridge = if options.ridge_policy.include_penalty_logdet
-        && !options.ridge_policy.include_quadratic_penalty
-    {
-        ridge
-    } else {
-        0.0
-    };
+    let extra_logdet_ridge = 0.0;
 
     refresh_all_block_etas(family, specs, &mut inner.block_states)?;
     let ranges = block_param_ranges(specs);
@@ -2779,12 +2781,15 @@ pub(crate) fn evaluate_custom_family_joint_hyper_efs_internal_shared<
             .map(|b| {
                 let spec = &specs[b];
                 let p = spec.design.ncols();
-                let lambdas = per_block[b].mapv(f64::exp);
+                let lambdas = exact_lambdas_from_log_strengths(
+                    &per_block[b],
+                    &format!("psi fixed-point logdet block {b} log strength"),
+                )?;
                 let mut s_lambda = Array2::<f64>::zeros((p, p));
                 for (k, s) in spec.penalties.iter().enumerate() {
                     s.add_scaled_to(lambdas[k], &mut s_lambda);
                 }
-                let ridge_hint = if options.ridge_policy.include_penalty_logdet {
+                let ridge_hint = if options.ridge_policy.accounts_for_objective() {
                     for d in 0..p {
                         s_lambda[[d, d]] += ridge;
                     }

@@ -39,11 +39,11 @@ Here are 100 improvements for the codebase:
 """
 
         # Mock the LLM call
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = bad_response
 
             # Mock file system to show no files were read
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []  # No files read
 
                 # Should reject and retry with feedback, then raise exception after max retries
@@ -81,11 +81,11 @@ Based on analyzing the codebase (5 files read), here are improvements:
 ... (7 more specific items with file references)
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = good_response
 
             # Mock file system to show files were read
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = [
                     "backend/app.py",
                     "sage/main.py",
@@ -118,10 +118,10 @@ Then I will analyze the architecture and provide recommendations.
 Let me start by examining these key areas.
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = bad_response
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []  # No files read
 
                 # Should reject due to no file reads + implementation language
@@ -156,10 +156,10 @@ Let me start by examining these key areas.
 ... (16 more identical items)
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = filler_response
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []  # No files read
 
                 # Should reject and retry, then raise exception
@@ -218,11 +218,11 @@ class ProxyCore:
 Implementation complete!
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = phantom_response
 
             # Mock to show no files were actually written
-            with patch("sage.main._track_files_written") as mock_writer:
+            with patch("sage.core.execution_helpers._track_files_written") as mock_writer:
                 mock_writer.return_value = []
 
                 # Should reject and retry, then raise exception
@@ -261,11 +261,11 @@ def test_proxy_core():
     assert proxy is not None
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = valid_response
 
             # Mock to show files were written
-            with patch("sage.main._track_files_written") as mock_writer:
+            with patch("sage.core.execution_helpers._track_files_written") as mock_writer:
                 mock_writer.return_value = ["proxy_core.py", "test_proxy_core.py"]
 
                 result = _execute_request_with_validation(
@@ -293,10 +293,10 @@ class FeatureX:
 Created test file and implementation complete!
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = no_tests_response
 
-            with patch("sage.main._track_files_written") as mock_writer:
+            with patch("sage.core.execution_helpers._track_files_written") as mock_writer:
                 mock_writer.return_value = ["feature_x.py"]  # No test file
 
                 # Should reject and retry, then raise exception
@@ -355,12 +355,13 @@ class TestPostActionVerification:
         command = "pytest tests/test_feature.py -v"
 
         # Mock command that claims success with fake output
-        with patch("sage.main._run_repl") as mock_run:
+        with patch("sage.core.commands.run_shell") as mock_run:
             # Claims pytest passed but file doesn't exist
-            mock_run.return_value = ("✅ All tests passed", 0)
+            import subprocess
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="✅ All tests passed", stderr="")
 
             # Mock file check showing test file doesn't exist
-            with patch("sage.main._file_exists") as mock_exists:
+            with patch("sage.core.execution_helpers.Path.exists") as mock_exists:
                 mock_exists.return_value = False
 
                 # Should detect impossible output and reject
@@ -422,10 +423,10 @@ I will analyze the codebase:
 3. Implement logging for C
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = bad_response
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []
 
                 # Should reject and retry, then raise exception
@@ -459,10 +460,10 @@ Here are 10 improvements:
 2. Implement more tests
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = bad_response
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []
 
                 # Should eventually give up
@@ -485,11 +486,11 @@ Here are 10 improvements:
         # Second response: good (analysis language with file references)
         good_response = "Based on file1.py and file2.py:\n1. The error handling in file1.py could be improved\n2. The tests in file2.py need more coverage"
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             # First call bad, second call good
             mock_llm.side_effect = [bad_response, good_response]
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 # First call no files, second call has files
                 mock_tracker.side_effect = [[], ["file1.py", "file2.py"]]
 
@@ -525,11 +526,11 @@ Based on my analysis:
 5. Implement caching
 """
 
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = assumes_success_response
 
             # Mock to show no files were read (simulating failed read)
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []  # No files read
 
                 # Should fail closed and reject the response

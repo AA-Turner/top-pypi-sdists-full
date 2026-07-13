@@ -726,6 +726,47 @@ pub(crate) fn bessel_k_real_half_integer_or_integer(
     }
 }
 
+/// Exact `i32` representation of a floating-point exponent, when one exists.
+///
+/// Duchon block orders are allowed to be fractional in the public pure-kernel
+/// API, but the auto-topology/operator path carries integer `m` and therefore
+/// integer exponents `2m-d-j`. Keeping the distinction explicit lets that hot
+/// path use LLVM's integral-power primitive while fractional callers retain
+/// the existing `powf` domain and rounding semantics.
+#[inline(always)]
+fn exact_i32_exponent(exponent: f64) -> Option<i32> {
+    if !exponent.is_finite() {
+        return None;
+    }
+    let integral = exponent as i32;
+    (integral as f64 == exponent).then_some(integral)
+}
+
+/// Power for a positive base and an integer/half-integer exponent represented
+/// as `2 * exponent`. This uses one `sqrt` only for the half-integer case and
+/// otherwise routes directly to `powi`; it is never used for a non-positive
+/// base, so it does not alter `powf`'s signed-zero/negative-base domain rules.
+#[inline(always)]
+fn positive_base_half_integer_power(base: f64, twice_exponent: i32) -> f64 {
+    if twice_exponent % 2 == 0 {
+        return base.powi(twice_exponent / 2);
+    }
+    let integer_part = twice_exponent / 2;
+    if twice_exponent > 0 {
+        base.powi(integer_part) * base.sqrt()
+    } else {
+        base.powi(integer_part) / base.sqrt()
+    }
+}
+
+#[inline(always)]
+fn positive_base_power_integral_or_half(base: f64, exponent: f64) -> f64 {
+    exact_i32_exponent(2.0 * exponent).map_or_else(
+        || base.powf(exponent),
+        |twice| positive_base_half_integer_power(base, twice),
+    )
+}
+
 /// Precomputed coefficient for `polyharmonic_kernel` that depends only on
 /// `m` and `k_dim`, not on `r`.  Avoids repeated gamma_lanczos calls in the
 /// hot kernel evaluation loop (called n × k times per basis build).
@@ -733,6 +774,7 @@ pub(crate) fn bessel_k_real_half_integer_or_integer(
 pub(crate) struct PolyharmonicBlockCoeff {
     pub(crate) c: f64,
     pub(crate) power: f64,
+    power_i32: Option<i32>,
     pub(crate) is_log_case: bool,
 }
 
@@ -758,20 +800,24 @@ impl PolyharmonicBlockCoeff {
             let m_minus_half_d_plus_one = (m - k_half + 1.0).round() as i64;
             let c = polyharmonic_log_sign(m_int as usize, k_dim)
                 / (2.0_f64.powi((two_m.round() as i32) - 1)
-                    * std::f64::consts::PI.powf(k_half)
+                    * positive_base_power_integral_or_half(std::f64::consts::PI, k_half)
                     * gamma_lanczos(m)
                     * gamma_lanczos(m_minus_half_d_plus_one as f64));
             Self {
                 c,
                 power,
+                power_i32: exact_i32_exponent(power),
                 is_log_case: true,
             }
         } else {
             let c = gamma_lanczos(k_half - m)
-                / (4.0_f64.powf(m) * std::f64::consts::PI.powf(k_half) * gamma_lanczos(m));
+                / (positive_base_power_integral_or_half(4.0, m)
+                    * positive_base_power_integral_or_half(std::f64::consts::PI, k_half)
+                    * gamma_lanczos(m));
             Self {
                 c,
                 power,
+                power_i32: exact_i32_exponent(power),
                 is_log_case: false,
             }
         }
@@ -782,10 +828,13 @@ impl PolyharmonicBlockCoeff {
         if r <= 0.0 {
             return self.origin_limit();
         }
+        let radial_power = self
+            .power_i32
+            .map_or_else(|| r.powf(self.power), |power| r.powi(power));
         if self.is_log_case {
-            self.c * r.powf(self.power) * r.max(1e-300).ln()
+            self.c * radial_power * r.max(1e-300).ln()
         } else {
-            self.c * r.powf(self.power)
+            self.c * radial_power
         }
     }
 
@@ -934,6 +983,7 @@ pub(crate) fn polyharmonic_block_jet4(
 
     let k_half = 0.5 * k_dim as f64;
     let alpha = 2.0 * m - k_dim as f64;
+    let alpha_i32 = exact_i32_exponent(alpha);
     // Log case: k_dim even and `2m − k_dim` is a non-negative even integer
     // (within ε). For fractional `m` this never fires.
     const LOG_EPS: f64 = 1e-12;
@@ -945,10 +995,11 @@ pub(crate) fn polyharmonic_block_jet4(
         let m_int = m.round() as usize;
         let c = polyharmonic_log_sign(m_int, k_dim)
             / (2.0_f64.powi((2 * m_int - 1) as i32)
-                * std::f64::consts::PI.powf(k_half)
+                * positive_base_power_integral_or_half(std::f64::consts::PI, k_half)
                 * gamma_lanczos(m)
                 * gamma_lanczos((m_int - k_dim / 2 + 1) as f64));
         let mut out = [0.0; 5];
+        let log_r = (r > 0.0).then(|| r.ln());
         for d in 0..5 {
             let e = alpha - d as f64;
             let ff = falling_factorial(alpha, d);
@@ -956,14 +1007,18 @@ pub(crate) fn polyharmonic_block_jet4(
             out[d] = if r <= 0.0 {
                 log_power_origin_limit(c, e, ff, ff_d)
             } else {
-                c * r.powf(e) * (ff * r.ln() + ff_d)
+                let radial_power =
+                    alpha_i32.map_or_else(|| r.powf(e), |integral| r.powi(integral - d as i32));
+                c * radial_power * (ff * log_r.expect("positive radius has a logarithm") + ff_d)
             };
         }
         return Ok((out[0], out[1], out[2], out[3], out[4]));
     }
 
     let c = gamma_lanczos(k_half - m)
-        / (4.0_f64.powf(m) * std::f64::consts::PI.powf(k_half) * gamma_lanczos(m));
+        / (positive_base_power_integral_or_half(4.0, m)
+            * positive_base_power_integral_or_half(std::f64::consts::PI, k_half)
+            * gamma_lanczos(m));
     let mut out = [0.0; 5];
     for d in 0..5 {
         let e = alpha - d as f64;
@@ -971,7 +1026,9 @@ pub(crate) fn polyharmonic_block_jet4(
         out[d] = if r <= 0.0 {
             log_power_origin_limit(c, e, 0.0, ff)
         } else {
-            c * ff * r.powf(e)
+            let radial_power =
+                alpha_i32.map_or_else(|| r.powf(e), |integral| r.powi(integral - d as i32));
+            c * ff * radial_power
         };
     }
     Ok((out[0], out[1], out[2], out[3], out[4]))
@@ -979,14 +1036,15 @@ pub(crate) fn polyharmonic_block_jet4(
 
 #[inline(always)]
 pub(crate) fn log_power_family_derivative(
-    exponent: f64,
+    exponent: i32,
     log_coeff: f64,
     pure_coeff: f64,
-) -> (f64, f64, f64) {
+) -> (i32, f64, f64) {
+    let exponent_f64 = exponent as f64;
     (
-        exponent - 1.0,
-        exponent * log_coeff,
-        exponent * pure_coeff + log_coeff,
+        exponent - 1,
+        exponent_f64 * log_coeff,
+        exponent_f64 * pure_coeff + log_coeff,
     )
 }
 
@@ -994,56 +1052,62 @@ pub(crate) fn log_power_family_derivative(
 pub(crate) fn log_power_family_value(
     r: f64,
     coeff: f64,
-    exponent: f64,
+    exponent: i32,
     log_coeff: f64,
     pure_coeff: f64,
 ) -> f64 {
     if r <= 0.0 {
-        log_power_origin_limit(coeff, exponent, log_coeff, pure_coeff)
+        log_power_origin_limit(coeff, exponent as f64, log_coeff, pure_coeff)
     } else {
-        coeff * r.powf(exponent) * (log_coeff * r.ln() + pure_coeff)
+        coeff * r.powi(exponent) * (log_coeff * r.ln() + pure_coeff)
     }
 }
 
 #[inline(always)]
 pub(crate) fn duchon_polyharmonic_operator_block_jets(
     r: f64,
-    m: f64,
+    m: usize,
     k_dim: usize,
 ) -> Result<(f64, f64, f64, f64), BasisError> {
     if !r.is_finite() || r < 0.0 {
         crate::bail_invalid_basis!("polyharmonic distance must be finite and non-negative");
     }
     assert!(
-        m.is_finite() && m > 0.0,
-        "duchon_polyharmonic_operator_block_jets: m must be finite and > 0, got {m}"
+        m > 0,
+        "duchon_polyharmonic_operator_block_jets: m must be > 0, got {m}"
     );
 
-    let k_half = 0.5 * k_dim as f64;
-    let alpha = 2.0 * m - k_dim as f64;
-    // Log case: k_dim even and `2m − k_dim` is a non-negative even integer
-    // (within ε). For fractional `m` this never fires; for integer `m` it
-    // matches the original `k_dim % 2 == 0 && m >= k_dim / 2` check.
-    const LOG_EPS: f64 = 1e-12;
-    let is_log_case = k_dim.is_multiple_of(2) && {
-        let n_f = (alpha / 2.0).round();
-        n_f >= 0.0 && (n_f * 2.0 - alpha).abs() < LOG_EPS
+    let Ok(m_i32) = i32::try_from(m) else {
+        crate::bail_invalid_basis!("polyharmonic order {m} exceeds the supported i32 range");
     };
+    let Ok(k_dim_i32) = i32::try_from(k_dim) else {
+        crate::bail_invalid_basis!("Duchon dimension {k_dim} exceeds the supported i32 range");
+    };
+    let Some(alpha) = m_i32
+        .checked_mul(2)
+        .and_then(|twice_m| twice_m.checked_sub(k_dim_i32))
+    else {
+        crate::bail_invalid_basis!("Duchon exponent 2*{m}-{k_dim} exceeds the supported i32 range");
+    };
+    let m_f64 = m as f64;
+    let k_half = 0.5 * k_dim as f64;
+    let is_log_case = k_dim.is_multiple_of(2) && alpha >= 0;
     let (c, phi_log_coeff, phi_pure_coeff) = if is_log_case {
-        let m_int = m.round() as usize;
         (
-            polyharmonic_log_sign(m_int, k_dim)
-                / (2.0_f64.powi((2 * m_int - 1) as i32)
-                    * std::f64::consts::PI.powf(k_half)
-                    * gamma_lanczos(m)
-                    * gamma_lanczos((m_int - k_dim / 2 + 1) as f64)),
+            polyharmonic_log_sign(m, k_dim)
+                / (2.0_f64.powi(2 * m_i32 - 1)
+                    * positive_base_half_integer_power(std::f64::consts::PI, k_dim_i32)
+                    * gamma_lanczos(m_f64)
+                    * gamma_lanczos((m - k_dim / 2 + 1) as f64)),
             1.0,
             0.0,
         )
     } else {
         (
-            gamma_lanczos(k_half - m)
-                / (4.0_f64.powf(m) * std::f64::consts::PI.powf(k_half) * gamma_lanczos(m)),
+            gamma_lanczos(k_half - m_f64)
+                / (4.0_f64.powi(m_i32)
+                    * positive_base_half_integer_power(std::f64::consts::PI, k_dim_i32)
+                    * gamma_lanczos(m_f64)),
             0.0,
             1.0,
         )
@@ -1051,12 +1115,12 @@ pub(crate) fn duchon_polyharmonic_operator_block_jets(
 
     let (phi_r_exp, phi_r_log, phi_r_pure) =
         log_power_family_derivative(alpha, phi_log_coeff, phi_pure_coeff);
-    let q_exp = phi_r_exp - 1.0;
+    let q_exp = phi_r_exp - 1;
     let q = log_power_family_value(r, c, q_exp, phi_r_log, phi_r_pure);
 
     let (q_r_exp_raw, q_r_log, q_r_pure) =
         log_power_family_derivative(q_exp, phi_r_log, phi_r_pure);
-    let t_exp = q_r_exp_raw - 1.0;
+    let t_exp = q_r_exp_raw - 1;
     let t = log_power_family_value(r, c, t_exp, q_r_log, q_r_pure);
 
     let (t_r_exp, t_r_log, t_r_pure) = log_power_family_derivative(t_exp, q_r_log, q_r_pure);
@@ -1320,9 +1384,14 @@ pub(crate) fn validate_duchon_kernel_orders(
     if !s_order.is_finite() || s_order < 0.0 {
         crate::bail_invalid_basis!("Duchon spectral power must be finite and ≥ 0; got s={s_order}");
     }
-    if length_scale.is_none() && p_order < 2 && 2.0 * s_order >= k_dim as f64 {
+    if length_scale.is_none() && 2.0 * s_order >= k_dim as f64 {
+        // The `2s >= d` boundary is INDEPENDENT of the nullspace degree p (it
+        // cancels in the CPD-order-vs-p derivation above, #2278): a former
+        // `p_order < 2` conjunct here wrongly let `p >= 2` configs (e.g. d=2,
+        // Linear nullspace p=2, explicit power s=1) bypass the check and build a
+        // penalty from a kernel that is not CPD on the nullspace complement.
         crate::bail_invalid_basis!(
-            "pure Duchon requires power < dimension/2 for nullspace degree < {p_order}; got power={s_order}, dimension={k_dim}"
+            "pure Duchon requires spectral power < dimension/2 (2s < d), independent of nullspace degree; got power={s_order}, dimension={k_dim}"
         );
     }
     let spectral_order = 2.0 * (p_order as f64 + s_order);
@@ -2380,6 +2449,193 @@ mod duchon_hybrid_psd_tests {
     use super::*;
     use faer::Side;
     use gam_linalg::faer_ndarray::FaerEigh;
+
+    fn assert_pow_parity(label: &str, got: f64, reference: f64) {
+        if got.to_bits() == reference.to_bits() || (got.is_nan() && reference.is_nan()) {
+            return;
+        }
+        if got.is_infinite() || reference.is_infinite() {
+            assert_eq!(got, reference, "{label}: infinity/sign mismatch");
+            return;
+        }
+        let scale = got.abs().max(reference.abs()).max(f64::MIN_POSITIVE);
+        let relative = (got - reference).abs() / scale;
+        assert!(
+            relative <= 2.0e-12 || (got - reference).abs() <= 1.0e-300,
+            "{label}: got {got:.17e}, powf reference {reference:.17e}, relative error {relative:.3e}"
+        );
+    }
+
+    fn powf_polyharmonic_constants(m: f64, d: usize) -> (f64, f64, bool) {
+        let half_d = 0.5 * d as f64;
+        let alpha = 2.0 * m - d as f64;
+        let log_case = d.is_multiple_of(2) && alpha >= 0.0 && (alpha % 2.0).abs() < 1.0e-12;
+        let c = if log_case {
+            let m_int = m.round() as usize;
+            polyharmonic_log_sign(m_int, d)
+                / (2.0_f64.powi((2 * m_int - 1) as i32)
+                    * std::f64::consts::PI.powf(half_d)
+                    * gamma_lanczos(m)
+                    * gamma_lanczos((m_int - d / 2 + 1) as f64))
+        } else {
+            gamma_lanczos(half_d - m)
+                / (4.0_f64.powf(m) * std::f64::consts::PI.powf(half_d) * gamma_lanczos(m))
+        };
+        (c, alpha, log_case)
+    }
+
+    fn powf_family_value(r: f64, c: f64, exponent: f64, log: f64, pure: f64) -> f64 {
+        if r <= 0.0 {
+            log_power_origin_limit(c, exponent, log, pure)
+        } else {
+            c * r.powf(exponent) * (log * r.ln() + pure)
+        }
+    }
+
+    fn differentiate_powf_family(exponent: &mut f64, log: &mut f64, pure: &mut f64) {
+        let old_exponent = *exponent;
+        *exponent -= 1.0;
+        *pure = old_exponent * *pure + *log;
+        *log *= old_exponent;
+    }
+
+    fn powf_operator_reference(r: f64, m: usize, d: usize) -> [f64; 4] {
+        let (c, alpha, log_case) = powf_polyharmonic_constants(m as f64, d);
+        let (mut exponent, mut log, mut pure) = if log_case {
+            (alpha, 1.0, 0.0)
+        } else {
+            (alpha, 0.0, 1.0)
+        };
+        differentiate_powf_family(&mut exponent, &mut log, &mut pure);
+        exponent -= 1.0; // q = phi'/r
+        let q = powf_family_value(r, c, exponent, log, pure);
+        differentiate_powf_family(&mut exponent, &mut log, &mut pure);
+        exponent -= 1.0; // t = q'/r
+        let t = powf_family_value(r, c, exponent, log, pure);
+        differentiate_powf_family(&mut exponent, &mut log, &mut pure);
+        let t_r = powf_family_value(r, c, exponent, log, pure);
+        differentiate_powf_family(&mut exponent, &mut log, &mut pure);
+        let t_rr = powf_family_value(r, c, exponent, log, pure);
+        [q, t, t_r, t_rr]
+    }
+
+    #[test]
+    fn pure_polyharmonic_integer_powers_match_powf_at_zero_tiny_and_large_radius() {
+        let radii = [0.0_f64, 1.0e-40, 1.0e-12, 0.2, 1.0, 12.0, 1.0e40];
+        for &(m, d) in &[(2usize, 1usize), (3, 2), (4, 5), (5, 6), (7, 9)] {
+            let block = PolyharmonicBlockCoeff::new(m as f64, d);
+            assert!(block.power_i32.is_some());
+            let (reference_c, alpha, log_case) = powf_polyharmonic_constants(m as f64, d);
+            assert_pow_parity("coefficient", block.c, reference_c);
+            for &r in &radii {
+                let reference_value = if r <= 0.0 {
+                    block.origin_limit()
+                } else if log_case {
+                    reference_c * r.powf(alpha) * r.ln()
+                } else {
+                    reference_c * r.powf(alpha)
+                };
+                assert_pow_parity("block value", block.eval(r), reference_value);
+
+                let got = polyharmonic_block_jet4(r, m as f64, d).unwrap();
+                let got = [got.0, got.1, got.2, got.3, got.4];
+                for derivative in 0..5 {
+                    let exponent = alpha - derivative as f64;
+                    let falling = falling_factorial(alpha, derivative);
+                    let reference = if log_case {
+                        powf_family_value(
+                            r,
+                            reference_c,
+                            exponent,
+                            falling,
+                            falling_factorial_derivative(alpha, derivative),
+                        )
+                    } else {
+                        powf_family_value(r, reference_c, exponent, 0.0, falling)
+                    };
+                    assert_pow_parity("jet channel", got[derivative], reference);
+                }
+
+                let got = duchon_polyharmonic_operator_block_jets(r, m, d).unwrap();
+                let got = [got.0, got.1, got.2, got.3];
+                let reference = powf_operator_reference(r, m, d);
+                for channel in 0..4 {
+                    assert_pow_parity("operator channel", got[channel], reference[channel]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn fractional_polyharmonic_power_retains_powf_path() {
+        let (m, d) = (2.125_f64, 3usize);
+        let block = PolyharmonicBlockCoeff::new(m, d);
+        assert_eq!(block.power, 1.25);
+        assert!(block.power_i32.is_none());
+        let (c, alpha, log_case) = powf_polyharmonic_constants(m, d);
+        assert!(!log_case);
+        for &r in &[0.0_f64, 1.0e-40, 0.25, 3.0, 1.0e40] {
+            let reference = if r <= 0.0 {
+                log_power_origin_limit(c, alpha, 0.0, 1.0)
+            } else {
+                c * r.powf(alpha)
+            };
+            assert_pow_parity("fractional block", block.eval(r), reference);
+        }
+    }
+
+    #[test]
+    fn pure_polyharmonic_powi_microbenchmark() {
+        const N: usize = 20_000;
+        let (m, d, r) = (7usize, 9usize, 0.731_f64);
+        let start = std::time::Instant::now();
+        let powf_sum = (0..N).fold(0.0, |sum, i| {
+            let radius = std::hint::black_box(r + (i % 17) as f64 * 1.0e-6);
+            sum + powf_operator_reference(radius, m, d)[0]
+        });
+        let powf_time = start.elapsed();
+        let start = std::time::Instant::now();
+        let powi_sum = (0..N).fold(0.0, |sum, i| {
+            let radius = std::hint::black_box(r + (i % 17) as f64 * 1.0e-6);
+            sum + duchon_polyharmonic_operator_block_jets(radius, m, d)
+                .unwrap()
+                .0
+        });
+        let powi_time = start.elapsed();
+        assert_pow_parity("benchmark accumulator", powi_sum, powf_sum);
+        eprintln!(
+            "pure operator {N} calls: powf={powf_time:?}, powi={powi_time:?}, speedup={:.2}x",
+            powf_time.as_secs_f64() / powi_time.as_secs_f64().max(f64::MIN_POSITIVE)
+        );
+    }
+
+    /// #2278: the pure-Duchon CPD-adequacy boundary `2s >= d` is INDEPENDENT of
+    /// the nullspace degree `p` (it cancels in the derivation above), so it must
+    /// reject for all `p` — not only `p < 2`. Regression for the former spurious
+    /// `p_order < 2` conjunct.
+    #[test]
+    fn pure_duchon_cpd_guard_is_nullspace_degree_independent_issue_2278() {
+        // d = 2, Linear nullspace (p = 2), explicit integer power s = 1:
+        // 2s = 2 >= d = 2 is ill-posed and previously slipped through.
+        let err = validate_duchon_kernel_orders(None, 2, 1.0, 2)
+            .expect_err("pure Duchon d=2, p=2, s=1 (2s>=d) must be rejected as ill-posed");
+        let BasisError::InvalidInput(msg) = err else {
+            panic!("expected an InvalidInput well-posedness error, got {err}");
+        };
+        assert!(
+            msg.contains("dimension/2") || msg.contains("2s < d"),
+            "message must name the CPD/well-posedness cause: {msg}"
+        );
+        // The p < 2 sibling that was already rejected still is (no regression).
+        assert!(validate_duchon_kernel_orders(None, 1, 1.0, 2).is_err());
+        // Control: a well-posed pure config (default fractional power
+        // s = (d-1)/2 = 0.5 at p = 2, giving 2s = 1 < d = 2) must still build —
+        // the guard must not over-reject.
+        assert!(validate_duchon_kernel_orders(None, 2, 0.5, 2).is_ok());
+        // Control: the hybrid (Matérn-blended) path is exempt (CPD order 0), so
+        // even 2s >= d builds — the `length_scale.is_none()` gate is preserved.
+        assert!(validate_duchon_kernel_orders(Some(1.0), 2, 1.0, 2).is_ok());
+    }
 
     /// #1033: the capped-sample diameter estimate must be n-STABLE on a fixed
     /// point cloud. A uniform grid on `[-3, 3]` has a fixed true diameter (6.0)

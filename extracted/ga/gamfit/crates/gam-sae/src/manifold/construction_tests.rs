@@ -281,8 +281,8 @@ mod softmax_majorizer_active_entry_1410_tests {
 #[cfg(test)]
 mod exact_stationarity_solve_1418_tests {
     use super::*;
-    use approx::assert_abs_diff_eq;
     use crate::manifold::tests::{diagonal_latent_cache, gamma_fd_tiny_fixture};
+    use approx::assert_abs_diff_eq;
     use ndarray::Array1;
 
     /// Build a converged tiny SAE state whose inner residual is genuinely
@@ -319,7 +319,15 @@ mod exact_stationarity_solve_1418_tests {
             }
         }
         let (_value, _loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
+            .penalized_quasi_laplace_criterion_with_cache(
+                target.view(),
+                &rho,
+                None,
+                40,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
             .expect("converged cache with residual");
         (term, target, rho, cache)
     }
@@ -415,9 +423,8 @@ mod exact_stationarity_solve_1418_tests {
         let cache = diagonal_latent_cache(&[2.0_f64, 5.0]);
         let gauge = Array1::from_vec(vec![1.0_f64, 0.0]);
         let stiffness = 5.0;
-        let solver =
-            DeflatedArrowSolver::from_orthonormal_gauges(&cache, vec![gauge], stiffness)
-                .expect("gauge-fixed exact-stationarity preconditioner");
+        let solver = DeflatedArrowSolver::from_orthonormal_gauges(&cache, vec![gauge], stiffness)
+            .expect("gauge-fixed exact-stationarity preconditioner");
         let rhs = SaeArrowVector {
             t: Array1::from_vec(vec![4.0_f64, 6.0]),
             beta: Array1::zeros(0),
@@ -435,13 +442,9 @@ mod exact_stationarity_solve_1418_tests {
             })
         };
 
-        let solved = solve_exact_stationarity_on_gauge_quotient(
-            &solver,
-            &rhs,
-            &apply_raw_a,
-            &apply_raw_b,
-        )
-        .expect("gauge-fixed exact stationarity solve");
+        let solved =
+            solve_exact_stationarity_on_gauge_quotient(&solver, &rhs, &apply_raw_a, &apply_raw_b)
+                .expect("gauge-fixed exact stationarity solve");
         let raw_ax = apply_raw_a(&solved).expect("raw A apply");
         let raw_residual = SaeArrowVector {
             t: &raw_ax.t - &rhs.t,
@@ -492,17 +495,11 @@ mod exact_stationarity_solve_1418_tests {
                 beta: Array1::zeros(0),
             })
         };
-        let apply_raw_b = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> {
-            Ok(v.clone())
-        };
+        let apply_raw_b = |v: &SaeArrowVector| -> Result<SaeArrowVector, String> { Ok(v.clone()) };
 
-        let solved = solve_exact_stationarity_on_gauge_quotient(
-            &solver,
-            &rhs,
-            &apply_raw_a,
-            &apply_raw_b,
-        )
-        .expect("resolved indefinite response");
+        let solved =
+            solve_exact_stationarity_on_gauge_quotient(&solver, &rhs, &apply_raw_a, &apply_raw_b)
+                .expect("resolved indefinite response");
         assert_abs_diff_eq!(solved.t[0], 2.0, epsilon = 1.0e-10);
         assert_abs_diff_eq!(solved.t[1], 1.0, epsilon = 1.0e-10);
     }
@@ -520,7 +517,7 @@ mod exact_stationarity_solve_1418_tests {
     #[test]
     fn ift_solve_deflates_saturated_gate_near_null_direction_2080() {
         let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-        term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+        term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
         // Saturate atom 1's gate logits hard OFF: σ'(−40)² ≈ 1e-35 kills the
         // data curvature along those logit coordinates while the assembled
         // majorizer keeps an O(1) diagonal there.
@@ -529,8 +526,16 @@ mod exact_stationarity_solve_1418_tests {
         }
         rho.log_lambda_sparse = -1.0;
         let (_value, _loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
-            .expect("converged saturated-gate IBP cache");
+            .penalized_quasi_laplace_criterion_with_cache(
+                target.view(),
+                &rho,
+                None,
+                40,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
+            .expect("converged saturated-gate ordered Beta--Bernoulli cache");
         let solver = DeflatedArrowSolver::plain(&cache);
 
         // Deterministic rhs with mass on every coordinate (including the
@@ -604,260 +609,6 @@ mod exact_stationarity_solve_1418_tests {
             "deflation must be a projection (B-norm non-increasing)"
         );
     }
-
-    /// Build a converged IBP-MAP tiny SAE state whose cache carries the exact
-    /// cross-row rank-`R` Woodbury (`H_full = H₀' + U D Uᵀ`), with a genuinely
-    /// nonzero inner residual so `ΔC = A − B` is also live.
-    fn converged_ibp_state_with_woodbury() -> (
-        SaeManifoldTerm,
-        Array2<f64>,
-        SaeManifoldRho,
-        ArrowFactorCache,
-    ) {
-        let (mut term, mut target, mut rho) = gamma_fd_tiny_fixture();
-        // Off-manifold target perturbation ⇒ real residual ⇒ live ΔC.
-        let (n, p) = (target.nrows(), target.ncols());
-        for row in 0..n {
-            for col in 0..p {
-                let phase = (row as f64 + 0.35) / n as f64;
-                let theta = std::f64::consts::TAU * phase;
-                target[[row, col]] += 0.12 * (3.0 * theta + 0.5 * col as f64).sin();
-            }
-        }
-        // IBP-MAP assignment with an ACTIVE sparsity strength so the empirical-mass
-        // prior's cross-row curvature `d_k = w·s'_k` is live (≠ 0) ⇒ a real
-        // Woodbury is emitted and downdated into `H₀'`.
-        term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
-        rho.log_lambda_sparse = -1.0;
-        let (_value, _loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
-            .expect("converged IBP cache with cross-row Woodbury");
-        (term, target, rho, cache)
-    }
-
-    /// `U D Uᵀ v` on the latent (`t`) block, computed INDEPENDENTLY from the
-    /// carrier's public dense `U`/`d` (β-part of `U` is structurally zero).
-    fn woodbury_forward_t(cache: &ArrowFactorCache, v: &SaeArrowVector) -> Array1<f64> {
-        let w = cache
-            .cross_row_woodbury
-            .as_ref()
-            .expect("IBP cache must carry the cross-row Woodbury");
-        let total_t = cache.delta_t_len();
-        let r = w.d.len();
-        // p_k = d_k · (Uᵀ v_t)_k.
-        let mut pk = vec![0.0_f64; r];
-        for k in 0..r {
-            let mut acc = 0.0_f64;
-            for g in 0..total_t {
-                acc += w.u[[g, k]] * v.t[g];
-            }
-            pk[k] = w.d[k] * acc;
-        }
-        // out_t = U p.
-        let mut out_t = Array1::<f64>::zeros(total_t);
-        for g in 0..total_t {
-            let mut acc = 0.0_f64;
-            for k in 0..r {
-                acc += w.u[[g, k]] * pk[k];
-            }
-            out_t[g] = acc;
-        }
-        out_t
-    }
-
-    /// Solve a small dense symmetric system `M x = b` by partial-pivot LU
-    /// (independent of the production solver; `M` here is the inner solver's own
-    /// exact inverse `H_full⁻¹`, so `solve_dense(M, v) = H_full v`).
-    fn solve_dense(m: &Array2<f64>, b: &Array1<f64>) -> Array1<f64> {
-        let dim = m.nrows();
-        let mut a = m.clone();
-        let mut x = b.clone();
-        for col in 0..dim {
-            let mut piv = col;
-            let mut best = a[[col, col]].abs();
-            for row in (col + 1)..dim {
-                let mag = a[[row, col]].abs();
-                if mag > best {
-                    best = mag;
-                    piv = row;
-                }
-            }
-            if piv != col {
-                for c in 0..dim {
-                    a.swap((col, c), (piv, c));
-                }
-                x.swap(col, piv);
-            }
-            let pivot = a[[col, col]];
-            for row in (col + 1)..dim {
-                let factor = a[[row, col]] / pivot;
-                for c in col..dim {
-                    let v = a[[col, c]];
-                    a[[row, c]] -= factor * v;
-                }
-                let xc = x[col];
-                x[row] -= factor * xc;
-            }
-        }
-        for col in (0..dim).rev() {
-            let mut sum = x[col];
-            for c in (col + 1)..dim {
-                sum -= a[[col, c]] * x[c];
-            }
-            x[col] = sum / a[[col, col]];
-        }
-        x
-    }
-
-    /// #1038 / #1418 regression: for an IBP-MAP cache the EXACT-Hessian forward
-    /// apply `apply_exact_hessian` must equal the DENSE exact joint Hessian
-    /// `A_true = H_full + ΔC`, where `H_full = H₀' + U D Uᵀ` is the operator the
-    /// inner solver (`full_inverse_apply`) inverts and `ΔC = ⟨r, ∂²f⟩` is the
-    /// dropped residual curvature.
-    ///
-    /// The dense `H_full` oracle is built independently of the apply path by
-    /// inverting the inner solver's own exact inverse (columns of
-    /// `cache.full_inverse_apply(e_j)` give `H_full⁻¹`; `solve_dense` against it
-    /// gives `H_full·v`). Before the fix `apply_exact_hessian` used only `H₀'`, so
-    /// the residual equals exactly the dropped cross-row term `U D Uᵀ v` (asserted
-    /// to be materially nonzero, so the test is non-vacuous).
-    #[test]
-    fn apply_exact_hessian_includes_ibp_cross_row_woodbury_1038() {
-        let (term, target, rho, cache) = converged_ibp_state_with_woodbury();
-
-        // (2) The production IBP path must actually carry the Woodbury.
-        assert!(
-            cache.cross_row_woodbury.is_some(),
-            "a converged IBP-MAP cache with active sparsity must carry the cross-row \
-             Woodbury — otherwise the bug is unreachable on this path"
-        );
-
-        let total_t = cache.delta_t_len();
-        let kdim = cache.k;
-        let m = total_t + kdim;
-
-        // Build the dense inner-solver inverse `Minv = H_full⁻¹` column-by-column
-        // from `full_inverse_apply` (the operator whose log-det the evidence
-        // reports). This is fully independent of `apply_cached_arrow_hessian`.
-        let mut minv = Array2::<f64>::zeros((m, m));
-        for j in 0..m {
-            let mut e_t = Array1::<f64>::zeros(total_t);
-            let mut e_b = Array1::<f64>::zeros(kdim);
-            if j < total_t {
-                e_t[j] = 1.0;
-            } else {
-                e_b[j - total_t] = 1.0;
-            }
-            let (sol_t, sol_b) = cache
-                .full_inverse_apply(e_t.view(), e_b.view())
-                .expect("full_inverse_apply column");
-            for i in 0..total_t {
-                minv[[i, j]] = sol_t[i];
-            }
-            for i in 0..kdim {
-                minv[[total_t + i, j]] = sol_b[i];
-            }
-        }
-        // Symmetrize away back-substitution rounding asymmetry.
-        for i in 0..m {
-            for j in (i + 1)..m {
-                let avg = 0.5 * (minv[[i, j]] + minv[[j, i]]);
-                minv[[i, j]] = avg;
-                minv[[j, i]] = avg;
-            }
-        }
-
-        // Deterministic probe spanning the latent (t) and decoder (β) blocks.
-        let v = SaeArrowVector {
-            t: Array1::from_shape_fn(total_t, |i| {
-                0.37 + 0.11 * ((i % 4) as f64) - 0.017 * i as f64
-            }),
-            beta: Array1::from_shape_fn(kdim, |j| 0.21 - 0.043 * ((j % 3) as f64)),
-        };
-        let v_flat = flatten_arrow_parts(v.t.view(), v.beta.view());
-
-        // Dense H_full·v = solve(Minv, v); ΔC·v from the matrix-free dropped-curvature.
-        let hfull_v = solve_dense(&minv, &v_flat);
-        let dc_v = term
-            .apply_exact_hessian_minus_b(&rho, target.view(), &cache, &v)
-            .expect("ΔC apply");
-        let mut a_true = hfull_v.clone();
-        for i in 0..total_t {
-            a_true[i] += dc_v.t[i];
-        }
-        for i in 0..kdim {
-            a_true[total_t + i] += dc_v.beta[i];
-        }
-
-        // The code under test.
-        let ae = term
-            .apply_exact_hessian(&rho, target.view(), &cache, &v)
-            .expect("apply_exact_hessian");
-        let ae_flat = flatten_arrow_parts(ae.t.view(), ae.beta.view());
-
-        // Non-vacuity: the missing cross-row term must be materially nonzero, and
-        // it must equal the H_full−H₀' gap the dense oracle carries.
-        let udut_v = woodbury_forward_t(&cache, &v);
-        let udut_norm = udut_v.iter().map(|x| x * x).sum::<f64>().sqrt();
-        let a_true_norm = a_true.iter().map(|x| x * x).sum::<f64>().sqrt().max(1.0);
-        assert!(
-            udut_norm > 1.0e-3 * a_true_norm,
-            "the IBP cross-row term U D Uᵀ v must be materially nonzero (‖UDUᵀv‖={udut_norm:.3e}, \
-             ‖A_true v‖={a_true_norm:.3e}) — otherwise this regression is vacuous"
-        );
-
-        // Primary assertion: apply_exact_hessian == dense exact joint Hessian.
-        let resid = (0..m)
-            .map(|i| (ae_flat[i] - a_true[i]).powi(2))
-            .sum::<f64>()
-            .sqrt();
-        // For diagnostics: the pre-fix residual equals exactly ‖UDUᵀ v‖.
-        let resid_vs_udut = {
-            let mut s = 0.0_f64;
-            for g in 0..total_t {
-                s += (ae.t[g] - a_true[g] + udut_v[g]).powi(2);
-            }
-            for i in 0..kdim {
-                s += (ae.beta[i] - a_true[total_t + i]).powi(2);
-            }
-            s.sqrt()
-        };
-        eprintln!(
-            "[#1038] ‖apply_exact_hessian − A_true‖ = {resid:.6e}; ‖UDUᵀv‖ = {udut_norm:.6e}; \
-             ‖(apply_exact_hessian − A_true) + UDUᵀv‖ = {resid_vs_udut:.6e}"
-        );
-        assert!(
-            resid <= 1.0e-9 * a_true_norm,
-            "apply_exact_hessian must equal the dense exact joint Hessian H_full + ΔC for an \
-             IBP cache: ‖A_apply v − A_true v‖ = {resid:.3e} (rel {:.3e}); the omitted term is \
-             the cross-row Woodbury U D Uᵀ v (‖·‖={udut_norm:.3e}), confirmed by \
-             ‖residual + UDUᵀv‖ = {resid_vs_udut:.3e} ≈ 0 (#1038)",
-            resid / a_true_norm
-        );
-
-        // Operator/preconditioner consistency: stripping ΔC must round-trip
-        // through the inner solver's exact inverse back to v.
-        let (rt, rb) = cache
-            .full_inverse_apply((&ae.t - &dc_v.t).view(), (&ae.beta - &dc_v.beta).view())
-            .expect("round-trip inverse");
-        let round_trip = {
-            let mut s = 0.0_f64;
-            for g in 0..total_t {
-                s += (rt[g] - v.t[g]).powi(2);
-            }
-            for i in 0..kdim {
-                s += (rb[i] - v.beta[i]).powi(2);
-            }
-            s.sqrt()
-        };
-        let v_norm = v_flat.iter().map(|x| x * x).sum::<f64>().sqrt().max(1.0);
-        assert!(
-            round_trip <= 1.0e-9 * v_norm,
-            "H_full⁻¹·(apply_exact_hessian − ΔC)·v must return v (operator and preconditioner on \
-             the SAME H_full): round-trip residual {round_trip:.3e} (rel {:.3e})",
-            round_trip / v_norm
-        );
-    }
 }
 
 /// Validates the matrix-free Hutchinson stochastic-trace estimator that replaces
@@ -892,9 +643,17 @@ mod smoothness_dof_hutchinson_tests {
     fn hutchinson_smoothness_dof_matches_exact_and_is_deterministic() {
         let (mut term, target, rho) = small_two_atom_periodic_term();
         let (_value, _loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
+            .penalized_quasi_laplace_criterion_with_cache(
+                target.view(),
+                &rho,
+                None,
+                40,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
             .expect("converged cache for the two-atom fixture");
-        let lambda = rho.lambda_smooth_vec();
+        let lambda = rho.lambda_smooth_vec().unwrap();
 
         // Ground truth: the exact column-by-column trace (the `K < threshold`
         // path this fixture actually takes).
@@ -971,8 +730,6 @@ mod smoothness_dof_hutchinson_tests {
     }
 }
 
-
-
 #[cfg(test)]
 mod shape_uncertainty_joint_recompute_tests {
     use super::*;
@@ -980,29 +737,30 @@ mod shape_uncertainty_joint_recompute_tests {
 
     /// After a structure-search / finalization change, the shape bands are
     /// rebuilt at the FINAL state by `recompute_joint_shape_uncertainty`, which
-    /// must return the JOINT inverse-Hessian covariance — NOT the per-atom
-    /// inner-Hessian marginal the pre-fix path fell back to. Two properties
-    /// distinguish the two and are pinned here:
-    ///   1. the recompute reproduces the direct-Schur `assemble_shape_uncertainty`
-    ///      bands (it IS the joint path); and
-    ///   2. the joint band carries per-output-channel variance AND differs
-    ///      materially from the per-atom-marginal completion — so replacing the
-    ///      marginal with the joint recompute genuinely changes the reported band.
+    /// must return the exact JOINT inverse-Hessian covariance.
     #[test]
-    fn recompute_reproduces_joint_and_differs_from_per_atom_marginal() {
+    fn recompute_reproduces_joint_shape_band() {
         // A reliably-converging tiny state: the fixture target was assembled under
-        // a softmax gate, so switching to an IBP-MAP gate at the PD-region ρ
+        // a softmax gate, so switching to an ordered Beta--Bernoulli gate at the PD-region ρ
         // (`log_lambda_sparse = 0.5`, the deflation-regression config) leaves a
         // genuine reconstruction residual — a real dispersion and nonzero bands —
         // while the state stays near its inner optimum so the undamped joint
         // factor converges in a few steps.
         let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-        term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+        term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, true);
         rho.log_lambda_sparse = 0.5;
 
         // Reference joint bands via the direct Schur path.
         let (_c, loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+            .penalized_quasi_laplace_criterion_with_cache(
+                target.view(),
+                &rho,
+                None,
+                5,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
             .expect("converged joint cache");
         let dispersion = term
             .reconstruction_dispersion(&loss, &cache, &rho, None)
@@ -1019,8 +777,10 @@ mod shape_uncertainty_joint_recompute_tests {
             .expect("joint recompute");
         assert_eq!(recomputed.atoms.len(), joint.atoms.len());
         for (k, (a, b)) in recomputed.atoms.iter().zip(joint.atoms.iter()).enumerate() {
-            assert_eq!(a.band_sd.dim(), b.band_sd.dim(), "atom {k} band shape");
-            for (x, y) in a.band_sd.iter().zip(b.band_sd.iter()) {
+            let a_sd = a.band_sd.as_ref().expect("recomputed joint band");
+            let b_sd = b.band_sd.as_ref().expect("direct joint band");
+            assert_eq!(a_sd.dim(), b_sd.dim(), "atom {k} band shape");
+            for (x, y) in a_sd.iter().zip(b_sd.iter()) {
                 assert!(
                     (x - y).abs() <= 1e-9 * (1.0 + y.abs()),
                     "atom {k}: recompute must reproduce the joint band ({x} vs {y})"
@@ -1035,8 +795,9 @@ mod shape_uncertainty_joint_recompute_tests {
         // dispersion (which scales every band equally) does not hide the spread.
         let mut joint_channel_spread = 0.0_f64;
         for atom in &joint.atoms {
-            for gi in 0..atom.band_sd.nrows() {
-                let row = atom.band_sd.row(gi);
+            let band_sd = atom.band_sd.as_ref().expect("joint band");
+            for gi in 0..band_sd.nrows() {
+                let row = band_sd.row(gi);
                 let min = row.iter().cloned().fold(f64::INFINITY, f64::min);
                 let max = row.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
                 if max > 0.0 {
@@ -1049,36 +810,6 @@ mod shape_uncertainty_joint_recompute_tests {
             "the JOINT band must carry per-output-channel variance (relative spread \
              {joint_channel_spread:.3e}); a constant-across-channel band is the per-atom \
              marginal the fix replaced"
-        );
-
-        // Property 2 (non-vacuity): the per-atom inner-Hessian marginal the
-        // fallback produces DIFFERS materially from the joint band. Compared
-        // scale-free (both scale by the same dispersion), so the gap reflects the
-        // dropped cross-atom / coordinate couplings, not the dispersion.
-        term.set_atom_inner_fits(target.view(), dispersion)
-            .expect("inner fits harvested");
-        let mut marginal = joint.clone();
-        marginal.invalidate_bands_for_recompute();
-        term.complete_born_atom_shape_bands(&mut marginal)
-            .expect("per-atom marginal completion");
-        let mut max_rel_gap = 0.0_f64;
-        let mut compared = 0usize;
-        for (a, b) in marginal.atoms.iter().zip(joint.atoms.iter()) {
-            for (x, y) in a.band_sd.iter().zip(b.band_sd.iter()) {
-                if x.is_finite() && y.is_finite() && *y > 0.0 {
-                    max_rel_gap = max_rel_gap.max((x - y).abs() / y);
-                    compared += 1;
-                }
-            }
-        }
-        assert!(
-            compared > 0,
-            "the per-atom marginal must fill finite bands to compare"
-        );
-        assert!(
-            max_rel_gap > 1e-3,
-            "the per-atom marginal must differ materially from the joint band \
-             (max rel gap {max_rel_gap:.3e}); otherwise the joint recompute changes nothing"
         );
     }
 }

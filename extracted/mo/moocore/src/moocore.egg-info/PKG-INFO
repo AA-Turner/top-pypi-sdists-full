@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moocore
-Version: 0.3.1
+Version: 0.3.2
 Summary: Core Algorithms for Multi-Objective Optimization
 Author-email: Manuel López-Ibáñez <manuel.lopez-ibanez@manchester.ac.uk>, Fergus Rooney <fergus.rooney@outlook.com>, Lennart Schäpermeier <lennart.schaepermeier@uni-muenster.de>
 License-Expression: LGPL-2.1-or-later

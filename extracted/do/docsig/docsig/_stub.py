@@ -7,8 +7,8 @@ Stub types for parsed docstrings and signatures.
 
 from __future__ import annotations as _
 
+import inspect as _inspect
 import re as _re
-import textwrap as _textwrap
 import typing as _t
 from collections import Counter as _Counter
 from enum import Enum as _Enum
@@ -326,20 +326,43 @@ class Docstring(_Stub):
         return False
 
     @staticmethod
+    def _docstring_style(string: str) -> str:
+        # prefer existing rst fields over napoleon section headers
+        if _re.search(r"^:\w+", string, _re.MULTILINE):
+            return "rst"
+
+        if _re.search(
+            r"^(Parameters|Other Parameters|Returns|Yields|Raises|"
+            r"See Also|Notes|Examples|Attributes|Methods)\n"
+            r"\s*-{3,}\s*$",
+            string,
+            _re.MULTILINE,
+        ):
+            return "numpy"
+
+        if _re.search(
+            r"^(Args|Arguments|Parameters|Returns|Yields|Raises|"
+            r"Attributes|Example|Examples):\s*$",
+            string,
+            _re.MULTILINE,
+        ):
+            return "google"
+
+        return "rst"
+
+    @staticmethod
     def _normalize_docstring(string: str) -> str:
-        # convert Google and numpy style docstrings to parse docstrings
-        # as restructured text
-        return str(
-            _s.NumpyDocstring(  # type: ignore
-                str(
-                    _s.GoogleDocstring(  # type: ignore
-                        _textwrap.dedent(
-                            "\n".join(string.splitlines()[1:]),
-                        ).replace("*", ""),
-                    ),
-                ),
-            ),
-        )
+        # convert Google or numpy style to rst when detected
+        # leave rst (including field lists) unchanged
+        string = _inspect.cleandoc(string)
+        style = Docstring._docstring_style(string)
+        if style == "google":
+            return str(_s.GoogleDocstring(string))  # type: ignore
+
+        if style == "numpy":
+            return str(_s.NumpyDocstring(string))  # type: ignore
+
+        return string
 
     def __init__(
         self,
@@ -371,16 +394,24 @@ class Docstring(_Stub):
         # the suggestion is broken
         # noinspection RegExpSingleCharAlternation
         for match in _re.findall(
-            r":([\w\s]+(?:\s\|\s[\w\s]+|\w+))([^\w\s])((?:.|\n)*?)(?=\n:|$)",
+            r":((?:\\?\*){0,2}[\w]+"
+            r"(?:\s+(?:\\?\*){0,2}[\w]+|"
+            r"\s\|\s(?:\\?\*){0,2}[\w]+)*)"
+            r"([^\w\s\\*])"
+            r"((?:.|\n)*?)(?=\n:|$)",
             string,
         ):
             if match:
                 kinds = match[0].split()
                 if kinds:
+                    name = None
+                    if len(kinds) > 1:
+                        # drop * / ** / napoleon-escaped stars on the name
+                        name = kinds[-1].lstrip("\\*")
                     docstring.args.append(
                         Param(
                             DocType.from_str(kinds[0]),
-                            UNNAMED if len(kinds) == 1 else kinds[-1],
+                            UNNAMED if name is None else name,
                             match[2] or None,
                             int(indent_anomaly),
                             match[1],

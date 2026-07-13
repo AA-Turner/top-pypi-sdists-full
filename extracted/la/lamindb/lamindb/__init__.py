@@ -1,4 +1,4 @@
-"""A data lakehouse for biology.
+"""Data management for biology.
 
 Installation::
 
@@ -150,7 +150,7 @@ Developer API
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
@@ -161,7 +161,7 @@ from . import base, errors, setup
 _check_instance_setup(from_module="lamindb")
 
 from .core._functions import flow, step, tracked
-from ._view import view
+from .models._view import view
 from .core._context import context
 from .core._settings import settings
 from .models import (

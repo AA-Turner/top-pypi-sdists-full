@@ -205,10 +205,10 @@ impl SurvivalLocationScaleFamily {
             }
             // The step `H δ = g` is solved on a consistent (objective, gradient,
             // Hessian) triple for EVERY residual distribution: `g = ∇ℓ` above is
-            // the block-gradient hand assembler
+            // the block-gradient reduction
             // (`evaluate_log_likelihood_and_block_gradients`) and `H = −∇²ℓ` below
-            // is `assemble_joint_hessian_from_quantities`, but both are pinned to
-            // the ONE single-sourced `sls_row_nll` jet to ≤1e-9 by the analytic
+            // is the packed 24-pair coefficient lowering; both are pinned to the
+            // ONE single-sourced `sls_row_nll` program to ≤1e-9 by the analytic
             // oracles (`survival_ls_block_gradient_matches_single_sourced_tower_932`
             // for the gradient across Gaussian/Gumbel/Logistic on the every-channel
             // time-varying shape;
@@ -439,631 +439,6 @@ impl SurvivalLocationScaleFamily {
         Ok((states, ll, h_final))
     }
 
-    /// Block-diagonal-only assembly: returns the four (or three, when no
-    /// link-wiggle is configured) principal diagonal blocks of the joint
-    /// Hessian without ever materializing the cross blocks. Used by
-    /// `evaluate()` so the inner solver gets per-block working sets at
-    /// Θ(n · Σ p_b²) instead of Θ(n · (Σ p_b)²) — for large scale
-    /// (n ≈ 3·10⁵, Σ p_b ≈ 200) this avoids ~12·10⁹ scalar multiplies and
-    /// the corresponding p² dense allocation per evaluate.
-    pub(crate) fn assemble_block_diagonal_hessians_from_quantities(
-        &self,
-        q: &SurvivalJointQuantities,
-        block_states: &[ParameterBlockState],
-    ) -> Result<Vec<Array2<f64>>, String> {
-        let dynamic = self.build_dynamic_geometry(block_states)?;
-        let x_threshold_exit_cow = self.x_threshold.to_dense_cow();
-        let x_threshold_exit = &*x_threshold_exit_cow;
-        let x_threshold_entry_cow = self
-            .x_threshold_entry
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_threshold_entry = x_threshold_entry_cow
-            .as_ref()
-            .map_or(x_threshold_exit, |c| &**c);
-        let x_threshold_deriv_cow = self
-            .x_threshold_deriv
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_threshold_deriv = x_threshold_deriv_cow.as_deref();
-        let x_log_sigma_exit_cow = self.x_log_sigma.to_dense_cow();
-        let x_log_sigma_exit = &*x_log_sigma_exit_cow;
-        let x_log_sigma_entry_cow = self
-            .x_log_sigma_entry
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_log_sigma_entry = x_log_sigma_entry_cow
-            .as_ref()
-            .map_or(x_log_sigma_exit, |c| &**c);
-        let x_log_sigma_deriv_cow = self
-            .x_log_sigma_deriv
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_log_sigma_deriv = x_log_sigma_deriv_cow.as_deref();
-
-        let use_outer_parallel = rayon::current_num_threads() > 1;
-        // When multiple independent Hessian blocks are assembled by Rayon tasks,
-        // keep each faer GEMM/GEMV sequential.  This trades inner parallelism for
-        // coarse block-level parallelism and avoids nested Rayon/faer
-        // oversubscription on the same worker pool.
-        let product_parallelism = if use_outer_parallel {
-            faer::Par::Seq
-        } else {
-            faer::get_global_parallelism()
-        };
-
-        let assemble_h_time = || -> Result<Array2<f64>, String> {
-            // Time-time block: the diagonal of the row NLL Hessian in
-            // time-channel space, pulled back through the three time Jacobians.
-            // The `-∂²ℓ` sign is applied once and uniformly by the curvature
-            // helper (gam#1396).
-            let nll = q.time_channel_nll_curvatures();
-            Ok(safe_fast_xt_diag_x_with_parallelism(
-                &dynamic.time_jac_entry,
-                &nll.h0,
-                product_parallelism,
-            ) + safe_fast_xt_diag_x_with_parallelism(
-                &dynamic.time_jac_exit,
-                &nll.h1,
-                product_parallelism,
-            ) + safe_fast_xt_diag_x_with_parallelism(
-                &dynamic.time_jac_deriv,
-                &nll.d,
-                product_parallelism,
-            ))
-        };
-
-        let assemble_h_tt = || -> Result<Array2<f64>, String> {
-            // Threshold-threshold block.
-            if let Some(x_t_deriv) = x_threshold_deriv {
-                let h_exit = -(&q.d2_q1 * &q.dq_t.mapv(|v| safe_product(v, v))
-                    + &q.d2_qdot1 * &q.dqdot_t.mapv(|v| safe_product(v, v))
-                    + &q.d1_qdot1 * &q.d2qdot_tt);
-                let h_entry =
-                    -(&q.d2_q0 * &q.dq_t_entry.as_ref().unwrap().mapv(|v| safe_product(v, v)));
-                let h_deriv = -(&q.d2_qdot1 * &q.dqdot_td.mapv(|v| safe_product(v, v)));
-                let h_exit_deriv =
-                    -(&q.d2_qdot1 * &(&q.dqdot_t * &q.dqdot_td) + &q.d1_qdot1 * &q.d2qdot_ttd);
-                let mut h_tt = weighted_crossprod_dense_with_parallelism(
-                    x_threshold_exit,
-                    &h_exit,
-                    x_threshold_exit,
-                    product_parallelism,
-                )? + weighted_crossprod_dense_with_parallelism(
-                    x_threshold_entry,
-                    &h_entry,
-                    x_threshold_entry,
-                    product_parallelism,
-                )? + weighted_crossprod_dense_with_parallelism(
-                    x_t_deriv,
-                    &h_deriv,
-                    x_t_deriv,
-                    product_parallelism,
-                )?;
-                let cross = weighted_crossprod_dense_with_parallelism(
-                    x_threshold_exit,
-                    &h_exit_deriv,
-                    x_t_deriv,
-                    product_parallelism,
-                )?;
-                h_tt += &cross;
-                h_tt += &cross.t().to_owned();
-                Ok(h_tt)
-            } else {
-                let h_t = -(&q.d2_q1 * &q.dq_t.mapv(|v| safe_product(v, v))
-                    + &q.d2_q0 * &q.dq_t_entry.as_ref().unwrap().mapv(|v| safe_product(v, v))
-                    + &q.d2_qdot1 * &q.dqdot_t.mapv(|v| safe_product(v, v))
-                    + &q.d1_qdot1 * &q.d2qdot_tt);
-                weighted_crossprod_dense_with_parallelism(
-                    x_threshold_exit,
-                    &h_t,
-                    x_threshold_exit,
-                    product_parallelism,
-                )
-            }
-        };
-
-        let assemble_h_ll = || -> Result<Array2<f64>, String> {
-            // Log-sigma–log-sigma block.
-            if let Some(x_ls_deriv) = x_log_sigma_deriv {
-                let dq_ls_entry = q.dq_ls_entry.as_ref().unwrap();
-                let d2q_ls_entry = q.d2q_ls_entry.as_ref().unwrap();
-                let h_exit = -(&q.d2_q1 * &q.dq_ls.mapv(|v| safe_product(v, v))
-                    + &(&q.d1_q1 * &q.d2q_ls)
-                    + &q.d2_qdot1 * &q.dqdot_ls.mapv(|v| safe_product(v, v))
-                    + &(&q.d1_qdot1 * &q.d2qdot_ls));
-                let h_entry = -(&q.d2_q0 * &dq_ls_entry.mapv(|v| safe_product(v, v))
-                    + &(&q.d1_q0 * d2q_ls_entry));
-                let h_deriv = -(&q.d2_qdot1 * &q.dqdot_lsd.mapv(|v| safe_product(v, v)));
-                let h_exit_deriv =
-                    -(&q.d2_qdot1 * &(&q.dqdot_ls * &q.dqdot_lsd) + &q.d1_qdot1 * &q.d2qdot_lslsd);
-                let mut h_ll = weighted_crossprod_dense_with_parallelism(
-                    x_log_sigma_exit,
-                    &h_exit,
-                    x_log_sigma_exit,
-                    product_parallelism,
-                )? + weighted_crossprod_dense_with_parallelism(
-                    x_log_sigma_entry,
-                    &h_entry,
-                    x_log_sigma_entry,
-                    product_parallelism,
-                )? + weighted_crossprod_dense_with_parallelism(
-                    x_ls_deriv,
-                    &h_deriv,
-                    x_ls_deriv,
-                    product_parallelism,
-                )?;
-                let cross = weighted_crossprod_dense_with_parallelism(
-                    x_log_sigma_exit,
-                    &h_exit_deriv,
-                    x_ls_deriv,
-                    product_parallelism,
-                )?;
-                h_ll += &cross;
-                h_ll += &cross.t().to_owned();
-                Ok(h_ll)
-            } else {
-                let h_ls = -(&q.d2_q1 * &q.dq_ls.mapv(|v| safe_product(v, v))
-                    + &(&q.d1_q1 * &q.d2q_ls)
-                    + &q.d2_q0 * &q.dq_ls_entry.as_ref().unwrap().mapv(|v| safe_product(v, v))
-                    + &(&q.d1_q0 * q.d2q_ls_entry.as_ref().unwrap())
-                    + &q.d2_qdot1 * &q.dqdot_ls.mapv(|v| safe_product(v, v))
-                    + &(&q.d1_qdot1 * &q.d2qdot_ls));
-                weighted_crossprod_dense_with_parallelism(
-                    x_log_sigma_exit,
-                    &h_ls,
-                    x_log_sigma_exit,
-                    product_parallelism,
-                )
-            }
-        };
-
-        let assemble_h_wiggle = || -> Result<Option<Array2<f64>>, String> {
-            // Optional link-wiggle block.
-            if let (Some(xw_exit), Some(xw_entry), Some(xw_qdot)) = (
-                dynamic.wiggle_basis_exit.as_ref(),
-                dynamic.wiggle_basis_entry.as_ref(),
-                dynamic.wiggle_qdot_basis_exit.as_ref(),
-            ) {
-                Ok(Some(
-                    weighted_crossprod_dense_with_parallelism(
-                        xw_exit,
-                        &(-&q.d2_q1),
-                        xw_exit,
-                        product_parallelism,
-                    )? + weighted_crossprod_dense_with_parallelism(
-                        xw_entry,
-                        &(-&q.d2_q0),
-                        xw_entry,
-                        product_parallelism,
-                    )? + weighted_crossprod_dense_with_parallelism(
-                        xw_qdot,
-                        &(-&q.d2_qdot1),
-                        xw_qdot,
-                        product_parallelism,
-                    )?,
-                ))
-            } else {
-                Ok(None)
-            }
-        };
-
-        let (h_time, h_tt, h_ll, h_wiggle) = if use_outer_parallel {
-            let ((h_time, h_tt), (h_ll, h_wiggle)) = rayon::join(
-                || rayon::join(assemble_h_time, assemble_h_tt),
-                || rayon::join(assemble_h_ll, assemble_h_wiggle),
-            );
-            (h_time?, h_tt?, h_ll?, h_wiggle?)
-        } else {
-            (
-                assemble_h_time()?,
-                assemble_h_tt()?,
-                assemble_h_ll()?,
-                assemble_h_wiggle()?,
-            )
-        };
-
-        let mut blocks = vec![h_time, h_tt, h_ll];
-        if let Some(hww) = h_wiggle {
-            blocks.push(hww);
-        }
-
-        Ok(blocks)
-    }
-
-    /// LIVE production joint Hessian `H = −∇²ℓ` for the non-wiggle survival-LS
-    /// model (the wiggle case is single-sourced through the §13 warp kernel).
-    ///
-    /// #932 MEASURED PERF EXCEPTION: this is a sparse hand assembler, NOT the
-    /// single-source `Order2<9>` jet row kernel. Routing the joint Hessian
-    /// through the dense jet (`RowKernel::<9>::row_kernel` over `sls_row_nll`) is
-    /// ~3.8–5.3× SLOWER (standalone ns/row + `--emit asm` op counts): a dense
-    /// order-2 tower over 9 channels cannot recover the 3-functionally-
-    /// independent-index × ≤5-touched-channel sparsity this assembler hard-codes.
-    /// The exception is kept HONEST, not a divergence risk: this hand assembler
-    /// is pinned bit-for-bit (≤1e-9) to the ONE single-sourced `sls_row_nll` jet
-    /// by non-ignored analytic oracles —
-    /// `survival_ls_row_kernel_matches_bespoke_assembly` (#921, simple shape +
-    /// FD directional witness) and
-    /// `survival_ls_time_varying_joint_hessian_matches_single_sourced_tower_932`
-    /// (every-channel time-varying shape, Gaussian/Gumbel/Logistic). The block
-    /// gradient is likewise pinned by
-    /// `survival_ls_block_gradient_matches_single_sourced_tower_932`. A future
-    /// cutover requires a sparsity-aware packed jet that closes the measured gap.
-    pub(crate) fn assemble_joint_hessian_from_quantities(
-        &self,
-        q: &SurvivalJointQuantities,
-        block_states: &[ParameterBlockState],
-    ) -> Result<Option<Array2<f64>>, String> {
-        self.assemble_joint_hessian_from_quantities_masked(q, block_states, None)
-    }
-
-    /// HT-mask-aware variant of [`assemble_joint_hessian_from_quantities`].
-    ///
-    /// When `row_mask` is `None`, the function is byte-identical to the
-    /// pre-refactor implementation (every weight argument is unchanged).
-    /// When `row_mask` is `Some(m)`, every row-additive assembly site
-    /// replaces the per-row weight `w[i]` with `w[i] * m[i]`. This is the
-    /// outer-score Horvitz-Thompson subsample plumbing
-    /// (WS4a-survival-LS): every survival-LS assembly site is of the form
-    /// `Σ_i x_i y_iᵀ · w_i` (row-additive), so per-row mask multiplication
-    /// is unbiased for `Σ_i w_i · x_i y_iᵀ` under HT weighting.
-    pub(crate) fn assemble_joint_hessian_from_quantities_masked(
-        &self,
-        q: &SurvivalJointQuantities,
-        block_states: &[ParameterBlockState],
-        row_mask: Option<&Array1<f64>>,
-    ) -> Result<Option<Array2<f64>>, String> {
-        let dynamic = self.build_dynamic_geometry(block_states)?;
-        let joint_states = self.validate_joint_states(block_states)?;
-        let eta_t_exit = joint_states.3;
-        let eta_t_entry = joint_states.5;
-        let eta_t_deriv_exit = joint_states.7;
-        let eta_ls_deriv_exit = joint_states.8;
-        let eta_t_deriv_exit = eta_t_deriv_exit
-            .map(|v| v.to_owned())
-            .unwrap_or_else(|| Array1::zeros(self.n));
-        let eta_ls_deriv_exit = eta_ls_deriv_exit
-            .map(|v| v.to_owned())
-            .unwrap_or_else(|| Array1::zeros(self.n));
-        let offsets = self.joint_block_offsets();
-        let p_total = *offsets
-            .last()
-            .ok_or_else(|| "missing joint block offsets".to_string())?;
-        let x_threshold_exit_cow = self.x_threshold.to_dense_cow();
-        let x_threshold_exit = &*x_threshold_exit_cow;
-        let x_threshold_entry_cow = self
-            .x_threshold_entry
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_threshold_entry = x_threshold_entry_cow
-            .as_ref()
-            .map_or(x_threshold_exit, |c| &**c);
-        let x_threshold_deriv_cow = self
-            .x_threshold_deriv
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_threshold_deriv = x_threshold_deriv_cow.as_deref();
-        let x_log_sigma_exit_cow = self.x_log_sigma.to_dense_cow();
-        let x_log_sigma_exit = &*x_log_sigma_exit_cow;
-        let x_log_sigma_entry_cow = self
-            .x_log_sigma_entry
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_log_sigma_entry = x_log_sigma_entry_cow
-            .as_ref()
-            .map_or(x_log_sigma_exit, |c| &**c);
-        let x_log_sigma_deriv_cow = self
-            .x_log_sigma_deriv
-            .as_ref()
-            .map(DesignMatrix::to_dense_cow);
-        let x_log_sigma_deriv = x_log_sigma_deriv_cow.as_deref();
-        let mut joint = Array2::<f64>::zeros((p_total, p_total));
-        let add_cross = |acc: &mut Array2<f64>,
-                         left: &Array2<f64>,
-                         weights: &Array1<f64>,
-                         right: &Array2<f64>|
-         -> Result<(), String> {
-            *acc += &mxtwx(left, weights, right, row_mask)?;
-            Ok(())
-        };
-
-        // Time-time block: NLL Hessian diagonal in time-channel space. The
-        // `-∂²ℓ` sign is owned by the curvature helper so all three channels
-        // negate together (gam#1396).
-        let nll_time = q.time_channel_nll_curvatures();
-        let h_time = mxtwxd(&dynamic.time_jac_entry, &nll_time.h0, row_mask)
-            + mxtwxd(&dynamic.time_jac_exit, &nll_time.h1, row_mask)
-            + mxtwxd(&dynamic.time_jac_deriv, &nll_time.d, row_mask);
-        assign_symmetric_block(&mut joint, offsets[0], offsets[0], &h_time);
-
-        if let Some(x_t_deriv) = x_threshold_deriv {
-            let h_exit = -(&q.d2_q1 * &q.dq_t.mapv(|v| safe_product(v, v))
-                + &q.d2_qdot1 * &q.dqdot_t.mapv(|v| safe_product(v, v))
-                + &q.d1_qdot1 * &q.d2qdot_tt);
-            let h_entry =
-                -(&q.d2_q0 * &q.dq_t_entry.as_ref().unwrap().mapv(|v| safe_product(v, v)));
-            let h_deriv = -(&q.d2_qdot1 * &q.dqdot_td.mapv(|v| safe_product(v, v)));
-            let h_exit_deriv =
-                -(&q.d2_qdot1 * &(&q.dqdot_t * &q.dqdot_td) + &q.d1_qdot1 * &q.d2qdot_ttd);
-            let mut h_tt = mxtwx(x_threshold_exit, &h_exit, x_threshold_exit, row_mask)?
-                + mxtwx(x_threshold_entry, &h_entry, x_threshold_entry, row_mask)?
-                + mxtwx(x_t_deriv, &h_deriv, x_t_deriv, row_mask)?;
-            let cross = mxtwx(x_threshold_exit, &h_exit_deriv, x_t_deriv, row_mask)?;
-            h_tt += &cross;
-            h_tt += &cross.t().to_owned();
-            assign_symmetric_block(&mut joint, offsets[1], offsets[1], &h_tt);
-        } else {
-            let h_t = -(&q.d2_q1 * &q.dq_t.mapv(|v| safe_product(v, v))
-                + &q.d2_q0 * &q.dq_t_entry.as_ref().unwrap().mapv(|v| safe_product(v, v))
-                + &q.d2_qdot1 * &q.dqdot_t.mapv(|v| safe_product(v, v))
-                + &q.d1_qdot1 * &q.d2qdot_tt);
-            let h_tt = mxtwx(x_threshold_exit, &h_t, x_threshold_exit, row_mask)?;
-            assign_symmetric_block(&mut joint, offsets[1], offsets[1], &h_tt);
-        }
-
-        if let Some(x_ls_deriv) = x_log_sigma_deriv {
-            let dq_ls_entry = q.dq_ls_entry.as_ref().unwrap();
-            let d2q_ls_entry = q.d2q_ls_entry.as_ref().unwrap();
-            let h_exit = -(&q.d2_q1 * &q.dq_ls.mapv(|v| safe_product(v, v))
-                + &(&q.d1_q1 * &q.d2q_ls)
-                + &q.d2_qdot1 * &q.dqdot_ls.mapv(|v| safe_product(v, v))
-                + &(&q.d1_qdot1 * &q.d2qdot_ls));
-            let h_entry = -(&q.d2_q0 * &dq_ls_entry.mapv(|v| safe_product(v, v))
-                + &(&q.d1_q0 * d2q_ls_entry));
-            let h_deriv = -(&q.d2_qdot1 * &q.dqdot_lsd.mapv(|v| safe_product(v, v)));
-            let h_exit_deriv =
-                -(&q.d2_qdot1 * &(&q.dqdot_ls * &q.dqdot_lsd) + &q.d1_qdot1 * &q.d2qdot_lslsd);
-            let mut h_ll = mxtwx(x_log_sigma_exit, &h_exit, x_log_sigma_exit, row_mask)?
-                + mxtwx(x_log_sigma_entry, &h_entry, x_log_sigma_entry, row_mask)?
-                + mxtwx(x_ls_deriv, &h_deriv, x_ls_deriv, row_mask)?;
-            let cross = mxtwx(x_log_sigma_exit, &h_exit_deriv, x_ls_deriv, row_mask)?;
-            h_ll += &cross;
-            h_ll += &cross.t().to_owned();
-            assign_symmetric_block(&mut joint, offsets[2], offsets[2], &h_ll);
-        } else {
-            let h_ls = -(&q.d2_q1 * &q.dq_ls.mapv(|v| safe_product(v, v))
-                + &(&q.d1_q1 * &q.d2q_ls)
-                + &q.d2_q0 * &q.dq_ls_entry.as_ref().unwrap().mapv(|v| safe_product(v, v))
-                + &(&q.d1_q0 * q.d2q_ls_entry.as_ref().unwrap())
-                + &q.d2_qdot1 * &q.dqdot_ls.mapv(|v| safe_product(v, v))
-                + &(&q.d1_qdot1 * &q.d2qdot_ls));
-            let h_ll = mxtwx(x_log_sigma_exit, &h_ls, x_log_sigma_exit, row_mask)?;
-            assign_symmetric_block(&mut joint, offsets[2], offsets[2], &h_ll);
-        }
-
-        {
-            let mut h_tl = Array2::<f64>::zeros((offsets[2] - offsets[1], offsets[3] - offsets[2]));
-            let w_exit = -(&q.d2_q1 * &(&q.dq_t * &q.dq_ls) + &(&q.d1_q1 * &q.d2q_tls));
-            let w_entry = -(&q.d2_q0
-                * &(q.dq_t_entry.as_ref().unwrap() * q.dq_ls_entry.as_ref().unwrap())
-                + &(&q.d1_q0 * q.d2q_tls_entry.as_ref().unwrap()));
-            add_cross(&mut h_tl, x_threshold_exit, &w_exit, x_log_sigma_exit)?;
-            add_cross(&mut h_tl, x_threshold_entry, &w_entry, x_log_sigma_entry)?;
-            let w_qdot_exit =
-                -(&q.d2_qdot1 * &(&q.dqdot_t * &q.dqdot_ls) + &(&q.d1_qdot1 * &q.d2qdot_tls));
-            add_cross(&mut h_tl, x_threshold_exit, &w_qdot_exit, x_log_sigma_exit)?;
-            if let Some(x_ls_deriv) = x_log_sigma_deriv {
-                let w =
-                    -(&q.d2_qdot1 * &(&q.dqdot_t * &q.dqdot_lsd) + &(&q.d1_qdot1 * &q.d2qdot_tlsd));
-                add_cross(&mut h_tl, x_threshold_exit, &w, x_ls_deriv)?;
-            }
-            if let Some(x_t_deriv) = x_threshold_deriv {
-                let w =
-                    -(&q.d2_qdot1 * &(&q.dqdot_td * &q.dqdot_ls) + &(&q.d1_qdot1 * &q.d2qdot_lstd));
-                add_cross(&mut h_tl, x_t_deriv, &w, x_log_sigma_exit)?;
-                if let Some(x_ls_deriv) = x_log_sigma_deriv {
-                    let wdd = -(&q.d2_qdot1 * &(&q.dqdot_td * &q.dqdot_lsd));
-                    add_cross(&mut h_tl, x_t_deriv, &wdd, x_ls_deriv)?;
-                }
-            }
-            assign_symmetric_block(&mut joint, offsets[1], offsets[2], &h_tl);
-        }
-
-        // Time × threshold cross block: each time channel's NLL curvature
-        // (`nll_time.{h0,h1,d}`, already carrying the `-∂²ℓ` sign) times the
-        // threshold chain factor `∂{u0,u1,g}/∂η_t`.
-        let mut h_ht = mxtwx(
-            &self.x_time_entry,
-            &(&nll_time.h0 * q.dq_t_entry.as_ref().unwrap()),
-            x_threshold_entry,
-            row_mask,
-        )? + mxtwx(
-            &self.x_time_exit,
-            &(&nll_time.h1 * &q.dq_t),
-            x_threshold_exit,
-            row_mask,
-        )? + mxtwx(
-            &self.x_time_deriv,
-            &(&nll_time.d * &q.dqdot_t),
-            x_threshold_exit,
-            row_mask,
-        )?;
-        if let Some(x_t_deriv) = x_threshold_deriv {
-            h_ht += &mxtwx(
-                &self.x_time_deriv,
-                &(&nll_time.d * &q.dqdot_td),
-                x_t_deriv,
-                row_mask,
-            )?;
-        }
-        assign_symmetric_block(&mut joint, offsets[0], offsets[1], &h_ht);
-
-        // Time × log-σ cross block: same structure, log-σ chain factor.
-        let mut h_hl = mxtwx(
-            &self.x_time_entry,
-            &(&nll_time.h0 * q.dq_ls_entry.as_ref().unwrap()),
-            x_log_sigma_entry,
-            row_mask,
-        )? + mxtwx(
-            &self.x_time_exit,
-            &(&nll_time.h1 * &q.dq_ls),
-            x_log_sigma_exit,
-            row_mask,
-        )? + mxtwx(
-            &self.x_time_deriv,
-            &(&nll_time.d * &q.dqdot_ls),
-            x_log_sigma_exit,
-            row_mask,
-        )?;
-        if let Some(x_ls_deriv) = x_log_sigma_deriv {
-            h_hl += &mxtwx(
-                &self.x_time_deriv,
-                &(&nll_time.d * &q.dqdot_lsd),
-                x_ls_deriv,
-                row_mask,
-            )?;
-        }
-        assign_symmetric_block(&mut joint, offsets[0], offsets[2], &h_hl);
-
-        if let (
-            Some(xw_exit),
-            Some(xw_entry),
-            Some(xw_qdot),
-            Some(xw_d1_exit),
-            Some(xw_d1_entry),
-            Some(xw_d2_exit),
-            Some(w_offset),
-        ) = (
-            dynamic.wiggle_basis_exit.as_ref(),
-            dynamic.wiggle_basis_entry.as_ref(),
-            dynamic.wiggle_qdot_basis_exit.as_ref(),
-            dynamic.wiggle_basis_d1_exit.as_ref(),
-            dynamic.wiggle_basis_d1_entry.as_ref(),
-            dynamic.wiggle_basis_d2_exit.as_ref(),
-            offsets.get(3).copied(),
-        ) {
-            let hww = mxtwx(xw_exit, &(-&q.d2_q1), xw_exit, row_mask)?
-                + mxtwx(xw_entry, &(-&q.d2_q0), xw_entry, row_mask)?
-                + mxtwx(xw_qdot, &(-&q.d2_qdot1), xw_qdot, row_mask)?;
-            assign_symmetric_block(&mut joint, w_offset, w_offset, &hww);
-            let q0_t_entry = Array1::from_iter(dynamic.inv_sigma_entry.iter().map(|&r| -r));
-            let q0_t_exit = Array1::from_iter(dynamic.inv_sigma_exit.iter().map(|&r| -r));
-            let q0_ls_entry = Array1::from_iter(
-                (0..self.n)
-                    .map(|i| q_chain_derivs_scalar(eta_t_entry[i], dynamic.eta_ls_entry[i]).1),
-            );
-            let q0_ls_exit = Array1::from_iter(
-                (0..self.n).map(|i| q_chain_derivs_scalar(eta_t_exit[i], dynamic.eta_ls_exit[i]).1),
-            );
-            let r_base_exit = safe_linear_combo2_arrays(
-                &q0_t_exit,
-                &eta_t_deriv_exit,
-                &q0_ls_exit,
-                &eta_ls_deriv_exit,
-            )?;
-            let r_t_base_exit = Array1::from_iter((0..self.n).map(|i| {
-                safe_product(
-                    q_chain_derivs_scalar(eta_t_exit[i], dynamic.eta_ls_exit[i]).2,
-                    eta_ls_deriv_exit[i],
-                )
-            }));
-            let r_ls_base_exit = Array1::from_iter((0..self.n).map(|i| {
-                let (_, _, q_tl, q_ll, _, _) =
-                    q_chain_derivs_scalar(eta_t_exit[i], dynamic.eta_ls_exit[i]);
-                safe_sum2(
-                    safe_product(q_tl, eta_t_deriv_exit[i]),
-                    safe_product(q_ll, eta_ls_deriv_exit[i]),
-                )
-            }));
-            let tw_entry_d2 = scale_dense_rows(xw_d1_entry, &q0_t_entry)?;
-            let tw_exit_d2 = scale_dense_rows(xw_d1_exit, &q0_t_exit)?;
-            let lw_entry_d2 = scale_dense_rows(xw_d1_entry, &q0_ls_entry)?;
-            let lw_exit_d2 = scale_dense_rows(xw_d1_exit, &q0_ls_exit)?;
-            let qdot_t_w = scale_dense_rows(
-                xw_d2_exit,
-                &safe_hadamard_product(&q0_t_exit, &r_base_exit)?,
-            )? + scale_dense_rows(xw_d1_exit, &r_t_base_exit)?;
-            let qdot_ls_w = scale_dense_rows(
-                xw_d2_exit,
-                &safe_hadamard_product(&q0_ls_exit, &r_base_exit)?,
-            )? + scale_dense_rows(xw_d1_exit, &r_ls_base_exit)?;
-            let qdot_td_w = scale_dense_rows(xw_d1_exit, &q0_t_exit)?;
-            let qdot_lsd_w = scale_dense_rows(xw_d1_exit, &q0_ls_exit)?;
-
-            let mut h_tw = Array2::<f64>::zeros((offsets[2] - offsets[1], offsets[4] - offsets[3]));
-            h_tw += &mxtwx(x_threshold_exit, &(-&q.d2_q1 * &q.dq_t), xw_exit, row_mask)?;
-            h_tw += &mxtwx(
-                x_threshold_exit,
-                &(-&q.d1_q1 * &q0_t_exit),
-                &tw_exit_d2,
-                row_mask,
-            )?;
-            h_tw += &mxtwx(
-                x_threshold_entry,
-                &(-&q.d2_q0 * q.dq_t_entry.as_ref().unwrap()),
-                xw_entry,
-                row_mask,
-            )?;
-            h_tw += &mxtwx(
-                x_threshold_entry,
-                &(-&q.d1_q0 * &q0_t_entry),
-                &tw_entry_d2,
-                row_mask,
-            )?;
-            h_tw += &mxtwx(
-                x_threshold_exit,
-                &(-&q.d2_qdot1 * &q.dqdot_t),
-                xw_qdot,
-                row_mask,
-            )?;
-            h_tw += &mxtwx(x_threshold_exit, &(-&q.d1_qdot1), &qdot_t_w, row_mask)?;
-            if let Some(x_t_deriv) = x_threshold_deriv {
-                h_tw += &mxtwx(x_t_deriv, &(-&q.d2_qdot1 * &q.dqdot_td), xw_qdot, row_mask)?;
-                h_tw += &mxtwx(x_t_deriv, &(-&q.d1_qdot1), &qdot_td_w, row_mask)?;
-            }
-            assign_symmetric_block(&mut joint, offsets[1], w_offset, &h_tw);
-
-            let mut h_lw = Array2::<f64>::zeros((offsets[3] - offsets[2], offsets[4] - offsets[3]));
-            h_lw += &mxtwx(x_log_sigma_exit, &(-&q.d2_q1 * &q.dq_ls), xw_exit, row_mask)?;
-            h_lw += &mxtwx(
-                x_log_sigma_exit,
-                &(-(&q.d1_q1 * &q0_ls_exit)),
-                &lw_exit_d2,
-                row_mask,
-            )?;
-            h_lw += &mxtwx(
-                x_log_sigma_entry,
-                &(-&q.d2_q0 * q.dq_ls_entry.as_ref().unwrap()),
-                xw_entry,
-                row_mask,
-            )?;
-            h_lw += &mxtwx(
-                x_log_sigma_entry,
-                &(-(&q.d1_q0 * &q0_ls_entry)),
-                &lw_entry_d2,
-                row_mask,
-            )?;
-            h_lw += &mxtwx(
-                x_log_sigma_exit,
-                &(-&q.d2_qdot1 * &q.dqdot_ls),
-                xw_qdot,
-                row_mask,
-            )?;
-            h_lw += &mxtwx(x_log_sigma_exit, &(-&q.d1_qdot1), &qdot_ls_w, row_mask)?;
-            if let Some(x_ls_deriv) = x_log_sigma_deriv {
-                h_lw += &mxtwx(
-                    x_ls_deriv,
-                    &(-&q.d2_qdot1 * &q.dqdot_lsd),
-                    xw_qdot,
-                    row_mask,
-                )?;
-                h_lw += &mxtwx(x_ls_deriv, &(-&q.d1_qdot1), &qdot_lsd_w, row_mask)?;
-            }
-            assign_symmetric_block(&mut joint, offsets[2], w_offset, &h_lw);
-
-            // Time × time-wiggle cross block: time-channel NLL curvatures
-            // pulled back through the wiggle bases (the wiggle modulates the
-            // same three time channels, so its chain factor is the identity).
-            let h_hw = mxtwx(&self.x_time_entry, &nll_time.h0, xw_entry, row_mask)?
-                + mxtwx(&self.x_time_exit, &nll_time.h1, xw_exit, row_mask)?
-                + mxtwx(&self.x_time_deriv, &nll_time.d, xw_qdot, row_mask)?;
-            assign_symmetric_block(&mut joint, offsets[0], w_offset, &h_hw);
-        }
-
-        Ok(Some(joint))
-    }
-
     /// Compute the log-scale shift needed to keep CLogLog survival
     /// derivatives finite.  Returns `L >= 0` such that `exp(u - L) <= exp(500)`
     /// for all row linear predictors `u`.  For non-CLogLog links, returns 0.
@@ -1104,12 +479,11 @@ impl SurvivalLocationScaleFamily {
                 .exact_newton_joint_hessian(block_states)?
                 .map(|h| (h, 0.0)));
         }
-        let q = self.collect_joint_quantities_rescaled(block_states, log_scale)?;
+        let dynamic = self.build_dynamic_geometry(block_states)?;
         if self.x_link_wiggle.is_some() {
             // #932: the link-wiggle joint Hessian is single-sourced through the
             // §13 warp kernel (`sls_row_nll_wiggle`) instead of the bespoke
             // `assemble_h_wiggle`; non-wiggle rows are untouched below.
-            let dynamic = self.build_dynamic_geometry(block_states)?;
             return Ok(Some((
                 super::row_kernel::survival_ls_wiggle_joint_hessian_dense(
                     self, &dynamic, log_scale,
@@ -1117,13 +491,15 @@ impl SurvivalLocationScaleFamily {
                 log_scale,
             )));
         }
-        // #932 measured perf exception: the non-wiggle joint Hessian ships the
-        // sparse `assemble_joint_hessian_from_quantities`, NOT the dense
-        // `Order2<9>` single-source row kernel. See that method's doc for the
-        // 3.8–5.3× measurement and the analytic oracles that pin it to the jet.
-        Ok(self
-            .assemble_joint_hessian_from_quantities(&q, block_states)?
-            .map(|h| (h, log_scale)))
+        let dense = self
+            .survival_ls_coefficient_hessian(
+                &dynamic,
+                log_scale,
+                None,
+                SlsCoefficientHessianTarget::DenseFull,
+            )?
+            .into_dense_full()?;
+        Ok(Some((dense, log_scale)))
     }
 
     pub(crate) fn exact_newton_joint_hessian_directional_derivative_rescaled(
@@ -1163,9 +539,8 @@ impl SurvivalLocationScaleFamily {
 
     /// HT-mask-aware variant of
     /// [`Self::exact_newton_joint_hessian_directional_derivative_rescaled_from_parts`].
-    /// `None` is byte-identical to the pre-refactor expression at every site.
-    /// See [`Self::assemble_joint_hessian_from_quantities_masked`] for the
-    /// row-additivity argument.
+    /// `None` is byte-identical to the full-row expression at every site. The
+    /// mask scales each completed nonlinear row contribution exactly once.
     pub(crate) fn exact_newton_joint_hessian_directional_derivative_rescaled_from_parts_masked(
         &self,
         d_beta_flat: &Array1<f64>,
@@ -1279,7 +654,7 @@ impl SurvivalLocationScaleFamily {
             let g_d_s = grad_time_eta_d
                 .as_slice_memory_order_mut()
                 .expect("zeros is contiguous");
-            ll = d1_q0_s
+            let ll_partials: Vec<f64> = d1_q0_s
                 .par_chunks_mut(CHUNK)
                 .zip(d1_q1_s.par_chunks_mut(CHUNK))
                 .zip(d1_qdot_s.par_chunks_mut(CHUNK))
@@ -1287,13 +662,11 @@ impl SurvivalLocationScaleFamily {
                 .zip(g_h1_s.par_chunks_mut(CHUNK))
                 .zip(g_d_s.par_chunks_mut(CHUNK))
                 .enumerate()
-                .try_fold(
-                    || 0.0_f64,
-                    |local_ll,
-                     (chunk_idx, (((((d1q0_c, d1q1_c), d1qd_c), gh0_c), gh1_c), gd_c))|
+                .map(
+                    |(chunk_idx, (((((d1q0_c, d1q1_c), d1qd_c), gh0_c), gh1_c), gd_c))|
                      -> Result<f64, String> {
                         let start = chunk_idx * CHUNK;
-                        let mut acc = local_ll;
+                        let mut acc = 0.0_f64;
                         for local in 0..d1q0_c.len() {
                             let i = start + local;
                             let state = self.row_predictor_state(
@@ -1318,7 +691,8 @@ impl SurvivalLocationScaleFamily {
                         Ok(acc)
                     },
                 )
-                .try_reduce(|| 0.0_f64, |a, b| Ok::<_, String>(a + b))?;
+                .collect::<Result<Vec<f64>, String>>()?;
+            ll = gam_linalg::pairwise_reduce::pairwise_sum(&ll_partials);
         } else {
             for i in 0..n {
                 let state = self.row_predictor_state(
@@ -1762,13 +1136,32 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         let (ll, block_gradients) =
             self.evaluate_log_likelihood_and_block_gradients(block_states)?;
 
-        // Block-diagonal direct path — assemble only the principal blocks
-        // the inner solver consumes. The cross blocks (h_ht, h_hl, h_hw,
-        // h_tl, h_tw, h_lw) are not required by per-block working sets, so
-        // we never materialize them. See `assemble_block_diagonal_hessians_from_quantities`.
-        let q = self.collect_joint_quantities(block_states)?;
-        let block_hessians =
-            self.assemble_block_diagonal_hessians_from_quantities(&q, block_states)?;
+        // Every non-wiggle block is a view of the same packed 24-pair row
+        // program lowering. Cross-block groups are never materialized for this
+        // target. Link-wiggle geometry has a beta-dependent Jacobian and uses its
+        // canonical runtime-sized row program, then slices the same dense result.
+        let dynamic = self.build_dynamic_geometry(block_states)?;
+        let block_hessians = if self.x_link_wiggle.is_some() {
+            let dense =
+                super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &dynamic, 0.0)?;
+            let offsets = self.joint_block_offsets();
+            offsets
+                .windows(2)
+                .map(|bounds| {
+                    dense
+                        .slice(s![bounds[0]..bounds[1], bounds[0]..bounds[1]])
+                        .to_owned()
+                })
+                .collect()
+        } else {
+            self.survival_ls_coefficient_hessian(
+                &dynamic,
+                0.0,
+                None,
+                SlsCoefficientHessianTarget::BlockDiagonal,
+            )?
+            .into_block_diagonal()?
+        };
         if block_hessians.len() != block_gradients.len() {
             return Err(SurvivalLocationScaleError::DimensionMismatch { reason: format!(
                 "SurvivalLocationScaleFamily evaluate block count mismatch: gradients={}, hessians={}",
@@ -1930,18 +1323,21 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let q = self.collect_joint_quantities(block_states)?;
+        let dynamic = self.build_dynamic_geometry(block_states)?;
         if self.x_link_wiggle.is_some() {
-            // #932: link-wiggle joint Hessian via the single-source §13 warp
-            // kernel; non-wiggle rows keep the bespoke path below.
-            let dynamic = self.build_dynamic_geometry(block_states)?;
             return Ok(Some(
                 super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &dynamic, 0.0)?,
             ));
         }
-        // #932 measured perf exception: sparse hand assembler, pinned to the
-        // single-source jet by the analytic oracles (see the method doc).
-        self.assemble_joint_hessian_from_quantities(&q, block_states)
+        let dense = self
+            .survival_ls_coefficient_hessian(
+                &dynamic,
+                0.0,
+                None,
+                SlsCoefficientHessianTarget::DenseFull,
+            )?
+            .into_dense_full()?;
+        Ok(Some(dense))
     }
 
     fn exact_newton_joint_gradient_evaluation(
@@ -2285,32 +1681,25 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         let p_total = *offsets
             .last()
             .ok_or_else(|| "missing joint block offsets".to_string())?;
-        // Assemble the joint likelihood Hessian once from the scale-stabilized
-        // quantities (the uniform `exp(−L)` rescale cancels in the RELATIVE floor
-        // `fraction × max(diag)`, so the floor is scale-invariant). Its diagonal
-        // is the SAME quantity the generic driver whitens by.
+        // Lower only the joint likelihood diagonal from the scale-stabilized
+        // packed coefficients. The uniform `exp(−L)` rescale cancels in the
+        // relative floor `fraction × max(diag)`, so the floor is scale-invariant.
         let log_scale = self.hessian_deriv_log_rescale(block_states);
-        let q = self.collect_joint_quantities_rescaled(block_states, log_scale)?;
-        // #932: link-wiggle families must take the SAME single-source §13 warp
-        // joint Hessian the Newton step uses (`survival_ls_wiggle_joint_hessian_dense`),
-        // NOT the bespoke `assemble_joint_hessian_from_quantities`. The bespoke
-        // wiggle path (`assemble_h_wiggle`) is a legacy duplicate engine that
-        // disagrees with the FD-verified §13 program (the duplicate-derivative
-        // genus #932 eliminates); flooring the trust metric off a Hessian
-        // inconsistent with the actual curvature starves the wrong coordinates.
-        // Non-wiggle families keep the bespoke assembler, which is oracle-pinned
-        // equal to the §13 RowKernel single source
-        // (`survival_ls_row_kernel_matches_bespoke_assembly`).
-        let h_joint = if self.x_link_wiggle.is_some() {
-            let dynamic = self.build_dynamic_geometry(block_states)?;
+        let dynamic = self.build_dynamic_geometry(block_states)?;
+        let h_diagonal = if self.x_link_wiggle.is_some() {
             super::row_kernel::survival_ls_wiggle_joint_hessian_dense(self, &dynamic, log_scale)?
+                .diag()
+                .to_owned()
         } else {
-            match self.assemble_joint_hessian_from_quantities(&q, block_states)? {
-                Some(h) => h,
-                None => return Ok(None),
-            }
+            self.survival_ls_coefficient_hessian(
+                &dynamic,
+                log_scale,
+                None,
+                SlsCoefficientHessianTarget::DiagonalOnly,
+            )?
+            .into_diagonal_only()?
         };
-        if h_joint.nrows() != p_total {
+        if h_diagonal.len() != p_total {
             return Ok(None);
         }
         let mut floor = Array1::<f64>::zeros(p_total);
@@ -2327,7 +1716,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
                 continue;
             }
             let max_diag = (start..end)
-                .map(|j| h_joint[[j, j]].abs())
+                .map(|j| h_diagonal[j].abs())
                 .filter(|v| v.is_finite())
                 .fold(0.0_f64, f64::max);
             if !(max_diag.is_finite() && max_diag > 0.0) {

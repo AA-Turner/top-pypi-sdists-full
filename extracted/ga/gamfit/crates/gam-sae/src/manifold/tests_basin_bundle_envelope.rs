@@ -1,4 +1,4 @@
-//! #2230/#2087 — the outer REML ρ-search must descend the basin LOWER ENVELOPE
+//! #2230/#2087 — the outer penalized quasi-Laplace ρ-search must descend the basin LOWER ENVELOPE
 //! `V*(ρ) = min_b V_b(ρ)` over a memory-admitted bundle of saved inner basins, not the
 //! hysteretic single warm-start trajectory `V_{b(warm,ρ)}(ρ)` whose value JUMPS
 //! at basin-boundary crossings (the measured pathology: hours of `[#1026]
@@ -17,6 +17,7 @@
 //!      admitted mid-fit (admission can only lower the envelope).
 
 use super::tests::{deterministic_circle_noise, global_ev};
+use super::tests_outer_quasi_laplace_probe_budget_2080::independent_two_circle_phases;
 use super::*;
 use crate::basis::{PeriodicHarmonicEvaluator, SaeBasisSecondJet};
 use gam_linalg::faer_ndarray::{FaerCholesky, fast_atb};
@@ -25,10 +26,11 @@ use ndarray::{Array1, Array2, ArrayView2, array, s};
 use std::sync::Arc;
 
 /// Two planted circles on DISJOINT ambient column parities (circle A on the even
-/// output channels, circle B on the odd), per-column standardized — a rank-4
-/// whitened cloud an honest K=2 dictionary explains. With two atoms competing for
-/// the same rows this has genuinely distinct inner ROUTINGS (which atom claims
-/// which circle), i.e. the coexisting basins the envelope exists to track.
+/// output channels, circle B on the odd), driven by two independent phases on an
+/// exact Cartesian product grid and per-column standardized — a rank-4 whitened
+/// cloud an honest K=2 dictionary explains. With two atoms competing for the same
+/// rows this has genuinely distinct inner ROUTINGS (which atom claims which
+/// circle), i.e. the coexisting basins the envelope exists to track.
 fn two_circle_wide_target(n: usize, p: usize, sigma: f64) -> Array2<f64> {
     let mut fa = Array2::<f64>::zeros((2, p));
     let mut fb = Array2::<f64>::zeros((2, p));
@@ -51,8 +53,7 @@ fn two_circle_wide_target(n: usize, p: usize, sigma: f64) -> Array2<f64> {
     }
     let mut z = Array2::<f64>::zeros((n, p));
     for row in 0..n {
-        let ta = std::f64::consts::TAU * (row as f64) / (n as f64);
-        let tb = std::f64::consts::TAU * (2.0 * row as f64 + 0.37) / (n as f64);
+        let (ta, tb) = independent_two_circle_phases(n, row);
         let (ca, sa) = (ta.cos(), ta.sin());
         let (cb, sb) = (tb.cos(), tb.sin());
         for j in 0..p {
@@ -84,7 +85,7 @@ fn two_circle_wide_target(n: usize, p: usize, sigma: f64) -> Array2<f64> {
 
 /// Build a K-atom, d=1 periodic SAE term seeded the way the production cold path
 /// does (PCA-seed the per-atom coordinates, ridge-LSQ each per-atom decoder), with
-/// IBP-MAP assignment. Returns the term and the seed reconstruction dispersion.
+/// ordered Beta--Bernoulli assignment. Returns the term and the seed reconstruction dispersion.
 fn two_circle_periodic_term(
     z: ArrayView2<'_, f64>,
     k: usize,
@@ -120,7 +121,7 @@ fn two_circle_periodic_term(
                 rss += r * r;
             }
         }
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "circle",
             SaeAtomBasisKind::Periodic,
             dim,
@@ -137,7 +138,7 @@ fn two_circle_periodic_term(
     }
     let seed_dispersion = (rss / (k * n * p) as f64).max(1.0e-12);
     let logits = Array2::<f64>::from_elem((n, k), 6.0);
-    let mode = AssignmentMode::ibp_map(1.0, 1.0, false);
+    let mode = AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false);
     let assignment =
         SaeAssignment::from_blocks_with_mode_and_manifolds(logits, coords_blocks, manifolds, mode)
             .unwrap();
@@ -158,7 +159,7 @@ fn two_circle_objective(
 ) -> (SaeManifoldOuterObjective, Array2<f64>, Array1<f64>) {
     let z = two_circle_wide_target(n, p, 0.03);
     let (term, seed_dispersion) = two_circle_periodic_term(z.view(), k, harmonics);
-    let mode = AssignmentMode::ibp_map(1.0, 1.0, false);
+    let mode = AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false);
     let init_rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0]; k])
         .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)
         .unwrap();
@@ -174,6 +175,40 @@ fn two_circle_objective(
         1.0e-6,
     );
     (objective, z, seed)
+}
+
+#[test]
+fn reactive_rho_upper_face_comes_from_live_penalty_geometry() {
+    let (objective, _z, seed) = two_circle_objective(96, 48, 2, 2, 8);
+    let upper = OuterObjective::outer_domain_upper_bound(&objective)
+        .expect("reactive rho domain construction must succeed")
+        .expect("dense K=2 objective must advertise a legal upper face");
+    eprintln!("[#2080] geometry-derived reactive rho upper={upper:?}, target={seed:?}");
+    assert_eq!(upper.len(), seed.len());
+    assert!(upper.iter().all(|value| value.is_finite()));
+    assert!(
+        upper
+            .iter()
+            .zip(seed.iter())
+            .all(|(entry, target)| entry >= target),
+        "the legal entry {upper:?} must contain the literal target {seed:?}"
+    );
+    assert_eq!(
+        upper[0].to_bits(),
+        seed[0].to_bits(),
+        "fixed-alpha ordered Beta--Bernoulli has no live assignment-strength coordinate to anneal"
+    );
+    for index in 3..upper.len() {
+        assert_eq!(
+            upper[index].to_bits(),
+            seed[index].to_bits(),
+            "periodic von-Mises ARD is sign-indefinite and must stay at its literal target"
+        );
+    }
+    assert!(
+        upper.iter().skip(1).all(|value| *value < 30.0),
+        "live smoothing/ARD bounds must come from curvature geometry, not generic +30: {upper:?}"
+    );
 }
 
 /// (A) A two-basin fit engages the envelope, keeps the bundle BOUNDED by the
@@ -195,7 +230,7 @@ fn two_basin_outer_fit_engages_exact_envelope() {
             ..Default::default()
         })
         .run(&mut objective, "SAE manifold basin envelope")
-        .expect("two-basin outer REML fit must terminate");
+        .expect("two-basin outer penalized quasi-Laplace fit must terminate");
     assert!(result.converged, "the envelope fit must be certified");
     let certificate = result
         .criterion_certificate
@@ -257,33 +292,45 @@ fn freeze_contract_bypasses_the_bundle() {
 }
 
 /// (C) Anti-hysteresis: the envelope is a well-defined FUNCTION of ρ, so the
-/// production `eval_cost` value at a FIXED ρ is STABLE across re-evaluation — the
-/// exact property the hysteretic single-trajectory criterion lacked (its value
-/// depended on which basin the warm start last landed in, so re-evaluating the
-/// same ρ churned). The value lane never commits `self.term`, so the discovery
-/// trajectory is identical across visits and every saved member re-converges from
-/// its own already-at-ρ state, giving a reproducible envelope value.
+/// production `eval_cost` value at a FIXED LEGAL ρ is STABLE across re-evaluation
+/// — the exact property the hysteretic single-trajectory criterion lacked (its
+/// value depended on which basin the warm start last landed in, so re-evaluating
+/// the same ρ churned). Dense K≥2 objectives may require their typed reactive
+/// entry before the literal target has defined evidence; direct evaluation must
+/// therefore use the same objective-owned entry rho and scalar state the runner
+/// uses, rather than bypassing that domain contract. The value lane never commits
+/// `self.term`, so the discovery trajectory is identical across visits and every
+/// saved member re-converges from its own already-at-ρ state, giving a
+/// reproducible envelope value.
 ///
 /// (The complementary invariant — admitting a basin can only LOWER the envelope —
 /// is the bundle's own algebra, unit-tested in `basin_bundle.rs`
 /// [`admitting_a_better_basin_lowers_the_envelope_and_switches_argmin`] and
 /// [`envelope_is_continuous_across_the_basin_crossing`].)
 #[test]
-fn fixed_rho_envelope_value_is_stable_across_re_evaluation() {
+fn fixed_legal_rho_envelope_value_is_stable_across_re_evaluation() {
     let n = 96;
     let p = 48;
     let k = 2;
-    let (mut objective, _z, seed) = two_circle_objective(n, p, k, 2, 8);
+    let (mut objective, _z, _seed) = two_circle_objective(n, p, k, 2, 8);
+    let legal_rho = OuterObjective::outer_domain_upper_bound(&objective)
+        .expect("objective legal rho construction must succeed")
+        .expect("dense K=2 objective must advertise a legal rho entry");
+    let scalar_contract = OuterObjective::reactive_domain_scalar_contract(&objective)
+        .expect("reactive scalar contract construction must succeed")
+        .expect("dense K=2 objective must advertise a reactive scalar entry");
+    OuterObjective::install_reactive_domain_scalar_state(&mut objective, scalar_contract.entry())
+        .expect("objective must install its own legal scalar entry");
 
     let c1 = objective
-        .eval_cost(&seed)
-        .expect("first seed-ρ envelope eval must succeed");
+        .eval_cost(&legal_rho)
+        .expect("first legal-ρ envelope eval must succeed");
     let c2 = objective
-        .eval_cost(&seed)
-        .expect("second seed-ρ envelope eval must succeed");
+        .eval_cost(&legal_rho)
+        .expect("second legal-ρ envelope eval must succeed");
     let c3 = objective
-        .eval_cost(&seed)
-        .expect("third seed-ρ envelope eval must succeed");
+        .eval_cost(&legal_rho)
+        .expect("third legal-ρ envelope eval must succeed");
     let telemetry = objective.probe_telemetry();
 
     // The envelope value at a fixed ρ is reproducible to within the inner

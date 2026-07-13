@@ -115,7 +115,7 @@ class TestCLIValidationPipeline:
         from sage.cli_core import _execute_request_with_validation
 
         # Mock LLM that returns generic advice without reading files
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = """
 Here are 10 improvements for your codebase:
 1. Add more logging
@@ -125,13 +125,13 @@ Here are 10 improvements for your codebase:
 5. Refactor long functions
 """
 
-            with patch("sage.main._track_files_read") as mock_tracker:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_tracker:
                 mock_tracker.return_value = []  # No files read
 
-                with patch("sage.main._track_files_written") as mock_write:
+                with patch("sage.core.execution_helpers._track_files_written") as mock_write:
                     mock_write.return_value = []
 
-                    with patch("sage.main._get_execution_context") as mock_ctx:
+                    with patch("sage.core.execution_helpers._get_execution_context") as mock_ctx:
                         mock_ctx.return_value = MagicMock(search_executed=False)
 
                         # Should reject analysis without file reads
@@ -368,15 +368,15 @@ class TestParsingContract:
         """main.py should not redefine _parse_test_output."""
         import inspect
 
-        import sage.main as main_module
+        import sage.cli_core as main_module
 
         # Check that _parse_test_output is imported, not defined locally
         # This is a meta-test to prevent regression
         source = inspect.getsourcefile(main_module._parse_test_output)
 
-        # Should point to shell.py, not main.py
+        # Should point to shell.py, not cli_core.py
         assert "shell.py" in source, (
-            "_parse_test_output should be imported from shell.py, not defined in main.py"
+            "_parse_test_output should be imported from shell.py, not defined in cli_core.py"
         )
 
 

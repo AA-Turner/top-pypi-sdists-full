@@ -14,6 +14,7 @@ from click import echo, style
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Mapping, Sequence
+    from typing import Final
 
     from typing_extensions import Any
 
@@ -25,6 +26,11 @@ try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 except Exception:
     pass
+
+
+_OUTPUT_WHITESPACE_PATTERN: Final = re.compile(
+    r"\s{2,}|\n", cache_pattern=False
+)
 
 
 def _count_digits(num: int, /) -> int:
@@ -155,7 +161,8 @@ def build_output(
         )
         message = message_dict["message"]
         match = style(
-            re.sub(r"\s{2,}|\n", " ", message_dict["match"]), fg="blue"
+            _OUTPUT_WHITESPACE_PATTERN.sub(" ", message_dict["match"]),
+            fg="blue",
         )
 
         echo(

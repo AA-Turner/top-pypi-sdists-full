@@ -134,7 +134,7 @@ impl BlockOrthogonalityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -333,6 +333,10 @@ impl AnalyticPenalty for BlockOrthogonalityPenalty {
                 }
             }
         }
+        // Each unordered pair appears exactly once because h starts at g+1.
+        // Thus this is (w/2) sum_{g<h} ||T_g^T T_h||_F^2.  Do not rewrite it
+        // as (w/2) sum_{g!=h}: that ordered-pair sum contains every term twice
+        // and therefore denotes a different public weight convention.
         0.5 * self.resolved_weight(rho) * acc
     }
 
@@ -343,6 +347,9 @@ impl AnalyticPenalty for BlockOrthogonalityPenalty {
         let cross = self.precompute_cross(t.view());
         let weight = self.resolved_weight(rho);
         let mut grad = Array2::<f64>::zeros(t.dim());
+        // Differentiating one unordered-pair term contributes once to each of
+        // its two blocks.  Iterating ordered (g,h), g != h, below assembles
+        // those two block derivatives; it does not double the scalar weight.
         for g in 0..self.groups.len() {
             for h in 0..self.groups.len() {
                 if g == h {
@@ -426,6 +433,7 @@ impl AnalyticPenalty for BlockOrthogonalityPenalty {
     impl_learnable_weight_grad_rho!();
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "block_orthogonality"
@@ -689,7 +697,7 @@ impl DecoderIncoherencePenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -1023,7 +1031,7 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
     /// products `JᵀJ` — and coincides with the exact Hessian as the cross-Gram
     /// `C → 0`. The inner Newton / PIRLS curvature block must stay
     /// positive-definite, so the GN block is the correct operator here, mirroring
-    /// the other nonconvex penalties (sparsity, JumpReLU, isometry) that override
+    /// the other nonconvex penalties (sparsity, smooth-threshold, isometry) that override
     /// the majorizer rather than hand back the indefinite true Hessian.
     fn psd_majorizer_hvp(
         &self,
@@ -1047,6 +1055,7 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
     impl_learnable_weight_grad_rho!();
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "decoder_incoherence"
@@ -1134,7 +1143,7 @@ impl OrthogonalityPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -1337,6 +1346,7 @@ impl AnalyticPenalty for OrthogonalityPenalty {
     impl_learnable_weight_grad_rho!();
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "orthogonality"

@@ -4,7 +4,6 @@
 //! active-set KKT machinery, and the soft-acceptance progress test.
 
 use super::*;
-use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) const DENSE_OUTER_MAX_P: usize = 1024;
 
@@ -48,24 +47,12 @@ pub(crate) struct DenseOuterState {
 }
 
 /// State for the sparse-SpGEMM backend (faer numeric matmul scratch and the
-/// pre-scaled (√W)·X factors that feed it).
-///
-/// `sqrt_weights` caches `√wᵢ` for each finite nonnegative PIRLS working
-/// weight row of X. Without it, the right-factor loop would recompute the same
-/// sqrt once per nonzero of X (each row weight gets read by every column that
-/// has a nonzero in that row), so for an n=400 K · avg-nnz-per-row=10 design
-/// that's 4 M sqrts per PIRLS iteration. Precomputing once collapses that to n
-/// sqrts and the inner loop becomes a pure multiply.
-///
-/// This is deliberately separate from REML/Firth's fixed
-/// `observation_weight_sqrt` handling in `solver/reml/firth.rs`: this cache
-/// materializes the current working-weight Gram factors, while Firth stores
-/// case-weight roots so reduced designs can later be mapped back with
-/// reciprocal roots.
+/// row-scaled `X^T W` left factor and unscaled `X` right factor that feed it).
+/// This asymmetric factorization preserves signed observed-information weights
+/// exactly and is cheaper than forming two square-root-scaled factors.
 pub(crate) struct SparseSpGemmState {
     pub(crate) wxvalues: Vec<f64>,
     pub(crate) wx_tvalues: Vec<f64>,
-    pub(crate) sqrt_weights: Vec<f64>,
     pub(crate) info: SparseMatMulInfo,
     pub(crate) scratch: MemBuffer,
     pub(crate) par: Par,
@@ -117,7 +104,6 @@ impl SparseXtWxCache {
             XtWxBackend::Sparse(SparseSpGemmState {
                 wxvalues: vec![0.0; x.val().len()],
                 wx_tvalues: vec![0.0; x_t_csc.val().len()],
-                sqrt_weights: vec![0.0; x.nrows()],
                 info,
                 scratch,
                 par,
@@ -283,8 +269,7 @@ impl DenseOuterState {
 }
 
 impl SparseSpGemmState {
-    /// Compute XᵀWX into the symbolic-pattern array `xtwxvalues` via faer's
-    /// sparse-sparse matmul: XᵀWX = (√W·X)ᵀ · (√W·X).
+    /// Compute XᵀWX via faer's sparse-sparse matmul as `(XᵀW) · X`.
     pub(crate) fn compute(
         &mut self,
         x: &SparseColMat<usize, f64>,
@@ -296,37 +281,20 @@ impl SparseSpGemmState {
     ) {
         let n = x_t.ncols();
         assert_eq!(weights.len(), n);
-        assert_eq!(self.sqrt_weights.len(), n);
-
-        assert!(
-            weights.iter().all(|&w| w.is_finite() && w >= 0.0),
-            "SparseSpGemmState::compute requires finite nonnegative PIRLS weights"
-        );
-        // Cache √w once per row so the inner loops can multiply
-        // without repeated sqrt calls. Single owning slice avoids ndarray
-        // bounds checks in the hot loops below.
-        let sqrt_w = self.sqrt_weights.as_mut_slice();
-        for (dst, &w) in sqrt_w.iter_mut().zip(weights.iter()) {
-            *dst = w.sqrt();
-        }
-        let sqrt_w: &[f64] = sqrt_w;
+        assert!(weights.iter().all(|w| w.is_finite()));
 
         let x_ref = x.as_ref();
-        // Right factor: √W · X, stored in X's CSC sparsity pattern.
+        // Right factor: X, copied into the reusable numeric buffer.
         for col in 0..p {
-            let rows = x_ref.row_idx_of_col_raw(col);
             let xvals = x_ref.val_of_col(col);
             let range = x_ref.col_range(col);
             let dst = &mut self.wxvalues[range];
-            for ((d, &s), row) in dst.iter_mut().zip(xvals.iter()).zip(rows.iter()) {
-                *d = s * sqrt_w[row.unbound()];
-            }
+            dst.copy_from_slice(xvals);
         }
-        // Left factor: (√W · X)ᵀ in X^T's CSC sparsity pattern. X^T's columns
-        // correspond to rows of X, so each column scales by √w_row — read
-        // straight from the cached slice with no per-column sqrt.
+        // Left factor: X^T W. X^T's columns correspond to rows of X, so each
+        // column scales once by the exact (possibly signed) row weight.
         for col in 0..n {
-            let w = sqrt_w[col];
+            let w = weights[col];
             let xvals = x_t.val_of_col(col);
             let range = x_t.col_range(col);
             let dst = &mut self.wx_tvalues[range];
@@ -378,11 +346,7 @@ pub(crate) fn accumulate_outer_upper(
         .expect("dense XᵀWX accumulator is row-major and contiguous");
 
     for i in rows {
-        // Sparse PIRLS precompute deliberately clips to Fisher-style
-        // nonnegative weights before the row outer product. The shared REML
-        // dense helper preserves signed observed-Hessian weights exactly, so
-        // routing this sparse path through it would change curvature semantics.
-        let w_i = weights[i].max(0.0);
+        let w_i = weights[i];
         if w_i == 0.0 {
             continue;
         }
@@ -415,7 +379,9 @@ fn dense_design_from_csr(
         let vals = xview.val_of_row(i);
         let cols = xview.col_idx_of_row_raw(i);
         if cols.len() != vals.len() {
-            crate::bail_invalid_estim!("sparse row structure mismatch: column/value lengths differ");
+            crate::bail_invalid_estim!(
+                "sparse row structure mismatch: column/value lengths differ"
+            );
         }
         for (idx, &col) in cols.iter().enumerate() {
             x_dense[[i, col.unbound()]] = vals[idx];
@@ -533,9 +499,8 @@ pub(super) fn solve_newton_direction_dense(
         // redundant fp64 POTRF (the fp32 factor + fp64 refinement already gives
         // a full-fp64-accurate direction). This is where the mixed-precision
         // speedup is actually realized for the inner Newton solve.
-        let solved =
-            crate::gpu::pirls_gpu::cholesky_solve_only_gpu(hessian.view(), rhs.view())
-                .map_err(EstimationError::InvalidInput)?;
+        let solved = crate::gpu::pirls_gpu::cholesky_solve_only_gpu(hessian.view(), rhs.view())
+            .map_err(EstimationError::InvalidInput)?;
         direction_out.assign(&solved.column(0));
         direction_out.mapv_inplace(|v| -v);
         if array_is_finite(direction_out) {
@@ -551,18 +516,16 @@ pub(super) fn solve_newton_direction_dense(
 
     let cpu_route = String::from("CPU stable solver");
 
-    let factor = StableSolver::new("pirls newton direction")
+    let factor = StableSolver::new()
         .factorize(hessian)
         .map_err(EstimationError::LinearSystemSolveFailed)?;
     solve_direction_with_dense_factor(&factor, gradient, direction_out);
 
     // Validate: bare Cholesky on a near-singular H produces huge spurious
     // step magnitudes in the null direction. If `‖H·δ + g‖∞ / (1+‖g‖∞)` is
-    // not small the H is rank-deficient (eigenvalue below floating-point
-    // resolution); fall through to the rank-revealing pseudoinverse path
-    // which projects rhs onto range(H) before inverting and zeroes the
-    // null-direction component of δ. This is the same arithmetic the
-    // outer IFT correction uses via penalty_subspace_trace.
+    // not small, the purported direction does not solve the requested
+    // unperturbed system. Surface that failure to the LM controller rather
+    // than silently changing the system or replacing it with a pseudoinverse.
     let validation_residual = {
         let h_delta = hessian.dot(direction_out);
         h_delta
@@ -574,25 +537,9 @@ pub(super) fn solve_newton_direction_dense(
     let g_inf = gradient.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
     let rel = validation_residual / (1.0 + g_inf);
     if !rel.is_finite() || rel > 1.0e-3 {
-        // Construct rhs = -gradient (note the gradient is the un-negated
-        // ∇f at β; the Newton equation is H·δ = -g) and reach for the
-        // pseudoinverse path. `solve_with_pseudoinverse_fallback` handles
-        // its own ridge retries and falls back to truncated-eigh
-        // pseudoinverse if Cholesky residual is high.
-        let rhs = gradient.mapv(|v| -v);
-        if let Some(pseudo) = StableSolver::new("pirls newton direction (pseudoinverse fallback)")
-            .solve_with_pseudoinverse_fallback(hessian, &rhs, 1.0e-10, 1.0e-3, 1.0e-10)
-        {
-            direction_out.assign(&pseudo);
-            log::info!(
-                "[STAGE] PIRLS dense newton solve backend=CPU p={} elapsed={:.3}s route=\"{} + pseudoinverse fallback (rel={:.3e} > 1e-3)\"",
-                p,
-                dense_solve_start.elapsed().as_secs_f64(),
-                cpu_route,
-                rel,
-            );
-            return Ok(());
-        }
+        return Err(EstimationError::InvalidInput(format!(
+            "PIRLS Newton direction failed its unperturbed linear-system certificate: relative residual {rel:.3e} exceeds 1e-3"
+        )));
     }
     if array_is_finite(direction_out) {
         log::info!(
@@ -1271,54 +1218,20 @@ pub(crate) fn solve_subsystem_direction(
     if out.len() != n {
         *out = Array1::zeros(n);
     }
-    // Try direct factorization first.
-    if let Ok(factor) = StableSolver::new("pirls bounded subsystem").factorize_any(&h_sub) {
-        out.assign(&g_sub);
-        let mut rhs = array1_to_col_matmut(out);
-        factor.solve_in_place(rhs.as_mut());
-        out.mapv_inplace(|v| -v);
-        if array_is_finite(out) {
-            return Ok(());
-        }
+    let factor = StableSolver::new()
+        .factorize_any(&h_sub)
+        .map_err(EstimationError::LinearSystemSolveFailed)?;
+    out.assign(&g_sub);
+    let mut rhs = array1_to_col_matmut(out);
+    factor.solve_in_place(rhs.as_mut());
+    out.mapv_inplace(|value| -value);
+    if array_is_finite(out) {
+        Ok(())
+    } else {
+        Err(EstimationError::InvalidInput(
+            "PIRLS constrained subsystem solve produced a non-finite direction".to_string(),
+        ))
     }
-    // Factorization failed or produced non-finite values — the reduced Hessian
-    // is singular or nearly so (common on underdetermined problems).  Add a
-    // diagonal ridge and retry with geometrically increasing strength.
-    let diag_scale = (0..n)
-        .map(|i| h_sub[[i, i]].abs())
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
-    let mut h_reg = h_sub.to_owned();
-    if escalate_ridge(RidgeSchedule::geometric(1e-8 * diag_scale, 12), |tau| {
-        for i in 0..n {
-            h_reg[[i, i]] = h_sub[[i, i]] + tau;
-        }
-        let factor = StableSolver::new("pirls bounded subsystem ridge")
-            .factorize(&h_reg)
-            .ok()?;
-        out.assign(&g_sub);
-        let mut rhs = array1_to_col_matmut(out);
-        factor.solve_in_place(rhs.as_mut());
-        out.mapv_inplace(|v| -v);
-        array_is_finite(out).then_some(())
-    })
-    .is_ok()
-    {
-        return Ok(());
-    }
-    // All ridge attempts failed — fall back to steepest descent on the
-    // free subspace: d = -g / ||g||, scaled to a conservative step.
-    let gnorm = g_sub.dot(&g_sub).sqrt();
-    if gnorm > 0.0 {
-        let scale = 1.0 / gnorm.max(diag_scale);
-        for i in 0..n {
-            out[i] = -g_sub[i] * scale;
-        }
-        return Ok(());
-    }
-    // Zero gradient — already at optimum on this subspace.
-    out.fill(0.0);
-    Ok(())
 }
 
 pub(super) fn linear_constraints_from_lower_bounds(
@@ -1390,13 +1303,7 @@ pub(super) fn select_active_set_release(
 ) -> Option<usize> {
     // Second-order correction `(H d)_i`, suppressed on the reflected path (see the
     // parameter note): there the far-field `d` makes it non-model-trustworthy.
-    let second_order = |i: usize| -> f64 {
-        if reflected_step_curvature {
-            0.0
-        } else {
-            hd[i]
-        }
-    };
+    let second_order = |i: usize| -> f64 { if reflected_step_curvature { 0.0 } else { hd[i] } };
     if use_blands {
         for &i in active_idx {
             let lambda_i = gradient[i] + second_order(i);
@@ -1420,8 +1327,7 @@ pub(super) fn select_active_set_release(
             // the classic active-set zigzag (gam#979). A genuinely-negative
             // multiplier (below `-tol`) still releases, so this is a strict
             // no-op at any true constrained optimum where multipliers are >= 0.
-            let tol =
-                64.0 * f64::EPSILON * gradient[i].abs().max(second_order(i).abs()).max(1.0);
+            let tol = 64.0 * f64::EPSILON * gradient[i].abs().max(second_order(i).abs()).max(1.0);
             if lambda_i < -tol && lambda_i < worst {
                 worst = lambda_i;
                 idx = Some(i);
@@ -1567,14 +1473,21 @@ pub fn solve_newton_directionwith_lower_bounds(
         }
         if free_idx.is_empty() {
             let hd = fast_av(kkt_h, direction_out);
-            if let Some(idx) =
-                select_active_set_release(gradient, &hd, &active_idx, use_blands, reflected_step_curvature)
-            {
+            if let Some(idx) = select_active_set_release(
+                gradient,
+                &hd,
+                &active_idx,
+                use_blands,
+                reflected_step_curvature,
+            ) {
                 if kkt_hessian.is_some() {
                     let hd_ref = fast_av(hessian, direction_out);
                     log::warn!(
                         "[gam#979 simple-release/allactive] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e}",
-                        beta[idx], lower_bounds[idx], gradient[idx] + hd[idx], gradient[idx] + hd_ref[idx],
+                        beta[idx],
+                        lower_bounds[idx],
+                        gradient[idx] + hd[idx],
+                        gradient[idx] + hd_ref[idx],
                     );
                 }
                 active[idx] = false;
@@ -1643,14 +1556,22 @@ pub fn solve_newton_directionwith_lower_bounds(
         // multiplier `λ_i = g_i` instead (gam#979 — see that fn's note). `hd`
         // (true curvature `kkt_h`) is still formed here for the diagnostic log.
         let hd = fast_av(kkt_h, direction_out);
-        if let Some(idx) =
-            select_active_set_release(gradient, &hd, &active_idx, use_blands, reflected_step_curvature)
-        {
+        if let Some(idx) = select_active_set_release(
+            gradient,
+            &hd,
+            &active_idx,
+            use_blands,
+            reflected_step_curvature,
+        ) {
             if kkt_hessian.is_some() {
                 let hd_ref = fast_av(hessian, direction_out);
                 log::warn!(
                     "[gam#979 simple-release] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e} n_free={n_free} n_active={}",
-                    beta[idx], lower_bounds[idx], gradient[idx] + hd[idx], gradient[idx] + hd_ref[idx], active_idx.len(),
+                    beta[idx],
+                    lower_bounds[idx],
+                    gradient[idx] + hd[idx],
+                    gradient[idx] + hd_ref[idx],
+                    active_idx.len(),
                 );
             }
             active[idx] = false;

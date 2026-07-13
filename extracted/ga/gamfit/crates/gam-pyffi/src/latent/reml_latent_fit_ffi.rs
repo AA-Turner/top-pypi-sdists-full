@@ -4,10 +4,7 @@
 /// error: it is a typed REML convergence failure whose full `OuterResult`
 /// remains the resume/evidence payload.  Keep that distinction instead of
 /// flattening `SaeFitError` through `Display` into `GamError`.
-fn sae_fit_error_to_pyerr(
-    py: Python<'_>,
-    err: gam::terms::sae::manifold::SaeFitError,
-) -> PyErr {
+fn sae_fit_error_to_pyerr(py: Python<'_>, err: gam::terms::sae::manifold::SaeFitError) -> PyErr {
     use gam::terms::sae::manifold::SaeFitError;
 
     let message = err.to_string();
@@ -153,6 +150,11 @@ fn gaussian_reml_optimize_latent<'py>(
         }
     };
     let sigma_eff_mode = SigmaEffMode::parse(&sigma_eff_mode).map_err(py_value_error)?;
+    let dim_selection_values = dim_selection_log_precision
+        .as_ref()
+        .map(|values| ValidatedDimSelectionPrecisions::new(values.as_array(), latent_dim))
+        .transpose()
+        .map_err(py_value_error)?;
     if n_restarts == 0 {
         return Err(py_value_error("n_restarts must be at least 1".to_string()));
     }
@@ -223,9 +225,6 @@ fn gaussian_reml_optimize_latent<'py>(
         fisher_values.as_ref().map(|w| w.view()),
     )
     .map_err(py_value_error)?;
-    let dim_selection_values = dim_selection_log_precision
-        .as_ref()
-        .map(|a| a.as_array().to_owned());
     let tensor_knots_values = tensor_knots_concat
         .as_ref()
         .map(|a| a.as_array().to_owned());
@@ -338,7 +337,11 @@ fn gaussian_reml_optimize_latent<'py>(
                 .as_ref()
                 .riemannian_gradient(best_t.view(), gradient.view())
                 .map_err(|err| py_value_error(err.to_string()))?;
-            riemannian.iter().map(|value| value * value).sum::<f64>().sqrt()
+            riemannian
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt()
         }
         None => f64::INFINITY,
     };
@@ -480,7 +483,7 @@ fn gaussian_reml_optimize_latent<'py>(
                 aux_u.as_ref().map(|a| a.view()),
                 family,
                 aux_strength,
-                dim_selection.as_ref().map(|a| a.view()),
+                dim_selection.as_ref(),
                 Some(&registry),
                 // Final reported fit MUST use the SAME manifold-derived periodic
                 // Duchon decoder the optimizer used (so OPTIMIZED basis == FINAL
@@ -635,7 +638,7 @@ fn glm_reml_fit_latent_impl(
     aux_u: Option<ArrayView2<'_, f64>>,
     aux_family: AuxPriorFamily,
     aux_strength: Option<f64>,
-    dim_selection_precision: Option<ArrayView1<'_, f64>>,
+    dim_selection_precision: Option<&ValidatedDimSelectionPrecisions>,
     analytic_penalties: Option<&AnalyticPenaltyRegistry>,
 ) -> Result<
     (
@@ -702,37 +705,13 @@ fn glm_reml_fit_latent_impl(
         &opts,
     )
     .map_err(|err| err.to_string())?;
-    let mut latent_prior_score = 0.0_f64;
-    let mut aux_strength_state = None;
-    if let Some(u_view) = aux_u {
-        let stats = latent_aux_prior_stats(t_mat.view(), u_view, aux_family, aux_strength)?;
-        latent_prior_score += stats.score;
-        aux_strength_state = Some(stats.strength);
-    }
-    if let Some(log_prec) = dim_selection_precision {
-        if log_prec.len() != latent_dim {
-            return Err(format!(
-                "dim_selection_log_precision length {} must equal latent_dim {}",
-                log_prec.len(),
-                latent_dim
-            ));
-        }
-        for a in 0..latent_dim {
-            let log_alpha = log_prec[a];
-            let alpha = log_alpha.exp();
-            if !(alpha.is_finite() && alpha > 0.0) {
-                return Err(format!(
-                    "dim_selection_log_precision[{a}] must exponentiate to a finite positive precision"
-                ));
-            }
-            let mut sq = 0.0_f64;
-            for n in 0..n_obs {
-                let v = t_mat[[n, a]];
-                sq += v * v;
-            }
-            latent_prior_score += 0.5 * alpha * sq - 0.5 * (n_obs as f64) * log_alpha;
-        }
-    }
+    let (mut latent_prior_score, aux_strength_state) = latent_prior_score_and_aux_state_for_t(
+        t_mat.view(),
+        aux_u,
+        aux_family,
+        aux_strength,
+        dim_selection_precision,
+    )?;
     if let Some(registry) = analytic_penalties {
         latent_prior_score +=
             analytic_penalty_value_for_targets(registry, t_flat, Some(fit.beta.view()))?;
@@ -879,7 +858,9 @@ fn glm_reml_fit_latent<'py>(
     let aux_u_values = aux_u.as_ref().map(|a| a.as_array().to_owned());
     let dim_selection_values = dim_selection_log_precision
         .as_ref()
-        .map(|a| a.as_array().to_owned());
+        .map(|values| ValidatedDimSelectionPrecisions::new(values.as_array(), latent_dim))
+        .transpose()
+        .map_err(py_value_error)?;
     if y_values.ncols() > 1
         || matches!(
             family_normalized.as_str(),
@@ -905,7 +886,7 @@ fn glm_reml_fit_latent<'py>(
             aux_u_values.as_ref().map(|a| a.view()),
             aux_family,
             aux_strength,
-            dim_selection_values.as_ref().map(|a| a.view()),
+            dim_selection_values.as_ref(),
         )
         .map_err(py_value_error)?;
         let analytic_score = analytic_penalty_value_for_targets(&registry, t_values.view(), None)
@@ -952,7 +933,7 @@ fn glm_reml_fit_latent<'py>(
                 aux_u_values.as_ref().map(|a| a.view()),
                 aux_family,
                 aux_strength,
-                dim_selection_values.as_ref().map(|a| a.view()),
+                dim_selection_values.as_ref(),
                 Some(&registry),
             )
         })?;
@@ -1023,6 +1004,11 @@ fn glm_reml_fit_latent_backward<'py>(
             "glm_reml_fit_latent_backward currently builds only Duchon latent designs; derivative hook exists for {basis_kind_normalized:?}"
         )));
     }
+    let dim_selection_precision = dim_selection_log_precision
+        .as_ref()
+        .map(|values| ValidatedDimSelectionPrecisions::new(values.as_array(), latent_dim))
+        .transpose()
+        .map_err(py_value_error)?;
     let effective_weights = latent_scalar_weights_with_fisher(
         n_obs,
         weights.as_ref().map(|w| w.as_array()),
@@ -1043,7 +1029,7 @@ fn glm_reml_fit_latent_backward<'py>(
         aux_u.as_ref().map(|a| a.as_array()),
         aux_family,
         aux_strength,
-        dim_selection_log_precision.as_ref().map(|a| a.as_array()),
+        dim_selection_precision.as_ref(),
         None,
     )
     .map_err(py_value_error)?;
@@ -1138,27 +1124,13 @@ fn glm_reml_fit_latent_backward<'py>(
         }
         grad_aux_log_strength = Some(
             grad_reml_score
-                * (0.5 * stats.strength.mu * stats.residual_sq
-                    - 0.5 * (n_obs * latent_dim) as f64),
+                * (0.5 * stats.strength.mu * stats.residual_sq - 0.5 * (n_obs * latent_dim) as f64),
         );
     }
-    if let Some(log_prec) = dim_selection_log_precision.as_ref() {
-        let lp = log_prec.as_array();
-        if lp.len() != latent_dim {
-            return Err(py_value_error(format!(
-                "dim_selection_log_precision length {} must equal latent_dim {}",
-                lp.len(),
-                latent_dim
-            )));
-        }
+    if let Some(precisions) = dim_selection_precision.as_ref() {
         for n in 0..n_obs {
             for a in 0..latent_dim {
-                let prec = lp[a].exp();
-                if !(prec.is_finite() && prec > 0.0) {
-                    return Err(py_value_error(format!(
-                        "dim_selection_log_precision[{a}] must exponentiate to a finite positive precision"
-                    )));
-                }
+                let prec = precisions.physical[a];
                 grad_t[n * latent_dim + a] += grad_reml_score * prec * t_mat[[n, a]];
             }
         }
@@ -1676,9 +1648,6 @@ fn gaussian_reml_fit_formula_dataset_impl(
         reml_score: fit.reml_score,
     })
 }
-
-
-
 
 fn gaussian_reml_fit_batched_impl(
     x: ArrayView2<'_, f64>,

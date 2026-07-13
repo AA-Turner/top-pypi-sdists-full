@@ -3,7 +3,7 @@
 //! These are the closed-form seeding-policy primitives the fit entry uses
 //! before the joint Arrow-Schur solve: the joint ridge-LSQ decoder seed, the
 //! mean-centred residual-logit routing seed, the output-energy clustering that
-//! separates periodic seed coordinates, and the EM-style alternation that
+//! separates periodic seed coordinates, and the deterministic alternating initialization that
 //! refines all three together. Moved here from `gam-pyffi` (issue #2236) so the
 //! CLI, Rust library users, and the Python binding seed identically; the
 //! binding is marshalling only.
@@ -12,19 +12,19 @@ use faer::Side;
 use gam_linalg::faer_ndarray::{FaerCholesky, FaerSvd, fast_ata, fast_atb};
 use ndarray::{Array1, Array2, Array3, ArrayView2, ArrayView3};
 
-use crate::assignment::{ibp_map_row, jumprelu_row, topk_row};
+use crate::assignment::{ordered_beta_bernoulli_row, threshold_gate_row, topk_row};
 
 use super::{SaeAtomBasisKind, SaeManifoldTerm};
 
 /// Build a data-driven asymmetric assignment-logit seed for a cold start
 /// (issue #629). A uniform logit seed (`Array2::zeros`) is an exact symmetric
 /// saddle of the joint objective whenever the atoms are exchangeable under the
-/// assignment forward map: every atom carries identical responsibility, the
+/// assignment forward map: every atom carries an identical routing weight, the
 /// LSQ decoder init projects the same target onto every atom, and the
 /// assignment update has no gradient to break the tie, so the fit never routes.
 /// The tiny `random_state` jitter is too weak to escape on conditioned data.
 ///
-/// This helper runs one EM-style M-then-E step on the seed geometry: it fits
+/// This helper runs one decoder-then-routing initialization step on the seed geometry: it fits
 /// each atom's decoder independently against the *full* response (each atom's
 /// own seed coordinates already give it a distinct `Phi_k`), measures the
 /// per-row reconstruction residual under that fit, and emits mean-centred logits
@@ -33,9 +33,9 @@ use super::{SaeAtomBasisKind, SaeManifoldTerm};
 /// to the neutral state), so the existing jitter still breaks those rare ties;
 /// rows with a clear best atom get a decisive — but bounded, hence escapable by
 /// the Newton refinement — head start. The mean-centring is translation-identity
-/// for softmax and keeps the IBP-MAP `sigmoid(logit/τ)` gate neutral (0.5) on
+/// for softmax and keeps the ordered Beta--Bernoulli `sigmoid(logit/τ)` gate neutral (0.5) on
 /// ties instead of slamming both gates shut, so the seed is safe for both
-/// assignment maps. The result is a proper responsibility seed rather than a
+/// assignment maps. The result is a proper routing seed rather than a
 /// saddle.
 pub fn sae_residual_seed_logits(
     basis_values: ArrayView3<'_, f64>,
@@ -116,7 +116,7 @@ pub fn sae_residual_seed_logits(
     //
     // The mean-centring is what keeps the seed safe across assignment maps.
     // Softmax is translation-invariant, so subtracting the per-row mean leaves
-    // it bit-identical to the raw `-gain·r/m` form. IBP-MAP, by contrast, maps
+    // it bit-identical to the raw `-gain·r/m` form. ordered Beta--Bernoulli, by contrast, maps
     // each logit through an unnormalised `sigmoid(logit/τ)`: an *uncentred*
     // negative-only seed would push *every* gate below 0.5 and slam a tied row
     // shut (`sigmoid(-gain/τ)≈0`), which is worse than the neutral 0.5/0.5 state
@@ -433,9 +433,23 @@ pub(crate) fn mobius_double_cover_coords_from_projection(
         ));
     }
     let gamma = 0.5 * chosen.1.atan2(chosen.0);
+    let pi = std::f64::consts::PI;
+    let two_pi = std::f64::consts::TAU;
+    // Continuous fundamental-domain coordinate `s in [0, 1)`. The deck twin
+    // `(s + 1, -w)` is glued only at the seam `s -> 1`, so WITHIN one domain
+    // the signed width must not change sign. The half-angle that unwinds the
+    // band must therefore be built from this continuous `s` (`half = pi * s`),
+    // NOT from the raw `atan2` angle: `atan2`'s branch cut lands in the middle
+    // of the domain (at `s = 1/2`), and a half-angle taken from it flips sign
+    // there, corrupting the recovered width to (s, -w) — a different physical
+    // point on the band — across half the loop.
+    let mut fundamental_s = Array1::<f64>::zeros(n);
     let mut signed_width = Array1::<f64>::zeros(n);
     for row in 0..n {
-        let half_angle = 0.5 * orientation * angle[row] + gamma;
+        let raw = orientation * angle[row] / two_pi;
+        let s = raw - raw.floor();
+        fundamental_s[row] = s;
+        let half_angle = pi * s + gamma;
         signed_width[row] = radial[row] * half_angle.cos() + transverse[row] * half_angle.sin();
     }
     let width_sd = (cluster_rows
@@ -452,8 +466,7 @@ pub(crate) fn mobius_double_cover_coords_from_projection(
 
     let mut coords = Array2::<f64>::zeros((n, 2));
     for row in 0..n {
-        let phase = orientation * angle[row] / std::f64::consts::TAU;
-        coords[[row, 0]] = phase - phase.floor();
+        coords[[row, 0]] = fundamental_s[row];
         coords[[row, 1]] = (signed_width[row] / (2.0 * width_sd)).clamp(-1.0, 1.0);
     }
     Ok(coords)
@@ -545,14 +558,14 @@ pub fn sae_refine_mobius_seed_coords_by_cluster(
 /// least-squares projection of `Z` onto the atom design `[a_init * Phi_1, ...,
 /// a_init * Phi_K]`, where `a_init` is the assignment map that the inner Newton
 /// driver will produce at iteration 0 from the supplied `initial_logits`.
-/// IBP-MAP uses the base `alpha` because learnable-alpha fits start with
-/// `rho0 = 0`, and JumpReLU uses the configured hard threshold.
+/// Ordered Beta--Bernoulli uses the base `alpha` because learnable-alpha fits start with
+/// `rho0 = 0`, and the smooth threshold gate uses its configured center.
 ///
 /// Zero-initialised decoder coefficients leave the joint-fit Arrow-Schur
 /// system in a degenerate fixed point on multi-atom configurations: the
 /// data-fit Jacobian, the assignment-weighted decoder gradient, and the
 /// sparsity-prior gradient cannot all be zero simultaneously, but the
-/// assignment prior (IBP-MAP stick-breaking or softmax entropy) is the only
+/// assignment prior (ordered independent Beta--Bernoulli or softmax entropy) is the only
 /// term with a non-zero gradient at iter 0. The optimizer then collapses the
 /// assignments to zero before any data signal has accumulated, even on
 /// trivially-separable signals such as the K=2 periodic torus reproducer in
@@ -570,7 +583,7 @@ pub fn sae_decoder_lsq_init(
     assignment_kind: &str,
     alpha: f64,
     tau: f64,
-    jumprelu_threshold: f64,
+    threshold_gate_threshold: f64,
     top_k: Option<usize>,
 ) -> Result<Array3<f64>, String> {
     let k_atoms = basis_sizes.len();
@@ -597,18 +610,16 @@ pub fn sae_decoder_lsq_init(
             "sae_decoder_lsq_init: tau must be finite and positive; got {tau}"
         ));
     }
+    if assignment_kind != "topk" && top_k.is_some() {
+        return Err(format!(
+            "sae_decoder_lsq_init: top_k is valid only with assignment_kind 'topk'; got {assignment_kind:?}"
+        ));
+    }
     // Compute per-row, per-atom assignment weight a_init that matches the
     // forward map of `assignment_kind` evaluated at `initial_logits`.
     let mut a_init = Array2::<f64>::zeros((n_obs, k_atoms));
     match assignment_kind {
         "softmax" => {
-            if let Some(k_top) = top_k {
-                if k_top == 0 || k_top > k_atoms {
-                    return Err(format!(
-                        "sae_decoder_lsq_init: top_k must satisfy 1 <= top_k <= k_atoms={k_atoms}; got {k_top}"
-                    ));
-                }
-            }
             let inv_tau = 1.0 / tau;
             for row in 0..n_obs {
                 let mut max_logit = f64::NEG_INFINITY;
@@ -630,64 +641,33 @@ pub fn sae_decoder_lsq_init(
                         a_init[[row, k]] = buf[k] / sum;
                     }
                 }
-                if let Some(k_top) = top_k {
-                    if k_top < k_atoms {
-                        let mut paired: Vec<(f64, usize)> =
-                            (0..k_atoms).map(|k| (a_init[[row, k]], k)).collect();
-                        let cmp = |a: &(f64, usize), b: &(f64, usize)| {
-                            b.0.partial_cmp(&a.0)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                                .then(a.1.cmp(&b.1))
-                        };
-                        paired.select_nth_unstable_by(k_top - 1, cmp);
-                        let mut keep = vec![false; k_atoms];
-                        for &(_, atom_idx) in paired.iter().take(k_top) {
-                            keep[atom_idx] = true;
-                        }
-                        let kept_sum: f64 = (0..k_atoms)
-                            .filter(|&atom_idx| keep[atom_idx])
-                            .map(|atom_idx| a_init[[row, atom_idx]])
-                            .sum();
-                        if !(kept_sum.is_finite() && kept_sum > 0.0) {
-                            return Err(format!(
-                                "sae_decoder_lsq_init: top_k softmax projection has non-positive kept mass on row {row}"
-                            ));
-                        }
-                        for atom_idx in 0..k_atoms {
-                            a_init[[row, atom_idx]] = if keep[atom_idx] {
-                                a_init[[row, atom_idx]] / kept_sum
-                            } else {
-                                0.0
-                            };
-                        }
-                    }
-                }
             }
         }
-        "ibp_map" => {
+        "ordered_beta_bernoulli" => {
             if !alpha.is_finite() || alpha <= 0.0 {
                 return Err(format!(
-                    "sae_decoder_lsq_init: alpha must be finite and positive for IBP-MAP; got {alpha}"
+                    "sae_decoder_lsq_init: alpha must be finite and positive for ordered Beta--Bernoulli; got {alpha}"
                 ));
             }
             // Use the base alpha here. In learnable-alpha fits the first rho
             // coordinate starts at zero, so alpha_eff = alpha at initialization.
             for row in 0..n_obs {
-                let weights = ibp_map_row(initial_logits.row(row), tau);
+                let weights = ordered_beta_bernoulli_row(initial_logits.row(row), tau);
                 for k in 0..k_atoms {
                     a_init[[row, k]] = weights[k];
                 }
             }
         }
-        // #1777 canonical token for the hard-sigmoid gate.
+        // Canonical token for the smooth threshold-centered logistic gate.
         "threshold_gate" => {
-            if !jumprelu_threshold.is_finite() {
+            if !threshold_gate_threshold.is_finite() {
                 return Err(format!(
-                    "sae_decoder_lsq_init: jumprelu_threshold must be finite; got {jumprelu_threshold}"
+                    "sae_decoder_lsq_init: threshold_gate_threshold must be finite; got {threshold_gate_threshold}"
                 ));
             }
             for row in 0..n_obs {
-                let weights = jumprelu_row(initial_logits.row(row), tau, jumprelu_threshold);
+                let weights =
+                    threshold_gate_row(initial_logits.row(row), tau, threshold_gate_threshold);
                 for k in 0..k_atoms {
                     a_init[[row, k]] = weights[k];
                 }
@@ -812,7 +792,7 @@ pub fn sae_decoder_lsq_init(
     Ok(out)
 }
 
-/// EM-style seed refinement that resolves the cold-start routing collapse of
+/// Deterministic alternating seed refinement that resolves the cold-start routing collapse of
 /// the training fit (issues #629, #630) before the joint Arrow-Schur solve.
 ///
 /// The cold residual-logit seed ([`sae_residual_seed_logits`]) is computed at
@@ -822,7 +802,7 @@ pub fn sae_decoder_lsq_init(
 /// equally mediocre on every row: the per-row residual barely separates the
 /// atoms and the logit seed stays near the symmetric saddle the random jitter
 /// cannot escape. The joint solver then never routes (the planted disjoint
-/// atoms collapse to a near-uniform mixture, negative R²).
+/// atoms collapse to a near-uniform additive blend with negative R²).
 ///
 /// This is the exact dual of the frozen-decoder OOS fix (#628): there, each row
 /// is placed in the correct latent basin by projecting it onto every atom's
@@ -831,12 +811,12 @@ pub fn sae_decoder_lsq_init(
 /// being *learned*, so we alternate the two exact steps the OOS path and the
 /// existing seed already provide:
 ///
-/// 1. **Coordinate E-step** — project each row's rank-1 Fourier latent onto the
+/// 1. **Coordinate update** — project each row's rank-1 Fourier latent onto the
 ///    current decoder by enumerating every stationary point. This separates the
 ///    atoms' geometries: a row generated from atom `k` moves to the coordinate
 ///    where atom `k` reconstructs it well, while the off-atoms move to wherever
 ///    their current decoder is least wrong on that row.
-/// 2. **Decoder M-step** — refit every atom's decoder by the same weighted joint
+/// 2. **Decoder refit** — refit every atom's decoder by the same weighted joint
 ///    LSQ used for the cold init ([`sae_decoder_lsq_init`]), now at the
 ///    *separated* coordinates, so each atom's block specializes toward the rows
 ///    it actually explains.
@@ -853,18 +833,18 @@ pub fn sae_decoder_lsq_init(
 /// carry the interval extension needed to enumerate their complete stationary
 /// sets.
 ///
-/// Only invoked for cold-start multi-atom softmax / IBP-MAP fits; JumpReLU keeps
-/// its margin-above-threshold gate seed and warm starts are respected verbatim.
-pub fn sae_em_refine_routing_seed(
+/// Only invoked for cold-start multi-atom softmax / ordered Beta--Bernoulli
+/// fits; the smooth threshold gate keeps its threshold-centered seed and warm
+/// starts are respected verbatim.
+pub fn sae_refine_routing_seed(
     term: &mut SaeManifoldTerm,
     z: ArrayView2<'_, f64>,
     basis_sizes: &[usize],
     assignment_kind: &str,
     alpha: f64,
     tau: f64,
-    jumprelu_threshold: f64,
+    threshold_gate_threshold: f64,
     random_state: u64,
-    top_k: Option<usize>,
 ) -> Result<(), String> {
     const SAE_SEED_REFINE_ROUNDS: usize = 4;
     const SAE_RESIDUAL_SEED_GAIN: f64 = 4.0;
@@ -872,7 +852,7 @@ pub fn sae_em_refine_routing_seed(
     // #178): the refined residual logits are decisive (O(gain)), so this 1e-3
     // perturbation does not change which atom wins, but it keeps distinct
     // `random_state` values on distinct inner Newton trajectories and fixed
-    // seeds bit-identical. Without it, the deterministic EM seed would erase
+    // seeds bit-identical. Without it, the deterministic alternating seed would erase
     // the seed-dependence the cold-start jitter installed upstream.
     const SAE_RANDOM_STATE_LOGIT_JITTER: f64 = 1.0e-3;
     let k_atoms = basis_sizes.len();
@@ -885,7 +865,7 @@ pub fn sae_em_refine_routing_seed(
         return Ok(());
     }
     for _ in 0..SAE_SEED_REFINE_ROUNDS {
-        // 1. Coordinate E-step: project each row onto the current decoder.
+        // 1. Coordinate update: project each row onto the current decoder.
         term.seed_coords_by_decoder_projection(z)?;
         // Snapshot the refreshed per-atom basis `Φ_k(t_k)` as a padded
         // (K, N, m_max) stack for the closed-form seed helpers.
@@ -895,7 +875,7 @@ pub fn sae_em_refine_routing_seed(
             let m_k = basis_sizes[atom_idx];
             if phi.dim() != (n_obs, m_k) {
                 return Err(format!(
-                    "sae_em_refine_routing_seed: atom {atom_idx} basis is {:?}, expected ({n_obs}, {m_k})",
+                    "sae_refine_routing_seed: atom {atom_idx} basis is {:?}, expected ({n_obs}, {m_k})",
                     phi.dim()
                 ));
             }
@@ -905,8 +885,8 @@ pub fn sae_em_refine_routing_seed(
                 }
             }
         }
-        // 2. Decoder M-step: weighted joint LSQ at the refined coordinates,
-        //    using the current routing as the responsibility weights.
+        // 2. Decoder refit: weighted joint LSQ at the refined coordinates,
+        //    using the current gates as routing weights.
         let decoder = sae_decoder_lsq_init(
             basis3.view(),
             basis_sizes,
@@ -915,8 +895,8 @@ pub fn sae_em_refine_routing_seed(
             assignment_kind,
             alpha,
             tau,
-            jumprelu_threshold,
-            top_k,
+            threshold_gate_threshold,
+            None,
         )?;
         for atom_idx in 0..k_atoms {
             let m_k = basis_sizes[atom_idx];
@@ -1024,7 +1004,244 @@ mod tests {
         );
     }
 
-    /// Regression test for issue #174: the joint LSQ seed for K=2 IBP-MAP
+    /// The recovery must stay exact under an ANISOTROPIC embedding, where the
+    /// transverse extent and the radial modulation carry different scales
+    /// (`σ_radial ≠ σ_transverse`). An audit flagged the independent per-axis
+    /// standardization as a possible bias source — `arg((r/σ_r + i·u/σ_u)²) ≠
+    /// arg((r + i·u)²)` under anisotropy. But that per-axis standardization is
+    /// exactly the remedy, not a bug: each `σ` absorbs its own axis's embedding
+    /// scale, so the normalized half-angle plane is restored to isotropy and the
+    /// recovered width stays proportional to the true width. The chart azimuth
+    /// `s` comes from the center-circle angle, independent of either scale. So a
+    /// non-degenerate anisotropic band (here transverse 3×, radial modulation
+    /// 0.7×, minimum radius 0.3 > 0) must still reconstruct exactly. (Only a
+    /// GEOMETRICALLY degenerate band — radial modulation so large the radius
+    /// crosses zero — breaks, which is a different, out-of-model pathology.)
+    #[test]
+    fn mobius_double_cover_seed_is_robust_to_anisotropic_embedding() {
+        use crate::basis::{MobiusHarmonicEvaluator, SaeBasisEvaluator};
+
+        let n_phase = 64usize;
+        let n_width = 9usize;
+        let n = n_phase * n_width;
+        let (radial_scale, transverse_scale) = (0.7_f64, 3.0_f64);
+        let mut target = Array2::<f64>::zeros((n, 3));
+        for phase_idx in 0..n_phase {
+            let phase = std::f64::consts::TAU * phase_idx as f64 / n_phase as f64;
+            for width_idx in 0..n_width {
+                let row = phase_idx * n_width + width_idx;
+                let width = -1.0 + 2.0 * width_idx as f64 / (n_width - 1) as f64;
+                let radius = 1.0 + radial_scale * width * (0.5 * phase).cos();
+                target[[row, 0]] = radius * phase.cos();
+                target[[row, 1]] = radius * phase.sin();
+                target[[row, 2]] = transverse_scale * width * (0.5 * phase).sin();
+            }
+        }
+        let rows: Vec<usize> = (0..n).collect();
+        let coords = mobius_double_cover_coords_from_projection(target.view(), &rows)
+            .expect("the anisotropic band has an identifiable double-cover chart");
+        let evaluator = MobiusHarmonicEvaluator::new(3, 2).unwrap();
+        let (phi, _) = evaluator.evaluate(coords.view()).unwrap();
+        let mut gram = fast_ata(&phi);
+        let scale = gram.diag().iter().copied().fold(0.0_f64, f64::max);
+        for diagonal in gram.diag_mut().iter_mut() {
+            *diagonal += scale * 64.0 * f64::EPSILON;
+        }
+        let rhs = fast_atb(&phi, &target);
+        let decoder = gram.cholesky(Side::Lower).unwrap().solve_mat(&rhs);
+        let fitted = phi.dot(&decoder);
+        let mean = target.mean_axis(ndarray::Axis(0)).unwrap();
+        let total = target
+            .rows()
+            .into_iter()
+            .map(|row| {
+                row.iter()
+                    .zip(mean.iter())
+                    .map(|(&value, &center)| (value - center).powi(2))
+                    .sum::<f64>()
+            })
+            .sum::<f64>();
+        let residual = (&target - &fitted).mapv(|value| value * value).sum();
+        let r2 = 1.0 - residual / total;
+        assert!(
+            r2 > 0.999_999,
+            "the width recovery must stay exact under anisotropic radial/transverse scaling; R²={r2}"
+        );
+    }
+
+    /// Held-out objective-quality discriminator for #2240: on a planted Möbius
+    /// band, the deck-invariant quotient basis must GENERALIZE (decoder fit on a
+    /// train split, scored on disjoint held-out rows) while the flat/euclidean
+    /// alternative the zoo would otherwise pick — a degree-3 polynomial patch
+    /// over the top-two principal coordinates, matched in degrees of freedom —
+    /// cannot. The failure is topological, not a resolution deficit: a Möbius
+    /// band is non-orientable, so near the seam the two band edges collapse onto
+    /// (almost) the same principal-plane location with OPPOSITE transverse sign;
+    /// any single-valued graph over that plane must average them and eats a
+    /// systematic residual there. Both arms recover their chart unsupervised from
+    /// the full embedding, so the only thing under test is the basis's ability to
+    /// descend to the quotient. No reference tool is asserted-close-to; euclidean
+    /// is a baseline we beat on held-out reconstruction.
+    #[test]
+    fn mobius_quotient_basis_beats_flat_patch_on_heldout_band() {
+        use crate::basis::{MobiusHarmonicEvaluator, SaeBasisEvaluator};
+
+        // A noiseless planted band: the ground truth is exact, so any held-out
+        // shortfall is the basis failing to represent the topology, not noise.
+        let n_phase = 96usize;
+        let n_width = 11usize;
+        let n = n_phase * n_width;
+        let mut target = Array2::<f64>::zeros((n, 3));
+        for phase_idx in 0..n_phase {
+            let phase = std::f64::consts::TAU * phase_idx as f64 / n_phase as f64;
+            for width_idx in 0..n_width {
+                let row = phase_idx * n_width + width_idx;
+                // Full band width in [-1, 1]: a fuller half-twist makes the
+                // seam fold — where the flat patch must average two opposite
+                // transverse signs onto one plane location — pronounced rather
+                // than marginal. The quotient basis is exact at any amplitude
+                // (the band is linear in the width in its span), so this only
+                // sharpens the flat patch's irreducible error.
+                let width = -1.0 + 2.0 * width_idx as f64 / (n_width - 1) as f64;
+                let radius = 1.0 + width * (0.5 * phase).cos();
+                target[[row, 0]] = radius * phase.cos();
+                target[[row, 1]] = radius * phase.sin();
+                target[[row, 2]] = width * (0.5 * phase).sin();
+            }
+        }
+        // Interleaved 3:1 train/test mask so both splits cover the whole band
+        // (every phase and every width appears on each side of the split).
+        let is_test: Vec<bool> = (0..n).map(|row| row % 4 == 0).collect();
+        let train_rows: Vec<usize> = (0..n).filter(|&row| !is_test[row]).collect();
+        let test_rows: Vec<usize> = (0..n).filter(|&row| is_test[row]).collect();
+
+        // Least-squares decoder on `train_rows`, held-out R² on `test_rows`,
+        // measured against the per-target-column mean of the held-out block.
+        let heldout_r2 = |phi: &Array2<f64>| -> f64 {
+            let mut gram = Array2::<f64>::zeros((phi.ncols(), phi.ncols()));
+            let mut rhs = Array2::<f64>::zeros((phi.ncols(), target.ncols()));
+            for &row in &train_rows {
+                for a in 0..phi.ncols() {
+                    for b in 0..phi.ncols() {
+                        gram[[a, b]] += phi[[row, a]] * phi[[row, b]];
+                    }
+                    for c in 0..target.ncols() {
+                        rhs[[a, c]] += phi[[row, a]] * target[[row, c]];
+                    }
+                }
+            }
+            let scale = gram.diag().iter().copied().fold(0.0_f64, f64::max);
+            for diagonal in gram.diag_mut().iter_mut() {
+                *diagonal += scale * 64.0 * f64::EPSILON;
+            }
+            let decoder = gram.cholesky(Side::Lower).unwrap().solve_mat(&rhs);
+            let mut mean = vec![0.0_f64; target.ncols()];
+            for &row in &test_rows {
+                for c in 0..target.ncols() {
+                    mean[c] += target[[row, c]];
+                }
+            }
+            for value in mean.iter_mut() {
+                *value /= test_rows.len() as f64;
+            }
+            let mut residual = 0.0_f64;
+            let mut total = 0.0_f64;
+            for &row in &test_rows {
+                for c in 0..target.ncols() {
+                    let mut fitted = 0.0_f64;
+                    for a in 0..phi.ncols() {
+                        fitted += phi[[row, a]] * decoder[[a, c]];
+                    }
+                    residual += (target[[row, c]] - fitted).powi(2);
+                    total += (target[[row, c]] - mean[c]).powi(2);
+                }
+            }
+            1.0 - residual / total
+        };
+
+        // Möbius arm: production quotient-coordinate recovery + production
+        // H=3, D=2 deck-invariant basis (10 columns).
+        let all_rows: Vec<usize> = (0..n).collect();
+        let coords = mobius_double_cover_coords_from_projection(target.view(), &all_rows)
+            .expect("the planted band has an identifiable double-cover chart");
+        let evaluator = MobiusHarmonicEvaluator::new(3, 2).unwrap();
+        let (mobius_phi, _) = evaluator.evaluate(coords.view()).unwrap();
+        let mobius_r2 = heldout_r2(&mobius_phi);
+
+        // Flat/euclidean arm: top-two principal coordinates of the same
+        // embedding, expanded to a degree-3 monomial patch. Ten columns
+        // {1, u, v, u², uv, v², u³, u²v, uv², v³} match the Möbius basis size,
+        // so the comparison isolates topology, not raw degrees of freedom.
+        let mut mean3 = [0.0_f64; 3];
+        for &row in &all_rows {
+            for c in 0..3 {
+                mean3[c] += target[[row, c]];
+            }
+        }
+        for value in mean3.iter_mut() {
+            *value /= n as f64;
+        }
+        let mut centered = Array2::<f64>::zeros((n, 3));
+        for row in 0..n {
+            for c in 0..3 {
+                centered[[row, c]] = target[[row, c]] - mean3[c];
+            }
+        }
+        let (_u, _s, vt_opt) = centered.svd(false, true).expect("principal directions");
+        let vt = vt_opt.expect("Vt");
+        let pc1 = vt.row(0);
+        let pc2 = vt.row(1);
+        let mut flat_phi = Array2::<f64>::zeros((n, 10));
+        for row in 0..n {
+            let mut u = 0.0_f64;
+            let mut v = 0.0_f64;
+            for c in 0..3 {
+                u += centered[[row, c]] * pc1[c];
+                v += centered[[row, c]] * pc2[c];
+            }
+            let cols = [
+                1.0,
+                u,
+                v,
+                u * u,
+                u * v,
+                v * v,
+                u * u * u,
+                u * u * v,
+                u * v * v,
+                v * v * v,
+            ];
+            for (col, value) in cols.iter().enumerate() {
+                flat_phi[[row, col]] = *value;
+            }
+        }
+        let flat_r2 = heldout_r2(&flat_phi);
+
+        // The band lies exactly in the deck-invariant span, so a correct
+        // quotient chart reconstructs held-out rows to near-exactness.
+        assert!(
+            mobius_r2 > 0.999,
+            "the deck-invariant Möbius basis must reconstruct held-out band rows \
+             to near-exactness; mobius held-out R²={mobius_r2}, flat held-out R²={flat_r2}"
+        );
+        // The flat/euclidean patch has an IRREDUCIBLE seam error — no
+        // single-valued graph over a plane can carry the half-twist — so even
+        // matched in degrees of freedom it cannot reach near-exactness, and the
+        // quotient basis strictly beats it on held-out reconstruction.
+        assert!(
+            flat_r2 < 0.99,
+            "the matched-DOF flat/euclidean patch must NOT reach near-exactness \
+             on a non-orientable band (the topological obstruction is real); \
+             mobius held-out R²={mobius_r2}, flat held-out R²={flat_r2}"
+        );
+        assert!(
+            mobius_r2 > flat_r2,
+            "the quotient basis must beat the matched-DOF flat/euclidean patch on \
+             held-out reconstruction; mobius held-out R²={mobius_r2}, flat held-out R²={flat_r2}"
+        );
+    }
+
+    /// Regression test for issue #174: the joint LSQ seed for K=2 ordered Beta--Bernoulli
     /// must produce a non-zero decoder and a residual smaller than the
     /// trivial zero-decoder baseline. Without this seed the joint Newton
     /// driver collapses A → 0 before any data signal accumulates.
@@ -1069,10 +1286,10 @@ mod tests {
             &basis_sizes,
             z.view(),
             logits.view(),
-            "ibp_map",
-            1.0, // alpha (IBP concentration; canonical default)
+            "ordered_beta_bernoulli",
+            1.0, // alpha (ordered Beta--Bernoulli concentration; canonical default)
             0.7, // tau
-            0.0, // jumprelu_threshold (unused for ibp_map)
+            0.0, // threshold_gate_threshold (unused for ordered_beta_bernoulli)
             None,
         )
         .expect("LSQ seed must succeed");
@@ -1091,15 +1308,15 @@ mod tests {
 
         // The seeded reconstruction must explain most of Z under the SAME forward
         // map the joint LSQ solved against: fitted[i,:] = Σ_k a_k · Phi_k[i,:] · B_k
-        // where a_k is the IBP-MAP activation of the initial (all-zero) logits. For
-        // zero logits the posterior-mean Bernoulli gate is σ(0) = 0.5. Ordered
-        // stick-breaking shrinkage is scored by the IBP prior, not multiplied
+        // where a_k is the ordered Beta--Bernoulli activation of the initial (all-zero) logits. For
+        // zero logits the sigmoid gate is σ(0) = 0.5. Ordered
+        // independent-Beta shrinkage is scored by the ordered prior, not multiplied
         // into the reconstruction a second time.
         // Reconstructing with the true per-atom weights (rather than an imagined
         // uniform gate) is what makes this a faithful check of the LSQ seed: the
         // solver's design columns are a_k · Phi_k, so the fit it returns is only
         // meaningful when scored back through the same a_k.
-        let a_init = ibp_map_row(
+        let a_init = ordered_beta_bernoulli_row(
             ndarray::Array1::<f64>::zeros(k).view(),
             0.7, // tau (matches the sae_decoder_lsq_init call above)
         );
@@ -1134,7 +1351,7 @@ mod tests {
     }
 
     #[test]
-    fn sae_decoder_lsq_seed_honors_softmax_top_k_support_2132() {
+    fn sae_decoder_lsq_seed_honors_exact_topk_support() {
         use ndarray::array;
 
         let n = 4usize;
@@ -1146,8 +1363,7 @@ mod tests {
             }
         }
         let z = array![[1.0], [1.0], [-1.0], [-1.0]];
-        // Moderate logits keep the uncapped softmax genuinely dense. Projecting
-        // onto top-1 support must decouple the positive and negative rows.
+        // Top-1 routing decouples the positive and negative rows.
         let logits = array![[0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, 0.5]];
 
         let decoder = sae_decoder_lsq_init(
@@ -1155,13 +1371,13 @@ mod tests {
             &[1, 1],
             z.view(),
             logits.view(),
-            "softmax",
+            "topk",
             1.0,
             1.0,
             0.0,
             Some(1),
         )
-        .expect("top-k softmax seed LSQ succeeds");
+        .expect("TopK seed LSQ succeeds");
         assert!(
             (decoder[[0, 0, 0]] - 1.0).abs() < 1.0e-3,
             "top_k=1 must fit atom 0 only on selected positive rows; got {}",
@@ -1294,7 +1510,7 @@ mod tests {
         assert!(
             acc >= 0.9,
             "residual seed routing accuracy {acc:.3} (up to permutation) is too low; \
-                 the E-step seed should recover the planted one-hot assignment"
+                 the alternating seed should recover the planted one-hot assignment"
         );
     }
 }

@@ -1,51 +1,45 @@
 use super::*;
 
+/// Declared function-space seminorm used by one atom's smoothing prior.
+///
+/// The declaration is consumed once, at atom construction or an explicit
+/// structural reparameterization boundary, and materialized as a fixed
+/// coefficient Gram `S_ref`. It is never inferred from the decoder and is never
+/// refreshed during an inner or outer optimization step.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SaeReferenceRoughness {
+    /// A caller/topology supplied basis representation of a declared
+    /// final-function seminorm:
+    ///
+    /// `S_ref[i,j] = <L phi_i, L phi_j>_(nu_ref)`.
+    ///
+    /// The matrix is validated as finite, symmetric, and positive
+    /// semidefinite before it is installed. This is not a coefficient-size
+    /// fallback: the caller is explicitly declaring the reference measure
+    /// `nu_ref` and differential operator `L` represented by the matrix.
+    ProvidedFunctionGram(Array2<f64>),
+    /// Hyperbolic Dirichlet seminorm evaluated at a fixed set of Poincare
+    /// tangent-chart reference coordinates. The coordinates are part of the
+    /// declaration, not the fitted latent state. Construction fails if their
+    /// shape or values are invalid or if the analytic geometry builder fails.
+    PoincareConformalDirichlet { reference_coords: Array2<f64> },
+}
+
+/// Provenance of the frozen reference-function Gram retained by an atom.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaeReferenceRoughnessKind {
+    ProvidedFunctionGram,
+    PoincareConformalDirichlet,
+}
+
+const POINCARE_REFERENCE_CURVATURE: f64 = -1.0;
+
 /// Basis/topology tag for one SAE manifold atom.
 ///
 /// The evaluated basis and input-location jet live on [`SaeManifoldAtom`].
 /// This enum records the user-facing topology choice so downstream diagnostics
 /// and Python wrappers can round-trip whether the atom was a Duchon patch,
 /// periodic curve, sphere, or a caller-supplied precomputed basis.
-/// Integration measure `ω_i` for the intrinsic bending Gram
-/// [`SaeManifoldAtom::refresh_intrinsic_smooth_penalty`].
-///
-/// The bending penalty is a discrete quadrature of the total squared second
-/// fundamental form `∫_M ‖II‖²_g dμ` over the grid points `t_i`. The measure is
-/// the quadrature weight `ω_i` attached to each shape-band grid point:
-///
-/// * [`Self::Volume`] — `ω_i = √det g_i`, the Riemannian volume element. This
-///   is the DEFAULT: the penalty is the local-VOLUME-weighted bending sum
-///   `Σ_i √det g_i ‖II(t_i)‖²_g`, weighting each sample's bending by the
-///   Riemannian volume its chart cell carries. Two consequences, stated
-///   honestly:
-///   * A region the chart barely covers (small `√det g`) is CHEAP to bend, not
-///     expensive — its contribution `ω_i ‖II_i‖²` is scaled toward zero. That
-///     is the INTENDED prior: do not spend penalty budget keeping flat a region
-///     that carries little volume (hence little data); reserve the roughness
-///     budget for the high-volume, data-rich part of the manifold. (The volume
-///     weight also bounds the cost of the near-boundary chart blow-ups the
-///     raw-`t` measure would over-count.)
-///   * This sum is NOT sampling-density invariant on its own: it approximates
-///     `∫_M ‖II‖²_g dV_g` only up to the density `q(t_i)` of the grid points —
-///     an unbiased estimate would need an importance weight `1/q(t_i)` or
-///     explicit quadrature-cell widths. In practice the grid points ARE the
-///     fitting-data locations, so `√det g` measures bending relative to the
-///     data density: a deliberate data-adaptive prior, not a chart-independent
-///     invariant.
-/// * [`Self::Data`] — `ω_i = 1`, the raw counting measure over the sample
-///   rows. Because `‖II(t_i)‖²_g` is a POINTWISE chart-invariant scalar (a
-///   full `g`-contraction of a normal-bundle-valued `(0,2)`-tensor), summing it
-///   with unit weights over *matched material points* is EXACTLY invariant
-///   under any reparameterisation that keeps those same physical points — this
-///   is the measure the gauge-invariance test uses. Offered as an option for
-///   callers that supply their own (already volume-weighted or
-///   importance-sampled) grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SaeBendingMeasure {
-    Volume,
-    Data,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaeAtomBasisKind {
     Duchon,
@@ -88,7 +82,8 @@ pub enum SaeAtomBasisKind {
     /// (the wrapped / tangent parameterisation) and the decoder is the same
     /// polynomial-in-`t` expansion — but its smoothness penalty is measured in
     /// *hyperbolic* arc length rather than flat tangent length
-    /// (`refresh_intrinsic_smooth_penalty`). For the `d = 1` tangent chart the
+    /// ([`SaeReferenceRoughness::PoincareConformalDirichlet`]). For the `d = 1`
+    /// tangent chart the
     /// coordinate runs at a constant multiple of arc length (geodesic distance
     /// `= 2|t|`), so the intrinsic reweighting is a *constant* — coinciding with
     /// the flat arc-length reweighting, since the chart is intrinsically flat in
@@ -306,110 +301,26 @@ impl ArdAxisPrior {
             }
         }
     }
-}
 
-/// Large-argument (`|x| >= 3.75`) Abramowitz & Stegun 9.8.2 polynomial for the
-/// *exponentially-scaled* `I0`: `√x · e^{−x} · I0(x) ≈ poly(3.75/x)`. Factoring
-/// the `e^{x}/√x` envelope out lets the log-partition and the `I1/I0` ratio be
-/// computed without ever materialising `e^{x}` (which overflows to `+inf` for
-/// `x ≳ 709`, see [`bessel_i0_log_and_ratio`]).
-pub(crate) fn bessel_i0_scaled_poly(ax: f64) -> f64 {
-    let y = 3.75 / ax;
-    0.39894228
-        + y * (0.01328592
-            + y * (0.00225319
-                + y * (-0.00157565
-                    + y * (0.00916281
-                        + y * (-0.02057706
-                            + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377)))))))
-}
+    /// Positive-semidefinite curvature used by the Newton/Schur majorizer.
+    ///
+    /// This is deliberately not the exact prior Hessian on a periodic axis:
+    /// the exact `alpha*cos(kappa*t)` remains signed.  The factorized inner
+    /// solver and its Laplace log determinant declare this positive-part
+    /// operator, so every derivative of that operator must call this seam.
+    #[inline]
+    pub(crate) fn psd_majorizer_hess(self) -> f64 {
+        self.hess.max(0.0)
+    }
 
-/// Large-argument (`|x| >= 3.75`) Abramowitz & Stegun 9.8.4 polynomial for the
-/// *exponentially-scaled* `I1`: `√x · e^{−x} · I1(x) ≈ poly(3.75/x)`. Pairs with
-/// [`bessel_i0_scaled_poly`] so their shared `e^{x}/√x` envelope cancels exactly
-/// in the `I1/I0` ratio.
-pub(crate) fn bessel_i1_scaled_poly(ax: f64) -> f64 {
-    let y = 3.75 / ax;
-    0.39894228
-        + y * (-0.03988024
-            + y * (-0.00362018
-                + y * (0.00163801
-                    + y * (-0.01031555
-                        + y * (0.02282967
-                            + y * (-0.02895312 + y * (0.01787654 - y * 0.00420059)))))))
-}
-
-/// Modified Bessel function of the first kind, order zero, `I0(x)`.
-///
-/// Abramowitz & Stegun 9.8.1 (|x| <= 3.75) and 9.8.2 (|x| > 3.75) polynomial
-/// approximations; relative error < 1.6e-7 / 1.9e-7 respectively, which is far
-/// below the precision tolerance the ARD normaliser is read at. `I0` is even,
-/// so only `|x|` enters. Used for the exact von-Mises precision log-partition.
-pub(crate) fn bessel_i0(x: f64) -> f64 {
-    let ax = x.abs();
-    if ax < 3.75 {
-        let t = x / 3.75;
-        let t2 = t * t;
-        1.0 + t2
-            * (3.5156229
-                + t2 * (3.0899424
-                    + t2 * (1.2067492 + t2 * (0.2659732 + t2 * (0.0360768 + t2 * 0.0045813)))))
-    } else {
-        (ax.exp() / ax.sqrt()) * bessel_i0_scaled_poly(ax)
+    /// Signed correction that turns the PSD majorizer back into the exact
+    /// prior Hessian: `hess = psd_majorizer_hess + negative_hessian_remainder`.
+    #[inline]
+    pub(crate) fn negative_hessian_remainder(self) -> f64 {
+        self.hess.min(0.0)
     }
 }
 
-/// Modified Bessel function of the first kind, order one, `I1(x)`.
-///
-/// Uses the Abramowitz & Stegun approximations paired with [`bessel_i0`]. This is
-/// needed only for the derivative of the periodic ARD precision normalizer
-/// `log I0(η)`, whose derivative is `I1(η) / I0(η)`.
-pub(crate) fn bessel_i1(x: f64) -> f64 {
-    let ax = x.abs();
-    let value = if ax < 3.75 {
-        let t = x / 3.75;
-        let t2 = t * t;
-        ax * (0.5
-            + t2 * (0.87890594
-                + t2 * (0.51498869
-                    + t2 * (0.15084934 + t2 * (0.02658733 + t2 * (0.00301532 + t2 * 0.00032411))))))
-    } else {
-        (ax.exp() / ax.sqrt()) * bessel_i1_scaled_poly(ax)
-    };
-    if x < 0.0 { -value } else { value }
-}
-
-/// Overflow-free `(log I0(η), I1(η)/I0(η))` for `η >= 0`, the only two Bessel
-/// quantities the von-Mises ARD precision normaliser and its ρ-gradient need.
-///
-/// The naive `bessel_i0(η).ln()` and `bessel_i1(η)/bessel_i0(η)` both route
-/// through `e^{η}/√η`, which overflows to `+inf` once `η ≳ 709`. Two `+inf`s
-/// then divide to `NaN`, poisoning the very first outer ρ-gradient on
-/// large-norm / ill-conditioned checkpoints (issue #1113: a dispersion-inflated
-/// ARD seed pushes `η = α/κ²` past the overflow threshold at iter 0). For a
-/// periodic circle atom (`κ = 2π`) this fires for any seed precision
-/// `α ≳ 2.8e4`, well inside the reachable seed range.
-///
-/// We never form `e^{η}`. For the small branch (`η < 3.75`) the A&S series are
-/// finite, so we evaluate them directly. For the large branch the shared
-/// `e^{η}/√η` envelope cancels in the *log* (`log I0 = η − ½ ln η + ln poly`)
-/// and in the *ratio* (`I1/I0 = poly₁/poly₀`), so both are computed from the
-/// bounded scaled polynomials alone — exact for non-degenerate η and finite for
-/// every finite η.
-pub(crate) fn bessel_i0_log_and_ratio(eta: f64) -> (f64, f64) {
-    let ax = eta.abs();
-    if ax < 3.75 {
-        let i0 = bessel_i0(ax);
-        let i1 = bessel_i1(ax);
-        (i0.ln(), i1 / i0)
-    } else {
-        let poly0 = bessel_i0_scaled_poly(ax);
-        let poly1 = bessel_i1_scaled_poly(ax);
-        let log_i0 = ax - 0.5 * ax.ln() + poly0.ln();
-        let ratio = poly1 / poly0;
-        (log_i0, ratio)
-    }
-}
 /// One manifold atom.
 ///
 /// `basis_values` is `Phi_k(t_{ik})`, shape `(N, M_k)`.
@@ -424,39 +335,21 @@ pub struct SaeManifoldAtom {
     pub basis_values: Array2<f64>,
     pub basis_jacobian: Array3<f64>,
     pub decoder_coefficients: Array2<f64>,
-    /// Effective (intrinsic) roughness Gram `S̃_k` that every consumer reads
-    /// (smoothness value, gradient, Kronecker Hessian op, REML rank/log-det).
+    /// Frozen reference-function Gram `S_ref` read by every smoothing consumer
+    /// (value, gradient, Kronecker Hessian, rank, and log determinant).
     ///
-    /// `S̃_k` is the raw coefficient-space Gram [`Self::smooth_penalty_raw`]
-    /// reparameterized by the decoder pullback metric so the roughness — and
-    /// hence the topology evidence — is gauge-invariant under reparameterization
-    /// of the latent coordinate `t` (issue #673). It is recomputed from the
-    /// current basis Jacobian and decoder coefficients by
-    /// [`Self::refresh_intrinsic_smooth_penalty`] at an explicit initialization
-    /// or structural-reparameterization boundary.  It remains frozen throughout
-    /// each fitted objective, so its quadratic value, gradient, Hessian, and
-    /// Occam term describe one function. The metric weight is centered (geometric mean 1),
-    /// so for constant-speed atoms (the periodic sin/cos basis on `S¹`) every
-    /// weight is exactly `1` and `S̃_k = S_k` — periodic atoms are untouched
-    /// and no overall magnitude leaks into the penalty.
+    /// If `f_B(t) = B^T phi(t)` and the declared seminorm has
+    /// `S_ref[i,j] = <L phi_i,L phi_j>_(nu_ref)`, bilinearity gives
+    ///
+    /// `||L f_B||^2_(nu_ref) = sum_c b_c^T S_ref b_c = tr(B^T S_ref B)`.
+    ///
+    /// Therefore the implemented `0.5 * lambda * tr(B^T S_ref B)` is exactly
+    /// the declared final-function seminorm, with exact gradient
+    /// `lambda * S_ref * B` and Hessian `lambda * (S_ref tensor I)`. It is not
+    /// the moving intrinsic bending energy of the current decoder.
     pub smooth_penalty: Array2<f64>,
-    /// Canonical raw roughness Gram `S_k` in raw coefficient/`t` space (the
-    /// finite-/cyclic-difference Reinsch Gram or the Duchon RKHS Gram). Never
-    /// mutated after construction; [`Self::smooth_penalty`] is derived from it
-    /// each assembly via the pullback-metric reweighting.
-    pub smooth_penalty_raw: Array2<f64>,
-    /// Roughness operator order `r` of [`Self::smooth_penalty_raw`], recovered
-    /// once at construction as its null-space dimension (an order-`r`
-    /// difference / Duchon penalty annihilates the degree-`<r` polynomials, so
-    /// `nullity(S) = r`). `0` when the raw Gram is empty/zero.
-    ///
-    /// Provenance only: the effective [`Self::smooth_penalty`] is now the
-    /// intrinsic bending / conformal-Dirichlet Gram (whose rank and log-det every
-    /// REML consumer reads off the matrix directly), so this field no longer
-    /// drives any reweighting — the historical scalar-speed `β = ½ − r`
-    /// arc-length exponent was replaced by the reparameterisation-invariant
-    /// `∫κ²ds` bending Gram for `d = 1`.
-    pub smooth_penalty_order: usize,
+    /// Which explicit declaration produced [`Self::smooth_penalty`].
+    pub reference_roughness_kind: SaeReferenceRoughnessKind,
     pub basis_evaluator: Option<Arc<dyn SaeBasisEvaluator>>,
     /// Same evaluator upcast to `dyn SaeBasisSecondJet` when the
     /// implementation provides a closed-form Hessian. `None` for
@@ -467,51 +360,6 @@ pub struct SaeManifoldAtom {
     /// the `H` cache on isometry penalties when the second jet is
     /// analytically available.
     pub basis_second_jet: Option<Arc<dyn SaeBasisSecondJet>>,
-    /// Cached VALUES of the analytic second jet
-    /// `H[n, m, a, c] = ∂²Φ_m(t_n) / (∂t_a ∂t_c)`, shape `(N, M, d, d)`, at the
-    /// atom's CURRENT latent coordinates. The intrinsic bending Gram
-    /// ([`Self::refresh_intrinsic_smooth_penalty`], every latent dim `d ≥ 1`)
-    /// needs `∂²Φ` — which is NOT recoverable from `Φ` and `∂Φ` alone — but
-    /// `refresh_intrinsic_smooth_penalty` takes no coordinates, so the values are
-    /// cached here alongside `basis_values` / `basis_jacobian` and refreshed on
-    /// the same coordinate change. Populated by
-    /// [`Self::refresh_basis`] (from [`Self::basis_second_jet`]), transported by
-    /// [`Self::reduce_basis_to_subspace`] (the `M`-axis `Q` congruence), or
-    /// installed directly via [`Self::install_bending_second_jet`]. `None` ⇒ no
-    /// second jet available (a caller-managed or first-jet-only atom); the
-    /// bending path then falls back to the raw Gram, so no atom regresses
-    /// relative to the historical flat fallback. (Poincaré atoms use the
-    /// first-jet conformal-Dirichlet Gram instead and do not consult this cache.)
-    ///
-    /// Frozen at the current iterate (`∂²Φ` depends only on the coordinates, not
-    /// the decoder), so it obeys the same lagged-diffusivity contract as the
-    /// `(g, Γ)` metric freeze: constant within one inner solve, refreshed
-    /// between assemblies so the CONVERGED penalty is the true intrinsic bending
-    /// energy.
-    pub basis_second_jet_values: Option<Array4<f64>>,
-    /// Cached latent coordinates `t[n, a]` (shape `(N, d)`) at the atom's CURRENT
-    /// chart, populated by [`Self::refresh_basis`] on every coordinate change.
-    ///
-    /// Needed by the Poincaré branch of
-    /// [`Self::refresh_intrinsic_smooth_penalty`]: the hyperbolic conformal
-    /// Dirichlet roughness Gram
-    /// [`gam_geometry::manifolds::poincare::conformal_dirichlet_penalty`] is a
-    /// function of the latent `t` (through the exp-map pullback metric), which
-    /// `refresh_intrinsic_smooth_penalty` does not otherwise receive. Cached here
-    /// alongside `basis_values` / `basis_jacobian` and refreshed on the same
-    /// coordinate change (the lagged-diffusivity freeze). `None` for a
-    /// caller-managed / never-refreshed atom (the Poincaré branch then falls back
-    /// to the raw Gram). Unchanged by [`Self::reduce_basis_to_subspace`] (the
-    /// `M`-axis congruence leaves the `(N, d)` coordinates untouched).
-    pub latent_coords: Option<Array2<f64>>,
-    /// Quadrature measure `ω_i` for the intrinsic bending Gram (every latent
-    /// dim `d ≥ 1`); see [`SaeBendingMeasure`]. Default
-    /// [`SaeBendingMeasure::Volume`] (the Riemannian volume element `√det g_i`;
-    /// for `d = 1` this is the arc-length element `ds = ‖γ'‖ dt`, so the penalty
-    /// is `∫ κ² ds`). Ignored for Poincaré atoms (which use the conformal
-    /// Dirichlet Gram) and for atoms with no second-jet cache (raw-Gram
-    /// fallback).
-    pub bending_measure: SaeBendingMeasure,
     /// Profiled low-rank Grassmann decoder frame `U_k` (`p × r`), issue #972.
     ///
     /// `None` ⇒ the historical full-`B` path: the border carries the entire
@@ -521,7 +369,7 @@ pub struct SaeManifoldAtom {
     /// polar steps. [`Self::decoder_coefficients`] stays the authoritative
     /// reconstructed `B_k` (so every existing consumer is unchanged); the frame
     /// is the *representation* that shrinks the border and contributes the
-    /// `r·(p − r)` Grassmann dimensions to the Laplace evidence normalizer.
+    /// `r·(p − r)` Grassmann dimensions to the quasi-Laplace score normalizer.
     /// Activated automatically by [`Self::maybe_activate_decoder_frame`] when the
     /// decoder's effective column rank is materially below `p`; never a flag.
     pub decoder_frame: Option<GrassmannFrame>,
@@ -555,17 +403,6 @@ pub struct SaeManifoldAtom {
     /// ever set for `latent_dim == 1` atoms and `latent_dim == 2` torus
     /// atoms; never a flag the user controls.
     pub chart_canonicalized: bool,
-    /// Row indices of the quadrature subsample the `d ≥ 2` bending Gram is
-    /// assembled from at scale. `None` ⇒ the Gram uses the full active set and
-    /// [`Self::basis_second_jet_values`] is the full `(n, M, d, d)` jet — the
-    /// bitwise-legacy path, taken whenever `n ≤ BENDING_QUADRATURE_CAP`.
-    /// `Some(rows)` ⇒ the second-jet cache is the COMPACT `(rows.len(), M, d, d)`
-    /// jet evaluated ONLY on these rows, and the Gram loop reweights each by
-    /// `n / rows.len()` so the penalty scale (hence λ selection) matches the
-    /// full-set penalty. This is the memory fix: a torus atom's full second jet
-    /// is ~1.5 GB at `n = 10⁶`; the `Q ≈ 4096` compact jet is ~6 MB and still
-    /// oversamples the `≤ M(M+1)/2 ≲ 1.2k`-dof Gram 3–6×.
-    pub bending_quadrature_rows: Option<Vec<usize>>,
     /// Orthonormal column map `Q` (`M × r`) frozen by the #1117 rank-revealing
     /// reduction [`Self::reduce_basis_to_subspace`]. `Some` iff this atom's
     /// fixed-width inner basis was reparametrized onto its data-supported
@@ -599,13 +436,6 @@ pub struct SaeManifoldAtom {
     pub ard_precisions: Option<Array1<f64>>,
 }
 
-/// Quadrature-subsample cap for the `d ≥ 2` bending Gram: above this many active
-/// rows the covariant Gram is assembled from a leverage-stratified subsample of
-/// this many rows rather than the full set (see
-/// [`SaeManifoldAtom::bending_quadrature_rows`]). Below it, the full-set legacy
-/// path is bitwise-preserved.
-pub const BENDING_QUADRATURE_CAP: usize = 4096;
-
 impl SaeManifoldAtom {
     #[must_use = "build error must be handled"]
     pub fn new(
@@ -615,7 +445,7 @@ impl SaeManifoldAtom {
         basis_values: Array2<f64>,
         basis_jacobian: Array3<f64>,
         decoder_coefficients: Array2<f64>,
-        smooth_penalty: Array2<f64>,
+        reference_roughness: SaeReferenceRoughness,
     ) -> Result<Self, String> {
         let n = basis_values.nrows();
         let m = basis_values.ncols();
@@ -632,52 +462,182 @@ impl SaeManifoldAtom {
                 decoder_coefficients.nrows()
             ));
         }
-        if smooth_penalty.dim() != (m, m) {
-            return Err(format!(
-                "SaeManifoldAtom::new: smooth penalty must be ({m}, {m}); got {:?}",
-                smooth_penalty.dim()
-            ));
+        if m == 0 {
+            return Err("SaeManifoldAtom::new: basis width must be positive".into());
         }
         if p == 0 {
             return Err("SaeManifoldAtom::new: decoder output dimension must be positive".into());
         }
-        // Recover the roughness operator order `r` from the raw Gram's
-        // null-space dimension (`nullity(S) = r` for an order-`r` difference /
-        // Duchon penalty). This pins the arc-length reweighting exponent
-        // `β = ½ − r` once, so the per-assembly reweighting needs no
-        // eigendecomposition in the hot loop.
-        let smooth_penalty_order = smooth_penalty_nullity(&smooth_penalty)?;
-        let mut atom = Self {
+        let (smooth_penalty, reference_roughness_kind) = Self::materialize_reference_roughness(
+            &basis_kind,
+            latent_dim,
+            basis_jacobian.view(),
+            reference_roughness,
+        )?;
+        Ok(Self {
             name: name.into(),
             basis_kind,
             latent_dim,
             basis_values,
             decoder_coefficients,
-            smooth_penalty_raw: smooth_penalty.clone(),
             smooth_penalty,
-            smooth_penalty_order,
+            reference_roughness_kind,
             basis_jacobian,
             basis_evaluator: None,
             basis_second_jet: None,
-            basis_second_jet_values: None,
-            latent_coords: None,
-            bending_measure: SaeBendingMeasure::Volume,
             decoder_frame: None,
             homotopy_eta: 1.0,
             chart_canonicalized: false,
-            bending_quadrature_rows: None,
             // Set only by `reduce_basis_to_subspace`; a freshly-built atom is
             // full-width (its decoder is already the un-reduced `M × p` block).
             reduced_column_map: None,
             // Stamped from the terminal `rho.log_ard` at fit finalization; a
             // freshly-built atom carries no fitted coordinate prior yet.
             ard_precisions: None,
-        };
-        // Seed `smooth_penalty` with the intrinsic Gram at the initial
-        // decoder/coordinates so the very first assembly already reads the
-        // pullback-metric-reweighted penalty.
-        atom.refresh_intrinsic_smooth_penalty();
-        Ok(atom)
+        })
+    }
+
+    /// Construct an atom whose topology/caller already supplied the exact
+    /// basis Gram of its declared reference-function seminorm.
+    #[must_use = "build error must be handled"]
+    pub fn new_with_provided_function_gram(
+        name: impl Into<String>,
+        basis_kind: SaeAtomBasisKind,
+        latent_dim: usize,
+        basis_values: Array2<f64>,
+        basis_jacobian: Array3<f64>,
+        decoder_coefficients: Array2<f64>,
+        function_gram: Array2<f64>,
+    ) -> Result<Self, String> {
+        Self::new(
+            name,
+            basis_kind,
+            latent_dim,
+            basis_values,
+            basis_jacobian,
+            decoder_coefficients,
+            SaeReferenceRoughness::ProvidedFunctionGram(function_gram),
+        )
+    }
+
+    fn materialize_reference_roughness(
+        basis_kind: &SaeAtomBasisKind,
+        latent_dim: usize,
+        basis_jacobian: ArrayView3<'_, f64>,
+        reference_roughness: SaeReferenceRoughness,
+    ) -> Result<(Array2<f64>, SaeReferenceRoughnessKind), String> {
+        let (n, m, d) = basis_jacobian.dim();
+        if d != latent_dim {
+            return Err(format!(
+                "SaeManifoldAtom::materialize_reference_roughness: basis Jacobian latent dimension {d} != declared {latent_dim}"
+            ));
+        }
+        match reference_roughness {
+            SaeReferenceRoughness::ProvidedFunctionGram(gram) => Ok((
+                Self::validate_reference_function_gram(gram, m, false)?,
+                SaeReferenceRoughnessKind::ProvidedFunctionGram,
+            )),
+            SaeReferenceRoughness::PoincareConformalDirichlet { reference_coords } => {
+                if !matches!(basis_kind, SaeAtomBasisKind::Poincare) {
+                    return Err(
+                        "SaeManifoldAtom::materialize_reference_roughness: Poincare conformal-Dirichlet norm requires a Poincare atom"
+                            .into(),
+                    );
+                }
+                if n == 0 || latent_dim == 0 {
+                    return Err(
+                        "SaeManifoldAtom::materialize_reference_roughness: Poincare reference coordinates must be non-empty"
+                            .into(),
+                    );
+                }
+                if reference_coords.dim() != (n, latent_dim) {
+                    return Err(format!(
+                        "SaeManifoldAtom::materialize_reference_roughness: Poincare reference coordinates {:?}, expected ({n}, {latent_dim})",
+                        reference_coords.dim()
+                    ));
+                }
+                if reference_coords.iter().any(|value| !value.is_finite()) {
+                    return Err(
+                        "SaeManifoldAtom::materialize_reference_roughness: Poincare reference coordinates must be finite"
+                            .into(),
+                    );
+                }
+                let gram = gam_geometry::manifolds::poincare::conformal_dirichlet_penalty(
+                    reference_coords.view(),
+                    basis_jacobian,
+                    POINCARE_REFERENCE_CURVATURE,
+                )
+                .map_err(|error| {
+                    format!(
+                        "SaeManifoldAtom::materialize_reference_roughness: Poincare conformal-Dirichlet Gram failed: {error}"
+                    )
+                })?;
+                Ok((
+                    Self::validate_reference_function_gram(gram, m, true)?,
+                    SaeReferenceRoughnessKind::PoincareConformalDirichlet,
+                ))
+            }
+        }
+    }
+
+    fn validate_reference_function_gram(
+        gram: Array2<f64>,
+        m: usize,
+        require_positive_rank: bool,
+    ) -> Result<Array2<f64>, String> {
+        if gram.dim() != (m, m) {
+            return Err(format!(
+                "SaeManifoldAtom::validate_reference_function_gram: Gram {:?}, expected ({m}, {m})",
+                gram.dim()
+            ));
+        }
+        if gram.iter().any(|value| !value.is_finite()) {
+            return Err(
+                "SaeManifoldAtom::validate_reference_function_gram: Gram must be finite".into(),
+            );
+        }
+        let scale = gram
+            .iter()
+            .fold(1.0_f64, |current, value| current.max(value.abs()));
+        let tolerance = f64::EPSILON.sqrt() * scale * m.max(1) as f64;
+        for i in 0..m {
+            for j in 0..m {
+                if (gram[[i, j]] - gram[[j, i]]).abs() > tolerance {
+                    return Err(format!(
+                        "SaeManifoldAtom::validate_reference_function_gram: Gram is not symmetric at ({i}, {j})"
+                    ));
+                }
+            }
+        }
+        let sym = (&gram + &gram.t()) * 0.5;
+        let (eigenvalues, eigenvectors) = sym
+            .eigh(Side::Lower)
+            .map_err(|error| {
+                format!(
+                    "SaeManifoldAtom::validate_reference_function_gram: eigendecomposition failed: {error}"
+                )
+            })?;
+        let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
+        let max_eigenvalue = eigenvalues.iter().copied().fold(0.0_f64, f64::max);
+        if min_eigenvalue < -tolerance {
+            return Err(format!(
+                "SaeManifoldAtom::validate_reference_function_gram: Gram is not positive semidefinite (minimum eigenvalue {min_eigenvalue})"
+            ));
+        }
+        if require_positive_rank && max_eigenvalue <= tolerance {
+            return Err(
+                "SaeManifoldAtom::validate_reference_function_gram: declared seminorm has zero numerical rank"
+                    .into(),
+            );
+        }
+        if min_eigenvalue >= 0.0 {
+            return Ok(sym);
+        }
+        // Roundoff-sized negative eigenvalues are projected to zero so the
+        // installed Hessian is genuinely PSD rather than merely PSD up to a
+        // tolerance. Larger negative directions were rejected above.
+        let clipped = Array2::from_diag(&eigenvalues.mapv(|value| value.max(0.0)));
+        Ok(eigenvectors.dot(&clipped).dot(&eigenvectors.t()))
     }
 
     pub fn with_basis_evaluator(mut self, evaluator: Arc<dyn SaeBasisEvaluator>) -> Self {
@@ -705,7 +665,7 @@ impl SaeManifoldAtom {
     /// A fixed-depth decoder basis (e.g. [`PeriodicHarmonicEvaluator`]) emits
     /// `M` columns whether or not the data excites them; on a near-degenerate
     /// checkpoint the unexcited columns make the design rank-deficient by
-    /// construction, flattening the outer REML surface and stalling the solve.
+    /// construction, flattening the outer penalized quasi-Laplace surface and stalling the solve.
     /// Here we replace the basis with its restriction to the data-identified
     /// subspace, so the design is **full-rank by construction** and the outer
     /// problem is well-posed. Everything transforms by the same `Q` congruence:
@@ -716,7 +676,8 @@ impl SaeManifoldAtom {
     /// * decoder `B̃ = Qᵀ B`  — the minimum-norm pre-image, dropping exactly the
     ///   data-null component that carries no curvature, so the reconstruction
     ///   `Φ̃ B̃ = Φ Q Qᵀ B = Φ B_range` is the rank-`r` oracle,
-    /// * roughness Gram `S̃ = Qᵀ S Q` (`smooth_penalty`, `smooth_penalty_raw`),
+    /// * frozen reference-function Gram `S̃_ref = Qᵀ S_ref Q`
+    ///   (`smooth_penalty`),
     /// * evaluator → `SubspaceReducedEvaluator(inner, Q)` so the reduction
     ///   *survives* every `refresh_basis` re-evaluation.
     ///
@@ -770,59 +731,25 @@ impl SaeManifoldAtom {
                 dec_red.dim()
             ));
         }
-        // S̃ = Qᵀ S Q  (r × r) on both the raw and the (re-derived) effective Gram.
-        let s_raw_red = q.t().dot(&self.smooth_penalty_raw).dot(q);
-        let order = smooth_penalty_nullity(&s_raw_red)?;
+        // S̃_ref = Qᵀ S_ref Q (r × r). This is the exact basis-change law for
+        // the already-declared function seminorm; no metric or decoder is
+        // re-estimated.
+        let s_ref_red = q.t().dot(&self.smooth_penalty).dot(q);
+        let s_ref_red = Self::validate_reference_function_gram(s_ref_red, r, false)?;
         let reduced_eval = SubspaceReducedEvaluator::new(inner, q.clone())?;
         let reduced_arc: Arc<dyn SaeBasisSecondJet> = Arc::new(reduced_eval);
         let base: Arc<dyn SaeBasisEvaluator> = reduced_arc.clone();
 
-        // Transport the cached second jet through the SAME `M`-axis congruence
-        // as `Φ` / `∂Φ`: `H̃[n, :, a, c] = H[n, :, a, c] · Q`, so the reduced
-        // atom carries the intrinsic bending penalty on the reduced basis
-        // immediately (before the next `refresh_basis`), matching the full-width
-        // path — otherwise the `(r, r)` `smooth_penalty` seeded below would be
-        // recomputed against a stale `(·, M, ·, ·)` cache. Dropped when absent.
-        let second_jet_red = self.basis_second_jet_values.as_ref().map(|hess| {
-            let mut reduced = Array4::<f64>::zeros((n, r, d, d));
-            for a in 0..d {
-                for c in 0..d {
-                    let slab = hess.slice(s![.., .., a, c]).dot(q);
-                    reduced.slice_mut(s![.., .., a, c]).assign(&slab);
-                }
-            }
-            reduced
-        });
-
         self.basis_values = phi_red;
         self.basis_jacobian = jac_red;
-        self.basis_second_jet_values = second_jet_red;
         self.decoder_coefficients = dec_red;
-        self.smooth_penalty_raw = s_raw_red.clone();
-        // Seed the effective penalty with the reduced raw Gram so the buffer is
-        // the right `(r, r)` shape; the arc-length refresh below overwrites it.
-        self.smooth_penalty = s_raw_red;
-        self.smooth_penalty_order = order;
+        self.smooth_penalty = s_ref_red;
         self.basis_evaluator = Some(base);
         self.basis_second_jet = Some(reduced_arc);
         // The decoder frame is a profiled representation of the *previous* M×p
         // decoder; the column count just changed, so drop it and let the joint
         // fit re-activate it for the reduced block if still profitable.
         self.decoder_frame = None;
-        // Re-derive the intrinsic (pullback-metric / arc-length) reweighted
-        // effective penalty on the REDUCED basis — exactly as the constructor
-        // does for the full-width atom. Without this the reduced atom would
-        // carry the bare `S̃ = Qᵀ S Q` while the full-width path carries the
-        // arc-length-reweighted `W^{½} S W^{½}`, so a `latent_dim == 1` atom
-        // with a genuine order-`r ≥ 1` (difference / Duchon) penalty would be
-        // smoothed under a DIFFERENT roughness metric after reduction than
-        // before — biasing exactly the rank-deficient circle #1117 targets.
-        // (For the constant-speed periodic basis and order-0 / `latent_dim != 1`
-        // atoms this is `S̃ = S̃_raw`, so the eye-penalty reductions are
-        // byte-for-byte unchanged.) All inputs the refresh reads
-        // (`basis_values`, `decoder_coefficients`, `smooth_penalty_raw`,
-        // `smooth_penalty_order`, `basis_kind`, `latent_dim`) are now set.
-        self.refresh_intrinsic_smooth_penalty();
         // Record the inner→reduced column map so the reduced frame can be
         // re-expanded at the emission boundary (#2135). If this atom was ALREADY
         // reduced (`prev`: `M × r_prev`) and is being reduced again against its
@@ -978,137 +905,7 @@ impl SaeManifoldAtom {
             self.basis_values = phi;
             self.basis_jacobian = jet;
         }
-        // Cache the latent coordinates on the same coordinate change: the
-        // Poincaré conformal-Dirichlet roughness Gram is a function of `t`
-        // (through the exp-map pullback metric) and
-        // `refresh_intrinsic_smooth_penalty` receives no coordinates. Frozen at
-        // the current iterate exactly like the second-jet cache below. Reuse the
-        // existing buffer when its shape matches so the per-trial refresh does
-        // not re-allocate the `(N, d)` coordinate cache either.
-        match self.latent_coords.as_mut() {
-            Some(buf) if buf.dim() == coords.dim() => buf.assign(&coords),
-            _ => self.latent_coords = Some(coords.to_owned()),
-        }
-        // Refresh the cached second-jet VALUES on the same coordinate change so
-        // the `d ≥ 2` intrinsic bending Gram sees `∂²Φ` at the current chart
-        // (the lagged-diffusivity freeze the metric obeys). Only an evaluator
-        // that exposes a closed-form Hessian can supply it; a first-jet-only /
-        // caller-managed atom invalidates the cache to `None` so a stale jet
-        // from a prior coordinate can never survive a refresh, and the bending
-        // path then falls back to the raw Gram.
-        // Lenient by contract: the second-jet cache is an OPTIONAL accelerant
-        // for the `d ≥ 2` bending Gram, never load-bearing for `refresh_basis`
-        // itself. A failing / mis-shaped second jet invalidates the cache to
-        // `None` (bending then falls back to the raw Gram — no regression)
-        // rather than failing the whole basis refresh, so an evaluator that is
-        // fine for `Φ`/`∂Φ` but degenerate for `∂²Φ` at some coordinate cannot
-        // break the refresh path.
-        let n = self.n_obs();
-        let m = self.basis_size();
-        let d = self.latent_dim;
-        if d >= 2 && n > BENDING_QUADRATURE_CAP && self.basis_second_jet.is_some() {
-            // At scale the full `(n, M, d, d)` second jet is the OOM risk
-            // (~1.5 GB/atom at n=10⁶). Evaluate it ONLY on a leverage-stratified
-            // quadrature subsample; the Gram reweights by `n/|rows|`.
-            let rows = self.select_bending_quadrature_rows(BENDING_QUADRATURE_CAP);
-            let sub = coords.select(ndarray::Axis(0), &rows);
-            let expected = (rows.len(), m, d, d);
-            let jet = self
-                .basis_second_jet
-                .as_ref()
-                .and_then(|second| second.second_jet(sub.view()).ok())
-                .filter(|hess| hess.dim() == expected);
-            if jet.is_some() {
-                self.basis_second_jet_values = jet;
-                self.bending_quadrature_rows = Some(rows);
-            } else {
-                // Sub-eval failed / mis-shaped: fall back to the raw-Gram path
-                // (no cache) rather than a stale or full-size jet.
-                self.basis_second_jet_values = None;
-                self.bending_quadrature_rows = None;
-            }
-        } else {
-            // Small-`n` or `d = 1`: full jet, bitwise-identical legacy path.
-            let expected = (n, m, d, d);
-            self.basis_second_jet_values = self
-                .basis_second_jet
-                .as_ref()
-                .and_then(|second| second.second_jet(coords).ok())
-                .filter(|hess| hess.dim() == expected);
-            self.bending_quadrature_rows = None;
-        }
         Ok(())
-    }
-
-    /// Install the cached second-jet VALUES `H[n, m, a, c] = ∂²Φ_m(t_n)`
-    /// directly (shape `(N, M, d, d)`), for atoms whose basis is managed
-    /// out-of-band (no installed evaluator) but that still want the `d ≥ 2`
-    /// intrinsic bending Gram. Validates the shape against the current basis /
-    /// latent dimensions. Real evaluator-backed atoms populate the same cache
-    /// automatically in [`Self::refresh_basis`]; this is the caller-managed
-    /// counterpart.
-    pub fn install_bending_second_jet(&mut self, values: Array4<f64>) -> Result<(), String> {
-        let expected = (
-            self.n_obs(),
-            self.basis_size(),
-            self.latent_dim,
-            self.latent_dim,
-        );
-        if values.dim() != expected {
-            return Err(format!(
-                "SaeManifoldAtom::install_bending_second_jet: values {:?}, expected {expected:?}",
-                values.dim()
-            ));
-        }
-        self.basis_second_jet_values = Some(values);
-        // A caller-installed jet is full-`n` by shape contract, so the Gram uses
-        // the full active set (no quadrature reweight).
-        self.bending_quadrature_rows = None;
-        Ok(())
-    }
-
-    /// Leverage-stratified quadrature subsample for the `d ≥ 2` bending Gram.
-    ///
-    /// Returns ≤ `cap` row indices (all rows when `n ≤ cap`). The stratification
-    /// key is each row's tangent energy `Σ_{m,a} (∂_aΦ_m)²` (a cheap
-    /// `O(n·M·d)` proxy for the pullback volume `√det g`, read straight off the
-    /// resident first-jet cache — no decoder pass, no full second jet). Rows are
-    /// ranked by that key and `cap` are taken at evenly-spaced ranks, so the
-    /// subsample spans the whole leverage spectrum (flat AND high-curvature
-    /// regions) rather than clustering — the coverage the covariant Gram needs to
-    /// see every bent direction. Deterministic.
-    fn select_bending_quadrature_rows(&self, cap: usize) -> Vec<usize> {
-        let n = self.n_obs();
-        if n <= cap || cap == 0 {
-            return (0..n).collect();
-        }
-        let m = self.basis_size();
-        let d = self.latent_dim;
-        let mut leverage = vec![0.0_f64; n];
-        for (row, lev) in leverage.iter_mut().enumerate() {
-            let mut acc = 0.0_f64;
-            for coeff in 0..m {
-                for a in 0..d {
-                    let g = self.basis_jacobian[[row, coeff, a]];
-                    acc += g * g;
-                }
-            }
-            *lev = acc;
-        }
-        let mut order: Vec<usize> = (0..n).collect();
-        order.sort_by(|&i, &j| {
-            leverage[i]
-                .partial_cmp(&leverage[j])
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let mut sel = Vec::with_capacity(cap);
-        for k in 0..cap {
-            let pos = (((k as f64 + 0.5) * n as f64 / cap as f64) as usize).min(n - 1);
-            sel.push(order[pos]);
-        }
-        sel.sort_unstable();
-        sel.dedup();
-        sel
     }
 
     pub fn n_obs(&self) -> usize {
@@ -1142,7 +939,7 @@ impl SaeManifoldAtom {
 
     /// Grassmann manifold dimension `r·(p − r)` profiled OUT of the border for
     /// this atom (issue #972). `0` when no frame is active. This is the number
-    /// of frame degrees of freedom that must enter the Laplace evidence
+    /// of frame degrees of freedom that must enter the quasi-Laplace score
     /// dimension accounting (evidence honesty).
     pub fn frame_manifold_dimension(&self) -> usize {
         match &self.decoder_frame {
@@ -1546,462 +1343,22 @@ impl SaeManifoldAtom {
             0.0
         }
     }
-
-    /// Recompute the intrinsic (gauge-invariant) roughness Gram
-    /// [`Self::smooth_penalty`] from [`Self::smooth_penalty_raw`], the current
-    /// basis Jacobian / second jet, and the current decoder coefficients
-    /// (issue #673).
-    ///
-    /// The raw penalty `0.5·λ·tr(BᵀS B)` measures roughness per unit of the raw
-    /// latent coordinate `t`, so it is *not* invariant under reparameterizing
-    /// `t` — and the model evidence that ranks an atom's topology (circle vs
-    /// line) inherits that gauge dependence. The gauge-invariant target is the
-    /// roughness of the decoded FUNCTION itself, read off its intrinsic geometry
-    /// rather than the chart (SPEC: penalise the final function, not the
-    /// coefficients). Two closed forms realise it, dispatched on the manifold:
-    ///
-    /// * **Poincaré** — the hyperbolic conformal Dirichlet energy
-    ///   `E_g[f] = ∫ gᵃᵇ ∂_a f ∂_b f dμ_g` measured in the ball metric pulled
-    ///   back to the tangent chart, delegated to
-    ///   [`gam_geometry::manifolds::poincare::conformal_dirichlet_penalty`]
-    ///   (`curvature = −1`, the single source of truth for the hyperbolic
-    ///   metric). Needs the cached [`Self::latent_coords`] and the first-jet
-    ///   [`Self::basis_jacobian`]; absent coordinates fall back to the raw Gram.
-    ///   This is an ORDER-1 (Dirichlet) operator — a different order than the
-    ///   atom's second-derivative `smooth_penalty_raw` — but the effective Gram
-    ///   is installed DIRECTLY into `smooth_penalty`, so every downstream
-    ///   consumer (the REML rank / log-det Occam term, the Kronecker Hessian)
-    ///   reads the correct order off the matrix itself; no separate accounting is
-    ///   needed. See [`Self::try_poincare_conformal_gram`].
-    ///
-    /// * **All other manifolds** — the total squared SECOND FUNDAMENTAL FORM
-    ///   `∫_M ‖II‖²_g dμ` of the decoded embedding `γ(t) = BᵀΦ(t)`, delegated to
-    ///   [`Self::try_intrinsic_bending_gram`] for EVERY latent dim `d ≥ 1`. For
-    ///   `d = 1` this is exactly the reparameterisation-invariant curve bending
-    ///   `∫ κ² ds = Σ_i ‖P_N γ''(t_i)‖² / ‖γ'(t_i)‖³` — the NORMAL-projected
-    ///   acceleration weighted by the arc-length element `ds = ‖γ'‖ dt`, which
-    ///   zeroes the tangential part a chart reparameterisation manufactures (e.g.
-    ///   `γ(u) = u²e₁` and `γ(s) = s e₁` are the SAME straight segment and both
-    ///   score zero, whereas the old raw order-2 Gram charged `γ(u)'' = 2e₁ > 0`
-    ///   spuriously). For `d ≥ 2` it is the Riemannian-volume-weighted `‖II‖²_g`.
-    ///   It needs the cached analytic second jet
-    ///   ([`Self::basis_second_jet_values`]); if that is absent (a caller-managed
-    ///   / first-jet-only atom) the raw Gram is left untouched, so no atom
-    ///   regresses relative to the old flat fallback.
-    ///
-    /// A degenerate (empty/zero) raw Gram leaves `S̃ = S` untouched.
-    ///
-    /// This method snapshots the intrinsic geometry `(g, Γ)` / latent
-    /// coordinates into a fixed quadratic Gram.  The fit does not call it at
-    /// Newton or REML assembly boundaries: doing so would make `S(B,t)` part of
-    /// the objective while omitting its derivatives.  Callers may invoke it only
-    /// before starting a new objective or after an explicit structural
-    /// reparameterization. A
-    /// geodesic (zero-bending) image — the periodic sin/cos basis on `S¹`, a
-    /// straight decoder — carries no intrinsic roughness, so no overall magnitude
-    /// (which `λ` already owns) leaks into the penalty.
-    ///
-    /// # Curvature is identifiability (Scott / Thm B)
-    ///
-    /// Superposition ambiguity is a FLATNESS disease and curvature is its cure.
-    /// Two atoms that share a decoded image but differ by a chart
-    /// reparameterisation are indistinguishable to a *flat* (raw-`t`) roughness
-    /// measure; the intrinsic bending penalty is precisely what makes the atom's
-    /// osculating flag — its second-order contact with the ambient space, hence
-    /// its gauge rigidity — MEASURABLE. By Thm B (jet transversality) the
-    /// second-order contact of generic embeddings is of infinite codimension:
-    /// generic curvature breaks the flat degeneracy almost surely, so a penalty
-    /// that reads genuine curvature (and refuses to charge the affine — zero-II
-    /// — maps, the exact flat ambiguity it must NOT penalise; see the invariant
-    /// `(d+1)·p` null space in [`Self::try_intrinsic_bending_gram`]) is what
-    /// turns an unidentified superposition into an identified manifold.
-    pub fn refresh_intrinsic_smooth_penalty(&mut self) {
-        let m = self.basis_size();
-        if m == 0 {
-            self.smooth_penalty.assign(&self.smooth_penalty_raw);
-            return;
-        }
-        // Poincaré: the documented penalty is the hyperbolic conformal Dirichlet
-        // roughness (the ball metric pulled back to the tangent chart), a
-        // function of the latent `t`. Delegate to the single-source geometry
-        // primitive; fall back to the raw Gram only when the coordinates are
-        // unavailable (a caller-managed / never-refreshed atom) or the assembly
-        // is degenerate.
-        if matches!(self.basis_kind, SaeAtomBasisKind::Poincare) {
-            match self.try_poincare_conformal_gram() {
-                Some(gram) => self.smooth_penalty.assign(&gram),
-                None => self.smooth_penalty.assign(&self.smooth_penalty_raw),
-            }
-            return;
-        }
-        // Every other manifold: the gauge-invariant target is the total squared
-        // second fundamental form of the decoded function, for EVERY latent dim
-        // `d ≥ 1`. For `d = 1` this is the ∫κ²ds bending of the decoded curve —
-        // the NORMAL-projected acceleration, invariant to reparameterising `t`
-        // (a straight segment scores zero in any chart); for `d ≥ 2` it is the
-        // volume-weighted `‖II‖²_g`. Delegate to the bending builder; fall back
-        // to the raw Gram only when the second jet is unavailable or the geometry
-        // is degenerate (no regression vs the old flat fallback).
-        match self.try_intrinsic_bending_gram() {
-            Some(gram) => self.smooth_penalty.assign(&gram),
-            None => self.smooth_penalty.assign(&self.smooth_penalty_raw),
-        }
-    }
-
-    /// Hyperbolic conformal Dirichlet roughness Gram for a Poincaré atom
-    /// (`curvature = −1`): `S = Σ_n Φ'(t_n)ᵀ G(t_n) Φ'(t_n)`,
-    /// `G = √det h · h⁻¹`, `h` the exp-map pullback of the ball metric — see
-    /// [`gam_geometry::manifolds::poincare::conformal_dirichlet_penalty`], the
-    /// single source of truth for the hyperbolic metric. The Poincaré atom is
-    /// defined at unit curvature (the tangent-wrapped exp-map chart), so the
-    /// metric is fixed, never a free knob.
-    ///
-    /// Returns `None` (raw-Gram fallback) when the latent coordinates are not
-    /// cached (a caller-managed / never-refreshed atom), their shape disagrees
-    /// with the basis Jacobian, or the geometry primitive rejects the input; a
-    /// non-finite Gram is likewise rejected.
-    fn try_poincare_conformal_gram(&self) -> Option<Array2<f64>> {
-        let coords = self.latent_coords.as_ref()?;
-        let (n, d) = coords.dim();
-        let m = self.basis_size();
-        if d != self.latent_dim || d == 0 || n == 0 || m == 0 {
-            return None;
-        }
-        if self.basis_jacobian.dim() != (n, m, d) {
-            return None;
-        }
-        let gram = gam_geometry::manifolds::poincare::conformal_dirichlet_penalty(
-            coords.view(),
-            self.basis_jacobian.view(),
-            -1.0,
-        )
-        .ok()?;
-        if gram.dim() == (m, m) && gram.iter().all(|v| v.is_finite()) {
-            Some(gram)
-        } else {
-            None
-        }
-    }
-
-    /// Build the gauge-invariant intrinsic bending Gram `S̃` (`M × M`) for any
-    /// latent dim `d ≥ 1`, whose decoder trace is exactly the total squared
-    /// second fundamental form
-    ///   `tr(Bᵀ S̃ B) = Σ_i ω_i ‖II(t_i)‖²_g`.
-    ///
-    /// For `d = 1` the second fundamental form is the normal-projected curve
-    /// acceleration and, under the default volume measure `ω = √det g = ‖γ'‖`,
-    /// the trace is the reparameterisation-invariant `∫ κ² ds =
-    /// Σ_i ‖P_N γ''(t_i)‖² / ‖γ'(t_i)‖³` (the tangential acceleration a chart
-    /// reparameterisation manufactures is removed by the Christoffel/normal
-    /// projection below, so a straight segment scores exactly zero in any chart).
-    /// For `d ≥ 2` it is the Riemannian-area/volume-weighted `‖II‖²_g`.
-    ///
-    /// # Geometry (Gauss formula — no Christoffel-from-metric-derivatives)
-    ///
-    /// The atom's decoded embedding is `γ(t) = Bᵀ Φ(t) ∈ ℝ^p` (one physical
-    /// point per latent `t`), with tangent frame `∂_a γ = Bᵀ ∂_a Φ`, pullback
-    /// metric `g_{ab} = ⟨∂_a γ, ∂_b γ⟩` (`g = JᵀJ`, `J = Bᵀ ∂Φ`), and ambient
-    /// Hessian `∂²_{ab} γ = Bᵀ ∂²_{ab} Φ`. The second fundamental form is the
-    /// NORMAL part of that ambient Hessian — equivalently the metric covariant
-    /// Hessian of the embedding, which for an isometric immersion is ALREADY
-    /// normal:
-    ///   `II_{ab} = (I − J g⁺ Jᵀ) ∂²_{ab} γ = ∂²_{ab} γ − Γ^c_{ab} ∂_c γ`,
-    /// with the Levi-Civita symbols read straight off the embedding,
-    ///   `Γ^c_{ab} = g^{cd} ⟨∂_d γ, ∂²_{ab} γ⟩`.
-    /// The embedding hands us `(g, Γ)` directly — no differentiating the metric
-    /// — and NO `∂³Φ` enters, so this is exactly a curvature (order-2) object.
-    /// `(g, Γ)` are snapshotted at an explicit objective boundary.  The resulting
-    /// Gram stays fixed for the complete inner/outer solve; it is not refreshed
-    /// between assemblies, because that would require differentiating the metric
-    /// and connection as part of the objective.
-    ///
-    /// # Coefficient-space realisation (exact, PSD by construction)
-    ///
-    /// Define the COVARIANT second-jet design in coefficient space
-    ///   `Ψ_{ab} = ∂²_{ab} Φ − Γ^c_{ab} ∂_c Φ ∈ ℝ^M`,
-    /// so that `Bᵀ Ψ_{ab} = II_{ab}` EXACTLY (the decoder pulls the coefficient
-    /// design back to the ambient normal vector). Whitening the metric
-    /// contraction via the eigen-square-root `g⁺ = R Rᵀ` (`R_{ak} = u_{ak}/√σ_k`
-    /// on the numerically nonzero spectrum — a pseudo-inverse onto the REALISED
-    /// tangent space, which is also the projector inside `II`) and stacking the
-    /// whitened symmetric pairs `Ψ̃_{ef} = Σ_{ab} R_{ae} R_{bf} Ψ_{ab}` gives
-    ///   `S̃ = Σ_i ω_i Σ_{e,f} Ψ̃_{i,ef} Ψ̃_{i,ef}ᵀ`,
-    /// manifestly `⪰ 0` (a nonneg-weighted sum of rank-1 outer products). Since
-    /// `Σ_e R_{ae} R_{ce} = g^{ac}`,
-    ///   `tr(Bᵀ S̃ B) = Σ_i ω_i Σ_{abcd} g^{ac} g^{bd} ⟨II_ab, II_cd⟩
-    ///               = Σ_i ω_i ‖II(t_i)‖²_g`,
-    /// the target energy to machine precision (the whitening is an exact
-    /// algebraic refactor of the `g⁻¹⊗g⁻¹` contraction, not an approximation).
-    ///
-    /// # Invariant null space — the flat ambiguity the penalty must NOT charge
-    ///
-    /// `S̃ v = 0` iff the scalar chart function `Φ v` has vanishing covariant
-    /// Hessian at every grid point, i.e. it is AFFINE in the (frozen) intrinsic
-    /// geometry — `γ = c + A t` in normal coordinates. That kernel has dimension
-    /// `d + 1` in `M`-space (the constant plus `d` linear directions), so the
-    /// decoder form `B ↦ tr(Bᵀ S̃ B)` has null space of dimension `(d+1)·p`: the
-    /// penalty annihilates EXACTLY the affine (zero-curvature) embeddings in ANY
-    /// chart and charges everything else its true bending energy. This is the
-    /// correct invariant null space: the flat superposition ambiguity is free,
-    /// curvature is not — curvature is identifiability.
-    ///
-    /// # Measure
-    ///
-    /// `ω_i` is [`Self::bending_measure`]: the DEFAULT Riemannian volume element
-    /// `√det g_i` (a local-VOLUME-weighted quadrature — a chart region of
-    /// near-zero volume is CHEAP to bend, so the penalty budget is not spent
-    /// keeping flat a region that carries little volume/data; this weighting is
-    /// NOT sampling-density invariant on its own, see [`SaeBendingMeasure`]), or
-    /// the counting measure `ω_i = 1`. A grid point with a rank-deficient
-    /// tangent frame has `det g = 0` and contributes nothing under the volume
-    /// measure.
-    ///
-    /// Returns `None` (raw-Gram fallback) when the second-jet cache is absent or
-    /// mis-shaped, or the accumulated Gram is non-finite — never a regression
-    /// versus the historical flat-`d>1` fallback.
-    fn try_intrinsic_bending_gram(&self) -> Option<Array2<f64>> {
-        let d = self.latent_dim;
-        let m = self.basis_size();
-        let n = self.n_obs();
-        let p = self.output_dim();
-        if d < 1 || m == 0 || n == 0 || p == 0 {
-            return None;
-        }
-        let hess = self.basis_second_jet_values.as_ref()?;
-        // Quadrature-subsampled at scale: when `bending_quadrature_rows` is set
-        // the cache is the COMPACT jet over those rows and each row's Gram
-        // contribution is reweighted by `n / |rows|` so the penalty scale (hence
-        // λ selection) matches the full-set penalty. Full-set path (`None`) is
-        // bitwise-legacy: rows = 0..n, weight 1, hess shape (n, M, d, d).
-        let rows_owned: Vec<usize>;
-        let rows: &[usize] = match &self.bending_quadrature_rows {
-            Some(r) => r.as_slice(),
-            None => {
-                rows_owned = (0..n).collect();
-                &rows_owned
-            }
-        };
-        if hess.dim() != (rows.len(), m, d, d) {
-            return None;
-        }
-        let weight_scale = if self.bending_quadrature_rows.is_some() {
-            n as f64 / rows.len().max(1) as f64
-        } else {
-            1.0
-        };
-        let b = &self.decoder_coefficients; // (M, p)
-        let volume = matches!(self.bending_measure, SaeBendingMeasure::Volume);
-
-        let mut gram = Array2::<f64>::zeros((m, m));
-        for (jet_idx, &row) in rows.iter().enumerate() {
-            // Ambient tangent frame Dγ (p × d): Dγ[:, a] = Bᵀ ∂_aΦ.
-            let mut dgamma = Array2::<f64>::zeros((p, d));
-            for a in 0..d {
-                let dphi_a = self.basis_jacobian.slice(s![row, .., a]); // (M)
-                let mut col = dgamma.column_mut(a);
-                for coeff in 0..m {
-                    let w = dphi_a[coeff];
-                    if w == 0.0 {
-                        continue;
-                    }
-                    let brow = b.row(coeff);
-                    for l in 0..p {
-                        col[l] += w * brow[l];
-                    }
-                }
-            }
-            // Pullback metric g = DγᵀDγ (d × d, symmetric PSD).
-            let mut g = Array2::<f64>::zeros((d, d));
-            for a in 0..d {
-                for bb in 0..d {
-                    let mut acc = 0.0_f64;
-                    for l in 0..p {
-                        acc += dgamma[[l, a]] * dgamma[[l, bb]];
-                    }
-                    g[[a, bb]] = acc;
-                }
-            }
-            // Symmetric eigendecomposition (d is tiny). A degenerate frame
-            // (no positive eigenvalue) has no tangent space / zero volume — it
-            // charges no bending and is skipped.
-            let (evals, evecs) = g.eigh(Side::Lower).ok()?;
-            let max_eig = evals.iter().cloned().fold(0.0_f64, f64::max);
-            if !(max_eig > 0.0 && max_eig.is_finite()) {
-                continue;
-            }
-            let tol = 1.0e-12 * max_eig;
-            // Whitening root R (RRᵀ = g⁺), pseudo-inverse g⁺, and log det g on
-            // the numerically-nonzero spectrum. R spans exactly the realised
-            // tangent space, so the null directions of g never enter II or the
-            // energy (the correct pseudo-inverse projector).
-            let mut rmat = Array2::<f64>::zeros((d, d));
-            let mut ginv = Array2::<f64>::zeros((d, d));
-            let mut logdet = 0.0_f64;
-            let mut full_rank = true;
-            for k in 0..d {
-                let sigma = evals[k];
-                if sigma > tol {
-                    let inv_sqrt = 1.0 / sigma.sqrt();
-                    let inv = 1.0 / sigma;
-                    for a in 0..d {
-                        rmat[[a, k]] = evecs[[a, k]] * inv_sqrt;
-                    }
-                    for a in 0..d {
-                        for c in 0..d {
-                            ginv[[a, c]] += evecs[[a, k]] * evecs[[c, k]] * inv;
-                        }
-                    }
-                    logdet += sigma.ln();
-                } else {
-                    full_rank = false;
-                }
-            }
-            // Volume weight ω = √det g (0 on a rank-deficient frame); or ω = 1.
-            // The quadrature reweight `n/|rows|` folds in here so a subsampled
-            // Gram estimates the full-set Gram (its trace = Σ_i ω_i‖II_i‖²).
-            let omega = weight_scale
-                * if volume {
-                    if full_rank { (0.5 * logdet).exp() } else { 0.0 }
-                } else {
-                    1.0
-                };
-            if !(omega > 0.0 && omega.is_finite()) {
-                continue;
-            }
-            let sqrt_omega = omega.sqrt();
-
-            // Covariant second-jet design Ψ_{ab} ∈ ℝ^M for every ordered pair,
-            // stored (d, d, M). Ψ_{ab} = ∂²Φ_ab − Σ_c Γ^c_ab ∂_cΦ with
-            // Γ^c_ab = Σ_e g⁺_{ce} ⟨∂_eγ, ∂²γ_ab⟩ and ∂²γ_ab = Bᵀ ∂²Φ_ab.
-            let mut psi = Array3::<f64>::zeros((d, d, m));
-            let mut d2gamma = vec![0.0_f64; p];
-            for a in 0..d {
-                for bb in 0..d {
-                    let d2phi = hess.slice(s![jet_idx, .., a, bb]); // (M)
-                    for slot in d2gamma.iter_mut() {
-                        *slot = 0.0;
-                    }
-                    for coeff in 0..m {
-                        let w = d2phi[coeff];
-                        if w == 0.0 {
-                            continue;
-                        }
-                        let brow = b.row(coeff);
-                        for l in 0..p {
-                            d2gamma[l] += w * brow[l];
-                        }
-                    }
-                    // proj_e = ⟨∂_eγ, ∂²γ_ab⟩, then Γ^c = Σ_e g⁺_{ce} proj_e.
-                    let mut gamma_c = vec![0.0_f64; d];
-                    for c in 0..d {
-                        let mut acc = 0.0_f64;
-                        for e in 0..d {
-                            let mut proj_e = 0.0_f64;
-                            for l in 0..p {
-                                proj_e += dgamma[[l, e]] * d2gamma[l];
-                            }
-                            acc += ginv[[c, e]] * proj_e;
-                        }
-                        gamma_c[c] = acc;
-                    }
-                    let mut psi_ab = psi.slice_mut(s![a, bb, ..]);
-                    for coeff in 0..m {
-                        psi_ab[coeff] = d2phi[coeff];
-                    }
-                    for c in 0..d {
-                        let gc = gamma_c[c];
-                        if gc == 0.0 {
-                            continue;
-                        }
-                        let dphi_c = self.basis_jacobian.slice(s![row, .., c]);
-                        for coeff in 0..m {
-                            psi_ab[coeff] -= gc * dphi_c[coeff];
-                        }
-                    }
-                }
-            }
-
-            // Whitened symmetric-pair design W (M × d²), columns
-            // √ω · Ψ̃_{ef} = √ω · Σ_ab R_ae R_bf Ψ_ab; one syrk accumulates
-            // gram += W Wᵀ = ω Σ_ef Ψ̃_ef Ψ̃_efᵀ (⪰ 0 by construction).
-            let mut wcols = Array2::<f64>::zeros((m, d * d));
-            let mut pair = 0usize;
-            for e in 0..d {
-                for f in 0..d {
-                    let mut wcol = wcols.column_mut(pair);
-                    for a in 0..d {
-                        let rae = rmat[[a, e]];
-                        if rae == 0.0 {
-                            continue;
-                        }
-                        for bb in 0..d {
-                            let coef = sqrt_omega * rae * rmat[[bb, f]];
-                            if coef == 0.0 {
-                                continue;
-                            }
-                            let psi_ab = psi.slice(s![a, bb, ..]);
-                            for coeff in 0..m {
-                                wcol[coeff] += coef * psi_ab[coeff];
-                            }
-                        }
-                    }
-                    pair += 1;
-                }
-            }
-            gram += &wcols.dot(&wcols.t());
-        }
-        if gram.iter().all(|v| v.is_finite()) {
-            Some(gram)
-        } else {
-            None
-        }
-    }
-}
-
-/// Null-space dimension of the symmetric PSD roughness Gram `S` — the order
-/// `r` of the difference / Duchon penalty it encodes (`nullity(S) = r`, since
-/// the operator annihilates exactly the degree-`<r` polynomials). Used once at
-/// atom construction to fix the arc-length reweighting exponent `β = ½ − r`.
-///
-/// Numerical null space: eigenvalues at or below `1e-9 · max_eig` (the same
-/// conventional relative spectral cutoff [`SaeManifoldTerm::symmetric_rank`]
-/// uses for `S`'s rank).
-pub(crate) fn smooth_penalty_nullity(s: &Array2<f64>) -> Result<usize, String> {
-    let m = s.ncols();
-    if m == 0 {
-        return Ok(0);
-    }
-    let mut sym = Array2::<f64>::zeros((m, m));
-    for i in 0..m {
-        for j in 0..m {
-            sym[[i, j]] = 0.5 * (s[[i, j]] + s[[j, i]]);
-        }
-    }
-    let (evals, _evecs) = sym
-        .eigh(Side::Lower)
-        .map_err(|e| format!("smooth_penalty_nullity: eigh failed: {e}"))?;
-    let max_eig = evals.iter().fold(0.0_f64, |acc, &v| acc.max(v));
-    if !(max_eig > 0.0) {
-        // A zero (or negative-semidefinite) Gram carries no roughness; report a
-        // zero operator order so the reweighting is skipped.
-        return Ok(0);
-    }
-    let tol = SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF * max_eig;
-    Ok(evals.iter().filter(|&&v| v <= tol).count())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gam_math::special::{bessel_i0_log_and_ratio, bessel_i0_log_minus_abs_and_ratio};
 
     /// The overflow-free `(log I0(η), I1(η)/I0(η))` must satisfy the exact Bessel
     /// identity `d/dη log I0(η) = I1(η)/I0(η)` on BOTH the small-argument series
     /// branch and the large-argument scaled-polynomial branch — including
     /// `η ≫ 709`, where the naive `bessel_i0(η).ln()` / `bessel_i1/bessel_i0`
     /// overflow to `+inf` and divide to `NaN` (the #1113 iter-0 ρ-gradient poison).
-    /// The returned `ratio` is the analytic derivative the periodic ARD
-    /// normalizer's ρ-gradient consumes, so a central-difference of the returned
-    /// `log_i0` must reproduce it.
+    /// The returned ratio is the ordinary first derivative of `log I0`, so a
+    /// central difference must reproduce it. Periodic ARD uses the separate
+    /// centered, log-scale derivative because `η·(ratio−1)` is numerically
+    /// singular after this ordinary ratio rounds to one.
     #[test]
     fn bessel_log_i0_and_ratio_is_overflow_free_and_derivative_consistent() {
         // η spanning both branches and well past the e^η overflow threshold.
@@ -2042,12 +1399,67 @@ mod tests {
         );
     }
 
+    #[test]
+    fn centered_bessel_log_preserves_thin_ring_cancellation() {
+        for &eta in &[0.0_f64, 1.0, 3.74, 3.76, 900.0] {
+            let (log_i0, ratio) = bessel_i0_log_and_ratio(eta);
+            let (centered, centered_ratio) = bessel_i0_log_minus_abs_and_ratio(eta);
+            assert!((centered + eta.abs() - log_i0).abs() < 2.0e-13);
+            assert_eq!(centered_ratio, ratio);
+        }
+
+        // Forming log(I0(eta))-eta cannot retain this O(log eta) remainder
+        // once eta dwarfs the f64 mantissa. The centered branch never forms
+        // either exponentially/linearly large term and remains informative.
+        for &eta in &[1.0e20_f64, 1.0e100, 1.0e300] {
+            let (centered, ratio) = bessel_i0_log_minus_abs_and_ratio(eta);
+            let asymptotic = -0.5 * (std::f64::consts::TAU * eta).ln();
+            assert!(centered.is_finite() && ratio.is_finite());
+            assert!((centered - asymptotic).abs() < 2.0e-8);
+            assert!((0.0..=1.0).contains(&ratio));
+        }
+    }
+
+    #[test]
+    fn provided_reference_function_gram_rejects_asymmetry_and_negative_energy() {
+        let phi = Array2::<f64>::zeros((2, 2));
+        let jet = Array3::<f64>::zeros((2, 2, 1));
+        let decoder = Array2::<f64>::ones((2, 1));
+
+        let asymmetric = Array2::from_shape_vec((2, 2), vec![1.0, 0.5, 0.0, 1.0]).unwrap();
+        let err = SaeManifoldAtom::new_with_provided_function_gram(
+            "asymmetric",
+            SaeAtomBasisKind::EuclideanPatch,
+            1,
+            phi.clone(),
+            jet.clone(),
+            decoder.clone(),
+            asymmetric,
+        )
+        .expect_err("an asymmetric reference Gram must be rejected");
+        assert!(err.contains("not symmetric"), "unexpected error: {err}");
+
+        let indefinite = Array2::from_shape_vec((2, 2), vec![1.0, 0.0, 0.0, -1.0]).unwrap();
+        let err = SaeManifoldAtom::new_with_provided_function_gram(
+            "indefinite",
+            SaeAtomBasisKind::EuclideanPatch,
+            1,
+            phi,
+            jet,
+            decoder,
+            indefinite,
+        )
+        .expect_err("an indefinite reference Gram must be rejected");
+        assert!(
+            err.contains("not positive semidefinite"),
+            "unexpected error: {err}"
+        );
+    }
+
     // Build an atom over the degree-2 monomial basis `[1, t, t²]` at the given
-    // latent coordinates, with decoder `γ(t) = t + t²` (decoded speed `1 + 2t`,
-    // which varies across the samples so the arc-length reweighting is
-    // non-trivial) and a pure second-derivative penalty `diag(0, 0, 1)` (order
-    // `r = 2`, so `β = ½ − r = −3/2 ≠ 0`). The only thing that varies between the
-    // Euclidean-patch and Poincaré cases below is `basis_kind`.
+    // latent coordinates, with decoder `γ(t) = t + t²`. Poincare atoms declare
+    // the conformal-Dirichlet reference norm at these coordinates; other atoms
+    // declare the supplied second-derivative function Gram.
     fn monomial_atom(kind: SaeAtomBasisKind, ts: &[f64]) -> SaeManifoldAtom {
         let n = ts.len();
         let mut phi = Vec::with_capacity(n * 3);
@@ -2062,6 +1474,13 @@ mod tests {
         let decoder = Array2::from_shape_vec((3, 1), vec![0.0, 1.0, 1.0]).unwrap();
         let mut penalty = Array2::<f64>::zeros((3, 3));
         penalty[[2, 2]] = 1.0;
+        let reference_roughness = if matches!(kind, SaeAtomBasisKind::Poincare) {
+            SaeReferenceRoughness::PoincareConformalDirichlet {
+                reference_coords: Array2::from_shape_vec((n, 1), ts.to_vec()).unwrap(),
+            }
+        } else {
+            SaeReferenceRoughness::ProvidedFunctionGram(penalty)
+        };
         SaeManifoldAtom::new(
             "atom",
             kind,
@@ -2069,7 +1488,7 @@ mod tests {
             basis_values,
             basis_jacobian,
             decoder,
-            penalty,
+            reference_roughness,
         )
         .unwrap()
     }
@@ -2095,7 +1514,7 @@ mod tests {
         let mut penalty = Array2::<f64>::zeros((3, 3));
         penalty[[1, 1]] = 1.0;
         penalty[[2, 2]] = 1.0;
-        let mut atom = SaeManifoldAtom::new(
+        let mut atom = SaeManifoldAtom::new_with_provided_function_gram(
             "circle",
             SaeAtomBasisKind::Periodic,
             1,
@@ -2231,21 +1650,18 @@ mod tests {
         }
     }
 
-    // `refresh_basis` populates it in production.
     #[test]
     fn poincare_d1_uses_hyperbolic_conformal_dirichlet() {
         let ts = [0.1_f64, 1.5, 3.0];
         let mut poincare = monomial_atom(SaeAtomBasisKind::Poincare, &ts);
         let coords = Array2::from_shape_vec((ts.len(), 1), ts.to_vec()).unwrap();
-        poincare.latent_coords = Some(coords.clone());
-        poincare.refresh_intrinsic_smooth_penalty();
 
         // Exact wiring: the effective Gram IS the geometry crate's hyperbolic
         // conformal Dirichlet Gram at unit curvature.
         let expected = gam_geometry::manifolds::poincare::conformal_dirichlet_penalty(
             coords.view(),
             poincare.basis_jacobian.view(),
-            -1.0,
+            POINCARE_REFERENCE_CURVATURE,
         )
         .unwrap();
         for i in 0..3 {
@@ -2286,596 +1702,23 @@ mod tests {
                 );
             }
         }
-        // Non-vacuous: it moved off the raw order-2 Gram (raw[2,2]=1, raw[1,1]=0).
-        assert!((poincare.smooth_penalty_raw[[2, 2]] - 1.0).abs() < 1e-12);
+        assert_eq!(
+            poincare.reference_roughness_kind,
+            SaeReferenceRoughnessKind::PoincareConformalDirichlet
+        );
         assert!(
             poincare.smooth_penalty[[1, 1]] > 1e-6,
             "Dirichlet roughness must charge the linear column; got {}",
             poincare.smooth_penalty[[1, 1]]
         );
-    }
 
-    // DEFECT 1 — a straight decoded segment seen through a NONLINEAR `d = 1`
-    // chart carries zero intrinsic bending, even though the raw coordinate
-    // Hessian is nonzero. `γ(t) = t²·e₁` traces the SAME straight segment as
-    // `γ(s) = s·e₁`; its normal-projected acceleration (`∫κ²ds`) is exactly zero,
-    // whereas the old raw order-2 penalty charged `γ''(t) = 2·e₁ ≠ 0`. This is
-    // the counterexample the fix must satisfy.
-    #[test]
-    fn bending_d1_straight_segment_through_nonlinear_chart_is_zero() {
-        // p = 2 ambient, d = 1. γ(t) = (t², 0): ∂γ = (2t, 0), ∂²γ = (2, 0).
-        let ts = [0.3_f64, 0.7, 1.1, 1.6, 2.2];
-        let n = ts.len();
-        let mut dgamma = Array3::<f64>::zeros((n, 2, 1));
-        let mut d2gamma = Array4::<f64>::zeros((n, 2, 1, 1));
-        for (i, &t) in ts.iter().enumerate() {
-            dgamma[[i, 0, 0]] = 2.0 * t;
-            d2gamma[[i, 0, 0, 0]] = 2.0;
-        }
-        // Raw Hessian energy is sizeable, so a zero result is a genuine
-        // cancellation by the normal projection, not an empty input.
-        assert!(raw_hessian_energy(&d2gamma) > 1.0);
-        for &measure in &[SaeBendingMeasure::Data, SaeBendingMeasure::Volume] {
-            let atom = bending_atom(dgamma.clone(), d2gamma.clone(), measure);
-            let e = bending_energy_of(&atom);
-            assert!(
-                e.abs() < 1e-9,
-                "straight segment must have zero intrinsic bending; got {e} ({measure:?})"
-            );
-        }
-    }
-
-    // DEFECT 1 — a genuinely curved `d = 1` decoder matches the independent
-    // ambient `∫κ²ds` reference to machine precision (both measures), and a
-    // NONLINEAR reparameterisation of the SAME curve at MATCHED material points
-    // gives the SAME pointwise-invariant bending under the data measure. This is
-    // the reparameterisation invariance the old scalar-speed reweighting only
-    // approximated.
-    #[test]
-    fn bending_d1_curve_matches_ambient_and_is_reparam_invariant() {
-        // Unit circle arc γ(θ) = (cos θ, sin θ): ‖γ'‖ = 1, κ = 1. ∂γ = (−sin,
-        // cos), ∂²γ = (−cos, −sin).
-        let build = |ths: &[f64]| -> (Array3<f64>, Array4<f64>) {
-            let n = ths.len();
-            let mut dg = Array3::<f64>::zeros((n, 2, 1));
-            let mut d2 = Array4::<f64>::zeros((n, 2, 1, 1));
-            for (i, &th) in ths.iter().enumerate() {
-                dg[[i, 0, 0]] = -th.sin();
-                dg[[i, 1, 0]] = th.cos();
-                d2[[i, 0, 0, 0]] = -th.cos();
-                d2[[i, 1, 0, 0]] = -th.sin();
-            }
-            (dg, d2)
-        };
-        let thetas = [0.2_f64, 0.6, 1.0, 1.5, 2.1, 2.7];
-        let (dg, d2) = build(&thetas);
-        for &volume in &[false, true] {
-            let measure = if volume {
-                SaeBendingMeasure::Volume
-            } else {
-                SaeBendingMeasure::Data
-            };
-            let atom = bending_atom(dg.clone(), d2.clone(), measure);
-            let got = bending_energy_of(&atom);
-            let want = ambient_bending_energy(&dg, &d2, volume);
-            assert!(
-                want > 0.5,
-                "reference d=1 bending should be sizeable: {want}"
-            );
-            assert!(
-                (got - want).abs() <= 1e-9 * want.max(1.0),
-                "volume={volume}: d=1 coefficient bending {got} != ambient reference {want}"
-            );
-        }
-
-        // Reparameterise the SAME circle by θ = φ(u) = u + 0.4u² (a nonlinear
-        // diffeo) at matched material points, via the exact chain rule:
-        //   ∂γ/∂u   = γ'(θ)·φ'(u)
-        //   ∂²γ/∂u² = γ''(θ)·φ'(u)² + γ'(θ)·φ''(u).
-        let us = [0.2_f64, 0.5, 0.8, 1.05, 1.3, 1.55];
-        let n = us.len();
-        let mut dg_u = Array3::<f64>::zeros((n, 2, 1));
-        let mut d2_u = Array4::<f64>::zeros((n, 2, 1, 1));
-        let mut thetas_matched = Vec::with_capacity(n);
-        for (i, &u) in us.iter().enumerate() {
-            let th = u + 0.4 * u * u;
-            thetas_matched.push(th);
-            let dphi = 1.0 + 0.8 * u;
-            let d2phi = 0.8;
-            let (g1x, g1y) = (-th.sin(), th.cos()); // γ'(θ)
-            let (g2x, g2y) = (-th.cos(), -th.sin()); // γ''(θ)
-            dg_u[[i, 0, 0]] = g1x * dphi;
-            dg_u[[i, 1, 0]] = g1y * dphi;
-            d2_u[[i, 0, 0, 0]] = g2x * dphi * dphi + g1x * d2phi;
-            d2_u[[i, 1, 0, 0]] = g2y * dphi * dphi + g1y * d2phi;
-        }
-        // Identity chart hitting the SAME physical points θ = φ(u).
-        let (dg_x, d2_x) = build(&thetas_matched);
-        let warped = bending_atom(dg_u, d2_u, SaeBendingMeasure::Data);
-        let identity = bending_atom(dg_x, d2_x, SaeBendingMeasure::Data);
-        let e_warped = bending_energy_of(&warped);
-        let e_identity = bending_energy_of(&identity);
-        assert!(
-            e_identity > 0.5,
-            "identity-chart d=1 energy sanity: {e_identity}"
-        );
-        assert!(
-            (e_warped - e_identity).abs() <= 1e-9 * e_identity,
-            "d=1 bending must be reparam-invariant at matched points: warped {e_warped} vs identity {e_identity}"
-        );
-    }
-
-    // ---- d ≥ 2 intrinsic bending Gram (Contribution 1) --------------------
-    //
-    // These tests exercise `refresh_intrinsic_smooth_penalty` on the `d ≥ 2`
-    // branch through the `B = I_p` "identity decoder" harness: an atom with
-    // `M = p` and `decoder = I` has `γ(t) = Φ(t)` decoded coordinate-for-
-    // coordinate, so the coefficient basis IS the ambient embedding and
-    // `tr(Bᵀ S̃ B) = tr(S̃)` (the plain diagonal sum of `smooth_penalty`). The
-    // atom then reads its tangent frame `∂γ` from `basis_jacobian` and its
-    // ambient Hessian `∂²γ` from the installed second-jet cache — so the harness
-    // can feed ANY analytic surface-through-a-chart, with EXACT derivatives, and
-    // no basis-approximation error enters the comparison.
-
-    // Build a `B = I_p` bending atom from an explicit tangent frame `∂γ`
-    // (`n × p × d`) and ambient Hessian `∂²γ` (`n × p × d × d`).
-    fn bending_atom(
-        dgamma: Array3<f64>,
-        d2gamma: Array4<f64>,
-        measure: SaeBendingMeasure,
-    ) -> SaeManifoldAtom {
-        let (n, p, d) = dgamma.dim();
-        let basis_values = Array2::<f64>::zeros((n, p));
-        let decoder = Array2::<f64>::eye(p);
-        let penalty = Array2::<f64>::zeros((p, p));
-        let mut atom = SaeManifoldAtom::new(
-            "bend",
-            SaeAtomBasisKind::EuclideanPatch,
-            d,
-            basis_values,
-            dgamma,
-            decoder,
-            penalty,
-        )
-        .unwrap();
-        atom.bending_measure = measure;
-        atom.install_bending_second_jet(d2gamma).unwrap();
-        atom.refresh_intrinsic_smooth_penalty();
-        atom
-    }
-
-    // Quadrature subsampling estimates the full-set bending energy: a paraboloid
-    // over a 40×40 chart grid, full Gram vs a leverage-stratified Q=400 subsample
-    // reweighted by n/Q, agree in total energy to a few percent. This is the
-    // scale fix — the full second jet is never materialized at n≫Q.
-    #[test]
-    fn quadrature_subsample_matches_full_bending_energy() {
-        let side = 40usize;
-        let n = side * side;
-        let p = 3usize;
-        let d = 2usize;
-        let mut dgamma = Array3::<f64>::zeros((n, p, d));
-        let mut d2gamma = Array4::<f64>::zeros((n, p, d, d));
-        for i in 0..side {
-            for j in 0..side {
-                let row = i * side + j;
-                let t0 = -1.0 + 2.0 * (i as f64) / (side as f64 - 1.0);
-                let t1 = -1.0 + 2.0 * (j as f64) / (side as f64 - 1.0);
-                // γ = (t0, t1, ½(t0²+t1²)): ∂γ = [[1,0],[0,1],[t0,t1]], ∂²γ_z = I.
-                dgamma[[row, 0, 0]] = 1.0;
-                dgamma[[row, 1, 1]] = 1.0;
-                dgamma[[row, 2, 0]] = t0;
-                dgamma[[row, 2, 1]] = t1;
-                d2gamma[[row, 2, 0, 0]] = 1.0;
-                d2gamma[[row, 2, 1, 1]] = 1.0;
-            }
-        }
-        // Full-set reference (Data measure ⇒ ω = 1, so energy = Σ_n ‖II‖²).
-        let full = bending_atom(dgamma.clone(), d2gamma.clone(), SaeBendingMeasure::Data);
-        let e_full = bending_energy_of(&full);
-        assert!(e_full > 0.0 && e_full.is_finite());
-        assert!(
-            full.bending_quadrature_rows.is_none(),
-            "small-n harness stays full"
-        );
-
-        // Manually drive the subsample path: pick Q rows, keep only their jet
-        // slices, tag the quadrature. try_intrinsic then reweights by n/Q.
-        let q = 400usize;
-        let rows = full.select_bending_quadrature_rows(q);
-        assert!(
-            rows.len() <= q && rows.len() >= q / 2,
-            "got {} rows",
-            rows.len()
-        );
-        let mut compact = Array4::<f64>::zeros((rows.len(), p, d, d));
-        for (jet_idx, &r) in rows.iter().enumerate() {
-            compact
-                .slice_mut(s![jet_idx, .., .., ..])
-                .assign(&d2gamma.slice(s![r, .., .., ..]));
-        }
-        let mut sub = bending_atom(dgamma, d2gamma, SaeBendingMeasure::Data);
-        sub.basis_second_jet_values = Some(compact);
-        sub.bending_quadrature_rows = Some(rows.clone());
-        // Memory footprint is O(Q·M·d²), NOT O(n·M·d²): the retained jet holds
-        // only the subsampled rows (Q ≪ n), the OOM-avoiding invariant at scale.
-        let jet_len = sub.basis_second_jet_values.as_ref().unwrap().len();
-        assert_eq!(
-            jet_len,
-            rows.len() * p * d * d,
-            "compact jet must be Q·p·d²"
-        );
-        assert!(
-            rows.len() * 3 < n,
-            "subsample Q={} must be ≪ n={n}",
-            rows.len()
-        );
-        sub.refresh_intrinsic_smooth_penalty();
-        let e_sub = bending_energy_of(&sub);
-        assert!(e_sub > 0.0 && e_sub.is_finite());
-        let rel = (e_sub - e_full).abs() / e_full;
-        assert!(
-            rel < 0.08,
-            "subsampled bending energy {e_sub} vs full {e_full} (rel {rel:.3}) — reweight off"
-        );
-    }
-
-    // `tr(Bᵀ S̃ B) = tr(S̃)` for the identity decoder — the total bending energy.
-    fn bending_energy_of(atom: &SaeManifoldAtom) -> f64 {
-        (0..atom.basis_size())
-            .map(|i| atom.smooth_penalty[[i, i]])
-            .sum()
-    }
-
-    // Independent ambient-space reference for `Σ_i ω_i ‖II(t_i)‖²_g`: at each
-    // row form `g = ∂γᵀ∂γ`, project the ambient Hessian onto the NORMAL bundle
-    // by explicit subtraction of its tangential part
-    // `II_ab = ∂²γ_ab − ∂γ · g⁺ (∂γᵀ ∂²γ_ab)`, then contract
-    // `Σ_abcd g^{ac} g^{bd} ⟨II_ab, II_cd⟩`. This shares NO code with the
-    // coefficient-space whitening in `try_intrinsic_bending_gram` (which never
-    // forms an ambient `II` vector), so agreement is a genuine cross-check.
-    fn ambient_bending_energy(dgamma: &Array3<f64>, d2gamma: &Array4<f64>, volume: bool) -> f64 {
-        let (n, p, d) = dgamma.dim();
-        let mut total = 0.0_f64;
-        for row in 0..n {
-            let dgm = dgamma.slice(s![row, .., ..]).to_owned(); // (p, d)
-            let mut g = Array2::<f64>::zeros((d, d));
-            for a in 0..d {
-                for b in 0..d {
-                    let mut acc = 0.0;
-                    for m in 0..p {
-                        acc += dgm[[m, a]] * dgm[[m, b]];
-                    }
-                    g[[a, b]] = acc;
-                }
-            }
-            let (ev, evec) = g.eigh(Side::Lower).unwrap();
-            let maxe = ev.iter().cloned().fold(0.0_f64, f64::max);
-            if !(maxe > 0.0) {
-                continue;
-            }
-            let tol = 1.0e-12 * maxe;
-            let mut ginv = Array2::<f64>::zeros((d, d));
-            let mut logdet = 0.0_f64;
-            let mut full = true;
-            for k in 0..d {
-                let s = ev[k];
-                if s > tol {
-                    let inv = 1.0 / s;
-                    for a in 0..d {
-                        for c in 0..d {
-                            ginv[[a, c]] += evec[[a, k]] * evec[[c, k]] * inv;
-                        }
-                    }
-                    logdet += s.ln();
-                } else {
-                    full = false;
-                }
-            }
-            let omega = if volume {
-                if full { (0.5 * logdet).exp() } else { 0.0 }
-            } else {
-                1.0
-            };
-            if omega == 0.0 {
-                continue;
-            }
-            // II_ab (p) per ordered pair.
-            let mut ii = vec![vec![vec![0.0_f64; p]; d]; d];
-            for a in 0..d {
-                for b in 0..d {
-                    let mut v = vec![0.0_f64; p];
-                    for m in 0..p {
-                        v[m] = d2gamma[[row, m, a, b]];
-                    }
-                    let mut dtv = vec![0.0_f64; d];
-                    for e in 0..d {
-                        let mut acc = 0.0;
-                        for m in 0..p {
-                            acc += dgm[[m, e]] * v[m];
-                        }
-                        dtv[e] = acc;
-                    }
-                    let mut tc = vec![0.0_f64; d];
-                    for c in 0..d {
-                        let mut acc = 0.0;
-                        for e in 0..d {
-                            acc += ginv[[c, e]] * dtv[e];
-                        }
-                        tc[c] = acc;
-                    }
-                    for m in 0..p {
-                        let mut proj = 0.0;
-                        for c in 0..d {
-                            proj += dgm[[m, c]] * tc[c];
-                        }
-                        ii[a][b][m] = v[m] - proj;
-                    }
-                }
-            }
-            let mut e = 0.0_f64;
-            for a in 0..d {
-                for b in 0..d {
-                    for c in 0..d {
-                        for dd in 0..d {
-                            let mut dot = 0.0;
-                            for m in 0..p {
-                                dot += ii[a][b][m] * ii[c][dd][m];
-                            }
-                            e += ginv[[a, c]] * ginv[[b, dd]] * dot;
-                        }
-                    }
-                }
-            }
-            total += omega * e;
-        }
-        total
-    }
-
-    // The raw (gauge-LEAKING) coefficient-`t` second-derivative Gram energy that
-    // the bending penalty supersedes: `Σ_i Σ_ab ‖∂²γ_ab‖²` with neither a
-    // tangential projection nor a metric contraction. It re-charges roughness on
-    // a flat atom seen through a curved chart, so it is NOT chart-invariant.
-    fn raw_hessian_energy(d2gamma: &Array4<f64>) -> f64 {
-        d2gamma.iter().map(|v| v * v).sum()
-    }
-
-    // Paraboloid graph γ(x) = (x₁, x₂, ½(κ₁x₁² + κ₂x₂²)) in ℝ³ (p = 3, d = 2)
-    // sampled at the base points `pts`, returning its exact (∂γ, ∂²γ).
-    fn paraboloid_arrays(pts: &[(f64, f64)], k1: f64, k2: f64) -> (Array3<f64>, Array4<f64>) {
-        let n = pts.len();
-        let mut dg = Array3::<f64>::zeros((n, 3, 2));
-        let mut d2 = Array4::<f64>::zeros((n, 3, 2, 2));
-        for (i, &(x1, x2)) in pts.iter().enumerate() {
-            dg[[i, 0, 0]] = 1.0;
-            dg[[i, 2, 0]] = k1 * x1;
-            dg[[i, 1, 1]] = 1.0;
-            dg[[i, 2, 1]] = k2 * x2;
-            d2[[i, 2, 0, 0]] = k1;
-            d2[[i, 2, 1, 1]] = k2;
-        }
-        (dg, d2)
-    }
-
-    // (a) Paraboloid: the coefficient-space whitened Gram trace matches the
-    //     independent ambient normal-projection reference to machine precision,
-    //     under BOTH the volume and the data measure; and the single-point,
-    //     unit-metric case reproduces the hand-checkable `κ₁² + κ₂²`.
-    #[test]
-    fn bending_paraboloid_matches_ambient_reference() {
-        let (k1, k2) = (2.0_f64, 3.0_f64);
-
-        // Origin, unit metric (g = I): ‖II‖² = κ₁² + κ₂² = 4 + 9 = 13 exactly.
-        let (dg0, d20) = paraboloid_arrays(&[(0.0, 0.0)], k1, k2);
-        let atom0 = bending_atom(dg0, d20, SaeBendingMeasure::Data);
-        assert!(
-            (bending_energy_of(&atom0) - 13.0).abs() < 1e-12,
-            "origin bending energy {} != 13",
-            bending_energy_of(&atom0)
-        );
-
-        // A genuine 2-D grid where the metric is non-trivial (∇f ≠ 0) so the
-        // tangential projection and the g⁻¹⊗g⁻¹ contraction both bite.
-        let pts: Vec<(f64, f64)> = [-0.7, -0.2, 0.3, 0.9]
-            .iter()
-            .flat_map(|&a| [-0.5, 0.1, 0.6, 1.1].iter().map(move |&b| (a, b)))
-            .collect();
-        let (dg, d2) = paraboloid_arrays(&pts, k1, k2);
-
-        for &volume in &[false, true] {
-            let measure = if volume {
-                SaeBendingMeasure::Volume
-            } else {
-                SaeBendingMeasure::Data
-            };
-            let atom = bending_atom(dg.clone(), d2.clone(), measure);
-            let got = bending_energy_of(&atom);
-            let want = ambient_bending_energy(&dg, &d2, volume);
-            assert!(want > 1.0, "reference energy should be sizeable: {want}");
-            assert!(
-                (got - want).abs() <= 1e-9 * want.max(1.0),
-                "volume={volume}: coefficient-space bending {got} != ambient reference {want}"
-            );
-        }
-    }
-
-    // Warped paraboloid chart: parameter `u` with base point `x = φ(u)`,
-    // `φ = (u₁ + a₁u₁², u₂ + a₂u₂²)` (a nonlinear, axis-decoupled diffeo).
-    // Returns the chart-`u` (∂γ, ∂²γ) via the exact chain rule, plus the matched
-    // base points `x` so the identity chart can hit the SAME physical points.
-    fn paraboloid_warped_arrays(
-        us: &[(f64, f64)],
-        k1: f64,
-        k2: f64,
-        a1: f64,
-        a2: f64,
-    ) -> (Array3<f64>, Array4<f64>, Vec<(f64, f64)>) {
-        let n = us.len();
-        let mut dg = Array3::<f64>::zeros((n, 3, 2));
-        let mut d2 = Array4::<f64>::zeros((n, 3, 2, 2));
-        let mut xs = Vec::with_capacity(n);
-        for (i, &(u1, u2)) in us.iter().enumerate() {
-            let x1 = u1 + a1 * u1 * u1;
-            let x2 = u2 + a2 * u2 * u2;
-            xs.push((x1, x2));
-            let s = [1.0 + 2.0 * a1 * u1, 1.0 + 2.0 * a2 * u2];
-            let c = [2.0 * a1, 2.0 * a2];
-            // Base-surface derivatives at x.
-            let dpx = [[1.0, 0.0, k1 * x1], [0.0, 1.0, k2 * x2]]; // ∂_{x_a}P
-            let d2px = [k1, k2]; // ∂²_{x_a x_a}P z-component; off-diagonal 0.
-            for a in 0..2 {
-                for m in 0..3 {
-                    dg[[i, m, a]] = dpx[a][m] * s[a];
-                }
-            }
-            for a in 0..2 {
-                for b in 0..2 {
-                    for m in 0..3 {
-                        let mut val = 0.0;
-                        if a == b && m == 2 {
-                            val += d2px[a] * s[a] * s[b];
-                        }
-                        if a == b {
-                            val += dpx[a][m] * c[a];
-                        }
-                        d2[[i, m, a, b]] = val;
-                    }
-                }
-            }
-        }
-        (dg, d2, xs)
-    }
-
-    // (b) Gauge invariance: the SAME paraboloid through the identity chart and
-    //     through a nonlinear-warped chart, evaluated at MATCHED material
-    //     points, yields the SAME bending energy under the (pointwise-invariant)
-    //     data measure — whereas the raw coefficient-`t` Hessian energy differs
-    //     by an order of magnitude. Curvature is chart-honest; raw roughness is
-    //     not.
-    #[test]
-    fn bending_gauge_invariant_under_nonlinear_chart() {
-        let (k1, k2) = (1.3_f64, 0.8_f64);
-        let us: Vec<(f64, f64)> = [-0.8, -0.3, 0.4, 1.0]
-            .iter()
-            .flat_map(|&a| [-0.6, 0.2, 0.7, 1.2].iter().map(move |&b| (a, b)))
-            .collect();
-        let (dg_u, d2_u, xs) = paraboloid_warped_arrays(&us, k1, k2, 0.35, 0.5);
-        let (dg_x, d2_x) = paraboloid_arrays(&xs, k1, k2);
-
-        let warped = bending_atom(dg_u.clone(), d2_u.clone(), SaeBendingMeasure::Data);
-        let identity = bending_atom(dg_x.clone(), d2_x.clone(), SaeBendingMeasure::Data);
-
-        let e_warped = bending_energy_of(&warped);
-        let e_identity = bending_energy_of(&identity);
-        assert!(
-            e_identity > 1.0,
-            "identity-chart energy sanity: {e_identity}"
-        );
-        assert!(
-            (e_warped - e_identity).abs() <= 1e-9 * e_identity,
-            "bending energy must be chart-invariant: warped {e_warped} vs identity {e_identity}"
-        );
-
-        // The raw Gram is NOT invariant: the curved chart re-charges roughness.
-        let raw_warped = raw_hessian_energy(&d2_u);
-        let raw_identity = raw_hessian_energy(&d2_x);
-        let ratio = raw_warped / raw_identity;
-        assert!(
-            ratio > 3.0,
-            "raw (gauge-leaking) Hessian energy should diverge across charts: \
-             warped {raw_warped} vs identity {raw_identity} (ratio {ratio})"
-        );
-    }
-
-    // (c) Flat plane through a curved chart: γ(u) = A·φ(u) with A a 3×2
-    //     orthonormal plane frame and φ the nonlinear warp — the IMAGE is a flat
-    //     2-plane, so II ≡ 0 and the bending energy must vanish, even though the
-    //     raw Hessian energy is sizeable (the exact gauge leak the penalty
-    //     closes).
-    #[test]
-    fn bending_flat_plane_through_curved_chart_is_zero() {
-        // Orthonormal plane frame in ℝ³ (a tilted, non-axis-aligned plane).
-        let inv_sqrt2 = 1.0 / 2.0_f64.sqrt();
-        let acol = [[inv_sqrt2, 0.0], [0.0, 1.0], [inv_sqrt2, 0.0]]; // A[m][axis]
-        let (a1, a2) = (0.3_f64, 0.3_f64);
-        let us: Vec<(f64, f64)> = [-0.9, -0.2, 0.5, 1.1]
-            .iter()
-            .flat_map(|&a| [-0.7, 0.1, 0.8].iter().map(move |&b| (a, b)))
-            .collect();
-        let n = us.len();
-        let mut dg = Array3::<f64>::zeros((n, 3, 2));
-        let mut d2 = Array4::<f64>::zeros((n, 3, 2, 2));
-        for (i, &(u1, u2)) in us.iter().enumerate() {
-            let s = [1.0 + 2.0 * a1 * u1, 1.0 + 2.0 * a2 * u2];
-            let c = [2.0 * a1, 2.0 * a2];
-            // γ = A φ(u): Dγ[:,axis] = A[:,axis]·s_axis; D²γ_ab = A[:,a]·c_a·[a==b]
-            // (φ axis-decoupled: only i = a = b survives in ΣA[:,i]D²φ_i,ab).
-            for m in 0..3 {
-                for axis in 0..2 {
-                    dg[[i, m, axis]] = acol[m][axis] * s[axis];
-                }
-                d2[[i, m, 0, 0]] = acol[m][0] * c[0];
-                d2[[i, m, 1, 1]] = acol[m][1] * c[1];
-            }
-        }
-        for &volume in &[false, true] {
-            let measure = if volume {
-                SaeBendingMeasure::Volume
-            } else {
-                SaeBendingMeasure::Data
-            };
-            let atom = bending_atom(dg.clone(), d2.clone(), measure);
-            let energy = bending_energy_of(&atom);
-            assert!(
-                energy.abs() < 1e-16,
-                "flat plane through a curved chart must have zero bending energy; \
-                 got {energy} (volume={volume})"
-            );
-        }
-        // The gauge leak was real: the raw Hessian energy is far from zero.
-        let raw = raw_hessian_energy(&d2);
-        assert!(
-            raw > 0.1,
-            "raw Hessian energy should be sizeable on the curved chart: {raw}"
-        );
-    }
-
-    // The invariant null space (the affine, zero-II maps the penalty must NOT
-    // charge) has dimension `d + 1` in coefficient space but is spanned by the
-    // functions with vanishing COVARIANT Hessian — which are the geometry-affine
-    // maps, not the ambient coordinate slots (a straight ambient axis restricted
-    // to a curved surface has nonzero covariant Hessian). Constructing those
-    // null vectors by hand needs the frozen connection, so the null space is
-    // exercised structurally instead: `try_intrinsic_bending_gram` builds S̃ as
-    // `Σ ω Ψ̃Ψ̃ᵀ`, a manifest sum of outer products, so it is PSD with the affine
-    // kernel by construction; the exact-zero FLAT-plane test above is the
-    // load-bearing check that the kernel is hit (a flat atom seen through a
-    // curved chart is charged nothing).
-    #[test]
-    fn bending_gram_is_symmetric_psd() {
-        let pts: Vec<(f64, f64)> = [-0.5, 0.4]
-            .iter()
-            .flat_map(|&a| [-0.3, 0.6].iter().map(move |&b| (a, b)))
-            .collect();
-        let (dg, d2) = paraboloid_arrays(&pts, 1.7, 2.2);
-        let atom = bending_atom(dg, d2, SaeBendingMeasure::Volume);
-        let s = &atom.smooth_penalty;
-        let m = atom.basis_size();
-        for i in 0..m {
-            for j in 0..m {
-                assert!(
-                    (s[[i, j]] - s[[j, i]]).abs() < 1e-12,
-                    "S̃ must be symmetric at [{i},{j}]"
-                );
-            }
-        }
-        let (ev, _evec) = s.eigh(Side::Lower).unwrap();
-        let min_eig = ev.iter().cloned().fold(f64::INFINITY, f64::min);
-        assert!(min_eig > -1e-10, "S̃ must be PSD; min eigenvalue {min_eig}");
-        let max_eig = ev.iter().cloned().fold(0.0_f64, f64::max);
-        assert!(
-            max_eig > 1.0,
-            "curved atom must carry real bending: {max_eig}"
-        );
+        // The declaration is frozen. Neither decoder rescaling nor changing
+        // the live first jet silently rebuilds a moving metric Gram.
+        let frozen = poincare.smooth_penalty.clone();
+        poincare
+            .decoder_coefficients
+            .mapv_inplace(|value| value * 9.0);
+        poincare.basis_jacobian.fill(17.0);
+        assert_eq!(poincare.smooth_penalty, frozen);
     }
 }

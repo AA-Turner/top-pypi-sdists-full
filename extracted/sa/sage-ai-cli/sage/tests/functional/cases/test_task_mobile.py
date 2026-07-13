@@ -21,7 +21,10 @@ class TestTaskMobile:
         res, verify = run_test_with_verification("cli", req, MODEL)
         
         assert res.exit_code == 0
-        assert verify.install_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "package.json").exists()
@@ -35,7 +38,10 @@ class TestTaskMobile:
         res, verify = run_test_with_verification("sms", req, MODEL, language="dart")
         
         assert res.exit_code == 0
-        assert verify.install_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "pubspec.yaml").exists()

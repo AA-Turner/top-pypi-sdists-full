@@ -288,9 +288,11 @@ pub struct EmpiricalZGrid {
 
 impl EmpiricalZGrid {
     /// Construct a grid whose node/weight invariants (equal length ≥ 2, finite
-    /// nodes, finite positive weights, weights summing to 1 within 1e-8) are
-    /// enforced up-front. Prefer this over building the struct literally;
-    /// every code path that goes through `new` is guaranteed to satisfy the
+    /// ascending nodes, finite positive weights, weights summing to 1 within
+    /// 1e-8) are enforced up-front. Sorted order is part of the input contract
+    /// so hot denested-cell kernels can consume contiguous buckets without a
+    /// constructor-side reorder or allocation. Prefer this over building the
+    /// struct literally; every code path that goes through `new` satisfies the
     /// same contract that `validate_empirical_z_grid` checks on read.
     pub fn new(nodes: Vec<f64>, weights: Vec<f64>, context: &str) -> Result<Self, String> {
         validate_empirical_z_grid(&nodes, &weights, context)?;
@@ -453,6 +455,46 @@ impl LatentMeasureKind {
     }
 }
 
+/// Allocation-free heapsort of parallel empirical node/weight storage.
+/// Used by the local-mixture constructor, whose concatenated sorted component
+/// grids are not globally ordered. Moving pairs in place avoids the third
+/// temporary allocation that a `Vec<(node, weight)>` canonicalization would
+/// add to that per-row path.
+fn sort_empirical_node_weight_pairs(nodes: &mut [f64], weights: &mut [f64]) {
+    assert_eq!(
+        nodes.len(),
+        weights.len(),
+        "empirical grid nodes and weights must remain parallel"
+    );
+    fn sift_down(nodes: &mut [f64], weights: &mut [f64], mut root: usize, end: usize) {
+        loop {
+            let mut child = 2 * root + 1;
+            if child >= end {
+                return;
+            }
+            if child + 1 < end && nodes[child].total_cmp(&nodes[child + 1]).is_lt() {
+                child += 1;
+            }
+            if !nodes[root].total_cmp(&nodes[child]).is_lt() {
+                return;
+            }
+            nodes.swap(root, child);
+            weights.swap(root, child);
+            root = child;
+        }
+    }
+
+    let len = nodes.len();
+    for root in (0..len / 2).rev() {
+        sift_down(nodes, weights, root, len);
+    }
+    for end in (1..len).rev() {
+        nodes.swap(0, end);
+        weights.swap(0, end);
+        sift_down(nodes, weights, 0, end);
+    }
+}
+
 pub(crate) fn validate_empirical_z_grid(
     nodes: &[f64],
     weights: &[f64],
@@ -471,6 +513,7 @@ pub(crate) fn validate_empirical_z_grid(
         ));
     }
     let mut total = 0.0;
+    let mut previous_node = f64::NEG_INFINITY;
     for (idx, (&node, &weight)) in nodes.iter().zip(weights.iter()).enumerate() {
         if !node.is_finite() {
             return Err(format!(
@@ -482,6 +525,13 @@ pub(crate) fn validate_empirical_z_grid(
                 "{context} empirical latent measure weight {idx} must be finite and positive, got {weight}"
             ));
         }
+        if node < previous_node {
+            return Err(format!(
+                "{context} empirical latent measure nodes must be sorted ascending, but node {idx} ({node}) is below node {} ({previous_node})",
+                idx - 1
+            ));
+        }
+        previous_node = node;
         total += weight;
     }
     if !(total.is_finite() && (total - 1.0).abs() <= 1e-8) {
@@ -524,7 +574,9 @@ pub(crate) fn combine_empirical_grids(
     for weight in &mut weights {
         *weight /= total;
     }
-    EmpiricalZGrid::new(nodes, weights, "local empirical latent combined grid")
+    sort_empirical_node_weight_pairs(&mut nodes, &mut weights);
+    validate_empirical_z_grid(&nodes, &weights, "local empirical latent combined grid")?;
+    Ok(EmpiricalZGrid { nodes, weights })
 }
 
 #[derive(Clone, Debug)]
@@ -1311,10 +1363,11 @@ pub(crate) fn weighted_ridge_sandwich_cov(
             meat_scaled[[i, j]] *= s;
         }
     }
-    let (_rank, m_pinv) =
-        gam_linalg::utils::block_penalty_rank_and_pinv(&m_scaled).map_err(|e| {
+    let m_pinv = gam_linalg::utils::rank_certified_psd_pseudoinverse(&m_scaled, 1.0e-10)
+        .map_err(|e| {
             format!("conditional latent calibration sandwich pseudo-inverse failed: {e}")
-        })?;
+        })?
+        .into_pseudoinverse();
     let mut cov = m_pinv.dot(&meat_scaled).dot(&m_pinv);
     // Undo the symmetric scaling: cov_raw = D⁻¹ cov_scaled D⁻¹.
     for i in 0..p {
@@ -1394,8 +1447,10 @@ pub(crate) fn robust_conditional_score_pvalue(
     if !s.iter().all(|v| v.is_finite()) || !omega.iter().all(|v| v.is_finite()) {
         return Ok(None);
     }
-    let (rank, omega_pinv) = gam_linalg::utils::block_penalty_rank_and_pinv(&omega)
+    let omega_geometry = gam_linalg::utils::rank_certified_psd_pseudoinverse(&omega, 1.0e-10)
         .map_err(|e| format!("conditional score test pseudo-inverse failed: {e}"))?;
+    let rank = omega_geometry.rank();
+    let omega_pinv = omega_geometry.into_pseudoinverse();
     if rank == 0 {
         return Ok(None);
     }
@@ -2095,6 +2150,25 @@ mod tests {
     include!(
         "../../../../tests/src_modules/optimization/families_bms_joint_hessian_hvp_correction_tests.rs"
     );
+
+    #[test]
+    fn empirical_grid_constructor_preserves_canonical_node_order() {
+        let grid = EmpiricalZGrid::new(
+            vec![-2.0, 0.5, 1.0],
+            vec![0.3, 0.5, 0.2],
+            "sorted-grid invariant",
+        )
+        .expect("canonical sorted grid");
+        assert_eq!(grid.nodes, vec![-2.0, 0.5, 1.0]);
+        assert_eq!(grid.weights, vec![0.3, 0.5, 0.2]);
+    }
+
+    #[test]
+    fn empirical_grid_constructor_rejects_noncanonical_node_order() {
+        let err = EmpiricalZGrid::new(vec![0.0, -1.0], vec![0.5, 0.5], "sorted-grid invariant")
+            .expect_err("constructed grids must already be canonical");
+        assert!(err.contains("nodes must be sorted ascending"), "{err}");
+    }
 }
 pub(crate) mod axis_direction_search;
 pub(crate) mod cell_moment_assembly;
@@ -2138,6 +2212,7 @@ pub(crate) use family::{
     build_link_deviation_block_from_knots_design_seed_and_weights,
     build_score_warp_deviation_block_from_seed,
 };
+pub(crate) use gradient_paths::signed_probit_neglog_unary_stack;
 pub(crate) use gradient_paths::standardize_latent_z_with_policy;
 pub(crate) use gradient_paths::{
     empirical_intercept_from_marginal, signed_probit_neglog_derivatives_up_to_fourth,

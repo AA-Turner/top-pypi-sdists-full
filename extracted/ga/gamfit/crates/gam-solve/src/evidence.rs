@@ -54,6 +54,7 @@ use gam_linalg::lanczos::{
 };
 use gam_linalg::pairwise_reduce::{BASE_CHUNK, pairwise_sum};
 use gam_linalg::triangular::cholesky_solve_vector;
+use gam_math::special::bessel_i0_log_minus_abs_and_ratio;
 
 pub const ANALYTIC_LOGDET_DENSE_DIM_THRESHOLD: usize = 1024;
 const EVIDENCE_LOGDET_SLQ_PROBES: usize = 16;
@@ -783,17 +784,20 @@ pub fn stacked_predictive_mean(
 //
 // A `k`-component full-covariance Gaussian mixture fitted by deterministic
 // k-means++-style seeding (reusing `terms::basis` farthest-point k-means) plus
-// EM to a tolerance. It is priced by its free-parameter count and scored
-// through the SAME rank-aware Laplace/Tierney-Kadane normalizer as the smooth
-// topology candidates: `−V = loglik − ½ log|H| + ½ P log(2π)` with the
-// `−½ (dim(H) − rank(S)) log(2π)` normalizer evaluated at `dim(H) = P`,
-// `rank(S) = 0` (a fully likelihood-identified, unpenalized parametric model,
-// so every free parameter is unpenalized null-space). The Hessian log-det
-// `log|H|` is the observed (empirical-Fisher / BHHH) information
-// `H = Σ_i s_i s_iᵀ`, the exact, finite, SPD observed-information surrogate at
-// the EM optimum, fed through the same `laplace_evidence` entry point used by
-// the smooth rungs so the two model classes are comparable on the evidence
-// scale.
+// EM to a tolerance. It is priced by its free-parameter count with the
+// invariant BIC approximation to negative log evidence,
+//
+//     BIC/2 = -loglik + (P/2) log(n).
+//
+// BIC is intentional here. An outer product of per-observation scores is not
+// an observed Hessian and need not be full-rank even when the likelihood has
+// curvature (an exactly centered Gaussian mean is the simplest counterexample).
+// Moreover, the covariance-floor constraint can put a component on a boundary,
+// where an interior SPD Laplace expansion is mathematically invalid. Without a
+// declared parameter prior and its Jacobian, a raw Hessian determinant would
+// also change under reparameterization. The smooth parametric shape candidates
+// use this same BIC-form score, so every shape-race corroborating score now has
+// one finite, parameterization-invariant meaning.
 
 /// Convergence + ladder controls for the discrete-mixture rung. All fields are
 /// fixed (no clock randomness, no env): deterministic seeding makes the fitted
@@ -948,7 +952,6 @@ pub struct GaussianMixtureFit {
     /// EM iterations taken.
     iterations: usize,
     certificate: GaussianMixtureCertificate,
-    data_fingerprint: Fingerprint,
 }
 
 impl GaussianMixtureFit {
@@ -993,9 +996,12 @@ impl GaussianMixtureFit {
             ));
         }
         let n = data.nrows();
-        let mut comp = vec![GaussianComponentEval::new(self.d); self.k];
+        let mut comp = Vec::with_capacity(self.k);
         for j in 0..self.k {
-            comp[j] = GaussianComponentEval::factor(self.means.row(j), &self.covariances[j])?;
+            comp.push(GaussianComponentEval::factor(
+                self.means.row(j),
+                &self.covariances[j],
+            )?);
         }
         let mut out = Array1::<f64>::zeros(n);
         let log_w: Vec<f64> = self.weights.iter().map(|w| w.ln()).collect();
@@ -1015,175 +1021,11 @@ impl GaussianMixtureFit {
         Ok(out)
     }
 
-    /// Rank-aware Laplace **negative** log evidence on the SAME scale as the
-    /// smooth topology rungs. `−V = loglik − ½ log|H| + ½ P log(2π)`, realised
-    /// by calling [`laplace_evidence`] with `residual_objective = −loglik`,
-    /// `penalty_log_det = 0`, `penalty_rank = 0`, `effective_dim = P`, and
-    /// `log|H|` the observed empirical-Fisher information at the optimum.
-    ///
-    /// The Laplace expansion is only meaningful at a stationary point:
-    /// [`fit_gaussian_mixture`] enforces this by returning a typed error
-    /// whenever EM exhausts its budget without monotone ascent plus both the
-    /// objective and full parameter-map residual certificates. The private fit
-    /// state and training-data fingerprint prevent an uncertified or unrelated
-    /// mode from reaching evidence comparison.
-    pub fn laplace_negative_log_evidence(&self, data: ArrayView2<'_, f64>) -> Result<f64, String> {
-        if data.nrows() != self.n_obs
-            || data.ncols() != self.d
-            || mixture_data_fingerprint(data) != self.data_fingerprint
-        {
-            return Err(
-                "mixture Laplace evidence must be evaluated on the exact data whose certified EM fixed point is stored in this fit"
-                    .to_string(),
-            );
-        }
-        let p = self.num_free_parameters();
-        let information = self.empirical_fisher_information(data)?;
-        if information.nrows() != p {
-            return Err(format!(
-                "mixture empirical-Fisher information has dim {} but expected free-parameter count {p}",
-                information.nrows()
-            ));
-        }
-        let apply_info = |x: &[f64]| -> Vec<f64> {
-            let mut out = vec![0.0_f64; p];
-            for r in 0..p {
-                let mut acc = 0.0_f64;
-                for c in 0..p {
-                    acc += information[[r, c]] * x[c];
-                }
-                out[r] = acc;
-            }
-            out
-        };
-        let hvp = EvidenceHvpLogDet {
-            dim: p,
-            apply: &apply_info,
-        };
-        let v = laplace_evidence(
-            EvidenceLogDetSource::Hvp(hvp),
-            0.0,
-            -self.loglik,
-            p as f64,
-            0.0,
-        );
-        if !v.is_finite() {
-            return Err("mixture Laplace evidence is not finite".to_string());
-        }
-        Ok(v)
-    }
-
-    /// Observed empirical-Fisher (BHHH) information `H = Σ_i s_i s_iᵀ`, where
-    /// `s_i = ∇_θ log p(y_i)` is the per-observation score in the
-    /// free-parameter coordinates: softmax-logit mixing weights (`k − 1`),
-    /// component means (`k·d`), and the lower-triangular covariance entries
-    /// (`k · d(d+1)/2`) of each component, in that block order. This SPD matrix
-    /// is the genuine observed-information surrogate evaluated at the EM
-    /// optimum — its dimension is exactly `P`, which is what enters the
-    /// rank-aware normalizer.
-    fn empirical_fisher_information(
-        &self,
-        data: ArrayView2<'_, f64>,
-    ) -> Result<Array2<f64>, String> {
-        if data.ncols() != self.d {
-            return Err(format!(
-                "mixture information expects {} columns, got {}",
-                self.d,
-                data.ncols()
-            ));
-        }
-        let n = data.nrows();
-        let p = self.num_free_parameters();
-        let cov_per = self.d * (self.d + 1) / 2;
-        // Precompute per-component evaluators (mean, precision = Σ⁻¹).
-        let mut comp = Vec::with_capacity(self.k);
-        for j in 0..self.k {
-            comp.push(GaussianComponentEval::factor(
-                self.means.row(j),
-                &self.covariances[j],
-            )?);
-        }
-        let log_w: Vec<f64> = self.weights.iter().map(|w| w.ln()).collect();
-
-        let mean_base = self.k - 1;
-        let cov_base = mean_base + self.k * self.d;
-
-        let mut info = Array2::<f64>::zeros((p, p));
-        let mut score = vec![0.0_f64; p];
-        for i in 0..n {
-            let row = data.row(i);
-            // Responsibilities r_j = w_j N_j / Σ.
-            let mut log_terms = vec![0.0_f64; self.k];
-            let mut max_term = f64::NEG_INFINITY;
-            for j in 0..self.k {
-                let lt = log_w[j] + comp[j].log_density(row);
-                log_terms[j] = lt;
-                if lt > max_term {
-                    max_term = lt;
-                }
-            }
-            let log_mix = log_sum_exp(&log_terms, max_term);
-            let resp: Vec<f64> = log_terms.iter().map(|lt| (lt - log_mix).exp()).collect();
-
-            for s in score.iter_mut() {
-                *s = 0.0;
-            }
-            // Softmax-logit mixing score: ∂/∂α_j log p = r_j − w_j for the free
-            // logits j = 1..k-1 (component 0 is the reference / pinned logit).
-            for j in 1..self.k {
-                score[j - 1] = resp[j] - self.weights[j];
-            }
-            // Mean score: ∂/∂μ_j log p = r_j · Σ_j⁻¹ (y − μ_j).
-            // Covariance score (lower-tri entries): ∂/∂Σ_j contracted through
-            // the symmetric chain rule, r_j · ½ (Σ⁻¹ v vᵀ Σ⁻¹ − Σ⁻¹) with
-            // off-diagonal entries doubled for the symmetric parameterization.
-            for j in 0..self.k {
-                let prec_v = comp[j].precision_times_residual(row); // Σ⁻¹ (y − μ_j)
-                let mbo = mean_base + j * self.d;
-                for c in 0..self.d {
-                    score[mbo + c] = resp[j] * prec_v[c];
-                }
-                let cbo = cov_base + j * cov_per;
-                let mut idx = 0usize;
-                for a in 0..self.d {
-                    for b in 0..=a {
-                        let outer = prec_v[a] * prec_v[b];
-                        let prec_ab = comp[j].precision[[a, b]];
-                        let mut g = 0.5 * (outer - prec_ab);
-                        if a != b {
-                            // Off-diagonal entry appears twice in the symmetric
-                            // matrix, so its free-parameter derivative doubles.
-                            g *= 2.0;
-                        }
-                        score[cbo + idx] = resp[j] * g;
-                        idx += 1;
-                    }
-                }
-            }
-            // Accumulate outer product s_i s_iᵀ.
-            for r in 0..p {
-                let sr = score[r];
-                if sr == 0.0 {
-                    continue;
-                }
-                for c in 0..p {
-                    info[[r, c]] += sr * score[c];
-                }
-            }
-        }
-        // Symmetrize the empirical Fisher. No ridge or prior may be added here:
-        // the certified mode optimizes the pure mixture likelihood, so its
-        // objective and Hessian must describe that same Laplace integral.
-        // Rank-deficient information is therefore an evidence error, not an
-        // excuse to manufacture comparability with an unmodelled prior.
-        for r in 0..p {
-            for c in (r + 1)..p {
-                let avg = 0.5 * (info[[r, c]] + info[[c, r]]);
-                info[[r, c]] = avg;
-                info[[c, r]] = avg;
-            }
-        }
-        Ok(info)
+    /// Schwarz BIC approximation to negative log evidence, divided by two so
+    /// it shares the ordinary negative-log-likelihood scale used by the shape
+    /// race. Lower is better.
+    pub fn bic(&self) -> f64 {
+        -self.loglik + 0.5 * self.num_free_parameters() as f64 * (self.n_obs as f64).ln()
     }
 }
 
@@ -1191,24 +1033,20 @@ impl GaussianMixtureFit {
 /// log-normalizing constant `−½(d log 2π + log|Σ|)`.
 #[derive(Debug, Clone)]
 struct GaussianComponentEval {
-    mean: Array1<f64>,
+    residual_origin: Array1<f64>,
+    residual_scale: Array1<f64>,
+    residual_normalized_offset: Array1<f64>,
     precision: Array2<f64>,
     log_norm: f64,
     d: usize,
 }
 
 impl GaussianComponentEval {
-    fn new(d: usize) -> Self {
-        Self {
-            mean: Array1::zeros(d),
-            precision: Array2::eye(d),
-            log_norm: 0.0,
-            d,
-        }
-    }
-
     fn factor(mean: ArrayView1<'_, f64>, cov: &Array2<f64>) -> Result<Self, String> {
         let d = mean.len();
+        if mean.iter().any(|value| !value.is_finite()) {
+            return Err("mixture component mean must be finite".to_string());
+        }
         if cov.nrows() != d || cov.ncols() != d {
             return Err(format!(
                 "mixture component covariance must be {d}x{d}, got {}x{}",
@@ -1228,7 +1066,13 @@ impl GaussianComponentEval {
                 ));
             }
             log_det += ev.ln();
-            inv_evals[idx] = 1.0 / ev;
+            let inverse = ev.recip();
+            if !inverse.is_finite() {
+                return Err(format!(
+                    "mixture component precision is not representable: eigenvalue {idx} is {ev:.3e}"
+                ));
+            }
+            inv_evals[idx] = inverse;
         }
         // Σ⁻¹ = V diag(1/λ) Vᵀ.
         let mut precision = Array2::<f64>::zeros((d, d));
@@ -1242,8 +1086,52 @@ impl GaussianComponentEval {
             }
         }
         let log_norm = -0.5 * (d as f64 * (2.0 * std::f64::consts::PI).ln() + log_det);
+        if precision.iter().any(|value| !value.is_finite()) || !log_norm.is_finite() {
+            return Err(
+                "mixture component factorization produced non-finite precision or log normalizer"
+                    .to_string(),
+            );
+        }
         Ok(Self {
-            mean: mean.to_owned(),
+            residual_origin: mean.to_owned(),
+            residual_scale: Array1::zeros(d),
+            residual_normalized_offset: Array1::zeros(d),
+            precision,
+            log_norm,
+            d,
+        })
+    }
+
+    fn isotropic(charts: &[StableScalarMeanChart], variance: f64) -> Result<Self, String> {
+        let d = charts.len();
+        if d == 0 {
+            return Err("isotropic Gaussian density requires positive dimension".to_string());
+        }
+        if !(variance.is_finite() && variance > 0.0) {
+            return Err(format!(
+                "isotropic Gaussian variance must be finite and positive, got {variance}"
+            ));
+        }
+        let inverse_variance = variance.recip();
+        if !inverse_variance.is_finite() {
+            return Err(format!(
+                "isotropic Gaussian precision is non-finite for variance {variance}"
+            ));
+        }
+        let mut precision = Array2::<f64>::zeros((d, d));
+        for axis in 0..d {
+            precision[[axis, axis]] = inverse_variance;
+        }
+        let log_norm = -0.5 * d as f64 * ((2.0 * std::f64::consts::PI).ln() + variance.ln());
+        if !log_norm.is_finite() {
+            return Err("isotropic Gaussian log normalizer is non-finite".to_string());
+        }
+        Ok(Self {
+            residual_origin: Array1::from_iter(charts.iter().map(|chart| chart.origin)),
+            residual_scale: Array1::from_iter(charts.iter().map(|chart| chart.scale)),
+            residual_normalized_offset: Array1::from_iter(
+                charts.iter().map(|chart| chart.normalized_offset),
+            ),
             precision,
             log_norm,
             d,
@@ -1252,22 +1140,35 @@ impl GaussianComponentEval {
 
     #[inline]
     fn log_density(&self, y: ArrayView1<'_, f64>) -> f64 {
-        let pv = self.precision_times_residual(y);
+        let residual = self.residual(y);
+        let pv = self.precision_times_residual(&residual);
         let mut quad = 0.0_f64;
         for c in 0..self.d {
-            quad += (y[c] - self.mean[c]) * pv[c];
+            quad += residual[c] * pv[c];
         }
         self.log_norm - 0.5 * quad
     }
 
+    #[inline]
+    fn residual(&self, y: ArrayView1<'_, f64>) -> Vec<f64> {
+        let mut residual = vec![0.0_f64; self.d];
+        for axis in 0..self.d {
+            residual[axis] = (-self.residual_normalized_offset[axis]).mul_add(
+                self.residual_scale[axis],
+                y[axis] - self.residual_origin[axis],
+            );
+        }
+        residual
+    }
+
     /// `Σ⁻¹ (y − μ)`.
     #[inline]
-    fn precision_times_residual(&self, y: ArrayView1<'_, f64>) -> Vec<f64> {
+    fn precision_times_residual(&self, residual: &[f64]) -> Vec<f64> {
         let mut out = vec![0.0_f64; self.d];
         for a in 0..self.d {
             let mut acc = 0.0_f64;
             for b in 0..self.d {
-                acc += self.precision[[a, b]] * (y[b] - self.mean[b]);
+                acc += self.precision[[a, b]] * residual[b];
             }
             out[a] = acc;
         }
@@ -1579,7 +1480,6 @@ fn run_gaussian_mixture_em(
                 loglik,
                 iterations: checkpoint.completed_iterations,
                 certificate,
-                data_fingerprint,
             });
         }
         if additional_updates == config.max_iter {
@@ -1748,7 +1648,7 @@ fn mixture_m_step(
         .any(|mass| !mass.is_finite() || *mass <= 0.0)
     {
         return Err(
-            "M-step reached a zero-mass component; the requested mixture order is on a singular boundary and has no interior Laplace evidence"
+            "M-step reached a zero-mass component; the requested mixture order has no interior fitted density"
                 .to_string(),
         );
     }
@@ -1871,8 +1771,877 @@ fn constrained_data_covariance(
 }
 
 // ---------------------------------------------------------------------------
-// Structured-union candidates (#907)
+// Ring-of-clusters candidate (#2262)
 // ---------------------------------------------------------------------------
+//
+// A free Gaussian mixture treats the component means as unrelated points. That
+// is the wrong null for a discrete cyclic concept: weekdays and months form
+// tight clusters, but their component means share a low-dimensional circular
+// constraint. `RingGaussianMixtureFit` models exactly that density,
+//
+//     x | z=j ~ N(c + r u_j, sigma^2 I_2),  ||u_j|| = 1,
+//
+// with free mixture weights, a shared center/radius, one angle per component,
+// and a shared isotropic variance. Its `2k + 3` continuous parameters are
+// priced by the same BIC-form criterion as the unconstrained mixture's `6k - 1`
+// parameters in two dimensions.
+
+/// Certified Gaussian mixture whose component centers lie on one fitted circle.
+#[derive(Debug, Clone)]
+pub struct RingGaussianMixtureFit {
+    weights: Array1<f64>,
+    center: Array1<f64>,
+    radius: f64,
+    directions: Array2<f64>,
+    variance: f64,
+    k: usize,
+    n_obs: usize,
+    loglik: f64,
+    iterations: usize,
+    certificate: GaussianMixtureCertificate,
+}
+
+impl RingGaussianMixtureFit {
+    pub fn weights(&self) -> ArrayView1<'_, f64> {
+        self.weights.view()
+    }
+
+    pub fn center(&self) -> ArrayView1<'_, f64> {
+        self.center.view()
+    }
+
+    pub fn radius(&self) -> f64 {
+        self.radius
+    }
+
+    pub fn directions(&self) -> ArrayView2<'_, f64> {
+        self.directions.view()
+    }
+
+    pub fn variance(&self) -> f64 {
+        self.variance
+    }
+
+    pub fn iterations(&self) -> usize {
+        self.iterations
+    }
+
+    pub fn certificate(&self) -> GaussianMixtureCertificate {
+        self.certificate
+    }
+
+    /// Free parameters: `k-1` weight logits, center(2), radius(1), `k`
+    /// component angles, and shared log standard deviation(1).
+    pub fn num_free_parameters(&self) -> usize {
+        2 * self.k + 3
+    }
+
+    pub fn per_point_log_density(&self, data: ArrayView2<'_, f64>) -> Result<Array1<f64>, String> {
+        if data.ncols() != 2 {
+            return Err(format!(
+                "ring-of-clusters density expects two columns, got {}",
+                data.ncols()
+            ));
+        }
+        ring_mixture_log_density(
+            data,
+            &self.weights,
+            &self.center,
+            self.radius,
+            &self.directions,
+            self.variance,
+        )
+    }
+
+    /// Schwarz BIC approximation to negative log evidence, divided by two so
+    /// it is on the ordinary negative-log-likelihood scale. Lower is better.
+    pub fn bic(&self) -> f64 {
+        -self.loglik + 0.5 * self.num_free_parameters() as f64 * (self.n_obs as f64).ln()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct RingMixtureState {
+    weights: Array1<f64>,
+    center: Array1<f64>,
+    radius: f64,
+    directions: Array2<f64>,
+    variance: f64,
+    mean_log_likelihood: f64,
+    completed_iterations: usize,
+}
+
+fn ring_component_means(
+    center: &Array1<f64>,
+    radius: f64,
+    directions: &Array2<f64>,
+) -> Array2<f64> {
+    let mut means = Array2::<f64>::zeros((directions.nrows(), 2));
+    for component in 0..directions.nrows() {
+        means[[component, 0]] = center[0] + radius * directions[[component, 0]];
+        means[[component, 1]] = center[1] + radius * directions[[component, 1]];
+    }
+    means
+}
+
+fn ring_mixture_log_terms(
+    data: ArrayView2<'_, f64>,
+    weights: &Array1<f64>,
+    center: &Array1<f64>,
+    radius: f64,
+    directions: &Array2<f64>,
+    variance: f64,
+) -> Result<(Array2<f64>, Vec<f64>), String> {
+    if data.ncols() != 2
+        || center.len() != 2
+        || directions.ncols() != 2
+        || directions.nrows() != weights.len()
+        || weights
+            .iter()
+            .any(|weight| !weight.is_finite() || *weight <= 0.0)
+        || !(radius.is_finite() && radius > 0.0)
+        || !(variance.is_finite() && variance > 0.0)
+    {
+        return Err("invalid ring-of-clusters parameter state".to_string());
+    }
+    let means = ring_component_means(center, radius, directions);
+    let log_normalizer = -(std::f64::consts::TAU).ln() - variance.ln();
+    let mut terms = Array2::<f64>::zeros((data.nrows(), weights.len()));
+    let mut row_log_likelihoods = Vec::with_capacity(data.nrows());
+    for row in 0..data.nrows() {
+        let mut max_term = f64::NEG_INFINITY;
+        for component in 0..weights.len() {
+            let dx = data[[row, 0]] - means[[component, 0]];
+            let dy = data[[row, 1]] - means[[component, 1]];
+            let term =
+                weights[component].ln() + log_normalizer - 0.5 * (dx * dx + dy * dy) / variance;
+            terms[[row, component]] = term;
+            max_term = max_term.max(term);
+        }
+        let values = terms.row(row).to_vec();
+        let log_likelihood = log_sum_exp(&values, max_term);
+        if !log_likelihood.is_finite() {
+            return Err(format!(
+                "ring-of-clusters density is non-finite at training row {row}"
+            ));
+        }
+        row_log_likelihoods.push(log_likelihood);
+    }
+    Ok((terms, row_log_likelihoods))
+}
+
+fn ring_mixture_e_step(
+    data: ArrayView2<'_, f64>,
+    state: &RingMixtureState,
+) -> Result<(Array2<f64>, f64, f64), String> {
+    let (terms, row_log_likelihoods) = ring_mixture_log_terms(
+        data,
+        &state.weights,
+        &state.center,
+        state.radius,
+        &state.directions,
+        state.variance,
+    )?;
+    let mut responsibilities = Array2::<f64>::zeros(terms.raw_dim());
+    for row in 0..terms.nrows() {
+        for component in 0..terms.ncols() {
+            responsibilities[[row, component]] =
+                (terms[[row, component]] - row_log_likelihoods[row]).exp();
+        }
+    }
+    let (mean, roundoff) = pairwise_mean_with_roundoff(row_log_likelihoods)?;
+    Ok((responsibilities, mean, roundoff))
+}
+
+fn ring_mixture_log_density(
+    data: ArrayView2<'_, f64>,
+    weights: &Array1<f64>,
+    center: &Array1<f64>,
+    radius: f64,
+    directions: &Array2<f64>,
+    variance: f64,
+) -> Result<Array1<f64>, String> {
+    let (_, row_log_likelihoods) =
+        ring_mixture_log_terms(data, weights, center, radius, directions, variance)?;
+    Ok(Array1::from_vec(row_log_likelihoods))
+}
+
+fn relative_parameter_step(previous: f64, next: f64) -> f64 {
+    (next - previous).abs() / previous.abs().max(next.abs()).max(1.0)
+}
+
+/// Distance between two ring-mixture states in identifiable density space.
+///
+/// `center`, `radius`, and `directions` are only a factorization of the actual
+/// component means `m_j = center + radius * direction_j`. Near a large-radius
+/// (locally flat) circle those factors can move appreciably while cancelling in
+/// every `m_j`; requiring the factors themselves to stop is therefore neither
+/// necessary for distributional convergence nor invariant to the chosen circle
+/// chart. We instead certify weights, component means in noise-standardized
+/// units, and log variance. Component labels remain aligned because the E/M
+/// maps preserve their responsibility-column order; no sorting or relabeling
+/// occurs between `previous` and `next`.
+fn ring_identifiable_parameter_residual(
+    previous: &RingMixtureState,
+    next: &RingMixtureState,
+) -> f64 {
+    let previous_means =
+        ring_component_means(&previous.center, previous.radius, &previous.directions);
+    let next_means = ring_component_means(&next.center, next.radius, &next.directions);
+    let noise_scale = previous
+        .variance
+        .sqrt()
+        .max(next.variance.sqrt())
+        .max(f64::MIN_POSITIVE);
+    let weight_residual = previous
+        .weights
+        .iter()
+        .zip(next.weights.iter())
+        .map(|(&left, &right)| (right - left).abs())
+        .fold(0.0, f64::max);
+    let mean_residual = previous_means
+        .rows()
+        .into_iter()
+        .zip(next_means.rows())
+        .map(|(left, right)| (right[0] - left[0]).hypot(right[1] - left[1]) / noise_scale)
+        .fold(0.0, f64::max);
+    let variance_residual = (next.variance / previous.variance).ln().abs();
+    weight_residual.max(mean_residual).max(variance_residual)
+}
+
+fn fit_weighted_component_circle(
+    component_means: &Array2<f64>,
+    component_mass: &Array1<f64>,
+    initial_center: &Array1<f64>,
+    initial_radius: f64,
+    parameter_tol: f64,
+    max_iter: usize,
+) -> Result<(Array1<f64>, f64, Array2<f64>), String> {
+    let k = component_means.nrows();
+    let total_mass = component_mass.sum();
+    if component_means.ncols() != 2
+        || component_mass.len() != k
+        || component_mass
+            .iter()
+            .any(|mass| !mass.is_finite() || *mass <= 0.0)
+        || !(total_mass.is_finite() && total_mass > 0.0)
+    {
+        return Err("ring M-step requires positive component masses and 2-D means".to_string());
+    }
+    let mut center = initial_center.clone();
+    let mut radius = initial_radius;
+    let mut directions = Array2::<f64>::zeros((k, 2));
+    for _ in 0..max_iter {
+        for component in 0..k {
+            let dx = component_means[[component, 0]] - center[0];
+            let dy = component_means[[component, 1]] - center[1];
+            let norm = dx.hypot(dy);
+            if !(norm.is_finite() && norm > 0.0) {
+                return Err(
+                    "ring M-step reached a component centroid at the circle center; its angle is unidentified"
+                        .to_string(),
+                );
+            }
+            directions[[component, 0]] = dx / norm;
+            directions[[component, 1]] = dy / norm;
+        }
+
+        let mut mean_point = Array1::<f64>::zeros(2);
+        let mut mean_direction = Array1::<f64>::zeros(2);
+        for component in 0..k {
+            let weight = component_mass[component] / total_mass;
+            for axis in 0..2 {
+                mean_point[axis] += weight * component_means[[component, axis]];
+                mean_direction[axis] += weight * directions[[component, axis]];
+            }
+        }
+        let mut numerator = 0.0;
+        let mut denominator = 0.0;
+        for component in 0..k {
+            let mass = component_mass[component];
+            let dux = directions[[component, 0]] - mean_direction[0];
+            let duy = directions[[component, 1]] - mean_direction[1];
+            numerator += mass
+                * (dux * (component_means[[component, 0]] - mean_point[0])
+                    + duy * (component_means[[component, 1]] - mean_point[1]));
+            denominator += mass * (dux * dux + duy * duy);
+        }
+        if !(denominator.is_finite() && denominator > 0.0) {
+            return Err(
+                "ring M-step component directions are identical; radius and center are unidentified"
+                    .to_string(),
+            );
+        }
+        let mut next_radius = numerator / denominator;
+        if !next_radius.is_finite() || next_radius == 0.0 {
+            return Err("ring M-step produced an unidentified zero radius".to_string());
+        }
+        if next_radius < 0.0 {
+            next_radius = -next_radius;
+            directions.mapv_inplace(|value| -value);
+        }
+        let next_center = Array1::from_vec(vec![
+            mean_point[0] - next_radius * mean_direction[0],
+            mean_point[1] - next_radius * mean_direction[1],
+        ]);
+        let residual = center
+            .iter()
+            .zip(next_center.iter())
+            .map(|(&left, &right)| relative_parameter_step(left, right))
+            .chain(std::iter::once(relative_parameter_step(
+                radius,
+                next_radius,
+            )))
+            .fold(0.0, f64::max);
+        center = next_center;
+        radius = next_radius;
+        if residual <= parameter_tol {
+            // Recompute directions at the returned center so the stored angles
+            // are the exact angular block update belonging to that center.
+            for component in 0..k {
+                let dx = component_means[[component, 0]] - center[0];
+                let dy = component_means[[component, 1]] - center[1];
+                let norm = dx.hypot(dy);
+                if !(norm.is_finite() && norm > 0.0) {
+                    return Err("ring M-step terminal component angle is unidentified".to_string());
+                }
+                directions[[component, 0]] = dx / norm;
+                directions[[component, 1]] = dy / norm;
+            }
+            return Ok((center, radius, directions));
+        }
+    }
+    Err(format!(
+        "ring M-step did not certify its constrained center/radius fixed point after {max_iter} iterations"
+    ))
+}
+
+fn ring_mixture_m_step(
+    data: ArrayView2<'_, f64>,
+    responsibilities: ArrayView2<'_, f64>,
+    previous: &RingMixtureState,
+    config: GaussianMixtureConfig,
+) -> Result<RingMixtureState, String> {
+    let n = data.nrows();
+    let k = responsibilities.ncols();
+    let mut component_mass = Array1::<f64>::zeros(k);
+    let mut component_means = Array2::<f64>::zeros((k, 2));
+    for component in 0..k {
+        let mass = responsibilities.column(component).sum();
+        if !(mass.is_finite() && mass > 0.0) {
+            return Err(
+                "ring M-step reached a zero-mass component; the requested order is singular"
+                    .to_string(),
+            );
+        }
+        component_mass[component] = mass;
+        for row in 0..n {
+            for axis in 0..2 {
+                component_means[[component, axis]] +=
+                    responsibilities[[row, component]] * data[[row, axis]];
+            }
+        }
+        for axis in 0..2 {
+            component_means[[component, axis]] /= mass;
+        }
+    }
+    let mut weights = component_mass.mapv(|mass| mass / n as f64);
+    let weight_sum = weights.sum();
+    weights.mapv_inplace(|weight| weight / weight_sum);
+    let (center, radius, directions) = fit_weighted_component_circle(
+        &component_means,
+        &component_mass,
+        &previous.center,
+        previous.radius,
+        config.parameter_tol,
+        config.max_iter,
+    )?;
+    let means = ring_component_means(&center, radius, &directions);
+    let mut expected_squared_error = 0.0;
+    for row in 0..n {
+        for component in 0..k {
+            let dx = data[[row, 0]] - means[[component, 0]];
+            let dy = data[[row, 1]] - means[[component, 1]];
+            expected_squared_error += responsibilities[[row, component]] * (dx * dx + dy * dy);
+        }
+    }
+    let variance = (expected_squared_error / (2 * n) as f64).max(config.covariance_floor);
+    if !variance.is_finite() {
+        return Err("ring M-step produced non-finite shared variance".to_string());
+    }
+    Ok(RingMixtureState {
+        weights,
+        center,
+        radius,
+        directions,
+        variance,
+        mean_log_likelihood: f64::NAN,
+        completed_iterations: previous.completed_iterations + 1,
+    })
+}
+
+/// Fit a deterministic, certified `k`-component isotropic Gaussian mixture
+/// whose component centers are constrained to a common circle.
+pub fn fit_ring_gaussian_mixture(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    config: GaussianMixtureConfig,
+) -> Result<RingGaussianMixtureFit, String> {
+    validate_gaussian_mixture_problem(data, k, config).map_err(|error| error.to_string())?;
+    if data.ncols() != 2 {
+        return Err(format!(
+            "ring-of-clusters fitting requires exactly two columns, got {}",
+            data.ncols()
+        ));
+    }
+    if k < 3 {
+        return Err(format!(
+            "ring-of-clusters fitting requires at least three component centers, got {k}"
+        ));
+    }
+    let seeded_means = gam_terms::basis::select_centers_by_strategy(
+        data,
+        &gam_terms::basis::CenterStrategy::KMeans {
+            num_centers: k,
+            max_iter: config.kmeans_max_iter,
+        },
+    )
+    .map_err(|error| format!("ring-of-clusters deterministic seeding failed: {error}"))?;
+    let component_mass = Array1::<f64>::ones(k);
+    let mut initial_center = Array1::<f64>::zeros(2);
+    for component in 0..k {
+        initial_center[0] += seeded_means[[component, 0]] / k as f64;
+        initial_center[1] += seeded_means[[component, 1]] / k as f64;
+    }
+    let mut initial_radius = 0.0;
+    for component in 0..k {
+        initial_radius += (seeded_means[[component, 0]] - initial_center[0])
+            .hypot(seeded_means[[component, 1]] - initial_center[1])
+            / k as f64;
+    }
+    if !(initial_radius.is_finite() && initial_radius > 0.0) {
+        return Err("ring-of-clusters seed has an unidentified zero radius".to_string());
+    }
+    let (center, radius, directions) = fit_weighted_component_circle(
+        &seeded_means,
+        &component_mass,
+        &initial_center,
+        initial_radius,
+        config.parameter_tol,
+        config.max_iter,
+    )?;
+    let means = ring_component_means(&center, radius, &directions);
+    let mut squared_error = 0.0;
+    for row in 0..data.nrows() {
+        let mut nearest = f64::INFINITY;
+        for component in 0..k {
+            let dx = data[[row, 0]] - means[[component, 0]];
+            let dy = data[[row, 1]] - means[[component, 1]];
+            nearest = nearest.min(dx * dx + dy * dy);
+        }
+        squared_error += nearest;
+    }
+    let variance = (squared_error / (2 * data.nrows()) as f64).max(config.covariance_floor);
+    let mut state = RingMixtureState {
+        weights: Array1::from_elem(k, 1.0 / k as f64),
+        center,
+        radius,
+        directions,
+        variance,
+        mean_log_likelihood: f64::NAN,
+        completed_iterations: 0,
+    };
+    for additional_updates in 0..=config.max_iter {
+        let (responsibilities, current_mean, current_roundoff) = ring_mixture_e_step(data, &state)?;
+        state.mean_log_likelihood = current_mean;
+        let mut next = ring_mixture_m_step(data, responsibilities.view(), &state, config)?;
+        let (_, next_mean, next_roundoff) = ring_mixture_e_step(data, &next)?;
+        next.mean_log_likelihood = next_mean;
+        let objective_scale = current_mean.abs().max(next_mean.abs()).max(1.0);
+        let objective_step = next_mean - current_mean;
+        let objective_residual = objective_step.abs() / objective_scale;
+        let parameter_residual = ring_identifiable_parameter_residual(&state, &next);
+        let monotonicity_uncertainty = gaussian_mixture_monotonicity_uncertainty(
+            objective_scale,
+            current_roundoff,
+            next_roundoff,
+        );
+        let certificate = GaussianMixtureCertificate {
+            mean_log_likelihood: current_mean,
+            mean_log_likelihood_gain: objective_step,
+            monotonicity_uncertainty,
+            objective_residual,
+            objective_tolerance: config.loglik_tol,
+            parameter_residual,
+            parameter_tolerance: config.parameter_tol,
+        };
+        if objective_step < -monotonicity_uncertainty {
+            return Err(format!(
+                "ring-of-clusters generalized EM violated monotone ascent at iteration {}: {current_mean:.12e} -> {next_mean:.12e} (comparison uncertainty {monotonicity_uncertainty:.3e})",
+                state.completed_iterations
+            ));
+        }
+        if objective_residual <= config.loglik_tol && parameter_residual <= config.parameter_tol {
+            let loglik = current_mean * data.nrows() as f64;
+            if !loglik.is_finite() {
+                return Err("ring-of-clusters total log likelihood overflowed".to_string());
+            }
+            return Ok(RingGaussianMixtureFit {
+                weights: state.weights,
+                center: state.center,
+                radius: state.radius,
+                directions: state.directions,
+                variance: state.variance,
+                k,
+                n_obs: data.nrows(),
+                loglik,
+                iterations: state.completed_iterations,
+                certificate,
+            });
+        }
+        if additional_updates == config.max_iter {
+            return Err(format!(
+                "ring-of-clusters generalized EM did not certify after {} iterations: objective residual {:.6e}/{:.3e}, parameter-map residual {:.6e}/{:.3e}",
+                config.max_iter,
+                objective_residual,
+                config.loglik_tol,
+                parameter_residual,
+                config.parameter_tol,
+            ));
+        }
+        state = next;
+    }
+    Err("ring-of-clusters generalized EM exhausted without a terminal certificate".to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Circular Gaussian density and structured-union candidates (#907)
+// ---------------------------------------------------------------------------
+
+/// Maximum-likelihood fit of a Gaussian-blurred circle in two dimensions.
+///
+/// The generative model is
+///
+/// `X = center + radius * U + epsilon`,
+///
+/// where `U` is uniform on the unit circle and
+/// `epsilon ~ N(0, noise_variance * I_2)`. Integrating out `U` gives the proper
+/// Cartesian density
+///
+/// `p(x) = exp(-(r^2 + R^2)/(2s)) I0(Rr/s) / (2 pi s)`.
+///
+/// Unlike a Gaussian density assigned directly to the nonnegative radius, this
+/// density is normalized on the plane, remains finite at the center, and has no
+/// artificial `1/r` singularity. The center is fitted jointly with `(R, s)` by
+/// latent-angle EM instead of being frozen at the coordinate mean.
+#[derive(Debug, Clone, Copy)]
+pub struct CircularGaussianFit2d {
+    center: [f64; 2],
+    radius: f64,
+    noise_variance: f64,
+}
+
+impl CircularGaussianFit2d {
+    /// Two center coordinates, one radius, and one isotropic noise variance.
+    pub const NUM_FREE_PARAMETERS: usize = 4;
+
+    /// Construct a circular Gaussian from validated model parameters.
+    pub fn from_parameters(
+        center: [f64; 2],
+        radius: f64,
+        noise_variance: f64,
+    ) -> Result<Self, String> {
+        if !center.iter().all(|value| value.is_finite()) {
+            return Err("circular Gaussian center must be finite".to_string());
+        }
+        if !(radius.is_finite() && radius >= 0.0) {
+            return Err("circular Gaussian radius must be finite and nonnegative".to_string());
+        }
+        if !(noise_variance.is_finite() && noise_variance > 0.0) {
+            return Err("circular Gaussian noise variance must be finite and positive".to_string());
+        }
+        Ok(Self {
+            center,
+            radius,
+            noise_variance,
+        })
+    }
+
+    /// Fit selected rows of a finite two-column coordinate matrix.
+    pub fn fit(coords: ArrayView2<'_, f64>, rows: &[usize]) -> Result<Self, String> {
+        if coords.ncols() != 2 {
+            return Err(format!(
+                "circular Gaussian requires 2-D data, got {} columns",
+                coords.ncols()
+            ));
+        }
+        if rows.is_empty() {
+            return Err("circular Gaussian requires a nonempty training set".to_string());
+        }
+        if rows.iter().any(|&row| row >= coords.nrows()) {
+            return Err("circular Gaussian row index is out of bounds".to_string());
+        }
+        if rows
+            .iter()
+            .any(|&row| !coords[[row, 0]].is_finite() || !coords[[row, 1]].is_finite())
+        {
+            return Err("circular Gaussian requires finite training coordinates".to_string());
+        }
+
+        // Work in a dimensionless chart relative to one observed point. This
+        // preserves the low-order bits of a small translated circle and makes
+        // the stopping rule and variance floor scale equivariant.
+        let anchor_row = rows[0];
+        let anchor = [coords[[anchor_row, 0]], coords[[anchor_row, 1]]];
+        let mut scale = 0.0_f64;
+        for &row in rows {
+            let dx = coords[[row, 0]] - anchor[0];
+            let dy = coords[[row, 1]] - anchor[1];
+            if !(dx.is_finite() && dy.is_finite()) {
+                return Err("circular Gaussian coordinate range exceeds f64".to_string());
+            }
+            scale = scale.max(dx.hypot(dy));
+        }
+        if !(scale.is_finite() && scale > 0.0) {
+            return Err("circular Gaussian requires nonzero spatial extent".to_string());
+        }
+
+        let mut points = Vec::with_capacity(rows.len());
+        let mut mean = [0.0_f64; 2];
+        for &row in rows {
+            let point = [
+                (coords[[row, 0]] - anchor[0]) / scale,
+                (coords[[row, 1]] - anchor[1]) / scale,
+            ];
+            points.push(point);
+            mean[0] += point[0];
+            mean[1] += point[1];
+        }
+        let count = rows.len() as f64;
+        mean[0] /= count;
+        mean[1] /= count;
+
+        // Moment initialization is exact at the population level. For
+        // q = ||X-E X||^2,
+        //   E[q] = R^2 + 2s,  Var(q) = 4s(R^2+s),
+        // hence R^4 = E[q]^2-Var(q) and s=(E[q]-R^2)/2.
+        let mut squared_radii = Vec::with_capacity(rows.len());
+        let mut mean_squared_radius = 0.0_f64;
+        for point in &points {
+            let dx = point[0] - mean[0];
+            let dy = point[1] - mean[1];
+            let squared_radius = dx * dx + dy * dy;
+            squared_radii.push(squared_radius);
+            mean_squared_radius += squared_radius;
+        }
+        mean_squared_radius /= count;
+        let mut squared_radius_variance = 0.0_f64;
+        for squared_radius in squared_radii {
+            squared_radius_variance += (squared_radius - mean_squared_radius).powi(2);
+        }
+        squared_radius_variance /= count;
+
+        // A noiseless observed circle is an unbounded-likelihood boundary.
+        // Keep the numerical optimizer in a scale-relative interior whose
+        // width is roundoff, rather than imposing a floor in data units.
+        let variance_floor = (64.0 * f64::EPSILON * mean_squared_radius).max(f64::MIN_POSITIVE);
+        let radius_squared = (mean_squared_radius * mean_squared_radius - squared_radius_variance)
+            .max(0.0)
+            .sqrt();
+        let mut radius = radius_squared.sqrt();
+        let mut noise_variance = (0.5 * (mean_squared_radius - radius_squared)).max(variance_floor);
+        let mut center = mean;
+
+        // Exact EM for the latent circle angle. Given current parameters, the
+        // conditional mean of U is A(kappa) * (x-c)/||x-c|| with
+        // A=I1/I0 and kappa=R||x-c||/s. Solving the joint quadratic M-step for
+        // center and radius avoids the biased `center = sample mean` plug-in.
+        const MAX_EM_ITERATIONS: usize = 4096;
+        const EM_TOLERANCE: f64 = 2.0e-12;
+        let mut posterior_means = vec![[0.0_f64; 2]; points.len()];
+        let mut converged = false;
+        for _ in 0..MAX_EM_ITERATIONS {
+            let mut posterior_mean = [0.0_f64; 2];
+            for (point, latent_mean) in points.iter().zip(&mut posterior_means) {
+                let dx = point[0] - center[0];
+                let dy = point[1] - center[1];
+                let observed_radius = dx.hypot(dy);
+                if observed_radius == 0.0 || radius == 0.0 {
+                    *latent_mean = [0.0, 0.0];
+                } else {
+                    let (_, bessel_ratio) =
+                        circular_gaussian_bessel_terms(radius, observed_radius, noise_variance);
+                    if !(bessel_ratio.is_finite() && (0.0..=1.0).contains(&bessel_ratio)) {
+                        return Err("circular Gaussian Bessel ratio left [0, 1]".to_string());
+                    }
+                    let multiplier = bessel_ratio / observed_radius;
+                    *latent_mean = [multiplier * dx, multiplier * dy];
+                }
+                posterior_mean[0] += latent_mean[0];
+                posterior_mean[1] += latent_mean[1];
+            }
+            posterior_mean[0] /= count;
+            posterior_mean[1] /= count;
+
+            let denominator =
+                1.0 - posterior_mean[0] * posterior_mean[0] - posterior_mean[1] * posterior_mean[1];
+            if !(denominator.is_finite() && denominator > 0.0) {
+                return Err("circular Gaussian EM radius update is singular".to_string());
+            }
+            let mut radius_numerator = 0.0_f64;
+            for (point, latent_mean) in points.iter().zip(&posterior_means) {
+                radius_numerator +=
+                    latent_mean[0] * (point[0] - mean[0]) + latent_mean[1] * (point[1] - mean[1]);
+            }
+            let next_radius = (radius_numerator / (count * denominator)).max(0.0);
+            let next_center = [
+                mean[0] - next_radius * posterior_mean[0],
+                mean[1] - next_radius * posterior_mean[1],
+            ];
+
+            // Evaluate E||X-c-RU||^2 in an explicitly nonnegative form to
+            // avoid catastrophic cancellation on a very thin ring.
+            let mut residual_sum = 0.0_f64;
+            for (point, latent_mean) in points.iter().zip(&posterior_means) {
+                let dx = point[0] - next_center[0];
+                let dy = point[1] - next_center[1];
+                let ex = dx - next_radius * latent_mean[0];
+                let ey = dy - next_radius * latent_mean[1];
+                let latent_norm_squared =
+                    latent_mean[0] * latent_mean[0] + latent_mean[1] * latent_mean[1];
+                residual_sum += ex * ex
+                    + ey * ey
+                    + next_radius * next_radius * (1.0 - latent_norm_squared).max(0.0);
+            }
+            let next_noise_variance = (residual_sum / (2.0 * count)).max(variance_floor);
+
+            let parameter_change = (next_center[0] - center[0])
+                .hypot(next_center[1] - center[1])
+                .max((next_radius - radius).abs())
+                .max(
+                    (next_noise_variance - noise_variance).abs()
+                        / (next_noise_variance + noise_variance),
+                );
+            center = next_center;
+            radius = next_radius;
+            noise_variance = next_noise_variance;
+            if parameter_change <= EM_TOLERANCE {
+                converged = true;
+                break;
+            }
+        }
+        if !converged {
+            return Err("circular Gaussian maximum-likelihood fit did not converge".to_string());
+        }
+
+        let fitted_noise_sd = scale * noise_variance.sqrt();
+        Self::from_parameters(
+            [anchor[0] + scale * center[0], anchor[1] + scale * center[1]],
+            scale * radius,
+            fitted_noise_sd * fitted_noise_sd,
+        )
+        .map_err(|error| format!("circular Gaussian fit produced invalid parameters: {error}"))
+    }
+
+    /// Fitted circle center.
+    pub const fn center(self) -> [f64; 2] {
+        self.center
+    }
+
+    /// Fitted latent-circle radius.
+    pub const fn radius(self) -> f64 {
+        self.radius
+    }
+
+    /// Fitted isotropic Cartesian noise variance per coordinate.
+    pub const fn noise_variance(self) -> f64 {
+        self.noise_variance
+    }
+
+    /// Proper Cartesian log density at `(x, y)`.
+    pub fn log_density(self, x: f64, y: f64) -> f64 {
+        let observed_radius = (x - self.center[0]).hypot(y - self.center[1]);
+        let (log_i0_minus_kappa, _) =
+            circular_gaussian_bessel_terms(self.radius, observed_radius, self.noise_variance);
+        let standardized_radial_residual =
+            (observed_radius - self.radius) / self.noise_variance.sqrt();
+        // Algebraically this is -(r^2+R^2)/(2s)+log I0(kappa), but this
+        // rearrangement preserves log I0(kappa) ~= kappa cancellation.
+        -std::f64::consts::TAU.ln()
+            - self.noise_variance.ln()
+            - 0.5 * standardized_radial_residual.powi(2)
+            + log_i0_minus_kappa
+    }
+
+    /// Sum the fitted log density over selected rows.
+    pub fn log_likelihood(
+        self,
+        coords: ArrayView2<'_, f64>,
+        rows: &[usize],
+    ) -> Result<f64, String> {
+        if coords.ncols() != 2 || rows.iter().any(|&row| row >= coords.nrows()) {
+            return Err(
+                "circular Gaussian likelihood received invalid coordinates or rows".to_string(),
+            );
+        }
+        let mut log_densities = Vec::with_capacity(rows.len());
+        for &row in rows {
+            let value = self.log_density(coords[[row, 0]], coords[[row, 1]]);
+            if !value.is_finite() {
+                return Err("circular Gaussian likelihood is not finite".to_string());
+            }
+            log_densities.push(value);
+        }
+        let log_likelihood = pairwise_sum(&log_densities);
+        if !log_likelihood.is_finite() {
+            return Err("circular Gaussian likelihood sum is not finite".to_string());
+        }
+        Ok(log_likelihood)
+    }
+
+    /// Fit selected rows and return both the fit and its BIC/2 (lower is
+    /// better). Keeping fitting and evidence evaluation in one operation makes
+    /// it impossible to label a likelihood on unrelated data as fitted BIC.
+    pub fn fit_with_bic(
+        coords: ArrayView2<'_, f64>,
+        rows: &[usize],
+    ) -> Result<(Self, f64), String> {
+        let fit = Self::fit(coords, rows)?;
+        let log_likelihood = fit.log_likelihood(coords, rows)?;
+        let bic =
+            -log_likelihood + 0.5 * Self::NUM_FREE_PARAMETERS as f64 * (rows.len() as f64).ln();
+        if !bic.is_finite() {
+            return Err("circular Gaussian BIC is not finite".to_string());
+        }
+        Ok((fit, bic))
+    }
+}
+
+/// Stable Bessel terms for `kappa = radius * observed_radius / variance`.
+/// The ordinary finite branch retains the shared approximation exactly. If the
+/// product itself overflows, only the leading asymptotic
+/// `log I0(kappa)-kappa = -log(2 pi kappa)/2 + O(1/kappa)` is representable;
+/// `I1/I0` rounds to one at that scale.
+fn circular_gaussian_bessel_terms(
+    radius: f64,
+    observed_radius: f64,
+    noise_variance: f64,
+) -> (f64, f64) {
+    if radius == 0.0 || observed_radius == 0.0 {
+        return (0.0, 0.0);
+    }
+    let kappa = radius * observed_radius / noise_variance;
+    if kappa.is_finite() {
+        return bessel_i0_log_minus_abs_and_ratio(kappa);
+    }
+    let log_kappa = radius.ln() + observed_radius.ln() - noise_variance.ln();
+    if log_kappa <= f64::MAX.ln() {
+        // The left-to-right product overflowed before a large variance divided
+        // it back into range. Reconstruct the representable ratio from its log.
+        return bessel_i0_log_minus_abs_and_ratio(log_kappa.exp());
+    }
+    (-0.5 * (std::f64::consts::TAU.ln() + log_kappa), 1.0)
+}
 //
 // A *union* candidate is a small FIXED composite of named component structures
 // joined by a hard row-responsibility split. Unlike the discrete-mixture rung
@@ -1881,19 +2650,14 @@ fn constrained_data_covariance(
 // asks whether the data is better explained as the disjoint sum of those
 // structures than by any single pure rung.
 //
-// Each component is fit on its responsibility group as its own parametric
-// generative density and scored through the SAME rank-aware Laplace /
-// Tierney-Kadane normalizer used by the smooth rungs and the mixture rung:
-// `−V_c = loglik_c − ½ log|H_c| + ½ P_c log(2π)` with `H_c` the observed
-// empirical-Fisher (BHHH) information `Σ s_i s_iᵀ` at the component optimum
-// (`rank(S)=0`, fully likelihood-identified). The union's evidence is the SUM
-// `V = Σ_c V_c` (the components partition the rows, so their log-likelihoods
-// add and their Hessians are block-diagonal — `log|H| = Σ_c log|H_c|`). The
-// complexity price is the TOTAL free-parameter count across all components,
-// which is exactly what the summed `+ ½ Σ_c P_c log(2π)` normalizer charges.
-// A union is therefore strictly more expensive than either pure component, so
-// it can only win when the structured split buys enough likelihood to pay for
-// its extra parameters — the negative-control discipline of #907.
+// The hard responsibility groups only determine which rows fit each component.
+// The resulting candidate is one normalized, unlabeled soft-mixture density
+// `p(y) = Σ_c π_c p_c(y)`, with `π_c = n_c / n`. It is scored on every
+// training row by that same mixture density used for held-out evaluation. Its
+// BIC/2 complexity price is `½(Σ_c P_c + m - 1) log(n)`: component
+// parameters plus the `m - 1` free mixing weights, all on the common sample
+// scale. This makes the union directly comparable to the other normalized
+// parametric candidates in the topology race.
 
 /// The fixed ladder of structured-union composites. Deterministic and closed:
 /// open-ended structure search stays owned by #976's move set; these three are
@@ -1916,10 +2680,12 @@ pub const UNION_STRUCTURE_LADDER: &[UnionStructure] = &[
 ];
 
 /// The per-component generative structure a union pins each responsibility group
-/// to. `Line` and `PointCluster` share the full-covariance Gaussian density
-/// (a line is an anisotropic Gaussian — the covariance, not a different
-/// parameterization, is what distinguishes them); `Circle` is a genuinely
-/// different density on `(radius, angle)`.
+/// to. `Line` is a full-covariance Gaussian, while `PointCluster` is the nested
+/// isotropic Gaussian with `d + 1` parameters. The covariance constraint makes
+/// line+cluster a genuine structured alternative to a generic two-component
+/// full-covariance mixture instead of a duplicate candidate. `Circle` is the
+/// proper Cartesian density of a uniform latent circle convolved with isotropic
+/// Gaussian noise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UnionComponentKind {
     Circle,
@@ -1958,27 +2724,31 @@ impl UnionStructure {
     }
 }
 
-/// One fitted component of a union: its pinned structure, the rows it owns
-/// (after the hard responsibility split), its free-parameter count, and its
-/// rank-aware Laplace negative-log-evidence on the common scale.
+/// One fitted component of a union: its pinned structure, the rows used to fit
+/// it after the hard responsibility split, its free-parameter count, and its
+/// normalized soft-mixture weight. A component has no standalone BIC inside a
+/// union: the likelihood is the indivisible `log Σ_c π_c p_c(y)` scored on
+/// every row.
 #[derive(Debug, Clone)]
 pub struct UnionComponentFit {
     pub kind: UnionComponentKind,
     pub row_count: usize,
     pub num_parameters: usize,
-    pub negative_log_evidence: f64,
+    pub mixing_weight: f64,
 }
 
 /// A fitted structured-union candidate: the composite kind, the per-component
-/// fits, the SUMMED rank-aware Laplace negative-log-evidence, and the TOTAL
-/// free-parameter count across components (the complexity price).
+/// fits, its normalized soft-mixture training likelihood, the corresponding
+/// BIC-form negative-log-evidence, and the complete free-parameter count.
 #[derive(Debug, Clone)]
 pub struct UnionStructureFit {
     pub structure: UnionStructure,
     pub components: Vec<UnionComponentFit>,
-    /// `Σ_c V_c` — summed rank-aware Laplace negative-log-evidence (lower wins).
-    pub negative_log_evidence: f64,
-    /// `Σ_c P_c` — total free-parameter count across components.
+    /// `Σ_i log(Σ_c π_c p_c(y_i))` over all training rows.
+    pub log_likelihood: f64,
+    /// `-log_likelihood + ½ total_parameters log(n)` (lower wins).
+    pub bic: f64,
+    /// `Σ_c P_c + (m - 1)`, including the free mixing weights.
     pub total_parameters: usize,
 }
 
@@ -2013,11 +2783,20 @@ pub fn union_responsibility_split(
             &fit.covariances[j],
         )?);
     }
-    let log_w: Vec<f64> = fit
+    let log_w = fit
         .weights
         .iter()
-        .map(|w| w.max(f64::MIN_POSITIVE).ln())
-        .collect();
+        .enumerate()
+        .map(|(component, &weight)| {
+            if weight.is_finite() && weight > 0.0 {
+                Ok(weight.ln())
+            } else {
+                Err(format!(
+                    "union split received invalid fitted weight {weight} for component {component}"
+                ))
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     for i in 0..n {
         let row = data.row(i);
         let mut best_j = 0usize;
@@ -2029,61 +2808,47 @@ pub fn union_responsibility_split(
                 best_j = j;
             }
         }
+        if !best_lt.is_finite() {
+            return Err(format!(
+                "union split produced no finite component score at row {i}"
+            ));
+        }
         groups[best_j].push(i);
     }
     Ok(groups)
 }
 
-/// Fit one structured-union candidate: hard-split the rows into one group per
-/// component, fit each component's pinned density, and SUM the rank-aware
-/// Laplace negative-log-evidence. The complexity price is the total
-/// free-parameter count across components.
+/// Fit one structured-union candidate. The hard split identifies component
+/// training groups; heterogeneous component roles are assigned by evaluating
+/// every unique role permutation. Each assignment is then scored as one
+/// normalized soft mixture on every training row.
 ///
-/// Returns an error if any component group is too small to identify its
-/// structure (so an over-priced or non-identifiable composite simply does not
-/// enter the race rather than scoring spuriously well).
+/// Returns an error if no role assignment identifies every component. The
+/// fixed-ladder caller propagates that failure for the whole declared family;
+/// it never ranks a survivor subset.
 pub fn fit_union_structure(
     data: ArrayView2<'_, f64>,
     structure: UnionStructure,
     config: GaussianMixtureConfig,
 ) -> Result<UnionStructureFit, String> {
-    let comps = structure.components();
-    let m = comps.len();
-    let groups = union_responsibility_split(data, m, config)?;
-    let mut fits = Vec::with_capacity(m);
-    let mut total_nle = 0.0_f64;
-    let mut total_parameters = 0usize;
-    for (kind, rows) in comps.iter().zip(groups.iter()) {
-        let group = gather_union_rows(data, rows);
-        let (nle, p) = fit_union_component(group.view(), *kind, config)?;
-        if !nle.is_finite() {
-            return Err(format!(
-                "union {} component {:?} produced non-finite evidence",
-                structure.as_str(),
-                kind
-            ));
-        }
-        total_nle += nle;
-        total_parameters += p;
-        fits.push(UnionComponentFit {
-            kind: *kind,
-            row_count: rows.len(),
-            num_parameters: p,
-            negative_log_evidence: nle,
-        });
-    }
+    let fitted = fit_union_density(data, structure, config)?;
     Ok(UnionStructureFit {
         structure,
-        components: fits,
-        negative_log_evidence: total_nle,
-        total_parameters,
+        components: fitted
+            .components
+            .iter()
+            .map(UnionComponentDensity::summary)
+            .collect(),
+        log_likelihood: fitted.log_likelihood,
+        bic: fitted.bic,
+        total_parameters: fitted.total_parameters,
     })
 }
 
-/// Fit the whole fixed union ladder and rank in-class by summed rank-aware
-/// Laplace evidence (lower wins). Composites that fail to fit (e.g. a group too
-/// small to identify a circle) are skipped. Returns the fitted ladder sorted
-/// best-first.
+/// Fit the whole fixed union ladder and rank in-class by normalized soft-mixture
+/// BIC (lower wins). The declared ladder is one selection family: if any
+/// eligible structure fails, the whole comparison fails with every per-structure
+/// error rather than silently selecting from an easier survivor set.
 pub fn fit_union_ladder(
     data: ArrayView2<'_, f64>,
     config: GaussianMixtureConfig,
@@ -2096,21 +2861,20 @@ pub fn fit_union_ladder(
             Err(e) => errors.push(format!("{}: {e}", structure.as_str())),
         }
     }
-    if fits.is_empty() {
+    if !errors.is_empty() {
         return Err(format!(
-            "union ladder produced no fittable composites{}",
-            if errors.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", errors.join("; "))
-            }
+            "union ladder comparison failed; every declared structure must fit ({})",
+            errors.join("; ")
         ));
+    }
+    if fits.is_empty() {
+        return Err("union ladder is empty".to_string());
     }
     let ranked = rank_priority_candidates(
         fits.into_iter()
             .enumerate()
             .map(|(idx, row)| {
-                let score = row.negative_log_evidence;
+                let score = row.bic;
                 let tie = row.total_parameters; // cheaper composite wins ties
                 PriorityCandidate::new(row, idx, score, tie)
             })
@@ -2133,285 +2897,465 @@ fn gather_union_rows(data: ArrayView2<'_, f64>, idx: &[usize]) -> Array2<f64> {
     out
 }
 
-/// Fit a single union component density on its responsibility group and return
-/// `(rank_aware_negative_log_evidence, free_parameter_count)`. `Line` and
-/// `PointCluster` use the full-covariance Gaussian density (a single mixture
-/// component); `Circle` uses the radius/angle generative density below.
-fn fit_union_component(
+/// Apply the structured-union admission policy to one circle group and return
+/// its complete deterministic row set.
+/// The `n > P` rule belongs to this composite ladder; it is not an intrinsic
+/// restriction of circular-Gaussian likelihood fitting or BIC itself.
+fn union_circle_rows(group: ArrayView2<'_, f64>) -> Result<Vec<usize>, String> {
+    let minimum_rows = CircularGaussianFit2d::NUM_FREE_PARAMETERS + 1;
+    if group.nrows() < minimum_rows {
+        return Err(format!(
+            "union circle component needs at least {minimum_rows} rows, got {}",
+            group.nrows()
+        ));
+    }
+    Ok((0..group.nrows()).collect())
+}
+
+/// The shared fitted-density representation used by both in-sample BIC and
+/// held-out predictive scoring. `Line` and `PointCluster` deliberately share
+/// the Gaussian evaluator after fitting, but differ in covariance constraints
+/// and parameter count.
+#[derive(Debug, Clone)]
+enum UnionDensityModel {
+    Gaussian(GaussianComponentEval),
+    Circle(CircularGaussianFit2d),
+}
+
+#[derive(Debug, Clone)]
+struct UnionComponentDensity {
+    kind: UnionComponentKind,
+    row_count: usize,
+    num_parameters: usize,
+    mixing_weight: f64,
+    log_weight: f64,
+    model: UnionDensityModel,
+}
+
+impl UnionComponentDensity {
+    fn summary(&self) -> UnionComponentFit {
+        UnionComponentFit {
+            kind: self.kind,
+            row_count: self.row_count,
+            num_parameters: self.num_parameters,
+            mixing_weight: self.mixing_weight,
+        }
+    }
+
+    fn dimension(&self) -> usize {
+        match &self.model {
+            UnionDensityModel::Gaussian(eval) => eval.d,
+            UnionDensityModel::Circle(_) => 2,
+        }
+    }
+
+    /// `log π_c + log p_c(y)` for one eval row.
+    fn weighted_log_density(&self, y: ArrayView1<'_, f64>) -> f64 {
+        let component_log_density = match &self.model {
+            UnionDensityModel::Gaussian(eval) => eval.log_density(y),
+            UnionDensityModel::Circle(fit) => fit.log_density(y[0], y[1]),
+        };
+        self.log_weight + component_log_density
+    }
+}
+
+#[derive(Debug, Clone)]
+struct FittedUnionDensity {
+    components: Vec<UnionComponentDensity>,
+    log_likelihood: f64,
+    bic: f64,
+    total_parameters: usize,
+}
+
+fn fit_union_density(
+    train: ArrayView2<'_, f64>,
+    structure: UnionStructure,
+    config: GaussianMixtureConfig,
+) -> Result<FittedUnionDensity, String> {
+    let groups = union_responsibility_split(train, structure.num_components(), config)?;
+    fit_union_density_from_groups(train, structure, &groups, config)
+}
+
+/// Fit and score a union for an already-established hard partition. This seam
+/// makes role assignment explicitly independent of the arbitrary component
+/// labels emitted by the responsibility split.
+fn fit_union_density_from_groups(
+    train: ArrayView2<'_, f64>,
+    structure: UnionStructure,
+    groups: &[Vec<usize>],
+    config: GaussianMixtureConfig,
+) -> Result<FittedUnionDensity, String> {
+    validate_union_partition(train.nrows(), structure.num_components(), groups)?;
+    let assignments = unique_union_role_assignments(structure.components());
+    let mut best: Option<FittedUnionDensity> = None;
+    let mut errors = Vec::new();
+
+    for roles in assignments {
+        let candidate = (|| {
+            let mut components = Vec::with_capacity(groups.len());
+            let n_train = train.nrows() as f64;
+            for (&kind, rows) in roles.iter().zip(groups) {
+                let group = gather_union_rows(train, rows);
+                let mixing_weight = rows.len() as f64 / n_train;
+                components.push(fit_union_component_density(
+                    group.view(),
+                    kind,
+                    mixing_weight,
+                    config,
+                )?);
+            }
+
+            let component_parameters = components.iter().try_fold(0usize, |sum, component| {
+                sum.checked_add(component.num_parameters)
+                    .ok_or_else(|| "union component parameter count overflowed usize".to_string())
+            })?;
+            let mixing_parameters = components.len() - 1;
+            let total_parameters = component_parameters
+                .checked_add(mixing_parameters)
+                .ok_or_else(|| "union total parameter count overflowed usize".to_string())?;
+            let per_point = score_union_components(&components, train)?;
+            let log_likelihood = pairwise_sum(
+                per_point
+                    .as_slice()
+                    .expect("owned union score vector must be contiguous"),
+            );
+            if !log_likelihood.is_finite() {
+                return Err("union training log likelihood is non-finite".to_string());
+            }
+            let bic = -log_likelihood + 0.5 * total_parameters as f64 * (train.nrows() as f64).ln();
+            if !bic.is_finite() {
+                return Err("union normalized soft-mixture BIC is non-finite".to_string());
+            }
+            Ok(FittedUnionDensity {
+                components,
+                log_likelihood,
+                bic,
+                total_parameters,
+            })
+        })();
+
+        match candidate {
+            Ok(candidate) => {
+                let replace = match &best {
+                    Some(current) => candidate.bic.total_cmp(&current.bic).is_lt(),
+                    None => true,
+                };
+                // Unique assignments are generated in canonical order. Keeping
+                // the earlier assignment on an exact score tie is deterministic.
+                if replace {
+                    best = Some(candidate);
+                }
+            }
+            Err(error) => errors.push(format!("{roles:?}: {error}")),
+        }
+    }
+
+    best.ok_or_else(|| {
+        format!(
+            "union {} has no finite role assignment ({})",
+            structure.as_str(),
+            errors.join("; ")
+        )
+    })
+}
+
+fn validate_union_partition(
+    n_rows: usize,
+    expected_groups: usize,
+    groups: &[Vec<usize>],
+) -> Result<(), String> {
+    if n_rows == 0 {
+        return Err("union fitting requires at least one training row".to_string());
+    }
+    if groups.len() != expected_groups {
+        return Err(format!(
+            "union partition has {} groups, expected {expected_groups}",
+            groups.len()
+        ));
+    }
+    let mut seen = vec![false; n_rows];
+    for (group_index, rows) in groups.iter().enumerate() {
+        if rows.is_empty() {
+            return Err(format!("union partition group {group_index} is empty"));
+        }
+        for &row in rows {
+            if row >= n_rows {
+                return Err(format!(
+                    "union partition group {group_index} contains out-of-range row {row} for {n_rows} rows"
+                ));
+            }
+            if std::mem::replace(&mut seen[row], true) {
+                return Err(format!("union partition contains duplicate row {row}"));
+            }
+        }
+    }
+    if let Some(missing) = seen.iter().position(|included| !included) {
+        return Err(format!("union partition omits row {missing}"));
+    }
+    Ok(())
+}
+
+fn unique_union_role_assignments(roles: &[UnionComponentKind]) -> Vec<Vec<UnionComponentKind>> {
+    fn visit(
+        roles: &[UnionComponentKind],
+        used: &mut [bool],
+        assignment: &mut Vec<UnionComponentKind>,
+        out: &mut Vec<Vec<UnionComponentKind>>,
+    ) {
+        if assignment.len() == roles.len() {
+            out.push(assignment.clone());
+            return;
+        }
+        let mut used_at_depth = Vec::new();
+        for (index, &role) in roles.iter().enumerate() {
+            if used[index] || used_at_depth.contains(&role) {
+                continue;
+            }
+            used_at_depth.push(role);
+            used[index] = true;
+            assignment.push(role);
+            visit(roles, used, assignment, out);
+            assignment.pop();
+            used[index] = false;
+        }
+    }
+
+    let mut out = Vec::new();
+    visit(
+        roles,
+        &mut vec![false; roles.len()],
+        &mut Vec::with_capacity(roles.len()),
+        &mut out,
+    );
+    out
+}
+
+fn fit_union_component_density(
     group: ArrayView2<'_, f64>,
     kind: UnionComponentKind,
+    mixing_weight: f64,
     config: GaussianMixtureConfig,
-) -> Result<(f64, usize), String> {
-    match kind {
-        UnionComponentKind::Line | UnionComponentKind::PointCluster => {
-            // A single full-covariance Gaussian is the k=1 mixture: reuse its
-            // exact rank-aware Laplace evidence so a union component is on the
-            // identical scale as a mixture component.
+) -> Result<UnionComponentDensity, String> {
+    if !(mixing_weight.is_finite() && mixing_weight > 0.0 && mixing_weight <= 1.0) {
+        return Err(format!(
+            "union component mixing weight must be finite and in (0, 1], got {mixing_weight}"
+        ));
+    }
+    let row_count = group.nrows();
+    let (model, num_parameters) = match kind {
+        UnionComponentKind::Line => {
             if group.nrows() < group.ncols() + 1 {
                 return Err(format!(
-                    "union gaussian component needs >= {} rows, got {}",
+                    "union line component needs >= {} rows, got {}",
                     group.ncols() + 1,
                     group.nrows()
                 ));
             }
             let fit = fit_gaussian_mixture(group, 1, config).map_err(|error| error.to_string())?;
-            let nle = fit.laplace_negative_log_evidence(group)?;
-            Ok((nle, fit.num_free_parameters()))
+            let num_parameters = fit.num_free_parameters();
+            let eval = GaussianComponentEval::factor(fit.means.row(0), &fit.covariances[0])?;
+            (UnionDensityModel::Gaussian(eval), num_parameters)
         }
-        UnionComponentKind::Circle => fit_circle_component_evidence(group, config),
+        UnionComponentKind::PointCluster => {
+            if group.nrows() < group.ncols() + 1 {
+                return Err(format!(
+                    "union isotropic point component needs >= {} rows, got {}",
+                    group.ncols() + 1,
+                    group.nrows()
+                ));
+            }
+            let eval = fit_isotropic_gaussian_component(group, config.covariance_floor)?;
+            (
+                UnionDensityModel::Gaussian(eval),
+                group
+                    .ncols()
+                    .checked_add(1)
+                    .ok_or_else(|| "union point parameter count overflowed usize".to_string())?,
+            )
+        }
+        UnionComponentKind::Circle => {
+            let rows = union_circle_rows(group)?;
+            let fit = CircularGaussianFit2d::fit(group, &rows)?;
+            (
+                UnionDensityModel::Circle(fit),
+                CircularGaussianFit2d::NUM_FREE_PARAMETERS,
+            )
+        }
+    };
+    Ok(UnionComponentDensity {
+        kind,
+        row_count,
+        num_parameters,
+        mixing_weight,
+        log_weight: mixing_weight.ln(),
+        model,
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StableScalarMeanChart {
+    origin: f64,
+    scale: f64,
+    normalized_offset: f64,
+}
+
+impl StableScalarMeanChart {
+    #[inline]
+    fn centered(self, value: f64) -> Result<f64, String> {
+        let relative = value - self.origin;
+        let centered = (-self.normalized_offset).mul_add(self.scale, relative);
+        if centered.is_finite() {
+            Ok(centered)
+        } else {
+            Err("union isotropic point residual is not representable".to_string())
+        }
     }
 }
 
-/// Rank-aware Laplace negative-log-evidence of a 2-D *circle* component: data is
-/// modelled as `(r, θ)` with `r ~ N(ρ, σ_r²)` around a fitted center+radius and
-/// `θ` uniform on the circle. Free parameters: center `(cx, cy)`, radius `ρ`,
-/// radial variance `σ_r²` — `P = 4`. The angle is an ancillary uniform with no
-/// free parameter (it carries `−log(2π r)` of density). The Hessian is the
-/// observed empirical-Fisher `I + Σ s_i s_iᵀ` in `(cx, cy, ρ, log σ_r²)`
-/// coordinates, fed through the SAME [`laplace_evidence`] entry point.
-fn fit_circle_component_evidence(
+/// Range-safe and translation-accurate scalar mean chart. The normalized mean
+/// offset is retained separately from the rounded absolute mean so residuals
+/// use `(x-origin)-offset` rather than losing a fractional offset at a large
+/// common translation. FMA also lets a subnormal offset affect the correctly
+/// rounded absolute mean without first rounding that offset to zero.
+fn stable_scalar_mean_chart(values: ArrayView1<'_, f64>) -> Result<StableScalarMeanChart, String> {
+    if values.is_empty() || values.iter().any(|value| !value.is_finite()) {
+        return Err("stable scalar mean requires finite nonempty values".to_string());
+    }
+    let anchor = values[0];
+    let anchor_chart_is_representable = values.iter().all(|&value| (value - anchor).is_finite());
+    let origin = if anchor_chart_is_representable {
+        anchor
+    } else {
+        0.0
+    };
+    let scale = values
+        .iter()
+        .map(|&value| (value - origin).abs())
+        .fold(0.0_f64, f64::max);
+    if scale == 0.0 {
+        return Ok(StableScalarMeanChart {
+            origin,
+            scale: 0.0,
+            normalized_offset: 0.0,
+        });
+    }
+    let normalized = values
+        .iter()
+        .map(|&value| (value - origin) / scale)
+        .collect::<Vec<_>>();
+    let normalized_offset = pairwise_sum(&normalized) / values.len() as f64;
+    let mean = normalized_offset.mul_add(scale, origin);
+    if !(normalized_offset.is_finite() && mean.is_finite()) {
+        return Err("union isotropic point mean is not representable".to_string());
+    }
+    Ok(StableScalarMeanChart {
+        origin,
+        scale,
+        normalized_offset,
+    })
+}
+
+/// Maximum-likelihood isotropic Gaussian fit in stable per-column mean charts.
+fn fit_isotropic_gaussian_component(
     group: ArrayView2<'_, f64>,
-    config: GaussianMixtureConfig,
-) -> Result<(f64, usize), String> {
-    let d = group.ncols();
-    if d != 2 {
-        return Err(format!(
-            "union circle component requires 2-D data, got {d} columns"
-        ));
-    }
+    covariance_floor: f64,
+) -> Result<GaussianComponentEval, String> {
     let n = group.nrows();
-    let p = 4usize; // cx, cy, radius, radial-variance
-    if n < p + 1 {
+    let d = group.ncols();
+    if n == 0 || d == 0 {
+        return Err("union isotropic point component requires a non-empty matrix".to_string());
+    }
+    if !(covariance_floor.is_finite() && covariance_floor > 0.0) {
         return Err(format!(
-            "union circle component needs >= {} rows, got {n}",
-            p + 1
+            "union isotropic covariance floor must be finite and positive, got {covariance_floor}"
         ));
     }
-    // Center = data centroid; radius = mean distance to centroid; radial
-    // variance = mean squared radial residual (floored). This is the algebraic
-    // circle-fit optimum for the isotropic radial-Gaussian model and is a pure
-    // function of the data.
-    let mut cx = 0.0_f64;
-    let mut cy = 0.0_f64;
-    for i in 0..n {
-        cx += group[[i, 0]];
-        cy += group[[i, 1]];
-    }
-    cx /= n as f64;
-    cy /= n as f64;
-    let mut radii = vec![0.0_f64; n];
-    let mut radius = 0.0_f64;
-    for i in 0..n {
-        let dx = group[[i, 0]] - cx;
-        let dy = group[[i, 1]] - cy;
-        let r = (dx * dx + dy * dy).sqrt();
-        radii[i] = r;
-        radius += r;
-    }
-    radius /= n as f64;
-    let mut var_r = 0.0_f64;
-    for &r in &radii {
-        let e = r - radius;
-        var_r += e * e;
-    }
-    var_r = (var_r / n as f64).max(config.covariance_floor);
-    let inv_var = 1.0 / var_r;
-    // Total log-likelihood: Σ_i [ −½ log(2π σ_r²) − (r_i−ρ)²/(2σ_r²)
-    //                             − log(2π r_i) ]  (radial Gaussian × uniform θ).
-    let mut loglik = 0.0_f64;
-    let log_2pi = (2.0 * std::f64::consts::PI).ln();
-    for &r in &radii {
-        let e = r - radius;
-        let radial = -0.5 * (log_2pi + var_r.ln()) - 0.5 * e * e * inv_var;
-        let angular = -(log_2pi + r.max(f64::MIN_POSITIVE).ln());
-        loglik += radial + angular;
-    }
-    // Observed empirical-Fisher in (cx, cy, ρ, s) with s = log σ_r².
-    // Per-row scores:
-    //   ∂/∂cx log = (e/σ_r²) · (−dx/r)            (r decreases as center moves +x toward point)
-    //   ∂/∂cy log = (e/σ_r²) · (−dy/r)
-    //   ∂/∂ρ  log = e/σ_r²
-    //   ∂/∂s  log = −½ + e²/(2σ_r²)               (s = log σ_r²)
-    let mut info = Array2::<f64>::zeros((p, p));
-    let mut score = [0.0_f64; 4];
-    for i in 0..n {
-        let dx = group[[i, 0]] - cx;
-        let dy = group[[i, 1]] - cy;
-        let r = radii[i].max(f64::MIN_POSITIVE);
-        let e = radii[i] - radius;
-        let ee = e * inv_var;
-        score[0] = ee * (-dx / r);
-        score[1] = ee * (-dy / r);
-        score[2] = ee;
-        score[3] = -0.5 + 0.5 * e * e * inv_var;
-        for a in 0..p {
-            let sa = score[a];
-            if sa == 0.0 {
-                continue;
-            }
-            for b in 0..p {
-                info[[a, b]] += sa * score[b];
+
+    for row in group.rows() {
+        for axis in 0..d {
+            let value = row[axis];
+            if !value.is_finite() {
+                return Err(format!(
+                    "union isotropic point data contains non-finite coordinate {value}"
+                ));
             }
         }
     }
-    // Symmetrize and add the unit-information prior ridge `I` (same fixed prior
-    // as the mixture path) so `log|H|` is well-defined for any `n`.
-    for a in 0..p {
-        for b in (a + 1)..p {
-            let avg = 0.5 * (info[[a, b]] + info[[b, a]]);
-            info[[a, b]] = avg;
-            info[[b, a]] = avg;
-        }
-        info[[a, a]] += 1.0;
+
+    let mut charts = Vec::with_capacity(d);
+    for axis in 0..d {
+        let chart = stable_scalar_mean_chart(group.column(axis))?;
+        charts.push(chart);
     }
-    let apply_info = |x: &[f64]| -> Vec<f64> {
-        let mut out = vec![0.0_f64; p];
-        for r in 0..p {
-            let mut acc = 0.0_f64;
-            for c in 0..p {
-                acc += info[[r, c]] * x[c];
-            }
-            out[r] = acc;
+
+    let scalar_count = n
+        .checked_mul(d)
+        .ok_or_else(|| "union isotropic residual count overflowed usize".to_string())?;
+    let mut residuals = Vec::with_capacity(scalar_count);
+    let mut residual_scale = 0.0_f64;
+    for row in group.rows() {
+        for axis in 0..d {
+            let residual = charts[axis].centered(row[axis])?;
+            residual_scale = residual_scale.max(residual.abs());
+            residuals.push(residual);
         }
-        out
+    }
+    let variance = if residual_scale == 0.0 {
+        covariance_floor
+    } else {
+        for residual in &mut residuals {
+            *residual = (*residual / residual_scale).powi(2);
+        }
+        let normalized_mean_square = pairwise_sum(&residuals) / scalar_count as f64;
+        let rms = residual_scale * normalized_mean_square.sqrt();
+        let unconstrained = rms * rms;
+        if !unconstrained.is_finite() {
+            return Err("union isotropic point variance is non-finite".to_string());
+        }
+        unconstrained.max(covariance_floor)
     };
-    let hvp = EvidenceHvpLogDet {
-        dim: p,
-        apply: &apply_info,
-    };
-    let v = laplace_evidence(EvidenceLogDetSource::Hvp(hvp), 0.0, -loglik, p as f64, 0.0);
-    if !v.is_finite() {
-        return Err("union circle component Laplace evidence is not finite".to_string());
+    GaussianComponentEval::isotropic(&charts, variance)
+}
+
+fn score_union_components(
+    components: &[UnionComponentDensity],
+    eval: ArrayView2<'_, f64>,
+) -> Result<Array1<f64>, String> {
+    if components.is_empty() {
+        return Err("union density requires at least one component".to_string());
     }
-    Ok((v, p))
-}
-
-/// A fitted union component as a *predictive density* (not just an evidence
-/// scalar): either a full-covariance Gaussian (`Line`/`PointCluster`) or the
-/// radial-Gaussian×uniform-angle circle density. Carries the mixing weight
-/// `π_c = row_count_c / n_train` so a union can be evaluated as the soft mixture
-/// `Σ_c π_c p_c(y)` at held-out rows for cross-class stacking.
-#[derive(Debug, Clone)]
-enum UnionComponentDensity {
-    Gaussian {
-        log_weight: f64,
-        eval: GaussianComponentEval,
-    },
-    Circle {
-        log_weight: f64,
-        center: [f64; 2],
-        radius: f64,
-        var_r: f64,
-    },
-}
-
-impl UnionComponentDensity {
-    /// `log π_c + log p_c(y)` for one eval row.
-    fn weighted_log_density(&self, y: ArrayView1<'_, f64>) -> f64 {
-        match self {
-            UnionComponentDensity::Gaussian { log_weight, eval } => {
-                log_weight + eval.log_density(y)
-            }
-            UnionComponentDensity::Circle {
-                log_weight,
-                center,
-                radius,
-                var_r,
-            } => {
-                let dx = y[0] - center[0];
-                let dy = y[1] - center[1];
-                let r = (dx * dx + dy * dy).sqrt();
-                let log_2pi = (2.0 * std::f64::consts::PI).ln();
-                let e = r - radius;
-                let radial = -0.5 * (log_2pi + var_r.ln()) - 0.5 * e * e / var_r;
-                let angular = -(log_2pi + r.max(f64::MIN_POSITIVE).ln());
-                log_weight + radial + angular
-            }
-        }
+    if eval.iter().any(|coordinate| !coordinate.is_finite()) {
+        return Err("union eval coordinates must be finite".to_string());
     }
-}
-
-/// Fit each union component's *density* on the training rows (hard
-/// responsibility split) so the composite can be evaluated as the soft mixture
-/// `Σ_c π_c p_c(y)` at new rows. Mixing weights are the training row shares.
-fn fit_union_component_densities(
-    train: ArrayView2<'_, f64>,
-    structure: UnionStructure,
-    config: GaussianMixtureConfig,
-) -> Result<Vec<UnionComponentDensity>, String> {
-    let comps = structure.components();
-    let m = comps.len();
-    let groups = union_responsibility_split(train, m, config)?;
-    let n_train = train.nrows().max(1) as f64;
-    let mut out = Vec::with_capacity(m);
-    for (kind, rows) in comps.iter().zip(groups.iter()) {
-        if rows.is_empty() {
+    for component in components {
+        if component.dimension() != eval.ncols() {
             return Err(format!(
-                "union {} held-out density: empty component group",
-                structure.as_str()
+                "union component {:?} has dimension {}, eval has {} columns",
+                component.kind,
+                component.dimension(),
+                eval.ncols()
             ));
         }
-        let log_weight = (rows.len() as f64 / n_train).max(f64::MIN_POSITIVE).ln();
-        let group = gather_union_rows(train, rows);
-        match kind {
-            UnionComponentKind::Line | UnionComponentKind::PointCluster => {
-                if group.nrows() < group.ncols() + 1 {
-                    return Err(format!(
-                        "union gaussian component density needs >= {} rows, got {}",
-                        group.ncols() + 1,
-                        group.nrows()
-                    ));
-                }
-                let fit = fit_gaussian_mixture(group.view(), 1, config)
-                    .map_err(|error| error.to_string())?;
-                let eval = GaussianComponentEval::factor(fit.means.row(0), &fit.covariances[0])?;
-                out.push(UnionComponentDensity::Gaussian { log_weight, eval });
-            }
-            UnionComponentKind::Circle => {
-                let d = group.ncols();
-                if d != 2 {
-                    return Err(format!(
-                        "union circle component density requires 2-D data, got {d} columns"
-                    ));
-                }
-                let n = group.nrows();
-                if n < 5 {
-                    return Err(format!(
-                        "union circle component density needs >= 5 rows, got {n}"
-                    ));
-                }
-                let mut cx = 0.0_f64;
-                let mut cy = 0.0_f64;
-                for i in 0..n {
-                    cx += group[[i, 0]];
-                    cy += group[[i, 1]];
-                }
-                cx /= n as f64;
-                cy /= n as f64;
-                let mut radius = 0.0_f64;
-                let mut radii = vec![0.0_f64; n];
-                for i in 0..n {
-                    let dx = group[[i, 0]] - cx;
-                    let dy = group[[i, 1]] - cy;
-                    let r = (dx * dx + dy * dy).sqrt();
-                    radii[i] = r;
-                    radius += r;
-                }
-                radius /= n as f64;
-                let mut var_r = 0.0_f64;
-                for &r in &radii {
-                    let e = r - radius;
-                    var_r += e * e;
-                }
-                var_r = (var_r / n as f64).max(config.covariance_floor);
-                out.push(UnionComponentDensity::Circle {
-                    log_weight,
-                    center: [cx, cy],
-                    radius,
-                    var_r,
-                });
+    }
+    let mut out = Array1::<f64>::zeros(eval.nrows());
+    let mut terms = vec![f64::NEG_INFINITY; components.len()];
+    for i in 0..eval.nrows() {
+        let row = eval.row(i);
+        let mut max_term = f64::NEG_INFINITY;
+        for (component_index, component) in components.iter().enumerate() {
+            let term = component.weighted_log_density(row);
+            terms[component_index] = term;
+            if term > max_term {
+                max_term = term;
             }
         }
+        let value = log_sum_exp(&terms, max_term);
+        if !value.is_finite() {
+            return Err(format!(
+                "union density produced non-finite log density at eval row {i}"
+            ));
+        }
+        out[i] = value;
     }
     Ok(out)
 }
@@ -2433,22 +3377,8 @@ pub fn union_per_point_log_density(
             eval.ncols()
         ));
     }
-    let densities = fit_union_component_densities(train, structure, config)?;
-    let mut out = Array1::<f64>::zeros(eval.nrows());
-    let mut terms = vec![f64::NEG_INFINITY; densities.len()];
-    for i in 0..eval.nrows() {
-        let row = eval.row(i);
-        let mut max_term = f64::NEG_INFINITY;
-        for (c, dens) in densities.iter().enumerate() {
-            let lt = dens.weighted_log_density(row);
-            terms[c] = lt;
-            if lt > max_term {
-                max_term = lt;
-            }
-        }
-        out[i] = log_sum_exp(&terms, max_term);
-    }
-    Ok(out)
+    let fitted = fit_union_density(train, structure, config)?;
+    score_union_components(&fitted.components, eval)
 }
 
 /// One fitted model in a REML/LAML evidence comparison.
@@ -4297,7 +5227,6 @@ mod tests {
             deflated_row_directions: std::sync::Arc::from(Vec::new()),
             deflation_row_spectra: std::sync::Arc::from(Vec::new()),
             beta_gauge_quotient: None,
-            cross_row_woodbury: None,
         };
         cache.joint_hessian_log_det = cache.compute_undamped_arrow_log_det();
         cache
@@ -4355,7 +5284,6 @@ mod tests {
             deflated_row_directions: std::sync::Arc::from(Vec::new()),
             deflation_row_spectra: std::sync::Arc::from(Vec::new()),
             beta_gauge_quotient: None,
-            cross_row_woodbury: None,
         };
         cache.joint_hessian_log_det = cache.compute_undamped_arrow_log_det();
         cache
@@ -4738,6 +5666,74 @@ mod tests {
     }
 
     #[test]
+    fn gaussian_mixture_issue_scale_negative_step_is_within_computed_uncertainty_2264() {
+        // Recorded issue mechanism: a signed mean-log-likelihood step of
+        // -1.4e-13 was rejected even though it is unresolved at the scale of
+        // the composite EM map. The admissible decrease below is derived only
+        // from that map's observed objective scale and arithmetic reduction
+        // bounds; the recorded step is an input to the decision, not a new
+        // tolerance.
+        let objective_scale = 1.0;
+        let recorded_step = -1.4e-13;
+        let uncertainty = gaussian_mixture_monotonicity_uncertainty(objective_scale, 0.0, 0.0);
+        let certificate = GaussianMixtureCertificate {
+            mean_log_likelihood: -objective_scale,
+            mean_log_likelihood_gain: recorded_step,
+            monotonicity_uncertainty: uncertainty,
+            objective_residual: recorded_step.abs() / objective_scale,
+            objective_tolerance: f64::EPSILON.sqrt(),
+            parameter_residual: 0.0,
+            parameter_tolerance: f64::EPSILON.sqrt(),
+        };
+
+        assert_eq!(
+            certificate.monotonicity_uncertainty,
+            f64::EPSILON.sqrt() * objective_scale,
+            "reported uncertainty must be the computed composite-map resolution"
+        );
+        assert!(
+            certificate.mean_log_likelihood_gain >= -certificate.monotonicity_uncertainty,
+            "the recorded noise-scale decrease must not be a monotonicity violation"
+        );
+    }
+
+    #[test]
+    fn gaussian_mixture_below_roundoff_positive_gain_can_certify_2264() {
+        // Recorded issue mechanism: a +6.6e-15 gain with a 1.5e-14 reduction
+        // bound exhausted instead of certifying. A below-resolution gain is a
+        // valid objective fixed point only when the independent parameter-map
+        // residual also clears its configured tolerance.
+        let objective_scale = 1.0;
+        let recorded_gain = 6.6e-15;
+        let recorded_reduction_bound = 1.5e-14;
+        let objective_tolerance = f64::EPSILON.sqrt();
+        let parameter_tolerance = f64::EPSILON.sqrt();
+        let uncertainty = gaussian_mixture_monotonicity_uncertainty(
+            objective_scale,
+            recorded_reduction_bound,
+            0.0,
+        );
+        let certificate = GaussianMixtureCertificate {
+            mean_log_likelihood: -objective_scale,
+            mean_log_likelihood_gain: recorded_gain,
+            monotonicity_uncertainty: uncertainty,
+            objective_residual: recorded_gain / objective_scale,
+            objective_tolerance,
+            parameter_residual: 0.5 * parameter_tolerance,
+            parameter_tolerance,
+        };
+
+        assert_eq!(
+            certificate.monotonicity_uncertainty,
+            (f64::EPSILON.sqrt() * objective_scale).max(recorded_reduction_bound),
+            "reported uncertainty must come from the composite-map and reduction bounds"
+        );
+        assert!(certificate.mean_log_likelihood_gain >= -certificate.monotonicity_uncertainty);
+        assert!(certificate.objective_residual <= certificate.objective_tolerance);
+        assert!(certificate.parameter_residual <= certificate.parameter_tolerance);
+    }
+
+    #[test]
     fn gaussian_mixture_fit_certificate_describes_the_exact_returned_iterate() {
         let data = two_cluster_mixture_data();
         let config = GaussianMixtureConfig::default();
@@ -4862,11 +5858,379 @@ mod tests {
             assert!((resumed - uninterrupted).abs() <= 1.0e-10);
         }
 
-        assert!(
-            resumed
-                .laplace_negative_log_evidence(other_data.view())
-                .is_err()
+        assert!(resumed.bic().is_finite());
+    }
+
+    #[test]
+    fn gaussian_mixture_bic_is_finite_with_an_active_covariance_floor() {
+        // Component zero is exactly one-dimensional: its x coordinate never
+        // changes, so the constrained MLE has one covariance eigenvalue at the
+        // configured floor. The old BHHH determinant had identically-zero
+        // mean-x and covariance-xy score columns and therefore rejected this
+        // perfectly valid constrained predictive density as non-SPD.
+        let per_cluster = 45usize;
+        let mut data = Array2::<f64>::zeros((2 * per_cluster, 2));
+        for sample in 0..per_cluster {
+            let phase = std::f64::consts::TAU * sample as f64 / per_cluster as f64;
+            data[[2 * sample, 0]] = -2.0;
+            data[[2 * sample, 1]] = 0.08 * phase.sin();
+            data[[2 * sample + 1, 0]] = 2.0 + 0.12 * phase.cos();
+            data[[2 * sample + 1, 1]] = 0.08 * phase.sin();
+        }
+        let fit = fit_gaussian_mixture(data.view(), 2, GaussianMixtureConfig::default())
+            .expect("the covariance floor defines a valid constrained mixture fit");
+        let bic = fit.bic();
+        assert!(bic.is_finite());
+        assert_eq!(
+            bic,
+            -fit.loglik + 0.5 * fit.num_free_parameters() as f64 * (data.nrows() as f64).ln()
         );
+    }
+
+    fn seven_clusters_on_a_circle_2262() -> Array2<f64> {
+        let clusters = 7usize;
+        let per_cluster = 32usize;
+        let mut data = Array2::<f64>::zeros((clusters * per_cluster, 2));
+        for cluster in 0..clusters {
+            let angle = std::f64::consts::TAU * cluster as f64 / clusters as f64;
+            let (sin_angle, cos_angle) = angle.sin_cos();
+            for sample in 0..per_cluster {
+                let phase = std::f64::consts::TAU * sample as f64 / per_cluster as f64;
+                // Vary the within-cluster radius while preserving its angular
+                // symmetry. A literal constant-radius micro-circle makes the
+                // Gaussian scale score identically zero and its empirical
+                // Fisher singular, which is not a Gaussian-cluster fixture.
+                let local_radius = 0.035 * (1.0 + 0.3 * (3.0 * phase).cos());
+                let radial_noise = local_radius * phase.cos();
+                let tangent_noise = local_radius * phase.sin();
+                let radius = 2.0 + radial_noise;
+                let row = cluster * per_cluster + sample;
+                data[[row, 0]] = 0.4 + radius * cos_angle - tangent_noise * sin_angle;
+                data[[row, 1]] = -0.3 + radius * sin_angle + tangent_noise * cos_angle;
+            }
+        }
+        data
+    }
+
+    fn two_noisy_circles_for_union() -> Array2<f64> {
+        let rows_per_circle = 96usize;
+        let mut data = Array2::<f64>::zeros((2 * rows_per_circle, 2));
+        for (circle, (center, radius)) in [([-4.0_f64, 0.3_f64], 1.2_f64), ([4.0, -0.2], 0.9)]
+            .into_iter()
+            .enumerate()
+        {
+            for sample in 0..rows_per_circle {
+                let angle = std::f64::consts::TAU * sample as f64 / rows_per_circle as f64;
+                let noisy_radius =
+                    radius + 0.045 * (3.0 * angle).cos() + 0.018 * (5.0 * angle).sin();
+                let row = circle * rows_per_circle + sample;
+                data[[row, 0]] = center[0] + noisy_radius * angle.cos();
+                data[[row, 1]] = center[1] + noisy_radius * angle.sin();
+            }
+        }
+        data
+    }
+
+    #[test]
+    fn circular_gaussian_density_avoids_extreme_scale_intermediate_overflow() {
+        let noise_variance = f64::MAX / 2.0;
+        let fit =
+            CircularGaussianFit2d::from_parameters([0.0, 0.0], 1.1e154, noise_variance).unwrap();
+        // Both `2πs` and `Rr` overflow if formed directly, although their log
+        // and the ratio `Rr/s` are representable.
+        let center_log_density = fit.log_density(0.0, 0.0);
+        let off_center_log_density = fit.log_density(1.7e154, 0.0);
+        assert!(center_log_density.is_finite());
+        assert!(off_center_log_density.is_finite());
+        let expected_center = -std::f64::consts::TAU.ln()
+            - noise_variance.ln()
+            - 0.5 * (fit.radius() / noise_variance.sqrt()).powi(2);
+        assert_eq!(center_log_density, expected_center);
+    }
+
+    #[test]
+    fn union_circles_use_the_shared_normalized_cartesian_density() {
+        let data = two_noisy_circles_for_union();
+        let config = GaussianMixtureConfig::default();
+        let density_fit =
+            fit_union_density(data.view(), UnionStructure::CircleCircle, config).unwrap();
+        let union = fit_union_structure(data.view(), UnionStructure::CircleCircle, config).unwrap();
+        assert_eq!(
+            union.total_parameters,
+            2 * CircularGaussianFit2d::NUM_FREE_PARAMETERS + 1
+        );
+        let component_weight_sum: f64 = union
+            .components
+            .iter()
+            .map(|component| component.mixing_weight)
+            .sum();
+        assert!((component_weight_sum - 1.0).abs() <= 8.0 * f64::EPSILON);
+
+        let mut fitted_centers = Array2::<f64>::zeros((density_fit.components.len(), 2));
+        for (index, component) in density_fit.components.iter().enumerate() {
+            let UnionDensityModel::Circle(fit) = &component.model else {
+                panic!("circle+circle union produced a non-circle density");
+            };
+            let center = fit.center();
+            fitted_centers[[index, 0]] = center[0];
+            fitted_centers[[index, 1]] = center[1];
+            let at_center = fit.log_density(center[0], center[1]);
+            let expected = -std::f64::consts::TAU.ln()
+                - fit.noise_variance().ln()
+                - 0.5 * (fit.radius() / fit.noise_variance().sqrt()).powi(2);
+            assert!(at_center.is_finite());
+            assert!((at_center - expected).abs() < 1.0e-12 * (1.0 + expected.abs()));
+        }
+
+        let training_log_density = union_per_point_log_density(
+            data.view(),
+            data.view(),
+            UnionStructure::CircleCircle,
+            config,
+        )
+        .unwrap();
+        let direct_log_likelihood = pairwise_sum(
+            training_log_density
+                .as_slice()
+                .expect("owned score vector is contiguous"),
+        );
+        assert!(
+            (union.log_likelihood - direct_log_likelihood).abs()
+                <= 1.0e-12 * (1.0 + direct_log_likelihood.abs())
+        );
+        let expected_bic = -direct_log_likelihood
+            + 0.5 * union.total_parameters as f64 * (data.nrows() as f64).ln();
+        assert!((union.bic - expected_bic).abs() <= 1.0e-12 * (1.0 + expected_bic.abs()));
+
+        let held_out = union_per_point_log_density(
+            data.view(),
+            fitted_centers.view(),
+            UnionStructure::CircleCircle,
+            config,
+        )
+        .unwrap();
+        assert!(held_out.iter().all(|value| value.is_finite()));
+    }
+
+    fn circle_and_point_union_data() -> (Array2<f64>, Vec<Vec<usize>>) {
+        let circle_rows = 32usize;
+        let point_rows = 12usize;
+        let mut data = Array2::<f64>::zeros((circle_rows + point_rows, 2));
+        for row in 0..circle_rows {
+            let angle = std::f64::consts::TAU * row as f64 / circle_rows as f64;
+            let radius = 1.0 + 0.025 * (3.0 * angle).cos();
+            data[[row, 0]] = -4.0 + radius * angle.cos();
+            data[[row, 1]] = 0.2 + radius * angle.sin();
+        }
+        for offset in 0..point_rows {
+            let phase = offset as f64;
+            let row = circle_rows + offset;
+            data[[row, 0]] = 4.0 + 0.055 * (1.7 * phase).cos() + 0.018 * (0.4 * phase).sin();
+            data[[row, 1]] = -0.3 + 0.052 * (1.3 * phase).sin() - 0.015 * (0.9 * phase).cos();
+        }
+        (
+            data,
+            vec![
+                (0..circle_rows).collect(),
+                (circle_rows..circle_rows + point_rows).collect(),
+            ],
+        )
+    }
+
+    #[test]
+    fn heterogeneous_union_role_assignment_is_group_label_invariant() {
+        let (data, groups) = circle_and_point_union_data();
+        let config = GaussianMixtureConfig::default();
+        let forward = fit_union_density_from_groups(
+            data.view(),
+            UnionStructure::CirclePointCluster,
+            &groups,
+            config,
+        )
+        .unwrap();
+        let reversed_groups = vec![groups[1].clone(), groups[0].clone()];
+        let reversed = fit_union_density_from_groups(
+            data.view(),
+            UnionStructure::CirclePointCluster,
+            &reversed_groups,
+            config,
+        )
+        .unwrap();
+
+        assert_eq!(forward.components[0].kind, UnionComponentKind::Circle);
+        assert_eq!(forward.components[1].kind, UnionComponentKind::PointCluster);
+        assert_eq!(
+            reversed.components[0].kind,
+            UnionComponentKind::PointCluster
+        );
+        assert_eq!(reversed.components[1].kind, UnionComponentKind::Circle);
+        assert_eq!(forward.total_parameters, 4 + 3 + 1);
+        assert_eq!(reversed.total_parameters, forward.total_parameters);
+        assert!(
+            (forward.log_likelihood - reversed.log_likelihood).abs()
+                <= 1.0e-12 * (1.0 + forward.log_likelihood.abs())
+        );
+        assert!((forward.bic - reversed.bic).abs() <= 1.0e-12 * (1.0 + forward.bic.abs()));
+    }
+
+    #[test]
+    fn point_cluster_is_isotropic_and_line_remains_full_covariance() {
+        let (mut data, mut groups) = circle_and_point_union_data();
+        // Replace the first group by a narrow, genuinely anisotropic line so
+        // the line role is identifiable without changing the point group.
+        for row in 0..groups[0].len() {
+            let coordinate = (row as f64 - 15.5) / 4.0;
+            data[[row, 0]] = -4.0 + coordinate;
+            data[[row, 1]] = 0.2 + 0.018 * coordinate + 0.006 * (1.9 * row as f64).sin();
+        }
+        let fit = fit_union_density_from_groups(
+            data.view(),
+            UnionStructure::LineCluster,
+            &groups,
+            GaussianMixtureConfig::default(),
+        )
+        .unwrap();
+        assert_eq!(fit.components[0].kind, UnionComponentKind::Line);
+        assert_eq!(fit.components[0].num_parameters, 5);
+        assert_eq!(fit.components[1].kind, UnionComponentKind::PointCluster);
+        assert_eq!(fit.components[1].num_parameters, 3);
+        assert_eq!(fit.total_parameters, 5 + 3 + 1);
+
+        let UnionDensityModel::Gaussian(point) = &fit.components[1].model else {
+            panic!("point cluster did not produce a Gaussian density");
+        };
+        assert_eq!(point.precision[[0, 1]], 0.0);
+        assert_eq!(point.precision[[1, 0]], 0.0);
+        assert_eq!(point.precision[[0, 0]], point.precision[[1, 1]]);
+        let total_weight: f64 = fit
+            .components
+            .iter()
+            .map(|component| component.mixing_weight)
+            .sum();
+        assert!((total_weight - 1.0).abs() <= 8.0 * f64::EPSILON);
+
+        // Reversing group labels must reverse the selected roles, not the
+        // fitted unlabeled mixture density or its common-scale score.
+        groups.reverse();
+        let reversed = fit_union_density_from_groups(
+            data.view(),
+            UnionStructure::LineCluster,
+            &groups,
+            GaussianMixtureConfig::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            reversed.components[0].kind,
+            UnionComponentKind::PointCluster
+        );
+        assert_eq!(reversed.components[1].kind, UnionComponentKind::Line);
+        assert!((fit.bic - reversed.bic).abs() <= 1.0e-12 * (1.0 + fit.bic.abs()));
+    }
+
+    #[test]
+    fn isotropic_union_density_uses_the_same_fractional_mean_chart_as_its_mle() {
+        let translated = ndarray::array![[1.0e16], [1.0e16 + 2.0], [1.0e16 + 2.0]];
+        let fit = fit_isotropic_gaussian_component(translated.view(), 1.0e-12).unwrap();
+        let variance = fit.precision[[0, 0]].recip();
+        assert!((variance - 8.0 / 9.0).abs() <= 32.0 * f64::EPSILON);
+
+        let residuals = [-4.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0];
+        let expected_log_norm = -0.5 * ((2.0 * std::f64::consts::PI).ln() + variance.ln());
+        for (row, residual) in residuals.into_iter().enumerate() {
+            let expected = expected_log_norm - 0.5 * residual * residual / variance;
+            let actual = fit.log_density(translated.row(row));
+            assert!(
+                (actual - expected).abs() <= 32.0 * f64::EPSILON * (1.0 + expected.abs()),
+                "row {row}: density chart disagrees with fitted MLE residual: actual={actual}, expected={expected}"
+            );
+        }
+
+        let subnormal = f64::from_bits(1);
+        let constant = ndarray::array![[subnormal], [subnormal], [subnormal]];
+        let constant_fit = fit_isotropic_gaussian_component(constant.view(), 1.0).unwrap();
+        assert_eq!(constant_fit.residual(constant.row(0)), vec![0.0]);
+        assert_eq!(
+            constant_fit.log_density(constant.row(0)),
+            constant_fit.log_norm
+        );
+    }
+
+    #[test]
+    fn union_ladder_fails_closed_when_one_declared_structure_fails() {
+        let mut data = Array2::<f64>::zeros((8, 2));
+        for row in 0..5 {
+            let angle = std::f64::consts::TAU * row as f64 / 5.0;
+            data[[row, 0]] = -5.0 + angle.cos();
+            data[[row, 1]] = angle.sin();
+        }
+        data[[5, 0]] = 5.00;
+        data[[5, 1]] = 0.00;
+        data[[6, 0]] = 5.08;
+        data[[6, 1]] = 0.02;
+        data[[7, 0]] = 4.97;
+        data[[7, 1]] = 0.07;
+
+        let error = fit_union_ladder(data.view(), GaussianMixtureConfig::default()).unwrap_err();
+        assert!(error.contains("every declared structure must fit"));
+        assert!(error.contains(UnionStructure::CircleCircle.as_str()));
+        assert!(error.contains("needs at least 5 rows"));
+    }
+
+    #[test]
+    fn ring_of_clusters_fit_is_stationary_and_complexity_priced_2262() {
+        let data = seven_clusters_on_a_circle_2262();
+        let config = GaussianMixtureConfig::default();
+        let fit = fit_ring_gaussian_mixture(data.view(), 7, config).unwrap();
+        let certificate = fit.certificate();
+        assert!(certificate.objective_residual <= certificate.objective_tolerance);
+        assert!(certificate.parameter_residual <= certificate.parameter_tolerance);
+        assert_eq!(fit.num_free_parameters(), 17);
+        assert!((fit.center()[0] - 0.4).abs() < 0.05);
+        assert!((fit.center()[1] + 0.3).abs() < 0.05);
+        assert!((fit.radius() - 2.0).abs() < 0.05);
+        assert!(fit.variance().is_finite() && fit.variance() > 0.0);
+        assert!(
+            fit.per_point_log_density(data.view())
+                .unwrap()
+                .iter()
+                .all(|value| value.is_finite())
+        );
+        assert!(fit.bic().is_finite());
+
+        let free = fit_gaussian_mixture(data.view(), 7, config).unwrap();
+        assert_eq!(free.num_free_parameters(), 41);
+        assert!(fit.num_free_parameters() < free.num_free_parameters());
+    }
+
+    #[test]
+    fn ring_certificate_uses_identifiable_component_means() {
+        // The points (.3, ±sqrt(.91)) lie on both unit circles centered at
+        // (0, 0) and (.6, 0). Repeating one point gives three labelled
+        // components. Thus center and directions move by O(1) while every
+        // component mean—and therefore the represented mixture density—is
+        // bit-identical.
+        let y = 0.91_f64.sqrt();
+        let weights = Array1::from_vec(vec![0.2, 0.3, 0.5]);
+        let previous = RingMixtureState {
+            weights: weights.clone(),
+            center: Array1::from_vec(vec![0.0, 0.0]),
+            radius: 1.0,
+            directions: Array2::from_shape_vec((3, 2), vec![0.3, y, 0.3, -y, 0.3, y]).unwrap(),
+            variance: 0.25,
+            mean_log_likelihood: -1.0,
+            completed_iterations: 10,
+        };
+        let next = RingMixtureState {
+            weights,
+            center: Array1::from_vec(vec![0.6, 0.0]),
+            radius: 1.0,
+            directions: Array2::from_shape_vec((3, 2), vec![-0.3, y, -0.3, -y, -0.3, y]).unwrap(),
+            variance: 0.25,
+            mean_log_likelihood: -1.0,
+            completed_iterations: 11,
+        };
+        assert!(relative_parameter_step(previous.center[0], next.center[0]) > 0.5);
+        assert_eq!(ring_identifiable_parameter_residual(&previous, &next), 0.0);
     }
 
     #[test]

@@ -30,8 +30,8 @@ pub fn erfc(x: f64) -> f64 {
 // The functions below are the CPU-side, device-free mirror of the CUDA source
 // in [`crate::numerics_device::PROBIT_NUMERICS_CU`]. They are written
 // LINE-FOR-LINE against that kernel source — the SAME branch structure, the
-// SAME clamps (`1e-300`, `[0,1]`), the SAME asymptotic `erfcx` polynomial, and
-// the SAME four constants — differing only in that they call the host `libm`
+// SAME asymptotic `erfcx` polynomial, and the SAME constants — differing only
+// in that they call the host `libm`
 // transcendentals (`erfc`/`exp`/`log`) where the kernel calls the device
 // `erfc`/`exp`/`log`. Both sides are the SunOS *msun* double-precision
 // implementations, so the host oracle matches the device to within ~1 ULP per
@@ -51,42 +51,46 @@ pub fn erfc(x: f64) -> f64 {
 pub const INV_SQRT_2PI: f64 = 0.3989422804014327;
 /// `√2`, matching `SQRT_2` in the kernel source bit-for-bit.
 pub const SQRT_2: f64 = 1.4142135623730951;
+/// `ln(2)`, matching `LN_2` in the kernel source bit-for-bit.
+pub const LN_2: f64 = 0.6931471805599453;
 /// `1/√π`, matching `inv_sqrt_pi` in the kernel source bit-for-bit.
 pub const INV_SQRT_PI: f64 = 0.5641895835477563;
 /// `√(2/π)`, matching `sqrt_2_over_pi` in the kernel source bit-for-bit.
 pub const SQRT_2_OVER_PI: f64 = 0.7978845608028654;
 
 /// Scaled complementary error function `erfcx(x) = exp(x²)·erfc(x)` for `x ≥ 0`,
-/// the host oracle for the device `erfcx_nonnegative`. Returns `1.0` for
-/// `x ≤ 0`, `0.0` at `+∞`, `+∞` at `−∞`. For `0 < x < 26` evaluates the direct
-/// `exp(min(x², 700))·erfc(x)` form; beyond that (where `exp(x²)` would
-/// overflow) it switches to the same 4-term asymptotic expansion as the kernel.
+/// the host oracle for the device `erfcx_nonnegative`. Returns `0.0` at `+∞`;
+/// negative inputs and `NaN` return `NaN` because they violate the restricted
+/// domain. For `0 ≤ x < 26` evaluates `exp(x²)·erfc(x)` directly; beyond that
+/// it switches to the same six-correction asymptotic expansion as the kernel.
 pub fn erfcx_nonnegative(x: f64) -> f64 {
-    if !x.is_finite() {
-        return if x > 0.0 { 0.0 } else { f64::INFINITY };
+    if x.is_nan() || x < 0.0 {
+        return f64::NAN;
     }
-    if x <= 0.0 {
-        return 1.0;
+    if x == f64::INFINITY {
+        return 0.0;
     }
     if x < 26.0 {
-        let mut xx = x * x;
-        if xx > 700.0 {
-            xx = 700.0;
-        }
-        return libm::exp(xx) * erfc(x);
+        return libm::exp(x * x) * erfc(x);
     }
     let inv = 1.0 / x;
     let inv2 = inv * inv;
-    let poly = 1.0 - 0.5 * inv2 + 0.75 * inv2 * inv2 - 1.875 * inv2 * inv2 * inv2
-        + 6.5625 * inv2 * inv2 * inv2 * inv2;
+    let poly = 1.0
+        + inv2
+            * (-0.5
+                + inv2
+                    * (0.75
+                        + inv2
+                            * (-1.875 + inv2 * (6.5625 + inv2 * (-29.53125 + inv2 * 162.421875)))));
     inv * poly * INV_SQRT_PI
 }
 
 /// `log Φ(x)` for the standard normal CDF, the host oracle for the device
 /// `log_ndtr`. For `x < 0` uses the `erfcx` representation
 /// `log Φ(x) = −u² + log(½·erfcx(u))`, `u = −x/√2`, keeping digits into the
-/// deep left tail; for `x ≥ 0` uses `log(½·erfc(−x/√2))` with the same clamps as
-/// the kernel. Propagates `±∞`/`NaN` exactly as the device path does.
+/// deep left tail; for `x ≥ 0` uses `log1p(−½·erfc(x/√2))`, retaining the
+/// negative tail after the CDF rounds to one. Propagates `±∞`/`NaN` exactly as
+/// the device path does.
 pub fn log_ndtr(x: f64) -> f64 {
     if x == f64::INFINITY {
         return 0.0;
@@ -99,20 +103,11 @@ pub fn log_ndtr(x: f64) -> f64 {
     }
     if x < 0.0 {
         let u = -x / SQRT_2;
-        let mut ex = erfcx_nonnegative(u);
-        if ex < 1e-300 {
-            ex = 1e-300;
-        }
-        -u * u + libm::log(0.5 * ex)
+        let ex = erfcx_nonnegative(u);
+        -u * u + libm::log(ex) - LN_2
     } else {
-        let mut c = 0.5 * erfc(-x / SQRT_2);
-        if c < 1e-300 {
-            c = 1e-300;
-        }
-        if c > 1.0 {
-            c = 1.0;
-        }
-        libm::log(c)
+        let upper_tail = 0.5 * erfc(x / SQRT_2);
+        libm::log1p(-upper_tail)
     }
 }
 
@@ -133,26 +128,55 @@ pub fn log_ndtr_and_mills(x: f64) -> (f64, f64) {
     }
     if x < 0.0 {
         let u = -x / SQRT_2;
-        let mut ex = erfcx_nonnegative(u);
-        if ex < 1e-300 {
-            ex = 1e-300;
-        }
-        let log_cdf = -u * u + libm::log(0.5 * ex);
+        let ex = erfcx_nonnegative(u);
+        let log_cdf = -u * u + libm::log(ex) - LN_2;
         let lambda = SQRT_2_OVER_PI / ex;
         (log_cdf, lambda)
     } else {
-        let mut cdf = 0.5 * erfc(-x / SQRT_2);
-        if cdf < 1e-300 {
-            cdf = 1e-300;
-        }
-        if cdf > 1.0 {
-            cdf = 1.0;
-        }
+        let upper_tail = 0.5 * erfc(x / SQRT_2);
+        let cdf = 1.0 - upper_tail;
         let pdf = INV_SQRT_2PI * libm::exp(-0.5 * x * x);
-        let log_cdf = libm::log(cdf);
+        let log_cdf = libm::log1p(-upper_tail);
         let lambda = pdf / cdf;
         (log_cdf, lambda)
     }
+}
+
+/// Joint `(log Φ(x), φ(x)/Φ(x), −d²log Φ(x)/dx²)` host oracle.
+///
+/// The curvature's deep-left branch differentiates the same 32-level Laplace
+/// continued fraction as the CPU model kernel, retaining its unit limit without
+/// subtracting the nearly equal `x` and Mills ratio. The CUDA source mirrors
+/// this operation order; host/device transcendental channels are ULP-close,
+/// while the rational curvature branch is operation-for-operation identical
+/// when device FMA contraction is disabled.
+pub fn log_ndtr_mills_curvature(x: f64) -> (f64, f64, f64) {
+    let (log_cdf, lambda) = log_ndtr_and_mills(x);
+    if x.is_nan() {
+        return (log_cdf, lambda, x);
+    }
+    if x.is_infinite() {
+        return (
+            log_cdf,
+            lambda,
+            if x.is_sign_positive() { 0.0 } else { 1.0 },
+        );
+    }
+    let curvature = if x <= -4.0 {
+        let t = -x;
+        let mut q = 0.0;
+        let mut q_first = 0.0;
+        for n in (1..=32).rev() {
+            let denominator = t + q;
+            let value = f64::from(n) / denominator;
+            q_first = -value * (1.0 + q_first) / denominator;
+            q = value;
+        }
+        1.0 + q_first
+    } else {
+        lambda * (x + lambda)
+    };
+    (log_cdf, lambda, curvature)
 }
 
 #[cfg(test)]
@@ -206,6 +230,7 @@ mod probit_parity_tests {
         for (needle, host) in [
             ("#define INV_SQRT_2PI", INV_SQRT_2PI),
             ("#define SQRT_2", SQRT_2),
+            ("#define LN_2", LN_2),
             ("inv_sqrt_pi =", INV_SQRT_PI),
             ("sqrt_2_over_pi =", SQRT_2_OVER_PI),
         ] {
@@ -225,7 +250,7 @@ mod probit_parity_tests {
     /// `device_cache`'s `--fmad=false`; this guards the source itself.
     #[test]
     fn kernel_source_uses_msun_transcendentals_only() {
-        for good in ["erfc(", "exp(", "log("] {
+        for good in ["erfc(", "exp(", "log(", "log1p("] {
             assert!(
                 PROBIT_NUMERICS_CU.contains(good),
                 "kernel source should call msun `{good}`"
@@ -270,9 +295,10 @@ mod probit_parity_tests {
     #[test]
     fn erfcx_matches_definition() {
         assert_eq!(erfcx_nonnegative(0.0), 1.0);
-        assert_eq!(erfcx_nonnegative(-3.0), 1.0);
+        assert!(erfcx_nonnegative(-3.0).is_nan());
+        assert!(erfcx_nonnegative(f64::NEG_INFINITY).is_nan());
+        assert!(erfcx_nonnegative(f64::NAN).is_nan());
         assert_eq!(erfcx_nonnegative(f64::INFINITY), 0.0);
-        assert_eq!(erfcx_nonnegative(f64::NEG_INFINITY), f64::INFINITY);
         let mut worst = 0.0_f64;
         let mut x = 0.1;
         while x < 25.0 {
@@ -282,20 +308,55 @@ mod probit_parity_tests {
         assert!(worst <= 4.0, "erfcx definition drift {worst:.3} ULP > 4");
     }
 
-    /// `log_ndtr` boundary + bulk identity `log Φ(x) = log(½·erfc(-x/√2))` to
-    /// ≤ 2 ULP for `|x| ≤ 3`, and `Φ(x)+Φ(-x)=1` to ≤ 4e-16.
+    #[test]
+    fn erfcx_asymptotic_switch_and_subnormal_contract_match_device_source() {
+        let switch = 26.0_f64;
+        let direct = libm::exp(switch * switch) * erfc(switch);
+        assert!(
+            (erfcx_nonnegative(switch) / direct - 1.0).abs() < 5.0e-14,
+            "erfcx switch disagrees with direct finite identity"
+        );
+        let tail = erfcx_nonnegative(f64::MAX);
+        assert!(tail > 0.0 && tail.is_subnormal(), "erfcx(MAX)={tail:e}");
+
+        for required in [
+            "isnan(x) || x < 0.0",
+            "inv2 * 162.421875",
+            "log1p(-upper_tail)",
+            "log_ndtr_mills_curvature",
+        ] {
+            assert!(
+                PROBIT_NUMERICS_CU.contains(required),
+                "device source lost shared tail contract `{required}`"
+            );
+        }
+        for forbidden in ["1e-300", "if (xx > 700.0)", "if (cdf > 1.0)", "1.0 / 0.0"] {
+            assert!(
+                !PROBIT_NUMERICS_CU.contains(forbidden),
+                "device source reintroduced numerical projection `{forbidden}`"
+            );
+        }
+    }
+
+    /// `log_ndtr` boundary + stable bulk Gaussian identity to ≤ 2 ULP for
+    /// `|x| ≤ 3`, and `Φ(x)+Φ(-x)=1` to ≤ 4e-16.
     #[test]
     fn log_ndtr_matches_log_cdf_and_reflects() {
         assert_eq!(log_ndtr(0.0), libm::log(0.5));
         assert_eq!(log_ndtr(f64::INFINITY), 0.0);
         assert_eq!(log_ndtr(f64::NEG_INFINITY), f64::NEG_INFINITY);
         assert!(log_ndtr(f64::NAN).is_nan());
+        assert!(log_ndtr(10.0) < 0.0);
 
         let mut worst_bulk = 0.0_f64;
         for i in -30..=30 {
             let x = i as f64 * 0.1;
-            let cdf = 0.5 * erfc(-x / SQRT_2);
-            worst_bulk = worst_bulk.max(ulp(log_ndtr(x), libm::log(cdf)));
+            let expected = if x < 0.0 {
+                libm::log(0.5 * erfc(-x / SQRT_2))
+            } else {
+                libm::log1p(-0.5 * erfc(x / SQRT_2))
+            };
+            worst_bulk = worst_bulk.max(ulp(log_ndtr(x), expected));
         }
         assert!(
             worst_bulk <= 2.0,
@@ -351,5 +412,35 @@ mod probit_parity_tests {
             log_ndtr_and_mills(f64::NEG_INFINITY),
             (f64::NEG_INFINITY, f64::INFINITY)
         );
+    }
+
+    #[test]
+    fn log_ndtr_curvature_keeps_unit_left_tail_and_matches_mills_derivative() {
+        let (_, lambda, curvature) = log_ndtr_mills_curvature(-1.0e100);
+        assert_eq!(lambda, 1.0e100);
+        assert_eq!(curvature, 1.0);
+        assert_eq!(log_ndtr_mills_curvature(f64::INFINITY), (0.0, 0.0, 0.0));
+        assert_eq!(
+            log_ndtr_mills_curvature(f64::NEG_INFINITY),
+            (f64::NEG_INFINITY, f64::INFINITY, 1.0)
+        );
+        assert!(
+            log_ndtr_mills_curvature(f64::NAN)
+                .into_iter()
+                .all(f64::is_nan)
+        );
+
+        let h = 1.0e-5;
+        for x in [-8.0_f64, -4.0, -2.0, 0.0, 3.0] {
+            let (_, _, analytic) = log_ndtr_mills_curvature(x);
+            let (_, left) = log_ndtr_and_mills(x - h);
+            let (_, right) = log_ndtr_and_mills(x + h);
+            let finite_difference = -(right - left) / (2.0 * h);
+            let relative = (finite_difference - analytic).abs() / analytic.abs().max(1.0e-300);
+            assert!(
+                relative < 2.0e-8,
+                "curvature fd mismatch x={x}: analytic={analytic:e}, fd={finite_difference:e}, rel={relative:e}"
+            );
+        }
     }
 }

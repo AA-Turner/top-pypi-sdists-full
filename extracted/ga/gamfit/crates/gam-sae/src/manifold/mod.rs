@@ -107,18 +107,18 @@ use std::sync::Arc;
 pub(crate) use gam_solve::arrow_schur::{
     ArrowProximalCorrectionOptions, ArrowRowBlock, ArrowSchurError, ArrowSchurSystem,
     ArrowSolveOptions, BetaPenaltyOp, CompositePenaltyOp, DensePenaltyOp, DeviceSaePcgData,
-    DeviceSaeSmoothBlock, FactoredFrameGBlock, FactoredFrameKroneckerOp, IbpCrossRowSource,
+    DeviceSaeSmoothBlock, FactoredFrameGBlock, FactoredFrameKroneckerOp,
     IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp, SparseGBlock,
     SparseRankOnePenaltyOp, StreamingArrowSchur, matrix_free_arrow_inverse_apply,
     matrix_free_arrow_operator_apply, prepare_sae_resident_frame, row_sub_floor_null_directions,
     solve_arrow_newton_step_with_proximal_correction, solve_streaming_reduced_beta,
-    solve_with_lm_escalation_inner, streaming_cross_row_woodbury_log_det,
+    solve_with_lm_escalation_inner,
 };
 
 pub(crate) use gam_terms::analytic_penalties::{
     AnalyticPenalty, AnalyticPenaltyKind, AnalyticPenaltyRegistry, DecoderIncoherencePenalty,
-    IbpHessianDiagThirdChannels, IsometryPenalty, MechanismSparsityPenalty, NuclearNormPenalty,
-    PenaltyTier, PsiSlice, WeightField,
+    IsometryPenalty, MechanismSparsityPenalty, NuclearNormPenalty,
+    OrderedBetaBernoulliHessianDiagThirdChannels, PenaltyTier, PsiSlice, WeightField,
 };
 // The FFI seed path resolves learnable α through the exact terminal-ρ schedule
 // (`gam::terms::sae::manifold::resolve_learnable_weight`), so this re-export
@@ -143,7 +143,7 @@ pub(crate) use gam_solve::arrow_schur::{
     solve_arrow_newton_step_with_options,
 };
 
-// #988 memory-matrix-free evidence log-det: the reduced-Schur SLQ entry point
+// #988 memory-matrix-free criterion log-det: the reduced-Schur SLQ entry point
 // and its shared tuning constants, used when the dense k×k Schur exceeds budget.
 pub(crate) use gam_solve::arrow_schur::{
     SCHUR_SLQ_LOGDET_LANCZOS_STEPS, SCHUR_SLQ_LOGDET_PROBES, SCHUR_SLQ_LOGDET_SEED,
@@ -164,6 +164,7 @@ pub(crate) use gam_solve::evidence::arrow_log_det_from_cache;
 pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianValue, OuterEval};
 pub(crate) use gam_solve::rho_optimizer::{
     OuterCapability, OuterConvergedVia, OuterEvalOrder, OuterObjective, SeedOutcome,
+    fd_outer_hessian_from_gradient,
 };
 
 pub(crate) use gam_solve::structure_search::{CollapseAction, CollapseEvent};
@@ -211,6 +212,7 @@ mod fit_seed;
 mod gauge;
 mod graph_atom;
 mod inframe_curved;
+mod intrinsic_seed;
 mod isa_seed;
 mod kronecker;
 pub mod lift;
@@ -262,17 +264,12 @@ mod tests_collapse_2132;
 mod tests_factored_htbeta;
 
 #[cfg(test)]
-mod tests_bessel_normaliser_1113;
-
-#[cfg(test)]
 mod tests_parallelism_invariance_1557;
 
 #[cfg(test)]
 mod tests_olmo;
 
 #[cfg(test)]
-mod tests_ibp_capacity_1784;
-
 #[cfg(test)]
 mod tests_startup_validation_1782;
 
@@ -302,6 +299,9 @@ mod tests_streaming_seed_parity_2134;
 
 #[cfg(test)]
 mod tests_recovery_split_780;
+
+#[cfg(test)]
+mod tests_intrinsic_seed_swiss_roll_2280;
 
 #[cfg(test)]
 mod tests_unit_speed_inloop_2022;
@@ -341,6 +341,9 @@ mod tests_tier0_shared_mean_2023;
 
 #[cfg(test)]
 mod tests_tier0_primary_path_2023;
+
+#[cfg(test)]
+mod tests_certify_external_2266;
 
 #[cfg(test)]
 mod tests_structured_residual_floor;
@@ -394,15 +397,15 @@ mod tests_cocollapse_disjoint_2027;
 mod tests_cocollapse_reseed_2089;
 
 #[cfg(test)]
-mod tests_topk_divergence_2134;
-
 #[cfg(test)]
-mod tests_outer_reml_probe_budget_2080;
+mod tests_outer_quasi_laplace_probe_budget_2080;
 
 #[cfg(test)]
 #[cfg(test)]
 mod lambda_smooth_1556_tests;
 
+#[cfg(test)]
+mod tests_behavior_column_equilibration_2015;
 #[cfg(test)]
 mod tests_behavior_isometry_2015;
 #[cfg(test)]
@@ -519,6 +522,7 @@ pub use fit_seed::*;
 pub use gauge::*;
 pub use graph_atom::*;
 pub use inframe_curved::*;
+pub use intrinsic_seed::*;
 pub use isa_seed::*;
 pub(crate) use kronecker::*;
 pub use loss::*;

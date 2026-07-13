@@ -2,6 +2,13 @@ import pytest
 import sys
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 @pytest.mark.timeout(900)
 def test_sms_exhaustive_native_text(tmp_path):
     """Verify exhaustive SMS native sending."""

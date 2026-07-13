@@ -1210,6 +1210,86 @@ def test_extract_bash_emits_source_imports_from(tmp_path):
     assert import_edges[0].get("context") == "import"
 
 
+@pytest.mark.parametrize("command", ["./helpers.sh", "bash ./helpers.sh"])
+def test_extract_bash_emits_script_invocation_calls(tmp_path, command):
+    helpers = tmp_path / "helpers.sh"
+    helpers.write_text("#!/bin/bash\necho helper\n", encoding="utf-8")
+    script = tmp_path / "deploy.sh"
+    script.write_text(f"#!/bin/bash\n{command}\n", encoding="utf-8")
+
+    result = extract_bash(script)
+    invocation = [
+        edge for edge in result["edges"]
+        if edge.get("relation") == "calls" and edge.get("context") == "script_invocation"
+    ]
+
+    assert invocation == [{
+        "source": _make_id(str(script)) + "__entry",
+        "target": _make_id(str(helpers.resolve())) + "__entry",
+        "relation": "calls",
+        "confidence": "EXTRACTED",
+        "source_file": str(script),
+        "source_location": "L2",
+        "weight": 1.0,
+        "context": "script_invocation",
+    }]
+
+
+def test_extract_bash_skips_missing_and_shadowed_script_invocations(tmp_path):
+    helpers = tmp_path / "helpers.sh"
+    helpers.write_text("#!/bin/bash\necho helper\n", encoding="utf-8")
+    script = tmp_path / "deploy.sh"
+    script.write_text(
+        "#!/bin/bash\n"
+        "bash() { echo custom; }\n"
+        "bash ./helpers.sh\n"
+        "./missing.sh\n",
+        encoding="utf-8",
+    )
+
+    result = extract_bash(script)
+
+    assert not any(edge.get("context") == "script_invocation" for edge in result["edges"])
+
+
+def test_extract_bash_skips_dynamic_script_invocation(tmp_path):
+    helpers = tmp_path / "helpers.sh"
+    helpers.write_text("#!/bin/bash\necho helper\n", encoding="utf-8")
+    script = tmp_path / "deploy.sh"
+    script.write_text('#!/bin/bash\nbash "./$SCRIPT.sh"\n', encoding="utf-8")
+
+    result = extract_bash(script)
+
+    assert not any(edge.get("context") == "script_invocation" for edge in result["edges"])
+
+
+def test_extract_bash_relative_script_invocation_targets_existing_entrypoint(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    helpers = Path("helpers.sh")
+    helpers.write_text("#!/bin/bash\necho helper\n", encoding="utf-8")
+    script = Path("deploy.sh")
+    script.write_text("#!/bin/bash\n./helpers.sh\n", encoding="utf-8")
+
+    result = extract([script, helpers], cache_root=tmp_path, parallel=False)
+    node_ids = {node["id"] for node in result["nodes"]}
+    invocation = next(edge for edge in result["edges"] if edge.get("context") == "script_invocation")
+
+    assert invocation["target"] in node_ids
+
+
+def test_extract_bash_attributes_script_invocation_to_function(tmp_path):
+    helpers = tmp_path / "helpers.sh"
+    helpers.write_text("#!/bin/bash\necho helper\n", encoding="utf-8")
+    script = tmp_path / "deploy.sh"
+    script.write_text("#!/bin/bash\ndeploy() { bash ./helpers.sh; }\n", encoding="utf-8")
+
+    result = extract_bash(script)
+    deploy = next(node for node in result["nodes"] if node["label"] == "deploy()")
+    invocation = next(edge for edge in result["edges"] if edge.get("context") == "script_invocation")
+
+    assert invocation["source"] == deploy["id"]
+
+
 def test_extract_bash_no_self_loops():
     result = extract_bash(FIXTURES / "sample.sh")
     for e in result["edges"]:
@@ -1959,3 +2039,64 @@ def test_matlab_m_not_extracted_as_garbage(tmp_path, capsys):
     result = extract([m], cache_root=tmp_path)
     assert result["nodes"] == []                           # no garbage ObjC nodes
     assert "no AST extractor" in capsys.readouterr().err    # surfaced, not silent
+
+
+def test_rewire_binds_cross_module_function_reference_to_definition():
+    """#1781: a cross-module reference to a function must land on the real
+    definition, not a sourceless name-only stub (functions were excluded as
+    rewire targets)."""
+    from graphify.extract import _rewire_unique_stub_nodes
+    nodes = [
+        {"id": "pkg_dep_get_db", "label": "get_db()", "file_type": "code",
+         "source_file": "pkg/dep.py", "source_location": "L1"},
+        {"id": "get_db", "label": "get_db()", "file_type": "code", "source_file": ""},
+    ]
+    edges = [{"source": "pkg_ep_route", "target": "get_db", "relation": "references",
+              "source_file": "pkg/ep.py", "weight": 1.0}]
+    _rewire_unique_stub_nodes(nodes, edges)
+    assert edges[0]["target"] == "pkg_dep_get_db"
+    assert "get_db" not in {n["id"] for n in nodes}  # stub dropped
+
+
+def test_rewire_does_not_bind_function_reference_across_language():
+    """#1781 safety: a Python reference stub must not bind to a unique Go
+    function of the same name (mirrors the #1749 interop guard)."""
+    from graphify.extract import _rewire_unique_stub_nodes
+    nodes = [
+        {"id": "svc_get_db", "label": "get_db()", "file_type": "code",
+         "source_file": "svc/main.go", "source_location": "L1"},
+        {"id": "get_db", "label": "get_db()", "file_type": "code", "source_file": ""},
+    ]
+    edges = [{"source": "app_route", "target": "get_db", "relation": "references",
+              "source_file": "app/route.py", "weight": 1.0}]
+    _rewire_unique_stub_nodes(nodes, edges)
+    assert edges[0]["target"] == "get_db"  # unchanged — cross-language blocked
+
+
+def test_rewire_does_not_bind_ambiguous_function_reference():
+    """#1781 safety: two same-named functions leave the reference on the stub."""
+    from graphify.extract import _rewire_unique_stub_nodes
+    nodes = [
+        {"id": "a_get_db", "label": "get_db()", "file_type": "code", "source_file": "a.py", "source_location": "L1"},
+        {"id": "b_get_db", "label": "get_db()", "file_type": "code", "source_file": "b.py", "source_location": "L1"},
+        {"id": "get_db", "label": "get_db()", "file_type": "code", "source_file": ""},
+    ]
+    edges = [{"source": "c_route", "target": "get_db", "relation": "references",
+              "source_file": "c.py", "weight": 1.0}]
+    _rewire_unique_stub_nodes(nodes, edges)
+    assert edges[0]["target"] == "get_db"  # ambiguous — not merged
+
+
+def test_rewire_does_not_bind_supertype_stub_to_function():
+    """#1781 safety: a stub used as a base type must never resolve to a
+    same-named, same-language function."""
+    from graphify.extract import _rewire_unique_stub_nodes
+    nodes = [
+        {"id": "factory_BookStore", "label": "BookStore()", "file_type": "code",
+         "source_file": "factory.py", "source_location": "L1"},
+        {"id": "BookStore", "label": "BookStore", "file_type": "code", "source_file": ""},
+    ]
+    edges = [{"source": "store_Sqlite", "target": "BookStore", "relation": "inherits",
+              "source_file": "store.py", "weight": 1.0}]
+    _rewire_unique_stub_nodes(nodes, edges)
+    assert edges[0]["target"] == "BookStore"  # inherits stub not bound to function

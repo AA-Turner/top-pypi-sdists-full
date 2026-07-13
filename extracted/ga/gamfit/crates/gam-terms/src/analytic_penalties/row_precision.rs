@@ -1,4 +1,5 @@
 use super::*;
+use gam_problem::{LOG_STRENGTH_MAX, LOG_STRENGTH_MIN, checked_exp_log_strength};
 
 // ---------------------------------------------------------------------------
 // Row-precision prior penalty
@@ -122,7 +123,7 @@ impl RowPrecisionPriorPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -348,6 +349,7 @@ impl AnalyticPenalty for RowPrecisionPriorPenalty {
     }
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "row_precision_prior"
@@ -501,7 +503,7 @@ impl IvaeRidgeMeanGauge {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -704,6 +706,7 @@ impl AnalyticPenalty for IvaeRidgeMeanGauge {
     }
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "ivae_ridge_mean_gauge"
@@ -838,12 +841,9 @@ impl ParametricRowPrecisionPriorPenalty {
                     "ParametricRowPrecisionPriorPenalty::new log_alpha[{k}] must be finite"
                 ));
             }
-            let alpha_k = log_alpha_k.exp();
-            if !(alpha_k.is_finite() && alpha_k > 0.0) {
-                return Err(format!(
-                    "ParametricRowPrecisionPriorPenalty::new exp(log_alpha[{k}]) must be finite and > 0"
-                ));
-            }
+            checked_exp_log_strength(log_alpha_k).map_err(|error| {
+                format!("ParametricRowPrecisionPriorPenalty::new invalid log_alpha[{k}]: {error}")
+            })?;
             let raw_beta_k = raw_beta[k];
             if !raw_beta_k.is_finite() {
                 return Err(format!(
@@ -938,14 +938,14 @@ impl ParametricRowPrecisionPriorPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.weight_offset()])
+            validated_learnable_weight(self.weight, rho[self.weight_offset()])
         } else {
             self.weight
         }
     }
 
     fn lambda_at(&self, n: usize, k: usize, rho: ArrayView1<'_, f64>) -> f64 {
-        let alpha = stable_exp_log_precision(self.active_log_alpha(k, rho));
+        let alpha = validated_exp_log_strength(self.active_log_alpha(k, rho));
         let beta = gam_linalg::utils::stable_softplus(self.active_raw_beta(k, rho));
         MIN_CONDITIONAL_PRECISION + alpha + beta * self.dist2(n, k, rho)
     }
@@ -1020,6 +1020,56 @@ impl AnalyticPenalty for ParametricRowPrecisionPriorPenalty {
         PenaltyTier::Psi
     }
 
+    fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+        if rho.len() != self.rho_count() {
+            return Err(format!(
+                "parametric row-precision rho length {} != declared {}",
+                rho.len(),
+                self.rho_count()
+            ));
+        }
+        for k in 0..self.log_alpha.len() {
+            checked_exp_log_strength(self.active_log_alpha(k, rho))
+                .map_err(|error| error.to_string())?;
+            if !self.active_raw_beta(k, rho).is_finite() {
+                return Err(format!(
+                    "parametric row-precision raw-beta coordinate {k} is non-finite"
+                ));
+            }
+            for axis in 0..self.aux.ncols() {
+                if !self.active_mu(k, axis, rho).is_finite() {
+                    return Err(format!(
+                        "parametric row-precision mean coordinate ({k}, {axis}) is non-finite"
+                    ));
+                }
+            }
+        }
+        if self.learnable_weight {
+            resolve_learnable_weight(self.weight, rho[self.weight_offset()])?;
+        }
+        Ok(())
+    }
+
+    fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+        // raw_beta and mu are ordinary additive real coordinates. They must be
+        // finite when evaluated, but they are not log-strengths and therefore
+        // have no artificial ±700 optimization face.
+        let mut domains = vec![(f64::NEG_INFINITY, f64::INFINITY); self.rho_count()];
+        for (k, &base_log_alpha) in self.log_alpha.iter().enumerate() {
+            domains[self.log_alpha_offset() + k] = (
+                LOG_STRENGTH_MIN - base_log_alpha,
+                LOG_STRENGTH_MAX - base_log_alpha,
+            );
+        }
+        if self.learnable_weight {
+            domains[self.weight_offset()] = learnable_weight_coordinate_domain(self.weight)?
+                .ok_or_else(|| {
+                    "parametric row-precision cannot learn a zero base weight".to_string()
+                })?;
+        }
+        Ok(domains)
+    }
+
     fn value(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> f64 {
         let Some(t) = self.target_matrix(target) else {
             return 0.0;
@@ -1088,7 +1138,7 @@ impl AnalyticPenalty for ParametricRowPrecisionPriorPenalty {
         let mut grad_weight_direct = 0.0;
         for k in 0..d {
             let log_alpha = self.active_log_alpha(k, rho);
-            let alpha = stable_exp_log_precision(log_alpha);
+            let alpha = validated_exp_log_strength(log_alpha);
             let raw_beta = self.active_raw_beta(k, rho);
             let beta = gam_linalg::utils::stable_softplus(raw_beta);
             let beta_jac = gam_linalg::utils::stable_logistic(raw_beta);

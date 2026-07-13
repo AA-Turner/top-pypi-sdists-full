@@ -15,8 +15,9 @@
 //!     slice (soft atom
 //!     amplitudes). Differentiable everywhere; the smoothing parameter `ε` may
 //!     itself live in `ρ` so REML shrinks it.
-//!   * [`IBPAssignmentPenalty`] — deterministic continuous-relaxation
-//!     Beta-Bernoulli/IBP prior over per-row SAE-manifold active sets.
+//!   * [`OrderedBetaBernoulliPenalty`] — deterministic sigmoid relaxation with
+//!     an exactly integrated ordered independent Beta--Bernoulli prior over
+//!     per-row SAE-manifold active sets.
 //!   * [`ARDPenalty`] — one penalty parameter per latent axis. The marginal
 //!     likelihood's Occam factor sends unused axes' precision to infinity,
 //!     discovering intrinsic dimension only after a separate gauge fix
@@ -98,7 +99,7 @@
 //! |-----------|-------------|----------------------|
 //! | Isometry  | ext-coord (latent t) | 1 (log μ_iso)        |
 //! | Sparsity  | β or ext-coord       | 1 (strength) [+1 ε]  |
-//! | IBP       | ext-coord (logits)   | 0 or 1 (log α)       |
+//! | Ordered Beta--Bernoulli | ext-coord (logits) | 0 or 1 (log α) |
 //! | ARD       | ext-coord (latent t) | d (one per axis)     |
 //! | TV        | ext-coord (latent t) | 0 or 1 (log μ_tv)    |
 //! | NuclearNorm | ext-coord (latent t) | 0 or 1 (log μ_nuc)  |
@@ -140,12 +141,12 @@ mod ard;
 mod block_sparsity;
 pub mod equivariant_penalty;
 mod harmonic_roughness;
-mod ibp;
 mod isometry;
 mod manifest;
 mod nested_prefix;
 mod nuclear_norm;
 mod op;
+mod ordered_beta_bernoulli;
 mod orthogonality;
 mod registry;
 mod row_precision;
@@ -157,10 +158,10 @@ mod total_variation;
 pub use ard::*;
 pub use block_sparsity::*;
 pub use harmonic_roughness::*;
-pub use ibp::*;
 pub use isometry::*;
 pub use nested_prefix::*;
 pub use nuclear_norm::*;
+pub use ordered_beta_bernoulli::*;
 pub use orthogonality::*;
 pub use penalty_trait::*;
 pub use registry::*;

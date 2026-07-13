@@ -15,7 +15,7 @@ use arrow_array::RecordBatch;
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use tokio::sync::mpsc;
 
-use super::value_utils::top_level_response_error;
+use super::value_utils::{top_level_response_error, ResponseMetadata};
 use xbbg_core::{BlpError, Message};
 
 /// Streaming state for an intraday tick request (bdtick).
@@ -84,22 +84,33 @@ impl IntradayTickStreamState {
 
         // Get tickData (outer)
         let tick_data_outer = root.get_by_str("tickData")?;
+        let mut response_meta = ResponseMetadata::default();
+        let has_eids = if let Some(eids) = tick_data_outer.get_by_str("eidData") {
+            response_meta.record_eid_data(&self.ticker, &eids);
+            true
+        } else {
+            false
+        };
 
         // Get tickData array (inner - same name as parent)
-        let tick_data = tick_data_outer.get_by_str("tickData")?;
-        let n = tick_data.len();
-        if n == 0 {
+        let tick_data = tick_data_outer.get_by_str("tickData");
+        let n = tick_data.as_ref().map_or(0, |data| data.len());
+        if n == 0 && !has_eids {
             return None;
         }
 
         // Create builders for core fields only
-        let mut ticker_builder = StringBuilder::new();
-        let mut time_builder = TimestampMicrosecondBuilder::new();
-        let mut type_builder = StringBuilder::new();
-        let mut value_builder = Float64Builder::new();
-        let mut size_builder = Int64Builder::new();
+        let mut ticker_builder =
+            StringBuilder::with_capacity(n, self.ticker.len().saturating_mul(n));
+        let mut time_builder = TimestampMicrosecondBuilder::with_capacity(n);
+        let mut type_builder = StringBuilder::with_capacity(n, n.saturating_mul(8));
+        let mut value_builder = Float64Builder::with_capacity(n);
+        let mut size_builder = Int64Builder::with_capacity(n);
 
         for i in 0..n {
+            let tick_data = tick_data
+                .as_ref()
+                .expect("nonzero length requires tickData");
             let Some(tick) = tick_data.get_element(i) else {
                 continue;
             };
@@ -176,6 +187,7 @@ impl IntradayTickStreamState {
             Arc::new(size_builder.finish()),
         ];
 
-        RecordBatch::try_new(schema.clone(), columns).ok()
+        let batch = RecordBatch::try_new(schema.clone(), columns).ok()?;
+        Some(response_meta.attach(batch))
     }
 }

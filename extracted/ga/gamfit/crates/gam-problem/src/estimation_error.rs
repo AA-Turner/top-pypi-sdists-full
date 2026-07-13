@@ -194,6 +194,9 @@ impl core::fmt::Debug for FixedLambdaCheckpoint {
 /// A comprehensive error type for the model estimation process.
 #[derive(thiserror::Error)]
 pub enum EstimationError {
+    #[error(transparent)]
+    InvalidStabilization(#[from] crate::InvalidStabilization),
+
     #[error("Underlying basis function generation failed: {0}")]
     BasisError(#[from] BasisError),
 
@@ -510,6 +513,48 @@ pub enum EstimationError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error(
+        "Inverse-link domain violation for {link}: eta={eta:?} is outside the supported \
+         interval [{lower}, {upper}]"
+    )]
+    InverseLinkDomainViolation {
+        link: &'static str,
+        eta: f64,
+        lower: f64,
+        upper: f64,
+    },
+
+    #[error(
+        "PIRLS row geometry is not representable at row {row}: {quantity} evaluated from \
+         eta={eta:?} produced {value:?}"
+    )]
+    PirlsRowGeometryUnrepresentable {
+        row: usize,
+        quantity: &'static str,
+        eta: f64,
+        value: f64,
+    },
+
+    #[error(
+        "Exact Tweedie series work limit at row {row}: at least {required_terms_lower_bound:?} terms are required, budget is {budget}"
+    )]
+    ExactTweedieSeriesWorkLimit {
+        row: usize,
+        required_terms_lower_bound: f64,
+        budget: usize,
+    },
+
+    #[error(
+        "Log-strength domain violation at coordinate {coordinate}: value={value:?} is outside \
+         the supported interval [{lower}, {upper}]"
+    )]
+    LogStrengthDomainViolation {
+        coordinate: usize,
+        value: f64,
+        lower: f64,
+        upper: f64,
+    },
 
     #[error("monotone root solve: {0}")]
     MonotoneRoot(#[from] MonotoneRootError),

@@ -516,6 +516,24 @@ class RequestClassifier:
         quantity = extract_quantity_comprehensive(request)
         priority_ranking = bool(re.search(r"\b(rank|priorit|order)\w*\s+by\b", request_lower))
 
+        # CRITICAL: Check for MODE TRANSITION patterns FIRST
+        # These indicate user wants to switch from analysis to implementation
+        # This takes highest priority - if user says "implement all of these", they mean it!
+        if any(p.search(request) for p in self._mode_transition_re):
+            return ClassifiedRequest(
+                original_request=request,
+                request_type=RequestType.FIX_ALL,
+                expected_format=OutputFormat.CODE_FILES,
+                pipeline_type=PipelineType.MULTI_STEP,
+                quantity_required=quantity,
+                priority_ranking=priority_ranking,
+                classification_confidence=0.95,  # High confidence - explicit mode switch
+                alternative_types=[],
+                read_only=False,  # CRITICAL: NOT read-only - user wants implementation
+                requires_tdd=True,
+                tdd_strict_mode=True,
+            )
+
         # Explicit implementation override check
         is_explicit_impl = (
             re.search(r"\b(build|implement|create|write|develop)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
@@ -545,24 +563,6 @@ class RequestClassifier:
         primary_type = sorted_scores[0][0] if sorted_scores else RequestType.ANALYSIS
         confidence = sorted_scores[0][1] if sorted_scores else 0.5
         alternatives = [t for t, s in sorted_scores[1:3] if s > 0.3]
-
-        # CRITICAL: Check for MODE TRANSITION patterns FIRST
-        # These indicate user wants to switch from analysis to implementation
-        # This takes highest priority - if user says "implement all of these", they mean it!
-        if any(p.search(request) for p in self._mode_transition_re):
-            return ClassifiedRequest(
-                original_request=request,
-                request_type=RequestType.FIX_ALL,
-                expected_format=OutputFormat.CODE_FILES,
-                pipeline_type=PipelineType.MULTI_STEP,
-                quantity_required=quantity,
-                priority_ranking=priority_ranking,
-                classification_confidence=0.95,  # High confidence - explicit mode switch
-                alternative_types=[],
-                read_only=False,  # CRITICAL: NOT read-only - user wants implementation
-                requires_tdd=True,  # Implementation should use TDD
-                tdd_strict_mode=True,
-            )
 
         # Item 8: Reclassification check - if asking for implementation AFTER analysis
         if any(p.search(request) for p in self._not_analysis_re):

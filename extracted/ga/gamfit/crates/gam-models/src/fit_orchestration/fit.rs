@@ -1,5 +1,4 @@
 use super::*;
-use opt::{RidgeSchedule, escalate_ridge};
 
 pub(crate) fn survival_inverse_link_has_free_parameters(link: &InverseLink) -> bool {
     match link {
@@ -44,7 +43,6 @@ where
 /// flooring at the smallest positive normal `f64` keeps `ln` finite for an
 /// exactly-zero (fully-relaxed) penalty without perturbing any λ above the
 /// denormal range.
-const LOG_LAMBDA_UNDERFLOW_FLOOR: f64 = 1e-300;
 
 /// Inner-PIRLS controls shared by the survival-transformation baseline and
 /// smoothing-coordinate eval closures. The baseline geometry is mildly
@@ -326,11 +324,11 @@ mod standard_convergence_gate_tests {
 /// Refits the mean/dispersion GLM at `Tweedie { p }` reusing the existing fit
 /// machinery (no reimplementation), reconstructs the fitted mean
 /// `μ = exp(Xβ̂ + offset)` on the log link, and evaluates the **exact** Jørgensen
-/// compound-Poisson–gamma log-density (`gam_solve::pirls::tweedie_exact_loglik_total`)
+/// compound-Poisson–gamma log-density (`gam_solve::pirls::tweedie_exact_loglik_total_from_eta`)
 /// at the estimated dispersion `φ̂(p)`.
 ///
 /// CRITICAL (#2105): the objective must be the *exact* EDM density, NOT the
-/// saddlepoint approximation the fit reports for AIC. The saddlepoint is exact
+/// separately named saddlepoint approximation. The saddlepoint is exact
 /// only in the many-jumps (large Poisson-rate λ) limit; at the moderate λ of a
 /// typical Tweedie fit its missing `O(1/λ)` normalizer correction, summed across
 /// the sample, biases the profile maximizer **low** (e.g. `p̂ ≈ 1.33` on `p = 1.5`
@@ -353,12 +351,12 @@ fn tweedie_profile_loglik(request: &StandardFitRequest<'_>, p: f64) -> Option<f6
     // μ = g⁻¹(Xβ̂ + offset); the Tweedie family is fixed to the log link by
     // `resolve_family`, so g⁻¹ = exp. `design.apply` reproduces the fitted
     // linear predictor exactly (same contract the expectile/predict paths use).
-    let mut mu = fitted.design.design.apply(&fitted.fit.beta);
-    if mu.len() != request.y.len() {
+    let mut eta = fitted.design.design.apply(&fitted.fit.beta);
+    if eta.len() != request.y.len() {
         return None;
     }
-    mu += request.offset.as_ref();
-    mu.mapv_inplace(f64::exp);
+    eta += request.offset.as_ref();
+    let mu = eta.mapv(f64::exp);
     // Profile the dispersion out at this `p` with the SAME prior-weighted Pearson
     // moment estimator the inner solver uses to report the Tweedie `φ̂`
     // (`estimate_tweedie_phi_from_eta`): `φ̂ = Σ wᵢ (yᵢ − μᵢ)² / μᵢ^p / Σ wᵢ`.
@@ -386,16 +384,17 @@ fn tweedie_profile_loglik(request: &StandardFitRequest<'_>, p: f64) -> Option<f6
     }
     let phi = (weighted_pearson / total_weight).clamp(PHI_MIN, PHI_MAX);
     // Evaluate the EXACT compound-Poisson–gamma density at φ̂(p) — the profile
-    // objective mgcv's `tw()` maximizes. Using the saddlepoint here (as the AIC
-    // path does) is what biased `p̂` low and inflated `φ̂` (#2105).
-    let ll = gam_solve::pirls::tweedie_exact_loglik_total(
+    // objective mgcv's `tw()` maximizes. Using a saddlepoint here is what biased
+    // `p̂` low and inflated `φ̂` (#2105).
+    let ll = gam_solve::pirls::tweedie_exact_loglik_total_from_eta(
         request.y.view(),
-        &mu,
+        eta.view(),
         request.weights.view(),
         p,
         phi,
-    );
-    ll.is_finite().then_some(ll)
+    )
+    .ok()?;
+    Some(ll)
 }
 
 /// Estimate the Tweedie variance power `p ∈ (1, 2)` by profile likelihood, mgcv
@@ -482,7 +481,7 @@ pub(crate) fn fit_standard_model(
         request.estimate_tweedie_p = false;
     }
 
-    // #1762: near-perfect linear separation drives the binomial-logit REML/ARC
+    // #1762: near-perfect linear separation drives the binomial REML/ARC
     // outer optimizer into a FLAT-VALLEY STALL. As the fit approaches
     // separation the coefficients want to run to infinity, the PIRLS working
     // weights w = μ̂(1−μ̂) collapse to ~0 over the saturated majority of rows,
@@ -493,22 +492,36 @@ pub(crate) fn fit_standard_model(
     // PirlsDidNotConverge error). Firth's Jeffreys-prior penalty is the textbook
     // remedy: it bounds the coefficients and keeps the working weights from
     // collapsing, so the inner solve is well conditioned at every λ and the
-    // outer optimizer certifies quickly. Retry ONCE with Firth when a plain
-    // binomial-logit fit fails with typed separation/non-convergence evidence,
-    // and adopt it only if the retry itself carries both inner and outer
-    // convergence certificates. If the retry fails, return the ORIGINAL base
-    // error unchanged; a failed rescue can never replace its evidence or mint
-    // the abandoned base iterate. Structural errors are not Firth-retryable.
-    let is_binomial_logit = matches!(request.family.response, ResponseFamily::Binomial)
-        && matches!(
-            request.family.link,
-            InverseLink::Standard(StandardLink::Logit)
-        );
+    // outer optimizer certifies quickly.
+    //
+    // #2273: this pathology is NOT logit-specific. The coefficient runaway and
+    // Fisher-weight collapse under separation happen on EVERY binomial link
+    // (probit's Φ, cloglog, loglog, cauchit, and the stateful SAS/Beta-Logistic/
+    // Mixture links) — measured directly on the issue's n=6 exact-separation
+    // fixture, where the probit fit halts on a flat-valley stall (|g|≈1.9e2 ≫
+    // bound) and mints only under Firth. Firth's Jeffreys prior is a link-general
+    // remedy: it is defined for any binomial inverse link that exposes a
+    // Fisher-weight jet (exactly `LikelihoodSpec::supports_firth`, the same gate
+    // `--firth` validates against), so the reactive rescue must be armed for the
+    // whole Firth-capable binomial family, not just the logit special case — else
+    // the README's "Firth / Jeffreys bias reduction handles separation in
+    // binomial fits" promise silently fails to hold off the default link.
+    //
+    // Retry ONCE with Firth when a plain (non-Firth) Firth-capable binomial fit
+    // fails with typed separation/non-convergence evidence, and adopt it only if
+    // the retry itself carries both inner and outer convergence certificates. If
+    // the retry fails, return the ORIGINAL base error unchanged; a failed rescue
+    // can never replace its evidence or mint the abandoned base iterate.
+    // Structural errors are not Firth-retryable, and links without a Fisher-weight
+    // jet fall straight through to the original error (arming Firth on them would
+    // itself be rejected, then reduced back to the original error by
+    // `certified_retry_or_original`).
+    let is_firth_capable_binomial = request.family.supports_firth();
     let base = fit_standard_base(&request, &request.family, &request.options);
     let fitted = match base {
         Ok(fitted) => fitted,
         Err(original_error)
-            if is_binomial_logit
+            if is_firth_capable_binomial
                 && !request.options.firth_bias_reduction
                 && firth_can_rescue(&original_error) =>
         {
@@ -520,18 +533,20 @@ pub(crate) fn fit_standard_model(
             match certified_retry_or_original(original_error, firth) {
                 Ok(firth_fitted) => {
                     log::info!(
-                        "[#1762] binomial-logit base fit failed with retryable \
-                         separation/non-convergence evidence ({original_report}); Firth \
+                        "[#1762/#2273] Firth-capable binomial base fit ({}) failed with \
+                         retryable separation/non-convergence evidence ({original_report}); Firth \
                          bias-reduction retry certified — adopting it (Firth edf {:.2}).",
+                        request.family.pretty_name(),
                         firth_fitted.fit.edf_total().unwrap_or(f64::NAN),
                     );
                     firth_fitted
                 }
                 Err(original_error) => {
                     log::warn!(
-                        "[#1762] binomial-logit base fit failed ({original_report}); Firth retry \
-                         also failed to certify ({}) — returning the original typed base \
-                         evidence, not either abandoned iterate.",
+                        "[#1762/#2273] Firth-capable binomial base fit ({}) failed \
+                         ({original_report}); Firth retry also failed to certify ({}) — returning \
+                         the original typed base evidence, not either abandoned iterate.",
+                        request.family.pretty_name(),
                         firth_failure.unwrap_or_else(|| "unknown retry failure".to_string()),
                     );
                     return Err(original_error.to_string());
@@ -1263,30 +1278,13 @@ fn survival_transformation_edf(
     let h_dense = state.hessian.to_dense();
     let p = h_dense.nrows();
     let h_sym = gam_linalg::matrix::SymmetricMatrix::Dense(h_dense.clone());
-    // Sparse-aware factorization with ridge retry (mirrors estimate.rs) so a
-    // marginally indefinite Hessian at a boundary-constrained optimum still
-    // yields a usable trace rather than aborting the whole fit.
-    let factor = {
-        let scale = h_sym.max_abs_diag();
-        let try_ridge = |ridge: f64| -> Option<_> {
-            let candidate = if ridge > 0.0 {
-                h_sym.addridge(ridge).unwrap_or_else(|_| h_sym.clone())
-            } else {
-                h_sym.clone()
-            };
-            candidate.factorize().ok()
-        };
-        // Bare (unridged) attempt first, then 7 geometric escalations from
-        // `scale·1e-10` — the pre-migration budget of 8 total attempts.
-        match try_ridge(0.0) {
-            Some(f) => f,
-            None => escalate_ridge(RidgeSchedule::geometric(scale * 1e-10, 7), try_ridge)
-                .map(|success| success.value)
-                .map_err(|_| {
-                    "survival edf: penalized Hessian could not be factorized".to_string()
-                })?,
-        }
-    };
+    // EDF is an exact trace of the fitted (unperturbed) penalized Hessian.
+    // Factoring a different, ridged matrix silently changes the estimand, so a
+    // singular/indefinite fitted Hessian is an inference failure rather than a
+    // license to manufacture a nearby covariance.
+    let factor = h_sym.factorize().map_err(|error| {
+        format!("survival edf: exact penalized-Hessian factorization failed: {error}")
+    })?;
     let mut edf_by_block = vec![0.0_f64; penalty_blocks.len()];
     // Raw per-block penalty trace tr_kk = λ_kk·tr(H⁻¹S_kk) (issue #1219).
     let mut penalty_block_trace = vec![0.0_f64; penalty_blocks.len()];
@@ -1397,15 +1395,26 @@ fn optimize_survival_transformation_smoothing(
     if num_smoothing == 0 {
         return Ok(None);
     }
+    if num_smoothing > penalty_blocks.len() {
+        return Err(format!(
+            "survival transformation smoothing count {num_smoothing} exceeds penalty count {}",
+            penalty_blocks.len()
+        ));
+    }
     // Full λ vector (smoothing blocks + fixed ridge), used to rebuild each
     // candidate model. The ridge entries (indices >= num_smoothing) are frozen.
     let seed_lambdas: Vec<f64> = penalty_blocks.iter().map(|b| b.lambda).collect();
-    let seed_rho = Array1::from_iter(
-        seed_lambdas
-            .iter()
-            .take(num_smoothing)
-            .map(|&l| l.max(1e-12).ln()),
-    );
+    let seed_log_lambdas = seed_lambdas
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(coordinate, value)| {
+            gam_problem::checked_log_strength(value).map_err(|error| {
+                format!("survival transformation seed lambda {coordinate}: {error}")
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let seed_rho = Array1::from_vec(seed_log_lambdas[..num_smoothing].to_vec());
 
     // Memoize the most recent (ρ, cost, gradient) triple. The outer BFGS bridge
     // queries this objective through TWO separate closures — a value-only probe
@@ -1430,6 +1439,8 @@ fn optimize_survival_transformation_smoothing(
         (f64, Array1<f64>),
         gam_solve::estimate::EstimationError,
     > {
+        let physical_smoothing =
+            gam_problem::checked_exp_log_strengths(rho_smooth.iter().copied())?;
         if let Some((cached_rho, cached_cost, cached_grad)) = eval_cache.borrow().as_ref()
             && cached_rho == rho_smooth
         {
@@ -1438,7 +1449,7 @@ fn optimize_survival_transformation_smoothing(
         let mut candidate = model.clone();
         let mut lambdas = seed_lambdas.clone();
         for k in 0..num_smoothing {
-            lambdas[k] = rho_smooth[k].exp();
+            lambdas[k] = physical_smoothing[k];
         }
         candidate
             .set_penalty_lambdas(&lambdas)
@@ -1484,7 +1495,20 @@ fn optimize_survival_transformation_smoothing(
         // block order, as the unified survival LAML evaluator requires. The
         // candidate's λ are exactly `lambdas` (smoothing entries from the
         // proposal, ridge entries frozen), so build ρ from that vector directly.
-        let full_rho = Array1::from_iter(lambdas.iter().filter(|&&l| l > 0.0).map(|&l| l.ln()));
+        let full_rho = Array1::from_vec(
+            lambdas
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(coordinate, value)| {
+                    gam_problem::checked_log_strength(value).map_err(|error| {
+                        gam_solve::estimate::EstimationError::InvalidInput(format!(
+                            "survival smoothing candidate lambda {coordinate}: {error}"
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        );
         let (cost, grad_full) = candidate
             .unified_lamlobjective_and_rhogradient(&beta, &state, &full_rho)
             .map_err(|error| {
@@ -1586,17 +1610,11 @@ fn optimize_survival_transformation_smoothing(
             selected_rho.to_vec(),
         ));
     }
+    let selected_lambdas = gam_problem::checked_exp_log_strengths(selected_rho.iter().copied())
+        .map_err(|error| format!("survival transformation selected rho: {error}"))?;
     let mut lambdas = seed_lambdas;
-    for k in 0..num_smoothing {
-        let lam = selected_rho[k].exp();
-        if !(lam.is_finite() && lam > 0.0) {
-            return Err(format!(
-                "survival transformation smoothing selector produced invalid lambda[{k}]={lam} \
-                 from selected-rho checkpoint={:?}",
-                selected_rho.to_vec(),
-            ));
-        }
-        lambdas[k] = lam;
+    for (slot, lambda) in lambdas.iter_mut().zip(selected_lambdas) {
+        *slot = lambda;
     }
     Ok(Some(lambdas))
 }
@@ -1608,7 +1626,18 @@ fn survival_unified_fit_result(
     state: &gam_solve::pirls::WorkingState,
     penalty_blocks: &[PenaltyBlock],
 ) -> Result<UnifiedFitResult, String> {
-    let log_lambdas = lambdas.mapv(|v| v.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln());
+    let log_lambdas = Array1::from_vec(
+        lambdas
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(coordinate, value)| {
+                gam_problem::checked_log_strength(value).map_err(|error| {
+                    format!("survival fit lambda coordinate {coordinate}: {error}")
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    );
     require_certified_survival_pirls(
         summary,
         "survival transformation fit assembly",
@@ -1642,11 +1671,12 @@ fn survival_unified_fit_result(
         penalty_block_trace,
         edf_total,
         smoothing_correction: None,
+        smoothing_correction_method: None,
         penalized_hessian: penalized_hessian.into(),
         working_weights: Array1::zeros(0),
         working_response: Array1::zeros(0),
         reparam_qs: None,
-        dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+        dispersion: gam_solve::estimate::Dispersion::UNIT,
         beta_covariance: None,
         beta_standard_errors: None,
         beta_covariance_corrected: None,
@@ -1841,7 +1871,10 @@ fn fit_cause_specific_survival_transformation_custom(
                 )),
             );
             nullspace_dims.push(block.nullspace_dim);
-            initial_log_lambdas[penalty_idx] = block.lambda.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln();
+            initial_log_lambdas[penalty_idx] = gam_problem::checked_log_strength(block.lambda)
+                .map_err(|error| {
+                    format!("cause-specific survival penalty {penalty_idx} strength: {error}")
+                })?;
         }
         let beta_start = beta0_flat.slice(s![cause * p..(cause + 1) * p]).to_owned();
         // Cause-specific blocks share the same time-basis design `x_exit`
@@ -2073,10 +2106,14 @@ fn hash_workflow_design_matrix(
 
 fn survival_transformation_log_lambdas(
     penalty_blocks: &[crate::survival::PenaltyBlock],
-) -> Vec<f64> {
+) -> Result<Vec<f64>, String> {
     penalty_blocks
         .iter()
-        .map(|block| block.lambda.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln())
+        .enumerate()
+        .map(|(coordinate, block)| {
+            gam_problem::checked_log_strength(block.lambda)
+                .map_err(|error| format!("survival transformation penalty {coordinate}: {error}"))
+        })
         .collect()
 }
 
@@ -2611,7 +2648,7 @@ pub(crate) fn fit_survival_transformation_model(
         initial_lm_lambda: None,
         arrow_schur: None,
     };
-    let rho_for_cache = survival_transformation_log_lambdas(&penalty_blocks);
+    let rho_for_cache = survival_transformation_log_lambdas(&penalty_blocks)?;
     let expected_beta_len = beta0.len();
     let persistent_warm_start_key = persistent_survival_transformation_key(
         &spec,

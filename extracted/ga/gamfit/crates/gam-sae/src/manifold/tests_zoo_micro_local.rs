@@ -91,7 +91,7 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
     let train = zoo_fixture("train_3000x48_f64le.bin", 3000, 48);
     let test = zoo_fixture("test_1500x48_f64le.bin", 1500, 48);
 
-    // The m12 arm: K=12, top_k routing via softmax at the production default
+    // The m12 arm: K=12 with the configured assignment model
     // temperature, circle topology, single PCA seed — the configuration whose
     // MSI runs exposed incumbent churn.
     let (mut objective, seed) = objective_and_seed(
@@ -149,11 +149,15 @@ fn zz_zoo_micro_local_full_fit_and_oos_discriminator() {
 }
 
 /// #2022 canonical rank-charge zoo-micro measurement. Fits the m12 configuration
-/// once under the scale-insensitive `½·d_eff·ln N_eff` charge and
-/// `rank_eff==0 ⇒ v→+∞` veto, reporting births/deaths, co-collapse incidence,
-/// reconstruction quality, criterion, and wall-clock. This is an ordinary named
-/// measurement test because ignored tests are forbidden; focused runs select it
-/// by its `zz_rank_charge` name. Pass/fail uses finiteness plus signal engagement.
+/// once under the noise-referenced, piecewise-constant
+/// `½·d_eff·ln N_eff` charge and `rank_eff==0 ⇒ v→+∞` veto, reporting
+/// births/deaths, co-collapse incidence, reconstruction quality, criterion, and
+/// wall-clock. At fixed residual dispersion the integer rank changes only when a
+/// decoder mode crosses an MP edge; under a physical unit rescale, decoder energy
+/// and residual dispersion scale together and the count is invariant. This is an
+/// ordinary named measurement test because ignored tests are forbidden; focused
+/// runs select it by its `zz_rank_charge` name. Pass/fail uses finiteness plus
+/// signal engagement.
 #[derive(Debug)]
 struct RankChargeArm {
     fit_secs: f64,
@@ -214,7 +218,7 @@ fn rank_charge_zoo_arm(train: &Array2<f64>, test: &Array2<f64>) -> RankChargeArm
         collapse_events: fitted.term.collapse_events().len(),
         dict_cocollapse_reseeds: fitted.term.dictionary_cocollapse_reseeds,
         struct_cocollapse_reseeds: fitted.term.structural_cocollapse_reseeds,
-        evidence_reanchors: fitted.term.evidence_gauge_deflation_reanchors,
+        evidence_reanchors: fitted.term.criterion_gauge_deflation_reanchors,
     }
 }
 

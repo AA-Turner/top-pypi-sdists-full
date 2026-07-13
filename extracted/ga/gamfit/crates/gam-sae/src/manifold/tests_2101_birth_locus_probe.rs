@@ -1,7 +1,7 @@
 //! #2101 birth-locus guards: localize WHERE the born decoder dies in the real
-//! IBP regime — the K=1 birth SUB-FIT (`fit_single_atom_response_in_place`,
+//! ordered Beta--Bernoulli regime — the K=1 birth SUB-FIT (`fit_single_atom_response_in_place`,
 //! penalty-on-scale-B) vs the JOINT BACKFIT (gate-dependent deflation).
-//! Reproduces red-tree's disjoint 6-circle ibp_map recovery (n=80, p=16,
+//! Reproduces red-tree's disjoint 6-circle ordered_beta_bernoulli recovery (n=80, p=16,
 //! distinct amps 1.0..0.55, noise 0.05, structured_whitening OFF) and records
 //! the last-born atom's ‖B‖ at every SAC progress event via the callback (no
 //! driver edit). Run with `-- --nocapture` to read the trajectory.
@@ -42,7 +42,7 @@ fn lcg_normal(s: &mut u64) -> f64 {
 }
 
 #[test]
-fn probe_2101_birth_locus_disjoint_6circle_ibp() {
+fn probe_2101_birth_locus_disjoint_6circle_ordered_beta_bernoulli() {
     let n = 80usize;
     let p = 16usize;
     let ncirc = 6usize;
@@ -71,7 +71,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
         }
     }
 
-    // K=1 ibp seed: one circle atom on dims (0,1), coordinate ALIGNED to circle-0's
+    // K=1 ordered_beta_bernoulli seed: one circle atom on dims (0,1), coordinate ALIGNED to circle-0's
     // TRUE phase so the incumbent fully absorbs its own circle (else it under-fits
     // and the leftover blends into the birth — fit-robustness's decomposition
     // finding; the real pipeline pca-seeds this alignment).
@@ -81,7 +81,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
     let mut decoder = Array2::<f64>::zeros((3, p));
     decoder[[1, 0]] = 1.0;
     decoder[[2, 1]] = 1.0;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "seed".to_string(),
         SaeAtomBasisKind::Periodic,
         1,
@@ -97,7 +97,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
         logits,
         vec![coords],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
     )
     .unwrap();
     let mut seed_term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -182,7 +182,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
                 all_born_finite.set(false);
             }
             log.borrow_mut().push(format!(
-                "{:?} round={} sweep={} k={} born|B|={:.3e} rows={:?} top2col={:.2} PR={:.2} ev={:?} reml_after={:?}",
+                "{:?} round={} sweep={} k={} born|B|={:.3e} rows={:?} top2col={:.2} PR={:.2} ev={:?} penalized_quasi_laplace_after={:?}",
                 pg.event,
                 pg.birth_round,
                 pg.backfit_sweep,
@@ -192,7 +192,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
                 top2,
                 pr,
                 pg.ev.map(|e| (e * 10000.0).round() / 10000.0),
-                pg.joint_reml_after.map(|r| (r * 100.0).round() / 100.0),
+                pg.joint_penalized_quasi_laplace_after.map(|r| (r * 100.0).round() / 100.0),
             ));
             Ok(())
         };
@@ -206,14 +206,16 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
             Some(&mut cb),
             None,
         )
-        .expect("stagewise disjoint-6-circle ibp fit");
+        .expect("stagewise disjoint-6-circle ordered_beta_bernoulli fit");
         let k = res.term.k_atoms();
         let births = res.report.births_accepted;
         log.borrow_mut()
             .push(format!("FINAL: k={k} births={births}"));
         (k, births)
     };
-    eprintln!("\n==== #2101 BIRTH LOCUS TRAJECTORY (disjoint 6-circle ibp) ====");
+    eprintln!(
+        "\n==== #2101 BIRTH LOCUS TRAJECTORY (disjoint 6-circle ordered_beta_bernoulli) ===="
+    );
     for line in log.borrow().iter() {
         eprintln!("{line}");
     }
@@ -247,7 +249,7 @@ fn probe_2101_birth_locus_disjoint_6circle_ibp() {
 /// before/after. If cos/sin SURVIVE ⇒ the fit is fine and #2101 is purely the
 /// DC-SEED (seed cos/sin, my lane, SEPARATE from #5). If cos/sin COLLAPSE ⇒ the
 /// fit/criterion crushes circles (the ‖B‖→0 / harmonic-row reward — UNIFIED with
-/// fit-robustness's #5). Runs both ibp and softmax gate modes.
+/// fit-robustness's #5). Runs both ordered_beta_bernoulli and softmax gate modes.
 ///
 /// The eprintln! trajectory is the diagnostic; the asserts are the guard. We do
 /// NOT assert survival (that is the open #2101 question) — only the invariants
@@ -280,13 +282,13 @@ fn probe_2101_proper_circle_seed_survival() {
 
     let mut modes_checked = 0usize;
     for (mode_name, logit) in [
-        ("ibp_map", 3.0f64),
-        ("ibp_map", -4.0),
+        ("ordered_beta_bernoulli", 3.0f64),
+        ("ordered_beta_bernoulli", -4.0),
         ("softmax", 3.0),
         ("softmax", -4.0),
     ] {
-        let mode = if mode_name == "ibp_map" {
-            AssignmentMode::ibp_map(0.7, 1.0, false)
+        let mode = if mode_name == "ordered_beta_bernoulli" {
+            AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false)
         } else {
             AssignmentMode::softmax(1.0)
         };
@@ -294,7 +296,7 @@ fn probe_2101_proper_circle_seed_survival() {
         let mut decoder = Array2::<f64>::zeros((3, p));
         decoder[[1, 0]] = 1.0;
         decoder[[2, 1]] = 1.0;
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "circle".to_string(),
             SaeAtomBasisKind::Periodic,
             1,

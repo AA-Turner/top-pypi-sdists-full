@@ -1330,7 +1330,10 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         let spec = &specs[b];
         let (start, end) = ranges[b];
         let p = end - start;
-        let lambdas = block_log_lambdas[b].mapv(f64::exp);
+        let lambdas = exact_lambdas_from_log_strengths(
+            &block_log_lambdas[b],
+            &format!("joint logdet block {b} log strength"),
+        )?;
         let mut s_lambda = Array2::<f64>::zeros((p, p));
         for (k, s) in spec.penalties.iter().enumerate() {
             s.add_scaled_to(lambdas[k], &mut s_lambda);
@@ -1354,7 +1357,7 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
             // construction, compute the value from the SAME canonical
             // `PenaltyPseudologdet` the gradient differentiates, with the same
             // dense penalty components, the same λ, and the same ridge.
-            let ridge = if options.ridge_policy.include_penalty_logdet {
+            let ridge = if options.ridge_policy.accounts_for_objective() {
                 effective_solverridge(options.ridge_floor)
             } else {
                 0.0
@@ -1369,19 +1372,32 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
             ) {
                 Ok(pld) => pld.value(),
                 Err(eigh_err_msg) => {
-                    // `from_components` only fails when the single internal
-                    // eigendecomposition fails, which for PSD penalties is
-                    // purely numerical. Fall back to Cholesky on the ridged
-                    // matrix (which should be SPD). The Cholesky logdet
-                    // includes null-space contributions (~m₀ × ln(ridge)),
-                    // a smooth bias that does not corrupt the REML gradient.
+                    // `from_components` only fails when its single internal
+                    // eigendecomposition fails, which for a PSD penalty is purely
+                    // numerical. Route the fallback through the SAME canonical
+                    // strict pseudo-logdet the joint-Hessian path uses
+                    // (`strict_exact_pseudo_logdet`): the exact positive-eigenspace
+                    // sum `Σ_{σ>tol} log σ` with NO δ-ridge escalation, on the same
+                    // `positive_eigenvalue_threshold` the analytic REML gradient's
+                    // trace kernel uses. A ridge-escalated Cholesky logdet would
+                    // instead carry a ρ-dependent, discontinuous `δ(ρ)` the
+                    // derivatives ignore — the "approximate determinant + exact
+                    // traces = a Hessian for a different objective" trap (gam#748).
+                    // A genuinely un-decomposable penalty now surfaces as a hard
+                    // error instead of a masked, biased number.
                     let mut s_for_logdet = s_lambda.clone();
                     if ridge > 0.0 {
                         for i in 0..p {
                             s_for_logdet[[i, i]] += ridge;
                         }
                     }
-                    penalty_logdet_cholesky_fallback(&s_for_logdet, ridge, b, p, &eigh_err_msg)?
+                    strict_exact_pseudo_logdet(&s_for_logdet, p).map_err(|strict_err| {
+                        format!(
+                            "penalty logdet: canonical PenaltyPseudologdet eigendecomposition \
+                             failed for block {b} ({eigh_err_msg}); strict pseudo-logdet fallback \
+                             (no δ-ridge masking, gam#748) also failed: {strict_err}"
+                        )
+                    })?
                 }
             }
         } else {
@@ -1545,8 +1561,8 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
                 working_response: _,
                 working_weights,
             } => with_block_geometry(family, states, spec, b, |x_dyn, _| {
-                let w = floor_positiveworking_weights(working_weights, options.minweight)?;
-                let (xtwx, _) = weighted_normal_equations(x_dyn, &w, None)?;
+                let w = certify_finite_working_weights(working_weights)?;
+                let (xtwx, _) = weighted_normal_equations(x_dyn, w, None)?;
                 Ok(xtwx)
             })?,
             BlockWorkingSet::ExactNewton {
@@ -3395,7 +3411,7 @@ pub(crate) fn compute_kkt_refusal_report(
         .enumerate()
         .map(|(b, _)| {
             let mut penalty_block = s_lambdas[b].dot(&states[b].beta);
-            if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+            if ridge_policy.accounts_for_objective() && ridge > 0.0 {
                 penalty_block += &states[b].beta.mapv(|v| ridge * v);
             }
             penalty_block
@@ -3465,7 +3481,7 @@ pub(crate) fn compute_kkt_refusal_report(
         && let Ok(mut h_joint) =
             materialize_joint_hessian_source(source, total_p, "KKT refusal diagnostic spectrum")
     {
-        let model_diagonal_ridge = if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             ridge
         } else {
             0.0
@@ -4232,7 +4248,7 @@ pub(crate) fn projected_residual_range_space_per_block_inf(
         "penalty-null-space per-block certificate spectrum",
     )
     .ok()?;
-    let model_diagonal_ridge = if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+    let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
         ridge
     } else {
         0.0
@@ -4289,7 +4305,7 @@ pub(crate) fn projected_residual_range_space_inf(
         "penalty-null-space certificate spectrum",
     )
     .ok()?;
-    let model_diagonal_ridge = if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+    let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
         ridge
     } else {
         0.0

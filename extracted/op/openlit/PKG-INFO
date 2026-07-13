@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openlit
-Version: 1.43.0
+Version: 1.44.0
 Summary: OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications and GPUs, facilitating the integration of observability into your GenAI-driven projects
 License: Apache-2.0
 License-File: LICENSE

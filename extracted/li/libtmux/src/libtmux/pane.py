@@ -14,6 +14,7 @@ import typing as t
 import warnings
 
 from libtmux import exc
+from libtmux._internal.env import pane_id_from_env
 from libtmux.common import get_version_str, has_gte_version, raise_if_stderr, tmux_cmd
 from libtmux.constants import (
     PANE_DIRECTION_FLAG_MAP,
@@ -133,11 +134,25 @@ class Pane(
     def refresh(self) -> None:
         """Refresh pane attributes from tmux.
 
+        Scoped to this pane's own window (``list-panes -t %ID``), so tmux --
+        not libtmux -- decides which session the pane belongs to. See
+        :meth:`Pane.from_pane_id`.
+
         Raises
         ------
         ValueError
             When ``pane_id`` is unset. Surfaces a clear error under
             ``python -O``, where an ``assert`` would be stripped.
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When the pane no longer exists.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When tmux itself is unreachable.
+
+        Examples
+        --------
+        >>> pane.refresh()
+        >>> pane.pane_id
+        '%1'
         """
         if self.pane_id is None:
             msg = "Pane must have a pane_id to refresh"
@@ -145,20 +160,112 @@ class Pane(
         return super()._refresh(
             obj_key="pane_id",
             obj_id=self.pane_id,
-            list_extra_args=("-a",),
+            list_extra_args=("-t", self.pane_id),
         )
 
     @classmethod
     def from_pane_id(cls, server: Server, pane_id: str) -> Pane:
-        """Create Pane from existing pane_id."""
+        """Create Pane from existing pane_id.
+
+        tmux's ``cmd_find`` routes a ``-t`` target by *sigil*, so a ``%``-id
+        handed to ``list-panes`` resolves to that pane's window and lists it.
+        Every row comes back stamped with the session tmux considers canonical
+        for that window -- the most recently active one -- which is the same
+        session ``display-message -t %ID '#{session_id}'`` reports. A window
+        linked into several sessions therefore gets one authoritative answer
+        instead of "whichever session sorted last".
+
+        Parameters
+        ----------
+        server : :class:`~libtmux.server.Server`
+            The tmux server holding the pane.
+        pane_id : str
+            Pane id, e.g. ``"%3"``.
+
+        Returns
+        -------
+        :class:`Pane`
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When no such pane exists on a reachable server.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When tmux itself is unreachable.
+
+        Examples
+        --------
+        >>> Pane.from_pane_id(server=pane.server, pane_id=pane.pane_id)
+        Pane(%1 Window(@1 1:..., Session($1 ...)))
+        """
         pane = fetch_obj(
             obj_key="pane_id",
             obj_id=pane_id,
             server=server,
             list_cmd="list-panes",
-            list_extra_args=("-a",),
+            list_extra_args=("-t", pane_id),
         )
         return cls(server=server, **pane)
+
+    @classmethod
+    def from_env(cls, env: t.Mapping[str, str] | None = None) -> Pane:
+        """Return the pane this process is running inside of.
+
+        Reads ``$TMUX`` for the server's socket and ``$TMUX_PANE`` for the pane
+        id, then asks tmux for the rest. The stale session id inside ``$TMUX``
+        is never consulted, so the answer stays correct after the pane's window
+        has been moved or linked elsewhere.
+
+        Parameters
+        ----------
+        env : :class:`typing.Mapping`, optional
+            Environment to read. Defaults to :data:`os.environ`, which is what
+            a process running inside a pane wants; pass an explicit mapping to
+            resolve on behalf of another pane.
+
+        Returns
+        -------
+        :class:`Pane`
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.NotInsideTmux`
+            When ``$TMUX`` or ``$TMUX_PANE`` is unset or malformed.
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When the pane named by ``$TMUX_PANE`` is gone.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When the server named by ``$TMUX`` is unreachable.
+
+        Examples
+        --------
+        >>> socket_path = server.cmd(
+        ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
+        ... ).stdout[0]
+        >>> env = {"TMUX": f"{socket_path},1,0", "TMUX_PANE": pane.pane_id}
+
+        >>> Pane.from_env(env)
+        Pane(%1 Window(@1 1:..., Session($1 ...)))
+
+        >>> Pane.from_env(env).pane_id == pane.pane_id
+        True
+
+        Outside a pane there is nothing to resolve:
+
+        >>> from libtmux import exc
+        >>> try:
+        ...     Pane.from_env({})
+        ... except exc.NotInsideTmux as e:
+        ...     print(e)
+        Not inside a tmux pane: $TMUX is unset or empty
+
+        .. versionadded:: 0.62
+        """
+        from libtmux.server import Server
+
+        return cls.from_pane_id(
+            server=Server.from_env(env),
+            pane_id=pane_id_from_env(env),
+        )
 
     #
     # Relations

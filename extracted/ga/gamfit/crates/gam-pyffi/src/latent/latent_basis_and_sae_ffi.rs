@@ -335,7 +335,7 @@ fn latent_aux_prior_stats(
 /// The score is `−(data_fit + assignment_sparsity + smoothness + ard)` — the
 /// NEGATIVE penalized loss of the four loss components — NOT a REML / marginal
 /// likelihood: it omits the Hessian log-determinant, the Occam log-λ term, any
-/// extra analytic penalties, the co-training fold, the top-k projection effect,
+/// extra analytic penalties and the co-training fold,
 /// and hybrid-collapse effects. `primary_key` must therefore be an honest name
 /// (`"penalized_loss_score"` on the in-sample fit, `"oos_penalized_loss"` on the
 /// fixed-decoder OOS path). The full component breakdown is written under
@@ -356,15 +356,14 @@ fn sae_set_penalized_loss_items(
     breakdown.set_item("smoothness", b.smoothness)?;
     breakdown.set_item("ard", b.ard)?;
     breakdown.set_item(
-        "evidence_gauge_deflated_directions",
-        b.evidence_gauge_deflated_directions,
+        "criterion_gauge_deflated_directions",
+        b.criterion_gauge_deflated_directions,
     )?;
-    // Honesty markers: this score is NOT a REML criterion; these evidence pieces
-    // are deliberately absent (#1231). Surfaced as `None` so a consumer that
-    // wants real evidence sees that it was not computed here, rather than reading
-    // the penalized loss as if it were the marginal likelihood.
+    // Honesty markers: this score is only the inner penalized loss; the custom
+    // quasi-Laplace pieces are deliberately absent. Surfaced as `None` so a
+    // consumer cannot mistake the penalized loss for the outer criterion.
     for missing in [
-        "logdet_hessian",
+        "logdet_factor",
         "occam_log_lambda",
         "extra_penalty_energy",
         "amortization_consistency",
@@ -399,14 +398,167 @@ fn set_aux_strength_items<'py>(
     Ok(())
 }
 
+/// Atomically validated diagonal latent precision state.
+///
+/// Python supplies logarithmic precisions.  This carrier validates the whole
+/// vector against the engine's one exact log-strength domain and materializes
+/// `exp(log_alpha)` once, before any fit or gradient work.  Keeping both views
+/// prevents value/gradient desynchronization and removes exponentials from the
+/// observation loops and latent-optimizer iterations.
+#[derive(Clone, Debug)]
+struct ValidatedDimSelectionPrecisions {
+    log: Array1<f64>,
+    physical: Array1<f64>,
+}
+
+impl ValidatedDimSelectionPrecisions {
+    fn new(log: ArrayView1<'_, f64>, latent_dim: usize) -> Result<Self, String> {
+        if log.len() != latent_dim {
+            return Err(format!(
+                "dim_selection_log_precision length {} must equal latent_dim {latent_dim}",
+                log.len()
+            ));
+        }
+        let mut physical = Array1::<f64>::zeros(latent_dim);
+        for (axis, (&log_alpha, alpha)) in log.iter().zip(physical.iter_mut()).enumerate() {
+            *alpha = gam::checked_exp_log_strength(log_alpha)
+                .map_err(|error| format!("dim_selection_log_precision[{axis}]: {error}"))?;
+        }
+        Ok(Self {
+            log: log.to_owned(),
+            physical,
+        })
+    }
+
+    /// `0.5*alpha_axis*||t_axis||^2`, evaluated by a scaled sum-of-squares so
+    /// `t^2` cannot overflow before multiplication by a small precision.
+    fn axis_energy(&self, t: ArrayView2<'_, f64>, axis: usize) -> Result<f64, String> {
+        if t.ncols() != self.log.len() || axis >= self.log.len() {
+            return Err(format!(
+                "dim-selection precision has {} axes but latent coordinates have {}",
+                self.log.len(),
+                t.ncols()
+            ));
+        }
+        let multiplier = (0.5 * self.physical[axis]).sqrt();
+        let mut scale = 0.0_f64;
+        let mut sumsq = 1.0_f64;
+        for &coordinate in t.column(axis) {
+            if !coordinate.is_finite() {
+                return Err(format!(
+                    "latent coordinate on dim-selection axis {axis} must be finite; got \
+                         {coordinate}"
+                ));
+            }
+            let magnitude = (multiplier * coordinate).abs();
+            if !magnitude.is_finite() {
+                return Err(format!(
+                    "dim-selection prior energy is unrepresentable on axis {axis}"
+                ));
+            }
+            if magnitude == 0.0 {
+                continue;
+            }
+            if scale < magnitude {
+                let ratio = scale / magnitude;
+                sumsq = 1.0 + sumsq * ratio * ratio;
+                scale = magnitude;
+            } else {
+                let ratio = magnitude / scale;
+                sumsq += ratio * ratio;
+            }
+        }
+        let energy = if scale == 0.0 {
+            0.0
+        } else {
+            scale * scale * sumsq
+        };
+        if energy.is_finite() {
+            Ok(energy)
+        } else {
+            Err(format!(
+                "dim-selection prior energy is unrepresentable on axis {axis}"
+            ))
+        }
+    }
+
+    /// Normalized Gaussian ARD negative-log prior
+    /// `sum_a [0.5*alpha_a*||t_a||^2 - 0.5*n*log(alpha_a)]`.
+    fn prior_score(&self, t: ArrayView2<'_, f64>) -> Result<f64, String> {
+        if t.ncols() != self.log.len() {
+            return Err(format!(
+                "dim-selection precision has {} axes but latent coordinates have {}",
+                self.log.len(),
+                t.ncols()
+            ));
+        }
+        let mut total = 0.0_f64;
+        let mut compensation = 0.0_f64;
+        for axis in 0..self.log.len() {
+            let energy = self.axis_energy(t, axis)?;
+            let axis_score = energy - 0.5 * t.nrows() as f64 * self.log[axis];
+            if !axis_score.is_finite() {
+                return Err(format!(
+                    "dim-selection prior score is unrepresentable on axis {axis}"
+                ));
+            }
+            let updated = total + axis_score;
+            compensation += if total.abs() >= axis_score.abs() {
+                (total - updated) + axis_score
+            } else {
+                (axis_score - updated) + total
+            };
+            total = updated;
+        }
+        let score = total + compensation;
+        if score.is_finite() {
+            Ok(score)
+        } else {
+            Err("dim-selection prior score is unrepresentable".to_string())
+        }
+    }
+}
+
+#[cfg(test)]
+mod dim_selection_precision_domain_tests {
+    use super::ValidatedDimSelectionPrecisions;
+    use ndarray::array;
+
+    #[test]
+    fn validates_the_complete_vector_in_axis_order_on_the_shared_domain() {
+        let logs = array![0.0, 701.0, f64::NAN];
+        let error = ValidatedDimSelectionPrecisions::new(logs.view(), 3).unwrap_err();
+        assert!(error.contains("dim_selection_log_precision[1]"));
+        assert!(error.contains("[-700, 700]"));
+    }
+
+    #[test]
+    fn caches_exact_endpoint_precisions_and_scales_large_coordinate_energy() {
+        let logs = array![-700.0, 700.0];
+        let precisions = ValidatedDimSelectionPrecisions::new(logs.view(), 2).unwrap();
+        for axis in 0..2 {
+            assert_eq!(
+                precisions.physical[axis].to_bits(),
+                gam::checked_exp_log_strength(logs[axis]).unwrap().to_bits()
+            );
+        }
+
+        // Squaring 1e200 first overflows, while alpha=exp(-700) makes the final
+        // normalized prior energy representable. The scaled norm preserves it.
+        let tiny = ValidatedDimSelectionPrecisions::new(array![-700.0].view(), 1).unwrap();
+        let coordinates = array![[1.0e200], [-1.0e200]];
+        let energy = tiny.axis_energy(coordinates.view(), 0).unwrap();
+        assert!(energy.is_finite() && energy > 0.0);
+    }
+}
+
 fn latent_prior_score_and_aux_state_for_t(
     t_mat: ArrayView2<'_, f64>,
     aux_u: Option<ArrayView2<'_, f64>>,
     aux_family: AuxPriorFamily,
     aux_strength: Option<f64>,
-    dim_selection_precision: Option<ArrayView1<'_, f64>>,
+    dim_selection_precision: Option<&ValidatedDimSelectionPrecisions>,
 ) -> Result<(f64, Option<LatentAuxStrengthState>), String> {
-    let n_obs = t_mat.nrows();
     let latent_dim = t_mat.ncols();
     let mut latent_prior_score = 0.0_f64;
     let mut aux_strength_state = None;
@@ -415,29 +567,9 @@ fn latent_prior_score_and_aux_state_for_t(
         latent_prior_score += stats.score;
         aux_strength_state = Some(stats.strength);
     }
-    if let Some(log_prec) = dim_selection_precision {
-        if log_prec.len() != latent_dim {
-            return Err(format!(
-                "dim_selection_log_precision length {} must equal latent_dim {}",
-                log_prec.len(),
-                latent_dim
-            ));
-        }
-        for a in 0..latent_dim {
-            let log_alpha = log_prec[a];
-            let alpha = log_alpha.exp();
-            if !(alpha.is_finite() && alpha > 0.0) {
-                return Err(format!(
-                    "dim_selection_log_precision[{a}] must exponentiate to a finite positive precision"
-                ));
-            }
-            let mut sq = 0.0_f64;
-            for n in 0..n_obs {
-                let v = t_mat[[n, a]];
-                sq += v * v;
-            }
-            latent_prior_score += 0.5 * alpha * sq - 0.5 * (n_obs as f64) * log_alpha;
-        }
+    if let Some(precisions) = dim_selection_precision {
+        assert_eq!(latent_dim, precisions.log.len());
+        latent_prior_score += precisions.prior_score(t_mat)?;
     }
     Ok((latent_prior_score, aux_strength_state))
 }
@@ -1101,10 +1233,7 @@ fn multinomial_model_metadata_pyfunc<'py>(
     out.set_item("p_per_class", envelope.saved.p_per_class)?;
     out.set_item("n_active_classes", envelope.saved.n_active_classes)?;
     out.set_item("training_headers", envelope.saved.training_headers.clone())?;
-    out.set_item(
-        "training_table_kind",
-        &envelope.saved.training_table_kind,
-    )?;
+    out.set_item("training_table_kind", &envelope.saved.training_table_kind)?;
     out.set_item("lambdas", envelope.saved.lambdas.clone())?;
     out.set_item(
         "lambdas_per_block",
@@ -1297,6 +1426,7 @@ fn analytic_penalty_value_for_targets(
     target_beta: Option<ArrayView1<'_, f64>>,
 ) -> Result<f64, String> {
     let rho = Array1::<f64>::zeros(registry.total_rho_count());
+    registry.validate_rho(rho.view())?;
     let mut value = 0.0_f64;
     for (penalty, (rho_slice, tier, _name)) in registry.penalties.iter().zip(registry.rho_layout())
     {
@@ -1333,7 +1463,7 @@ fn gaussian_reml_fit_latent_impl(
     aux_u: Option<ArrayView2<'_, f64>>,
     aux_family: AuxPriorFamily,
     aux_strength: Option<f64>,
-    dim_selection_precision: Option<ArrayView1<'_, f64>>,
+    dim_selection_precision: Option<&ValidatedDimSelectionPrecisions>,
     analytic_penalties: Option<&AnalyticPenaltyRegistry>,
     periodic: Option<&[Option<f64>]>,
 ) -> Result<
@@ -1377,37 +1507,13 @@ fn gaussian_reml_fit_latent_impl(
     .map_err(|err| err.to_string())?;
     // Fixes audit-revised claim that ARD / aux-prior REML selection requires
     // normalized priors, not raw quadratic corrections alone.
-    let mut latent_prior_score = 0.0_f64;
-    let mut aux_strength_state = None;
-    if let Some(u_view) = aux_u {
-        let stats = latent_aux_prior_stats(t_mat.view(), u_view, aux_family, aux_strength)?;
-        latent_prior_score += stats.score;
-        aux_strength_state = Some(stats.strength);
-    }
-    if let Some(log_prec) = dim_selection_precision {
-        if log_prec.len() != latent_dim {
-            return Err(format!(
-                "dim_selection_log_precision length {} must equal latent_dim {}",
-                log_prec.len(),
-                latent_dim
-            ));
-        }
-        for a in 0..latent_dim {
-            let log_alpha = log_prec[a];
-            let alpha = log_alpha.exp();
-            if !(alpha.is_finite() && alpha > 0.0) {
-                return Err(format!(
-                    "dim_selection_log_precision[{a}] must exponentiate to a finite positive precision"
-                ));
-            }
-            let mut sq = 0.0_f64;
-            for n in 0..n_obs {
-                let v = t_mat[[n, a]];
-                sq += v * v;
-            }
-            latent_prior_score += 0.5 * alpha * sq - 0.5 * (n_obs as f64) * log_alpha;
-        }
-    }
+    let (mut latent_prior_score, aux_strength_state) = latent_prior_score_and_aux_state_for_t(
+        t_mat.view(),
+        aux_u,
+        aux_family,
+        aux_strength,
+        dim_selection_precision,
+    )?;
     if let Some(registry) = analytic_penalties {
         latent_prior_score += analytic_penalty_value_for_targets(registry, t_flat, None)?;
     }
@@ -1493,7 +1599,9 @@ fn gaussian_reml_fit_latent<'py>(
     let aux_u_values = aux_u.as_ref().map(|a| a.as_array().to_owned());
     let dim_selection_values = dim_selection_log_precision
         .as_ref()
-        .map(|a| a.as_array().to_owned());
+        .map(|values| ValidatedDimSelectionPrecisions::new(values.as_array(), latent_dim))
+        .transpose()
+        .map_err(py_value_error)?;
     let tensor_knots_values = tensor_knots_concat
         .as_ref()
         .map(|a| a.as_array().to_owned());
@@ -1520,7 +1628,7 @@ fn gaussian_reml_fit_latent<'py>(
                 aux_u_values.as_ref().map(|a| a.view()),
                 family,
                 aux_strength,
-                dim_selection_values.as_ref().map(|a| a.view()),
+                dim_selection_values.as_ref(),
             )
             .map_err(py_value_error)?;
             let analytic_score =
@@ -1570,7 +1678,7 @@ fn gaussian_reml_fit_latent<'py>(
                 aux_u_values.as_ref().map(|a| a.view()),
                 family,
                 aux_strength,
-                dim_selection_values.as_ref().map(|a| a.view()),
+                dim_selection_values.as_ref(),
                 Some(&registry),
                 // Standalone fit entrypoint: no manifold/chart, open Euclidean.
                 None,
@@ -1600,7 +1708,7 @@ fn canonicalize_assignment_kind(kind: &str) -> Result<String, String> {
 // (`gam_sae::manifold::oos_logit_seed`, methods on `SaeManifoldTerm`) so the CLI
 // and Rust callers seed identically to python — issue #2236. The binding calls
 // `term.seed_oos_softmax_logits_from_projection_residuals(..)` /
-// `term.seed_oos_ibp_logits_from_projected_decoder_lsq(..)` directly.
+// `term.seed_oos_ordered_beta_bernoulli_logits_from_projected_decoder_lsq(..)` directly.
 
 fn gumbel_temperature_schedule_from_pydict(
     schedule: Option<&Bound<'_, PyDict>>,
@@ -1698,560 +1806,6 @@ fn structured_residual_pass_diagnostics_dict<'py>(
     Ok(out)
 }
 
-/// Fit a SAE-manifold term end-to-end in Rust: up to `max_iter` Newton steps
-/// per λ_smooth candidate, refreshing `Phi` and `dPhi/dt` between steps via
-/// the per-atom [`SaeBasisSecondJet`] (analytic harmonic for `Periodic`
-/// `latent_dim == 1`, chart for `Sphere`, tensor harmonic for `Torus`; the
-/// radial+polynomial Duchon and monomial Euclidean evaluators refresh from the
-/// auto path that threads their metadata). This precomputed-basis entry point
-/// carries no Duchon centers, so a Duchon/precomputed atom here errors instead
-/// of freezing the seed snapshot. The smoothing / sparsity / ARD strengths
-/// (ρ) are selected automatically by the generic outer cascade driving the
-/// term's REML criterion — no per-call λ-grid.
-#[pyfunction(signature = (
-    z,
-    atom_basis,
-    atom_dim,
-    basis_values,
-    basis_jacobian,
-    basis_sizes,
-    decoder_coefficients,
-    smooth_penalties,
-    initial_logits,
-    initial_coords,
-    alpha,
-    tau,
-    learnable_alpha,
-    assignment_kind,
-    sparsity_strength = 1.0,
-    smoothness = 1.0,
-    max_iter = 12,
-    learning_rate = 1.0,
-    ridge_ext_coord = 1.0e-6,
-    ridge_beta = 1.0e-6,
-    gumbel_schedule = None,
-    analytic_penalties = None,
-    top_k = None,
-    jumprelu_threshold = 0.0,
-    fisher_factors = None,
-    fisher_mass_residual = None,
-    fisher_provenance = None,
-    row_loss_weights = None,
-    separation_barrier_strength_override = None,
-    ibp_alpha_override = None,
-    // #2239 magic-by-default: evidence-certified residual structure is promoted
-    // to the primary tier by default (the certificate gates the birth; the
-    // alternation self-extends its pass budget only while lineages are live).
-    promote_from_residual = true,
-    run_structure_search = true,
-    run_outer_rho_search = true,
-    data_row_reseed = false,
-))]
-fn sae_manifold_fit<'py>(
-    py: Python<'py>,
-    z: PyReadonlyArray2<'py, f64>,
-    atom_basis: Vec<String>,
-    atom_dim: Vec<usize>,
-    basis_values: PyReadonlyArray3<'py, f64>,
-    basis_jacobian: PyReadonlyArray4<'py, f64>,
-    basis_sizes: Vec<usize>,
-    decoder_coefficients: PyReadonlyArray3<'py, f64>,
-    smooth_penalties: PyReadonlyArray3<'py, f64>,
-    initial_logits: PyReadonlyArray2<'py, f64>,
-    initial_coords: PyReadonlyArray3<'py, f64>,
-    alpha: f64,
-    tau: f64,
-    learnable_alpha: bool,
-    assignment_kind: String,
-    sparsity_strength: f64,
-    smoothness: f64,
-    max_iter: usize,
-    learning_rate: f64,
-    ridge_ext_coord: f64,
-    ridge_beta: f64,
-    gumbel_schedule: Option<&Bound<'py, PyDict>>,
-    analytic_penalties: Option<String>,
-    top_k: Option<usize>,
-    jumprelu_threshold: f64,
-    // WP-D output-Fisher shard (#980). `fisher_factors` is `(n, p, r)` f64 (the
-    // harvest shard's `U`); its presence activates `RowMetric::OutputFisher`. No
-    // flag — magic-by-default. `fisher_mass_residual` is the optional `(n,)`
-    // truncation diagnostic that rides into the report.
-    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
-    fisher_mass_residual: Option<PyReadonlyArray1<'py, f64>>,
-    // The harvest shard's provenance tag (#980): `"output_fisher"` (same-position,
-    // the default) or `"output_fisher_downstream"` (KV-path aggregate over future
-    // positions). Selects which output-Fisher `RowMetric` is installed; the gauge
-    // / lens / dose consume either unchanged. Ignored when no shard is supplied.
-    fisher_provenance: Option<String>,
-    // Per-row design-honesty reconstruction weights (#977); `(n,)` √w. Absent ⇒
-    // unweighted path. Installed on the term before the joint fit / ρ selection.
-    row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
-    // Per-fit config (separation-barrier strength / IBP-α). `Some` pins this
-    // term's value; `None` selects the canonical data-derived or mode default.
-    separation_barrier_strength_override: Option<f64>,
-    ibp_alpha_override: Option<f64>,
-    promote_from_residual: bool,
-    run_structure_search: bool,
-    run_outer_rho_search: bool,
-    data_row_reseed: bool,
-) -> PyResult<Py<PyDict>> {
-    // The precomputed-basis entry point carries no Duchon centers / kernel
-    // metadata, so any basis kind whose refresh needs them cannot re-evaluate
-    // `Phi(t)` at updated coordinates. Pass empty per-atom centers; the
-    // evaluator builder errors for such kinds (rather than silently freezing
-    // the seed snapshot). Kinds with an analytic, centers-free basis
-    // (periodic, sphere, torus) refresh as usual.
-    let atom_centers: Vec<Option<Array2<f64>>> = vec![None; atom_basis.len()];
-    // Validate the strict canonical assignment token before the inner driver parses it.
-    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
-    let fisher_u = fisher_factors.as_ref().map(|f| f.as_array());
-    let fisher_mr = fisher_mass_residual.as_ref().map(|m| m.as_array());
-    let row_w = row_loss_weights.as_ref().map(|w| w.as_array());
-    sae_manifold_fit_inner(
-        py,
-        z.as_array(),
-        &atom_basis,
-        atom_dim,
-        &atom_centers,
-        basis_values.as_array(),
-        basis_jacobian.as_array(),
-        basis_sizes,
-        decoder_coefficients.as_array(),
-        smooth_penalties.as_array(),
-        initial_logits.as_array(),
-        initial_coords.as_array(),
-        alpha,
-        tau,
-        learnable_alpha,
-        assignment_kind,
-        sparsity_strength,
-        smoothness,
-        max_iter,
-        learning_rate,
-        ridge_ext_coord,
-        ridge_beta,
-        gumbel_schedule,
-        analytic_penalties,
-        top_k,
-        jumprelu_threshold,
-        true,
-        // This precomputed-basis entry point hands the term verbatim seeds;
-        // routing-seed refinement is owned by the higher-level `fit_minimal`
-        // auto path, so do not re-seed here (random_state unused when off).
-        false,
-        0,
-        fisher_u,
-        fisher_mr,
-        fisher_provenance.as_deref(),
-        row_w,
-        separation_barrier_strength_override,
-        ibp_alpha_override,
-        promote_from_residual,
-        run_structure_search,
-        run_outer_rho_search,
-        data_row_reseed,
-    )
-}
-
-/// Structural string tag for a fitted atom's basis kind (the discrete topology
-/// identity the SAC payload exposes). Exhaustive over [`SaeAtomBasisKind`] so a
-/// new topology surfaces as a compile error rather than a silent mislabel.
-fn stagewise_basis_kind_tag(kind: &SaeAtomBasisKind) -> &'static str {
-    match kind {
-        SaeAtomBasisKind::Duchon => "duchon",
-        SaeAtomBasisKind::Periodic => "periodic",
-        SaeAtomBasisKind::Sphere => "sphere",
-        SaeAtomBasisKind::Torus => "torus",
-        SaeAtomBasisKind::Cylinder => "cylinder",
-        SaeAtomBasisKind::Mobius => "mobius",
-        SaeAtomBasisKind::Linear => "linear",
-        SaeAtomBasisKind::EuclideanPatch => "euclidean_patch",
-        SaeAtomBasisKind::Poincare => "poincare",
-        SaeAtomBasisKind::FiniteSet => "finite_set",
-        SaeAtomBasisKind::Precomputed(_) => "precomputed",
-    }
-}
-
-fn stagewise_birth_kind_tag(kind: gam::terms::sae::manifold::BirthKind) -> &'static str {
-    match kind {
-        gam::terms::sae::manifold::BirthKind::NewAtom => "new_atom",
-        gam::terms::sae::manifold::BirthKind::ChartExtension => "chart_extension",
-    }
-}
-
-fn stagewise_event_kind_tag(kind: gam::terms::sae::manifold::StagewiseEventKind) -> &'static str {
-    match kind {
-        gam::terms::sae::manifold::StagewiseEventKind::SeedReady => "seed_ready",
-        gam::terms::sae::manifold::StagewiseEventKind::BirthRoundStarted => "birth_round_started",
-        gam::terms::sae::manifold::StagewiseEventKind::ResidualModelStarted => {
-            "residual_model_started"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::ResidualModelFitted => {
-            "residual_model_fitted"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::CurrentEvidenceStarted => {
-            "current_evidence_started"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::CurrentEvidenceFinished => {
-            "current_evidence_finished"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::CandidateStarted => "candidate_started",
-        gam::terms::sae::manifold::StagewiseEventKind::CandidateFinished => "candidate_finished",
-        gam::terms::sae::manifold::StagewiseEventKind::BirthAccepted => "birth_accepted",
-        gam::terms::sae::manifold::StagewiseEventKind::BirthRejected => "birth_rejected",
-        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepStarted => {
-            "backfit_sweep_started"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepAccepted => {
-            "backfit_sweep_accepted"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepRejected => {
-            "backfit_sweep_rejected"
-        }
-        gam::terms::sae::manifold::StagewiseEventKind::TerminalEvidenceCompleted => {
-            "terminal_evidence_completed"
-        }
-    }
-}
-
-fn stagewise_atoms_py<'py>(
-    py: Python<'py>,
-    term: &gam::terms::sae::manifold::SaeManifoldTerm,
-) -> PyResult<Bound<'py, PyList>> {
-    let assignments = term.assignment.assignments();
-    let atoms_py = PyList::empty(py);
-    for atom_idx in 0..term.k_atoms() {
-        let atom = &term.atoms[atom_idx];
-        let atom_dict = PyDict::new(py);
-        atom_dict.set_item(
-            // Persistence expands the reduced frame to the physical `M × p`
-            // decoder expected at the Python boundary.
-            "decoder_B",
-            atom.full_width_decoder().into_pyarray(py),
-        )?;
-        atom_dict.set_item("basis_kind", stagewise_basis_kind_tag(&atom.basis_kind))?;
-        atom_dict.set_item("latent_dim", atom.latent_dim)?;
-        atom_dict.set_item(
-            "on_atom_coords_t",
-            term.assignment.coords[atom_idx]
-                .as_matrix()
-                .into_pyarray(py),
-        )?;
-        atom_dict.set_item(
-            "assignments_z",
-            assignments.column(atom_idx).to_owned().into_pyarray(py),
-        )?;
-        atoms_py.append(atom_dict)?;
-    }
-    Ok(atoms_py)
-}
-
-fn stagewise_checkpoint_py<'py>(
-    py: Python<'py>,
-    term: &gam::terms::sae::manifold::SaeManifoldTerm,
-    rho: &SaeManifoldRho,
-) -> PyResult<Bound<'py, PyDict>> {
-    let checkpoint = PyDict::new(py);
-    checkpoint.set_item("k_final", term.k_atoms())?;
-    checkpoint.set_item("atoms", stagewise_atoms_py(py, term)?)?;
-    checkpoint.set_item("logits", term.assignment.logits.clone().into_pyarray(py))?;
-    checkpoint.set_item("log_lambda_sparse", rho.log_lambda_sparse)?;
-    checkpoint.set_item(
-        "log_lambda_smooth",
-        Array1::from(rho.log_lambda_smooth.clone()).into_pyarray(py),
-    )?;
-    let log_ard_py = PyList::empty(py);
-    for atom_log_ard in &rho.log_ard {
-        log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
-    }
-    checkpoint.set_item("log_ard", log_ard_py)?;
-    Ok(checkpoint)
-}
-
-fn stagewise_progress_py<'py>(
-    py: Python<'py>,
-    event: &gam::terms::sae::manifold::StagewiseProgress<'_>,
-) -> PyResult<Py<PyDict>> {
-    let out = PyDict::new(py);
-    out.set_item("event", stagewise_event_kind_tag(event.event))?;
-    out.set_item("birth_round", event.birth_round)?;
-    out.set_item("backfit_sweep", event.backfit_sweep)?;
-    out.set_item("candidate", event.candidate.map(stagewise_birth_kind_tag))?;
-    out.set_item("accepted", event.accepted)?;
-    out.set_item("checkpoint_available", event.checkpoint)?;
-    out.set_item("k", event.k_atoms)?;
-    out.set_item("births_accepted", event.births_accepted)?;
-    out.set_item("births_rejected", event.births_rejected)?;
-    out.set_item("ev", event.ev)?;
-    out.set_item("factor_energy", event.factor_energy)?;
-    out.set_item("joint_reml_before", event.joint_reml_before)?;
-    out.set_item("joint_reml_after", event.joint_reml_after)?;
-    out.set_item("terminal_joint_reml", event.terminal_joint_reml)?;
-    if event.checkpoint {
-        out.set_item(
-            "checkpoint",
-            stagewise_checkpoint_py(py, event.term, event.rho)?,
-        )?;
-    } else {
-        out.set_item("checkpoint", py.None())?;
-    }
-    Ok(out.unbind())
-}
-
-/// SAC — Sequential Atom Composition entry. Grows a curved dictionary from a
-/// single K=1 seed atom by forward-stagewise births + backfitting, then reports
-/// the terminal frozen joint evidence. This is the productionised
-/// [`fit_stagewise`](gam::terms::sae::manifold::fit_stagewise) driver behind a
-/// thin FFI: the seed arrays are the K=1 slice of [`sae_manifold_fit`]'s
-/// precomputed-basis inputs (every array leads with a length-1 atom axis). The
-/// returned payload is compact — the composed per-atom dictionary, the
-/// by-construction-monotone EV traces, the birth ledger, and the terminal joint
-/// REML — enough for the SAC prototype to reconstruct and score. ρ is fixed at the
-/// dispersion-scaled seed (the outer EFS cascade is the caller's job); the
-/// stagewise driver is monotone at that ρ by construction.
-#[pyfunction(signature = (
-    z,
-    atom_basis,
-    atom_dim,
-    basis_values,
-    basis_jacobian,
-    basis_sizes,
-    decoder_coefficients,
-    smooth_penalties,
-    initial_logits,
-    initial_coords,
-    alpha,
-    tau,
-    learnable_alpha,
-    assignment_kind,
-    sparsity_strength = 0.0,
-    smoothness = 1.0,
-    max_iter = 64,
-    learning_rate = 1.0,
-    ridge_ext_coord = 1.0e-6,
-    ridge_beta = 1.0e-6,
-    max_births = 32,
-    max_backfit_sweeps = 4,
-    min_effect_ev = 0.0,
-    max_factor_rank = 4,
-    structured_whitening = true,
-    row_loss_weights = None,
-    progress_callback = None,
-    // Rung 1 (B4) — the harvest-emitted output-Fisher factor stack `(n, p, r)` and
-    // its provenance tag. Presence installs the metric on the seed term (carried
-    // across every birth / backfit clone); `"behavioral_fisher"` makes it the GLS
-    // reconstruction likelihood weight (nats). Conflicts with
-    // `structured_whitening` (which refits its own Σ⁻¹ metric per birth) — supply
-    // one or the other, not both.
-    fisher_factors = None,
-    fisher_provenance = None,
-))]
-fn sae_manifold_fit_stagewise<'py>(
-    py: Python<'py>,
-    z: PyReadonlyArray2<'py, f64>,
-    atom_basis: Vec<String>,
-    atom_dim: Vec<usize>,
-    basis_values: PyReadonlyArray3<'py, f64>,
-    basis_jacobian: PyReadonlyArray4<'py, f64>,
-    basis_sizes: Vec<usize>,
-    decoder_coefficients: PyReadonlyArray3<'py, f64>,
-    smooth_penalties: PyReadonlyArray3<'py, f64>,
-    initial_logits: PyReadonlyArray2<'py, f64>,
-    initial_coords: PyReadonlyArray3<'py, f64>,
-    alpha: f64,
-    tau: f64,
-    learnable_alpha: bool,
-    assignment_kind: String,
-    sparsity_strength: f64,
-    smoothness: f64,
-    max_iter: usize,
-    learning_rate: f64,
-    ridge_ext_coord: f64,
-    ridge_beta: f64,
-    max_births: usize,
-    max_backfit_sweeps: usize,
-    min_effect_ev: f64,
-    max_factor_rank: usize,
-    structured_whitening: bool,
-    row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
-    progress_callback: Option<PyObject>,
-    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
-    fisher_provenance: Option<String>,
-) -> PyResult<Py<PyDict>> {
-    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
-    let assignment = SaeFitAssignmentKind::from_tag(&assignment_kind).map_err(py_value_error)?;
-    let z_view = z.as_array();
-    let fisher_metric = match fisher_factors.as_ref() {
-        Some(factors) => Some(
-            SaeFisherRowMetricRequest::from_tag(
-                factors.as_array(),
-                z_view.nrows(),
-                z_view.ncols(),
-                fisher_provenance.as_deref(),
-                None,
-            )
-            .map_err(py_value_error)?,
-        ),
-        None => None,
-    };
-    let seed = build_sae_stagewise_seed(SaeStagewiseSeedRequest {
-        target: z_view,
-        atom_basis: &atom_basis,
-        atom_dim: &atom_dim,
-        basis_values: basis_values.as_array(),
-        basis_jacobian: basis_jacobian.as_array(),
-        basis_sizes: &basis_sizes,
-        decoder_coefficients: decoder_coefficients.as_array(),
-        smooth_penalties: smooth_penalties.as_array(),
-        initial_logits: initial_logits.as_array(),
-        initial_coords: initial_coords.as_array(),
-        alpha,
-        tau,
-        learnable_alpha,
-        assignment_kind: assignment,
-        sparsity_strength,
-        smoothness,
-        max_iter,
-        learning_rate,
-        ridge_ext_coord,
-        ridge_beta,
-        structured_whitening,
-        fisher_metric,
-    })
-    .map_err(py_value_error)?;
-    let SaeStagewiseSeedReport {
-        base_term,
-        initial_rho: init_rho,
-    } = seed;
-
-    let weights: Option<Vec<f64>> = row_loss_weights.as_ref().map(|w| w.as_array().to_vec());
-    let config = gam::terms::sae::manifold::StagewiseConfig {
-        inner_max_iter: max_iter,
-        learning_rate,
-        ridge_ext_coord,
-        ridge_beta,
-        max_births,
-        max_backfit_sweeps,
-        min_effect_ev,
-        max_factor_rank,
-        structured_whitening,
-    };
-    let mut progress_callback = progress_callback.map(|callback| {
-        move |event: gam::terms::sae::manifold::StagewiseProgress<'_>| -> Result<(), String> {
-            Python::attach(|py| {
-                let payload = stagewise_progress_py(py, &event).map_err(|err| err.to_string())?;
-                callback
-                    .call1(py, (payload,))
-                    .map_err(|err| err.to_string())?;
-                Ok(())
-            })
-        }
-    });
-    let progress_hook: Option<&mut gam::terms::sae::manifold::StagewiseProgressCallback<'_>> =
-        progress_callback.as_mut().map(|callback| {
-            callback as &mut gam::terms::sae::manifold::StagewiseProgressCallback<'_>
-        });
-    // #2138 — with no progress callback, run the whole multi-minute forward-birth
-    // + backfit solve through the GIL-releasing interruptible driver: on a Python
-    // interrupt it sets `cancel_flag`, which the stagewise loop polls per birth /
-    // per backfit sweep to stop the abandoned compose worker promptly. A callback
-    // keeps the direct call — the `&mut dyn` hook is not Ungil (can't cross
-    // `detach`) and already re-enters Python (raising there) each event.
-    let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let result = match progress_hook {
-        Some(hook) => gam::terms::sae::manifold::fit_stagewise(
-            base_term,
-            init_rho,
-            z_view,
-            None,
-            weights.as_deref(),
-            &config,
-            Some(hook),
-            None,
-        ),
-        None => {
-            // The worker thread is `'static`, but `z_view` borrows the (Python)
-            // numpy buffer — own the target so nothing non-`'static` crosses in
-            // (the primary fit path owns its target the same way).
-            let target_owned = z_view.to_owned();
-            let worker_cancel = std::sync::Arc::clone(&cancel_flag);
-            run_sae_fit_interruptible(py, "gam-sae-stagewise", &cancel_flag, move || {
-                gam::terms::sae::manifold::fit_stagewise(
-                    base_term,
-                    init_rho,
-                    target_owned.view(),
-                    None,
-                    weights.as_deref(),
-                    &config,
-                    None,
-                    Some(&*worker_cancel),
-                )
-            })?
-        }
-    }
-    .map_err(py_value_error)?;
-
-    let term = result.term;
-    let rho = result.rho;
-    let report = result.report;
-    let k_final = term.k_atoms();
-
-    let atoms_py = stagewise_atoms_py(py, &term)?;
-
-    let births_py = PyList::empty(py);
-    for rec in &report.birth_records {
-        let d = PyDict::new(py);
-        d.set_item("kind", stagewise_birth_kind_tag(rec.kind))?;
-        d.set_item("delta_ev", rec.delta_ev)?;
-        d.set_item("factor_energy", rec.factor_energy)?;
-        d.set_item("joint_reml_before", rec.joint_reml_before)?;
-        d.set_item("joint_reml_after", rec.joint_reml_after)?;
-        d.set_item("accepted", rec.accepted)?;
-        births_py.append(d)?;
-    }
-
-    let stopped_reason = match report.stopped_reason {
-        gam::terms::sae::manifold::StagewiseStop::TwoConsecutiveRejections => {
-            "two_consecutive_rejections"
-        }
-        gam::terms::sae::manifold::StagewiseStop::MaxBirths => "max_births",
-        gam::terms::sae::manifold::StagewiseStop::NoResidualStructure => "no_residual_structure",
-        gam::terms::sae::manifold::StagewiseStop::Cancelled => "cancelled",
-    };
-
-    let log_ard_py = PyList::empty(py);
-    for atom_log_ard in &rho.log_ard {
-        log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
-    }
-
-    let out = PyDict::new(py);
-    out.set_item("k_final", k_final)?;
-    out.set_item("births_accepted", report.births_accepted)?;
-    out.set_item("births_rejected", report.births_rejected)?;
-    out.set_item("stopped_reason", stopped_reason)?;
-    out.set_item("terminal_joint_reml", report.terminal_joint_reml)?;
-    out.set_item("terminal_data_fit", report.terminal_joint_loss.data_fit)?;
-    out.set_item(
-        "ev_trace",
-        Array1::from(report.ev_trace.clone()).into_pyarray(py),
-    )?;
-    out.set_item(
-        "backfit_ev_trace",
-        Array1::from(report.backfit_ev_trace.clone()).into_pyarray(py),
-    )?;
-    out.set_item("logits", term.assignment.logits.clone().into_pyarray(py))?;
-    out.set_item("atoms", atoms_py)?;
-    out.set_item("birth_records", births_py)?;
-    out.set_item("log_ard", log_ard_py)?;
-    out.set_item(
-        "log_lambda_smooth",
-        Array1::from(rho.log_lambda_smooth.clone()).into_pyarray(py),
-    )?;
-    out.set_item("log_lambda_sparse", rho.log_lambda_sparse)?;
-    Ok(out.unbind())
-}
-
 fn sae_manifold_fit_inner<'py>(
     py: Python<'py>,
     z_view: ArrayView2<'_, f64>,
@@ -2278,7 +1832,7 @@ fn sae_manifold_fit_inner<'py>(
     gumbel_schedule: Option<&Bound<'py, PyDict>>,
     analytic_penalties: Option<String>,
     top_k: Option<usize>,
-    jumprelu_threshold: f64,
+    threshold_gate_threshold: f64,
     native_ard_enabled: bool,
     seed_refine_routing: bool,
     seed_refine_random_state: u64,
@@ -2300,25 +1854,27 @@ fn sae_manifold_fit_inner<'py>(
     // scales every per-row reconstruction loss before the inner joint fit and
     // outer ρ selection. Uniform / absent ⇒ the bit-identical unweighted path.
     row_loss_weights: Option<ArrayView1<'_, f64>>,
-    // Per-fit config. `Some(x)` pins this term's separation-barrier strength /
-    // IBP-α to `x` via `SaeManifoldTerm::set_fit_config`; `None` selects the
-    // canonical data-derived or mode default.
+    // Per-fit separation barrier. `None` selects the native data-derived default.
     separation_barrier_strength_override: Option<f64>,
-    ibp_alpha_override: Option<f64>,
     promote_from_residual: bool,
+    // Bundled-pipeline stage toggles (#2267). `run_structure_search=false` takes the
+    // unbundled direct fit path (no topology race growing K); `structured_residual_passes`
+    // overrides the default number of structured-whitening residual passes
+    // (`None` = the native default of 2, `Some(0)` disables them). A fixed-K sweep
+    // wants exactly `k` atoms and none of these re-searches — see the example.
     run_structure_search: bool,
-    run_outer_rho_search: bool,
-    data_row_reseed: bool,
+    structured_residual_passes: Option<usize>,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
         None => None,
     };
     let (n_obs, p_out) = z_view.dim();
-    let k_atoms = atom_dim.len();
-    // Preserve the seed dictionary size for variable-K payload plan recovery.
-    let seed_k_atoms = k_atoms;
-
+    let max_atom_dim = atom_dim
+        .iter()
+        .copied()
+        .max()
+        .ok_or_else(|| py_value_error("sae_manifold_fit: atom_dim is empty".to_string()))?;
     // Registry descriptor parsing remains boundary marshalling because the JSON
     // descriptor builder lives above gam-sae. Every seed decision after this
     // point is owned by the typed gam-sae entry.
@@ -2326,7 +1882,7 @@ fn sae_manifold_fit_inner<'py>(
     let mut latent_blocks = serde_json::Map::new();
     latent_blocks.insert(
         "t".into(),
-        serde_json::json!({"name": "t", "n": n_obs, "d": atom_dim.iter().copied().max().unwrap_or(1)}),
+        serde_json::json!({"name": "t", "n": n_obs, "d": max_atom_dim}),
     );
     latent_blocks.insert(
         "beta".into(),
@@ -2378,14 +1934,14 @@ fn sae_manifold_fit_inner<'py>(
         ridge_ext_coord,
         ridge_beta,
         top_k,
-        threshold: jumprelu_threshold,
+        threshold: threshold_gate_threshold,
         native_ard_enabled,
         seed_refine_routing,
         seed_refine_random_state,
-        data_row_reseed,
+        data_row_reseed: false,
         fit_config: gam::terms::sae::manifold::SaeFitConfig {
             separation_barrier_strength_override,
-            ibp_alpha_override,
+            ordered_beta_bernoulli_alpha_override: None,
         },
         temperature_schedule,
         fisher_metric,
@@ -2402,7 +1958,7 @@ fn sae_manifold_fit_inner<'py>(
 
     // The typed gam-sae seed entry above owns construction and validation. Every
     // fit, structured-residual pass, evidence-guarded structure move,
-    // certificate, diagnostic, and top-k projection below belongs to gam-sae's
+    // certificate and diagnostic below belongs to gam-sae's
     // single typed orchestration entry (#2236).
     let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let request = gam::terms::sae::manifold::SaeFitRequest {
@@ -2414,14 +1970,13 @@ fn sae_manifold_fit_inner<'py>(
         learning_rate,
         ridge_ext_coord,
         ridge_beta,
-        assignment_kind: assignment,
         alpha,
-        top_k,
         isometry_pin_active,
         metric_provenance,
         promote_from_residual,
         run_structure_search,
-        run_outer_rho_search,
+        run_outer_rho_search: true,
+        structured_residual_passes,
         cancel: Some(std::sync::Arc::clone(&cancel_flag)),
     };
     let report = run_sae_fit_interruptible(py, "gam-sae-fit", &cancel_flag, move || {
@@ -2432,7 +1987,7 @@ fn sae_manifold_fit_inner<'py>(
         term,
         rho,
         loss,
-        post_topk_loss,
+        penalized_quasi_laplace_criterion,
         assignments,
         fitted,
         active_mask,
@@ -2443,11 +1998,10 @@ fn sae_manifold_fit_inner<'py>(
         structured_residual_diagnostics,
         trust_diagnostics,
         fit_diagnostics,
+        amortized_encoder_consistency,
+        certificate_ledger,
         structure_search_json,
         structure_certificate_json,
-        top_k_will_project,
-        pre_topk_assignments,
-        pre_topk_fitted,
         reported_log_alpha,
     } = report;
 
@@ -2465,15 +2019,36 @@ fn sae_manifold_fit_inner<'py>(
     for atom_log_ard in &rho.log_ard {
         log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
     }
+    // #2015/#2271 — Tier-0 input STANDARDIZATION divides every fit input
+    // column by its centered RMS `σ_c`, so the term's decoder (and every
+    // quantity the decoder feeds — its covariance, the closed-form shape
+    // bands) lives in that standardized frame, not the physical output
+    // units the persisted artifact promises (`decoder_coefficients` doc:
+    // "the atom's fitted radial scale... persisted predictions read this
+    // decoder directly"). This is the ONE crossing from the internal fit
+    // frame to the persisted/exposed frame (feeds both the live in-memory
+    // `ManifoldSAE` and its save/load payload, since they share the same
+    // struct), so lifting here — multiplying every per-channel quantity by
+    // `σ_c` — makes decoder_B, decoder_covariance, and the shape bands
+    // physical everywhere downstream, OOS included, with no separate
+    // `tier0_scale` persisted field required (unlike the additive `μ`,
+    // which is a whole-model constant applied once outside any atom).
+    let tier0_scale = term.tier0_scale().cloned();
     let atoms_py = PyList::empty(py);
     for atom_idx in 0..k_atoms {
         let atom = &term.atoms[atom_idx];
         let atom_dict = PyDict::new(py);
+        let mut decoder_physical = atom.full_width_decoder();
+        if let Some(sigma) = tier0_scale.as_ref() {
+            for mut row in decoder_physical.rows_mut() {
+                row *= sigma;
+            }
+        }
         atom_dict.set_item(
             // Expand the fit-internal rank-reduced frame before crossing the
             // Python boundary. All consumers receive the physical `M × p` decoder.
             "decoder_B",
-            atom.full_width_decoder().into_pyarray(py),
+            decoder_physical.into_pyarray(py),
         )?;
         atom_dict.set_item("basis_kind", atom_basis[atom_idx].clone())?;
         atom_dict.set_item("basis_centers", py.None())?;
@@ -2511,17 +2086,9 @@ fn sae_manifold_fit_inner<'py>(
         // covariance Cov(β_k) and the closed-form ambient band (coords / mean /
         // per-channel sd) along the atom's on-atom coordinates.
         //
-        // #977 variable-K: `shape_uncertainty` was assembled from the PRE-search
-        // joint-Hessian Schur factor (indexed by the SEED dictionary), then
-        // COMPLETED above (`complete_born_atom_shape_bands`) so every post-search
-        // atom — born atoms included — carries a band: seed atoms keep their exact
-        // joint-Hessian band, born atoms get the per-atom Laplace band from their
-        // own fitted inner Hessian, and a genuinely-degenerate atom keeps an
-        // honest NaN band. `decoder_covariance` is still present only for the
-        // Schur-assembled atoms (the dense lift is omitted for born atoms and at
-        // LLM-scale `p`); the python reader treats it as optional (`_opt_arr`). The
-        // atom's decoder, coordinates, assignments, basis kind, and active dim (all
-        // read from the fitted term above) are exact regardless.
+        // Exact joint bands are present when the execution plan exposes their
+        // Schur factor. Streaming-unavailable bands remain absent; no alternate
+        // per-atom covariance is substituted.
         if let Some(unc) = shape_uncertainty.atoms.get(atom_idx) {
             // Omitted (not set) above the SAE_DECODER_COV_PAYLOAD_MAX_ENTRIES
             // budget — the python reader treats the key as optional and the band
@@ -2532,17 +2099,48 @@ fn sae_manifold_fit_inner<'py>(
                 // rank-reduced atom the assembled covariance is the reduced
                 // `(r·p)²`; lift it by the `(Q ⊗ I_p)` congruence to the exact
                 // `(M·p)²` posterior of `Q B̃`. Identity clone for un-reduced atoms.
-                let cov_full = atom
+                let mut cov_full = atom
                     .lift_reduced_decoder_covariance(cov, p_out)
                     .map_err(py_value_error)?;
+                // #2015/#2271 — same physical-frame lift as `decoder_B`. The flat
+                // layout is basis-major (`b*p_out + c`), so channel `c`'s
+                // congruence factor `σ_c` hits every entry whose row OR column
+                // index falls in channel `c`; `(D ⊗ I)ᵀ Cov (D ⊗ I)` with
+                // `D = diag(σ)` reduces to `Cov[i,j] *= σ_{i mod p} * σ_{j mod p}`.
+                if let Some(sigma) = tier0_scale.as_ref() {
+                    let m_p = cov_full.nrows();
+                    for i in 0..m_p {
+                        let si = sigma[i % p_out];
+                        for j in 0..m_p {
+                            cov_full[[i, j]] *= si * sigma[j % p_out];
+                        }
+                    }
+                }
                 atom_dict.set_item("decoder_covariance", cov_full.into_pyarray(py))?;
             }
-            atom_dict.set_item(
-                "shape_band_coords",
-                unc.band_coords.clone().into_pyarray(py),
-            )?;
-            atom_dict.set_item("shape_band_mean", unc.band_mean.clone().into_pyarray(py))?;
-            atom_dict.set_item("shape_band_sd", unc.band_sd.clone().into_pyarray(py))?;
+            match (&unc.band_coords, &unc.band_mean, &unc.band_sd) {
+                (Some(coords), Some(mean), Some(sd)) => {
+                    atom_dict.set_item("shape_band_coords", coords.clone().into_pyarray(py))?;
+                    let mut band_mean = mean.clone();
+                    let mut band_sd = sd.clone();
+                    if let Some(sigma) = tier0_scale.as_ref() {
+                        for mut row in band_mean.rows_mut() {
+                            row *= sigma;
+                        }
+                        for mut row in band_sd.rows_mut() {
+                            row *= sigma;
+                        }
+                    }
+                    atom_dict.set_item("shape_band_mean", band_mean.into_pyarray(py))?;
+                    atom_dict.set_item("shape_band_sd", band_sd.into_pyarray(py))?;
+                }
+                (None, None, None) => {}
+                _ => {
+                    return Err(py_value_error(format!(
+                        "atom {atom_idx} has a partial shape-uncertainty band"
+                    )));
+                }
+            }
         }
         atoms_py.append(atom_dict)?;
     }
@@ -2564,6 +2162,15 @@ fn sae_manifold_fit_inner<'py>(
         Some(mean) => out.set_item("tier0_mean", mean.clone().into_pyarray(py))?,
         None => out.set_item("tier0_mean", py.None())?,
     }
+    // Tier-0 per-column scale σ (input standardization): the fit ran on
+    // `(Z − μ)/σ`, so a Python consumer reconstructing from the per-atom
+    // `decoder_B` must lift back `μ + σ ⊙ x̂`; `fitted` above already includes
+    // it. `None` on the unstandardized path (behavior/crosscoder fits,
+    // caller-centered targets).
+    match term.tier0_scale() {
+        Some(scale) => out.set_item("tier0_scale", scale.clone().into_pyarray(py))?,
+        None => out.set_item("tier0_scale", py.None())?,
+    }
     // #2235 — outer-search accounting for the CONVERGED fit (the only kind
     // that exists: non-convergence raises a typed error before a fit is
     // minted — the forcing-function contract, see SPEC).
@@ -2581,51 +2188,15 @@ fn sae_manifold_fit_inner<'py>(
         termination.set_item("wall_seconds", outer_termination.wall.as_secs_f64())?;
         out.set_item("termination", termination)?;
     }
-    // #1231 / #1232 — in-sample fit: the score is the negative penalized loss,
-    // surfaced honestly as `penalized_loss_score` (NOT `reml_score`) with a
-    // breakdown. The top-level payload describes ONE coherent model: when a hard
-    // top-k gate is applied the top-level `assignments`/`fitted`/`diagnostics`
-    // AND this score all describe the PROJECTED model (the score's data-fit is
-    // recomputed on the projected reconstruction; the decoder/ρ penalties are
-    // unchanged by the gate). The unprojected smooth-optimization model — its
-    // assignments, fitted, and score — is carried in full under `pre_topk`, with
-    // a `top_k_projection` descriptor naming the split so no reader ever conflates
-    // the two layers.
-    let top_level_loss = post_topk_loss.as_ref().unwrap_or(&loss);
-    sae_set_penalized_loss_items(&out, top_level_loss, "penalized_loss_score")?;
-    if top_k_will_project {
-        out.set_item("top_k_projection_applied", true)?;
-        // Self-describing split descriptor (#1232): every top-level model field
-        // describes the post-top-k projected model; the pre-projection model is
-        // under `pre_topk`.
-        let descriptor = PyDict::new(py);
-        descriptor.set_item("applied", true)?;
-        if let Some(k_top) = top_k {
-            descriptor.set_item("top_k", k_top)?;
-        }
-        descriptor.set_item("top_level_model", "post_topk")?;
-        descriptor.set_item("pre_projection_model", "pre_topk")?;
-        out.set_item("top_k_projection", descriptor)?;
-        if let (Some(pre_assignments), Some(pre_fitted)) = (pre_topk_assignments, pre_topk_fitted) {
-            let pre_topk = PyDict::new(py);
-            pre_topk.set_item("assignments_z", pre_assignments.into_pyarray(py))?;
-            pre_topk.set_item("fitted", pre_fitted.into_pyarray(py))?;
-            // The smooth-model score (unprojected data-fit + the same penalties).
-            sae_set_penalized_loss_items(&pre_topk, &loss, "penalized_loss_score")?;
-            out.set_item("pre_topk", pre_topk)?;
-        }
-    }
+    // Distinct scalars with distinct semantics: the ordinary penalized loss and
+    // the terminal penalized quasi-Laplace criterion are never conflated.
+    sae_set_penalized_loss_items(&out, &loss, "penalized_loss_score")?;
+    out.set_item(
+        "penalized_quasi_laplace_criterion",
+        penalized_quasi_laplace_criterion,
+    )?;
     out.set_item("log_alpha", reported_log_alpha)?;
-    // Clone, do NOT move the field out: `rho` is still owned and is borrowed
-    // again below for the post-fit amortized-encoder diagnostic
-    // (`term.amortized_encoder_consistency(.., &rho)`). Moving the non-`Copy`
-    // `log_lambda_smooth: Vec<f64>` out here would partially move `rho` and make
-    // that later `&rho` borrow a borrow-after-move (E0382), which broke the
-    // gam-pyffi build (#1559). The predict path (`sae_manifold_predict_oos`) can
-    // move the field by value because its `rho` dies immediately after; here it
-    // lives on, so we clone the K-length vector once at result emission — a
-    // negligible allocation that matches every other still-live-owner field
-    // emission in this file (`lambdas.clone()`, `class_levels.clone()`, …).
+    // Persist the terminal native smoothing coordinates verbatim.
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth.clone())?;
     // #2132 — the terminal REML-selected sparsity strength, alongside the
     // per-atom `log_lambda_smooth` / `log_ard` above. The OOS fixed-decoder
@@ -2678,32 +2249,24 @@ fn sae_manifold_fit_inner<'py>(
     )?;
     // #1026 — the load-bearing curved-vs-linear hybrid-split verdict: per d=1
     // atom, whether its fitted curved image beats its straight (linear
-    // special-case) secant on the common Laplace evidence scale. Present
+    // special-case) secant on the common rank-aware quasi-Laplace scale. Present
     // whenever the post-fit pass adjudicated at least one eligible atom; absent
     // for dictionaries with no eligible d=1 atom (nothing to split).
     if let Some(report) = term.hybrid_split_report() {
         out.set_item("hybrid_split", sae_hybrid_split_dict(py, report)?)?;
     }
-    // #1154 — post-fit amortized-encoder diagnostics. The outer ρ-cascade ranks
-    // the pure REML criterion; encoder consistency is deliberately excluded from
-    // fitting/ranking because it has no matching analytic ρ gradient. Here we
-    // measure, at the settled dictionary, how faithfully the cheap initializer
-    // approximates the exact encode-by-inner-solve map:
-    //   * `recon_consistency` — mean per-element squared gap between the amortized
-    //     reconstruction and the exact encode-by-inner-solve reconstruction (0 ⇒
-    //     the IFT predictor is an exact first-order model of the encode map);
-    //   * `unconverged_fraction` — share of shared-residual row solves that did
-    //     not meet the first-order stationarity tolerance.
-    // Best-effort: a degenerate atlas (no usable charts) yields no report rather
-    // than aborting the fit payload; this diagnostic never changes the fit.
-    if let Ok(consistency) = term.amortized_encoder_consistency(z_view.view(), &rho) {
-        let cotrain = PyDict::new(py);
-        cotrain.set_item("recon_consistency", consistency.recon_consistency)?;
-        cotrain.set_item("unconverged_fraction", consistency.unconverged_fraction)?;
-        cotrain.set_item("n_unconverged", consistency.n_unconverged)?;
-        cotrain.set_item("n_encodes", consistency.n_encodes)?;
-        out.set_item("cotrain", cotrain)?;
-    }
+    let cotrain = PyDict::new(py);
+    cotrain.set_item(
+        "recon_consistency",
+        amortized_encoder_consistency.recon_consistency,
+    )?;
+    cotrain.set_item(
+        "unconverged_fraction",
+        amortized_encoder_consistency.unconverged_fraction,
+    )?;
+    cotrain.set_item("n_unconverged", amortized_encoder_consistency.n_unconverged)?;
+    cotrain.set_item("n_encodes", amortized_encoder_consistency.n_encodes)?;
+    out.set_item("cotrain", cotrain)?;
     if let Some(report) = &fit_diagnostics.incoherence_report {
         out.set_item("curvature_report", sae_curvature_report_dict(py, report)?)?;
         out.set_item(
@@ -2736,150 +2299,22 @@ fn sae_manifold_fit_inner<'py>(
             &fit_diagnostics.topology_persistence,
         )?,
     )?;
-    // #16 — ONE coherent certificate ledger. Every certificate this fit produced
-    // implements the shared claim+evidence+conservative-verdict contract
-    // ([`gam::inference::certificates::Certificate`]); the ledger folds them into
-    // a single inspectable block keyed by claim id, with a top-level conservative
-    // `overall` roll-up (the weakest member). The detailed feature reports above
-    // remain first-class because they carry per-atom coordinates, generators,
-    // and measurements that the generic ledger intentionally does not encode;
-    // the ledger is the canonical cross-certificate verdict surface. Verdicts
-    // cannot read stronger than their evidence: an absent or below-margin
-    // certificate is `unavailable` / `insufficient`, never a silent pass.
-    {
-        use gam::inference::certificates::CertificateLedger;
-        let mut ledger = CertificateLedger::new();
-        ledger.record(&fit_diagnostics.residual_gauge);
-        let coordinate_fidelity_certificate =
-            gam::terms::sae::manifold::CoordinateFidelityCertificate::new(
-                &fit_diagnostics.coordinate_fidelity,
-            );
-        ledger.record(&coordinate_fidelity_certificate);
-        let topology_persistence_certificate =
-            gam::terms::sae::manifold::TopologyPersistenceCertificate::new(
-                &fit_diagnostics.topology_persistence,
-            );
-        ledger.record(&topology_persistence_certificate);
-        if let Some(report) = &fit_diagnostics.incoherence_report {
-            ledger.record(report);
-        }
-        out.set_item("certificates", certificate_ledger_dict(py, &ledger)?)?;
-    }
-    // #977 — VARIABLE-K `atom_plans`, emitted from the POST-search dictionary so
-    // its length matches the returned `atoms` exactly (the python `from_payload`
-    // boundary zips `payload["atoms"]` with `plans[atom_idx]`, so a length
-    // mismatch from a grown K would IndexError). Each plan is re-derived from the
-    // fitted atom: `kind` + `latent_dim` straight off the atom, `basis_size` from
-    // its Φ width, `n_harmonics` recovered from the basis size for the harmonic
-    // families, and `duchon_centers` inherited from the seed template (a
-    // structure-search-born atom clones atom 0's basis, so it carries the seed
-    // template's centers). This REPLACES the old post-hoc seed-K plan list that
-    // `sae_manifold_fit_minimal` attached after the fact — that list was pinned
-    // at the input K and was exactly the plumbing constraint the #997 comment
-    // cited for disabling births; emitting the plans here makes variable K
-    // first-class with no truncation or padding.
+    out.set_item(
+        "certificates",
+        certificate_ledger_dict(py, &certificate_ledger)?,
+    )?;
+    let fitted_atom_plans = sae_fitted_atom_plans(&term, atom_centers, seed_refine_random_state)
+        .map_err(py_value_error)?;
     let atom_plans_py = PyList::empty(py);
-    for (atom_idx, atom) in term.atoms.iter().enumerate() {
+    for plan in fitted_atom_plans {
         let entry = PyDict::new(py);
-        let kind = &atom.basis_kind;
-        let latent_dim = atom.latent_dim;
-        // #2135 — report the FULL inner-basis width `M` (== `basis_size` for an
-        // un-reduced atom, `Q.nrows()` for a #1117 rank-reduced one). This MUST
-        // match the re-expanded `M × p` decoder emitted above and the standard
-        // inner basis the OOS / reconstruct paths rebuild; emitting the reduced
-        // `r` here (with the full decoder) would desync the `n_harmonics` /
-        // `basis_size` round-trip from the decoder width.
-        let basis_size = atom.full_basis_size();
-        let kind_name = sae_atom_basis_kind_name(kind);
-        // Recover the per-(axis-)harmonic order from the fitted basis width for
-        // the harmonic families; 0 for the non-harmonic kinds (the python reader
-        // only consults `n_harmonics` for periodic/torus atoms). The harmonic
-        // order is floored at 1 for the harmonic kinds: a periodic/torus atom is
-        // by construction at least one harmonic (basis width 2H+1 with H>=1), and
-        // a degenerate collapse to a constant-only width (basis_size <= 2) would
-        // otherwise re-emit n_harmonics=0 — which the round-trip rebuild
-        // (`sae_build_periodic_atom`, `sae_build_torus_atom`) rejects as a
-        // non-positive harmonic order, breaking K>=4 reload/OOS reconstruct.
-        let n_harmonics = match kind {
-            SaeAtomBasisKind::Periodic => (basis_size.saturating_sub(1) / 2).max(1),
-            SaeAtomBasisKind::Torus => {
-                // basis_size = (2H+1)^latent_dim; recover the per-axis 2H+1, then H.
-                match sae_torus_axis_basis_size(basis_size, latent_dim.max(1)) {
-                    Ok(axis_m) => (axis_m.saturating_sub(1) / 2).max(1),
-                    Err(_) => 1,
-                }
-            }
-            _ => 0,
-        };
-        entry.set_item("kind", kind_name)?;
-        entry.set_item("latent_dim", latent_dim)?;
-        entry.set_item("n_harmonics", n_harmonics)?;
-        entry.set_item("basis_size", basis_size)?;
-        // Born atoms (index ≥ seed K) inherit atom 0's basis template, so they
-        // carry the seed template's Duchon centers (None for a periodic template).
-        let center_src = atom_idx.min(seed_k_atoms.saturating_sub(1));
-        match atom_centers.get(center_src).and_then(|c| c.as_ref()) {
-            Some(centers) => {
-                entry.set_item("duchon_centers", centers.clone().into_pyarray(py))?;
-            }
-            None => {
-                // #357 — a structure-search BIRTH races a heterogeneous topology
-                // (`race_birth_topology`): a circle seed can grow a EuclideanPatch
-                // (monomial-patch line) / Linear / Poincaré atom. When the SEED
-                // template carried no Duchon centers (periodic/sphere/torus seed),
-                // that born monomial atom would inherit `None` here and then the OOS
-                // round-trip (`sae_manifold_predict_oos`) would reject it with "atom
-                // N (Duchon-like) needs duchon_centers", breaking `converged_latents`,
-                // `project`, and `reconstruct` on any held-out matrix.
-                //
-                // A monomial-patch atom (EuclideanPatch / Linear / Poincaré) is
-                // CENTERLESS for the OOS rebuild: that path reads only
-                // `centers.ncols()` (the build dimension, equal to `latent_dim`) to
-                // recover the monomial degree from the trained decoder width — the
-                // center COORDINATES are never consulted (cf.
-                // `build_sae_basis_evaluators`, where only the genuine `Duchon` kernel
-                // reads center content). But the SAME `duchon_centers` field also
-                // feeds the python `_functional_basis_params` diagnostic, which builds
-                // a Duchon KERNEL design (`duchon_basis_with_jet`) that needs enough
-                // real center ROWS to leave a non-empty radial block — a 1-row
-                // placeholder degenerates it. So derive the centers from the atom's
-                // OWN converged on-atom coordinates (the honest analogue of the seed
-                // path, which subsamples the PCA-seeded coords): correct `ncols` for
-                // the OOS rebuild AND real rows for the kernel diagnostic. Births
-                // never produce a genuine Duchon kernel atom, so a Duchon-kind atom
-                // here keeps `None` and its missing-centers error still surfaces.
-                let needs_centerless_patch = matches!(
-                    kind,
-                    SaeAtomBasisKind::EuclideanPatch
-                        | SaeAtomBasisKind::Linear
-                        | SaeAtomBasisKind::Poincare
-                );
-                if needs_centerless_patch {
-                    let coords = term.assignment.coords[atom_idx].as_matrix();
-                    let n_rows = coords.nrows();
-                    let dim = latent_dim.max(1);
-                    // Mirror the seed-path center budget (`sae_build_atom_plans`):
-                    // a handful of rows is plenty for the monomial patch (ncols is
-                    // what the OOS rebuild reads) and gives the kernel diagnostic a
-                    // non-degenerate radial block. Deterministic subsample keyed by
-                    // the atom index so reloads are reproducible.
-                    let center_floor = (dim + 2).max(8);
-                    let n_centers = n_rows.min(center_floor.max(8)).max(dim + 1).min(n_rows);
-                    // No `random_state` in this entry point's scope (the precomputed-
-                    // basis fit takes its seed jitter elsewhere); key the deterministic
-                    // subsample purely on the atom index so a reload is reproducible.
-                    let idx = sae_pick_duchon_center_indices(n_rows, n_centers, atom_idx as u64);
-                    let mut centers = Array2::<f64>::zeros((idx.len().max(1), dim));
-                    for (out_row, src_row) in idx.iter().copied().enumerate() {
-                        for col in 0..dim.min(coords.ncols()) {
-                            centers[[out_row, col]] = coords[[src_row, col]];
-                        }
-                    }
-                    entry.set_item("duchon_centers", centers.into_pyarray(py))?;
-                } else {
-                    entry.set_item("duchon_centers", py.None())?;
-                }
-            }
+        entry.set_item("kind", sae_atom_basis_kind_name(&plan.kind))?;
+        entry.set_item("latent_dim", plan.latent_dim)?;
+        entry.set_item("n_harmonics", plan.n_harmonics)?;
+        entry.set_item("basis_size", plan.basis_size)?;
+        match plan.duchon_centers {
+            Some(centers) => entry.set_item("duchon_centers", centers.into_pyarray(py))?,
+            None => entry.set_item("duchon_centers", py.None())?,
         }
         atom_plans_py.append(entry)?;
     }
@@ -2942,9 +2377,8 @@ fn sae_trust_diagnostics_dict<'py>(
 
 /// Build the result-dict entry for the two-score per-atom lens
 /// ([`gam::inference::atom_lens::AtomTwoLensReport`]). Per-atom presence /
-/// coupling / discrepancy arrays plus the coupling provenance string. Coupling /
-/// coupling_normalized / discrepancy are `NaN` for atoms whose behavioral axis is
-/// unavailable (Euclidean / no-harvest provenance), mirroring the Rust `None`.
+/// coupling / discrepancy arrays plus the coupling provenance string. Optional
+/// native values remain Python ``None`` when the behavioral axis is unavailable.
 fn sae_atom_two_lens_dict<'py>(
     py: Python<'py>,
     report: &gam::inference::atom_lens::AtomTwoLensReport,
@@ -2960,9 +2394,9 @@ fn sae_atom_two_lens_dict<'py>(
         names.append(atom.name.clone())?;
         presence.push(atom.presence);
         presence_norm.push(atom.presence_normalized);
-        coupling.push(atom.coupling.unwrap_or(f64::NAN));
-        coupling_norm.push(atom.coupling_normalized.unwrap_or(f64::NAN));
-        discrepancy.push(atom.discrepancy.unwrap_or(f64::NAN));
+        coupling.push(atom.coupling);
+        coupling_norm.push(atom.coupling_normalized);
+        discrepancy.push(atom.discrepancy);
     }
     d.set_item("names", names)?;
     d.set_item("presence", Array1::from_vec(presence).into_pyarray(py))?;
@@ -2970,15 +2404,9 @@ fn sae_atom_two_lens_dict<'py>(
         "presence_normalized",
         Array1::from_vec(presence_norm).into_pyarray(py),
     )?;
-    d.set_item("coupling", Array1::from_vec(coupling).into_pyarray(py))?;
-    d.set_item(
-        "coupling_normalized",
-        Array1::from_vec(coupling_norm).into_pyarray(py),
-    )?;
-    d.set_item(
-        "discrepancy",
-        Array1::from_vec(discrepancy).into_pyarray(py),
-    )?;
+    d.set_item("coupling", coupling)?;
+    d.set_item("coupling_normalized", coupling_norm)?;
+    d.set_item("discrepancy", discrepancy)?;
     d.set_item("coupling_available", report.coupling_available())?;
     d.set_item(
         "coupling_provenance",
@@ -3410,102 +2838,6 @@ fn sae_incoherence_report_dict<'py>(
     d.set_item("global_optimality_margin", margin)?;
     d.set_item("note", report.note.clone())?;
     Ok(d)
-}
-
-#[pyfunction(signature = (
-    z,
-    atom_basis,
-    atom_dim,
-    basis_values,
-    basis_jacobian,
-    basis_sizes,
-    decoder_coefficients,
-    smooth_penalties,
-    initial_logits,
-    initial_coords,
-    alpha,
-    tau,
-    learnable_alpha,
-    sparsity_strength = 1.0,
-    smoothness = 1.0,
-    max_iter = 12,
-    learning_rate = 1.0,
-    ridge_ext_coord = 1.0e-6,
-    ridge_beta = 1.0e-6,
-    gumbel_schedule = None,
-    analytic_penalties = None,
-))]
-fn sae_manifold_fit_ibp<'py>(
-    py: Python<'py>,
-    z: PyReadonlyArray2<'py, f64>,
-    atom_basis: Vec<String>,
-    atom_dim: Vec<usize>,
-    basis_values: PyReadonlyArray3<'py, f64>,
-    basis_jacobian: PyReadonlyArray4<'py, f64>,
-    basis_sizes: Vec<usize>,
-    decoder_coefficients: PyReadonlyArray3<'py, f64>,
-    smooth_penalties: PyReadonlyArray3<'py, f64>,
-    initial_logits: PyReadonlyArray2<'py, f64>,
-    initial_coords: PyReadonlyArray3<'py, f64>,
-    alpha: f64,
-    tau: f64,
-    learnable_alpha: bool,
-    sparsity_strength: f64,
-    smoothness: f64,
-    max_iter: usize,
-    learning_rate: f64,
-    ridge_ext_coord: f64,
-    ridge_beta: f64,
-    gumbel_schedule: Option<&Bound<'py, PyDict>>,
-    analytic_penalties: Option<String>,
-) -> PyResult<Py<PyDict>> {
-    sae_manifold_fit(
-        py,
-        z,
-        atom_basis,
-        atom_dim,
-        basis_values,
-        basis_jacobian,
-        basis_sizes,
-        decoder_coefficients,
-        smooth_penalties,
-        initial_logits,
-        initial_coords,
-        alpha,
-        tau,
-        learnable_alpha,
-        "ibp_map".to_string(),
-        sparsity_strength,
-        smoothness,
-        max_iter,
-        learning_rate,
-        ridge_ext_coord,
-        ridge_beta,
-        gumbel_schedule,
-        analytic_penalties,
-        None,
-        // IBP-MAP never reaches the JumpReLU dispatch; threshold is inert here.
-        0.0,
-        // No output-Fisher shard on this convenience IBP entry point; the
-        // metric stays Euclidean (the precomputed-basis `sae_manifold_fit` and
-        // the auto `sae_manifold_fit_minimal` entry points carry the shard).
-        None,
-        None,
-        None,
-        // No per-row design-honesty weights on this convenience IBP entry point.
-        None,
-        // No explicit separation-barrier / IBP-α values on this convenience IBP
-        // entry point: use their canonical data-derived and assignment defaults.
-        None,
-        None,
-        // Residual promotion stays disabled for this narrow convenience entry;
-        // canonical structured whitening and rank charge are unconditional in
-        // the shared core.
-        false,
-        true,
-        true,
-        false,
-    )
 }
 
 ///

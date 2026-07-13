@@ -1,31 +1,46 @@
 """
 The :py:mod:`nameparser.config` module manages the configuration of the
-nameparser. 
+nameparser.
 
-A module-level instance of :py:class:`~nameparser.config.Constants` is created
-and used by default for all HumanName instances. You can adjust the entire module's
-configuration by importing this instance and changing it.
+:py:class:`~nameparser.config.Constants` is for application-level
+configuration, set once at startup. ``CONSTANTS``, the module-level instance
+used by every ``HumanName`` created without its own config, is the only
+channel that reaches parses happening in code you don't own (helpers,
+pipelines, a third-party library using nameparser internally) -- the same
+role ``logging`` and ``locale`` play elsewhere. Import it and change it
+directly:
 
 ::
 
     >>> from nameparser.config import CONSTANTS
     >>> CONSTANTS.titles.remove('hon').add('chemistry','dean') # doctest: +SKIP
 
-You can also adjust the configuration of individual instances by passing
-``None`` as the second argument upon instantiation.
+For anything scoped -- one dataset, one library, one test -- pass your own
+:py:class:`Constants` instance as the second argument upon instantiation
+instead: ``Constants()`` for fresh library defaults, or ``CONSTANTS.copy()``
+for a private snapshot of the current module config.
 
 ::
 
     >>> from nameparser import HumanName
-    >>> hn = HumanName("Dean Robert Johns", None)
+    >>> from nameparser.config import Constants
+    >>> hn = HumanName("Dean Robert Johns", Constants())
     >>> hn.C.titles.add('dean') # doctest: +SKIP
     >>> hn.parse_full_name() # need to run this again after config changes
 
-**Potential Gotcha**: If you do not pass ``None`` (or your own
-:py:class:`Constants` instance) as the second argument, ``hn.C`` will be a
-reference to the module config, possibly yielding unexpected results. See
-`Customizing the Parser <customize.html>`_.
+Mixing the two up is where the surprises come from, not the API itself: if
+you do not pass your own :py:class:`Constants` instance as the second
+argument, ``hn.C`` will be a reference to the module config, and a change
+there reaches every other instance sharing it. See `Customizing the Parser
+<customize.html>`_.
+
+.. deprecated:: 1.4.0
+    Passing ``None`` as the second argument also builds a fresh
+    ``Constants()``, but is deprecated in favor of the explicit spellings
+    above; it will raise ``TypeError`` in 2.0 (issue #260).
 """
+import copy
+import inspect
 import re
 import sys
 import warnings
@@ -242,7 +257,18 @@ class SetManager(Set):
         .. deprecated:: 1.3.0
             ``bytes`` arguments will raise ``TypeError`` in 2.0 (see issue
             #245); decode before adding.
+
+        .. deprecated:: 1.4.0
+            The method itself is removed in 2.0 (see issue #245); use
+            :py:func:`add` instead, decoding bytes first.
         """
+        warnings.warn(
+            "SetManager.add_with_encoding() is deprecated and will be "
+            "removed in 2.0; use add() instead (decode bytes first). See "
+            "https://github.com/derek73/python-nameparser/issues/245",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._add_normalized(s, encoding, stacklevel=3)
 
     def add(self, *strings: str) -> Self:
@@ -327,7 +353,7 @@ def _is_dunder(attr: str) -> bool:
 # validate and normalize each one exactly once at import. Constants()
 # copies these via _normalized_elements' SetManager fast path instead of
 # re-checking ~1,400 elements per construction — a cost that otherwise
-# repeats on the per-instance-config path, HumanName(constants=None).
+# repeats on the per-instance-config path, HumanName(constants=Constants()).
 #
 # This snapshot is taken once, at import time: mutating a raw constant
 # (e.g. `TITLES.add('x')`) after import is *not* picked up by Constants()
@@ -383,10 +409,28 @@ class TupleManager(dict[str, T]):
             arg = checked
         super().__init__(arg, **kwargs)
 
+    def _warn_unknown_key(self, attr: str) -> None:
+        # Deprecated 1.4.0, raises AttributeError in 2.0 (#256): a misspelled
+        # key otherwise degrades silently with no traceback pointing at the
+        # typo.
+        warnings.warn(
+            f"{attr!r} is not a known key ({', '.join(sorted(self))}); "
+            "unknown-key attribute access is deprecated and will raise "
+            "AttributeError in 2.0. Use .get() for intentional soft access. "
+            "See https://github.com/derek73/python-nameparser/issues/256",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
     def __getattr__(self, attr: str) -> T | None:
         # Otherwise the dict default (None) is mistaken for a real protocol hook.
         if _is_dunder(attr):
             raise AttributeError(attr)
+        # Single-underscore introspection probes (IPython/Jupyter's
+        # _repr_html_, _ipython_canary_method_should_not_exist_, etc.) are
+        # never config keys either -- no real config key starts with '_'.
+        if attr not in self and not attr.startswith('_'):
+            self._warn_unknown_key(attr)
         return self.get(attr)
 
     def __setattr__(self, attr: str, value: T) -> None:
@@ -430,6 +474,8 @@ class RegexTupleManager(TupleManager[re.Pattern[str]]):
         # then tries to call the returned re.Pattern and raises TypeError.
         if _is_dunder(attr):
             raise AttributeError(attr)
+        if attr not in self and not attr.startswith('_'):
+            self._warn_unknown_key(attr)
         return self.get(attr, EMPTY_REGEX)
 
 
@@ -492,6 +538,48 @@ class _CachedUnionMember(_SetManagerAttribute):
             previous._on_change = None  # detach the replaced manager so it no longer invalidates
         value._on_change = obj._invalidate_pst
         obj._invalidate_pst()
+        setattr(obj, self._attr, value)
+
+
+class _EmptyAttributeDefaultAttribute:
+    """Descriptor backing ``Constants.empty_attribute_default``.
+
+    .. deprecated:: 1.4.0
+        Assignment is deprecated (see issue #255): the only legal value
+        left once ``None`` support goes in 2.0 is the default ``''``, so a
+        dial with one position isn't configuration.
+    """
+
+    _attr = '_empty_attribute_default'
+
+    def __get__(self, obj: 'Constants | None', objtype: type | None = None) -> str:
+        # Annotated `str`, not `str | None`, to match the pre-descriptor
+        # plain-attribute inference: None is documented/supported (see the
+        # class docstring), but typing it honestly cascades `| None`
+        # through every public str-typed name accessor (title, first, ...).
+        # Returning '' rather than `self` on class access (unlike
+        # _SetManagerAttribute, which returns `self`) is also load-bearing
+        # for Constants.__repr__'s `getattr(type(self), name)` default
+        # comparison in _repr_scalar_attrs -- returning `self` there would
+        # make every Constants() show this attribute as "customized".
+        if obj is None:
+            return ''
+        return getattr(obj, self._attr, '')
+
+    def __set__(self, obj: 'Constants', value: str | None) -> None:
+        if value is not None and not isinstance(value, str):
+            raise TypeError(
+                f"empty_attribute_default must be a str or None, got "
+                f"{type(value).__name__!r}"
+            )
+        warnings.warn(
+            "Assigning Constants.empty_attribute_default is deprecated and "
+            "will raise TypeError in 2.0; empty attributes will always "
+            "return ''. See "
+            "https://github.com/derek73/python-nameparser/issues/255",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         setattr(obj, self._attr, value)
 
 
@@ -590,8 +678,9 @@ class Constants:
     ``None`` (no additional splitting beyond the standard comma split).
 
     Note: setting this to ``","`` or ``", "`` has no additional effect —
-    the full name is already split on bare commas first, and each resulting
-    part is stripped of surrounding whitespace before this step runs.
+    the full name is already split on comma characters first (including the
+    Arabic ``،`` and fullwidth ``，`` variants), and each resulting part is
+    stripped of surrounding whitespace before this step runs.
 
     The delimiter is only applied to parts once they've been identified as
     a suffix group, so it never leaks into a first- or middle-name part. For
@@ -600,20 +689,29 @@ class Constants:
     does not get mistaken for a suffix split.
     """
 
-    empty_attribute_default = ''
+    empty_attribute_default = _EmptyAttributeDefaultAttribute()
     """
     Default return value for empty attributes.
 
+    .. deprecated:: 1.4.0
+        Assignment emits ``DeprecationWarning``; the option is removed in
+        2.0 (see issue #255) and empty attributes will always return ``''``.
+
     .. doctest::
 
+        >>> import warnings
         >>> from nameparser.config import CONSTANTS
-        >>> CONSTANTS.empty_attribute_default = None
+        >>> with warnings.catch_warnings():
+        ...     warnings.simplefilter('ignore', DeprecationWarning)
+        ...     CONSTANTS.empty_attribute_default = None
         >>> name = HumanName("John Doe")
         >>> print(name.title)
         None
         >>> name.first
         'John'
-        >>> CONSTANTS.empty_attribute_default = ''
+        >>> with warnings.catch_warnings():
+        ...     warnings.simplefilter('ignore', DeprecationWarning)
+        ...     CONSTANTS.empty_attribute_default = ''
 
     """
 
@@ -805,13 +903,29 @@ class Constants:
         ]
         return "<Constants : [\n" + "\n".join(lines) + "\n]>"
 
+    def copy(self) -> 'Constants':
+        """
+        Return a detached deep copy of this ``Constants`` instance, preserving
+        its current customizations -- unlike :py:class:`Constants`'s own
+        constructor, which always starts from library defaults. Useful for
+        snapshotting the shared module-level ``CONSTANTS`` (including
+        whatever it's been customized with) into a private instance, e.g.
+        ``CONSTANTS.copy()``. Relies on the same ``__getstate__``/``__setstate__``
+        pair pickling uses, so it's as cheap and correct as pickle round-tripping.
+        """
+        return copy.deepcopy(self)
+
     def __setstate__(self, state: Mapping[str, Any]) -> None:
         # Restore each saved attribute directly. The previous implementation
         # passed the whole state dict to __init__ as the ``prefixes`` argument,
         # which silently reverted every collection to its module default on
         # unpickling.
         self._pst = None
+        legacy_format = False
         for name, value in state.items():
+            # inspect.getattr_static, not getattr, so descriptors are
+            # inspected directly rather than triggering their __get__.
+            descriptor = inspect.getattr_static(type(self), name, None)
             # Migration shim: pickles written before this fix (1.3.0 and earlier,
             # including 1.2.1) used a dir() sweep for __getstate__, so their state
             # carries the read-only ``suffixes_prefixes_titles`` property. Skip any
@@ -820,9 +934,29 @@ class Constants:
             # don't promise to read pre-fix blobs forever — this only smooths
             # migration for anyone persisting them, and can be dropped a release
             # or two after 1.3.0 once they've re-pickled.
-            if isinstance(getattr(type(self), name, None), property):
+            if isinstance(descriptor, property):
+                legacy_format = True
+                continue
+            if isinstance(descriptor, _EmptyAttributeDefaultAttribute):
+                # Bypass the descriptor's setter: restoring saved state isn't
+                # a user assignment, so it shouldn't emit #255's deprecation
+                # warning on every unpickle/copy() of a customized instance.
+                setattr(self, descriptor._attr, value)
                 continue
             setattr(self, name, value)
+        if legacy_format:
+            # Once per __setstate__ call, not once per skipped key (see
+            # issue #279): the 2.0 removal turns this into a ValueError
+            # naming the same fix.
+            warnings.warn(
+                "Loading a legacy-format Constants pickle (written by "
+                "nameparser <= 1.2.x, before the 1.3.0 pickle fix) is "
+                "deprecated and will raise ValueError in 2.0; re-pickle "
+                "under 1.3/1.4 to migrate. See "
+                "https://github.com/derek73/python-nameparser/issues/279",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # Verify each descriptor-backed attr was restored. Without this, a missing
         # key surfaces later as AttributeError: 'Constants' object has no attribute
         # '_prefixes' — the private mangled name, not the public one, making it
@@ -847,7 +981,8 @@ class Constants:
         for name, val in self.__dict__.items():
             if name.startswith('_'):
                 public = name[1:]
-                if isinstance(getattr(type(self), public, None), _SetManagerAttribute):
+                descriptor = inspect.getattr_static(type(self), public, None)
+                if isinstance(descriptor, (_SetManagerAttribute, _EmptyAttributeDefaultAttribute)):
                     state[public] = val
             else:
                 state[name] = val

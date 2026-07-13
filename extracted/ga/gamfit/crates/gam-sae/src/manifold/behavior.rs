@@ -481,7 +481,9 @@ pub struct BehaviorBlock {
     /// `log(λ_y)`; the relative weight of the behavior block. Fixed in Inc2,
     /// REML-selected in Inc3. `λ_y = 1` (log 0) weights nats-in-behavior equally
     /// with the activation reconstruction's own units.
-    pub log_lambda_y: f64,
+    log_lambda_y: f64,
+    lambda_y: f64,
+    sqrt_lambda_y: f64,
 }
 
 impl BehaviorBlock {
@@ -496,17 +498,18 @@ impl BehaviorBlock {
         if activation_dim == 0 {
             return Err("BehaviorBlock::fit: activation_dim must be positive".into());
         }
-        if !log_lambda_y.is_finite() {
-            return Err(format!(
-                "BehaviorBlock::fit: log_lambda_y must be finite; got {log_lambda_y}"
-            ));
-        }
+        let lambda_y = gam_problem::checked_exp_log_strength(log_lambda_y)
+            .map_err(|error| format!("BehaviorBlock::fit: {error}"))?;
+        let sqrt_lambda_y = gam_problem::checked_exp_log_strength(0.5 * log_lambda_y)
+            .map_err(|error| format!("BehaviorBlock::fit square-root strength: {error}"))?;
         let (embedding, target) = SphereTangentEmbedding::fit(prob_rows)?;
         Ok(Self {
             embedding,
             target,
             activation_dim,
             log_lambda_y,
+            lambda_y,
+            sqrt_lambda_y,
         })
     }
 
@@ -522,13 +525,17 @@ impl BehaviorBlock {
 
     /// The behavior block weight `λ_y = exp(log_lambda_y)`.
     pub fn lambda_y(&self) -> f64 {
-        self.log_lambda_y.exp()
+        self.lambda_y
     }
 
     /// `√λ_y`, the per-column scaling applied to the behavior target so a single
     /// shared dispersion realizes the block variance ratio.
     pub fn sqrt_lambda_y(&self) -> f64 {
-        (0.5 * self.log_lambda_y).exp()
+        self.sqrt_lambda_y
+    }
+
+    pub fn log_lambda_y(&self) -> f64 {
+        self.log_lambda_y
     }
 
     /// Stack the activation target `Z` (`n × p_x`) with the `√λ_y`-scaled
@@ -603,28 +610,31 @@ impl BehaviorBlock {
     /// `λ_y` without ever re-embedding. The new augmented target is recovered by
     /// [`Self::augmented_target`] at the updated weight.
     pub fn with_log_lambda_y(&self, log_lambda_y: f64) -> Result<Self, String> {
-        if !log_lambda_y.is_finite() {
-            return Err(format!(
-                "BehaviorBlock::with_log_lambda_y: log_lambda_y must be finite; got {log_lambda_y}"
-            ));
-        }
+        let lambda_y = gam_problem::checked_exp_log_strength(log_lambda_y)
+            .map_err(|error| format!("BehaviorBlock::with_log_lambda_y: {error}"))?;
+        let sqrt_lambda_y =
+            gam_problem::checked_exp_log_strength(0.5 * log_lambda_y).map_err(|error| {
+                format!("BehaviorBlock::with_log_lambda_y square-root strength: {error}")
+            })?;
         let mut next = self.clone();
         next.log_lambda_y = log_lambda_y;
+        next.lambda_y = lambda_y;
+        next.sqrt_lambda_y = sqrt_lambda_y;
         Ok(next)
     }
 
-    /// The profiled two-block REML criterion's dependence on `log(λ_y)` beyond
+    /// The profiled two-block penalized quasi-Laplace criterion's dependence on `log(λ_y)` beyond
     /// what the single-block engine sees: the change-of-variables Jacobian
     /// `−(n·p_y/2)·log λ_y` that the `√λ_y` target scaling introduces into the
     /// Gaussian negative-log-marginal-likelihood.
     ///
-    /// The engine's REML criterion is computed on the **scaled** augmented target
+    /// The engine's penalized quasi-Laplace criterion is computed on the **scaled** augmented target
     /// `[Z | √λ_y·Y]` and so treats all `p̃` output columns as one homoscedastic
     /// block with a single dispersion `φ̂`. But the honest two-block model has
     /// `φ_y = φ_x/λ_y`; writing the behavior likelihood in the scaled variable
     /// `Ỹ = √λ_y·Y` contributes a Jacobian `∏_i (√λ_y)^{p_y} = λ_y^{n p_y/2}`,
     /// whose negative log is this term. **Add it** to the engine criterion (a
-    /// quantity that is *minimised*) to obtain the two-block REML criterion whose
+    /// quantity that is *minimised*) to obtain the two-block penalized quasi-Laplace criterion whose
     /// minimiser over `log λ_y` is the variance-ratio REML estimate. Without it
     /// the criterion is monotone in `λ_y` — behavior residuals shrink for free in
     /// scaled units — and `λ_y` is unidentifiable.
@@ -637,7 +647,7 @@ impl BehaviorBlock {
     /// units the fit saw (columns `[0, p_x)` activation, `[p_x, p̃)` the
     /// `√λ_y`-scaled behavior).
     ///
-    /// The profiled two-block REML criterion (engine criterion `+`
+    /// The profiled two-block penalized quasi-Laplace criterion (engine criterion `+`
     /// [`Self::reml_log_lambda_jacobian`]) is stationary in `log λ_y` at
     ///
     /// ```text
@@ -750,7 +760,9 @@ pub struct OutputBlock {
     pub target: Array2<f64>,
     /// `log(λ_ℓ)`; the relative inferential weight of this block. Moved by the
     /// closed-form REML variance-ratio update, never a knob.
-    pub log_lambda: f64,
+    log_lambda: f64,
+    lambda: f64,
+    sqrt_lambda: f64,
 }
 
 impl OutputBlock {
@@ -767,15 +779,16 @@ impl OutputBlock {
                 "OutputBlock::new: target must be a non-empty (n × p_ℓ) matrix; got ({n}, {p})"
             ));
         }
-        if !log_lambda.is_finite() {
-            return Err(format!(
-                "OutputBlock::new: log_lambda must be finite; got {log_lambda}"
-            ));
-        }
+        let lambda = gam_problem::checked_exp_log_strength(log_lambda)
+            .map_err(|error| format!("OutputBlock::new: {error}"))?;
+        let sqrt_lambda = gam_problem::checked_exp_log_strength(0.5 * log_lambda)
+            .map_err(|error| format!("OutputBlock::new square-root strength: {error}"))?;
         Ok(Self {
             label: label.into(),
             target,
             log_lambda,
+            lambda,
+            sqrt_lambda,
         })
     }
 
@@ -786,25 +799,32 @@ impl OutputBlock {
 
     /// The block weight `λ_ℓ = exp(log_lambda)`.
     pub fn lambda(&self) -> f64 {
-        self.log_lambda.exp()
+        self.lambda
     }
 
     /// `√λ_ℓ`, the per-column scaling applied to the target so a single shared
     /// dispersion realizes the block's variance ratio.
     pub fn sqrt_lambda(&self) -> f64 {
-        (0.5 * self.log_lambda).exp()
+        self.sqrt_lambda
+    }
+
+    pub fn log_lambda(&self) -> f64 {
+        self.log_lambda
     }
 
     /// A copy re-weighted to a new `log(λ_ℓ)` (the target is untouched, so a REML
     /// sweep re-weights without re-forming `Y_ℓ`).
     pub fn with_log_lambda(&self, log_lambda: f64) -> Result<Self, String> {
-        if !log_lambda.is_finite() {
-            return Err(format!(
-                "OutputBlock::with_log_lambda: log_lambda must be finite; got {log_lambda}"
-            ));
-        }
+        let lambda = gam_problem::checked_exp_log_strength(log_lambda)
+            .map_err(|error| format!("OutputBlock::with_log_lambda: {error}"))?;
+        let sqrt_lambda =
+            gam_problem::checked_exp_log_strength(0.5 * log_lambda).map_err(|error| {
+                format!("OutputBlock::with_log_lambda square-root strength: {error}")
+            })?;
         let mut next = self.clone();
         next.log_lambda = log_lambda;
+        next.lambda = lambda;
+        next.sqrt_lambda = sqrt_lambda;
         Ok(next)
     }
 
@@ -888,6 +908,8 @@ pub struct CrosscoderLayout {
     /// Per-output-block fitted `log(λ_ℓ)`, parallel to `block_dims`. The honest
     /// per-layer decoder divides by `√λ_ℓ = exp(½·log λ_ℓ)`.
     block_log_lambda: Vec<f64>,
+    /// Exact cached `√λ_ℓ`, parallel to `block_log_lambda`.
+    block_sqrt_lambda: Vec<f64>,
 }
 
 impl CrosscoderLayout {
@@ -922,19 +944,26 @@ impl CrosscoderLayout {
                 ));
             }
         }
-        for (l, &ll) in block_log_lambda.iter().enumerate() {
-            if !ll.is_finite() {
-                return Err(format!(
-                    "CrosscoderLayout::new: block {l} ('{}') log λ is {ll} (not finite)",
-                    labels[l]
-                ));
-            }
-        }
+        gam_problem::validate_log_strengths(block_log_lambda.iter().copied()).map_err(|error| {
+            format!(
+                "CrosscoderLayout::new: block {} ('{}') has invalid log λ: {error}",
+                error.coordinate, labels[error.coordinate]
+            )
+        })?;
+        let block_sqrt_lambda = block_log_lambda
+            .iter()
+            .copied()
+            .map(|log_lambda| {
+                gam_problem::checked_exp_log_strength(0.5 * log_lambda)
+                    .expect("half of a validated log strength remains canonical")
+            })
+            .collect();
         Ok(Self {
             p_x,
             block_dims,
             labels,
             block_log_lambda,
+            block_sqrt_lambda,
         })
     }
 
@@ -946,7 +975,8 @@ impl CrosscoderLayout {
             p_x,
             block_dims: blocks.iter().map(|b| b.block_dim()).collect(),
             labels: blocks.iter().map(|b| b.label.clone()).collect(),
-            block_log_lambda: blocks.iter().map(|b| b.log_lambda).collect(),
+            block_log_lambda: blocks.iter().map(OutputBlock::log_lambda).collect(),
+            block_sqrt_lambda: blocks.iter().map(OutputBlock::sqrt_lambda).collect(),
         }
     }
 
@@ -1005,7 +1035,7 @@ impl CrosscoderLayout {
     /// [`OutputBlock::sqrt_lambda`], so a layout built from the fitted blocks
     /// unscales a decoder bit-for-bit like the by-hand [`OutputBlock::split_honest_decoder`].
     pub fn sqrt_lambda(&self, l: usize) -> f64 {
-        (0.5 * self.block_log_lambda[l]).exp()
+        self.block_sqrt_lambda[l]
     }
 }
 
@@ -1057,12 +1087,12 @@ pub fn stack_augmented_target(
     Ok(augmented)
 }
 
-/// The multi-block profiled REML criterion (the quantity minimised over the
+/// The multi-block profiled penalized quasi-Laplace criterion (the quantity minimised over the
 /// block weights), evaluated at a fitted state's UNSCALED residual sums of
-/// squares. Up to `log λ`-independent constants it is
+/// squares and its penalty energy. Up to `log λ`-independent constants it is
 ///
 /// ```text
-///   C = (n·p̃/2)·log((R_x + Σ_ℓ λ_ℓ·R_ℓ)/(n·p̃)) − Σ_ℓ (n·p_ℓ/2)·log λ_ℓ ,
+///   C = (n·p̃/2)·log((R_x + Σ_ℓ λ_ℓ·R_ℓ + P)/(n·p̃)) − Σ_ℓ (n·p_ℓ/2)·log λ_ℓ ,
 /// ```
 ///
 /// (`p̃ = p_x + Σ p_ℓ`, `n = n_obs`), the profiled Gaussian negative-log-marginal
@@ -1075,92 +1105,128 @@ pub fn stack_augmented_target(
 /// backtracking) is monotone and cannot diverge; its stationary point is the
 /// same per-block variance ratio the closed form targets.
 ///
+/// # The penalty term `P` and the envelope theorem (#2228)
+///
+/// `penalty_energy = P` is TWICE the non-data-fit penalized-objective energy the
+/// inner engine drives to at the fitted state, i.e. `P = 2·(penalized_objective_total
+/// − data_fit)` (decoder smoothness + ARD + assignment prior + any analytic
+/// registry / repulsion / barrier energy, each entering `½·φ⁻¹` of the Gaussian
+/// exponent under the mgcv scaled-prior convention). The FACTOR OF TWO is not
+/// cosmetic: the inner solve makes `∂(½·pooled_raw + ½·P)/∂θ̂ = 0` at the fitted
+/// `θ̂ = (decoder, coords, logits)`, so `pooled' = pooled_raw + P` obeys
+/// `∂pooled'/∂θ̂ = 2·∂(inner objective)/∂θ̂ = 0`. That is exactly the condition for
+/// the envelope theorem to cancel the fitted-state response of the profiled
+/// criterion, so `dC/d log λ_ℓ` equals its EXPLICIT partial and the closed-form
+/// variance-ratio `λ*` is again the exact per-block minimiser at held residuals.
+///
+/// This term was UNNECESSARY (P ≡ 0 was exact) only while the inner engine
+/// returned the near-LS data-fit residuals. It became load-bearing at
+/// `2e178664f` ("invert the inner engine — block sweeps first"), which made
+/// `run_joint_fit_arrow_schur` converge to the PENALIZED-objective fixed point:
+/// the returned residuals then carry the penalty trade-off, the RSS-only pooled
+/// broke the envelope, and the two-block λ-sweep stalled (the closed-form `λ*`
+/// proposed moves the truncated-refit criterion refused). Pricing `P` inside the
+/// pooled dispersion restores value/`λ*` coherence against that engine.
+///
 /// Returns `+∞` for a non-positive pooled residual (an invalid state a caller's
 /// line search should reject).
-pub fn profiled_reml_criterion(
+pub fn profiled_penalized_quasi_laplace_criterion(
     n_obs: usize,
     p_x: usize,
     rss_x: f64,
     block_rss_unscaled: &[f64],
     block_dims: &[usize],
     block_log_lambda: &[f64],
-) -> f64 {
+    penalty_energy: f64,
+) -> Result<f64, String> {
+    let lambdas = gam_problem::checked_exp_log_strengths(block_log_lambda.iter().copied())
+        .map_err(|error| format!("profiled block criterion: {error}"))?;
     let n = n_obs as f64;
     let mut p_tilde = p_x as f64;
     let mut pooled = rss_x;
     let mut jac = 0.0_f64;
-    for ((&rss, &dim), &log_lambda) in block_rss_unscaled
+    for (((&rss, &dim), &log_lambda), &lambda) in block_rss_unscaled
         .iter()
         .zip(block_dims.iter())
         .zip(block_log_lambda.iter())
+        .zip(lambdas.iter())
     {
-        pooled += log_lambda.exp() * rss;
+        pooled += lambda * rss;
         p_tilde += dim as f64;
         jac += (dim as f64) * log_lambda;
     }
+    // Price the fitted-state penalty energy into the pooled dispersion (envelope
+    // term — held fixed w.r.t. `log λ_ℓ`, see the item comment above).
+    pooled += penalty_energy;
     if !(pooled > 0.0) {
-        return f64::INFINITY;
+        return Ok(f64::INFINITY);
     }
-    0.5 * n * p_tilde * (pooled / (n * p_tilde)).ln() - 0.5 * n * jac
+    Ok(0.5 * n * p_tilde * (pooled / (n * p_tilde)).ln() - 0.5 * n * jac)
 }
 
-/// The analytic outer-REML gradient of [`profiled_reml_criterion`] with respect
+/// The analytic outer gradient of [`profiled_penalized_quasi_laplace_criterion`] with respect
 /// to each block weight `log λ_ℓ` (#2231 §2a), evaluated at a fitted state's
 /// UNSCALED per-block residual sums of squares. At the inner optimum the residual
 /// is stationary in `(t, β)` (the envelope theorem: `∂R/∂β · ∂β/∂λ` vanishes), so
 /// only the EXPLICIT `λ_ℓ`-dependence of the profiled criterion survives:
 ///
 /// ```text
-///   ∂C/∂(log λ_ℓ) = (n·p̃/2) · λ_ℓ·R_ℓ / (R_x + Σ_m λ_m·R_m)  −  n·p_ℓ/2 ,
+///   ∂C/∂(log λ_ℓ) = (n·p̃/2) · λ_ℓ·R_ℓ / (R_x + Σ_m λ_m·R_m + P)  −  n·p_ℓ/2 ,
 /// ```
 ///
 /// (`p̃ = p_x + Σ p_ℓ`), the exact derivative of the profiled Gaussian
-/// negative-log-marginal (`d pooled/d log λ_ℓ = λ_ℓ R_ℓ`) plus the `√λ_ℓ`
-/// target-scaling Jacobian (`d(−½ n Σ p_m log λ_m)/d log λ_ℓ = −½ n p_ℓ`). This is
-/// the desync-safe (#2087) partner of the value in [`profiled_reml_criterion`] —
+/// negative-log-marginal (`d pooled/d log λ_ℓ = λ_ℓ R_ℓ`; the envelope-priced
+/// penalty `P` is held fixed, see [`profiled_penalized_quasi_laplace_criterion`])
+/// plus the `√λ_ℓ` target-scaling Jacobian
+/// (`d(−½ n Σ p_m log λ_m)/d log λ_ℓ = −½ n p_ℓ`). This is
+/// the desync-safe (#2087) partner of the value in [`profiled_penalized_quasi_laplace_criterion`] —
 /// they are a consistent `(value, gradient)` pair, FD-verified in
 /// `tests_crosscoder_block_fd_2231.rs`.
 ///
 /// The per-coordinate stationary point `λ_ℓ·R_ℓ = (p_ℓ/p̃)·pooled` is met exactly
-/// by the joint variance-ratio fixed point `λ_ℓ = (R_x/p_x)/(R_ℓ/p_ℓ)` (substitute
-/// and use `pooled = R_x·p̃/p_x` there), so the analytic gradient and the
-/// closed-form EFS step ([`profiled_reml_block_efs_log_lambda_steps`]) agree at the
-/// optimum — the coherence the planted two-layer test pins.
+/// by the joint variance-ratio fixed point `λ_ℓ = ((R_x+P)/p_x)/(R_ℓ/p_ℓ)`
+/// (substitute and use `pooled = (R_x+P)·p̃/p_x` there), so the analytic gradient
+/// and the closed-form EFS step ([`profiled_penalized_quasi_laplace_block_efs_log_lambda_steps`])
+/// agree at the optimum — the coherence the planted two-layer test pins.
 ///
 /// Returns all-zero for a non-positive pooled residual (the criterion is then
 /// `+∞`; a caller's line search rejects the value and must not consume a NaN
 /// direction).
-pub fn profiled_reml_block_log_lambda_gradient(
+pub fn profiled_penalized_quasi_laplace_block_log_lambda_gradient(
     n_obs: usize,
     p_x: usize,
     rss_x: f64,
     block_rss_unscaled: &[f64],
     block_dims: &[usize],
     block_log_lambda: &[f64],
-) -> Vec<f64> {
+    penalty_energy: f64,
+) -> Result<Vec<f64>, String> {
+    let lambdas = gam_problem::checked_exp_log_strengths(block_log_lambda.iter().copied())
+        .map_err(|error| format!("profiled block gradient: {error}"))?;
     let n = n_obs as f64;
     let mut p_tilde = p_x as f64;
     let mut pooled = rss_x;
-    for ((&rss, &dim), &log_lambda) in block_rss_unscaled
+    for ((&rss, &dim), &lambda) in block_rss_unscaled
         .iter()
         .zip(block_dims.iter())
-        .zip(block_log_lambda.iter())
+        .zip(lambdas.iter())
     {
-        pooled += log_lambda.exp() * rss;
+        pooled += lambda * rss;
         p_tilde += dim as f64;
     }
+    pooled += penalty_energy;
     if !(pooled > 0.0) {
-        return vec![0.0; block_rss_unscaled.len()];
+        return Ok(vec![0.0; block_rss_unscaled.len()]);
     }
-    block_rss_unscaled
+    Ok(block_rss_unscaled
         .iter()
         .zip(block_dims.iter())
-        .zip(block_log_lambda.iter())
-        .map(|((&rss, &dim), &log_lambda)| {
-            let lambda_r = log_lambda.exp() * rss;
+        .zip(lambdas.iter())
+        .map(|((&rss, &dim), &lambda)| {
+            let lambda_r = lambda * rss;
             0.5 * n * p_tilde * lambda_r / pooled - 0.5 * n * dim as f64
         })
-        .collect()
+        .collect())
 }
 
 /// The Fellner–Schall / MacKay closed-form fixed-point STEP on each block weight
@@ -1173,14 +1239,24 @@ pub fn profiled_reml_block_log_lambda_gradient(
 /// residual variance (`R_ℓ ≤ 0`, or a non-positive anchor variance) is
 /// unidentifiable and HELD (step 0), matching the M1 driver's `identifiable`
 /// gate.
-pub fn profiled_reml_block_efs_log_lambda_steps(
+///
+/// `penalty_energy = P` (the envelope-priced fitted-state penalty; see
+/// [`profiled_penalized_quasi_laplace_criterion`]) enters ONLY through the
+/// anchor-variance numerator `R_x → R_x + P`: solving the coupled multiblock
+/// fixed point `λ_ℓ·R_ℓ = d_ℓ·pooled'/p̃` (with `pooled' = R_x + Σ λ_m R_m + P`)
+/// simultaneously over all ℓ collapses — via `Σ_ℓ λ_ℓ R_ℓ = (Σ d_ℓ)·pooled'/p̃`
+/// and `p̃ − Σ d_ℓ = p_x` — to `pooled' = p̃·(R_x+P)/p_x`, hence the per-block
+/// closed form `λ_ℓ* = ((R_x+P)/p_x)/(R_ℓ/d_ℓ)`. `P = 0` recovers the historical
+/// pure variance ratio exactly.
+pub fn profiled_penalized_quasi_laplace_block_efs_log_lambda_steps(
     p_x: usize,
     rss_x: f64,
     block_rss_unscaled: &[f64],
     block_dims: &[usize],
     block_log_lambda: &[f64],
+    penalty_energy: f64,
 ) -> Vec<f64> {
-    let var_x = rss_x / p_x as f64;
+    let var_x = (rss_x + penalty_energy) / p_x as f64;
     block_rss_unscaled
         .iter()
         .zip(block_dims.iter())

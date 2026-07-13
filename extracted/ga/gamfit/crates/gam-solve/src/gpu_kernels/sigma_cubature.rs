@@ -10,6 +10,45 @@ use ndarray::{Array1, Array2, ArrayView1};
 
 use gam_gpu::gpu_error::GpuError;
 
+#[derive(Debug)]
+pub enum SigmaCubatureGpuError {
+    /// Only the Linux/CUDA dispatch path can surface a geometry error; the
+    /// non-Linux stub declines before any geometry is evaluated.
+    #[cfg(target_os = "linux")]
+    Geometry(gam_problem::EstimationError),
+    Runtime(GpuError),
+}
+
+impl std::fmt::Display for SigmaCubatureGpuError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            #[cfg(target_os = "linux")]
+            Self::Geometry(error) => write!(f, "{error}"),
+            Self::Runtime(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for SigmaCubatureGpuError {}
+
+impl From<GpuError> for SigmaCubatureGpuError {
+    fn from(error: GpuError) -> Self {
+        Self::Runtime(error)
+    }
+}
+
+/// One covariance post-processing contract shared by CPU and GPU sigma-point
+/// fits. Device execution changes how the Hessian is assembled, never how it
+/// is interpreted: every point must supply a finite symmetric matrix that
+/// passes strict unjittered Cholesky and the common residual certificate.
+pub(crate) fn certified_sigma_point_covariance(
+    hessian: &Array2<f64>,
+    label: &str,
+) -> Result<Array2<f64>, gam_linalg::utils::CertifiedSymmetricSolveError> {
+    gam_linalg::utils::certified_spd_inverse(hessian, label)
+        .map(gam_linalg::utils::CertifiedSpdInverse::into_inverse)
+}
+
 /// Per-sigma-point GPU PIRLS input: penalty, reparameterisation transform,
 /// and prior-mean shifts for one ρ / σ point.
 ///
@@ -79,7 +118,6 @@ fn pool_size(m: usize) -> usize {
 /// runtime), `Err(_)` on driver / shape failure.
 /// `x_original`: Original (pre-reparameterization) dense design matrix X_original, shape n × p.
 /// Uploaded to device once and reused across all sigma points.
-/// `gamma_shape`: Active Gamma dispersion shape (α > 0). Pass `1.0` for non-Gamma families.
 pub fn try_gpu_sigma_stream_pool_eval(
     x_original: ndarray::ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -87,10 +125,10 @@ pub fn try_gpu_sigma_stream_pool_eval(
     offset: ArrayView1<'_, f64>,
     per_sigma: &[SigmaPointGpuInput],
     admission: gam_gpu::policy::PirlsLoopAdmission,
-    gamma_shape: f64,
+    likelihood_scale: crate::gpu::pirls_gpu::PirlsLoopLikelihoodScale,
     convergence_tol: f64,
     max_iter: usize,
-) -> Result<Option<Vec<Option<(ndarray::Array2<f64>, ndarray::Array1<f64>)>>>, GpuError> {
+) -> Result<Option<Vec<(ndarray::Array2<f64>, ndarray::Array1<f64>)>>, SigmaCubatureGpuError> {
     if per_sigma.is_empty() {
         return Ok(Some(Vec::new()));
     }
@@ -105,9 +143,9 @@ pub fn try_gpu_sigma_stream_pool_eval(
             return Ok(None);
         };
         let Some(family) = linux_impl::family_kind_to_row(family_kind) else {
-            return Err(gam_gpu::gpu_err!(
-                "sigma stream pool: family not in JIT-cached set"
-            ));
+            return Err(
+                gam_gpu::gpu_err!("sigma stream pool: family not in JIT-cached set").into(),
+            );
         };
         let curvature = linux_impl::curvature_kind_to_row(admission.curvature);
         return linux_impl::stream_pool_eval(
@@ -118,7 +156,7 @@ pub fn try_gpu_sigma_stream_pool_eval(
             per_sigma,
             family,
             curvature,
-            gamma_shape,
+            likelihood_scale,
             convergence_tol,
             max_iter,
         );
@@ -132,7 +170,7 @@ pub fn try_gpu_sigma_stream_pool_eval(
         log::trace!(
             "[sigma stream pool] non-Linux target: skipping dispatch \
              (x_original={}x{}, y_len={}, prior_w_len={}, offset_len={}, \
-              n_sigma={}, family={:?}, curvature={:?}, gamma_shape={}, \
+              n_sigma={}, family={:?}, curvature={:?}, likelihood_scale={:?}, \
               tol={}, max_iter={})",
             x_original.nrows(),
             x_original.ncols(),
@@ -142,7 +180,7 @@ pub fn try_gpu_sigma_stream_pool_eval(
             per_sigma.len(),
             admission.family,
             admission.curvature,
-            gamma_shape,
+            likelihood_scale,
             convergence_tol,
             max_iter,
         );
@@ -183,12 +221,11 @@ fn validate_sigma_point_inputs(p: usize, per_sigma: &[SigmaPointGpuInput]) -> Re
 #[cfg(target_os = "linux")]
 mod linux_impl {
     use crate::gpu_kernels::pirls_row::{CurvatureMode, PirlsRowFamily};
-    use crate::gpu_kernels::sigma_cubature::SigmaPointGpuInput;
+    use crate::gpu_kernels::sigma_cubature::{SigmaCubatureGpuError, SigmaPointGpuInput};
     use gam_gpu::gpu_error::GpuError;
     use gam_gpu::policy::{PirlsLoopCurvatureKind, PirlsLoopFamilyKind};
-    use gam_linalg::utils::matrix_inversewith_regularization;
     use ndarray::{Array1, Array2, ArrayView1};
-    type SigmaPointResult = Option<(Array2<f64>, Array1<f64>)>;
+    type SigmaPointResult = (Array2<f64>, Array1<f64>);
 
     pub(super) fn family_kind_to_row(f: PirlsLoopFamilyKind) -> Option<PirlsRowFamily> {
         match f {
@@ -229,12 +266,12 @@ mod linux_impl {
         per_sigma: &[SigmaPointGpuInput],
         family: PirlsRowFamily,
         curvature: CurvatureMode,
-        gamma_shape: f64,
+        likelihood_scale: crate::gpu::pirls_gpu::PirlsLoopLikelihoodScale,
         convergence_tol: f64,
         max_iter: usize,
-    ) -> Result<Option<Vec<SigmaPointResult>>, GpuError> {
-        use crate::gpu_kernels::sigma_cubature::pool_size;
+    ) -> Result<Option<Vec<SigmaPointResult>>, SigmaCubatureGpuError> {
         use crate::gpu::pirls_gpu;
+        use crate::gpu_kernels::sigma_cubature::pool_size;
 
         let m = per_sigma.len();
         let p = x_original.ncols();
@@ -244,7 +281,8 @@ mod linux_impl {
             if pt.s_transformed.shape() != [p, p] || pt.qs.shape() != [p, p] {
                 return Err(gam_gpu::gpu_err!(
                     "sigma stream pool: point[{idx}] shape mismatch against point[0]"
-                ));
+                )
+                .into());
             }
         }
 
@@ -256,7 +294,8 @@ mod linux_impl {
         // exact Gaussian PLS solver with the per-point (Qs, S_transformed,
         // linear_shift) — no row-kernel PIRLS loop, no iterative solver.
         if family == PirlsRowFamily::GaussianIdentity {
-            return gaussian_sigma_pool_eval(x_original, y, prior_w, offset, per_sigma, p);
+            return gaussian_sigma_pool_eval(x_original, y, prior_w, offset, per_sigma, p)
+                .map_err(SigmaCubatureGpuError::Runtime);
         }
 
         // Upload X_original, y, prior_w, offset once — shared across all sigma points.
@@ -303,7 +342,7 @@ mod linux_impl {
                 loop_ws,
                 family,
                 curvature,
-                gamma_shape,
+                likelihood_scale,
                 beta0.view(),
                 pt.s_transformed.view(),
                 pt.linear_shift.view(),
@@ -315,27 +354,29 @@ mod linux_impl {
                 None,
             );
 
-            let sigma_result = match outcome {
-                Ok(loop_out) => {
-                    // Map H_transformed → H_original, invert, map β_transformed
-                    // → β_original. Mirrors the CPU path's post-processing.
-                    let h_orig = hessian_to_original(&loop_out.penalized_hessian, &pt.qs);
-                    let cov = matrix_inversewith_regularization(&h_orig, "gpu sigma point")
-                        .ok_or_else(|| {
-                            gam_gpu::gpu_err!(
-                                "gpu sigma point: penalised Hessian inverse not well-defined"
-                            )
-                        })?;
-                    let beta_orig = pt.qs.dot(&loop_out.beta);
-                    Some((cov, beta_orig))
+            let loop_out = match outcome {
+                Ok(loop_out) => loop_out,
+                Err(pirls_gpu::cuda::PirlsGpuLoopError::Geometry(error)) => {
+                    return Err(SigmaCubatureGpuError::Geometry(error));
                 }
-                Err(e) => {
-                    log::warn!(
-                        "[sigma-cubature gpu] point[{idx}] pirls_loop_on_stream failed: {e}"
-                    );
-                    None
+                Err(pirls_gpu::cuda::PirlsGpuLoopError::Runtime(message)) => {
+                    return Err(SigmaCubatureGpuError::Runtime(gam_gpu::gpu_err!(
+                        "sigma point[{idx}] GPU PIRLS runtime failure: {message}"
+                    )));
                 }
             };
+
+            // Map H_transformed → H_original, invert, map β_transformed
+            // → β_original. Mirrors the CPU path's post-processing.
+            let h_orig = hessian_to_original(&loop_out.penalized_hessian, &pt.qs);
+            let cov = super::certified_sigma_point_covariance(&h_orig, "gpu sigma point")
+                .map_err(|error| {
+                    gam_gpu::gpu_err!(
+                        "gpu sigma point: exact SPD penalised-Hessian inverse failed: {error}"
+                    )
+                })?;
+            let beta_orig = pt.qs.dot(&loop_out.beta);
+            let sigma_result = (cov, beta_orig);
 
             outcomes.push(sigma_result);
         }
@@ -389,16 +430,44 @@ mod linux_impl {
             .map_err(|e| gam_gpu::gpu_err!("gaussian sigma pool: point[{idx}] pls failed: {e}"))?;
 
             let h_orig = hessian_to_original(&pls.penalized_hessian, &pt.qs);
-            let cov = matrix_inversewith_regularization(&h_orig, "gaussian sigma point")
-                .ok_or_else(|| {
+            let cov = super::certified_sigma_point_covariance(&h_orig, "gaussian sigma point")
+                .map_err(|error| {
                     gam_gpu::gpu_err!(
-                        "gaussian sigma point: penalised Hessian inverse not well-defined"
+                        "gaussian sigma point: exact SPD penalised-Hessian inverse failed: {error}"
                     )
                 })?;
             let beta_orig = pt.qs.dot(&pls.beta);
-            outcomes.push(Some((cov, beta_orig)));
+            outcomes.push((cov, beta_orig));
         }
 
         Ok(Some(outcomes))
+    }
+}
+
+#[cfg(test)]
+mod covariance_contract_tests {
+    use super::certified_sigma_point_covariance;
+    use gam_linalg::utils::CertifiedSymmetricSolveError;
+    use ndarray::array;
+
+    #[test]
+    fn cpu_and_gpu_sigma_postprocessing_share_one_unperturbed_inverse_contract() {
+        let hessian = array![[4.0, 1.0], [1.0, 3.0]];
+        let covariance = certified_sigma_point_covariance(&hessian, "shared sigma contract")
+            .expect("strict SPD inverse");
+        let identity = hessian.dot(&covariance);
+        assert!((identity[[0, 0]] - 1.0).abs() <= 4.0 * f64::EPSILON);
+        assert!((identity[[1, 1]] - 1.0).abs() <= 4.0 * f64::EPSILON);
+        assert!(identity[[0, 1]].abs() <= 4.0 * f64::EPSILON);
+        assert!(identity[[1, 0]].abs() <= 4.0 * f64::EPSILON);
+    }
+
+    #[test]
+    fn shared_sigma_contract_rejects_an_invertible_indefinite_hessian() {
+        let hessian = array![[1.0, 2.0], [2.0, 1.0]];
+        assert!(matches!(
+            certified_sigma_point_covariance(&hessian, "shared sigma contract"),
+            Err(CertifiedSymmetricSolveError::NotPositiveDefinite { .. })
+        ));
     }
 }

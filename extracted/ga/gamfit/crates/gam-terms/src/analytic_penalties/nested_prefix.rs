@@ -141,7 +141,9 @@ impl NestedPrefixPenalty {
         self.prefix_sizes
             .iter()
             .enumerate()
-            .map(|(k, _)| resolve_learnable_weight(self.shell_weights[k], rho[self.rho_indices[k]]))
+            .map(|(k, _)| {
+                validated_learnable_weight(self.shell_weights[k], rho[self.rho_indices[k]])
+            })
             .collect()
     }
 
@@ -170,6 +172,30 @@ impl NestedPrefixPenalty {
 impl AnalyticPenalty for NestedPrefixPenalty {
     fn tier(&self) -> PenaltyTier {
         self.target_tier
+    }
+
+    fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+        if rho.len() != self.rho_count() {
+            return Err(format!(
+                "nested-prefix rho length {} != shell count {}",
+                rho.len(),
+                self.rho_count()
+            ));
+        }
+        for shell in 0..self.prefix_sizes.len() {
+            resolve_learnable_weight(self.shell_weights[shell], rho[self.rho_indices[shell]])?;
+        }
+        Ok(())
+    }
+
+    fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+        self.shell_weights
+            .iter()
+            .map(|&weight| {
+                learnable_weight_coordinate_domain(weight)?
+                    .ok_or_else(|| "nested-prefix shell weight must be positive".to_string())
+            })
+            .collect()
     }
 
     fn value(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> f64 {

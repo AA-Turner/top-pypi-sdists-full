@@ -98,12 +98,13 @@ pub(crate) struct ManifoldSaePayload {
     pub(crate) random_state: i64,
     /// Required key, but nullable (`to_dict` always writes `top_k`, `None`→`null`).
     pub(crate) top_k: Option<i64>,
-    pub(crate) jumprelu_threshold: f64,
+    pub(crate) threshold_gate_threshold: f64,
     pub(crate) oos_projection_top1: bool,
     pub(crate) dispersion: f64,
 
     // --- scores -----------------------------------------------------------
     pub(crate) penalized_loss_score: Option<f64>,
+    pub(crate) penalized_quasi_laplace_criterion: f64,
     pub(crate) reconstruction_r2: f64,
 
     // --- B. string / int lists --------------------------------------------
@@ -133,8 +134,6 @@ pub(crate) struct ManifoldSaePayload {
 
     // --- diagnostics / report blocks (opaque, always emitted) -------------
     pub(crate) diagnostics: Value,
-    pub(crate) top_k_projection: Option<Value>,
-    pub(crate) pre_topk: Option<Value>,
     pub(crate) solver_plan: Option<Value>,
     pub(crate) atom_two_lens: Option<Value>,
     pub(crate) residual_gauge: Option<Value>,
@@ -182,10 +181,11 @@ impl ManifoldSaePayload {
         "max_iter",
         "random_state",
         "top_k",
-        "jumprelu_threshold",
+        "threshold_gate_threshold",
         "oos_projection_top1",
         "dispersion",
         "penalized_loss_score",
+        "penalized_quasi_laplace_criterion",
         "reconstruction_r2",
         "primitive_names",
         "basis_specs",
@@ -203,8 +203,6 @@ impl ManifoldSaePayload {
         "crosscoder",
         "atoms",
         "diagnostics",
-        "top_k_projection",
-        "pre_topk",
         "solver_plan",
         "atom_two_lens",
         "residual_gauge",
@@ -281,6 +279,79 @@ impl ManifoldSaePayload {
             serde_json::from_value(value).map_err(|e| format!("ManifoldSAE.from_json: {e}"))?;
         crate::manifold::manifold_sae_coercion::canonical_assignment_kind(&payload.assignment)
             .map_err(|error| format!("ManifoldSAE.from_json: {error}"))?;
+        if payload.assignment_label != payload.assignment {
+            return Err(format!(
+                "ManifoldSAE.from_json: assignment_label {:?} must equal canonical assignment {:?}",
+                payload.assignment_label, payload.assignment
+            ));
+        }
+        if (payload.assignment == "topk") != payload.top_k.is_some() {
+            return Err(
+                "ManifoldSAE.from_json: top_k is required exactly for assignment='topk'"
+                    .to_string(),
+            );
+        }
+        let k = payload.basis_kinds.len();
+        for (index, basis) in payload.basis_kinds.iter().enumerate() {
+            gam::terms::sae::atom_schema::validate_fitted_basis_kind(basis)
+                .map_err(|error| format!("ManifoldSAE.from_json: basis_kinds[{index}]: {error}"))?;
+        }
+        if payload.atoms.len() != k
+            || payload.atom_topologies.len() != k
+            || payload.atom_dims.len() != k
+            || payload.basis_sizes.len() != k
+            || payload.n_harmonics.len() != k
+            || payload.coords.len() != k
+            || payload.decoder_blocks.len() != k
+            || payload.duchon_centers.len() != k
+        {
+            return Err(format!(
+                "ManifoldSAE.from_json: per-atom field lengths must all equal K={k}"
+            ));
+        }
+        for (index, atom) in payload.atoms.iter().enumerate() {
+            if atom.basis != payload.basis_kinds[index] {
+                return Err(format!(
+                    "ManifoldSAE.from_json: atoms[{index}].basis {:?} does not match basis_kinds[{index}] {:?}",
+                    atom.basis, payload.basis_kinds[index]
+                ));
+            }
+        }
+        let expected_topologies =
+            gam::terms::sae::atom_schema::topologies_for_bases(&payload.basis_kinds)
+                .map_err(|error| format!("ManifoldSAE.from_json: {error}"))?;
+        if payload.atom_topologies != expected_topologies {
+            return Err(format!(
+                "ManifoldSAE.from_json: atom_topologies {:?} do not match basis_kinds {:?}",
+                payload.atom_topologies, payload.basis_kinds
+            ));
+        }
+        let expected_topology =
+            gam::terms::sae::atom_schema::topology_for_bases(&payload.basis_kinds)
+                .map_err(|error| format!("ManifoldSAE.from_json: {error}"))?
+                .ok_or_else(|| "ManifoldSAE.from_json: fitted artifact has no atoms".to_string())?;
+        if payload.atom_topology != expected_topology {
+            return Err(format!(
+                "ManifoldSAE.from_json: atom_topology {:?} does not match resolved topology {:?}",
+                payload.atom_topology, expected_topology
+            ));
+        }
+        let decoder_widths = payload
+            .decoder_blocks
+            .iter()
+            .enumerate()
+            .map(|(index, block)| {
+                i64::try_from(block.len()).map_err(|_| {
+                    format!("ManifoldSAE.from_json: decoder_blocks[{index}] width exceeds i64")
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        gam::terms::sae::atom_schema::validated_n_harmonics(
+            &payload.basis_kinds,
+            &payload.n_harmonics,
+            &decoder_widths,
+        )
+        .map_err(|error| format!("ManifoldSAE.from_json: {error}"))?;
         Ok(payload)
     }
 
@@ -400,6 +471,25 @@ mod manifold_sae_payload_serde_tests {
             .insert("legacy_alias".to_string(), Value::Null);
         let error = roundtrip_json(&serde_json::to_string(&golden).unwrap()).unwrap_err();
         assert!(error.contains("unknown field"), "{error}");
+    }
+
+    #[test]
+    fn removed_basis_and_assignment_aliases_are_rejected() {
+        let mut basis_alias = load_value("golden_full.json");
+        basis_alias["basis_kinds"][0] = Value::String("circle".to_string());
+        let error = roundtrip_json(&serde_json::to_string(&basis_alias).unwrap()).unwrap_err();
+        assert!(
+            error.contains("basis_kinds[0]") && error.contains("not canonical"),
+            "{error}"
+        );
+
+        let mut assignment_alias = load_value("golden_full.json");
+        assignment_alias["assignment_label"] = Value::String("TopK".to_string());
+        let error = roundtrip_json(&serde_json::to_string(&assignment_alias).unwrap()).unwrap_err();
+        assert!(
+            error.contains("assignment_label") && error.contains("canonical"),
+            "{error}"
+        );
     }
 
     #[test]

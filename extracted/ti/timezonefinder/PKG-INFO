@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timezonefinder
-Version: 8.2.4
+Version: 8.2.5
 Summary: python package for finding the timezone of any point on earth (coordinates) offline
 Author-email: jannikmi <github@michelfe.it>
 License: The MIT License (MIT)
@@ -47,6 +47,7 @@ Requires-Dist: h3>=4
 Requires-Dist: cffi<3,>=1.15.1
 Requires-Dist: flatbuffers>=25.2.10
 Provides-Extra: numba
+Requires-Dist: numpy<2.4; extra == "numba"
 Requires-Dist: numba<1,>=0.60; extra == "numba"
 Provides-Extra: pytz
 Requires-Dist: pytz>=2022.7.1; extra == "pytz"

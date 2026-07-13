@@ -261,32 +261,59 @@ fn checked_log_e_sum(current: f64, increment: f64) -> Result<f64, String> {
 /// constrained fit on the eval fold, e.g. the K-atom dictionary refit on
 /// D₀). Then `log E = ℓ_alt(D₀) − sup_{H0} ℓ(D₀)` and `E_{H0}[E] ≤ 1`
 /// exactly.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SplitLikelihoodError {
+    UndefinedLogLikelihood {
+        alternative: f64,
+        null_supremum: f64,
+    },
+}
+
+impl std::fmt::Display for SplitLikelihoodError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UndefinedLogLikelihood {
+                alternative,
+                null_supremum,
+            } => write!(
+                f,
+                "split-likelihood evidence requires defined log-likelihoods; alternative={alternative}, null_supremum={null_supremum}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SplitLikelihoodError {}
+
 pub fn split_likelihood_log_e_value(
     log_lik_alternative_on_eval: f64,
     log_lik_null_sup_on_eval: f64,
-) -> f64 {
-    // Degenerate halves yield a well-defined, conservative e-value of 1
-    // (`log E = 0`, no evidence for the alternative) rather than a NaN that
-    // would poison the e-process product and the downstream FDR certificate:
-    //   * Either log-likelihood is NaN — the model could not be evaluated on
-    //     this shard (a numerically degenerate fit). The honest reading is
-    //     "no information", i.e. `E = 1`.
-    //   * Both halves are the SAME signed infinity — e.g. a shard/outcome
-    //     with zero density under both the alternative and the null
-    //     (`−∞ − (−∞)`), or both `+∞`. The ratio is undefined; again `E = 1`.
-    // This keeps `log E` finite so `absorb_log` never banks a NaN and the
-    // e-BH certificate sees a contributing-nothing claim instead of panicking.
+) -> Result<f64, SplitLikelihoodError> {
+    // NaN is a failed likelihood evaluation, not neutral evidence. Recasting
+    // it as E=1 would hide a broken source and make the serialized certificate
+    // impossible to audit.
     if log_lik_alternative_on_eval.is_nan() || log_lik_null_sup_on_eval.is_nan() {
-        return 0.0;
+        return Err(SplitLikelihoodError::UndefinedLogLikelihood {
+            alternative: log_lik_alternative_on_eval,
+            null_supremum: log_lik_null_sup_on_eval,
+        });
     }
-    if log_lik_alternative_on_eval.is_infinite()
-        && log_lik_null_sup_on_eval.is_infinite()
-        && log_lik_alternative_on_eval.is_sign_positive()
-            == log_lik_null_sup_on_eval.is_sign_positive()
+    // Both models assigning exact zero density is a common-null event. The
+    // likelihood ratio is immaterial there; its conservative continuous
+    // extension is E=1 (zero log evidence). Positive infinite likelihoods do
+    // not describe normalized finite-row models and remain an error.
+    if log_lik_alternative_on_eval == f64::NEG_INFINITY
+        && log_lik_null_sup_on_eval == f64::NEG_INFINITY
     {
-        return 0.0;
+        return Ok(0.0);
     }
-    log_lik_alternative_on_eval - log_lik_null_sup_on_eval
+    if log_lik_alternative_on_eval == f64::INFINITY && log_lik_null_sup_on_eval == f64::INFINITY {
+        return Err(SplitLikelihoodError::UndefinedLogLikelihood {
+            alternative: log_lik_alternative_on_eval,
+            null_supremum: log_lik_null_sup_on_eval,
+        });
+    }
+    Ok(log_lik_alternative_on_eval - log_lik_null_sup_on_eval)
 }
 
 /// Sequential universal inference over a stream of batches with a
@@ -318,10 +345,10 @@ impl PredictablePluginEProcess {
         log_lik_alternative_prefit: f64,
         log_lik_null_sup_on_batch: f64,
     ) -> Result<(), String> {
-        self.process.absorb_log(split_likelihood_log_e_value(
-            log_lik_alternative_prefit,
-            log_lik_null_sup_on_batch,
-        ))
+        let log_e =
+            split_likelihood_log_e_value(log_lik_alternative_prefit, log_lik_null_sup_on_batch)
+                .map_err(|error| error.to_string())?;
+        self.process.absorb_log(log_e)
     }
 }
 
@@ -468,8 +495,10 @@ impl AtomBirthGate {
 ///   null REFIT on this shard (any fitter; this side must genuinely
 ///   maximize over H0 on the shard, an under-maximized null inflates the
 ///   e-value and voids validity).
-/// - `refit_alternative(alt, shard)`: fold the shard into the alternative
-///   (warm-started production fit, GPU, anything — zero conditions).
+/// - `refit_alternative(alt, shard)`: fold the shard into the alternative.
+///
+/// All three operations are fallible. An undefined likelihood or non-converged
+/// refit aborts the gate; it is never converted into neutral evidence.
 ///
 /// `initial_alternative` is the K+1 fit from data BEFORE the stream (or a
 /// prior-driven init; validity never depends on its quality — a bad init
@@ -502,17 +531,17 @@ pub fn run_atom_birth_gate<S, A>(
     alpha: f64,
     initial_alternative: A,
     shards: impl IntoIterator<Item = S>,
-    mut alternative_log_lik: impl FnMut(&A, &S) -> f64,
-    mut null_sup_log_lik: impl FnMut(&S) -> f64,
-    mut refit_alternative: impl FnMut(A, &S) -> A,
+    mut alternative_log_lik: impl FnMut(&A, &S) -> Result<f64, String>,
+    mut null_sup_log_lik: impl FnMut(&S) -> Result<f64, String>,
+    mut refit_alternative: impl FnMut(A, &S) -> Result<A, String>,
 ) -> Result<(AtomBirthGate, A), String> {
     let mut gate = AtomBirthGate::new(alpha)?;
     let mut alt = initial_alternative;
     for shard in shards {
-        let log_lik_alt = alternative_log_lik(&alt, &shard);
-        let log_lik_null = null_sup_log_lik(&shard);
+        let log_lik_alt = alternative_log_lik(&alt, &shard)?;
+        let log_lik_null = null_sup_log_lik(&shard)?;
         gate.try_absorb_shard(log_lik_alt, log_lik_null)?;
-        alt = refit_alternative(alt, &shard);
+        alt = refit_alternative(alt, &shard)?;
     }
     Ok((gate, alt))
 }
@@ -531,35 +560,65 @@ pub fn run_atom_birth_gate<S, A>(
 /// independence assumptions — atoms sharing every token is fine; that is
 /// exactly the case p-value BH cannot legally handle (PRDS violation) and
 /// e-BH can.
-pub fn e_benjamini_hochberg(log_e_values: &[f64], alpha: f64) -> Vec<usize> {
-    let m = log_e_values.len();
-    if m == 0 || !(alpha.is_finite() && alpha > 0.0) {
-        return Vec::new();
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EBhError {
+    InvalidAlpha { alpha: f64 },
+    InvalidLogEvidence { claim: usize, value: f64 },
+}
+
+impl std::fmt::Display for EBhError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidAlpha { alpha } => {
+                write!(
+                    f,
+                    "e-BH alpha must be finite and lie in (0, 1); got {alpha}"
+                )
+            }
+            Self::InvalidLogEvidence { claim, value } => {
+                write!(
+                    f,
+                    "e-BH log evidence for claim {claim} must be finite or -infinity; got {value}"
+                )
+            }
+        }
     }
-    // Robustness: a degenerate claim can bank a non-finite log e-value (a
-    // NaN from an upstream `(−∞) − (−∞)` split-LR that escaped the source
-    // guard). This is the documented honest FDR surface, so it must NEVER
-    // panic on such input. Treat any NaN as least-evidence (`−∞`): an
-    // undefined/contested claim contributes no evidence, sorts last, and can
-    // never be among the rejections. Finite/±∞ values pass through unchanged;
-    // `total_cmp` then gives a total order on the sanitized keys.
-    let sanitized: Vec<f64> = log_e_values
+}
+
+impl std::error::Error for EBhError {}
+
+pub fn e_benjamini_hochberg(log_e_values: &[f64], alpha: f64) -> Result<Vec<usize>, EBhError> {
+    if !(alpha.is_finite() && alpha > 0.0 && alpha < 1.0) {
+        return Err(EBhError::InvalidAlpha { alpha });
+    }
+    let m = log_e_values.len();
+    if m == 0 {
+        return Ok(Vec::new());
+    }
+    // Negative infinity is meaningful: it is the exact zero e-value. NaN has
+    // no statistical meaning, and positive infinity cannot be serialized in
+    // the certificate artifact. Both fail the whole certificate rather than
+    // being silently recoded or capped to a different claim.
+    if let Some((claim, &value)) = log_e_values
         .iter()
-        .map(|&v| if v.is_nan() { f64::NEG_INFINITY } else { v })
-        .collect();
+        .enumerate()
+        .find(|(_, value)| value.is_nan() || **value == f64::INFINITY)
+    {
+        return Err(EBhError::InvalidLogEvidence { claim, value });
+    }
     let mut order: Vec<usize> = (0..m).collect();
-    order.sort_by(|&a, &b| sanitized[b].total_cmp(&sanitized[a]));
+    order.sort_by(|&a, &b| log_e_values[b].total_cmp(&log_e_values[a]));
     let m_f = m as f64;
     let mut k_star = 0usize;
     for (rank0, &idx) in order.iter().enumerate() {
         let k = (rank0 + 1) as f64;
         // e_(k) ≥ m / (α k)  ⟺  log e_(k) ≥ log m − log α − log k
-        if sanitized[idx] >= m_f.ln() - alpha.ln() - k.ln() {
+        if log_e_values[idx] >= m_f.ln() - alpha.ln() - k.ln() {
             k_star = rank0 + 1;
         }
     }
     order.truncate(k_star);
-    order
+    Ok(order)
 }
 
 /// What one structural claim asserts about the dictionary. One e-process
@@ -654,10 +713,9 @@ impl StructureLedger {
         log_lik_alt_on_outcome: f64,
         log_lik_null_on_outcome: f64,
     ) -> Result<(), String> {
-        self.absorb_log(
-            idx,
-            split_likelihood_log_e_value(log_lik_alt_on_outcome, log_lik_null_on_outcome),
-        )
+        let log_e = split_likelihood_log_e_value(log_lik_alt_on_outcome, log_lik_null_on_outcome)
+            .map_err(|error| error.to_string())?;
+        self.absorb_log(idx, log_e)
     }
 
     /// The dictionary certificate: e-BH over the ledger's CURRENT
@@ -666,13 +724,13 @@ impl StructureLedger {
     /// stopping time because each entry is an e-process. Claims not
     /// confirmed are CONTESTED, never rejected (demote-never-reject); they
     /// keep their evidence and are the inputs to the probe-design loop.
-    pub fn certify(&self, alpha: f64) -> StructureCertificate {
+    pub fn certify(&self, alpha: f64) -> Result<StructureCertificate, EBhError> {
         let log_e: Vec<f64> = self
             .claims
             .iter()
             .map(|c| c.evidence.current_e_value_log())
             .collect();
-        let confirmed_idx = e_benjamini_hochberg(&log_e, alpha);
+        let confirmed_idx = e_benjamini_hochberg(&log_e, alpha)?;
         let mut entries: Vec<CertificateEntry> = self
             .claims
             .iter()
@@ -687,7 +745,7 @@ impl StructureLedger {
         for &i in &confirmed_idx {
             entries[i].confirmed = true;
         }
-        StructureCertificate { alpha, entries }
+        Ok(StructureCertificate { alpha, entries })
     }
 }
 
@@ -872,18 +930,18 @@ mod tests {
     fn e_bh_rejects_exactly_the_qualifying_prefix() {
         // m = 4, α = 0.1 → thresholds m/(αk) = 40, 20, 13.33, 10.
         let log_e = [45.0f64.ln(), 21.0f64.ln(), 12.0f64.ln(), 1.0f64.ln()];
-        let rejected = e_benjamini_hochberg(&log_e, 0.1);
+        let rejected = e_benjamini_hochberg(&log_e, 0.1).unwrap();
         // e_(1)=45 ≥ 40 ✓, e_(2)=21 ≥ 20 ✓, e_(3)=12 < 13.33 ✗ → k* = 2.
         assert_eq!(rejected, vec![0, 1]);
 
         // A weaker tail cannot drag in a stronger prefix decision.
         let log_e2 = [45.0f64.ln(), 5.0f64.ln(), 2.0f64.ln(), 1.0f64.ln()];
-        assert_eq!(e_benjamini_hochberg(&log_e2, 0.1), vec![0]);
+        assert_eq!(e_benjamini_hochberg(&log_e2, 0.1).unwrap(), vec![0]);
     }
 
     #[test]
     fn split_likelihood_equal_impossibility_is_neutral_log_evidence() {
-        let log_e = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        let log_e = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY).unwrap();
         assert_eq!(log_e, 0.0);
         assert!(log_e.is_finite());
 
@@ -894,48 +952,50 @@ mod tests {
     }
 
     #[test]
-    fn e_bh_orders_infinite_log_e_values_without_comparator_panic() {
-        let log_e = [f64::NEG_INFINITY, f64::INFINITY, 45.0f64.ln(), 1.0f64.ln()];
-        assert_eq!(e_benjamini_hochberg(&log_e, 0.1), vec![1, 2]);
+    fn e_bh_accepts_exact_zero_evidence_but_refuses_positive_infinity() {
+        let log_e = [f64::NEG_INFINITY, 45.0f64.ln(), 1.0f64.ln()];
+        assert_eq!(e_benjamini_hochberg(&log_e, 0.1).unwrap(), vec![1]);
+        assert!(matches!(
+            e_benjamini_hochberg(&[f64::INFINITY], 0.1),
+            Err(EBhError::InvalidLogEvidence { claim: 0, value }) if value == f64::INFINITY
+        ));
     }
 
-    /// A NaN log e-value (a degenerate claim whose `(−∞) − (−∞)` split-LR
-    /// escaped the source guard) must NOT panic the e-BH comparator — the
-    /// honest FDR surface stays robust. The NaN claim is treated as
-    /// least-evidence (`−∞`): it is never rejected, and it cannot disturb the
-    /// rejection of a genuinely strong claim.
+    /// A NaN has no e-value meaning. The whole certificate must fail at its
+    /// deterministic smallest bad claim rather than silently changing that
+    /// claim to exact zero evidence.
     #[test]
-    fn e_bh_treats_nan_as_least_evidence_without_panicking() {
-        // m = 2, α = 0.1 → threshold for the top claim is m/(αk) = 2/0.1 = 20.
-        // Claim 0 has e = 45 ≥ 20 (rejected); claim 1 is NaN (no evidence).
-        let log_e = [45.0f64.ln(), f64::NAN];
-        let rejected = e_benjamini_hochberg(&log_e, 0.1);
-        assert_eq!(
-            rejected,
-            vec![0],
-            "strong claim survives; NaN claim never rejected"
-        );
+    fn e_bh_refuses_nan_at_the_certificate_boundary() {
+        let error = e_benjamini_hochberg(&[45.0f64.ln(), f64::NAN], 0.1).unwrap_err();
+        assert!(matches!(
+            error,
+            EBhError::InvalidLogEvidence { claim: 1, value } if value.is_nan()
+        ));
+    }
 
-        // An all-NaN ledger yields an empty (no-rejection) certificate, not a
-        // panic.
-        let all_nan = [f64::NAN, f64::NAN, f64::NAN];
-        assert!(e_benjamini_hochberg(&all_nan, 0.1).is_empty());
+    #[test]
+    fn e_bh_refuses_invalid_levels_even_for_an_empty_family() {
+        for alpha in [0.0, 1.0, -0.1, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                e_benjamini_hochberg(&[], alpha),
+                Err(EBhError::InvalidAlpha { .. })
+            ));
+        }
     }
 
     /// The full source→consumer chain: a shard with zero density under both
     /// the alternative and the null produces `(−∞) − (−∞)`, which the split-LR
     /// resolves to neutral `log E = 0` rather than NaN; banking it and
-    /// certifying must not panic. A genuinely-NaN log-likelihood is likewise
-    /// resolved to neutral evidence at the source.
+    /// certifying must not panic. A genuinely NaN log-likelihood is refused at
+    /// the source and never reaches the ledger.
     #[test]
-    fn degenerate_split_lr_flows_through_certify_without_nan_panic() {
+    fn common_zero_density_is_neutral_but_nan_is_refused() {
         // (−∞) − (−∞): zero density under both hypotheses → neutral.
-        let neutral = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        let neutral = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY).unwrap();
         assert_eq!(neutral, 0.0);
-        // NaN log-likelihood (un-evaluable degenerate fit) → neutral, finite.
-        let from_nan = split_likelihood_log_e_value(f64::NAN, -3.0);
-        assert!(from_nan.is_finite());
-        assert_eq!(from_nan, 0.0);
+        // A NaN is a failed likelihood evaluation, not evidence that may be
+        // silently rewritten as neutral.
+        assert!(split_likelihood_log_e_value(f64::NAN, -3.0).is_err());
 
         let mut ledger = StructureLedger::new();
         let degenerate = ledger.register(ClaimKind::AtomExists { atom: 0 });
@@ -945,7 +1005,7 @@ mod tests {
         ledger.absorb_log(degenerate, neutral).unwrap();
         ledger.absorb_log(strong, 45.0f64.ln()).unwrap();
         // certify() runs e_benjamini_hochberg internally; must not panic.
-        let certificate = ledger.certify(0.1);
+        let certificate = ledger.certify(0.1).unwrap();
         let degenerate_entry = certificate
             .entries
             .iter()
@@ -1083,7 +1143,7 @@ mod tests {
         assert_eq!(a0_again, a0);
         assert_eq!(ledger.claims()[a0].evidence.steps(), 1);
 
-        let cert = ledger.certify(0.1);
+        let cert = ledger.certify(0.1).unwrap();
         // e_(1)=40 ≥ 30 ✓, e_(2)=20 ≥ 15 ✓, e_(3)=2 < 10 ✗ → atoms confirmed,
         // the binding edge stays contested.
         let confirmed: Vec<&ClaimKind> = cert.confirmed().map(|e| &e.kind).collect();
@@ -1272,9 +1332,9 @@ mod tests {
             0.05,
             0usize, // alt state = number of shards folded into the fit
             0..n_shards,
-            |_, _| -99.5, // prefit alternative log-lik on the shard
-            |_| -100.0,   // honest null sup on the shard
-            |folded, _| folded + 1,
+            |_, _| Ok(-99.5), // prefit alternative log-lik on the shard
+            |_| Ok(-100.0),   // honest null sup on the shard
+            |folded, _| Ok(folded + 1),
         )
         .expect("valid alpha");
 
@@ -1355,7 +1415,7 @@ mod tests {
                 .absorb_probe_outcome(idx, -0.5 * d1.dot(&d1), -0.5 * d0.dot(&d0))
                 .expect("absorb");
         }
-        let cert = ledger.certify(alpha);
+        let cert = ledger.certify(alpha).unwrap();
         assert!(
             cert.confirmed()
                 .any(|e| matches!(e.kind, ClaimKind::GeometryKind { atom: 0, .. }))

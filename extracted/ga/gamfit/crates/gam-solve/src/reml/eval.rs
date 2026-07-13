@@ -1,6 +1,7 @@
 use super::inner_strategy::GeometryBackendKind;
 use super::penalty_logdet::PenaltyPseudologdet;
 use super::*;
+use crate::model_types::SmoothingCorrectionMethod;
 use gam_linalg::matrix::symmetrize_in_place;
 use std::sync::atomic::Ordering;
 
@@ -59,6 +60,7 @@ pub enum SmoothingCorrectionOutcome {
     Cubature {
         correction: Array2<f64>,
         rho_covariance: Option<Array2<f64>>,
+        rho_hessian_stabilization: gam_problem::StabilizationLedger,
         rank: usize,
         n_points: usize,
         near_boundary: bool,
@@ -71,19 +73,40 @@ pub enum SmoothingCorrectionOutcome {
         rho_covariance: Option<Array2<f64>>,
         reason: &'static str,
         severity: SmoothingCorrectionFallbackSeverity,
+        method: Option<SmoothingCorrectionMethod>,
+    },
+    /// Exact first-order geometry was unavailable. The typed reason is
+    /// preserved instead of presenting a missing matrix as a routine skip.
+    Unavailable {
+        reason: SmoothingCorrectionUnavailable,
+        rho_covariance: Option<Array2<f64>>,
     },
 }
 
 impl SmoothingCorrectionOutcome {
-    /// Extract the additive correction matrix, if any.
-    ///
-    /// Returns `None` only when the first-order path itself produced
-    /// nothing (e.g. `n_rho == 0` where no separate correction is
-    /// meaningful, or when no base covariance was supplied to upgrade).
-    pub fn into_correction(self) -> Option<Array2<f64>> {
+    /// Consume the outcome without discarding how a retained matrix was made.
+    pub fn into_correction_with_method(
+        self,
+    ) -> (Option<Array2<f64>>, Option<SmoothingCorrectionMethod>) {
         match self {
-            SmoothingCorrectionOutcome::Cubature { correction, .. } => Some(correction),
-            SmoothingCorrectionOutcome::FirstOrder { correction, .. } => correction,
+            SmoothingCorrectionOutcome::Cubature {
+                correction,
+                rank,
+                n_points,
+                rho_hessian_stabilization,
+                ..
+            } => (
+                Some(correction),
+                Some(SmoothingCorrectionMethod::SigmaPointCubature {
+                    rank,
+                    n_points,
+                    rho_hessian_stabilization,
+                }),
+            ),
+            SmoothingCorrectionOutcome::FirstOrder {
+                correction, method, ..
+            } => (correction, method),
+            SmoothingCorrectionOutcome::Unavailable { .. } => (None, None),
         }
     }
 
@@ -93,7 +116,8 @@ impl SmoothingCorrectionOutcome {
     pub fn rho_covariance(&self) -> Option<&Array2<f64>> {
         match self {
             SmoothingCorrectionOutcome::Cubature { rho_covariance, .. }
-            | SmoothingCorrectionOutcome::FirstOrder { rho_covariance, .. } => {
+            | SmoothingCorrectionOutcome::FirstOrder { rho_covariance, .. }
+            | SmoothingCorrectionOutcome::Unavailable { rho_covariance, .. } => {
                 rho_covariance.as_ref()
             }
         }
@@ -103,6 +127,7 @@ impl SmoothingCorrectionOutcome {
     pub fn branch_label(&self) -> &'static str {
         match self {
             SmoothingCorrectionOutcome::Cubature { .. } => "cubature",
+            SmoothingCorrectionOutcome::Unavailable { .. } => "unavailable",
             SmoothingCorrectionOutcome::FirstOrder { severity, .. } => match severity {
                 SmoothingCorrectionFallbackSeverity::Routine => "first-order (routine)",
                 SmoothingCorrectionFallbackSeverity::NumericalFailure => {
@@ -124,11 +149,9 @@ pub static SMOOTHING_CORRECTION_NUMERICAL_FAILURE_COUNT: AtomicU64 = AtomicU64::
 /// vector `b_m = Qs · β̂_transformed`. Both are exactly what
 /// [`accumulate_sigma_cubature_total_covariance`] consumes.
 ///
-/// `None` means the sigma point's inner PIRLS fit (or the subsequent Hessian
-/// map / inversion) failed. The caller treats any `None` in the batch as a
-/// cubature-wide numerical failure and falls back to the first-order
-/// correction, identically to the pre-dispatch inline code path.
-pub(crate) type SigmaPointResult = Option<(Array2<f64>, Array1<f64>)>;
+/// A sigma point is either fully represented by this pair or its typed error
+/// aborts the cubature batch; there is no per-point sentinel/fallback surface.
+pub(crate) type SigmaPointResult = (Array2<f64>, Array1<f64>);
 
 /// Predicate: is the device-resident inner PIRLS that the GPU stream-pool
 /// sigma executor needs available in this build/runtime?
@@ -163,16 +186,17 @@ pub(crate) fn device_pirls_stage3_ready() -> bool {
 /// Magic by default: no flags. When [`device_pirls_stage3_ready`] returns
 /// `true` the GPU branch fires for every cubature batch where the problem
 /// geometry justifies it (family in JIT-cached set, `p ≥ 32`,
-/// `n ≥ row_kernel_min_n`, dense design); if the GPU path declines
-/// (`Ok(None)`) or errors, the CPU Rayon oracle runs unchanged.
+/// `n ≥ row_kernel_min_n`, dense design). A pre-admission `Ok(None)` uses the
+/// CPU executor; once admitted, typed geometry/runtime failures propagate and
+/// are never retried on a different implementation.
 pub(crate) fn sigma_cubature_dispatch(
     state: &RemlState<'_>,
     sigma_points: &[Array1<f64>],
-) -> Vec<SigmaPointResult> {
+) -> Result<Vec<SigmaPointResult>, EstimationError> {
     if device_pirls_stage3_ready() {
         // Device path: try GPU stream-pool executor first.
         match sigma_cubature_evaluate_gpu_stream_pool(state, sigma_points) {
-            Ok(Some(results)) => return results,
+            Ok(Some(results)) => return Ok(results),
             Ok(None) => {
                 // Device declined (shape / family / policy gate); fall through.
                 log::debug!(
@@ -180,12 +204,14 @@ pub(crate) fn sigma_cubature_dispatch(
                      falling through to CPU Rayon oracle"
                 );
             }
-            Err(e) => {
-                // Device driver / shape failure; log and fall through.
-                log::warn!(
-                    "[sigma-cubature] GPU stream pool error — \
-                     falling through to CPU Rayon oracle: {e:?}"
-                );
+            #[cfg(target_os = "linux")]
+            Err(crate::gpu_kernels::sigma_cubature::SigmaCubatureGpuError::Geometry(error)) => {
+                return Err(error);
+            }
+            Err(crate::gpu_kernels::sigma_cubature::SigmaCubatureGpuError::Runtime(error)) => {
+                return Err(EstimationError::RemlOptimizationFailed(format!(
+                    "sigma-cubature admitted GPU runtime failure: {error}"
+                )));
             }
         }
     }
@@ -214,11 +240,12 @@ pub(crate) fn sigma_cubature_dispatch(
 pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
     state: &RemlState<'_>,
     sigma_points: &[Array1<f64>],
-) -> Result<Option<Vec<SigmaPointResult>>, gam_gpu::GpuError> {
-    use gam_terms::construction::{EngineDims, stable_reparameterization_engine_canonical};
-    use gam_gpu::device_runtime::GpuRuntime;
-    use crate::gpu_kernels::sigma_cubature::try_gpu_sigma_stream_pool_eval;
+) -> Result<Option<Vec<SigmaPointResult>>, crate::gpu_kernels::sigma_cubature::SigmaCubatureGpuError>
+{
     use crate::gpu::pirls_dispatch_wire::admission_for;
+    use crate::gpu_kernels::sigma_cubature::try_gpu_sigma_stream_pool_eval;
+    use gam_gpu::device_runtime::GpuRuntime;
+    use gam_terms::construction::{EngineDims, stable_reparameterization_engine_canonical};
 
     if sigma_points.is_empty() {
         return Ok(Some(Vec::new()));
@@ -254,7 +281,10 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
         Vec::with_capacity(sigma_points.len());
 
     for rho in sigma_points {
-        let lambdas = rho.mapv(f64::exp);
+        let lambdas = Array1::from_vec(
+            gam_problem::checked_exp_log_strengths(rho.iter().copied())
+                .map_err(|error| gam_gpu::gpu_err!("sigma rho: {error}"))?,
+        );
         let lambdas_slice = lambdas
             .as_slice_memory_order()
             .ok_or_else(|| gam_gpu::gpu_err!("sigma rho lambdas not contiguous"))?;
@@ -279,9 +309,23 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
         });
     }
 
-    // Gamma dispersion shape: used by the Gamma-Log row kernel. All other
-    // families ignore this parameter; pass 1.0 as the safe default.
-    let gamma_shape = likelihood_spec.gamma_shape().unwrap_or(1.0);
+    // Carry the row-kernel scalar as a typed family contract. Non-Gamma
+    // admissions have no synthetic shape value; the final CUDA ABI receives a
+    // poison value only after matching the discriminant against the row family.
+    let likelihood_scale = match likelihood_spec.spec.response {
+        ResponseFamily::Gamma => crate::gpu::pirls_gpu::PirlsLoopLikelihoodScale::gamma_shape(
+            likelihood_spec
+                .resolved_gamma_shape()
+                .map_err(|error| gam_gpu::gpu_err!("sigma Gamma scale: {error}"))?,
+        )
+        .map_err(|error| gam_gpu::gpu_err!("sigma Gamma scale: {error}"))?,
+        _ => {
+            likelihood_spec
+                .resolved_scale()
+                .map_err(|error| gam_gpu::gpu_err!("sigma likelihood scale: {error}"))?;
+            crate::gpu::pirls_gpu::PirlsLoopLikelihoodScale::non_gamma()
+        }
+    };
 
     try_gpu_sigma_stream_pool_eval(
         x_dense.view(),
@@ -290,7 +334,7 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
         state.offset.view(),
         &per_sigma,
         admission,
-        gamma_shape,
+        likelihood_scale,
         state.config.pirls_convergence_tolerance,
         state.config.max_iterations,
     )
@@ -315,22 +359,29 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
 pub(crate) fn sigma_cubature_evaluate_cpu_rayon(
     state: &RemlState<'_>,
     sigma_points: &[Array1<f64>],
-) -> Vec<SigmaPointResult> {
-    (0..sigma_points.len())
+) -> Result<Vec<SigmaPointResult>, EstimationError> {
+    let rows: Vec<Result<SigmaPointResult, EstimationError>> = (0..sigma_points.len())
         .into_par_iter()
-        .map(|idx| {
-            let fit_point = state
-                .execute_pirls_stateless_for_cubature(&sigma_points[idx])
-                .ok()?;
-            let h_point = map_hessian_to_original_basis(fit_point.as_ref()).ok()?;
-            let cov_point = matrix_inversewith_regularization(&h_point, "auto cubature point")?;
+        .map(|idx| -> Result<SigmaPointResult, EstimationError> {
+            let fit_point = state.execute_pirls_stateless_for_cubature(&sigma_points[idx])?;
+            let h_point = map_hessian_to_original_basis(fit_point.as_ref())?;
+            let cov_point = crate::gpu_kernels::sigma_cubature::certified_sigma_point_covariance(
+                &h_point,
+                "auto cubature point",
+            )
+            .map_err(|error| {
+                EstimationError::RemlOptimizationFailed(format!(
+                    "sigma point {idx}: exact SPD Hessian inverse failed: {error}"
+                ))
+            })?;
             let beta_point = fit_point
                 .reparam_result
                 .qs
                 .dot(fit_point.beta_transformed.as_ref());
-            Some((cov_point, beta_point))
+            Ok((cov_point, beta_point))
         })
-        .collect()
+        .collect();
+    rows.into_iter().collect()
 }
 
 /// Accumulate the sigma-point cubature total covariance `V̂_p` from per-point
@@ -620,7 +671,9 @@ impl<'a> RemlState<'a> {
                 Some(escalator.escalate_rho_posterior(
                     final_rho,
                     &outer_hessian,
-                    &mut |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
+                    &mut |rho| {
+                        self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok())
+                    },
                     &mut |rho| {
                         self.without_persistent_warm_start_store(|| {
                             // NUTS leapfrog gradients need the criterion value and
@@ -640,23 +693,38 @@ impl<'a> RemlState<'a> {
     pub(crate) fn compute_smoothing_correction_auto(
         &self,
         final_rho: &Array1<f64>,
+        final_lambdas: &Array1<f64>,
         final_fit: &PirlsResult,
         base_covariance: Option<&Array2<f64>>,
         dispersion_phi: f64,
         finalgrad_norm: f64,
-    ) -> SmoothingCorrectionOutcome {
+    ) -> Result<SmoothingCorrectionOutcome, EstimationError> {
         use SmoothingCorrectionFallbackSeverity::{NumericalFailure, Routine};
 
         // Always compute the fast first-order correction first.
-        let first_order = super::compute_smoothing_correction(self, final_rho, final_fit);
+        let first_order =
+            super::compute_smoothing_correction(self, final_rho, final_lambdas, final_fit);
         let first_order_correction = first_order.correction.clone();
         let first_order_rho_covariance = first_order.rho_covariance.clone();
+        let first_order_method = first_order.correction.as_ref().map(|_| {
+            SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace {
+                active_rank: first_order.active_rank.unwrap_or(0),
+                rho_dimension: final_rho.len(),
+            }
+        });
+        if let SmoothingCorrectionStatus::Unavailable(reason) = first_order.status.clone() {
+            return self.finalize_smoothing_outcome(SmoothingCorrectionOutcome::Unavailable {
+                reason,
+                rho_covariance: first_order_rho_covariance,
+            });
+        }
         let first_order_routine = |correction: Option<Array2<f64>>, reason: &'static str| {
             SmoothingCorrectionOutcome::FirstOrder {
                 correction,
                 rho_covariance: first_order_rho_covariance.clone(),
                 reason,
                 severity: Routine,
+                method: first_order_method,
             }
         };
         let first_order_numerical = |correction: Option<Array2<f64>>, reason: &'static str| {
@@ -665,6 +733,7 @@ impl<'a> RemlState<'a> {
                 rho_covariance: first_order_rho_covariance.clone(),
                 reason,
                 severity: NumericalFailure,
+                method: first_order_method,
             }
         };
         let n_rho = final_rho.len();
@@ -787,16 +856,34 @@ impl<'a> RemlState<'a> {
                 .map(|&v| v.abs())
                 .fold(0.0, f64::max)
                 .max(AUTO_CUBATURE_HESSIAN_RIDGE_ABS);
+        let cubature_ridge = match gam_problem::StabilizationLedger::approximation_only(
+            ridge,
+            gam_problem::StabilizationRule::FixedConstant,
+        ) {
+            Ok(ledger) => ledger,
+            Err(error) => {
+                log::warn!("sigma cubature refused invalid ridge metadata: {error}");
+                return self.finalize_smoothing_outcome(first_order_numerical(
+                    first_order_correction,
+                    "rho Hessian produced invalid cubature-ridge metadata",
+                ));
+            }
+        };
         for i in 0..n_rho {
-            hessian_rho[[i, i]] += ridge;
+            hessian_rho[[i, i]] += cubature_ridge.delta();
         }
-        let Some(hessian_rho_inv) =
-            matrix_inversewith_regularization(&hessian_rho, "auto cubature rho Hessian")
-        else {
-            return self.finalize_smoothing_outcome(first_order_numerical(
-                first_order_correction,
-                "rho Hessian inversion failed after ridge regularization",
-            ));
+        let hessian_rho_inv = match gam_linalg::utils::certified_spd_inverse(
+            &hessian_rho,
+            "auto cubature explicitly ridged rho Hessian",
+        ) {
+            Ok(inverse) => inverse.into_inverse(),
+            Err(error) => {
+                log::warn!("sigma cubature refused explicitly ridged rho Hessian: {error}");
+                return self.finalize_smoothing_outcome(first_order_numerical(
+                    first_order_correction,
+                    "explicitly ridged rho Hessian failed exact SPD inversion",
+                ));
+            }
         };
 
         let max_rhovar = hessian_rho_inv
@@ -810,8 +897,8 @@ impl<'a> RemlState<'a> {
             ));
         }
 
-        use gam_linalg::faer_ndarray::FaerEigh;
         use faer::Side;
+        use gam_linalg::faer_ndarray::FaerEigh;
         let (evals, evecs) = match hessian_rho_inv.eigh(Side::Lower) {
             Ok(x) => x,
             Err(_) => {
@@ -918,14 +1005,7 @@ impl<'a> RemlState<'a> {
         // stream-pool path once `pirls-row-v3` Stage 3 and `bms-flex-v3`
         // Phase 5 land the device-resident inner PIRLS the GPU
         // executor needs.
-        let point_results = sigma_cubature_dispatch(self, &sigma_points);
-
-        if point_results.iter().any(|r| r.is_none()) {
-            return self.finalize_smoothing_outcome(first_order_numerical(
-                first_order_correction,
-                "one or more sigma-point inner PIRLS fits failed",
-            ));
-        }
+        let point_results = sigma_cubature_dispatch(self, &sigma_points)?;
 
         // Dispersion scaling of the curvature (conditional-covariance) term.
         //
@@ -948,7 +1028,6 @@ impl<'a> RemlState<'a> {
         // second time anywhere would make the curvature block scale as c⁴ (#582).
         let scaled_pairs: Vec<(Array2<f64>, Array1<f64>)> = point_results
             .into_iter()
-            .flatten()
             .map(|(cov_point, beta_point)| (cov_point.mapv(|v| dispersion_phi * v), beta_point))
             .collect();
         let mut total_cov = accumulate_sigma_cubature_total_covariance(&scaled_pairs, p);
@@ -975,6 +1054,7 @@ impl<'a> RemlState<'a> {
         self.finalize_smoothing_outcome(SmoothingCorrectionOutcome::Cubature {
             correction: corr,
             rho_covariance: Some(hessian_rho_inv),
+            rho_hessian_stabilization: cubature_ridge,
             rank,
             n_points: sigma_points.len(),
             near_boundary,
@@ -988,7 +1068,7 @@ impl<'a> RemlState<'a> {
     pub(crate) fn finalize_smoothing_outcome(
         &self,
         outcome: SmoothingCorrectionOutcome,
-    ) -> SmoothingCorrectionOutcome {
+    ) -> Result<SmoothingCorrectionOutcome, EstimationError> {
         let branch_label = outcome.branch_label();
         match &outcome {
             SmoothingCorrectionOutcome::Cubature {
@@ -1040,8 +1120,15 @@ impl<'a> RemlState<'a> {
                     }
                 }
             }
+            SmoothingCorrectionOutcome::Unavailable { reason, .. } => {
+                SMOOTHING_CORRECTION_NUMERICAL_FAILURE_COUNT.fetch_add(1, Ordering::Relaxed);
+                log::warn!(
+                    "[smoothing-correction] branch=unavailable reason={reason:?} failure_count={}",
+                    SMOOTHING_CORRECTION_NUMERICAL_FAILURE_COUNT.load(Ordering::Relaxed),
+                );
+            }
         }
-        outcome
+        Ok(outcome)
     }
 }
 
@@ -2196,6 +2283,12 @@ mod smoothing_correction_outcome_tests {
             rho_covariance: None,
             reason,
             severity,
+            method: with_matrix.then_some(
+                SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace {
+                    active_rank: 1,
+                    rho_dimension: 1,
+                },
+            ),
         }
     }
 
@@ -2204,6 +2297,11 @@ mod smoothing_correction_outcome_tests {
         let outcome = SmoothingCorrectionOutcome::Cubature {
             correction: array![[2.0, 0.0], [0.0, 2.0]],
             rho_covariance: None,
+            rho_hessian_stabilization: gam_problem::StabilizationLedger::approximation_only(
+                1.0e-8,
+                gam_problem::StabilizationRule::FixedConstant,
+            )
+            .expect("valid test cubature ridge"),
             rank: 2,
             n_points: 4,
             near_boundary: true,
@@ -2211,9 +2309,12 @@ mod smoothing_correction_outcome_tests {
             max_rho_var: 0.7,
         };
         assert_eq!(outcome.branch_label(), "cubature");
-        let mat = outcome
-            .into_correction()
-            .expect("cubature always has a matrix");
+        let (mat, method) = outcome.into_correction_with_method();
+        let mat = mat.expect("cubature always has a matrix");
+        assert!(matches!(
+            method,
+            Some(SmoothingCorrectionMethod::SigmaPointCubature { .. })
+        ));
         assert_eq!(mat.dim(), (2, 2));
         assert_eq!(mat[[0, 0]], 2.0);
     }
@@ -2226,7 +2327,7 @@ mod smoothing_correction_outcome_tests {
             true,
         );
         assert_eq!(outcome.branch_label(), "first-order (routine)");
-        assert!(outcome.into_correction().is_some());
+        assert!(outcome.into_correction_with_method().0.is_some());
     }
 
     #[test]
@@ -2237,7 +2338,7 @@ mod smoothing_correction_outcome_tests {
             true,
         );
         assert_eq!(outcome.branch_label(), "first-order (numerical failure)");
-        assert!(outcome.into_correction().is_some());
+        assert!(outcome.into_correction_with_method().0.is_some());
     }
 
     #[test]
@@ -2247,7 +2348,7 @@ mod smoothing_correction_outcome_tests {
             SmoothingCorrectionFallbackSeverity::Routine,
             false,
         );
-        assert!(outcome.into_correction().is_none());
+        assert!(outcome.into_correction_with_method().0.is_none());
     }
 
     #[test]
@@ -2380,8 +2481,9 @@ mod smoothing_correction_outcome_tests {
                 .expect("inner PIRLS at near-boundary rho");
             let h_orig = map_hessian_to_original_basis(final_fit.as_ref())
                 .expect("map Hessian to original basis");
-            let base_cov = matrix_inversewith_regularization(&h_orig, "test base cov")
-                .expect("invert base Hessian");
+            let base_cov = gam_linalg::utils::certified_spd_inverse(&h_orig, "test base cov")
+                .expect("invert base Hessian")
+                .into_inverse();
 
             // Profiled Gaussian dispersion φ̂ = deviance / (n − p). Deviance (RSS)
             // scales as c², the denominator is scale-invariant, so φ̂ scales as c².
@@ -2395,17 +2497,25 @@ mod smoothing_correction_outcome_tests {
                 .unwrap_or(0.0);
 
             let before = SMOOTHING_CORRECTION_CUBATURE_COUNT.load(Ordering::SeqCst);
-            let outcome = state.compute_smoothing_correction_auto(
-                &final_rho,
-                final_fit.as_ref(),
-                Some(&base_cov),
-                dispersion_phi,
-                finalgrad_norm,
+            let final_lambdas = Array1::from_vec(
+                gam_problem::checked_exp_log_strengths(final_rho.iter().copied())
+                    .expect("test rho lies in exact strength domain"),
             );
+            let outcome = state
+                .compute_smoothing_correction_auto(
+                    &final_rho,
+                    &final_lambdas,
+                    final_fit.as_ref(),
+                    Some(&base_cov),
+                    dispersion_phi,
+                    finalgrad_norm,
+                )
+                .expect("smoothing correction evaluation");
             let after = SMOOTHING_CORRECTION_CUBATURE_COUNT.load(Ordering::SeqCst);
 
             let correction = outcome
-                .into_correction()
+                .into_correction_with_method()
+                .0
                 .expect("cubature/first-order outcome carries a correction matrix");
             (correction, after.saturating_sub(before))
         };

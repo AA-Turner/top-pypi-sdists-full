@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use arrow_array::{ArrayRef, RecordBatch};
 use arrow_array::builder::{StringBuilder, TimestampMicrosecondBuilder};
+use arrow_array::{ArrayRef, RecordBatch};
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use xbbg_async::engine::state::typed_builder::{ArrowType, TypedBuilder};
 use xbbg_bench::write_json;
@@ -25,7 +25,8 @@ use xbbg_core::Value;
 
 const DEFAULT_ROWS: usize = 100_000;
 const DEFAULT_FLUSH: usize = 1_024;
-const DEFAULT_ITERATIONS: usize = 5;
+const DEFAULT_ITERATIONS: usize = 10;
+const DEFAULT_WARMUP: usize = 2;
 const TOPICS: [&str; 8] = [
     "IBM US Equity",
     "MSFT US Equity",
@@ -58,6 +59,7 @@ struct BenchConfig {
     rows: usize,
     flush_threshold: usize,
     iterations: usize,
+    warmup_iterations: usize,
 }
 
 #[derive(Debug)]
@@ -254,26 +256,30 @@ impl ReplayState {
 
 fn synthetic_value(field: &str, row: usize) -> Option<Value<'static>> {
     match field {
-        "LAST_PRICE" => {
-            (row % 17 != 0).then(|| Value::Float64(100.0 + (row % 10_000) as f64 * 0.01))
-        }
-        "BID" => (row % 11 != 0).then(|| Value::Float64(99.95 + (row % 10_000) as f64 * 0.01)),
-        "ASK" => (row % 13 != 0).then(|| Value::Float64(100.05 + (row % 10_000) as f64 * 0.01)),
-        "BID_SIZE" => (row % 5 != 0).then(|| Value::Int32((row % 1_000) as i32 + 1)),
-        "ASK_SIZE" => (row % 7 != 0).then(|| Value::Int64((row % 2_000) as i64 + 1)),
-        "IS_DELAYED_STREAM" => Some(Value::Bool(row % 19 == 0)),
-        "TRADE_TIME" => (row % 23 != 0)
-            .then(|| Value::TimestampMicros(1_700_000_000_000_000_i64 + row as i64 * 250)),
+        "LAST_PRICE" => (!row.is_multiple_of(17))
+            .then_some(Value::Float64(100.0 + (row % 10_000) as f64 * 0.01)),
+        "BID" => (!row.is_multiple_of(11))
+            .then_some(Value::Float64(99.95 + (row % 10_000) as f64 * 0.01)),
+        "ASK" => (!row.is_multiple_of(13))
+            .then_some(Value::Float64(100.05 + (row % 10_000) as f64 * 0.01)),
+        "BID_SIZE" => (!row.is_multiple_of(5)).then_some(Value::Int32((row % 1_000) as i32 + 1)),
+        "ASK_SIZE" => (!row.is_multiple_of(7)).then_some(Value::Int64((row % 2_000) as i64 + 1)),
+        "IS_DELAYED_STREAM" => Some(Value::Bool(row.is_multiple_of(19))),
+        "TRADE_TIME" => (!row.is_multiple_of(23)).then_some(Value::TimestampMicros(
+            1_700_000_000_000_000_i64 + row as i64 * 250,
+        )),
         "CONDITION_CODE" => match row % 9 {
             0 => None,
             1 => Some(Value::String("OPEN")),
             2 => Some(Value::String("CLOSE")),
             _ => Some(Value::String("REGULAR")),
         },
-        "RT_PX_CHG_NET_1D" => (row % 3 != 0).then(|| Value::Float64((row as f64 % 200.0) - 100.0)),
-        "VOLUME" => (row % 4 != 0).then(|| Value::Int64(1_000_000 + row as i64 * 10)),
-        "MKTDATA_EVENT_TYPE" => (row % 6 != 0).then(|| Value::String("TRADE")),
-        "MKTDATA_EVENT_SUBTYPE" => (row % 10 != 0).then(|| Value::String("SUMMARY")),
+        "RT_PX_CHG_NET_1D" => {
+            (!row.is_multiple_of(3)).then_some(Value::Float64((row as f64 % 200.0) - 100.0))
+        }
+        "VOLUME" => (!row.is_multiple_of(4)).then_some(Value::Int64(1_000_000 + row as i64 * 10)),
+        "MKTDATA_EVENT_TYPE" => (!row.is_multiple_of(6)).then_some(Value::String("TRADE")),
+        "MKTDATA_EVENT_SUBTYPE" => (!row.is_multiple_of(10)).then_some(Value::String("SUMMARY")),
         _ => None,
     }
 }
@@ -311,6 +317,13 @@ fn parse_env_usize(name: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
+fn percentile_elapsed_us(results: &[IterationResult], percentile: f64) -> f64 {
+    let mut values: Vec<u128> = results.iter().map(|result| result.elapsed_us).collect();
+    values.sort_unstable();
+    let idx = (((values.len() - 1) as f64) * percentile / 100.0).round() as usize;
+    values[idx] as f64
+}
+
 fn unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -328,8 +341,15 @@ fn write_results(config: &BenchConfig, timestamp: u64, results: &[IterationResul
         .map(|result| result.rows_per_sec)
         .sum::<f64>()
         / results.len() as f64;
-    let avg_elapsed_us =
+    let mean_elapsed_us =
         results.iter().map(|result| result.elapsed_us).sum::<u128>() as f64 / results.len() as f64;
+    let min_elapsed_us = results
+        .iter()
+        .map(|result| result.elapsed_us)
+        .min()
+        .unwrap_or_default() as f64;
+    let p50_elapsed_us = percentile_elapsed_us(results, 50.0);
+    let build_mode = xbbg_bench::build_mode();
 
     let iterations_json = results
         .iter()
@@ -367,11 +387,16 @@ fn write_results(config: &BenchConfig, timestamp: u64, results: &[IterationResul
     "rows": {},
     "flush_threshold": {},
     "iterations": {},
+    "warmup_iterations": {},
     "requested_fields": {},
     "late_fields": {}
   }},
+  "target_cpu": {{ "native": {} }},
+  "debug_build": {},
   "summary": {{
-    "avg_elapsed_us": {:.2},
+    "mean_elapsed_us": {:.2},
+    "min_elapsed_us": {:.2},
+    "p50_elapsed_us": {:.2},
     "avg_rows_per_sec": {:.2},
     "best_rows_per_sec": {:.2}
   }},
@@ -383,18 +408,22 @@ fn write_results(config: &BenchConfig, timestamp: u64, results: &[IterationResul
         config.rows,
         config.flush_threshold,
         config.iterations,
+        config.warmup_iterations,
         REQUESTED_FIELDS.len(),
         LATE_FIELDS.len(),
-        avg_elapsed_us,
+        build_mode.target_cpu_native,
+        build_mode.debug_build,
+        mean_elapsed_us,
+        min_elapsed_us,
+        p50_elapsed_us,
         avg_rows_per_sec,
         best_rows_per_sec,
         iterations_json
     );
 
-    let timestamped = PathBuf::from(format!(
-        "benchmarks/results/async_subscription_replay_{timestamp}.json"
-    ));
-    let latest = PathBuf::from("benchmarks/results/async_subscription_replay_latest.json");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("benchmarks/results");
+    let timestamped = dir.join(format!("async_subscription_replay_{timestamp}.json"));
+    let latest = dir.join("async_subscription_replay_latest.json");
     write_json(&timestamped, &json);
     write_json(&latest, &json);
 }
@@ -404,9 +433,10 @@ fn print_results(config: &BenchConfig, results: &[IterationResult]) {
     println!("  xbbg-async Synthetic Subscription Replay Benchmark");
     println!("{:=<88}\n", "");
     println!(
-        "  rows={} flush={} iterations={} requested_fields={} late_fields={}",
+        "  rows={} flush={} warmup={} iterations={} requested_fields={} late_fields={}",
         config.rows,
         config.flush_threshold,
+        config.warmup_iterations,
         config.iterations,
         REQUESTED_FIELDS.len(),
         LATE_FIELDS.len()
@@ -434,7 +464,19 @@ fn print_results(config: &BenchConfig, results: &[IterationResult]) {
         .map(|result| result.rows_per_sec)
         .sum::<f64>()
         / results.len() as f64;
+    let min_elapsed_us = results
+        .iter()
+        .map(|result| result.elapsed_us)
+        .min()
+        .unwrap_or_default();
+    let p50_elapsed_us = percentile_elapsed_us(results, 50.0);
     println!("\n  Average rows/sec: {:.0}", avg_rows_per_sec);
+    println!(
+        "  Elapsed us min/mean/p50: {}/{:.2}/{:.2}",
+        min_elapsed_us,
+        results.iter().map(|result| result.elapsed_us).sum::<u128>() as f64 / results.len() as f64,
+        p50_elapsed_us
+    );
     println!("{:=<88}\n", "");
 }
 
@@ -443,7 +485,12 @@ fn main() {
         rows: parse_env_usize("SUB_REPLAY_ROWS", DEFAULT_ROWS),
         flush_threshold: parse_env_usize("SUB_REPLAY_FLUSH", DEFAULT_FLUSH),
         iterations: parse_env_usize("SUB_REPLAY_ITERATIONS", DEFAULT_ITERATIONS),
+        warmup_iterations: parse_env_usize("BENCH_WARMUP", DEFAULT_WARMUP),
     };
+
+    for _ in 0..config.warmup_iterations {
+        std::hint::black_box(run_iteration(0, &config));
+    }
 
     let mut results = Vec::with_capacity(config.iterations);
     for iteration in 1..=config.iterations {

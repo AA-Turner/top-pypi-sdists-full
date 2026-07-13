@@ -792,6 +792,60 @@ fn birth_prescreen_matches_hand_computed_crossover() {
     assert!((scalar_rate_bits(3.0, 1.0) - scalar_rate).abs() < 1e-12);
 }
 
+/// #2233 signed-dictionary regression: a HIGH-CODIMENSION birth whose curved basis
+/// is NARROWER than the flat span it replaces (`m < ŝ`) must be CREDITED the exact
+/// dictionary saving `+(ŝ−m)·P·½log₂N`, not clamped to zero. This is the theorem's
+/// principal win for a manifold spanning many ambient directions on a compact basis
+/// (a shell/high-genus kind), which an earlier `(m−ŝ).max(0)` clamp defers
+/// indefinitely. The saving is an exact decoder-column-count delta, so crediting it
+/// never over-admits — the pre-screen still under-credits (Eckart–Young residual
+/// omitted) and the e-process gate stays sole arbiter.
+#[test]
+fn birth_prescreen_credits_dictionary_saving_when_basis_narrower_than_span() {
+    // ŝ=8 ambient span, compact basis m=5 (< ŝ), d=2. N=1000, P=8, G=1024, L0=32.
+    let p = BirthMdlPrescreen {
+        rho: 0.05,
+        span: 8.0,
+        intrinsic_dim: 2,
+        basis_size: 5,
+        signal_var: 3.0,
+        noise_floor: 1.0,
+        n_tokens: 1000.0,
+        p_out: 8,
+        g_dict: 1024,
+        l0: 32.0,
+    };
+    let log2_n = 1000.0_f64.log2();
+    // saving = ρN·[(ŝ−d−1)·½log₂3 + (ŝ−1)·log₂(G/L0)]
+    let code = (8.0 - 2.0 - 1.0) * scalar_rate_bits(3.0, 1.0);
+    let support = (8.0 - 1.0) * (1024.0_f64 / 32.0).log2();
+    let saving = 0.05 * 1000.0 * (code + support);
+    // signed dictionary delta = (m−ŝ)·P·½log₂N = (5−8)·8·½·log₂N  (NEGATIVE ⇒ saving)
+    let dict_delta = (5.0 - 8.0) * 8.0 * 0.5 * log2_n;
+    let expected = saving - dict_delta; // saving − (negative) = saving + |dict_delta|
+    let got = predicted_birth_dl_bits(&p);
+    assert!(
+        (got - expected).abs() < 1e-9,
+        "signed-dictionary bits {got} != hand value {expected}"
+    );
+    // The dictionary term is a genuine SAVING: the prediction strictly exceeds the
+    // code+support saving alone (the old clamp would have returned exactly `saving`).
+    assert!(
+        got > saving + 1.0,
+        "a narrower-than-span basis (m<ŝ) must be CREDITED the dictionary saving: \
+         got {got}, saving-alone {saving} (a zero-clamp regression)"
+    );
+    // Monotonicity: an even narrower basis earns a strictly larger saving.
+    let narrower = predicted_birth_dl_bits(&BirthMdlPrescreen {
+        basis_size: 3,
+        ..p
+    });
+    assert!(
+        narrower > got,
+        "a narrower basis must earn a larger dictionary saving: m=3 {narrower} <= m=5 {got}"
+    );
+}
+
 /// A planted `s = d+1` kind (circle `d=1`, sphere `d=2`): `s` orthogonal
 /// equal-energy signal columns (distinct-frequency cosines are discretely
 /// orthogonal on evenly spaced angles, so each carries variance `r²/2` and the
@@ -974,4 +1028,95 @@ fn birth_prescreen_verdict_agrees_with_full_eq4_bits() {
             "d={d}: lose-side verdict sign must agree"
         );
     }
+}
+
+/// #2233 end-to-end selection invariance: a RACE of several birth candidates
+/// straddling the crossover, adjudicated two ways on the SAME planted fixtures —
+///
+/// * the **unscreened race**: every candidate is scored through the production
+///   Eq-4 fixed-distortion scorer and the winner is `argmax` of the true bits
+///   advantage (this is the expensive full refit a birth would trigger);
+/// * the **screened race**: the closed-form [`predicted_birth_dl_bits`]
+///   pre-screen ranks the same candidates from spectra alone (no refit).
+///
+/// The pre-screen's whole contract is that it changes the COST of selection (it
+/// skips the refit of candidates that cannot win) without changing the OUTCOME.
+/// This asserts exactly that: the two races pick the **same winner** and admit
+/// the **same set** of candidates. Per-candidate sign agreement
+/// ([`birth_prescreen_verdict_agrees_with_full_eq4_bits`]) is necessary but not
+/// sufficient for this — two scorers can agree on every sign yet disagree on the
+/// `argmax` among the winners, which would silently change which atom is born.
+///
+/// The candidate merit is graded purely by dictionary overcompleteness `G`: the
+/// support saving `(s−1)·log₂(G/L0)` (and the Eq-4 `log₂C(G,s)−log₂G` it prices)
+/// is strictly increasing in `G`, so the largest-`G` circle is the unambiguous
+/// winner for BOTH scorers, and a basis-rich candidate is the unambiguous loser
+/// for both — a race whose ordering is analytically pinned, not incidental.
+#[test]
+fn birth_prescreen_selects_same_winner_as_unscreened_eq4_race() {
+    // (label, d, n, p, g_dict, basis_m). Circle kind (d=1, s=2) at three graded
+    // dictionary sizes — the support win rises with G, so candidate 2 (G=8192) is
+    // the crossover winner — plus one basis-rich control whose dictionary
+    // surcharge sinks it on both scoreboards.
+    let race: &[(&str, usize, usize, usize, usize, usize)] = &[
+        ("circle_G512", 1, 300, 6, 512, 3),
+        ("circle_G2048", 1, 300, 6, 2048, 3),
+        ("circle_G8192", 1, 300, 6, 8192, 3),
+        ("circle_rich", 1, 300, 6, 2048, 400),
+    ];
+    let winner_idx = 2; // circle_G8192, the largest-support candidate.
+
+    let mut eq4_adv = Vec::with_capacity(race.len());
+    let mut pred = Vec::with_capacity(race.len());
+    for &(_label, d, n, p, g_dict, basis_m) in race {
+        let (adv, pr) = eq4_curved_advantage_and_prescreen(d, n, p, g_dict, basis_m);
+        eq4_adv.push(adv);
+        pred.push(pr);
+    }
+
+    let argmax = |v: &[f64]| -> usize {
+        v.iter()
+            .enumerate()
+            .max_by(|&(_, a), &(_, b)| a.total_cmp(b))
+            .map(|(i, _)| i)
+            .expect("non-empty race")
+    };
+    let unscreened_winner = argmax(&eq4_adv);
+    let screened_winner = argmax(&pred);
+
+    // Same winner: the pre-screen's argmax is the full Eq-4 race's argmax.
+    assert_eq!(
+        screened_winner, unscreened_winner,
+        "screened pre-screen winner (idx {screened_winner}, {}) must equal the \
+         unscreened Eq-4 race winner (idx {unscreened_winner}, {}); \
+         eq4_adv={eq4_adv:?} pred={pred:?}",
+        race[screened_winner].0, race[unscreened_winner].0
+    );
+    assert_eq!(
+        screened_winner, winner_idx,
+        "the largest-G circle must be the analytically-pinned winner; got {}",
+        race[screened_winner].0
+    );
+
+    // Same admitted set: the candidates the pre-screen proposes (predicted ΔMDL
+    // > 0) are exactly the candidates the full Eq-4 race keeps (advantage > 0) —
+    // the pre-screen never drops a true winner nor admits a true loser.
+    for (i, (&(label, ..), (&adv, &pr))) in
+        race.iter().zip(eq4_adv.iter().zip(pred.iter())).enumerate()
+    {
+        assert_eq!(
+            adv > 0.0,
+            pr > 0.0,
+            "candidate {i} ({label}): screened admit ({}) must match unscreened \
+             keep ({}); eq4_adv={adv} pred={pr}",
+            pr > 0.0,
+            adv > 0.0,
+        );
+    }
+    // And the race is a genuine mix (at least one keep and one drop), so the
+    // invariance above is non-trivially exercised.
+    assert!(
+        eq4_adv.iter().any(|&a| a > 0.0) && eq4_adv.iter().any(|&a| a < 0.0),
+        "the race must contain both a winner and a loser; eq4_adv={eq4_adv:?}"
+    );
 }

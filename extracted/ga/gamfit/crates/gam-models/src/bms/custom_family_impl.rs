@@ -294,15 +294,18 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         let ranges = Self::block_ranges_from_specs(specs);
         let total = ranges.last().map(|(_, end)| *end).unwrap_or(0);
         let theta_dim = rho.len() + psi_dim;
+        let expected_rho = specs.iter().map(|spec| spec.penalties.len()).sum::<usize>();
+        if rho.len() != expected_rho {
+            return Ok(None);
+        }
+        let physical_lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())
+            .map_err(|error| format!("BMS batched outer rho: {error}"))?;
         if total == 0 {
             return Ok(Some(BatchedOuterGradientTerms {
                 objective_theta: Array1::zeros(theta_dim),
                 trace_h_inv_hdot: Array1::zeros(theta_dim),
                 trace_s_pinv_sdot: Array1::zeros(theta_dim),
             }));
-        }
-        if rho.len() != specs.iter().map(|spec| spec.penalties.len()).sum::<usize>() {
-            return Ok(None);
         }
         if total >= 512 {
             return Ok(None);
@@ -358,9 +361,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
 
         let penalty_started = std::time::Instant::now();
         let ridge = options.ridge_floor.max(1e-15);
-        let trace_diagonal_ridge = if options.ridge_policy.include_quadratic_penalty
-            || options.ridge_policy.include_penalty_logdet
-        {
+        let trace_diagonal_ridge = if options.ridge_policy.accounts_for_objective() {
             ridge
         } else {
             0.0
@@ -368,15 +369,13 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         let mut objective_theta = Array1::<f64>::zeros(theta_dim);
         let mut trace_s_pinv_sdot = Array1::<f64>::zeros(theta_dim);
         let mut penalty_cursor = 0usize;
-        let mut per_block_rho: Vec<Array1<f64>> = Vec::with_capacity(specs.len());
+        let mut per_block_lambdas: Vec<Array1<f64>> = Vec::with_capacity(specs.len());
         let mut penalties_dense: Vec<Vec<Array2<f64>>> = Vec::with_capacity(specs.len());
         for (block_idx, spec) in specs.iter().enumerate() {
             let count = spec.penalties.len();
-            let block_rho = rho
-                .slice(s![penalty_cursor..penalty_cursor + count])
-                .to_owned();
-            let lambdas = block_rho.mapv(f64::exp);
-            per_block_rho.push(block_rho);
+            let lambdas =
+                Array1::from_vec(physical_lambdas[penalty_cursor..penalty_cursor + count].to_vec());
+            per_block_lambdas.push(lambdas.clone());
             let (start, end) = ranges[block_idx];
             let beta_block = beta.slice(s![start..end]);
             let mut s_lambda = Array2::<f64>::zeros((end - start, end - start));
@@ -401,15 +400,15 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             }
         }
 
-        let penalty_logdet_ridge = if options.ridge_policy.include_penalty_logdet {
+        let penalty_logdet_ridge = if options.ridge_policy.accounts_for_objective() {
             ridge
         } else {
             0.0
         };
         let mut penalty_logdet_blocks = Vec::with_capacity(specs.len());
         penalty_cursor = 0;
-        for (block_idx, block_rho) in per_block_rho.iter().enumerate() {
-            let lambdas = block_rho.mapv(f64::exp).to_vec();
+        for (block_idx, lambdas) in per_block_lambdas.iter().enumerate() {
+            let lambdas = lambdas.to_vec();
             let pld =
                 gam_solve::estimate::reml::penalty_logdet::PenaltyPseudologdet::from_components(
                     &penalties_dense[block_idx],
@@ -425,7 +424,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             for (local_idx, value) in first.iter().enumerate() {
                 trace_s_pinv_sdot[penalty_cursor + local_idx] = *value;
             }
-            penalty_cursor += block_rho.len();
+            penalty_cursor += lambdas.len();
             penalty_logdet_blocks.push(pld);
         }
         if log_exact_work(self.y.len()) {
@@ -460,7 +459,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             let beta_block = beta.slice(s![start..end]);
             for (local_idx, _penalty) in spec.penalties.iter().enumerate() {
                 let idx = penalty_cursor + local_idx;
-                let lambda = rho[idx].exp();
+                let lambda = physical_lambdas[idx];
                 let dense = &penalties_dense[block_idx][local_idx];
                 trace_h_inv_hdot[idx] +=
                     spectral.trace_logdet_block_local(dense, lambda, start, end);
@@ -548,7 +547,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
                 let p_block = end - start;
                 let deriv = &derivative_blocks[block_idx][local_idx];
                 let s_psi_local =
-                    assemble_bms_block_local_s_psi(deriv, &per_block_rho[block_idx], p_block);
+                    assemble_bms_block_local_s_psi(deriv, &per_block_lambdas[block_idx], p_block);
                 let beta_block = beta.slice(s![start..end]);
                 let s_psi_beta_local = s_psi_local.dot(&beta_block);
                 objective_theta[idx] =
@@ -1089,6 +1088,192 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             su,
         )
         .map(Some)
+    }
+
+    /// gam#979 wide-p Jeffreys completion: `∇²_β tr(W · H(β))` for a
+    /// caller-supplied full-joint trace weight `W`, in ONE `O(n · p_block²)`
+    /// pass instead of the `p(p+1)/2` pairwise `H''[e_a, e_b]` fallback.
+    ///
+    /// Binary twin of
+    /// `binomial_location_scale::expected_joint_contracted_trace_hessian_from_designs`.
+    /// BMS declares Jeffreys information == observed Hessian
+    /// (`joint_jeffreys_information_matches_observed_hessian` stays `true`),
+    /// so this contracts the OBSERVED joint Newton Hessian rather than a
+    /// separate expected-information object. Only the rigid two-primary
+    /// `(marginal, logslope)` path has the closed-form fourth-order tensor
+    /// this needs (`rigid_row_fourth_full` / `fourth_full_cache`); the flex
+    /// score-warp/link-deviation extension widens the primary space beyond
+    /// what that tensor covers, so flex-active fits fall back to `None` (the
+    /// generic pairwise `H''` completion).
+    fn joint_jeffreys_information_contracted_trace_hessian_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if !self.outer_default_trustworthy_for_joint_hessian(specs)
+            && !self.joint_hessian_is_structurally_coupled(block_states)?
+        {
+            return Ok(None);
+        }
+        if self.effective_flex_active(block_states)? {
+            return Ok(None);
+        }
+        let slices = block_slices(self);
+        let pt = slices.marginal.len();
+        let pg = slices.logslope.len();
+        let total = slices.total;
+        if weight.dim() != (total, total) {
+            return Err(format!(
+                "BMS joint_jeffreys_information_contracted_trace_hessian_with_specs: weight shape {:?} != ({total}, {total})",
+                weight.dim()
+            ));
+        }
+        let n = self.y.len();
+        if n == 0 {
+            return Ok(Some(Array2::zeros((total, total))));
+        }
+
+        let kern = BernoulliRigidRowKernel::new(self.clone(), block_states.to_vec());
+        let fourth = kern.fourth_full_cache();
+        if fourth.len() != n {
+            return Err(format!(
+                "BMS joint_jeffreys_information_contracted_trace_hessian_with_specs: fourth-tensor cache length {} != n {n}",
+                fourth.len()
+            ));
+        }
+
+        const ROWS_PER_CHUNK: usize = 4096;
+        let n_chunks = n.div_ceil(ROWS_PER_CHUNK);
+        let accumulated = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            n_chunks,
+            |chunk_range: std::ops::Range<usize>| -> Result<(Array2<f64>, Array2<f64>, Array2<f64>), String> {
+                let mut h_qq = Array2::<f64>::zeros((pt, pt));
+                let mut h_qg = Array2::<f64>::zeros((pt, pg));
+                let mut h_gg = Array2::<f64>::zeros((pg, pg));
+                for chunk_idx in chunk_range {
+                    let start = chunk_idx * ROWS_PER_CHUNK;
+                    let end = (start + ROWS_PER_CHUNK).min(n);
+                    let rows = start..end;
+
+                    let x_m_owned;
+                    let x_m_view = match self.marginal_design.as_dense_ref() {
+                        Some(dense) => dense.slice(s![rows.clone(), ..]),
+                        None => {
+                            x_m_owned = self.marginal_design.try_row_chunk(rows.clone()).map_err(
+                                |e| format!("BMS jeffreys contracted-trace: marginal row chunk failed: {e}"),
+                            )?;
+                            x_m_owned.view()
+                        }
+                    };
+                    let x_g_owned;
+                    let x_g_view = match self.logslope_design.as_dense_ref() {
+                        Some(dense) => dense.slice(s![rows.clone(), ..]),
+                        None => {
+                            x_g_owned = self.logslope_design.try_row_chunk(rows.clone()).map_err(
+                                |e| format!("BMS jeffreys contracted-trace: logslope row chunk failed: {e}"),
+                            )?;
+                            x_g_owned.view()
+                        }
+                    };
+
+                    for (local, row) in rows.clone().enumerate() {
+                        let x_m_row = x_m_view.row(local);
+                        let x_g_row = x_g_view.row(local);
+                        // trace_pq[row] = x_p[row]^T W_pq x_q[row], the row's
+                        // contribution to tr(W H) per output block pair;
+                        // mirrors the reference's trace_tt/trace_tl/trace_ll.
+                        let mut trace_qq = 0.0;
+                        for a in 0..pt {
+                            let xa = x_m_row[a];
+                            if xa == 0.0 {
+                                continue;
+                            }
+                            for b in 0..pt {
+                                trace_qq += xa * weight[[a, b]] * x_m_row[b];
+                            }
+                        }
+                        let mut trace_qg = 0.0;
+                        for a in 0..pt {
+                            let xa = x_m_row[a];
+                            if xa == 0.0 {
+                                continue;
+                            }
+                            for b in 0..pg {
+                                trace_qg += xa * (weight[[a, pt + b]] + weight[[pt + b, a]]) * x_g_row[b];
+                            }
+                        }
+                        let mut trace_gg = 0.0;
+                        for a in 0..pg {
+                            let xa = x_g_row[a];
+                            if xa == 0.0 {
+                                continue;
+                            }
+                            for b in 0..pg {
+                                trace_gg += xa * weight[[pt + a, pt + b]] * x_g_row[b];
+                            }
+                        }
+
+                        let (coeff_qq, coeff_qg, coeff_gg) =
+                            BernoulliMarginalSlopeFamily::rigid_row_contracted_trace_hessian_coefficients(
+                                &fourth[row],
+                                trace_qq,
+                                trace_qg,
+                                trace_gg,
+                            );
+
+                        for a in 0..pt {
+                            let xa = x_m_row[a];
+                            if xa == 0.0 {
+                                continue;
+                            }
+                            for b in 0..pt {
+                                h_qq[[a, b]] += coeff_qq * xa * x_m_row[b];
+                            }
+                            for b in 0..pg {
+                                h_qg[[a, b]] += coeff_qg * xa * x_g_row[b];
+                            }
+                        }
+                        for a in 0..pg {
+                            let xa = x_g_row[a];
+                            if xa == 0.0 {
+                                continue;
+                            }
+                            for b in 0..pg {
+                                h_gg[[a, b]] += coeff_gg * xa * x_g_row[b];
+                            }
+                        }
+                    }
+                }
+                Ok((h_qq, h_qg, h_gg))
+            },
+            |(mut acc_qq, mut acc_qg, mut acc_gg), (chunk_qq, chunk_qg, chunk_gg)| -> Result<_, String> {
+                acc_qq += &chunk_qq;
+                acc_qg += &chunk_qg;
+                acc_gg += &chunk_gg;
+                Ok((acc_qq, acc_qg, acc_gg))
+            },
+        )?;
+        let (h_qq, h_qg, h_gg) = accumulated.unwrap_or_else(|| {
+            (
+                Array2::zeros((pt, pt)),
+                Array2::zeros((pt, pg)),
+                Array2::zeros((pg, pg)),
+            )
+        });
+        let mut out = Array2::<f64>::zeros((total, total));
+        out.slice_mut(s![0..pt, 0..pt]).assign(&h_qq);
+        out.slice_mut(s![0..pt, pt..total]).assign(&h_qg);
+        out.slice_mut(s![pt..total, 0..pt]).assign(&h_qg.t());
+        out.slice_mut(s![pt..total, pt..total]).assign(&h_gg);
+        Ok(Some(out))
+    }
+
+    /// See [`Self::joint_jeffreys_information_contracted_trace_hessian_with_specs`]:
+    /// available whenever the rigid (non-flex) path is taken; the flex path
+    /// returns `Ok(None)` from that method and callers fall back correctly.
+    fn joint_jeffreys_information_contracted_trace_hessian_available(&self) -> bool {
+        true
     }
 
     fn exact_newton_joint_psi_terms(
@@ -2361,11 +2546,11 @@ impl BernoulliMarginalSlopeFamily {
                 n_dirs
             );
         }
-        let traces = weighted_rows
-            .par_iter()
-            .try_fold(
-                || vec![0.0; n_dirs],
-                |mut acc, wr| -> Result<_, String> {
+        let traces = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            weighted_rows.len(),
+            |index_range| -> Result<Vec<f64>, String> {
+                let mut acc = vec![0.0; n_dirs];
+                for wr in &weighted_rows[index_range] {
                     let row = wr.index;
                     let row_ctx = Self::row_ctx(cache, row);
                     let mut projection = vec![0.0; primary.total * rank];
@@ -2391,7 +2576,7 @@ impl BernoulliMarginalSlopeFamily {
                             &gram,
                         )?;
                         acc[0] += wr.weight * row_traces[0];
-                        return Ok(acc);
+                        continue;
                     }
                     let trace_gradient = self.row_primary_third_trace_gradient_with_moments(
                         row,
@@ -2429,18 +2614,17 @@ impl BernoulliMarginalSlopeFamily {
                         }
                         acc[dir_idx] += wr.weight * trace;
                     }
-                    Ok(acc)
-                },
-            )
-            .try_reduce(
-                || vec![0.0; n_dirs],
-                |mut left, right| -> Result<_, String> {
-                    for (l, r) in left.iter_mut().zip(right.iter()) {
-                        *l += *r;
-                    }
-                    Ok(left)
-                },
-            )?;
+                }
+                Ok(acc)
+            },
+            |mut left, right| -> Result<_, String> {
+                for (l, r) in left.iter_mut().zip(right.iter()) {
+                    *l += *r;
+                }
+                Ok(left)
+            },
+        )?
+        .unwrap_or_else(|| vec![0.0; n_dirs]);
         if log_exact_work(self.y.len()) {
             log::info!(
                 "[BMS rho-correction-trace] sampled done n={} rows={} p={} rank={} dirs={} elapsed={:.3}s",
@@ -2497,9 +2681,11 @@ impl BernoulliMarginalSlopeFamily {
                 n_dirs
             );
         }
-        let traces = (0..n_chunks)
-            .into_par_iter()
-            .map(|chunk_idx| -> Result<Vec<f64>, String> {
+        let traces = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            n_chunks,
+            |chunk_range| -> Result<Vec<f64>, String> {
+                let mut outer_acc = vec![0.0; n_dirs];
+                for chunk_idx in chunk_range {
                 // This chunk runs on a Rayon worker and issues `fast_ab` GEMMs
                 // below; `with_nested_parallel` pins their faer parallelism to
                 // `Par::Seq` so they do not re-fan the global Rayon pool against
@@ -2507,7 +2693,7 @@ impl BernoulliMarginalSlopeFamily {
                 // oversubscription that intermittently stalled the joint-Newton
                 // `hessian_qp` cycle). Bit-identical: faer partitions the matmul
                 // output, never the contracted axis.
-                gam_problem::with_nested_parallel(|| {
+                let chunk_acc: Vec<f64> = gam_problem::with_nested_parallel(|| -> Result<Vec<f64>, String> {
                 let start = chunk_idx * rows_per_chunk;
                 let end = (start + rows_per_chunk).min(n);
                 let rows = start..end;
@@ -2656,17 +2842,21 @@ impl BernoulliMarginalSlopeFamily {
                     }
                 }
                 Ok(acc)
-                })
-            })
-            .try_reduce(
-                || vec![0.0; n_dirs],
-                |mut left, right| -> Result<_, String> {
-                    for (l, r) in left.iter_mut().zip(right.iter()) {
-                        *l += *r;
-                    }
-                    Ok(left)
-                },
-            )?;
+                })?;
+                for (o, c) in outer_acc.iter_mut().zip(chunk_acc.iter()) {
+                    *o += *c;
+                }
+                }
+                Ok(outer_acc)
+            },
+            |mut left, right| -> Result<_, String> {
+                for (l, r) in left.iter_mut().zip(right.iter()) {
+                    *l += *r;
+                }
+                Ok(left)
+            },
+        )?
+        .unwrap_or_else(|| vec![0.0; n_dirs]);
         if log_exact_work(n) {
             log::info!(
                 "[BMS rho-correction-trace] full done n={} chunks={} p={} rank={} dirs={} elapsed={:.3}s",

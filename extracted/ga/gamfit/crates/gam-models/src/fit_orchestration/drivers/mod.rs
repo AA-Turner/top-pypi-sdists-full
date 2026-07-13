@@ -38,10 +38,9 @@ use gam_solve::estimate::reml::DirectionalHyperParam;
 // by families + pyffi resolves unchanged.
 pub use gam_terms::smooth::freeze_term_collection_from_design;
 
-use crate::family_runtime::{FamilyStrategy, strategy_for_spec};
-
 use gam_solve::mixture_link::{
-    logit_inverse_link_jet5, state_from_beta_logisticspec, state_from_sasspec, state_fromspec,
+    inverse_link_jet_for_inverse_link, logit_inverse_link_jet5, state_from_beta_logisticspec,
+    state_from_sasspec, state_fromspec,
 };
 
 use gam_math::quantile::quantile_from_sorted;

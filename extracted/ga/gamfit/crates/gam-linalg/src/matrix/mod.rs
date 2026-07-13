@@ -27,7 +27,6 @@ const MATRIX_FREE_PCG_REL_TOL: f64 = 1e-8;
 /// solve. Near `f64` precision: large enough to lift an exactly-singular system
 /// off zero so the factorization succeeds, small enough not to bias a
 /// well-conditioned solve. Acts as a floor on any caller-supplied `ridge_floor`.
-const SPD_SOLVE_RIDGE_FLOOR: f64 = 1e-15;
 const MATRIX_FREE_PCG_MAX_ITER: usize = 2000;
 const CHUNKED_DENSE_MATERIALIZATION_BYTES: usize = 8 * 1024 * 1024;
 const OPERATOR_ROW_CHUNK_SIZE: usize = 256;
@@ -47,7 +46,7 @@ mod sparse_hessian;
 pub use sparse_hessian::SparseHessianAccumulator;
 
 mod weights;
-pub use weights::{PsdWeightsView, SignedWeightsArc, SignedWeightsView};
+pub use weights::{FiniteSignedWeightsView, PsdWeightsView, SignedWeightsArc, SignedWeightsView};
 
 /// Typed error for `src/linalg/matrix.rs` operations.  All error sites in this
 /// module construct a `MatrixError` variant; trait method bodies that still
@@ -231,6 +230,29 @@ fn enforce_operator_materialization_policy(
     Ok(())
 }
 
+/// Validate a row-weight diagonal before any output buffer is allocated or
+/// mutated.  The linear weighted operators in this module are defined for all
+/// finite signed weights; `NaN` and infinities have no linear-operator meaning
+/// and are rejected at the smallest offending row.
+#[inline]
+fn certify_signed_weights<'a>(
+    context: &str,
+    weights: &'a Array1<f64>,
+    expected_len: usize,
+) -> Result<FiniteSignedWeightsView<'a>, String> {
+    if weights.len() != expected_len {
+        return Err(MatrixError::DimensionMismatch {
+            reason: format!(
+                "{context} weight length mismatch: weights={}, nrows={expected_len}",
+                weights.len()
+            ),
+        }
+        .into());
+    }
+    FiniteSignedWeightsView::try_from_array(weights)
+        .map_err(|reason| format!("{context}: {reason}"))
+}
+
 fn weighted_crossprod_dense(
     left: &Array2<f64>,
     weights: &Array1<f64>,
@@ -247,6 +269,7 @@ fn weighted_crossprod_dense(
         }
         .into());
     }
+    certify_signed_weights("weighted_crossprod_dense", weights, left.nrows())?;
     Ok(weighted_crossprod_dense_view(left, weights.view(), right))
 }
 
@@ -468,6 +491,7 @@ impl<'a> EmbeddedSquareBlock<'a> {
 struct PenalizedWeightedNormalOperator<'a, O: LinearOperator + ?Sized> {
     operator: &'a O,
     weights: &'a Array1<f64>,
+    finite_weights: FiniteSignedWeightsView<'a>,
     penalty: Option<&'a Array2<f64>>,
     ridge: f64,
 }
@@ -475,7 +499,7 @@ struct PenalizedWeightedNormalOperator<'a, O: LinearOperator + ?Sized> {
 impl<'a, O: LinearOperator + ?Sized> PenalizedWeightedNormalOperator<'a, O> {
     fn apply(&self, vector: &Array1<f64>) -> Array1<f64> {
         self.operator
-            .apply_weighted_normal(self.weights, vector, self.penalty, self.ridge)
+            .apply_weighted_normal(self.finite_weights, vector, self.penalty, self.ridge)
     }
 
     fn jacobi_preconditioner(&self) -> Result<Array1<f64>, String> {
@@ -495,13 +519,10 @@ impl<'a, O: LinearOperator + ?Sized> PenalizedWeightedNormalOperator<'a, O> {
 }
 
 #[inline]
-fn dense_diag_gram_view(matrix: &Array2<f64>, weights: PsdWeightsView<'_>) -> Array1<f64> {
-    // Diagonal of XᵀWX — used as Fisher-info diagonal for preconditioning and
-    // for diagonal-of-Gram queries. Negative weights have no sensible meaning
-    // here (the diagonal must be nonneg for it to act as a preconditioner);
-    // typed at the boundary via `PsdWeightsView` so the previous runtime
-    // `assert!` is no longer required inside the kernel.
-    let weights = weights.view();
+fn dense_diag_gram_view(matrix: &Array2<f64>, weights: ArrayView1<'_, f64>) -> Array1<f64> {
+    // Exact diagonal of Xᵀdiag(w)X.  It is linear in w and therefore retains
+    // signed observed curvature; solver-level stabilization decides whether a
+    // resulting global system is suitable for Cholesky/PCG.
     let p = matrix.ncols();
     let n = matrix.nrows();
     let large = (n as u64) * (p as u64) >= DENSE_ROW_PARALLEL_MIN_NP;
@@ -512,11 +533,14 @@ fn dense_diag_gram_view(matrix: &Array2<f64>, weights: PsdWeightsView<'_>) -> Ar
         && let (Some(x), Some(w)) = (matrix.as_slice(), weights.as_slice())
     {
         if parallel {
-            return (0..n)
-                .into_par_iter()
-                .fold(
-                    || vec![0.0_f64; p],
-                    |mut acc, i| {
+            // Deterministic parallel row reduction: length-only pairwise tree
+            // so the accumulated float result never depends on thread count or
+            // rayon's demand-driven fold/reduce grouping (#2228).
+            return crate::pairwise_reduce::par_deterministic_block_fold(
+                n,
+                |range: core::ops::Range<usize>| {
+                    let mut acc = vec![0.0_f64; p];
+                    for i in range {
                         let wi = w[i];
                         if wi != 0.0 {
                             let row = &x[i * p..i * p + p];
@@ -525,19 +549,18 @@ fn dense_diag_gram_view(matrix: &Array2<f64>, weights: PsdWeightsView<'_>) -> Ar
                                 acc[j] += wi * xij * xij;
                             }
                         }
-                        acc
-                    },
-                )
-                .reduce(
-                    || vec![0.0_f64; p],
-                    |mut a, b| {
-                        for (av, bv) in a.iter_mut().zip(b) {
-                            *av += bv;
-                        }
-                        a
-                    },
-                )
-                .into();
+                    }
+                    acc
+                },
+                |mut a, b| {
+                    for (av, bv) in a.iter_mut().zip(b) {
+                        *av += bv;
+                    }
+                    a
+                },
+            )
+            .unwrap_or_else(|| vec![0.0_f64; p])
+            .into();
         }
         let mut diag = Array1::<f64>::zeros(p);
         let diag_slice = diag.as_slice_mut().expect("zeros are contiguous");
@@ -1044,6 +1067,7 @@ pub trait DenseDesignOperator: LinearOperator + Send + Sync {
                 n
             ));
         }
+        certify_signed_weights("DenseDesignOperator::compute_xtwy", weights, n)?;
         // Signed-safe XᵀWy: linear in w, so observed-Hessian / non-canonical
         // working weights must flow through unclipped.
         let mut wy = Array1::<f64>::zeros(n);
@@ -1540,15 +1564,9 @@ impl LinearOperator for DenseDesignMatrix {
     }
 
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+        certify_signed_weights("DenseDesignMatrix::diag_xtw_x", weights, self.nrows())?;
         match self {
             Self::Materialized(matrix) => {
-                if weights.len() != matrix.nrows() {
-                    return Err(format!(
-                        "DenseDesignMatrix::diag_xtw_x weight length mismatch: weights={}, nrows={}",
-                        weights.len(),
-                        matrix.nrows()
-                    ));
-                }
                 let mut xtwx = Array2::<f64>::zeros((matrix.ncols(), matrix.ncols()));
                 stream_weighted_crossprod_into(
                     matrix,
@@ -1565,20 +1583,13 @@ impl LinearOperator for DenseDesignMatrix {
     }
 
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
-        // PSD precondition discharged at the typed boundary
-        // (`PsdWeightsView::try_new` inside callers of `xt_diag_x_psd_op` /
-        // `diag_gram_view`). Observed-Hessian sites use the signed Gram path.
+        // Exact diagonal of Xᵀdiag(w)X.  It may be signed for observed
+        // curvature; solve-level stabilization owns positive-definiteness.
+        certify_signed_weights("DenseDesignMatrix::diag_gram", weights, self.nrows())?;
         match self {
             Self::Materialized(matrix) => {
                 let n = matrix.nrows();
                 let p = matrix.ncols();
-                if weights.len() != n {
-                    return Err(format!(
-                        "DenseDesignMatrix::diag_gram weight length mismatch: weights={}, nrows={}",
-                        weights.len(),
-                        n
-                    ));
-                }
                 if (n as u64) * (p as u64) < DENSE_ROW_PARALLEL_MIN_NP {
                     let mut diag = Array1::<f64>::zeros(p);
                     for i in 0..n {
@@ -1593,11 +1604,13 @@ impl LinearOperator for DenseDesignMatrix {
                     }
                     return Ok(diag);
                 }
-                let diag = (0..n)
-                    .into_par_iter()
-                    .fold(
-                        || Array1::<f64>::zeros(p),
-                        |mut acc, i| {
+                // Deterministic parallel row reduction (length-only pairwise
+                // tree; see the standard-layout path above).
+                let diag = crate::pairwise_reduce::par_deterministic_block_fold(
+                    n,
+                    |range: core::ops::Range<usize>| {
+                        let mut acc = Array1::<f64>::zeros(p);
+                        for i in range {
                             let wi = weights[i];
                             if wi != 0.0 {
                                 for j in 0..p {
@@ -1605,16 +1618,15 @@ impl LinearOperator for DenseDesignMatrix {
                                     acc[j] += wi * xij * xij;
                                 }
                             }
-                            acc
-                        },
-                    )
-                    .reduce(
-                        || Array1::<f64>::zeros(p),
-                        |mut a, b| {
-                            a += &b;
-                            a
-                        },
-                    );
+                        }
+                        acc
+                    },
+                    |mut a, b| {
+                        a += &b;
+                        a
+                    },
+                )
+                .unwrap_or_else(|| Array1::<f64>::zeros(p));
                 Ok(diag)
             }
             Self::Lazy(op) => op.diag_gram(weights),
@@ -1623,7 +1635,7 @@ impl LinearOperator for DenseDesignMatrix {
 
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -1638,10 +1650,11 @@ impl LinearOperator for DenseDesignMatrix {
             self.ncols(),
             "DenseDesignMatrix::apply_weighted_normal vector length mismatch"
         );
-        // PSD precondition discharged at the typed boundary: callers driving
-        // this Fisher-scoring PCG matvec ((XᵀWX + S + ρI) v) construct their
-        // weights through `PsdWeightsView::try_new`. Signed observed-Hessian
-        // assembly routes through `xt_diag_x_signed_op` instead.
+        // Exact signed normal product.  PCG callers ordinarily provide Fisher
+        // weights, while observed-Hessian callers may provide negative rows;
+        // definiteness is a property of the assembled/stabilized global matrix,
+        // not something this row-linear kernel manufactures by projection.
+        let weights_view = weights.view();
         match self {
             Self::Materialized(matrix) => {
                 let n = matrix.nrows();
@@ -1649,7 +1662,7 @@ impl LinearOperator for DenseDesignMatrix {
                 let mut out = if (n as u64) * (p as u64) < DENSE_ROW_PARALLEL_MIN_NP {
                     let mut out = Array1::<f64>::zeros(p);
                     for i in 0..n {
-                        let wi = weights[i];
+                        let wi = weights_view[i];
                         if wi == 0.0 {
                             continue;
                         }
@@ -1667,12 +1680,14 @@ impl LinearOperator for DenseDesignMatrix {
                     }
                     out
                 } else {
-                    (0..n)
-                        .into_par_iter()
-                        .fold(
-                            || Array1::<f64>::zeros(p),
-                            |mut acc, i| {
-                                let wi = weights[i];
+                    // Deterministic parallel row reduction (length-only
+                    // pairwise tree; see diag_gram above).
+                    crate::pairwise_reduce::par_deterministic_block_fold(
+                        n,
+                        |range: core::ops::Range<usize>| {
+                            let mut acc = Array1::<f64>::zeros(p);
+                            for i in range {
+                                let wi = weights_view[i];
                                 if wi != 0.0 {
                                     let mut row_dot = 0.0_f64;
                                     for j in 0..p {
@@ -1685,16 +1700,15 @@ impl LinearOperator for DenseDesignMatrix {
                                         }
                                     }
                                 }
-                                acc
-                            },
-                        )
-                        .reduce(
-                            || Array1::<f64>::zeros(p),
-                            |mut a, b| {
-                                a += &b;
-                                a
-                            },
-                        )
+                            }
+                            acc
+                        },
+                        |mut a, b| {
+                            a += &b;
+                            a
+                        },
+                    )
+                    .unwrap_or_else(|| Array1::<f64>::zeros(p))
                 };
                 if let Some(pen) = penalty {
                     out += &fast_av(pen, vector);
@@ -1720,16 +1734,16 @@ impl LinearOperator for DenseDesignMatrix {
 
 impl DenseDesignOperator for DenseDesignMatrix {
     fn compute_xtwy(&self, weights: &Array1<f64>, y: &Array1<f64>) -> Result<Array1<f64>, String> {
+        if y.len() != self.nrows() {
+            return Err(format!(
+                "DenseDesignMatrix::compute_xtwy response length mismatch: y={}, nrows={}",
+                y.len(),
+                self.nrows()
+            ));
+        }
+        certify_signed_weights("DenseDesignMatrix::compute_xtwy", weights, self.nrows())?;
         match self {
             Self::Materialized(matrix) => {
-                if weights.len() != matrix.nrows() || y.len() != matrix.nrows() {
-                    return Err(format!(
-                        "DenseDesignMatrix::compute_xtwy dimension mismatch: weights={}, y={}, nrows={}",
-                        weights.len(),
-                        y.len(),
-                        matrix.nrows()
-                    ));
-                }
                 Ok(dense_transpose_weighted_response(matrix, weights, y, None))
             }
             Self::Lazy(op) => op.compute_xtwy(weights, y),
@@ -1912,7 +1926,7 @@ impl LinearOperator for ReparamOperator {
 
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -1927,10 +1941,9 @@ impl LinearOperator for ReparamOperator {
             self.qs.ncols(),
             "ReparamOperator::apply_weighted_normal vector length mismatch"
         );
-        // PSD precondition discharged at the typed boundary: this is the
-        // Fisher-scoring PCG normal-equations matvec; signed observed-Hessian
-        // assembly does not reach this path.
-        // Qs^T X^T W X Qs v + S v + ridge v
+        // Qs^T X^T W X Qs v + S v + ridge v, with signed W preserved.  Any
+        // ridge needed for a global solve is applied after the exact product.
+        let weights = weights.view();
         let qv = self.qs.dot(vector);
         let xqv = self.x_original.apply(&qv);
         let mut wxqv = xqv;
@@ -2100,22 +2113,24 @@ impl RandomEffectOperator {
         &self,
         dense: &Array2<f64>,
         weights: &Array1<f64>,
-    ) -> Array2<f64> {
-        assert_eq!(
-            dense.nrows(),
+    ) -> Result<Array2<f64>, String> {
+        if dense.nrows() != self.n {
+            return Err(format!(
+                "RandomEffectOperator::weighted_cross_with_dense row mismatch: dense={}, nrows={}",
+                dense.nrows(),
+                self.n
+            ));
+        }
+        certify_signed_weights(
+            "RandomEffectOperator::weighted_cross_with_dense",
+            weights,
             self.n,
-            "RandomEffectOperator::weighted_cross_with_dense row mismatch"
-        );
-        assert_eq!(
-            weights.len(),
-            self.n,
-            "RandomEffectOperator::weighted_cross_with_dense weight length mismatch"
-        );
+        )?;
         let p_dense = dense.ncols();
         let mut cross = Array2::<f64>::zeros((p_dense, self.num_groups));
         for i in 0..self.n {
             if let Some(g) = self.group_ids[i] {
-                let wi = weights[i].max(0.0);
+                let wi = weights[i];
                 if wi == 0.0 {
                     continue;
                 }
@@ -2124,7 +2139,7 @@ impl RandomEffectOperator {
                 }
             }
         }
-        cross
+        Ok(cross)
     }
 
     /// For two RE operators, compute X_re_a' diag(w) X_re_b → (qa × qb).
@@ -2134,26 +2149,28 @@ impl RandomEffectOperator {
         &self,
         other: &RandomEffectOperator,
         weights: &Array1<f64>,
-    ) -> Array2<f64> {
-        assert_eq!(
-            other.n, self.n,
-            "RandomEffectOperator::weighted_cross_with_re row mismatch"
-        );
-        assert_eq!(
-            weights.len(),
+    ) -> Result<Array2<f64>, String> {
+        if other.n != self.n {
+            return Err(format!(
+                "RandomEffectOperator::weighted_cross_with_re row mismatch: other={}, nrows={}",
+                other.n, self.n
+            ));
+        }
+        certify_signed_weights(
+            "RandomEffectOperator::weighted_cross_with_re",
+            weights,
             self.n,
-            "RandomEffectOperator::weighted_cross_with_re weight length mismatch"
-        );
+        )?;
         let mut cross = Array2::<f64>::zeros((self.num_groups, other.num_groups));
         for i in 0..self.n {
             if let (Some(a), Some(b)) = (self.group_ids[i], other.group_ids[i]) {
-                let wi = weights[i].max(0.0);
+                let wi = weights[i];
                 if wi != 0.0 {
                     cross[[a, b]] += wi;
                 }
             }
         }
-        cross
+        Ok(cross)
     }
 }
 
@@ -2190,18 +2207,12 @@ impl LinearOperator for RandomEffectOperator {
 
     /// X'WX for a one-hot design is diagonal: D[g,g] = Σ_{i: group[i]=g} w[i].
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
-        if weights.len() != self.n {
-            return Err(format!(
-                "RandomEffectOperator::diag_xtw_x weight length mismatch: weights={}, nrows={}",
-                weights.len(),
-                self.n
-            ));
-        }
+        certify_signed_weights("RandomEffectOperator::diag_xtw_x", weights, self.n)?;
         let q = self.num_groups;
         let mut xtwx = Array2::<f64>::zeros((q, q));
         for i in 0..self.n {
             if let Some(g) = self.group_ids[i] {
-                xtwx[[g, g]] += weights[i].max(0.0);
+                xtwx[[g, g]] += weights[i];
             }
         }
         Ok(xtwx)
@@ -2209,17 +2220,11 @@ impl LinearOperator for RandomEffectOperator {
 
     /// Diagonal of X'WX: per-group weight sums.
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if weights.len() != self.n {
-            return Err(format!(
-                "RandomEffectOperator::diag_gram weight length mismatch: weights={}, nrows={}",
-                weights.len(),
-                self.n
-            ));
-        }
+        certify_signed_weights("RandomEffectOperator::diag_gram", weights, self.n)?;
         let mut diag = Array1::<f64>::zeros(self.num_groups);
         for i in 0..self.n {
             if let Some(g) = self.group_ids[i] {
-                diag[g] += weights[i].max(0.0);
+                diag[g] += weights[i];
             }
         }
         Ok(diag)
@@ -2228,7 +2233,7 @@ impl LinearOperator for RandomEffectOperator {
     /// Fused X'WXβ + Sβ + ridge·β.  O(n + q).
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -2246,10 +2251,11 @@ impl LinearOperator for RandomEffectOperator {
         // Step 1: accumulate per-group weighted β[g] contributions.
         //   group_acc[g] = Σ_{i in group g} w[i]
         //   result[g] = group_acc[g] * vector[g]
+        let weights = weights.view();
         let mut group_wacc = Array1::<f64>::zeros(self.num_groups);
         for i in 0..self.n {
             if let Some(g) = self.group_ids[i] {
-                group_wacc[g] += weights[i].max(0.0);
+                group_wacc[g] += weights[i];
             }
         }
         let mut out = Array1::<f64>::zeros(self.num_groups);
@@ -2282,10 +2288,11 @@ impl DenseDesignOperator for RandomEffectOperator {
                 self.n
             ));
         }
+        certify_signed_weights("RandomEffectOperator::compute_xtwy", weights, self.n)?;
         let mut out = Array1::<f64>::zeros(self.num_groups);
         for i in 0..self.n {
             if let Some(g) = self.group_ids[i] {
-                let wi = weights[i].max(0.0);
+                let wi = weights[i];
                 out[g] += wi * y[i];
             }
         }
@@ -2405,6 +2412,7 @@ impl DesignBlock {
     }
 
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+        certify_signed_weights("DesignBlock::diag_xtw_x", weights, self.nrows())?;
         match self {
             Self::Dense(d) => d.diag_xtw_x(weights),
             Self::Sparse(s) => DesignMatrix::Sparse(s.clone()).diag_xtw_x(weights),
@@ -2423,6 +2431,7 @@ impl DesignBlock {
     }
 
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
+        certify_signed_weights("DesignBlock::diag_gram", weights, self.nrows())?;
         match self {
             Self::Dense(d) => d.diag_gram(weights),
             Self::Sparse(s) => DesignMatrix::Sparse(s.clone()).diag_gram(weights),
@@ -2580,14 +2589,14 @@ impl BlockDesignOperator {
             // ── Dense × RandomEffect ────────────────────────────────────
             (DesignBlock::Dense(d), DesignBlock::RandomEffect(re)) => {
                 if let Some(dense) = d.as_dense_ref() {
-                    Ok(re.weighted_cross_with_dense(dense, weights))
+                    re.weighted_cross_with_dense(dense, weights)
                 } else {
                     self.weighted_cross_chunked(&self.blocks[i], &self.blocks[j], weights)
                 }
             }
             (DesignBlock::RandomEffect(re), DesignBlock::Dense(d)) => {
                 if let Some(dense) = d.as_dense_ref() {
-                    let cross_t = re.weighted_cross_with_dense(dense, weights);
+                    let cross_t = re.weighted_cross_with_dense(dense, weights)?;
                     Ok(cross_t.t().to_owned())
                 } else {
                     self.weighted_cross_chunked(&self.blocks[i], &self.blocks[j], weights)
@@ -2596,7 +2605,7 @@ impl BlockDesignOperator {
 
             // ── RandomEffect × RandomEffect ─────────────────────────────
             (DesignBlock::RandomEffect(re_a), DesignBlock::RandomEffect(re_b)) => {
-                Ok(re_a.weighted_cross_with_re(re_b, weights))
+                re_a.weighted_cross_with_re(re_b, weights)
             }
 
             // ── Intercept × anything ────────────────────────────────────
@@ -2800,13 +2809,7 @@ impl LinearOperator for BlockDesignOperator {
     }
 
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
-        if weights.len() != self.n {
-            return Err(format!(
-                "BlockDesignOperator::diag_xtw_x weight length mismatch: weights={}, nrows={}",
-                weights.len(),
-                self.n
-            ));
-        }
+        certify_signed_weights("BlockDesignOperator::diag_xtw_x", weights, self.n)?;
         let p = self.total_cols;
         let mut result = Array2::<f64>::zeros((p, p));
 
@@ -2872,13 +2875,7 @@ impl LinearOperator for BlockDesignOperator {
     }
 
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if weights.len() != self.n {
-            return Err(format!(
-                "BlockDesignOperator::diag_gram weight length mismatch: weights={}, nrows={}",
-                weights.len(),
-                self.n
-            ));
-        }
+        certify_signed_weights("BlockDesignOperator::diag_gram", weights, self.n)?;
         let mut out = Array1::<f64>::zeros(self.total_cols);
         for (idx, block) in self.blocks.iter().enumerate() {
             let start = self.col_offsets[idx];
@@ -2891,7 +2888,7 @@ impl LinearOperator for BlockDesignOperator {
 
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -2907,10 +2904,11 @@ impl LinearOperator for BlockDesignOperator {
             "BlockDesignOperator::apply_weighted_normal vector length mismatch"
         );
         // Fused: X'W(Xβ) + Sβ + ridge·β
+        let weights = weights.view();
         let xv = self.apply(vector);
         let mut weighted = xv;
         for i in 0..weighted.len() {
-            weighted[i] *= weights[i].max(0.0);
+            weighted[i] *= weights[i];
         }
         let mut out = self.apply_transpose(&weighted);
         if let Some(pen) = penalty {
@@ -2947,11 +2945,12 @@ impl DenseDesignOperator for BlockDesignOperator {
                 self.n
             ));
         }
+        certify_signed_weights("BlockDesignOperator::compute_xtwy", weights, self.n)?;
         let mut wy = Array1::<f64>::zeros(self.n);
         ndarray::Zip::from(&mut wy)
             .and(weights)
             .and(y)
-            .par_for_each(|o, &w, &yi| *o = w.max(0.0) * yi);
+            .par_for_each(|o, &w, &yi| *o = w * yi);
         Ok(self.apply_transpose(&wy))
     }
 
@@ -3111,26 +3110,11 @@ impl LinearOperator for MultiChannelOperator {
 
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
         let n = self.n_per_channel;
-        if weights.len() != self.nrows() {
-            return Err(format!(
-                "MultiChannelOperator::diag_xtw_x: weights length {} != nrows {}",
-                weights.len(),
-                self.nrows()
-            ));
-        }
-        // PSD-clamp the weights to `w ≥ 0`, consistent with this operator's own
-        // `diag_gram` (`PsdWeightsView::try_new`) and `compute_xtwy`/
-        // `apply_weighted_normal` (`w.max(0.0)`). Routing the signed/observed
-        // path here would let a negative working weight flip a column's
-        // contribution, leaving `diag_xtw_x` and its own diagonal `diag_gram`
-        // disagreeing on their shared entries for the same operator+weights.
-        // Multi-channel Grams are always consumed as PSD preconditioners, so
-        // the clamped XᵀWX is the correct shared semantics (gam#846).
-        let w_pos = weights.mapv(|w: f64| w.max(0.0));
+        certify_signed_weights("MultiChannelOperator::diag_xtw_x", weights, self.nrows())?;
         let mut xtwx = Array2::<f64>::zeros((self.p, self.p));
         for (i, ch) in self.channels.iter().enumerate() {
-            let ch_xtwx = ch
-                .xt_diag_x_signed_op(SignedWeightsView::new(w_pos.slice(s![i * n..(i + 1) * n])))?;
+            let channel_weights = weights.slice(s![i * n..(i + 1) * n]).to_owned();
+            let ch_xtwx = ch.diag_xtw_x(&channel_weights)?;
             xtwx += &ch_xtwx;
         }
         Ok(xtwx)
@@ -3138,26 +3122,10 @@ impl LinearOperator for MultiChannelOperator {
 
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
         let n = self.n_per_channel;
-        if weights.len() != self.nrows() {
-            return Err(format!(
-                "MultiChannelOperator::diag_gram: weights length {} != nrows {}",
-                weights.len(),
-                self.nrows()
-            ));
-        }
-        // PSD-clamp the weights to match this operator's own `diag_xtw_x` and
-        // `compute_xtwy` semantics. Per-channel `diag_gram_view` is backed by
-        // `PsdWeights::try_new`, which rejects negative entries outright: a
-        // negative working weight would surface as a hard error here while
-        // `diag_xtw_x(weights)` succeeds, so the operator's own Gram diagonal
-        // would disagree with the diagonal of its full Gram for the same
-        // signed weights. Multi-channel Grams are always consumed as PSD
-        // preconditioners (gam#846), so clamping is the correct shared
-        // semantics.
-        let w_pos = weights.mapv(|w: f64| w.max(0.0));
+        certify_signed_weights("MultiChannelOperator::diag_gram", weights, self.nrows())?;
         let mut diag = Array1::<f64>::zeros(self.p);
         for (i, ch) in self.channels.iter().enumerate() {
-            diag += &ch.diag_gram_view(w_pos.slice(s![i * n..(i + 1) * n]))?;
+            diag += &ch.diag_gram_view(weights.slice(s![i * n..(i + 1) * n]))?;
         }
         Ok(diag)
     }
@@ -3185,19 +3153,11 @@ impl DenseDesignOperator for MultiChannelOperator {
                 total
             ));
         }
-        // Clamp signed weights to non-negative to match this operator's
-        // `diag_xtw_x` / `diag_gram` semantics (multi-channel Grams are PSD
-        // preconditioners — gam#846). The dense per-channel
-        // `compute_xtwy_view` path is signed-safe by design (it preserves the
-        // sign through XᵀWy so observed-Hessian assembly is exact), while the
-        // sparse path clamps internally — passing raw signed weights would
-        // therefore produce different XᵀWy depending on which channels are
-        // sparse vs dense for the same operator+weights.
-        let w_pos = weights.mapv(|w: f64| w.max(0.0));
+        certify_signed_weights("MultiChannelOperator::compute_xtwy", weights, total)?;
         let mut out = Array1::<f64>::zeros(self.p);
         for (i, ch) in self.channels.iter().enumerate() {
             out += &ch.compute_xtwy_view(
-                w_pos.slice(s![i * n..(i + 1) * n]),
+                weights.slice(s![i * n..(i + 1) * n]),
                 y.slice(s![i * n..(i + 1) * n]),
             )?;
         }
@@ -3361,6 +3321,7 @@ impl LinearOperator for CoefficientTransformOperator {
         fast_atv(&self.transform, &xtv)
     }
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+        certify_signed_weights("CoefficientTransformOperator::diag_xtw_x", weights, self.n)?;
         if let Some(combined) = self.materialized_combined() {
             let mut xtwx = Array2::<f64>::zeros((self.p_out, self.p_out));
             stream_weighted_crossprod_into(
@@ -3620,6 +3581,7 @@ impl LinearOperator for ResidualisedDesignOperator {
         out
     }
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+        certify_signed_weights("ResidualisedDesignOperator::diag_xtw_x", weights, self.n)?;
         if let Some(combined) = self.materialized_combined() {
             let mut xtwx = Array2::<f64>::zeros((self.p_out, self.p_out));
             stream_weighted_crossprod_into(
@@ -3783,14 +3745,14 @@ impl LinearOperator for ConditionedDesign {
 
     /// X_c'WX_c = D_a(X'WX)D_a - D_a(X'w)d' - d(X'w)'D_a + Σw·dd'
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+        certify_signed_weights("ConditionedDesign::diag_xtw_x", weights, self.nrows())?;
         let mut base = self.inner.diag_xtw_x(weights)?;
         if self.columns.is_empty() {
             return Ok(base);
         }
         let p = base.ncols();
-        let w_pos: Array1<f64> = weights.mapv(|w| w.max(0.0));
-        let sum_w: f64 = w_pos.sum();
-        let cw = self.inner.apply_transpose(&w_pos);
+        let sum_w: f64 = weights.sum();
+        let cw = self.inner.apply_transpose(weights);
 
         // Precompute a[j] and d[j] for all columns.
         let mut a = vec![1.0_f64; p];
@@ -3814,13 +3776,13 @@ impl LinearOperator for ConditionedDesign {
 
     /// Diagonal of X_c'WX_c — only conditioned columns change.
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
+        certify_signed_weights("ConditionedDesign::diag_gram", weights, self.nrows())?;
         let mut result = self.inner.diag_gram(weights)?;
         if self.columns.is_empty() {
             return Ok(result);
         }
-        let w_pos: Array1<f64> = weights.mapv(|w| w.max(0.0));
-        let sum_w: f64 = w_pos.sum();
-        let cw = self.inner.apply_transpose(&w_pos);
+        let sum_w: f64 = weights.sum();
+        let cw = self.inner.apply_transpose(weights);
         for &(j, mean, scale) in &self.columns {
             let a_j = 1.0 / scale;
             let d_j = mean / scale;
@@ -3844,15 +3806,19 @@ impl DenseDesignOperator for ConditionedDesign {
 
     /// X_c'(w⊙y) = a⊙(X'(w⊙y)) - d·Σ(w⊙y)
     fn compute_xtwy(&self, weights: &Array1<f64>, y: &Array1<f64>) -> Result<Array1<f64>, String> {
+        if y.len() != self.nrows() {
+            return Err(format!(
+                "ConditionedDesign::compute_xtwy response length mismatch: y={}, nrows={}",
+                y.len(),
+                self.nrows()
+            ));
+        }
+        certify_signed_weights("ConditionedDesign::compute_xtwy", weights, self.nrows())?;
         let mut result = self.inner.compute_xtwy(weights, y)?;
         if self.columns.is_empty() {
             return Ok(result);
         }
-        let sum_wy: f64 = weights
-            .iter()
-            .zip(y.iter())
-            .map(|(&w, &yi)| w.max(0.0) * yi)
-            .sum();
+        let sum_wy: f64 = weights.iter().zip(y.iter()).map(|(&w, &yi)| w * yi).sum();
         for &(j, mean, scale) in &self.columns {
             result[j] = (result[j] - mean * sum_wy) / scale;
         }
@@ -3974,7 +3940,10 @@ pub trait LinearOperator {
     /// but not guaranteed PSD (so consumers cannot assume the `SymmetricMatrix`
     /// PSD contract). Default impl delegates to `diag_xtw_x` for legacy
     /// operators; overriding impls may take a sign-aware fast path.
-    fn xt_diag_x_signed_op(&self, weights: SignedWeightsView<'_>) -> Result<Array2<f64>, String> {
+    fn xt_diag_x_signed_op(
+        &self,
+        weights: FiniteSignedWeightsView<'_>,
+    ) -> Result<Array2<f64>, String> {
         self.diag_xtw_x(&weights.view().to_owned())
     }
 
@@ -3983,6 +3952,8 @@ pub trait LinearOperator {
     /// downstream consumers can route through PSD-only solvers (Cholesky).
     /// Default impl wraps the signed path's `Array2` in `SymmetricMatrix::Dense`.
     fn xt_diag_x_psd_op(&self, weights: PsdWeightsView<'_>) -> Result<SymmetricMatrix, String> {
+        FiniteSignedWeightsView::try_new(weights.view())
+            .map_err(|reason| format!("LinearOperator::xt_diag_x_psd_op: {reason}"))?;
         let xtwx = self.diag_xtw_x(&weights.view().to_owned())?;
         Ok(SymmetricMatrix::Dense(xtwx))
     }
@@ -3993,7 +3964,7 @@ pub trait LinearOperator {
     }
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -4008,10 +3979,11 @@ pub trait LinearOperator {
             self.ncols(),
             "apply_weighted_normal vector length mismatch"
         );
+        let weights = weights.view();
         let xv = self.apply(vector);
         let mut weighted_xv = xv;
         for i in 0..weighted_xv.len() {
-            weighted_xv[i] *= weights[i].max(0.0);
+            weighted_xv[i] *= weights[i];
         }
         let mut out = self.apply_transpose(&weighted_xv);
         if let Some(pen) = penalty {
@@ -4065,69 +4037,48 @@ pub trait LinearOperator {
             ));
         }
         let p = self.ncols();
-        for retry in 0..8 {
-            let ridge = if baseridge > 0.0 {
-                baseridge * 10f64.powi(retry)
-            } else {
-                0.0
-            };
-            let normal_op = PenalizedWeightedNormalOperator {
-                operator: self,
-                weights,
-                penalty,
-                ridge,
-            };
-            let preconditioner = normal_op.jacobi_preconditioner()?;
-            let attempt_started = std::time::Instant::now();
-            let solved = crate::utils::solve_spd_pcg_with_info(
-                |v| normal_op.apply(v),
-                rhs,
-                &preconditioner,
-                MATRIX_FREE_PCG_REL_TOL,
-                MATRIX_FREE_PCG_MAX_ITER.max(4 * p),
-            );
-            let elapsed = attempt_started.elapsed().as_secs_f64();
-            // Progress diagnostics for the matrix-free inner solve. The happy
-            // path (retry==0, converged) logs at debug to stay quiet inside the
-            // inner-Newton loop; any ridge escalation — the trust-region-retry
-            // analog and a strong signal that the operator is ill-conditioned —
-            // logs at info so a slow fit shows whether time is going into CG
-            // iterations, repeated HVPs, or escalation churn.
-            match solved {
-                Some((solution, info)) if solution.iter().all(|v| v.is_finite()) => {
-                    if retry > 0 {
-                        log::info!(
-                            "[matrix-free PCG] converged after ridge escalation: p={p} retry={retry} ridge={ridge:.3e} iters={} converged={} rel_resid={:.3e} elapsed={elapsed:.3}s",
-                            info.iterations,
-                            info.converged,
-                            info.relative_residual_norm,
-                        );
-                    } else {
-                        log::debug!(
-                            "[matrix-free PCG] solved: p={p} iters={} converged={} rel_resid={:.3e} elapsed={elapsed:.3}s",
-                            info.iterations,
-                            info.converged,
-                            info.relative_residual_norm,
-                        );
-                    }
-                    return Ok((solution, info));
-                }
-                Some((_, info)) => {
-                    log::info!(
-                        "[matrix-free PCG] non-finite solution, escalating ridge: p={p} retry={retry} ridge={ridge:.3e} iters={} converged={} rel_resid={:.3e} elapsed={elapsed:.3}s",
-                        info.iterations,
-                        info.converged,
-                        info.relative_residual_norm,
-                    );
-                }
-                None => {
-                    log::info!(
-                        "[matrix-free PCG] CG breakdown (non-SPD/NaN), escalating ridge: p={p} retry={retry} ridge={ridge:.3e} elapsed={elapsed:.3}s",
-                    );
-                }
-            }
+        let finite_weights = certify_signed_weights(
+            "solve_system_matrix_free_pcg_with_info_try",
+            weights,
+            self.nrows(),
+        )?;
+        if !(baseridge.is_finite() && baseridge >= 0.0) {
+            return Err(format!(
+                "matrix-free PCG ridge must be finite and non-negative, got {baseridge:?}"
+            ));
         }
-        Err("matrix-free PCG failed after ridge retries".to_string())
+        let normal_op = PenalizedWeightedNormalOperator {
+            operator: self,
+            weights,
+            finite_weights,
+            penalty,
+            ridge: baseridge,
+        };
+        let preconditioner = normal_op.jacobi_preconditioner()?;
+        let attempt_started = std::time::Instant::now();
+        let (solution, info) = crate::utils::solve_spd_pcg_with_info(
+            |v| normal_op.apply(v),
+            rhs,
+            &preconditioner,
+            MATRIX_FREE_PCG_REL_TOL,
+            MATRIX_FREE_PCG_MAX_ITER.max(4 * p),
+        )
+        .ok_or_else(|| {
+            format!(
+                "matrix-free PCG broke down for explicitly requested ridge {baseridge:.3e}"
+            )
+        })?;
+        if !solution.iter().all(|value| value.is_finite()) {
+            return Err("matrix-free PCG produced a non-finite solution".to_string());
+        }
+        log::debug!(
+            "[matrix-free PCG] solved: p={p} ridge={baseridge:.3e} iters={} converged={} rel_resid={:.3e} elapsed={:.3}s",
+            info.iterations,
+            info.converged,
+            info.relative_residual_norm,
+            attempt_started.elapsed().as_secs_f64(),
+        );
+        Ok((solution, info))
     }
     fn factorize_system(
         &self,
@@ -4147,7 +4098,7 @@ pub trait LinearOperator {
             }
             system += pen;
         }
-        let factor = crate::utils::StableSolver::new("linear operator system")
+        let factor = crate::utils::StableSolver::new()
             .factorize(&system)
             .map_err(|e| format!("factorize_system failed: {e:?}"))?;
         Ok(Box::new(factor))
@@ -4162,8 +4113,8 @@ pub trait LinearOperator {
             weights,
             rhs,
             penalty,
-            SPD_SOLVE_RIDGE_FLOOR,
-            RidgePolicy::explicit_stabilization_pospart(),
+            0.0,
+            RidgePolicy::solver_only(),
         )
     }
     fn solve_systemwith_policy(
@@ -4181,20 +4132,18 @@ pub trait LinearOperator {
                 self.ncols()
             ));
         }
-        let baseridge = if ridge_policy.include_laplacehessian {
-            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR)
-        } else {
-            0.0
-        };
-        // Try matrix-free PCG first to avoid assembling the dense p×p normal matrix.
-        if self.uses_matrix_free_pcg()
-            && self.ncols() >= MATRIX_FREE_PCG_MIN_P
-            && let Ok(solution) =
-                self.solve_system_matrix_free_pcg_try(weights, rhs, penalty, baseridge)
-        {
-            return Ok(solution);
+        if !(ridge_floor.is_finite() && ridge_floor >= 0.0) {
+            return Err(format!(
+                "solve_systemwith_policy ridge floor must be finite and non-negative, got {ridge_floor:?}"
+            ));
         }
-        // Fallback: assemble dense system and solve via Cholesky with ridge retries.
+        let ridge = ridge_floor;
+        // The size policy selects exactly one algorithm. A failed matrix-free
+        // solve is surfaced; silently switching algorithms or escalating ridge
+        // would change both performance and the solved system.
+        if self.uses_matrix_free_pcg() && self.ncols() >= MATRIX_FREE_PCG_MIN_P {
+            return self.solve_system_matrix_free_pcg_try(weights, rhs, penalty, ridge);
+        }
         let mut system = self.diag_xtw_x(weights)?;
         if let Some(pen) = penalty {
             if pen.nrows() != system.nrows() || pen.ncols() != system.ncols() {
@@ -4208,9 +4157,26 @@ pub trait LinearOperator {
             }
             system += pen;
         }
-        crate::utils::StableSolver::new("linear operator system")
-            .solvevectorwithridge_retries(&system, rhs, baseridge)
-            .ok_or_else(|| "solve_systemwith_policy failed after ridge retries".to_string())
+        if ridge > 0.0 {
+            for diagonal in 0..system.nrows() {
+                system[[diagonal, diagonal]] += ridge;
+            }
+        }
+        let factor = crate::utils::StableSolver::new()
+            .factorize(&system)
+            .map_err(|error| {
+                format!(
+                    "solve_systemwith_policy ({ridge_policy:?}) exact factorization failed at ridge {ridge:.3e}: {error:?}"
+                )
+            })?;
+        let mut solution = rhs.clone();
+        let mut solution_matrix = crate::faer_ndarray::array1_to_col_matmut(&mut solution);
+        factor.solve_in_place(solution_matrix.as_mut());
+        if solution.iter().all(|value| value.is_finite()) {
+            Ok(solution)
+        } else {
+            Err("solve_systemwith_policy produced a non-finite solution".to_string())
+        }
     }
 }
 
@@ -4260,7 +4226,7 @@ impl LinearOperator for DesignMatrix {
 
     fn apply_weighted_normal(
         &self,
-        weights: &Array1<f64>,
+        weights: FiniteSignedWeightsView<'_>,
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
@@ -4275,6 +4241,7 @@ impl LinearOperator for DesignMatrix {
             self.ncols(),
             "DesignMatrix::apply_weighted_normal vector length mismatch"
         );
+        let weights_view = weights.view();
         match self {
             Self::Dense(matrix) => matrix.apply_weighted_normal(weights, vector, penalty, ridge),
             Self::Sparse(_) => {
@@ -4288,7 +4255,7 @@ impl LinearOperator for DesignMatrix {
                     let vals = csr.val();
                     let mut fused = Array1::<f64>::zeros(self.ncols());
                     for i in 0..self.nrows() {
-                        let wi = weights[i].max(0.0);
+                        let wi = weights_view[i];
                         if wi == 0.0 {
                             continue;
                         }
@@ -4311,7 +4278,7 @@ impl LinearOperator for DesignMatrix {
                     let xv = self.apply(vector);
                     let mut weighted_xv = xv;
                     for i in 0..weighted_xv.len() {
-                        weighted_xv[i] *= weights[i].max(0.0);
+                        weighted_xv[i] *= weights_view[i];
                     }
                     self.apply_transpose(&weighted_xv)
                 };
@@ -4352,13 +4319,7 @@ impl LinearOperator for DesignMatrix {
     }
 
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
-        if weights.len() != self.nrows() {
-            return Err(format!(
-                "xt_diag_x dimension mismatch: weights length {} != nrows {}",
-                weights.len(),
-                self.nrows()
-            ));
-        }
+        certify_signed_weights("DesignMatrix::diag_xtw_x", weights, self.nrows())?;
         let p = self.ncols();
         match self {
             Self::Dense(x) => x.diag_xtw_x(weights),
@@ -4436,13 +4397,7 @@ impl LinearOperator for DesignMatrix {
     }
 
     fn diag_gram(&self, weights: &Array1<f64>) -> Result<Array1<f64>, String> {
-        if weights.len() != self.nrows() {
-            return Err(format!(
-                "diag_gram dimension mismatch: weights length {} != nrows {}",
-                weights.len(),
-                self.nrows()
-            ));
-        }
+        certify_signed_weights("DesignMatrix::diag_gram", weights, self.nrows())?;
         let p = self.ncols();
         match self {
             Self::Dense(x) => x.diag_gram(weights),
@@ -4504,6 +4459,7 @@ impl DenseDesignOperator for DesignMatrix {
                 self.nrows()
             ));
         }
+        certify_signed_weights("DesignMatrix::compute_xtwy", weights, self.nrows())?;
         match self {
             Self::Dense(x) => x.compute_xtwy(weights, y),
             Self::Sparse(xs) => {
@@ -4517,7 +4473,7 @@ impl DenseDesignOperator for DesignMatrix {
                 let vals = csr.val();
                 let mut out = Array1::<f64>::zeros(xs.ncols());
                 for i in 0..xs.nrows() {
-                    let scaled = weights[i].max(0.0) * y[i];
+                    let scaled = weights[i] * y[i];
                     if scaled == 0.0 {
                         continue;
                     }
@@ -4660,6 +4616,7 @@ impl LinearOperator for DenseRightProductView<'_> {
                 self.nrows()
             ));
         }
+        certify_signed_weights("DenseRightProductView::diag_xtw_x", weights, self.nrows())?;
         let mut gram = fast_xt_diag_x(self.base, weights);
         if let Some(factor) = self.first {
             gram = fast_ab(&fast_atb(factor, &gram), factor);
@@ -4689,6 +4646,7 @@ impl DenseRightProductView<'_> {
                 self.nrows()
             ));
         }
+        certify_signed_weights("DenseRightProductView::compute_xtwy", weights, self.nrows())?;
         let weighted_xty = dense_transpose_weighted_response(self.base, weights, y, None);
         let mut out = weighted_xty;
         if let Some(factor) = self.first {
@@ -4737,6 +4695,7 @@ impl LinearOperator for EmbeddedColumnBlock<'_> {
                 self.nrows()
             ));
         }
+        certify_signed_weights("EmbeddedColumnBlock::diag_xtw_x", weights, self.nrows())?;
         let mut out = Array2::<f64>::zeros((self.total_cols, self.total_cols));
         let local = fast_xt_diag_x(self.local, weights);
         out.slice_mut(ndarray::s![
@@ -4771,6 +4730,7 @@ impl EmbeddedColumnBlock<'_> {
                 self.nrows()
             ));
         }
+        certify_signed_weights("EmbeddedColumnBlock::compute_xtwy", weights, self.nrows())?;
         let local = dense_transpose_weighted_response(self.local, weights, y, None);
         let mut out = Array1::<f64>::zeros(self.total_cols);
         out.slice_mut(ndarray::s![self.global_range.clone()])
@@ -4809,7 +4769,7 @@ impl DesignMatrix {
             }
             system += pen;
         }
-        let factor = crate::utils::StableSolver::new("linear operator system")
+        let factor = crate::utils::StableSolver::new()
             .factorize(&system)
             .map_err(|e| format!("factorize_system failed: {e:?}"))?;
         Ok(Box::new(factor))
@@ -4821,6 +4781,11 @@ fn assemble_sparseweighted_gram_system(
     weights: &Array1<f64>,
     penalty: Option<&Array2<f64>>,
 ) -> Result<SparseColMat<usize, f64>, String> {
+    certify_signed_weights(
+        "assemble_sparseweighted_gram_system",
+        weights,
+        matrix.nrows(),
+    )?;
     let csr = matrix
         .to_csr_arc()
         .ok_or_else(|| "failed to obtain CSR view in factorize_system".to_string())?;
@@ -4832,7 +4797,7 @@ fn assemble_sparseweighted_gram_system(
     let mut upper = BTreeMap::<(usize, usize), f64>::new();
 
     for i in 0..csr.nrows() {
-        let wi = weights[i].max(0.0);
+        let wi = weights[i];
         if wi == 0.0 {
             continue;
         }
@@ -5885,14 +5850,11 @@ impl DesignMatrix {
                 self.nrows()
             ));
         }
+        FiniteSignedWeightsView::try_new(weights)
+            .map_err(|reason| format!("DesignMatrix::diag_gram_view: {reason}"))?;
         match self {
             Self::Dense(DenseDesignMatrix::Materialized(matrix)) => {
-                // Diagonal-of-Gram is a PSD-precondition kernel (used as a
-                // Jacobi preconditioner diagonal). Discharge `w ≥ 0` once at
-                // the boundary so the kernel below operates on a typed PSD
-                // view without re-scanning.
-                let psd = PsdWeightsView::try_new(weights)?;
-                Ok(dense_diag_gram_view(matrix, psd))
+                Ok(dense_diag_gram_view(matrix, weights))
             }
             Self::Dense(DenseDesignMatrix::Lazy(op)) => op.diag_gram(&weights.to_owned()),
             Self::Sparse(xs) => {
@@ -5926,6 +5888,8 @@ impl DesignMatrix {
                 self.nrows()
             ));
         }
+        FiniteSignedWeightsView::try_new(weights)
+            .map_err(|reason| format!("DesignMatrix::compute_xtwy_view: {reason}"))?;
         match self {
             Self::Dense(DenseDesignMatrix::Materialized(matrix)) => {
                 Ok(dense_transpose_weighted_response_view(matrix, weights, y))
@@ -5944,7 +5908,7 @@ impl DesignMatrix {
                 let vals = csr.val();
                 let mut out = Array1::<f64>::zeros(xs.ncols());
                 for i in 0..xs.nrows() {
-                    let scaled = weights[i].max(0.0) * y[i];
+                    let scaled = weights[i] * y[i];
                     if scaled == 0.0 {
                         continue;
                     }
@@ -5991,8 +5955,19 @@ impl DesignMatrix {
         vector: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
         ridge: f64,
-    ) -> Array1<f64> {
-        <Self as LinearOperator>::apply_weighted_normal(self, weights, vector, penalty, ridge)
+    ) -> Result<Array1<f64>, String> {
+        let finite =
+            certify_signed_weights("DesignMatrix::apply_weighted_normal", weights, self.nrows())?;
+        if vector.len() != self.ncols() {
+            return Err(format!(
+                "DesignMatrix::apply_weighted_normal vector length mismatch: vector={}, ncols={}",
+                vector.len(),
+                self.ncols()
+            ));
+        }
+        Ok(<Self as LinearOperator>::apply_weighted_normal(
+            self, finite, vector, penalty, ridge,
+        ))
     }
 
     pub fn solve_system(
@@ -6034,7 +6009,7 @@ impl DesignMatrix {
             weights,
             rhs,
             penalty,
-            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR),
+            ridge_floor,
         )
     }
 
@@ -6050,7 +6025,7 @@ impl DesignMatrix {
             weights,
             rhs,
             penalty,
-            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR),
+            ridge_floor,
         )
     }
 
@@ -6138,11 +6113,11 @@ impl From<&DesignMatrix> for DesignBlock {
 mod tests {
     use super::{
         BlockDesignOperator, CoefficientTransformOperator, DenseDesignMatrix, DenseDesignOperator,
-        DesignBlock, DesignMatrix, EmbeddedColumnBlock, MultiChannelOperator, PsdWeightsView,
-        ReparamOperator, ResidualisedDesignOperator, RowwiseKroneckerOperator, SignedWeightsView,
-        SparseDesignMatrix, dense_operator_to_dense_by_chunks, dense_transpose_weighted_response,
-        fast_atv, fast_av, streaming_sparse_csc_xt_diag_x, weighted_crossprod_dense_view,
-        xt_diag_x_symmetric,
+        DesignBlock, DesignMatrix, EmbeddedColumnBlock, FiniteSignedWeightsView,
+        MultiChannelOperator, PsdWeightsView, ReparamOperator, ResidualisedDesignOperator,
+        RowwiseKroneckerOperator, SparseDesignMatrix, dense_operator_to_dense_by_chunks,
+        dense_transpose_weighted_response, fast_atv, fast_av, streaming_sparse_csc_xt_diag_x,
+        weighted_crossprod_dense_view, xt_diag_x_symmetric,
     };
     use crate::matrix::LinearOperator;
     use crate::test_support::no_densify_design;
@@ -6254,9 +6229,14 @@ mod tests {
                 h[[i, i]] += ridge;
             }
         }
-        StableSolver::new("matrix-free pcg exact reference")
-            .solvevectorwithridge_retries(&h, rhs, 0.0)
-            .expect("exact reference solve")
+        let factor = StableSolver::new()
+            .factorize(&h)
+            .expect("exact reference factorization");
+        let mut solution = rhs.clone();
+        let mut solution_matrix = crate::faer_ndarray::array1_to_col_matmut(&mut solution);
+        factor.solve_in_place(solution_matrix.as_mut());
+        assert!(solution.iter().all(|value| value.is_finite()));
+        solution
     }
 
     #[test]
@@ -6482,9 +6462,8 @@ mod tests {
             assert!((expected_transpose[i] - got_transpose[i]).abs() < 1e-12);
         }
 
-        let weights = array![1.0, -0.5, 0.75, 2.0, 0.25, 1.5];
-        let w_pos = weights.mapv(|w: f64| w.max(0.0));
-        let weighted = stacked.clone() * w_pos.view().insert_axis(Axis(1));
+        let weights = array![1.0, -0.5, 0.75, 2.0, -0.25, 1.5];
+        let weighted = stacked.clone() * weights.view().insert_axis(Axis(1));
         let expected_xtwx = stacked.t().dot(&weighted);
         let got_xtwx = op.diag_xtw_x(&weights).expect("multi-channel xtwx");
         for i in 0..expected_xtwx.nrows() {
@@ -6500,10 +6479,90 @@ mod tests {
         }
 
         let y = array![1.0, 0.5, -0.25, 2.0, -1.0, 0.75];
-        let expected_xtwy = stacked.t().dot(&(w_pos * &y));
+        let expected_xtwy = stacked.t().dot(&(&weights * &y));
         let got_xtwy = op.compute_xtwy(&weights, &y).expect("multi-channel xtwy");
         for i in 0..expected_xtwy.len() {
             assert!((expected_xtwy[i] - got_xtwy[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn random_effect_weighted_operators_preserve_signed_curvature() {
+        let op = RandomEffectOperator::new(vec![Some(0), Some(1), Some(0), None, Some(1)], 2);
+        let weights = array![2.0, -3.0, 0.5, -7.0, 1.25];
+        let expected_diag = array![2.5, -1.75];
+
+        let gram = op.diag_xtw_x(&weights).expect("signed random-effect Gram");
+        assert_eq!(gram, Array2::from_diag(&expected_diag));
+        assert_eq!(op.diag_gram(&weights).unwrap(), expected_diag);
+
+        let dense = array![[1.0, 2.0], [3.0, -1.0], [4.0, 0.5], [9.0, 9.0], [-2.0, 3.0]];
+        let cross = op
+            .weighted_cross_with_dense(&dense, &weights)
+            .expect("signed dense/random-effect cross product");
+        let re_dense = op.to_dense();
+        let expected_cross = dense
+            .t()
+            .dot(&(&re_dense * weights.view().insert_axis(Axis(1))));
+        assert_eq!(cross, expected_cross);
+
+        let beta = array![4.0, -2.0];
+        let finite = FiniteSignedWeightsView::try_from_array(&weights).unwrap();
+        let normal = op.apply_weighted_normal(finite, &beta, None, 0.0);
+        assert_eq!(normal, &expected_diag * &beta);
+
+        let y = array![1.0, 2.0, -4.0, 100.0, 0.5];
+        let got_xtwy = op.compute_xtwy(&weights, &y).unwrap();
+        let expected_xtwy = re_dense.t().dot(&(&weights * &y));
+        assert_eq!(got_xtwy, expected_xtwy);
+    }
+
+    #[test]
+    fn conditioned_design_signed_gram_and_response_match_materialized_reference() {
+        let raw = array![[1.0, 5.0], [2.0, -1.0], [-3.0, 2.0], [4.0, 7.0]];
+        let conditioned = ConditionedDesign::new(
+            DesignMatrix::Dense(DenseDesignMatrix::from(raw)),
+            vec![(1, 2.0, 3.0)],
+        );
+        let dense = conditioned.to_dense();
+        let weights = array![2.0, -4.0, 0.5, -1.5];
+        let weighted = &dense * &weights.view().insert_axis(Axis(1));
+        let expected_gram = dense.t().dot(&weighted);
+        let got_gram = conditioned.diag_xtw_x(&weights).unwrap();
+        assert!(
+            (&got_gram - &expected_gram)
+                .iter()
+                .all(|value| value.abs() < 1e-12)
+        );
+        let got_diag = conditioned.diag_gram(&weights).unwrap();
+        assert!(
+            (&got_diag - &expected_gram.diag())
+                .iter()
+                .all(|value| value.abs() < 1e-12)
+        );
+
+        let y = array![0.5, -2.0, 3.0, 1.25];
+        let expected_xtwy = dense.t().dot(&(&weights * &y));
+        let got_xtwy = conditioned.compute_xtwy(&weights, &y).unwrap();
+        assert!(
+            (&got_xtwy - &expected_xtwy)
+                .iter()
+                .all(|value| value.abs() < 1e-12)
+        );
+    }
+
+    #[test]
+    fn weighted_operator_certification_reports_smallest_nonfinite_row() {
+        let channel = DesignMatrix::Dense(DenseDesignMatrix::from(array![[1.0], [2.0], [3.0]]));
+        let op = MultiChannelOperator::new(vec![channel]).unwrap();
+        let bad = array![1.0, f64::NAN, f64::INFINITY];
+
+        for err in [
+            op.diag_xtw_x(&bad).unwrap_err(),
+            op.diag_gram(&bad).unwrap_err(),
+            op.compute_xtwy(&bad, &array![1.0, 1.0, 1.0]).unwrap_err(),
+        ] {
+            assert!(err.contains("row 1"), "unexpected diagnostic: {err}");
         }
     }
 
@@ -6837,14 +6896,14 @@ mod tests {
                 &rhs,
                 Some(&penalty),
                 ridge_floor,
-                RidgePolicy::explicit_stabilization_pospart(),
+                RidgePolicy::solver_only(),
             )
             .expect("policy solve");
         for i in 0..p {
             // This system is heavily rank-deficient (rank ≤ n = 40, p = 520,
             // p ≫ n) with only a weak ~0.2 diagonal penalty + 1e-8 ridge_floor,
             // so the normal matrix is severely ill-conditioned. Both arms are
-            // matrix-free PCG (explicit vs `explicit_stabilization_pospart`
+            // matrix-free PCG (explicit vs solver-only stabilization
             // policy); they terminate at slightly different points on the
             // near-null manifold. A fixed 1e-6 absolute gate is below what PCG
             // can guarantee at this conditioning; assert a relative tolerance
@@ -6915,7 +6974,7 @@ mod tests {
         }
 
         let reference = {
-            let wy = Array1::from_shape_fn(n, |i| y[i] * w[i].max(0.0));
+            let wy = Array1::from_shape_fn(n, |i| y[i] * w[i]);
             fast_atv(&x, &wy)
         };
         let fused = dense_transpose_weighted_response(&x, &w, &y, None);
@@ -7222,12 +7281,12 @@ mod tests {
 
         let got = <DesignMatrix as LinearOperator>::xt_diag_x_signed_op(
             &design,
-            SignedWeightsView::from_array(&weights),
+            FiniteSignedWeightsView::try_from_array(&weights).unwrap(),
         )
         .unwrap();
         let mut reference = Array2::<f64>::zeros((p, p));
         for i in 0..n {
-            let wi = weights[i].max(0.0);
+            let wi = weights[i];
             if wi == 0.0 {
                 continue;
             }

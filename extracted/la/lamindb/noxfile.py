@@ -71,8 +71,8 @@ def install(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core-sqlite",
-        "unit-core-postgres",
+        "unit-pydata-sqlite",
+        "unit-pydata-postgres",
         "unit-storage",
         "no-instance",
         "tutorial",
@@ -87,11 +87,13 @@ def install(session):
         "docs",
         "cli",
         "permissions",
+        "profile",
+        "minimal",
     ],
 )
 def install_ci(session, group):
     extras = ""
-    if group in ["unit-core-sqlite", "unit-core-postgres"]:
+    if group in ["unit-pydata-sqlite", "unit-pydata-postgres"]:
         extras += "fcs"
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system mudata")
@@ -112,13 +114,15 @@ def install_ci(session, group):
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
-        extras += "zarr_v2"
+        # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
+        # so do not force the zarr_v2 compatibility extra in this group.
         run(
             session,
             f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "tiledbsoma":
-        extras += "zarr_v2"
+        # this group also exercises spatialdata through docs notebooks
+        # and should resolve against zarr>=3.
         run(
             session,
             f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
@@ -150,7 +154,7 @@ def install_ci(session, group):
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
     elif group == "docs":
-        extras += "zarr_v2"
+        # docs include spatialdata examples; avoid forcing zarr<3.
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
@@ -166,6 +170,12 @@ def install_ci(session, group):
         pass
     elif group == "permissions":
         pass
+    elif group == "profile":
+        pass
+    elif group == "minimal":
+        run(session, "uv pip install --system pytest")
+        run(session, "uv pip install --system .")
+        return
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[full,dev{extras}]")
@@ -175,7 +185,7 @@ def install_ci(session, group):
     # to push docs fixes fast
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
-    if IS_PR or group == "docs":
+    if IS_PR or group == "docs" or group == "profile":
         run(
             session,
             "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
@@ -247,7 +257,7 @@ def prepare(session):
 
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
     convert_executable_md_files()
-    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
+    os.system("cp ./tests/pydata/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
         "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
@@ -267,8 +277,8 @@ def prepare(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core-sqlite",
-        "unit-core-postgres",
+        "unit-pydata-sqlite",
+        "unit-pydata-postgres",
         "unit-storage",
         "no-instance",
         "curator",
@@ -282,11 +292,12 @@ def prepare(session):
         "transfer",
         "cli",
         "permissions",
+        "minimal",
     ],
 )
 def test(session, group):
     # we likely don't need auth in many other groups, but have to carefully expand this
-    if group not in {"curator", "no-instance"}:
+    if group not in {"curator", "no-instance", "minimal"}:
         login_testuser2(session)
         login_testuser1(session)
     # this is mostly needed for the docs so that we don't render Django's entire public API
@@ -295,18 +306,18 @@ def test(session, group):
     duration_args = "--durations=10"
 
     env = os.environ.copy()
-    if group == "unit-core-sqlite":
+    if group == "unit-pydata-sqlite":
         env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
-            f"pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/pydata {duration_args}",
             env=env,
         )
-    elif group == "unit-core-postgres":
+    elif group == "unit-pydata-postgres":
         env["LAMINDB_TEST_DB_VENDOR"] = "postgresql"
         run(
             session,
-            f"pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/pydata {duration_args}",
             env=env,
         )
     elif group == "unit-storage":
@@ -360,6 +371,10 @@ def test(session, group):
         )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
+    elif group == "minimal":
+        env_minimal = os.environ.copy()
+        env_minimal["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+        run(session, "pytest ./tests/minimal", env=env_minimal)
     # move artifacts into right place
     if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
         target_dir = Path(f"./docs/{group}")
@@ -471,5 +486,5 @@ def docs(session):
         session,
         "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
-    build_docs(session, strip_prefix=True, strict=False)
+    build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact()

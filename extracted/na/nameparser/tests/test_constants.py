@@ -18,7 +18,7 @@ from tests.base import HumanNameTestBase
 class ConstantsCustomizationTests(HumanNameTestBase):
 
     def test_add_title(self) -> None:
-        hn = HumanName("Te Awanui-a-Rangi Black", constants=None)
+        hn = HumanName("Te Awanui-a-Rangi Black", constants=Constants())
         start_len = len(hn.C.titles)
         self.assertTrue(start_len > 0)
         hn.C.titles.add('te')
@@ -63,7 +63,8 @@ class ConstantsCustomizationTests(HumanNameTestBase):
 
     def test_assigning_none_to_constants_after_construction_builds_new_instance(self) -> None:
         hn = HumanName("John Doe")
-        hn.C = None
+        with pytest.deprecated_call():
+            hn.C = None
         self.assertIsNot(hn.C, CONSTANTS)
         self.assertTrue(isinstance(hn.C, Constants))
 
@@ -227,7 +228,7 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.assertEqual(tm2.b, '2')
 
     def test_remove_title(self) -> None:
-        hn = HumanName("Hon Solo", constants=None)
+        hn = HumanName("Hon Solo", constants=Constants())
         start_len = len(hn.C.titles)
         self.assertTrue(start_len > 0)
         hn.C.titles.remove('hon')
@@ -237,7 +238,7 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.last, "Solo", hn)
 
     def test_add_multiple_arguments(self) -> None:
-        hn = HumanName("Assoc Dean of Chemistry Robert Johns", constants=None)
+        hn = HumanName("Assoc Dean of Chemistry Robert Johns", constants=Constants())
         hn.C.titles.add('dean', 'Chemistry')
         hn.parse_full_name()
         self.m(hn.title, "Assoc Dean of Chemistry", hn)
@@ -245,7 +246,7 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.last, "Johns", hn)
 
     def test_instances_can_have_own_constants(self) -> None:
-        hn = HumanName("", None)
+        hn = HumanName("", Constants())
         hn2 = HumanName("")
         hn.C.titles.remove('hon')
         self.assertEqual('hon' in hn.C.titles, False)
@@ -276,7 +277,7 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         # nickname_delimiters) around every test.
 
     def test_remove_multiple_arguments(self) -> None:
-        hn = HumanName("Ms Hon Solo", constants=None)
+        hn = HumanName("Ms Hon Solo", constants=Constants())
         hn.C.titles.remove('hon', 'ms')
         hn.parse_full_name()
         self.m(hn.first, "Ms", hn)
@@ -284,7 +285,7 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.last, "Solo", hn)
 
     def test_chain_multiple_arguments(self) -> None:
-        hn = HumanName("Dean Ms Hon Solo", constants=None)
+        hn = HumanName("Dean Ms Hon Solo", constants=Constants())
         hn.C.titles.remove('hon', 'ms').add('dean')
         hn.parse_full_name()
         self.m(hn.title, "Dean", hn)
@@ -293,12 +294,36 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.last, "Solo", hn)
 
     def test_clear_removes_all_entries(self) -> None:
-        hn = HumanName("Ms Hon Solo", constants=None)
+        hn = HumanName("Ms Hon Solo", constants=Constants())
         hn.C.titles.clear()
         hn.parse_full_name()
         self.m(hn.first, "Ms", hn)
         self.m(hn.middle, "Hon", hn)
         self.m(hn.last, "Solo", hn)
+
+    def test_empty_attribute_default_assignment_emits_deprecation_warning(self) -> None:
+        # assigning empty_attribute_default is deprecated for removal in 2.0
+        # (#255); empty attributes will always return '' once removed
+        c = Constants()
+        with pytest.deprecated_call(match="255"):
+            c.empty_attribute_default = None  # type: ignore[assignment]
+        self.assertIsNone(c.empty_attribute_default)
+
+    def test_empty_attribute_default_rejects_non_str_non_none(self) -> None:
+        # A cheap early check on the invariant 2.0 will fully enforce (only
+        # '' will be legal): non-str/non-None values fail loudly here
+        # instead of surfacing later as a confusing failure deep in some
+        # unrelated HumanName string property.
+        c = Constants()
+        with pytest.raises(TypeError, match="str or None"):
+            c.empty_attribute_default = 42  # type: ignore[assignment]
+        self.assertEqual(c.empty_attribute_default, '')
+
+    def test_empty_attribute_default_read_does_not_warn(self) -> None:
+        c = Constants()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.assertEqual(c.empty_attribute_default, '')
 
     def test_empty_attribute_default(self) -> None:
         from nameparser.config import CONSTANTS
@@ -306,9 +331,11 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         # from the '' default), but None is documented/supported here -- see
         # the doctest on the attribute's docstring in config/__init__.py.
         # Not widened to str | None like string_format/suffix_delimiter
-        # because it cascades into ~8 public str-typed properties (title,
-        # first, middle, last, suffix, nickname, initials()).
-        CONSTANTS.empty_attribute_default = None  # type: ignore[assignment]
+        # because it cascades into every public str-typed name accessor
+        # (title, first, middle, last, suffix, nickname, maiden, surnames,
+        # given_names, last_base, last_prefixes, initials()).
+        with pytest.deprecated_call():
+            CONSTANTS.empty_attribute_default = None  # type: ignore[assignment]
         hn = HumanName("")
         self.m(hn.title, None, hn)
         self.m(hn.first, None, hn)
@@ -318,8 +345,9 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.nickname, None, hn)
 
     def test_empty_attribute_on_instance(self) -> None:
-        hn = HumanName("", None)
-        hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
+        hn = HumanName("", Constants())
+        with pytest.deprecated_call():
+            hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
         self.m(hn.title, None, hn)
         self.m(hn.first, None, hn)
         self.m(hn.middle, None, hn)
@@ -328,8 +356,9 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.m(hn.nickname, None, hn)
 
     def test_none_empty_attribute_string_formatting(self) -> None:
-        hn = HumanName("", None)
-        hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
+        hn = HumanName("", Constants())
+        with pytest.deprecated_call():
+            hn.C.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
         self.assertEqual('', str(hn), hn)
 
     def test_add_constant_with_explicit_encoding(self) -> None:
@@ -345,6 +374,33 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         with pytest.deprecated_call(match="decode"):
             sm.add(b'esq')  # type: ignore[arg-type]  # deliberately deprecated input
         self.assertIn('esq', sm)
+
+    def test_add_with_encoding_str_emits_deprecation_warning(self) -> None:
+        # add_with_encoding() itself is deprecated in 1.4 for removal in 2.0
+        # (#263/#245); the str path is otherwise silent, so this method's
+        # own removal is unwarned without this
+        sm = SetManager(['dr'])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            sm.add_with_encoding('esq')
+        deprecations = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        # Exactly one -- the str path must not also trip the bytes-decode
+        # warning (that one's for the *other* argument type).
+        self.assertEqual(len(deprecations), 1)
+        self.assertIn('add()', str(deprecations[0].message))
+        self.assertIn('esq', sm)
+
+    def test_add_with_encoding_bytes_emits_two_distinct_warnings(self) -> None:
+        # the bytes-decode warning (#245, shipped 1.3.0) and the
+        # add_with_encoding()-removal warning (#263) are independent
+        sm = SetManager(['dr'])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            sm.add_with_encoding(b'esq')
+        messages = [str(w.message) for w in caught if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(len(messages), 2)
+        self.assertTrue(any('decode' in m for m in messages))
+        self.assertTrue(any('use add() instead' in m for m in messages))
 
     def test_set_manager_add_str_does_not_warn(self) -> None:
         sm = SetManager(['dr'])
@@ -437,10 +493,14 @@ class ConstantsCustomizationTests(HumanNameTestBase):
     def test_pickle_roundtrip_preserves_instance_scalar_override(self) -> None:
         """An instance-level scalar override must survive a pickle round-trip."""
         c = Constants()
-        c.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
+        with pytest.deprecated_call():
+            c.empty_attribute_default = None  # type: ignore[assignment]  # see test_empty_attribute_default above
 
         # Safe: round-tripping a Constants the test just built, not untrusted data.
-        restored = pickle.loads(pickle.dumps(c))
+        # Restoring a pickled state is not itself a #255-deprecated assignment.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            restored = pickle.loads(pickle.dumps(c))
 
         self.assertEqual(restored.empty_attribute_default, None)
 
@@ -465,9 +525,63 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.assertIn('suffixes_prefixes_titles', legacy_state)
 
         restored = Constants.__new__(Constants)
-        restored.__setstate__(legacy_state)
+        with pytest.deprecated_call():  # legacy-format load deprecated (#279)
+            restored.__setstate__(legacy_state)
 
         # The real customization is recovered and the property key is ignored.
+        self.assertIn('legacytitle', restored.titles)
+
+    def test_unpickle_legacy_state_emits_deprecation_warning_once(self) -> None:
+        # legacy-format unpickling is deprecated for removal in 2.0 (#279):
+        # the migration shim will stop skipping the computed-property key and
+        # raise ValueError instead; warn once per __setstate__ call (not once
+        # per skipped key) telling users to re-pickle
+        c = Constants()
+        legacy_state = {
+            name: getattr(c, name) for name in dir(c) if not name.startswith('_')
+        }
+        self.assertIn('suffixes_prefixes_titles', legacy_state)
+
+        restored = Constants.__new__(Constants)
+        with pytest.deprecated_call(match="re-pickle") as record:
+            restored.__setstate__(legacy_state)
+        deprecations = [w for w in record.list if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(len(deprecations), 1)
+
+    def test_unpickle_legacy_state_with_two_stale_property_keys_warns_once(self) -> None:
+        # Pins "once per __setstate__ call, not once per skipped key": with
+        # only one computed property (suffixes_prefixes_titles) on the real
+        # Constants class, the test above can't distinguish the two
+        # semantics. A second read-only property on a throwaway subclass
+        # forces two keys through the skip branch in one __setstate__ call.
+        class ConstantsWithExtraProperty(Constants):
+            @property
+            def another_computed_property(self) -> str:
+                return 'computed'
+
+        c = ConstantsWithExtraProperty()
+        legacy_state = {
+            name: getattr(c, name) for name in dir(c) if not name.startswith('_')
+        }
+        self.assertIn('suffixes_prefixes_titles', legacy_state)
+        self.assertIn('another_computed_property', legacy_state)
+
+        restored = ConstantsWithExtraProperty.__new__(ConstantsWithExtraProperty)
+        with pytest.deprecated_call(match="re-pickle") as record:
+            restored.__setstate__(legacy_state)
+        deprecations = [w for w in record.list if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(len(deprecations), 1)
+
+    def test_setstate_without_legacy_keys_does_not_warn(self) -> None:
+        c = Constants()
+        c.titles.add('legacytitle')
+        state = c.__getstate__()
+        self.assertNotIn('suffixes_prefixes_titles', state)
+
+        restored = Constants.__new__(Constants)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            restored.__setstate__(state)
         self.assertIn('legacytitle', restored.titles)
 
     def test_pickle_roundtrip_preserves_regex_manager_subclass(self) -> None:
@@ -484,7 +598,8 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         restored = pickle.loads(pickle.dumps(c))
 
         self.assertEqual(type(restored.regexes), RegexTupleManager)
-        self.assertEqual(restored.regexes.does_not_exist, EMPTY_REGEX)
+        with pytest.deprecated_call():  # unknown-key access deprecated (#256)
+            self.assertEqual(restored.regexes.does_not_exist, EMPTY_REGEX)
 
     def test_regexes_deepcopy_roundtrip(self) -> None:
         """copy.deepcopy of a RegexTupleManager must round-trip.
@@ -499,8 +614,10 @@ class ConstantsCustomizationTests(HumanNameTestBase):
 
         self.assertEqual(type(dup), RegexTupleManager)
         self.assertEqual(dict(dup), dict(c.regexes))
-        # The EMPTY_REGEX default still applies to genuinely unknown keys.
-        self.assertEqual(dup.does_not_exist, EMPTY_REGEX)
+        # The EMPTY_REGEX default still applies to genuinely unknown keys,
+        # but accessing one is now deprecated (#256).
+        with pytest.deprecated_call():
+            self.assertEqual(dup.does_not_exist, EMPTY_REGEX)
 
     def test_nickname_delimiters_deepcopy_roundtrip(self) -> None:
         """copy.deepcopy of nickname_delimiters must round-trip.
@@ -516,8 +633,10 @@ class ConstantsCustomizationTests(HumanNameTestBase):
 
         self.assertEqual(type(dup), TupleManager)
         self.assertEqual(dict(dup), dict(c.nickname_delimiters))
-        # Plain TupleManager has no EMPTY_REGEX fallback: unknown keys are None.
-        self.assertIsNone(dup.does_not_exist)
+        # Plain TupleManager has no EMPTY_REGEX fallback: unknown keys are
+        # None, but accessing one is now deprecated (#256).
+        with pytest.deprecated_call():
+            self.assertIsNone(dup.does_not_exist)
         self.assertIsNotNone(dup.curly_braces)
 
     def test_maiden_delimiters_deepcopy_roundtrip(self) -> None:
@@ -528,7 +647,8 @@ class ConstantsCustomizationTests(HumanNameTestBase):
 
         self.assertEqual(type(dup), TupleManager)
         self.assertEqual(dict(dup), {})
-        self.assertIsNone(dup.does_not_exist)
+        with pytest.deprecated_call():  # unknown-key access deprecated (#256)
+            self.assertIsNone(dup.does_not_exist)
 
     def test_nickname_delimiters_default_builtins_resolve_live(self) -> None:
         # The three built-ins are stored as the *name* of a regexes entry
@@ -584,8 +704,10 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         sentinel = object()
 
         self.assertEqual(getattr(c.regexes, '__deepcopy__', sentinel), sentinel)
-        # A normal (non-dunder) unknown key still yields the EMPTY_REGEX default.
-        self.assertEqual(c.regexes.unknown_key, EMPTY_REGEX)
+        # A normal (non-dunder) unknown key still yields the EMPTY_REGEX
+        # default, but accessing one is now deprecated (#256).
+        with pytest.deprecated_call():
+            self.assertEqual(c.regexes.unknown_key, EMPTY_REGEX)
 
     def test_tuplemanager_ignores_dunder_lookups(self) -> None:
         """Base TupleManager must report unknown dunder names as absent too.
@@ -601,8 +723,65 @@ class ConstantsCustomizationTests(HumanNameTestBase):
         self.assertEqual(type(tm), TupleManager)
         self.assertFalse(hasattr(tm, '__deepcopy__'))
         self.assertEqual(getattr(tm, '__wrapped__', sentinel), sentinel)
-        # A normal (non-dunder) unknown key still returns the None default.
-        self.assertEqual(tm.unknown_key, None)
+        # A normal (non-dunder) unknown key still returns the None default,
+        # but accessing one is now deprecated (#256).
+        with pytest.deprecated_call():
+            self.assertEqual(tm.unknown_key, None)
+
+    def test_sunder_probe_does_not_emit_deprecation_warning(self) -> None:
+        # Single-underscore introspection probes (IPython/Jupyter's
+        # _repr_html_, _ipython_canary_method_should_not_exist_, etc.) are
+        # never config keys, just like dunders -- warning on them would
+        # misleadingly flag a typo merely for e.g. displaying CONSTANTS.regexes
+        # in a notebook. No real config key starts with '_'.
+        c = Constants()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.assertEqual(c.regexes._repr_html_, EMPTY_REGEX)
+            self.assertIsNone(c.capitalization_exceptions._ipython_canary_method_should_not_exist_)
+
+    def test_tuplemanager_unknown_key_emits_deprecation_warning(self) -> None:
+        # unknown-key attribute access is deprecated for removal in 2.0
+        # (#256); will become AttributeError naming the known keys
+        c = Constants()
+        tm = c.capitalization_exceptions
+        with pytest.deprecated_call(match="phd_typo") as record:
+            result = tm.phd_typo
+        self.assertIsNone(result)
+        message = str(record.list[0].message)
+        for key in tm.keys():
+            self.assertIn(key, message)
+
+    def test_tuplemanager_known_key_does_not_warn(self) -> None:
+        c = Constants()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            list(c.capitalization_exceptions.keys())  # sanity: has entries
+            first_key = next(iter(c.capitalization_exceptions))
+            getattr(c.capitalization_exceptions, first_key)
+
+    def test_regextuplemanager_unknown_key_emits_deprecation_warning(self) -> None:
+        c = Constants()
+        with pytest.deprecated_call(match="parenthesys") as record:
+            result = c.regexes.parenthesys
+        self.assertEqual(result, EMPTY_REGEX)
+        message = str(record.list[0].message)
+        self.assertIn('mac', message)  # a known regexes key
+
+    def test_regextuplemanager_known_key_does_not_warn(self) -> None:
+        c = Constants()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            c.regexes.mac
+
+    def test_dunder_probe_does_not_emit_deprecation_warning(self) -> None:
+        # dunder protocol probes must stay silent -- only real config typos warn
+        c = Constants()
+        sentinel = object()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.assertEqual(getattr(c.regexes, '__deepcopy__', sentinel), sentinel)
+            self.assertEqual(getattr(c.capitalization_exceptions, '__deepcopy__', sentinel), sentinel)
 
 
     def test_suffixes_prefixes_titles_reflects_add_title(self) -> None:
@@ -660,14 +839,14 @@ class ConstantsCustomizationTests(HumanNameTestBase):
 
     def test_is_rootname_consistent_with_is_title(self) -> None:
         """is_rootname must return False for words recognised by is_title."""
-        hn = HumanName("", constants=None)
+        hn = HumanName("", constants=Constants())
         _ = hn.C.suffixes_prefixes_titles  # prime the cache so a stale entry would be observable
         hn.C.titles.add('emerita')
         self.assertFalse(hn.is_rootname('emerita'))
 
     def test_is_rootname_consistent_with_is_prefix(self) -> None:
         """is_rootname must return False for words recognised by is_prefix."""
-        hn = HumanName("", constants=None)
+        hn = HumanName("", constants=Constants())
         _ = hn.C.suffixes_prefixes_titles  # prime the cache so a stale entry would be observable
         hn.C.prefixes.add('xpfx')
         self.assertFalse(hn.is_rootname('xpfx'))
@@ -870,7 +1049,7 @@ class ParsingDoesNotMutateConfigTests(HumanNameTestBase):
         self.m(hn.last, "von und zu Liechtenstein", hn)
 
     def test_instance_owned_constants_not_mutated_by_parsing(self) -> None:
-        hn = HumanName("", constants=None)
+        hn = HumanName("", constants=Constants())
         before = self._config_snapshot(hn.C)
         hn.full_name = "Lt.Gov. John Doe"
         self._assert_config_unchanged(hn.C, before, "Lt.Gov. John Doe")
@@ -968,4 +1147,103 @@ class ConstantsReprTests(HumanNameTestBase):
     def test_repr_is_bracketed_multiline(self) -> None:
         repr_str = repr(Constants())
         self.assertTrue(repr_str.startswith("<Constants : [\n"))
-        self.assertTrue(repr_str.endswith("\n]>"))
+
+
+class ConstantsCopyTests(HumanNameTestBase):
+    """Constants.copy() -- a detached snapshot, distinct from fresh Constants() defaults (#260)."""
+
+    def test_copy_is_independent_of_original(self) -> None:
+        c = Constants()
+        dup = c.copy()
+        dup.titles.add('a-brand-new-title-for-copy-test')
+        self.assertNotIn('a-brand-new-title-for-copy-test', c.titles)
+
+    def test_copy_is_not_the_same_object(self) -> None:
+        c = Constants()
+        dup = c.copy()
+        self.assertIsNot(dup, c)
+        self.assertTrue(isinstance(dup, Constants))
+
+    def test_copy_preserves_subclass_type(self) -> None:
+        # copy() is deepcopy-based (restored via __getstate__/__setstate__,
+        # not by re-invoking type(self)(...)), so a naive reimplementation
+        # could silently downgrade a subclass instance to plain Constants.
+        class CustomConstants(Constants):
+            pass
+
+        c = CustomConstants()
+        dup = c.copy()
+        self.assertTrue(isinstance(dup, CustomConstants))
+
+    def test_copy_preserves_empty_attribute_default_without_warning(self) -> None:
+        # copy() round-trips through __getstate__/__setstate__ like pickle
+        # does; restoring saved state isn't a user assignment, so it must not
+        # emit #255's deprecation warning (the __setstate__ bypass exists
+        # specifically for this call path, not just pickle.loads).
+        c = Constants()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            c.empty_attribute_default = None  # type: ignore[assignment]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            dup = c.copy()
+        self.assertIsNone(dup.empty_attribute_default)
+
+    def test_copy_snapshots_current_customizations(self) -> None:
+        # Unlike Constants(), which always starts from library defaults,
+        # .copy() preserves whatever customizations the original already has.
+        c = Constants()
+        c.titles.add('zephyrmark')
+        dup = c.copy()
+        self.assertIn('zephyrmark', dup.titles)
+        # and stays a snapshot -- later mutation of the original doesn't leak in
+        c.titles.remove('zephyrmark')
+        self.assertIn('zephyrmark', dup.titles)
+
+    def test_fresh_constants_does_not_include_source_customizations(self) -> None:
+        # Contrast case for the snapshot test above: Constants() ignores
+        # whatever CONSTANTS has been customized with.
+        c = Constants()
+        c.titles.add('zephyrmark')
+        fresh = Constants()
+        self.assertNotIn('zephyrmark', fresh.titles)
+
+
+class ConstantsNoneDeprecationTests(HumanNameTestBase):
+    """constants=None is deprecated in favor of Constants() or CONSTANTS.copy() (#260)."""
+
+    def test_explicit_none_warns_on_construction(self) -> None:
+        with pytest.deprecated_call(match="Constants()"):
+            HumanName("John Doe", constants=None)
+
+    def test_explicit_none_warns_on_positional_argument(self) -> None:
+        with pytest.deprecated_call(match="Constants()"):
+            HumanName("John Doe", None)
+
+    def test_explicit_none_warning_names_both_replacements(self) -> None:
+        with pytest.warns(DeprecationWarning) as record:
+            HumanName("John Doe", constants=None)
+        message = str(record[0].message)
+        self.assertIn("Constants()", message)
+        self.assertIn("CONSTANTS.copy()", message)
+
+    def test_explicit_none_warns_on_c_setter(self) -> None:
+        hn = HumanName("John Doe")
+        with pytest.deprecated_call(match="Constants()"):
+            hn.C = None
+
+    def test_omitted_constants_argument_does_not_warn(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            HumanName("John Doe")
+
+    def test_explicit_own_constants_instance_does_not_warn(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            HumanName("John Doe", constants=Constants())
+
+    def test_explicit_none_still_produces_a_working_private_config(self) -> None:
+        # Behavior is unchanged, only newly warned about.
+        with pytest.deprecated_call():
+            hn = HumanName("John Doe", constants=None)
+        self.assertTrue(hn.has_own_config)

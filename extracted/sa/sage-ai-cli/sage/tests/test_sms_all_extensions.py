@@ -1,6 +1,12 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls for every extension — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 EXTENSIONS = [
     "py", "js", "ts", "jsx", "tsx", "c", "h", "cpp", "hpp", "java", "kt", "scala",
     "swift", "go", "rs", "cs", "php", "rb", "pl", "sh", "bat", "ps1", "gd", "dart",

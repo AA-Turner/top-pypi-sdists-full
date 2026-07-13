@@ -4,7 +4,7 @@ Statistics related views
 
 # Standard Library
 import calendar
-from collections import OrderedDict, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 
 # Django
 from django.contrib import messages
@@ -253,29 +253,19 @@ def character(  # pylint: disable=too-many-locals
         character__character_id=charid,
         fatlink__created__month=month,
         fatlink__created__year=year,
-    )
+    ).select_related("character", "fatlink", "ship", "solar_system")
 
     # Data for ship type pie chart
-    data_ship_type = {}
+    ship_counter = Counter()
 
+    # Build simple counts per ship name
     for fat in fats:
-        if fat.ship_id in data_ship_type:
-            continue
+        ship_counter[getattr(fat.ship, "name", gettext_lazy("Unknown"))] += 1
 
-        data_ship_type[fat.ship_id] = fats.filter(ship=fat.ship).count()
+    colors = [get_random_rgba_color() for _ in ship_counter]
 
-    colors = []
-
-    for _ in data_ship_type:
-        bg_color_str = get_random_rgba_color()
-        colors.append(bg_color_str)
-
-    data_ship_type = [
-        # Ship type can be None, so we need to convert to string here
-        list(str(key) for key in data_ship_type),
-        list(data_ship_type.values()),
-        colors,
-    ]
+    # Format: [labels, counts, colors]
+    data_ship_type = [list(ship_counter.keys()), list(ship_counter.values()), colors]
 
     # Data for by timeline Chart
     data_time = get_fats_per_hour(fats)

@@ -4,34 +4,12 @@ use super::*;
 // Harmonic roughness penalty (graduated periodic-basis smoothness prior)
 // ---------------------------------------------------------------------------
 
-/// Default effective strength of the decoder-harmonic smoothness prior (#1282).
-///
-/// Provenance: introduced in `854319979` ("fix(#1282): suppress decoder
-/// harmonics to force circle-atom specialization"). A circle atom's decoder maps
-/// the periodic basis `[DC, cosθ, sinθ, cos2θ, sin2θ, …]` to `Rᴰ`; the harmonics
-/// `h ≥ 2` let its image leave the fundamental 2-plane and *snake* through space
-/// so one atom straddles two manifolds (routing collapses to chance while
-/// reconstruction stays R² ≈ 0.99). Penalizing those harmonics with the periodic
-/// basis's own `h⁴` roughness graduation confines each atom to a single 2-plane.
-///
-/// The torch training loss scales `regularization()` by a small coefficient
-/// (~1e-5), so this internal weight of `5e3` lifts the harmonic term to an
-/// effective magnitude (~5e-2) that actually suppresses snaking while leaving
-/// the fundamental ellipse free. It is a hand-tuned constant, NOT data-derived:
-/// the true manifolds are pure fundamental circles, so the prior is keyed on
-/// nothing about the data (there is no data-scale-relative default to prefer
-/// here the way `IsometryPenalty`'s `gbar` normalizer is). On the Rust REML lane
-/// this strength should be handed to the outer loop (`learnable_weight = true`,
-/// one owned ρ-axis) so the marginal likelihood selects it; the torch lane has
-/// no REML, so it pins the fixed default below.
-pub const DEFAULT_HARMONIC_ROUGHNESS_WEIGHT: f64 = 5.0e3;
-
 /// Graduated diagonal roughness prior on a row-major `(n_eff, d)` latent block
 /// whose leading axis is tiled by a fixed-length **period** of per-row weights.
 ///
 /// For every row `r` and output column `j` the contribution is
 ///
-///     weight · row_weights[r mod period] · target[r, j]²
+///     ½ · weight · row_weights[r mod period] · target[r, j]²
 ///
 /// summed over all rows and columns. This is exactly the diagonal periodic
 /// roughness Gram of a Fourier decoder: for the standard odd-`K` layout
@@ -111,7 +89,7 @@ impl HarmonicRoughnessPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -150,7 +128,11 @@ impl AnalyticPenalty for HarmonicRoughnessPenalty {
             }
             acc += w * row_sq;
         }
-        weight * acc
+        // The 1/2 is part of the public precision convention:
+        // P(b) = (lambda/2) b^T S b.  Consequently grad P = lambda S b
+        // and Hess P = lambda S; omitting it would double both derivatives
+        // relative to an evidence update lambda = rank(S)/(b^T S b).
+        0.5 * weight * acc
     }
 
     fn grad_target(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> Array1<f64> {
@@ -165,7 +147,7 @@ impl AnalyticPenalty for HarmonicRoughnessPenalty {
             if w == 0.0 {
                 continue;
             }
-            let factor = 2.0 * weight * w;
+            let factor = weight * w;
             let base = r * d;
             for j in 0..d {
                 out[base + j] = factor * target[base + j];
@@ -186,7 +168,7 @@ impl AnalyticPenalty for HarmonicRoughnessPenalty {
         let weight = self.resolved_weight(rho);
         let period = self.row_weights.len();
         for r in 0..self.n_eff {
-            let value = 2.0 * weight * self.row_weights[r % period];
+            let value = weight * self.row_weights[r % period];
             let base = r * d;
             for j in 0..d {
                 out[base + j] = value;
@@ -198,75 +180,11 @@ impl AnalyticPenalty for HarmonicRoughnessPenalty {
     impl_learnable_weight_grad_rho!();
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "harmonic_roughness"
     }
 
     impl_scalar_apply_schedule!(weight);
-}
-
-/// Floor on the weighted harmonic-coefficient energy `Σ Sᵢᵢ bᵢ²` used as the
-/// denominator of the evidence-optimal precision, keeping `λ` finite as the
-/// harmonics are driven toward zero.
-const HARMONIC_EVIDENCE_ENERGY_FLOOR: f64 = 1.0e-12;
-
-/// Evidence-optimal roughness precision `λ⋆` for a periodic decoder block under
-/// the graduated Gaussian prior encoded by `row_weights` (the periodic penalty
-/// Gram's diagonal, `Sᵢᵢ = h⁴` on harmonic rows, `0` on DC / fundamental).
-///
-/// This is the empirical-Bayes / REML variance-component optimum: treating each
-/// penalized decoder coefficient `bᵢ` as a directly-observed draw of a zero-mean
-/// Gaussian random effect with precision `λ·Sᵢᵢ`, the marginal-likelihood
-/// stationary point is
-///
-/// ```text
-///   ∂/∂λ Σᵢ [ ½ ln(λ Sᵢᵢ) − ½ λ Sᵢᵢ bᵢ² ] = 0
-///     ⇒  λ⋆ = N_pen / Σᵢ Sᵢᵢ bᵢ²
-/// ```
-///
-/// where the sum runs only over coefficients with `Sᵢᵢ > 0` and `N_pen` counts
-/// them. This is exactly the criterion the Rust REML lane's outer ρ search
-/// optimizes for a periodic atom's smoothness, specialized to the degenerate
-/// (noise-free, no data-fit) observation model in which the coefficients are the
-/// effects — so it needs only the current decoder blocks and the Gram the caller
-/// already owns, and can be refreshed cheaply during torch training. It replaces
-/// the former hand-tuned `5e3` constant with an evidence-sourced, decoder-scale-
-/// relative precision: as the harmonics shrink the precision rises, and the
-/// competing reconstruction loss in the joint objective keeps genuinely-needed
-/// coefficients alive, so `λ⋆` self-calibrates instead of running away.
-///
-/// The target is the same row-major `(n_eff, d)` block the penalty consumes;
-/// `row_weights` is tiled over the leading axis with period `row_weights.len()`.
-/// Returns `0.0` when there is nothing to penalize (no positive Gram weight or a
-/// malformed shape); the denominator is floored so the result is always finite.
-#[must_use]
-pub fn harmonic_roughness_evidence_weight(
-    target: ArrayView1<'_, f64>,
-    n_eff: usize,
-    row_weights: ArrayView1<'_, f64>,
-) -> f64 {
-    let period = row_weights.len();
-    if n_eff == 0 || period == 0 || target.is_empty() || !target.len().is_multiple_of(n_eff) {
-        return 0.0;
-    }
-    let d = target.len() / n_eff;
-    let mut weighted_energy = 0.0_f64;
-    let mut n_penalized = 0.0_f64;
-    for r in 0..n_eff {
-        let w = row_weights[r % period];
-        if !(w > 0.0) {
-            continue;
-        }
-        let base = r * d;
-        for j in 0..d {
-            let x = target[base + j];
-            weighted_energy += w * x * x;
-            n_penalized += 1.0;
-        }
-    }
-    if n_penalized == 0.0 {
-        return 0.0;
-    }
-    n_penalized / weighted_energy.max(HARMONIC_EVIDENCE_ENERGY_FLOOR)
 }

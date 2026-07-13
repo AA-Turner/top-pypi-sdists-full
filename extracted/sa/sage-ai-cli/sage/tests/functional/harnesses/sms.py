@@ -166,7 +166,9 @@ def execute(request: dict, model: str) -> TestResult:
             primary_artifact = workspace / "sms_output.txt"
             primary_artifact.write_text(str(output))
 
-        exit_code = 1 if "failed" in str(output).lower() or "error" in str(output).lower() else 0
+        output_str = str(output).lower()
+        has_error_flag = "❌ error:" in output_str or "sage backend error" in output_str or "failed to execute" in output_str
+        exit_code = 1 if has_error_flag else 0
 
         return TestResult(
             request=request, raw_response=str(output),

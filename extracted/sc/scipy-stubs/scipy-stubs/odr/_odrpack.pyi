@@ -48,7 +48,7 @@ class _FullOutput(TypedDict):
     sum_square: float
     sum_square_delta: float
     sum_square_eps: float
-    inc_condnum: float
+    inv_condnum: float
     rel_error: float
     work: _Float1D
     work_ind: dict[str, int]
@@ -240,6 +240,7 @@ class Output:
     rel_error: Final[float]
     work: Final[onp.Array1D[np.float64]]
     work_ind: Final[dict[str, int]]
+    iwork: Final[onp.Array1D[np.int32 | np.int64]]
     info: Final[int]
     stopreason: Final[list[str]]
 

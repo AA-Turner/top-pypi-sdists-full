@@ -1779,32 +1779,23 @@ pub(crate) fn custom_family_default_outer_seed_config_is_tightened_for_expensive
 }
 
 #[test]
-pub(crate) fn floor_positiveworking_weights_preserves_exactzeros() {
-    let weights = array![0.0, 1.0e-16, 0.25];
-    let floored =
-        floor_positiveworking_weights(&weights, 1.0e-6).expect("valid nonnegative weights");
-    assert_eq!(floored[0], 0.0);
-    assert_eq!(floored[1], 1.0e-6);
-    assert_eq!(floored[2], 0.25);
+pub(crate) fn finite_working_weight_certificate_preserves_zero_tiny_and_signed_rows_bit_exactly() {
+    let weights = array![0.0, f64::from_bits(1), 1.0e-16, -1.0e-9, 0.25];
+    let certified = certify_finite_working_weights(&weights).expect("finite signed weights");
+    assert!(std::ptr::eq(certified, &weights));
+    for (actual, expected) in certified.iter().zip(weights.iter()) {
+        assert_eq!(actual.to_bits(), expected.to_bits());
+    }
 }
 
 #[test]
-pub(crate) fn floor_positiveworking_weights_rejects_negative_and_nonfinite() {
-    // A negative weight is indefinite diagonal curvature: coercing it to zero
-    // would swap in a different information matrix. Must reject.
-    let negative = array![0.5, -1.0e-3, 0.25];
-    let err = floor_positiveworking_weights(&negative, 1.0e-6)
-        .expect_err("negative curvature must be rejected, not zeroed");
+pub(crate) fn finite_working_weight_certificate_rejects_nonfinite_rows_atomically() {
+    let nan = array![0.5, f64::NAN];
+    let err = certify_finite_working_weights(&nan).expect_err("NaN curvature must be rejected");
     assert!(err.contains("row 1"), "error should name the row: {err}");
 
-    // NaN previously slipped through `wi <= 0.0` (false for NaN) and became
-    // `minweight` via the NaN-ignoring `f64::max`. Must reject.
-    let nan = array![0.5, f64::NAN];
-    floor_positiveworking_weights(&nan, 1.0e-6)
-        .expect_err("NaN curvature must be rejected, not coerced to minweight");
-
     let inf = array![f64::INFINITY, 0.5];
-    floor_positiveworking_weights(&inf, 1.0e-6).expect_err("infinite curvature must be rejected");
+    certify_finite_working_weights(&inf).expect_err("infinite curvature must be rejected");
 }
 
 #[test]
@@ -2302,7 +2293,9 @@ impl CustomFamily for DefaultDiagonalExactHookFamily {
         let v_eta = spec.design.apply(v);
         assert_eq!(block_states[0].eta.len(), u_eta.len());
         spec.design
-            .xt_diag_x_signed_op(SignedWeightsView::from_array(&((&u_eta * &v_eta) * 2.0)))
+            .xt_diag_x_signed_op(
+                FiniteSignedWeightsView::try_from_array(&((&u_eta * &v_eta) * 2.0)).unwrap(),
+            )
             .map(Some)
     }
 }
@@ -2344,9 +2337,10 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_assemble_diagonal_workin
         .expect("diagonal working sets should assemble an exact joint Hessian");
     let expected_h = spec
         .design
-        .xt_diag_x_signed_op(SignedWeightsView::from_array(
-            &eta.mapv(|value| 2.0 + value * value),
-        ))
+        .xt_diag_x_signed_op(
+            FiniteSignedWeightsView::try_from_array(&eta.mapv(|value| 2.0 + value * value))
+                .unwrap(),
+        )
         .unwrap();
     assert_eq!(h, expected_h);
 
@@ -2362,7 +2356,9 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_assemble_diagonal_workin
     let d_eta = spec.design.apply(&direction);
     let expected_dh = spec
         .design
-        .xt_diag_x_signed_op(SignedWeightsView::from_array(&((&eta * &d_eta) * 2.0)))
+        .xt_diag_x_signed_op(
+            FiniteSignedWeightsView::try_from_array(&((&eta * &d_eta) * 2.0)).unwrap(),
+        )
         .unwrap();
     assert_eq!(dh, expected_dh);
 
@@ -2373,7 +2369,9 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_assemble_diagonal_workin
     let beta_eta = spec.design.apply(&beta);
     let expected_d2h = spec
         .design
-        .xt_diag_x_signed_op(SignedWeightsView::from_array(&((&d_eta * &beta_eta) * 2.0)))
+        .xt_diag_x_signed_op(
+            FiniteSignedWeightsView::try_from_array(&((&d_eta * &beta_eta) * 2.0)).unwrap(),
+        )
         .unwrap();
     assert_eq!(d2h, expected_d2h);
 }
@@ -3800,9 +3798,8 @@ pub(crate) fn objective_includes_solverridge_quadratic_term() {
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
         rho_lower_bound: -10.0,
-        minweight: gam_problem::CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 1e-4,
-        ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
+        ridge_policy: RidgePolicy::positive_part_approximate_objective(),
         use_remlobjective: false,
         compute_covariance: false,
         use_outer_hessian: false,
@@ -3856,9 +3853,8 @@ pub(crate) fn inner_block_accepts_penalty_improving_step_even_if_loglik_drops() 
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
         rho_lower_bound: -10.0,
-        minweight: gam_problem::CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 0.0,
-        ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
+        ridge_policy: RidgePolicy::positive_part_approximate_objective(),
         use_remlobjective: false,
         compute_covariance: false,
         use_outer_hessian: false,
@@ -3915,9 +3911,8 @@ pub(crate) fn exact_newton_backtracking_descent_includes_explicit_ridge() {
         outer_tol: 1e-8,
         outer_rel_cost_tol: None,
         rho_lower_bound: -10.0,
-        minweight: gam_problem::CUSTOM_FAMILY_WEIGHT_FLOOR,
         ridge_floor: 1.0,
-        ridge_policy: RidgePolicy::explicit_stabilization_pospart(),
+        ridge_policy: RidgePolicy::positive_part_approximate_objective(),
         use_remlobjective: false,
         compute_covariance: false,
         use_outer_hessian: false,
@@ -5229,12 +5224,10 @@ pub(crate) fn pseudo_laplace_exact_newton_rejects_indefinite_hessian() {
 #[test]
 pub(crate) fn auto_determinant_mode_is_exact_full_logdet_policy() {
     let h = array![[6.0, 0.8, 0.1], [0.8, 4.5, 0.4], [0.1, 0.4, 3.2]];
-    let exact =
-        stable_logdet_with_ridge_policy(&h, 1e-8, RidgePolicy::explicit_stabilization_full_exact())
-            .expect("exact logdet");
-    let auto =
-        stable_logdet_with_ridge_policy(&h, 1e-8, RidgePolicy::explicit_stabilization_full())
-            .expect("auto logdet");
+    let exact = stable_logdet_with_ridge_policy(&h, 1e-8, RidgePolicy::exact_full_objective())
+        .expect("exact logdet");
+    let auto = stable_logdet_with_ridge_policy(&h, 1e-8, RidgePolicy::exact_full_objective())
+        .expect("auto logdet");
     assert!((auto - exact).abs() < 1e-12, "auto={auto}, exact={exact}");
 }
 
@@ -5252,9 +5245,12 @@ pub(crate) fn indefinite_hessian_uses_smooth_regularized_logdet() {
     // `DenseSpectralOperator` gradient computes — eliminating the
     // cost/gradient mismatch that broke BFGS line search.
     let h = array![[-1.0, 0.0], [0.0, 2.0]];
-    let logdet =
-        stable_logdet_with_ridge_policy(&h, 1e-12, RidgePolicy::explicit_stabilization_pospart())
-            .expect("smooth-regularized logdet must be finite for indefinite H");
+    let logdet = stable_logdet_with_ridge_policy(
+        &h,
+        1e-12,
+        RidgePolicy::positive_part_approximate_objective(),
+    )
+    .expect("smooth-regularized logdet must be finite for indefinite H");
     assert!(
         logdet.is_finite(),
         "smooth-regularized logdet should be finite, got {logdet}"
@@ -5756,7 +5752,7 @@ pub(crate) fn block_solve_sparse_matches_dense() {
         &w,
         &s_lambda,
         1e-12,
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::positive_part_approximate_objective(),
     )
     .expect("dense solve should succeed");
 
@@ -5766,7 +5762,7 @@ pub(crate) fn block_solve_sparse_matches_dense() {
         &w,
         &s_lambda,
         1e-12,
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::positive_part_approximate_objective(),
     )
     .expect("sparse solve should succeed");
 
@@ -5867,7 +5863,7 @@ pub(crate) fn block_solve_falls_backwhen_llt_rejects_indefinite_system() {
         &w,
         &s_lambda,
         1e-12,
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::positive_part_approximate_objective(),
     )
     .expect("fallback solve should succeed");
 
@@ -7553,7 +7549,7 @@ pub(crate) fn joint_stationarity_from_gradient_projects_coupled_linear_constrain
         std::slice::from_ref(&spec),
         &s_lambdas,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[Some(constraints.clone())],
         None,
         None,
@@ -7566,7 +7562,7 @@ pub(crate) fn joint_stationarity_from_gradient_projects_coupled_linear_constrain
         &[state.clone()],
         &s_lambdas,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[Some(constraints.clone())],
         None,
         None,
@@ -7585,7 +7581,7 @@ pub(crate) fn joint_stationarity_from_gradient_projects_coupled_linear_constrain
         &[spec],
         &s_lambdas,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[Some(constraints)],
         None,
         None,
@@ -7641,7 +7637,7 @@ pub(crate) fn stationarity_projects_valid_lower_bound_multiplier_but_keeps_wrong
         std::slice::from_ref(&spec),
         &s_lambdas,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[None],
         None,
         Some(&lower_bounds),
@@ -7658,7 +7654,7 @@ pub(crate) fn stationarity_projects_valid_lower_bound_multiplier_but_keeps_wrong
         std::slice::from_ref(&spec),
         &s_lambdas,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[None],
         None,
         None,
@@ -7699,7 +7695,7 @@ pub(crate) fn kkt_residual_uses_cached_joint_gradient_without_re_evaluating_fami
         std::slice::from_ref(&state),
         std::slice::from_ref(&s_lambda),
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         None,
         Some(&cached_gradient),
         None,
@@ -7750,7 +7746,7 @@ pub(crate) fn projected_stationarity_vector_uses_penalized_residual_not_raw_scor
         std::slice::from_ref(&spec),
         std::slice::from_ref(&s_lambda),
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         &[None],
         None,
         None,
@@ -8469,7 +8465,7 @@ pub(crate) fn blockwise_trust_region_uses_penalized_metric_not_raw_coefficient_s
         raw_delta,
         radius,
         0.0,
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::positive_part_approximate_objective(),
     )
     .expect("block metric truncation should succeed");
     assert!(
@@ -8523,7 +8519,7 @@ pub(crate) fn blockwise_trust_region_never_reverts_to_raw_beta_norm_on_indefinit
         raw_delta,
         radius,
         0.0,
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::positive_part_approximate_objective(),
     )
     .expect("block metric truncation should succeed");
     assert!(
@@ -8666,7 +8662,7 @@ pub(crate) fn kkt_refusal_report_classifies_rank_deficient_hpen_third_block() {
         Some(&source),
         total_p,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         1.0e-9,
         1.0e-3,
         1.0,
@@ -8863,7 +8859,7 @@ pub(crate) fn rank_deficient_hpen_canary_fires_on_large_scale_shaped_failure() {
         Some(&source),
         total_p,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         0.0,
         1.0e-3,
         1.0,
@@ -8980,7 +8976,7 @@ pub(crate) fn rank_deficient_hpen_canary_disappears_after_nullspace_absorption()
         Some(&source),
         total_p,
         0.0,
-        RidgePolicy::explicit_stabilization_full(),
+        RidgePolicy::exact_full_objective(),
         0.0,
         0.0,
         1.0,
@@ -9048,7 +9044,7 @@ pub(crate) fn structural_edf_matches_trace_identity_noncommuting_pair() {
 
     for &lambda in &[1.0_f64, 0.3] {
         let rho = lambda.ln();
-        let edf = unit_weight_term_edf(&gammas, rho);
+        let edf = unit_weight_term_edf(&gammas, rho).expect("finite canonical log strength");
         let trace = trace_g_minv(lambda);
         assert!(
             (edf - trace).abs() < 1e-9,
@@ -9059,7 +9055,8 @@ pub(crate) fn structural_edf_matches_trace_identity_noncommuting_pair() {
     // Sanity: the buggy Rayleigh quotients [1, 0.25] would give 0.7 at λ=1,
     // which the trace identity (≈0.6111) rejects — guard against regression
     // to the diagonal-only computation.
-    let edf_at_one = unit_weight_term_edf(&gammas, 0.0_f64);
+    let edf_at_one =
+        unit_weight_term_edf(&gammas, 0.0_f64).expect("zero is a canonical log strength");
     assert!(
         (edf_at_one - 0.611111_f64).abs() < 1e-5,
         "edf at λ=1 must be ≈0.6111 (true), not 0.7000 (Rayleigh-quotient bug): got {edf_at_one}",
@@ -9115,11 +9112,27 @@ pub(crate) fn structural_edf_quotients_nullspace_range_coupling() {
             ident
         };
         let trace: f64 = g.dot(&m_inv).diag().iter().sum();
-        let edf = 1.0 + unit_weight_term_edf(&gammas, lambda.ln());
+        let edf = 1.0
+            + unit_weight_term_edf(&gammas, lambda.ln())
+                .expect("test lambdas have canonical log strengths");
         assert!(
             (edf - trace).abs() < 1e-9,
             "quotient edf {edf} must equal tr(G(G+λS)⁻¹) {trace} at λ={lambda}",
         );
+    }
+}
+
+#[test]
+fn unit_weight_structural_edf_rejects_noncanonical_log_strengths() {
+    let gammas = [0.25, 1.0, 4.0];
+    for rho in [
+        gam_problem::LOG_STRENGTH_MIN - 1.0,
+        gam_problem::LOG_STRENGTH_MAX + 1.0,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NAN,
+    ] {
+        assert!(unit_weight_term_edf(&gammas, rho).is_err());
     }
 }
 

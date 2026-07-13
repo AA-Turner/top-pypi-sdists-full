@@ -1,6 +1,6 @@
 //! Neutral blockwise custom-family contract primitives shared by the
 //! `CustomFamily` trait layer (`gam-model-api`) and the solver
-//! (`gam-solve`): the IRLS weight / ridge floors, the block-spec consistency
+//! (`gam-solve`): the ridge floor, the block-spec consistency
 //! validator, and the exact-Newton outer-curvature payload.
 //!
 //! These carry no dependency on the `CustomFamily` trait itself, so they live
@@ -10,16 +10,6 @@
 use crate::{CustomFamilyError, ParameterBlockSpec};
 use ndarray::Array2;
 use std::collections::BTreeMap;
-
-/// Floor applied to IRLS working weights so downstream divisions cannot hit
-/// exact zero. Used as the default `minweight` in `CustomFamilyOptions` and
-/// mirrored in tests that override it.
-///
-/// Sourced from the canonical positive-weight floor
-/// ([`crate::types::MIN_WEIGHT`] = `1e-12`) so every floored family shares one
-/// definition; this alias keeps the descriptive local name at the `minweight`
-/// defaults.
-pub const CUSTOM_FAMILY_WEIGHT_FLOOR: f64 = crate::types::MIN_WEIGHT;
 
 /// Default initial ridge δ for the explicit-stabilization Cholesky escalation
 /// schedule. Enters the quadratic term, the Laplace Hessian, and the penalty
@@ -115,11 +105,9 @@ pub fn validate_blockspec_consistency(specs: &[ParameterBlockSpec]) -> Result<Ve
             .into());
         }
         for (k, &log_lambda) in spec.initial_log_lambdas.iter().enumerate() {
-            if !log_lambda.is_finite() {
+            if let Err(error) = crate::validate_log_strength(log_lambda) {
                 return Err(CustomFamilyError::ConstraintViolation {
-                    reason: format!(
-                        "block {b} initial log-precision {k} is non-finite: {log_lambda}"
-                    ),
+                    reason: format!("block {b} initial log-precision {k}: {error}"),
                 }
                 .into());
             }

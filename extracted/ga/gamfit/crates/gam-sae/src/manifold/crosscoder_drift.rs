@@ -34,7 +34,7 @@
 //!
 //! **`λ_ℓ` independence.** The decoders are read in honest units (`B_k^(ℓ)`
 //! divides block `ℓ`'s columns by `√λ_ℓ`), so the per-block REML relevance weight
-//! `λ_ℓ` — the outer-REML coordinate that scales the stacked target — cancels and
+//! `λ_ℓ` — the outer penalized quasi-Laplace coordinate that scales the stacked target — cancels and
 //! never enters the drift. Re-weighting a block changes what the fit optimizes, not
 //! the geometry this statistic reports.
 
@@ -227,7 +227,9 @@ pub fn measure_crosscoder_drift(
     let per_atom: Vec<Vec<LayerStepDrift>> = (0..num_atoms)
         .into_par_iter()
         .map(|k| {
-            let decoder = term.atoms[k].full_width_decoder();
+            // #2015 — undo any Tier-0 column-equilibration scale before slicing
+            // per-layer decoders (a no-op on the historical unequilibrated path).
+            let decoder = term.tier0_unscaled_full_width_decoder(k);
             // Honest-units decoder at each layer, once per atom (reused across steps).
             let mut honest: Vec<Array2<f64>> = Vec::with_capacity(layer_chain.len());
             for &layer in &layer_chain {

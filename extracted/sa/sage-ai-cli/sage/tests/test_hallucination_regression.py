@@ -482,7 +482,7 @@ class TestFileWriteVerification:
         content = "print('hello world')"
 
         # Mock the renderer to avoid initialization issues
-        with patch("sage.main.renderer") as mock_renderer:
+        with patch("sage.cli_core.renderer") as mock_renderer:
             mock_renderer.debug_warning = MagicMock()
             mock_renderer.error = MagicMock()
             mock_renderer.warning = MagicMock()
@@ -510,7 +510,7 @@ def complex_function():
     return 42
 """
         # Mock the renderer
-        with patch("sage.main.renderer") as mock_renderer:
+        with patch("sage.cli_core.renderer") as mock_renderer:
             mock_renderer.debug_warning = MagicMock()
             mock_renderer.error = MagicMock()
             mock_renderer.warning = MagicMock()

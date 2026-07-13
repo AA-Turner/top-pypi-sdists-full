@@ -180,8 +180,8 @@ fn sae_build_duchon_atom(
     // it from the evaluator's fixed-`m` basis — the #1026 32K Duchon shape bug.
     // `duchon_sae_atom_penalty` keeps all `m` columns; degenerate directions get
     // ~zero penalty (handled by the inner solve's per-row Tikhonov ridge), the
-    // SAE-specific arc-length reweighting in `refresh_intrinsic_smooth_penalty`
-    // plays TPRS's metric role for the atom.
+    // matrix itself is the declared Duchon reference-function seminorm used by
+    // the atom; no decoder-dependent metric reweighting is applied.
     let dim = centers.ncols();
     let m: usize = sae_duchon_atom_m(dim);
     let penalty = gam_terms::basis::duchon_sae_atom_penalty(centers, duchon_nullspace_from_m(m))
@@ -567,18 +567,20 @@ pub fn sae_build_padded_basis_stacks(
 /// PCA seed. Periodic atoms get `n_harmonics = max(1, d_atom)`; Duchon atoms
 /// get deterministic center indices from the PCA seed.
 ///
-/// `duchon_center_overrides` (aligned with `atom_basis`) carries the
-/// evidence-selected thin-plate center count for a #2240 Duchon-sheet
-/// discovery winner (`resolve_auto_primary_atoms`); `None` entries keep the
-/// economy budget below. Overrides are clamped to the same identifiability
-/// floor and to `n_obs`.
+/// `resolution_overrides` (aligned with `atom_basis`) carries the evidence-
+/// selected basis-native resolution for an auto-discovery winner
+/// (`resolve_auto_primary_atoms`), interpreted per the atom's resolved basis
+/// kind: the thin-plate center count for a #2240 Duchon-sheet winner (clamped to
+/// the identifiability floor and to `n_obs`), or the per-axis harmonic order for
+/// a #2243 torus winner (clamped to the dense guard). `None` entries keep the
+/// fixed economy budget below.
 pub fn sae_build_atom_plans(
     z: ArrayView2<'_, f64>,
     atom_basis: &[String],
     atom_dim: &[usize],
     seed_coords: ArrayView3<'_, f64>,
     random_state: u64,
-    duchon_center_overrides: &[Option<usize>],
+    resolution_overrides: &[Option<usize>],
 ) -> Result<Vec<SaeAtomBuildPlan>, String> {
     let k_atoms = atom_basis.len();
     let n_obs = z.nrows();
@@ -589,10 +591,10 @@ pub fn sae_build_atom_plans(
             atom_dim.len()
         ));
     }
-    if duchon_center_overrides.len() != k_atoms {
+    if resolution_overrides.len() != k_atoms {
         return Err(format!(
-            "sae_build_atom_plans: duchon_center_overrides length {} must equal atom_basis length {k_atoms}",
-            duchon_center_overrides.len()
+            "sae_build_atom_plans: resolution_overrides length {} must equal atom_basis length {k_atoms}",
+            resolution_overrides.len()
         ));
     }
     if seed_shape[0] != k_atoms || seed_shape[1] != n_obs {
@@ -661,10 +663,15 @@ pub fn sae_build_atom_plans(
             SaeAtomBasisKind::Torus => {
                 // Torus of dim `d` uses a tensor-product periodic harmonic
                 // basis of size `(2H+1)^d`. The user's `atom_dim` selects
-                // the latent dimension; `n_harmonics` defaults to
-                // `SAE_DEFAULT_TORUS_HARMONICS`. The design grows
-                // exponentially in `d`, so reject runaway combinations.
-                let h = SAE_DEFAULT_TORUS_HARMONICS;
+                // the latent dimension; the per-axis order `H` defaults to
+                // `SAE_DEFAULT_TORUS_HARMONICS` but a #2243 auto-discovery
+                // winner carries its evidence-selected order in the resolution
+                // override (which the selector already bounds by the same dense
+                // guard checked below). The design grows exponentially in `d`,
+                // so reject runaway combinations.
+                let h = resolution_overrides[atom_idx]
+                    .map(|selected| selected.max(1))
+                    .unwrap_or(SAE_DEFAULT_TORUS_HARMONICS);
                 let evaluator = TorusHarmonicEvaluator::new(d, h)?;
                 let basis_size = evaluator.basis_size();
                 if basis_size > SAE_MAX_PERIODIC_HARMONICS * 4 {
@@ -701,7 +708,7 @@ pub fn sae_build_atom_plans(
                 // evidence-selected center count; honor it (clamped to the
                 // identifiability floor and the row count) instead of the
                 // fixed economy ceiling.
-                let n_centers = match duchon_center_overrides[atom_idx] {
+                let n_centers = match resolution_overrides[atom_idx] {
                     Some(selected) => selected.min(n_obs).max(lo),
                     None => n_obs.min(hi).max(lo),
                 };
@@ -801,6 +808,95 @@ pub fn sae_build_atom_plans(
                 ));
             }
         }
+    }
+    Ok(plans)
+}
+
+/// Persistable basis metadata derived from one converged fitted atom.
+#[derive(Clone, Debug)]
+pub struct SaeFittedAtomPlan {
+    pub kind: SaeAtomBasisKind,
+    pub latent_dim: usize,
+    pub n_harmonics: usize,
+    pub basis_size: usize,
+    pub duchon_centers: Option<Array2<f64>>,
+}
+
+/// Derive the complete OOS rebuild metadata from the converged dictionary.
+///
+/// This is model logic, so it lives beside native atom construction rather
+/// than in a language binding. Invalid harmonic widths and missing Duchon
+/// centers are errors; no metadata is guessed at the FFI boundary.
+pub fn sae_fitted_atom_plans(
+    term: &SaeManifoldTerm,
+    seed_duchon_centers: &[Option<Array2<f64>>],
+    random_state: u64,
+) -> Result<Vec<SaeFittedAtomPlan>, String> {
+    let mut plans = Vec::with_capacity(term.k_atoms());
+    for (atom_idx, atom) in term.atoms.iter().enumerate() {
+        let kind = atom.basis_kind.clone();
+        let latent_dim = atom.latent_dim;
+        let basis_size = atom.full_basis_size();
+        let n_harmonics = match &kind {
+            SaeAtomBasisKind::Periodic => {
+                if basis_size < 3 || basis_size % 2 == 0 {
+                    return Err(format!(
+                        "sae_fitted_atom_plans: periodic atom {atom_idx} has invalid odd basis width {basis_size}"
+                    ));
+                }
+                (basis_size - 1) / 2
+            }
+            SaeAtomBasisKind::Torus => {
+                let axis_size = sae_torus_axis_basis_size(basis_size, latent_dim)?;
+                (axis_size - 1) / 2
+            }
+            SaeAtomBasisKind::Cylinder => sae_cylinder_harmonics_degree(basis_size)?.0,
+            SaeAtomBasisKind::Mobius => SAE_MOBIUS_CIRCLE_HARMONICS,
+            _ => 0,
+        };
+        let duchon_centers = match &kind {
+            SaeAtomBasisKind::Duchon => Some(
+                seed_duchon_centers
+                    .get(atom_idx)
+                    .and_then(Option::as_ref)
+                    .ok_or_else(|| {
+                        format!("sae_fitted_atom_plans: Duchon atom {atom_idx} has no seed centers")
+                    })?
+                    .clone(),
+            ),
+            SaeAtomBasisKind::Linear
+            | SaeAtomBasisKind::EuclideanPatch
+            | SaeAtomBasisKind::Poincare => {
+                let coords = term.assignment.coords[atom_idx].as_matrix();
+                if coords.nrows() == 0 || coords.ncols() < latent_dim {
+                    return Err(format!(
+                        "sae_fitted_atom_plans: atom {atom_idx} has coordinate shape {:?}, expected non-empty rows and at least {latent_dim} columns",
+                        coords.dim()
+                    ));
+                }
+                let center_count = coords.nrows().min((latent_dim + 2).max(8));
+                let indices = sae_pick_duchon_center_indices(
+                    coords.nrows(),
+                    center_count,
+                    random_state.wrapping_add(atom_idx as u64),
+                );
+                let mut centers = Array2::<f64>::zeros((indices.len(), latent_dim));
+                for (out_row, src_row) in indices.into_iter().enumerate() {
+                    for col in 0..latent_dim {
+                        centers[[out_row, col]] = coords[[src_row, col]];
+                    }
+                }
+                Some(centers)
+            }
+            _ => None,
+        };
+        plans.push(SaeFittedAtomPlan {
+            kind,
+            latent_dim,
+            n_harmonics,
+            basis_size,
+            duchon_centers,
+        });
     }
     Ok(plans)
 }

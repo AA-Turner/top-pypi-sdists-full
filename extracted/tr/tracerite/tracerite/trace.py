@@ -5,10 +5,11 @@ import linecache
 import re
 import sys
 import tokenize
-from collections import namedtuple
+from collections import deque, namedtuple
 from contextlib import suppress
 from pathlib import Path
 from secrets import token_urlsafe
+from typing import Any
 from urllib.parse import quote
 
 from . import trace_cpy
@@ -71,7 +72,7 @@ def compute_cursor_position(
 
 
 # Will be set to an instance if loaded as an IPython extension by %load_ext
-ipython = None
+ipython: Any = None
 
 # Locations considered to be bug-free (library code, not user code), capture pretty suffix
 libdir = re.compile(
@@ -186,84 +187,30 @@ def extract_chain(exc=None, **kwargs) -> list:
 
 
 def _deduplicate_variables(chain: list) -> None:
-    """Remove duplicate variables from inspectors, showing each only once.
+    """Show the variable inspector only once per frame object.
 
-    Variables are only shown if they appear in the frame's highlighted code
-    (the lines indicated by the error range, expanded to include full
-    comprehensions). If a variable appears in multiple frames' highlighted
-    code (same filename/function), it's only shown in the last frame where
-    it appears.
+    When an exception is caught and re-raised inside the same function, the
+    traceback contains multiple entries pointing at the same frame object.
+    Only the last of those entries keeps its inspector; earlier entries are
+    cleared so the inspector is not shown multiple times.  Recursive calls have
+    distinct frame objects, so each level keeps its own inspector.  Because
+    exception-message filtering is already applied to the last entry, the
+    message variable is hidden from all entries for that frame automatically.
     """
 
-    def _get_highlighted_lines(frame: dict) -> str:
-        """Extract the highlighted lines from a frame based on its range.
-
-        Expands to include full comprehension if error is inside one.
-        """
-        lines = frame.get("lines", "")
-        range_obj = frame.get("range")
-        if not range_obj or not lines:
-            return lines  # Fall back to all lines if no range
-
-        start = frame.get("linenostart", 1)
-        lfirst, lfinal = range_obj.lfirst, range_obj.lfinal
-
-        # Check if error is inside a comprehension - if so, return full comprehension
-        comp_range = _find_comprehension_range(lines, lfirst, start)
-        if comp_range is not None:
-            # Error is inside a comprehension - return full lines (already trimmed to comprehension)
-            return lines
-
-        # No comprehension, return just the highlighted lines
-        lines_list = lines.splitlines()
-
-        # Convert to 0-based indices relative to displayed lines
-        first_idx = lfirst - start
-        final_idx = lfinal - start + 1
-
-        if first_idx < 0 or first_idx >= len(lines_list):
-            return lines  # Fall back if range is invalid
-
-        return "\n".join(lines_list[first_idx:final_idx])
-
-    def _variable_in_code(name: str, lines: str) -> bool:
-        """Check if a variable name appears in the code as a word."""
-        return bool(re.search(rf"\b{re.escape(name)}\b", lines))
-
-    # First pass: collect frames by (filename, function) key
-    # Maps key -> list of (exception_idx, frame_idx)
-    frame_groups: dict[tuple, list[tuple[int, int]]] = {}
+    # Group frames by the identity of the underlying frame object.  Two frames
+    # for the same recursive call are different objects, while two traceback
+    # entries produced by a re-raise inside the same function (or at module
+    # level) point at the same frame object.
+    frame_groups: dict[int, list[tuple[int, int]]] = {}
     for ei, exc in enumerate(chain):
-        for fi, frame in enumerate(exc.get("frames", [])):
-            if frame.get("relevance") == "call":
-                continue
-            key = (frame.get("filename"), frame.get("function"))
-            if key not in frame_groups:
-                frame_groups[key] = []
-            frame_groups[key].append((ei, fi))
+        for fi, frame in enumerate(exc["frames"]):
+            frame_groups.setdefault(frame["idframe"], []).append((ei, fi))
 
-    # Second pass: for each group, determine which variables to show in each frame
-    for _key, occurrences in frame_groups.items():
-        # For each variable, find the LAST frame where it appears in highlighted code
-        # variable_name -> (exception_idx, frame_idx) of last appearance in highlighted code
-        last_appearance: dict[str, tuple[int, int]] = {}
-
-        for ei, fi in occurrences:
-            frame = chain[ei]["frames"][fi]
-            highlighted = _get_highlighted_lines(frame)
-            for v in frame.get("variables", []):  # pragma: no cover
-                if v.name and _variable_in_code(v.name, highlighted):
-                    # Update to this frame (later frames overwrite earlier)
-                    last_appearance[v.name] = (ei, fi)
-
-        # Now filter each frame's variables: keep only if this is the last appearance
-        for ei, fi in occurrences:
-            frame = chain[ei]["frames"][fi]
-            frame["variables"] = [
-                v
-                for v in frame.get("variables", [])
-                if v.name and last_appearance.get(v.name) == (ei, fi)
-            ]
+    # Only the last occurrence of each frame object keeps its inspector.
+    for occurrences in frame_groups.values():
+        for ei, fi in occurrences[:-1]:
+            chain[ei]["frames"][fi]["variables"] = []
 
 
 def _create_summary(message):
@@ -351,7 +298,9 @@ def extract_exception(e, *, skip_outmost=0, skip_until=None) -> dict:
         else "none"
     )
     try:
-        frames = extract_frames(tb, raw_tb, except_block=(f != "none"), exc=e)
+        frames = extract_frames(
+            tb, raw_tb, except_block=(f != "none"), exc=e, exc_message=message
+        )
         # For SyntaxError, add the synthetic frame showing the problematic code
         if syntax_frame:
             # Demote the previous frame (compile, exec, etc.) to call only
@@ -745,7 +694,11 @@ def _count_bracket_depth(text: str) -> int:
                 string_char = None
                 i += 3
                 continue
-            elif len(string_char) == 1 and char == string_char:
+            elif (
+                string_char is not None
+                and len(string_char) == 1
+                and char == string_char
+            ):
                 in_string = False
                 string_char = None
 
@@ -826,7 +779,11 @@ def _find_clean_start_line(lines: list[str], target_idx: int) -> int:
                     string_char = None
                     i += 3
                     continue
-                elif len(string_char) == 1 and char == string_char:
+                elif (
+                    string_char is not None
+                    and len(string_char) == 1
+                    and char == string_char
+                ):
                     in_string = False
                     string_char = None
 
@@ -1165,6 +1122,35 @@ def _get_variable_source_for_comprehension(
     return marked_text or lines
 
 
+def _fallback_mark_range_for_line(lines, error_line_in_context):
+    """Build a single-line mark Range when caret columns are unavailable.
+
+    Trims leading/trailing whitespace and (when present) end-of-line comments so that
+    the meaningful portion of the line is highlighted. For comment-only lines, a
+    minimal one-character mark is returned; for whitespace-only lines, returns None.
+    """
+    lines_list = lines.splitlines(keepends=True)
+    if not (1 <= error_line_in_context <= len(lines_list)):
+        return None
+    line = lines_list[error_line_in_context - 1]
+    content, _ = _split_line_content(line)
+    stripped = content.lstrip()
+    if not stripped:
+        return None
+    start_col = len(content) - len(stripped)
+
+    comment_start = _find_comment_start(content)
+    if comment_start is not None:
+        code_end = content[:comment_start].rstrip()
+        end_col = len(code_end)
+    else:
+        end_col = len(content.rstrip())
+
+    if end_col <= start_col:
+        end_col = start_col + 1
+    return Range(error_line_in_context, error_line_in_context, start_col, end_col)
+
+
 def _extract_emphasis_columns(
     lines, error_line_in_context, end_line, start_col, end_col, start
 ):
@@ -1222,13 +1208,18 @@ def _extract_emphasis_columns(
 
 
 def _build_position_map(raw_tb):
-    """Build mapping from frame objects to position tuples."""
+    """Build mapping from frame objects to position tuples.
+
+    A single frame object can appear more than once in a traceback (e.g. a
+    re-raise inside the same function), so we store a list of positions per
+    frame and consume them in order during frame extraction.
+    """
     position_map = {}
     if not raw_tb:
         return position_map
     try:
         for frame_obj, positions in trace_cpy._walk_tb_with_full_positions(raw_tb):
-            position_map[frame_obj] = positions
+            position_map.setdefault(frame_obj, deque()).append(positions)
     except Exception:
         logger.exception("Error extracting position information")
     return position_map
@@ -1265,6 +1256,7 @@ def _extract_syntax_error_frame(e):
     lines = None
     all_lines = None
     start = 1  # For SyntaxErrors, we want full source to show bracket matches etc.
+    source_from_text = False  # True if we fell back to e.text (no context available)
 
     # Try to get source from the file or notebook
     try:
@@ -1294,10 +1286,12 @@ def _extract_syntax_error_frame(e):
         if not lines and e.text:
             lines = e.text if e.text.endswith("\n") else e.text + "\n"
             start = lineno
+            source_from_text = True
     except Exception:
         if e.text:
             lines = e.text if e.text.endswith("\n") else e.text + "\n"
             start = lineno
+            source_from_text = True
 
     if not lines:
         return None
@@ -1308,7 +1302,15 @@ def _extract_syntax_error_frame(e):
 
     # Calculate common indentation
     lines_list = lines.splitlines(keepends=True)
-    common_indent = _calculate_common_indent(lines_list)
+    common_indent = ""
+
+    # Clamp columns reported past the end of the line so we still highlight
+    # something meaningful for errors like "expected ':'" or indentation errors.
+    if lines_list and 1 <= lineno <= len(lines_list):
+        max_col = len(lines_list[lineno - 1].rstrip("\n\r"))
+        start_col = min(start_col, max(0, max_col - 1))
+        end_col = max(min(end_col, max_col), start_col + 1)
+        end_col = min(end_col, max_col)
 
     # Try enhanced SyntaxError position extraction for better highlighting
     enhanced_mark, enhanced_em = extract_enhanced_positions(e, lines_list)
@@ -1317,22 +1319,45 @@ def _extract_syntax_error_frame(e):
         # Override lineno/end_lineno with the enhanced range (e.g., from opening bracket)
         lineno = enhanced_mark.lfirst
         end_lineno = enhanced_mark.lfinal
+        # Also use the enhanced columns so the frame's range matches the
+        # highlighted region rather than Python's original positions.
+        start_col = enhanced_mark.cbeg
+        end_col = enhanced_mark.cend
 
-        # Trim source to start from the mark's first line
-        lines_list = lines_list[lineno - 1 :]
+    # Show two lines of context around the error. e.text only contains the
+    # error line, so no slicing is possible there.
+    if not source_from_text:
+        display_first = min(lineno, len(lines_list))
+        display_last = min(end_lineno or lineno, len(lines_list))
+
+        slice_start = max(0, display_first - 3)
+        slice_end = min(len(lines_list), display_last + 2)
+
+        # Trim empty context lines, but never trim into the error region.
+        while slice_start < display_first - 1 and not lines_list[slice_start].strip():
+            slice_start += 1
+        while slice_end > display_last and not lines_list[slice_end - 1].strip():
+            slice_end -= 1
+
+        lines_list = lines_list[slice_start:slice_end]
         lines = "".join(lines_list)
-        start = lineno
-        common_indent = _calculate_common_indent(lines_list)
+        start = slice_start + 1
+        # The snippet is displayed with original indentation; keep common_indent
+        # empty because the highlight ranges stay in original column coordinates.
+        common_indent = ""
 
-        error_line_in_context = 1  # Now lineno is the first line
-        end_line = end_lineno - start + 1
+        error_line_in_context = lineno - start + 1
+        end_line = end_lineno - start + 1 if end_lineno else None
 
-        # Adjust enhanced ranges from absolute line numbers to context-relative
+    if enhanced_mark:
+        # Adjust enhanced ranges from absolute line numbers to context-relative.
+        # Columns are kept in original (pre-dedent) coordinates so they align
+        # with the absolute positions used by the fragment renderer.
         mark_range = Range(
-            1,
+            enhanced_mark.lfirst - start + 1,
             enhanced_mark.lfinal - start + 1,
-            max(0, enhanced_mark.cbeg - len(common_indent)),
-            max(0, enhanced_mark.cend - len(common_indent)),
+            enhanced_mark.cbeg,
+            enhanced_mark.cend,
         )
         # Convert list of em ranges to context-relative
         em_ranges = (
@@ -1340,8 +1365,8 @@ def _extract_syntax_error_frame(e):
                 Range(
                     em.lfirst - start + 1,
                     em.lfinal - start + 1,
-                    max(0, em.cbeg - len(common_indent)),
-                    max(0, em.cend - len(common_indent)),
+                    em.cbeg,
+                    em.cend,
                 )
                 for em in enhanced_em
             ]
@@ -1350,24 +1375,20 @@ def _extract_syntax_error_frame(e):
         )
     else:
         # Fallback to Python's positions
-        # Adjust columns for dedenting
-        adjusted_start_col = max(0, start_col - len(common_indent))
-        adjusted_end_col = max(0, end_col - len(common_indent))
-
-        # Create mark range
+        # Create mark range using original (pre-dedent) columns so it aligns
+        # with the absolute positions used by the fragment renderer.
         mark_range = None
         mark_lfinal = end_line or error_line_in_context
-        mark_range = Range(
-            error_line_in_context, mark_lfinal, adjusted_start_col, adjusted_end_col
-        )
+        mark_range = Range(error_line_in_context, mark_lfinal, start_col, end_col)
 
-        # Build emphasis range
+        # Build emphasis range using original columns; the segment is extracted
+        # from the original source text.
         em_ranges = _extract_emphasis_columns(
             lines,
             error_line_in_context,
             end_line,
-            adjusted_start_col,
-            adjusted_end_col,
+            start_col,
+            end_col,
             start,
         )
 
@@ -1387,6 +1408,7 @@ def _extract_syntax_error_frame(e):
     return {
         "id": f"tb-{token_urlsafe(12)}",
         "relevance": "error",
+        "idframe": id(e),
         "filename": fmt_filename,
         "location": location,
         "notebook_cell": notebook_cell,
@@ -1406,7 +1428,9 @@ def _extract_syntax_error_frame(e):
     }
 
 
-def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
+def extract_frames(
+    tb, raw_tb=None, *, except_block=False, exc=None, exc_message=None
+) -> list:
     if not tb:
         return []
 
@@ -1431,8 +1455,11 @@ def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
         # Relevance is set later in extract_exception via _set_frame_relevance
         relevance = "call"
 
-        # Extract position information first so we can use it for source extraction
-        pos = position_map.get(frame, [None] * 4)
+        # Extract position information first so we can use it for source extraction.
+        # A frame object may occur multiple times in the traceback, so consume the
+        # next stored position for this frame in order.
+        frame_positions = position_map.get(frame)
+        pos = frame_positions.popleft() if frame_positions else [None] * 4
         pos_end_lineno, start_col, end_col = pos[1], pos[2], pos[3]
 
         # Check if this is a notebook cell (to reduce context)
@@ -1455,6 +1482,7 @@ def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
                         "id": f"tb-{token_urlsafe(12)}",
                         "relevance": relevance,
                         "hidden": True,
+                        "idframe": id(frame),
                         "lineno": lineno,
                         "full_source": full_source,
                         "full_source_start": full_source_start,
@@ -1488,16 +1516,33 @@ def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
         adjusted_start_col = start_col - total_indent if start_col is not None else None
         adjusted_end_col = end_col - total_indent if end_col is not None else None
 
-        # Create mark range (1-based inclusive lines, 0-based exclusive columns)
+        # Build the frame's source range and the displayed mark range.
+        # On Python <3.11 co_positions is unavailable, so fall back to
+        # highlighting the meaningful portion of the error line.
+        frame_range = None
         mark_range = None
-        if adjusted_start_col is not None and adjusted_end_col is not None:
+        if start_col is not None and end_col is not None:
             # Ensure columns are not negative after dedenting adjustment
-            adjusted_start_col = max(0, adjusted_start_col)
-            adjusted_end_col = max(0, adjusted_end_col)
-            mark_lfinal = end_line or error_line_in_context
+            adjusted_start_col = max(0, start_col - total_indent)
+            adjusted_end_col = max(0, end_col - total_indent)
+            frame_range = Range(lineno, pos_end_lineno or lineno, start_col, end_col)
             mark_range = Range(
-                error_line_in_context, mark_lfinal, adjusted_start_col, adjusted_end_col
+                error_line_in_context,
+                end_line or error_line_in_context,
+                adjusted_start_col,
+                adjusted_end_col,
             )
+        elif error_line_in_context:
+            fallback = _fallback_mark_range_for_line(lines, error_line_in_context)
+            if fallback:
+                # Map displayed columns back to original source columns.
+                frame_range = Range(
+                    lineno,
+                    pos_end_lineno or lineno,
+                    fallback.cbeg + total_indent,
+                    fallback.cend + total_indent,
+                )
+                mark_range = fallback
 
         # Build emphasis range and fragments
         em_range = _extract_emphasis_columns(
@@ -1531,14 +1576,13 @@ def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
                 "id": f"tb-{token_urlsafe(12)}",
                 "relevance": relevance,
                 "hidden": hidden,  # For chain analysis; filtered out after ordering
+                "idframe": id(frame),  # Identity used for inspector deduplication
                 "filename": filename,
                 "original_filename": original_filename,  # For chain analysis AST parsing
                 "location": location,
                 "notebook_cell": notebook_cell,
                 "codeline": codeline[0].strip() if codeline else None,
-                "range": Range(lineno, pos_end_lineno or lineno, start_col, end_col)
-                if start_col is not None
-                else None,
+                "range": frame_range,
                 "lineno": lineno,  # Actual error line from traceback (always available)
                 "cursor_line": cursor_line,
                 "cursor_col": cursor_col,
@@ -1548,7 +1592,11 @@ def extract_frames(tb, raw_tb=None, *, except_block=False, exc=None) -> list:
                 "function": function,
                 "function_suffix": "",
                 "urls": urls,
-                "variables": extract_variables(frame.f_locals, variable_source)
+                "variables": extract_variables(
+                    frame.f_locals,
+                    variable_source,
+                    exc_message=exc_message if is_last_frame else None,
+                )
                 if not hidden
                 else [],
                 # Full source for chain analysis (try-except matching via AST)

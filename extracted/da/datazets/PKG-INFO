@@ -1,37 +1,20 @@
 Metadata-Version: 2.4
 Name: datazets
-Version: 1.1.3
+Version: 1.1.4
 Summary: Datazets is a python package to import well known example data sets.
 Author-email: Erdogan Taskesen <erdogant@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2022 Erdogan Taskesen
-        scatterd - Python package
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Homepage, https://erdogant.github.io/datazets
 Project-URL: Download, https://github.com/erdogant/datazets/archive/{version}.tar.gz
-Keywords: Python,
+Keywords: Python,datasets,data,example datasets,sample data,machine learning,data science,import,open data,benchmark,testing,education,research
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -81,11 +64,11 @@ df = dz.get('titanic')
 
 | Dataset Name           | Shape Size           | Type                | Description                                                                                   |
 |------------------------|----------------------|---------------------|-----------------------------------------------------------------------------------------------|
-| meta                   | (1472, 20)           | Continuous, time   | Stock price of Meta                                                                           |
-| bitcoin                | (2522, 2)            | Continuous, time   | Bitcoin price history data for time series and price prediction                               |
+| meta                   | (1472, 20)           | Continuous, time    | Stock price of Meta                                                                           |
+| bitcoin                | (2522, 2)            | Continuous, time    | Bitcoin price history data for time series and price prediction                               |
 | iris                   | (150, 3)             | Continuous          | Classic flower classification dataset with iris species measurements with coordinates         |
 |                        |                      |                     |                                                                                               |
-| gas_prices             | (6556, 2)            | Mixed, time        | Historical gas prices by region for trend analysis                                            |
+| gas_prices             | (6556, 2)            | Mixed, time         | Historical gas prices by region for trend analysis                                            |
 | ads                    | (10000, 10)          | Discrete            | Data on online ads, covering click-through rates and targeting information                    |
 | sprinkler              | (1000, 4)            | Discrete            | Synthetic dataset with binary variables for rain and sprinkler probability illustration       |
 | random_discrete        | (1000, 5)            | Discrete            | Synthetic dataset with random discrete variables, useful for probability modeling             |
@@ -95,6 +78,7 @@ df = dz.get('titanic')
 |                        |                      |                     |                                                                                               |
 | stormofswords          | (352, 3)             | Network             | Character data from *A Storm of Swords*, with relationships, traits, and alliance info        |
 | bigbang                | (9, 3)               | Network             | Data on *The Big Bang Theory* episodes and characters                                         |
+| socialmedia            | (90149, 3)           | Network             | Data on *Social Media*                                                                        |
 | energy                 | (68, 3)              | Network             | Data on building energy consumption                                                           |
 |                        |                      |                     |                                                                                               |
 | auto_mpg               | (392, 8)             | Mixed               | Data on cars with features for predicting miles per gallon                                    |
@@ -107,7 +91,7 @@ df = dz.get('titanic')
 | marketing_retail       | (999, 8)             | Mixed               | Retail customer data for behavior and segmentation analysis                                   |
 | predictive_maintenance | (10000, 14)          | Mixed               | Industrial equipment data for predictive maintenance                                          |
 | student                | (649, 33)            | Mixed               | Data on student performance with socio-demographic and academic factors                       |
-| surfspots              | (9413, 4)            | Mixed, latlon      | Information on global surf spots, with details on location and wave characteristics           |
+| surfspots              | (9413, 4)            | Mixed, latlon       | Information on global surf spots, with details on location and wave characteristics           |
 | tips                   | (244, 7)             | Mixed               | Restaurant tipping data with variables on meal size, day, and tip amount                      |
 | titanic                | (891, 12)            | Mixed               | Titanic passenger data with demographic, class, and survival information                      |
 | waterpump              | (59400, 41)          | Mixed               | Water pump data with features for predicting functionality and maintenance needs              |

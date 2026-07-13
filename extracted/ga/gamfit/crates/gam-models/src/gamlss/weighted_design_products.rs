@@ -11,16 +11,11 @@
 //! no behavior change.
 
 use gam_linalg::faer_ndarray::{fast_xt_diag_x, fast_xt_diag_y};
-use gam_linalg::matrix::{DesignMatrix, LinearOperator, SignedWeightsView};
+use gam_linalg::matrix::{DesignMatrix, FiniteSignedWeightsView, LinearOperator};
 use ndarray::{Array1, Array2, ArrayView1, ArrayViewMut2, s};
 
 use super::GamlssError;
 use super::exact_design_row_chunks;
-
-pub(super) fn signedwith_floor(v: f64, floor: f64) -> f64 {
-    let a = v.abs().max(floor);
-    if v >= 0.0 { a } else { -a }
-}
 
 pub(super) fn xt_diag_x_dense(
     design: &Array2<f64>,
@@ -36,6 +31,8 @@ pub(super) fn xt_diag_x_dense(
         }
         .into());
     }
+    FiniteSignedWeightsView::try_from_array(diag)
+        .map_err(|reason| format!("xt_diag_x_dense: {reason}"))?;
     Ok(fast_xt_diag_x(design, diag))
 }
 
@@ -64,6 +61,8 @@ pub(super) fn xt_diag_y_dense(
         }
         .into());
     }
+    FiniteSignedWeightsView::try_from_array(diag)
+        .map_err(|reason| format!("xt_diag_y_dense: {reason}"))?;
     Ok(fast_xt_diag_y(left, diag, right))
 }
 
@@ -78,7 +77,7 @@ pub(super) fn xt_diag_x_design(
             diag.len()
         ));
     }
-    design.xt_diag_x_signed_op(SignedWeightsView::from_array(diag))
+    design.xt_diag_x_signed_op(FiniteSignedWeightsView::try_from_array(diag)?)
 }
 
 pub(super) fn xt_diag_y_design(
@@ -100,6 +99,8 @@ pub(super) fn xt_diag_y_design(
             diag.len()
         ));
     }
+    FiniteSignedWeightsView::try_from_array(diag)
+        .map_err(|reason| format!("xt_diag_y_design: {reason}"))?;
     if let (Some(left_dense), Some(right_dense)) = (left.as_dense_ref(), right.as_dense_ref()) {
         return xt_diag_y_dense(left_dense, diag, right_dense);
     }

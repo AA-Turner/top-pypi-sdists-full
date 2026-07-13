@@ -389,9 +389,9 @@ class TestModelAvailability:
             patch("sage.main._ensure_llama_cpp_runtime", return_value=True),
             patch.dict("sage.main.CATALOG_BY_NAME", {"test-gcs-model": fake_model}, clear=False),
             patch("sage.main.is_downloaded", return_value=False),
-            patch("sage.main.download_model") as mock_download,
-            patch("sage.main.register_model") as mock_register,
-            patch("sage.main.load_config", return_value=cfg) as mock_load_config,
+            patch("sage.cli_core.download_model") as mock_download,
+            patch("sage.cli_core.register_model") as mock_register,
+            patch("sage.cli_core.load_config", return_value=cfg) as mock_load_config,
         ):
             result = _ensure_model_available(cfg, "gcs:test-gcs-model")
 
@@ -414,9 +414,9 @@ class TestModelAvailability:
             patch("sage.main._ensure_llama_cpp_runtime", return_value=False),
             patch.dict("sage.main.CATALOG_BY_NAME", {"test-gcs-model-2": fake_model}, clear=False),
             patch("sage.main.is_downloaded", return_value=False),
-            patch("sage.main.download_model") as mock_download,
-            patch("sage.main.register_model") as mock_register,
-            patch("sage.main.load_config", return_value=cfg),
+            patch("sage.cli_core.download_model") as mock_download,
+            patch("sage.cli_core.register_model") as mock_register,
+            patch("sage.cli_core.load_config", return_value=cfg),
         ):
             result = _ensure_model_available(cfg, "gcs:test-gcs-model-2")
 

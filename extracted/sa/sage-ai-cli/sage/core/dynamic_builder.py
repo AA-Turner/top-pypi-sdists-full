@@ -470,13 +470,20 @@ def _parse_fixes_from_llm(
     end = raw_clean.rfind("}")
     if start != -1 and end != -1:
         json_text = raw_clean[start : end + 1]
-        for attempt in (1, 2):
+        for attempt in (1, 2, 3):
             try:
                 if attempt == 1:
                     fixes = json.loads(json_text, strict=False)
-                else:
+                elif attempt == 2:
                     cleaned = _clean_json_str(json_text)
                     fixes = json.loads(cleaned, strict=False)
+                else:
+                    import ast
+                    val = ast.literal_eval(json_text)
+                    if isinstance(val, dict):
+                        fixes = val
+                    else:
+                        continue
                     
                 if isinstance(fixes, dict) and fixes:
                     # Ensure at least one key matches a target file, exists, or is a valid code file under project root

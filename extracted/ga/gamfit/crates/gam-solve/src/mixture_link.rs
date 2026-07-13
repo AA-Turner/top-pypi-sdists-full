@@ -13,6 +13,14 @@ use std::ops::Neg;
 use std::sync::OnceLock;
 
 const SAS_U_CLAMP: f64 = 50.0;
+/// Inclusive eta domain for the solver's standard log inverse-link derivative
+/// seams. Within this conservative IEEE-754-safe interval, `exp(eta)` is finite,
+/// positive, and normal, so the value and every analytic derivative are exactly
+/// the same operation. Solver callers must reject steps outside this domain;
+/// silently projecting eta would define a different, nonsmooth link.
+pub const LOG_LINK_SOLVER_ETA_MIN: f64 = -700.0;
+/// Inclusive upper endpoint of the standard log-link solver domain.
+pub const LOG_LINK_SOLVER_ETA_MAX: f64 = 700.0;
 /// Bound B used by the bounded sinh-arcsinh log-delta parameterisation:
 /// `delta = exp(B * tanh(raw_log_delta / B))`. Exposed for the outer-strategy
 /// edge-barrier helpers in `solver/estimate.rs` that previously had to
@@ -39,6 +47,65 @@ fn latent_cloglog_point_jet(
     })
 }
 
+#[inline]
+pub(crate) fn log_link_solver_exp(eta: f64) -> Result<f64, EstimationError> {
+    if !(LOG_LINK_SOLVER_ETA_MIN..=LOG_LINK_SOLVER_ETA_MAX).contains(&eta) {
+        return Err(EstimationError::InverseLinkDomainViolation {
+            link: "standard log inverse link",
+            eta,
+            lower: LOG_LINK_SOLVER_ETA_MIN,
+            upper: LOG_LINK_SOLVER_ETA_MAX,
+        });
+    }
+    Ok(eta.exp())
+}
+
+#[inline]
+fn finite_inverse_link_eta(link: &'static str, eta: f64) -> Result<f64, EstimationError> {
+    if !eta.is_finite() {
+        return Err(EstimationError::InverseLinkDomainViolation {
+            link,
+            eta,
+            lower: -f64::MAX,
+            upper: f64::MAX,
+        });
+    }
+    Ok(eta)
+}
+
+#[derive(Clone, Copy)]
+struct AsinhJet5 {
+    value: f64,
+    d1: f64,
+    d2: f64,
+    d3: f64,
+    d4: f64,
+    d5: f64,
+}
+
+/// Exact eta derivatives of `asinh(eta)`, factored through `hypot` so powers
+/// of a large finite eta never form `inf * 0` in the derivative tails.
+#[inline]
+fn asinh_jet5(eta: f64) -> AsinhJet5 {
+    let q = eta.hypot(1.0);
+    let inv_q = q.recip();
+    let inv_q2 = inv_q * inv_q;
+    let inv_q3 = inv_q2 * inv_q;
+    let inv_q4 = inv_q2 * inv_q2;
+    let inv_q5 = inv_q4 * inv_q;
+    let t = eta / q;
+    let t2 = t * t;
+    let t4 = t2 * t2;
+    AsinhJet5 {
+        value: eta.asinh(),
+        d1: inv_q,
+        d2: -t * inv_q2,
+        d3: (2.0 * t2 - inv_q2) * inv_q3,
+        d4: t * (9.0 * inv_q2 - 6.0 * t2) * inv_q4,
+        d5: (9.0 * inv_q4 - 72.0 * t2 * inv_q2 + 24.0 * t4) * inv_q5,
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InverseLinkJet {
     pub mu: f64,
@@ -59,7 +126,11 @@ pub struct LogitJet5 {
 
 #[inline]
 fn canonicalzero(v: f64) -> f64 {
-    if v.abs() < f64::MIN_POSITIVE { 0.0 } else { v }
+    // Normalize the two IEEE zero encodings for deterministic jets without
+    // changing their mathematical support. A nonzero subnormal is still a
+    // representable derivative and must survive: replacing it by zero creates
+    // an artificial constant tail and a kink at MIN_POSITIVE.
+    if v == 0.0 { 0.0 } else { v }
 }
 
 #[inline]
@@ -190,6 +261,14 @@ fn probit_jet(eta: f64) -> InverseLinkJet {
     }
     let x = eta;
     let phi = normal_pdf(x);
+    if phi == 0.0 {
+        return InverseLinkJet {
+            mu: normal_cdf(x),
+            d1: 0.0,
+            d2: 0.0,
+            d3: 0.0,
+        };
+    }
     InverseLinkJet {
         mu: normal_cdf(x),
         d1: phi,
@@ -211,6 +290,9 @@ fn probit_pdfthird_derivative(eta: f64) -> f64 {
     }
     let x = eta;
     let phi = normal_pdf(x);
+    if phi == 0.0 {
+        return 0.0;
+    }
     canonicalzero(-(x * x * x - 3.0 * x) * phi)
 }
 
@@ -225,6 +307,9 @@ fn probit_pdffourth_derivative(eta: f64) -> f64 {
     }
     let x = eta;
     let phi = normal_pdf(x);
+    if phi == 0.0 {
+        return 0.0;
+    }
     canonicalzero((x * x * x * x - 6.0 * x * x + 3.0) * phi)
 }
 
@@ -967,18 +1052,14 @@ impl InverseLinkKernel for LinkFunction {
                 d3: 0.0,
             }),
             LinkFunction::Log => {
-                // SOLVER-INTERNAL inverse-link jet: `η.clamp(−700, 700).exp()`.
-                // The clamp is an intentional conditioning hack so the IRLS/REML
-                // normal equations stay well posed when η wanders into the tails
-                // during a trust-region step — it is NOT the public response
-                // transform. Public response-scale outputs (predictions, FFI
-                // `apply_inverse_link_array`, posterior bands) must use the EXACT
-                // `exp(η)` in `families::inverse_link::apply_inverse_link_vec`,
-                // which is finite wherever representable. Do not reroute a public
-                // output through this clamped jet (issue #963). Keep the clamp:
-                // solver consumers (e.g. `reml/runtime.rs` trust-region `excess`)
-                // pass raw η and rely on it to keep μ finite.
-                let e = eta.clamp(-700.0, 700.0).exp();
+                // A projected value with unprojected exp derivatives is not a jet:
+                // outside the projection interval the value is constant but the
+                // old implementation returned a nonzero derivative. Evaluate the
+                // exact exponential on the declared solver domain and refuse every
+                // other eta through the typed error channel. Public response-scale
+                // transforms remain unrestricted and use their separate exact-exp
+                // path below (issue #963).
+                let e = log_link_solver_exp(eta)?;
                 Ok(InverseLinkJet {
                     mu: e,
                     d1: e,
@@ -999,12 +1080,12 @@ impl InverseLinkKernel for LinkFunction {
 
 impl InverseLinkKernel for SasLinkState {
     fn jet(&self, eta: f64) -> Result<InverseLinkJet, EstimationError> {
-        Ok(sas_inverse_link_jet(eta, self.epsilon, self.log_delta))
+        sas_inverse_link_jet(eta, self.epsilon, self.log_delta)
     }
 
     fn param_partials(&self, eta: f64) -> Result<Option<LinkParamPartials>, EstimationError> {
         Ok(Some(LinkParamPartials::Sas(
-            sas_inverse_link_jetwith_param_partials(eta, self.epsilon, self.log_delta),
+            sas_inverse_link_jetwith_param_partials(eta, self.epsilon, self.log_delta)?,
         )))
     }
 }
@@ -1088,6 +1169,9 @@ impl InverseLinkKernel for InverseLink {
 /// Central family-aware inverse-link jet dispatch.
 ///
 /// For `BinomialSas` and `BinomialMixture`, required state must be provided.
+/// The standard log link is defined here only on the inclusive solver domain
+/// [`LOG_LINK_SOLVER_ETA_MIN`] through [`LOG_LINK_SOLVER_ETA_MAX`]; inputs
+/// outside it return [`EstimationError::InverseLinkDomainViolation`].
 pub fn inverse_link_jet_for_inverse_link(
     link: &InverseLink,
     eta: f64,
@@ -1104,6 +1188,7 @@ pub fn inverse_link_jet_for_inverse_link(
 /// orders together, so this falls back to the full jet for that branch — the
 /// savings come from the parameterised polynomial links (SAS, beta-logistic,
 /// mixture) and the simple analytic links where d2/d3 are pure waste.
+/// Standard-log inputs obey the same solver domain as the full jet.
 pub fn inverse_link_mu_d1_for_inverse_link(
     link: &InverseLink,
     eta: f64,
@@ -1114,7 +1199,7 @@ pub fn inverse_link_mu_d1_for_inverse_link(
             let jet = latent_cloglog_point_jet(state, eta)?;
             Ok((jet.mu, jet.d1))
         }
-        InverseLink::Sas(state) => Ok(sas_inverse_link_mu_d1(eta, state.epsilon, state.log_delta)),
+        InverseLink::Sas(state) => sas_inverse_link_mu_d1(eta, state.epsilon, state.log_delta),
         InverseLink::BetaLogistic(state) => Ok(beta_logistic_inverse_link_mu_d1(
             eta,
             state.log_delta,
@@ -1128,11 +1213,9 @@ fn link_function_mu_d1(link: LinkFunction, eta: f64) -> Result<(f64, f64), Estim
     match link {
         LinkFunction::Identity => Ok((eta, 1.0)),
         LinkFunction::Log => {
-            // SOLVER-INTERNAL clamped `(μ, dμ/dη)`; see the matching note on the
-            // full `LinkFunction::Log` jet above. Public response transforms use
-            // exact `exp(η)` via `families::inverse_link::apply_inverse_link_vec`
-            // (issue #963).
-            let e = eta.clamp(-700.0, 700.0).exp();
+            // Keep the fast seam mathematically identical to the full jet: exact
+            // exp and exact exp derivative on the same declared solver domain.
+            let e = log_link_solver_exp(eta)?;
             Ok((e, e))
         }
         LinkFunction::Logit => Ok(component_inverse_link_mu_d1(LinkComponent::Logit, eta)),
@@ -1216,29 +1299,31 @@ fn component_inverse_link_mu_d1(component: LinkComponent, eta: f64) -> (f64, f64
     }
 }
 
-fn sas_inverse_link_mu_d1(eta: f64, epsilon: f64, log_delta: f64) -> (f64, f64) {
+fn sas_inverse_link_mu_d1(
+    eta: f64,
+    epsilon: f64,
+    log_delta: f64,
+) -> Result<(f64, f64), EstimationError> {
+    let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
     let delta_id = sas_delta_from_raw_log_delta(log_delta);
     if epsilon.abs() < 1e-12 && (delta_id - 1.0).abs() < 1e-12 {
-        return component_inverse_link_mu_d1(LinkComponent::Probit, eta);
+        return Ok(component_inverse_link_mu_d1(LinkComponent::Probit, eta));
     }
-    let e = if eta.is_finite() { eta } else { 0.0 };
-    let a = e.asinh();
+    let asinh = asinh_jet5(eta);
     let delta = delta_id;
-    let u_raw = delta * a + epsilon;
+    let u_raw = delta * asinh.value + epsilon;
     let u = tanh_bound(u_raw, SAS_U_CLAMP);
     let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
-    let q = e.hypot(1.0);
-    let inv_q = 1.0 / q;
-    let r1 = delta * inv_q;
+    let r1 = delta * asinh.d1;
     let u1 = g1 * r1;
     let z1 = c * u1;
     // `mu = Phi(z)` and `d1 = phi(z) * z1`, the same closed forms used by the
     // full jet via `chain_inverse_link_jet(probit_jet(z), z1, _, _)`.
     let base = probit_jet(z);
-    (base.mu, canonicalzero(base.d1 * z1))
+    Ok((base.mu, canonicalzero(base.d1 * z1)))
 }
 
 fn beta_logistic_inverse_link_mu_d1(eta: f64, delta: f64, epsilon: f64) -> (f64, f64) {
@@ -1292,7 +1377,7 @@ impl PdfDerivativeOrder {
         })
     }
 
-    fn sas(self, eta: f64, epsilon: f64, log_delta: f64) -> f64 {
+    fn sas(self, eta: f64, epsilon: f64, log_delta: f64) -> Result<f64, EstimationError> {
         match self {
             Self::Third => sas_inverse_link_pdfthird_derivative(eta, epsilon, log_delta),
             Self::Fourth => sas_inverse_link_pdffourth_derivative(eta, epsilon, log_delta),
@@ -1318,7 +1403,7 @@ fn inverse_link_pdf_derivative_for_inverse_link(
 ) -> Result<f64, EstimationError> {
     match link {
         InverseLink::Standard(StandardLink::Identity) => Ok(0.0),
-        InverseLink::Standard(StandardLink::Log) => Ok(eta.clamp(-700.0, 700.0).exp()),
+        InverseLink::Standard(StandardLink::Log) => log_link_solver_exp(eta),
         InverseLink::Standard(StandardLink::Probit) => Ok(order.probit(eta)),
         InverseLink::Standard(StandardLink::Logit) => {
             Ok(order.component(LinkComponent::Logit, eta))
@@ -1333,7 +1418,7 @@ fn inverse_link_pdf_derivative_for_inverse_link(
             Ok(order.component(LinkComponent::Cauchit, eta))
         }
         InverseLink::LatentCLogLog(state) => order.latent_cloglog(eta, state.latent_sd),
-        InverseLink::Sas(state) => Ok(order.sas(eta, state.epsilon, state.log_delta)),
+        InverseLink::Sas(state) => order.sas(eta, state.epsilon, state.log_delta),
         InverseLink::BetaLogistic(state) => {
             Ok(order.beta_logistic(eta, state.log_delta, state.epsilon))
         }
@@ -1365,6 +1450,8 @@ pub fn inverse_link_pdfthird_derivative_for_inverse_link(
     //   => f''' = sum_j pi_j f_j'''
     //
     // because the mixture weights `pi_j` are constant with respect to `eta`.
+    // Standard-log inputs outside the declared solver domain return the same
+    // typed refusal as the lower-order jet seams.
     inverse_link_pdf_derivative_for_inverse_link(link, eta, PdfDerivativeOrder::Third)
 }
 
@@ -1373,6 +1460,7 @@ pub fn inverse_link_pdfthird_derivative_for_inverse_link(
 /// Extends `inverse_link_pdfthird_derivative_for_inverse_link` by one order.
 /// Used for the outer REML Hessian Q[v_k, v_l] term in survival models,
 /// specifically the `m1 * u_{abcd}` Arbogast contribution.
+/// Standard-log inputs obey the same solver domain as every lower-order seam.
 pub fn inverse_link_pdffourth_derivative_for_inverse_link(
     link: &InverseLink,
     eta: f64,
@@ -1381,33 +1469,26 @@ pub fn inverse_link_pdffourth_derivative_for_inverse_link(
 }
 
 #[inline]
-fn royston_parmar_inverse_link_jet(eta: f64) -> InverseLinkJet {
-    // ApproxKind: NumericalApproximation — exp(exp(eta)) overflows f64 for
-    // eta > ~3.7; the |eta| > 30 saturation tail returns survival ≈ 0 with
-    // d_k = 0, matching the analytic limit to within IEEE-754 underflow.
-    const SURVIVAL_ETA_CLAMP: f64 = 30.0;
-
-    let z = eta.clamp(-SURVIVAL_ETA_CLAMP, SURVIVAL_ETA_CLAMP);
-    let hazard = z.exp();
+/// Exact Royston-Parmar survival jet `S(eta) = exp(-exp(eta))` for every finite
+/// `f64` eta. Scaled polynomial tails preserve representable derivatives after
+/// the survival value itself underflows; non-finite eta is a typed refusal.
+fn royston_parmar_inverse_link_jet(eta: f64) -> Result<InverseLinkJet, EstimationError> {
+    let eta = finite_inverse_link_eta("Royston-Parmar survival inverse link", eta)?;
+    let hazard = eta.exp();
     let survival = (-hazard).exp();
-    if !(-SURVIVAL_ETA_CLAMP..=SURVIVAL_ETA_CLAMP).contains(&eta) {
-        return InverseLinkJet {
-            mu: survival,
-            d1: 0.0,
-            d2: 0.0,
-            d3: 0.0,
-        };
-    }
-
-    let d1 = -hazard * survival;
-    let d2 = hazard * (hazard - 1.0) * survival;
-    let d3 = (-hazard * hazard * hazard + 3.0 * hazard * hazard - hazard) * survival;
-    InverseLinkJet {
+    // For S(eta) = exp(-h), h = exp(eta), each derivative is a polynomial in
+    // nonnegative h times exp(-h). Evaluate that product in its scaled form so
+    // neither h^k nor h itself can create an inf*0 tail. If exp(eta) overflows,
+    // the helper returns the exact asymptotic derivative limit 0.
+    let d1 = -stable_nonnegative_poly_times_exp_neg(hazard, &[0.0, 1.0]);
+    let d2 = stable_nonnegative_poly_times_exp_neg(hazard, &[0.0, -1.0, 1.0]);
+    let d3 = stable_nonnegative_poly_times_exp_neg(hazard, &[0.0, -1.0, 3.0, -1.0]);
+    Ok(InverseLinkJet {
         mu: survival,
-        d1,
-        d2,
-        d3,
-    }
+        d1: canonicalzero(d1),
+        d2: canonicalzero(d2),
+        d3: canonicalzero(d3),
+    })
 }
 
 pub fn inverse_link_jet_for_family(
@@ -1417,17 +1498,18 @@ pub fn inverse_link_jet_for_family(
     // RoystonParmar uses its own analytic survival inverse link irrespective of
     // the (nominal `Identity`) link slot carried in the spec.
     if matches!(spec.response, ResponseFamily::RoystonParmar) {
-        return Ok(royston_parmar_inverse_link_jet(eta));
+        return royston_parmar_inverse_link_jet(eta);
     }
     spec.link.jet(eta)
 }
 
-/// Exact-public log inverse-link jet: `mu = d1 = d2 = d3 = exp(η)` with NO
-/// `η`-clamp. Sibling of the solver-internal `LinkFunction::Log` jet (which
-/// clamps `η` to `[−700, 700]` as an IRLS/REML conditioning hack); see issue
+/// Exact-public log inverse-link jet: `mu = d1 = d2 = d3 = exp(η)` with no
+/// solver-domain restriction. The solver-internal sibling evaluates the same
+/// exact expression only on [`LOG_LINK_SOLVER_ETA_MIN`] through
+/// [`LOG_LINK_SOLVER_ETA_MAX`] and returns a typed refusal outside it; see issue
 /// #963. Every derivative of `exp` is `exp`, so all four jet slots carry the
-/// same exact value — finite wherever representable, `0.0` on underflow,
-/// `+∞` on overflow.
+/// same value — finite wherever representable, `0.0` on underflow, and `+∞` on
+/// overflow.
 #[inline]
 fn log_inverse_link_jet_exact(eta: f64) -> InverseLinkJet {
     let e = eta.exp();
@@ -1442,21 +1524,20 @@ fn log_inverse_link_jet_exact(eta: f64) -> InverseLinkJet {
 /// EXACT public inverse-link jet for response-scale prediction outputs.
 ///
 /// Identical to [`inverse_link_jet_for_family`] for every link EXCEPT the
-/// standard `Log` link, where it returns the exact `exp(η)` jet instead of the
-/// solver's `η.clamp(−700, 700).exp()` conditioning transform. On finite `η`
-/// the two diverge (η = 705: exact `exp(705)` ≈ 1.5e306 vs clamped
-/// `exp(700)` ≈ 1.0e304; η = −720: exact ≈ 2e−313 vs clamped ≈ 9.9e−305), so
-/// public predictions (`FamilyStrategy::inverse_link_jet`/`inverse_link_array`,
-/// the predict response + delta-method SE path) route here. The solver/REML/
-/// PIRLS engines keep the clamped jet (issue #963). For `|η| ≤ 700` this is
-/// byte-identical to the clamped jet (the clamp is inert there), so no
-/// in-range prediction changes.
+/// standard `Log` link, where it accepts every IEEE input while the shared
+/// solver derivative seam accepts only its declared domain. For example,
+/// `eta = 705` remains a valid public prediction (`exp(705) ≈ 1.5e306`) but is
+/// a typed solver-domain refusal. Public predictions
+/// (`FamilyStrategy::inverse_link_jet`/`inverse_link_array`, the predict mean +
+/// delta-method SE path) therefore route here. Within the inclusive solver
+/// domain the two paths are byte-identical because both evaluate bare
+/// `exp(eta)` (issue #963).
 pub fn inverse_link_jet_for_family_public(
     spec: &LikelihoodSpec,
     eta: f64,
 ) -> Result<InverseLinkJet, EstimationError> {
     if matches!(spec.response, ResponseFamily::RoystonParmar) {
-        return Ok(royston_parmar_inverse_link_jet(eta));
+        return royston_parmar_inverse_link_jet(eta);
     }
     if let InverseLink::Standard(StandardLink::Log) = spec.link {
         return Ok(log_inverse_link_jet_exact(eta));
@@ -1953,15 +2034,24 @@ pub fn beta_logistic_inverse_link_jetwith_param_partials(
 /// SAS inverse-link jet for:
 ///   mu(eta) = Phi(sinh(delta * asinh(eta) + epsilon)),
 ///   delta = exp(B * tanh(log_delta / B)), B = SAS_LOG_DELTA_BOUND.
-pub fn sas_inverse_link_jet(eta: f64, epsilon: f64, log_delta: f64) -> InverseLinkJet {
+///
+/// The mathematical solver domain is every finite `f64` eta. Non-finite eta
+/// returns [`EstimationError::InverseLinkDomainViolation`]; no value is
+/// substituted. The asinh derivatives are evaluated through a scaled jet so
+/// both finite endpoints of the domain remain numerically well defined.
+pub fn sas_inverse_link_jet(
+    eta: f64,
+    epsilon: f64,
+    log_delta: f64,
+) -> Result<InverseLinkJet, EstimationError> {
+    let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
     let delta_id = sas_delta_from_raw_log_delta(log_delta);
     if epsilon.abs() < 1e-12 && (delta_id - 1.0).abs() < 1e-12 {
-        return component_inverse_link_jet(LinkComponent::Probit, eta);
+        return Ok(component_inverse_link_jet(LinkComponent::Probit, eta));
     }
-    let e = if eta.is_finite() { eta } else { 0.0 };
-    let a = e.asinh();
+    let asinh = asinh_jet5(eta);
     let delta = delta_id;
-    let u_raw = delta * a + epsilon;
+    let u_raw = delta * asinh.value + epsilon;
     let u = tanh_bound(u_raw, SAS_U_CLAMP);
     let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
     let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
@@ -1969,14 +2059,9 @@ pub fn sas_inverse_link_jet(eta: f64, epsilon: f64, log_delta: f64) -> InverseLi
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
-    let q = e.hypot(1.0);
-    let inv_q = 1.0 / q;
-    let inv_q2 = inv_q * inv_q;
-    let inv_q3 = inv_q2 * inv_q;
-    let inv_q5 = inv_q3 * inv_q2;
-    let r1 = delta * inv_q;
-    let r2 = -delta * e * inv_q3;
-    let r3 = delta * (2.0 * e * e - 1.0) * inv_q5;
+    let r1 = delta * asinh.d1;
+    let r2 = delta * asinh.d2;
+    let r3 = delta * asinh.d3;
     let u1 = g1 * r1;
     let u2 = g2 * r1 * r1 + g1 * r2;
     let u3 = g3 * r1 * r1 * r1 + 3.0 * g2 * r1 * r2 + g1 * r3;
@@ -1984,10 +2069,16 @@ pub fn sas_inverse_link_jet(eta: f64, epsilon: f64, log_delta: f64) -> InverseLi
     let z2 = s * u1 * u1 + c * u2;
     let z3 = c * u1 * u1 * u1 + 3.0 * s * u1 * u2 + c * u3;
     let base = probit_jet(z);
-    chain_inverse_link_jet(base, z1, z2, z3)
+    Ok(chain_inverse_link_jet(base, z1, z2, z3))
 }
 
-pub fn sas_inverse_link_pdfthird_derivative(eta: f64, epsilon: f64, log_delta: f64) -> f64 {
+/// Fourth eta derivative of the SAS inverse-link CDF on the same finite domain
+/// as [`sas_inverse_link_jet`].
+pub fn sas_inverse_link_pdfthird_derivative(
+    eta: f64,
+    epsilon: f64,
+    log_delta: f64,
+) -> Result<f64, EstimationError> {
     // SAS link with bounded latent transform:
     //
     //   a  = asinh(eta),
@@ -2023,10 +2114,10 @@ pub fn sas_inverse_link_pdfthird_derivative(eta: f64, epsilon: f64, log_delta: f
     //   u4 = g'''' r1^4 + 6 g''' r1² r2 + 3 g'' r2² + 4 g'' r1 r3 + g' r4,
     //
     // which is the standard scalar Arbogast expansion for order four.
-    let e = if eta.is_finite() { eta } else { 0.0 };
-    let a = e.asinh();
+    let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
+    let asinh = asinh_jet5(eta);
     let delta = sas_delta_from_raw_log_delta(log_delta);
-    let u_raw = delta * a + epsilon;
+    let u_raw = delta * asinh.value + epsilon;
     let u = tanh_bound(u_raw, SAS_U_CLAMP);
     let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
     let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
@@ -2036,16 +2127,10 @@ pub fn sas_inverse_link_pdfthird_derivative(eta: f64, epsilon: f64, log_delta: f
     let c = u.cosh();
     let z = s;
     let base = probit_jet(z);
-    let q = e.hypot(1.0);
-    let inv_q = 1.0 / q;
-    let inv_q2 = inv_q * inv_q;
-    let inv_q3 = inv_q2 * inv_q;
-    let inv_q5 = inv_q3 * inv_q2;
-    let inv_q7 = inv_q5 * inv_q2;
-    let r1 = delta * inv_q;
-    let r2 = -delta * e * inv_q3;
-    let r3 = delta * (2.0 * e * e - 1.0) * inv_q5;
-    let r4 = delta * e * (9.0 - 6.0 * e * e) * inv_q7;
+    let r1 = delta * asinh.d1;
+    let r2 = delta * asinh.d2;
+    let r3 = delta * asinh.d3;
+    let r4 = delta * asinh.d4;
     let u1 = g1 * r1;
     let u2 = g2 * r1 * r1 + g1 * r2;
     let u3 = g3 * r1 * r1 * r1 + 3.0 * g2 * r1 * r2 + g1 * r3;
@@ -2065,7 +2150,7 @@ pub fn sas_inverse_link_pdfthird_derivative(eta: f64, epsilon: f64, log_delta: f
         + 3.0 * base.d2 * z2 * z2
         + 4.0 * base.d2 * z1 * z3
         + base.d1 * z4;
-    canonicalzero(out)
+    Ok(canonicalzero(out))
 }
 
 /// Fifth derivative of the SAS inverse-link CDF (= fourth derivative of the PDF).
@@ -2084,11 +2169,17 @@ pub fn sas_inverse_link_pdfthird_derivative(eta: f64, epsilon: f64, log_delta: f
 /// The mu = Phi(z) expansion at order 5 uses probit derivatives:
 ///   mu^(5) = Phi5*z1^5 + 10*Phi4*z1^3*z2 + 15*Phi3*z1*z2^2 + 10*Phi3*z1^2*z3
 ///            + 10*Phi2*z2*z3 + 5*Phi2*z1*z4 + Phi1*z5
-pub fn sas_inverse_link_pdffourth_derivative(eta: f64, epsilon: f64, log_delta: f64) -> f64 {
-    let e = if eta.is_finite() { eta } else { 0.0 };
-    let a = e.asinh();
+///
+/// Non-finite eta is rejected by the shared SAS finite-domain contract.
+pub fn sas_inverse_link_pdffourth_derivative(
+    eta: f64,
+    epsilon: f64,
+    log_delta: f64,
+) -> Result<f64, EstimationError> {
+    let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
+    let asinh = asinh_jet5(eta);
     let delta = sas_delta_from_raw_log_delta(log_delta);
-    let u_raw = delta * a + epsilon;
+    let u_raw = delta * asinh.value + epsilon;
     let u = tanh_bound(u_raw, SAS_U_CLAMP);
     let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
     let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
@@ -2104,20 +2195,11 @@ pub fn sas_inverse_link_pdffourth_derivative(eta: f64, epsilon: f64, log_delta: 
     let phi3 = probit_pdfthird_derivative(z); // Phi^{(4)}
     let phi4 = probit_pdffourth_derivative(z); // Phi^{(5)}
 
-    // Powers of q = sqrt(1 + eta^2) for r1..r5.
-    let q = e.hypot(1.0);
-    let inv_q = 1.0 / q;
-    let inv_q2 = inv_q * inv_q;
-    let inv_q3 = inv_q2 * inv_q;
-    let inv_q5 = inv_q3 * inv_q2;
-    let inv_q7 = inv_q5 * inv_q2;
-    let inv_q9 = inv_q7 * inv_q2;
-
-    let r1 = delta * inv_q;
-    let r2 = -delta * e * inv_q3;
-    let r3 = delta * (2.0 * e * e - 1.0) * inv_q5;
-    let r4 = delta * e * (9.0 - 6.0 * e * e) * inv_q7;
-    let r5 = delta * (9.0 - 72.0 * e * e + 24.0 * e * e * e * e) * inv_q9;
+    let r1 = delta * asinh.d1;
+    let r2 = delta * asinh.d2;
+    let r3 = delta * asinh.d3;
+    let r4 = delta * asinh.d4;
+    let r5 = delta * asinh.d5;
 
     // u1..u5 via Arbogast for g(r(eta)).
     let u1 = g1 * r1;
@@ -2159,20 +2241,23 @@ pub fn sas_inverse_link_pdffourth_derivative(eta: f64, epsilon: f64, log_delta: 
         + 10.0 * base.d2 * z2 * z3
         + 5.0 * base.d2 * z1 * z4
         + base.d1 * z5;
-    canonicalzero(out)
+    Ok(canonicalzero(out))
 }
 
+/// SAS eta jet plus epsilon/log-delta partial jets. This is fallible for the
+/// same reason as the value jet: eta must be finite, and no non-finite eta is
+/// silently replaced.
 pub fn sas_inverse_link_jetwith_param_partials(
     eta: f64,
     epsilon: f64,
     log_delta: f64,
-) -> SasJetWithParamPartials {
-    let e = if eta.is_finite() { eta } else { 0.0 };
-    let a = e.asinh();
+) -> Result<SasJetWithParamPartials, EstimationError> {
+    let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
+    let asinh = asinh_jet5(eta);
     let (ld_eff, dld_eff_draw) = sas_effective_log_delta(log_delta);
     let delta = ld_eff.exp();
     let ddelta_draw = delta * dld_eff_draw;
-    let u_raw = delta * a + epsilon;
+    let u_raw = delta * asinh.value + epsilon;
     let u = tanh_bound(u_raw, SAS_U_CLAMP);
     let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
     let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
@@ -2181,14 +2266,9 @@ pub fn sas_inverse_link_jetwith_param_partials(
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
-    let q = e.hypot(1.0);
-    let inv_q = 1.0 / q;
-    let inv_q2 = inv_q * inv_q;
-    let inv_q3 = inv_q2 * inv_q;
-    let inv_q5 = inv_q3 * inv_q2;
-    let a1 = inv_q;
-    let a2 = -e * inv_q3;
-    let a3 = (2.0 * e * e - 1.0) * inv_q5;
+    let a1 = asinh.d1;
+    let a2 = asinh.d2;
+    let a3 = asinh.d3;
     let r1 = delta * a1;
     let r2 = delta * a2;
     let r3 = delta * a3;
@@ -2248,7 +2328,7 @@ pub fn sas_inverse_link_jetwith_param_partials(
     let djet_depsilon = param_partials(u_eps, u1_eps, u2_eps, u3_eps);
 
     // raw log-delta partials (through smooth bounded effective log-delta).
-    let rt_ld = ddelta_draw * a;
+    let rt_ld = ddelta_draw * asinh.value;
     let r1t_ld = ddelta_draw * a1;
     let r2t_ld = ddelta_draw * a2;
     let r3t_ld = ddelta_draw * a3;
@@ -2263,17 +2343,387 @@ pub fn sas_inverse_link_jetwith_param_partials(
         + g1 * r3t_ld;
     let djet_dlog_delta = param_partials(u_ld, u1_ld, u2_ld, u3_ld);
 
-    SasJetWithParamPartials {
+    Ok(SasJetWithParamPartials {
         jet,
         djet_depsilon,
         djet_dlog_delta,
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use gam_problem::{InverseLink, LikelihoodSpec, LinkComponent, MixtureLinkSpec, SasLinkState};
+
+    fn assert_log_link_domain_error(error: EstimationError, eta: f64) {
+        match error {
+            EstimationError::InverseLinkDomainViolation {
+                link,
+                eta: rejected,
+                lower,
+                upper,
+            } => {
+                assert_eq!(link, "standard log inverse link");
+                if eta.is_nan() {
+                    assert!(rejected.is_nan());
+                } else {
+                    assert_eq!(rejected, eta);
+                }
+                assert_eq!(lower, LOG_LINK_SOLVER_ETA_MIN);
+                assert_eq!(upper, LOG_LINK_SOLVER_ETA_MAX);
+            }
+            other => panic!("expected typed log-link domain refusal, got {other}"),
+        }
+    }
+
+    fn assert_finite_eta_domain_error(
+        error: EstimationError,
+        expected_link: &'static str,
+        eta: f64,
+    ) {
+        match error {
+            EstimationError::InverseLinkDomainViolation {
+                link,
+                eta: rejected,
+                lower,
+                upper,
+            } => {
+                assert_eq!(link, expected_link);
+                if eta.is_nan() {
+                    assert!(rejected.is_nan());
+                } else {
+                    assert_eq!(rejected, eta);
+                }
+                assert_eq!(lower, -f64::MAX);
+                assert_eq!(upper, f64::MAX);
+            }
+            other => panic!("expected typed finite-eta domain refusal, got {other}"),
+        }
+    }
+
+    #[test]
+    fn log_link_solver_boundaries_are_inclusive_exact_exp_jets() {
+        let link = InverseLink::Standard(StandardLink::Log);
+        let spec = LikelihoodSpec::poisson_log();
+        for eta in [LOG_LINK_SOLVER_ETA_MIN, LOG_LINK_SOLVER_ETA_MAX] {
+            let expected = eta.exp();
+            assert!(expected.is_finite() && expected > 0.0);
+
+            let jet = inverse_link_jet_for_inverse_link(&link, eta).expect("boundary jet");
+            assert_eq!(
+                LinkFunction::Log.jet(eta).expect("kernel boundary jet"),
+                jet
+            );
+            assert_eq!(jet.mu, expected);
+            assert_eq!(jet.d1, expected);
+            assert_eq!(jet.d2, expected);
+            assert_eq!(jet.d3, expected);
+
+            assert_eq!(
+                inverse_link_mu_d1_for_inverse_link(&link, eta).expect("boundary mu/d1"),
+                (expected, expected)
+            );
+            assert_eq!(
+                inverse_link_pdfthird_derivative_for_inverse_link(&link, eta)
+                    .expect("boundary fourth derivative"),
+                expected
+            );
+            assert_eq!(
+                inverse_link_pdffourth_derivative_for_inverse_link(&link, eta)
+                    .expect("boundary fifth derivative"),
+                expected
+            );
+            assert_eq!(
+                inverse_link_jet_for_family(&spec, eta).expect("boundary family jet"),
+                jet
+            );
+        }
+    }
+
+    #[test]
+    fn log_link_solver_seams_refuse_every_eta_outside_the_declared_domain() {
+        let link = InverseLink::Standard(StandardLink::Log);
+        let spec = LikelihoodSpec::poisson_log();
+        let just_below = f64::from_bits(LOG_LINK_SOLVER_ETA_MIN.to_bits() + 1);
+        let just_above = f64::from_bits(LOG_LINK_SOLVER_ETA_MAX.to_bits() + 1);
+
+        for eta in [
+            just_below,
+            just_above,
+            f64::NEG_INFINITY,
+            f64::INFINITY,
+            f64::NAN,
+        ] {
+            assert_log_link_domain_error(
+                inverse_link_jet_for_inverse_link(&link, eta).expect_err("full jet must refuse"),
+                eta,
+            );
+            assert_log_link_domain_error(
+                LinkFunction::Log
+                    .jet(eta)
+                    .expect_err("kernel jet must refuse"),
+                eta,
+            );
+            assert_log_link_domain_error(
+                inverse_link_mu_d1_for_inverse_link(&link, eta)
+                    .expect_err("mu/d1 seam must refuse"),
+                eta,
+            );
+            assert_log_link_domain_error(
+                inverse_link_pdfthird_derivative_for_inverse_link(&link, eta)
+                    .expect_err("fourth derivative seam must refuse"),
+                eta,
+            );
+            assert_log_link_domain_error(
+                inverse_link_pdffourth_derivative_for_inverse_link(&link, eta)
+                    .expect_err("fifth derivative seam must refuse"),
+                eta,
+            );
+            assert_log_link_domain_error(
+                inverse_link_jet_for_family(&spec, eta).expect_err("family jet seam must refuse"),
+                eta,
+            );
+        }
+    }
+
+    #[test]
+    fn log_link_solver_value_gradient_is_consistent_near_both_domain_edges() {
+        let link = InverseLink::Standard(StandardLink::Log);
+        let h = 1.0e-5;
+        for eta in [
+            LOG_LINK_SOLVER_ETA_MIN + 1.0,
+            0.0,
+            LOG_LINK_SOLVER_ETA_MAX - 1.0,
+        ] {
+            let jet = inverse_link_jet_for_inverse_link(&link, eta).expect("interior jet");
+            let eta_plus = eta + h;
+            let eta_minus = eta - h;
+            let mu_plus = inverse_link_jet_for_inverse_link(&link, eta_plus)
+                .expect("plus jet")
+                .mu;
+            let mu_minus = inverse_link_jet_for_inverse_link(&link, eta_minus)
+                .expect("minus jet")
+                .mu;
+            let finite_difference = (mu_plus - mu_minus) / (eta_plus - eta_minus);
+            let relative_error = ((finite_difference - jet.d1) / jet.d1).abs();
+            assert!(
+                relative_error < 5.0e-10,
+                "log-link value/gradient mismatch at eta={eta}: analytic={}, finite_difference={}, relative_error={relative_error}",
+                jet.d1,
+                finite_difference
+            );
+        }
+    }
+
+    #[test]
+    fn subnormal_inverse_link_derivatives_are_preserved_not_plateaued() {
+        let left_eta = -743.0_f64;
+        let left_scale = left_eta.exp();
+        assert!(left_scale > 0.0 && left_scale < f64::MIN_POSITIVE);
+        let left = logit_inverse_link_jet5(left_eta);
+        for (order, derivative) in [left.d1, left.d2, left.d3, left.d4, left.d5]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(
+                derivative > 0.0 && derivative < f64::MIN_POSITIVE,
+                "left-tail logit derivative order {} lost its represented subnormal: {derivative}",
+                order + 1
+            );
+        }
+
+        let right_eta = 743.0_f64;
+        let right_scale = (-right_eta).exp();
+        assert!(right_scale > 0.0 && right_scale < f64::MIN_POSITIVE);
+        let right = logit_inverse_link_jet5(right_eta);
+        for (order, derivative, sign) in [
+            (1, right.d1, 1.0),
+            (2, right.d2, -1.0),
+            (3, right.d3, 1.0),
+            (4, right.d4, -1.0),
+            (5, right.d5, 1.0),
+        ] {
+            assert_eq!(derivative.signum(), sign, "wrong order-{order} tail sign");
+            assert!(
+                derivative.abs() > 0.0 && derivative.abs() < f64::MIN_POSITIVE,
+                "right-tail logit derivative order {order} lost its represented subnormal: {derivative}"
+            );
+        }
+
+        let royston_eta = 735.0_f64.ln();
+        let royston = royston_parmar_inverse_link_jet(royston_eta)
+            .expect("finite Royston-Parmar subnormal-tail eta");
+        assert!(
+            royston.d1 < 0.0 && royston.d1.abs() < f64::MIN_POSITIVE,
+            "Royston-Parmar exact tail derivative must retain its subnormal: {}",
+            royston.d1
+        );
+    }
+
+    #[test]
+    fn sas_all_derivative_seams_refuse_nonfinite_eta_with_one_typed_contract() {
+        let state = sas_link_state_from_raw(0.25, -0.35).expect("SAS state");
+        let link = InverseLink::Sas(state);
+        for eta in [f64::NEG_INFINITY, f64::INFINITY, f64::NAN] {
+            assert_finite_eta_domain_error(
+                sas_inverse_link_jet(eta, state.epsilon, state.log_delta)
+                    .expect_err("SAS full jet must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                sas_inverse_link_mu_d1(eta, state.epsilon, state.log_delta)
+                    .expect_err("SAS mu/d1 must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                sas_inverse_link_pdfthird_derivative(eta, state.epsilon, state.log_delta)
+                    .expect_err("SAS fourth derivative must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                sas_inverse_link_pdffourth_derivative(eta, state.epsilon, state.log_delta)
+                    .expect_err("SAS fifth derivative must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                sas_inverse_link_jetwith_param_partials(eta, state.epsilon, state.log_delta)
+                    .expect_err("SAS parameter partials must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_jet_for_inverse_link(&link, eta).expect_err("SAS kernel must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_mu_d1_for_inverse_link(&link, eta)
+                    .expect_err("SAS fast dispatch must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_pdfthird_derivative_for_inverse_link(&link, eta)
+                    .expect_err("SAS fourth-derivative dispatch must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_pdffourth_derivative_for_inverse_link(&link, eta)
+                    .expect_err("SAS fifth-derivative dispatch must refuse"),
+                "SAS inverse link",
+                eta,
+            );
+        }
+    }
+
+    #[test]
+    fn sas_jets_are_finite_at_both_finite_f64_domain_edges() {
+        let state = sas_link_state_from_raw(0.25, -0.35).expect("SAS state");
+        for eta in [-f64::MAX, f64::MAX] {
+            let jet = sas_inverse_link_jet(eta, state.epsilon, state.log_delta)
+                .expect("finite SAS boundary jet");
+            let partials =
+                sas_inverse_link_jetwith_param_partials(eta, state.epsilon, state.log_delta)
+                    .expect("finite SAS boundary partials");
+            let h4 = sas_inverse_link_pdfthird_derivative(eta, state.epsilon, state.log_delta)
+                .expect("finite SAS boundary fourth derivative");
+            let h5 = sas_inverse_link_pdffourth_derivative(eta, state.epsilon, state.log_delta)
+                .expect("finite SAS boundary fifth derivative");
+            for value in [
+                jet.mu,
+                jet.d1,
+                jet.d2,
+                jet.d3,
+                partials.jet.mu,
+                partials.jet.d1,
+                partials.jet.d2,
+                partials.jet.d3,
+                partials.djet_depsilon.mu,
+                partials.djet_depsilon.d1,
+                partials.djet_depsilon.d2,
+                partials.djet_depsilon.d3,
+                partials.djet_dlog_delta.mu,
+                partials.djet_dlog_delta.d1,
+                partials.djet_dlog_delta.d2,
+                partials.djet_dlog_delta.d3,
+                h4,
+                h5,
+            ] {
+                assert!(
+                    value.is_finite(),
+                    "non-finite SAS boundary jet at eta={eta}: {value}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn royston_parmar_exact_jet_has_no_former_minus_thirty_plateau() {
+        let left =
+            royston_parmar_inverse_link_jet(-30.0 - 1.0e-6).expect("finite Royston-Parmar eta");
+        let center = royston_parmar_inverse_link_jet(-30.0).expect("finite Royston-Parmar eta");
+        let right =
+            royston_parmar_inverse_link_jet(-30.0 + 1.0e-6).expect("finite Royston-Parmar eta");
+
+        assert!(
+            left.d1 < 0.0,
+            "the exact left tail must not be a constant plateau"
+        );
+        assert!(center.d1 < 0.0 && right.d1 < 0.0);
+        let left_relative = ((left.d1 - center.d1) / center.d1).abs();
+        let right_relative = ((right.d1 - center.d1) / center.d1).abs();
+        assert!(
+            left_relative < 2.0e-6,
+            "left derivative kink: {left_relative}"
+        );
+        assert!(
+            right_relative < 2.0e-6,
+            "right derivative kink: {right_relative}"
+        );
+
+        for eta in [-f64::MAX, -40.0, -30.0, 0.0, 7.0, 30.0, 40.0, f64::MAX] {
+            let jet = royston_parmar_inverse_link_jet(eta).expect("finite Royston-Parmar eta");
+            for value in [jet.mu, jet.d1, jet.d2, jet.d3] {
+                assert!(
+                    value.is_finite(),
+                    "non-finite Royston-Parmar jet at eta={eta}: {value}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn royston_parmar_seams_refuse_nonfinite_eta_instead_of_clamping() {
+        let spec = LikelihoodSpec::new(
+            ResponseFamily::RoystonParmar,
+            InverseLink::Standard(StandardLink::Identity),
+        );
+        for eta in [f64::NEG_INFINITY, f64::INFINITY, f64::NAN] {
+            assert_finite_eta_domain_error(
+                royston_parmar_inverse_link_jet(eta)
+                    .expect_err("direct Royston-Parmar jet must refuse"),
+                "Royston-Parmar survival inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_jet_for_family(&spec, eta)
+                    .expect_err("solver Royston-Parmar jet must refuse"),
+                "Royston-Parmar survival inverse link",
+                eta,
+            );
+            assert_finite_eta_domain_error(
+                inverse_link_jet_for_family_public(&spec, eta)
+                    .expect_err("public Royston-Parmar jet must refuse"),
+                "Royston-Parmar survival inverse link",
+                eta,
+            );
+        }
+    }
 
     #[test]
     fn softmax_jacobian_matchesfd() {
@@ -2355,11 +2805,12 @@ mod tests {
         let eta = 0.37;
         let epsilon = -0.12;
         let log_delta = 0.21;
-        let out = sas_inverse_link_jetwith_param_partials(eta, epsilon, log_delta);
+        let out = sas_inverse_link_jetwith_param_partials(eta, epsilon, log_delta)
+            .expect("finite SAS eta");
         let h = 1e-6;
 
-        let ep_p = sas_inverse_link_jet(eta, epsilon + h, log_delta);
-        let ep_m = sas_inverse_link_jet(eta, epsilon - h, log_delta);
+        let ep_p = sas_inverse_link_jet(eta, epsilon + h, log_delta).expect("finite SAS eta");
+        let ep_m = sas_inverse_link_jet(eta, epsilon - h, log_delta).expect("finite SAS eta");
         let fd_ep = InverseLinkJet {
             mu: (ep_p.mu - ep_m.mu) / (2.0 * h),
             d1: (ep_p.d1 - ep_m.d1) / (2.0 * h),
@@ -2375,8 +2826,8 @@ mod tests {
         assert!((out.djet_depsilon.d2 - fd_ep.d2).abs() < 5e-5);
         assert!((out.djet_depsilon.d3 - fd_ep.d3).abs() < 5e-4);
 
-        let ld_p = sas_inverse_link_jet(eta, epsilon, log_delta + h);
-        let ld_m = sas_inverse_link_jet(eta, epsilon, log_delta - h);
+        let ld_p = sas_inverse_link_jet(eta, epsilon, log_delta + h).expect("finite SAS eta");
+        let ld_m = sas_inverse_link_jet(eta, epsilon, log_delta - h).expect("finite SAS eta");
         let fd_ld = InverseLinkJet {
             mu: (ld_p.mu - ld_m.mu) / (2.0 * h),
             d1: (ld_p.d1 - ld_m.d1) / (2.0 * h),
@@ -2416,9 +2867,14 @@ mod tests {
     #[test]
     fn sas_family_score_depsilon_matches_fd_and_reproduces_profile_1876() {
         let h = 1e-6;
-        let mu_at = |eta: f64, eps: f64, ld: f64| sas_inverse_link_jet(eta, eps, ld).mu;
+        let mu_at = |eta: f64, eps: f64, ld: f64| {
+            sas_inverse_link_jet(eta, eps, ld)
+                .expect("finite SAS eta")
+                .mu
+        };
         let dmu_deps = |eta: f64, eps: f64, ld: f64| {
             sas_inverse_link_jetwith_param_partials(eta, eps, ld)
+                .expect("finite SAS eta")
                 .djet_depsilon
                 .mu
         };
@@ -2528,12 +2984,13 @@ mod tests {
             (0.5, -40.0, -10.0),
         ];
         for (eta, eps, log_delta) in cases {
-            let j = sas_inverse_link_jet(eta, eps, log_delta);
+            let j = sas_inverse_link_jet(eta, eps, log_delta).expect("finite SAS eta");
             assert!(j.mu.is_finite());
             assert!(j.d1.is_finite());
             assert!(j.d2.is_finite());
             assert!(j.d3.is_finite());
-            let p = sas_inverse_link_jetwith_param_partials(eta, eps, log_delta);
+            let p = sas_inverse_link_jetwith_param_partials(eta, eps, log_delta)
+                .expect("finite SAS eta");
             assert!(p.djet_depsilon.mu.is_finite());
             assert!(p.djet_depsilon.d1.is_finite());
             assert!(p.djet_depsilon.d2.is_finite());
@@ -2550,7 +3007,8 @@ mod tests {
         let eta = 10.0;
         let epsilon = -60.0;
         let log_delta = 40.0;
-        let j = sas_inverse_link_jetwith_param_partials(eta, epsilon, log_delta);
+        let j = sas_inverse_link_jetwith_param_partials(eta, epsilon, log_delta)
+            .expect("finite SAS eta");
         assert!(j.djet_depsilon.mu.is_finite());
         assert!(j.djet_depsilon.d1.is_finite());
         assert!(j.djet_depsilon.d2.is_finite());
@@ -2567,9 +3025,9 @@ mod tests {
         let epsilon = 0.27;
         let log_delta = -0.31;
         let h = 1e-5;
-        let j0 = sas_inverse_link_jet(eta, epsilon, log_delta);
-        let jp = sas_inverse_link_jet(eta + h, epsilon, log_delta);
-        let jm = sas_inverse_link_jet(eta - h, epsilon, log_delta);
+        let j0 = sas_inverse_link_jet(eta, epsilon, log_delta).expect("finite SAS eta");
+        let jp = sas_inverse_link_jet(eta + h, epsilon, log_delta).expect("finite SAS eta");
+        let jm = sas_inverse_link_jet(eta - h, epsilon, log_delta).expect("finite SAS eta");
         let d1fd = (jp.mu - jm.mu) / (2.0 * h);
         let d2fd = (jp.d1 - jm.d1) / (2.0 * h);
         let d3fd = (jp.d2 - jm.d2) / (2.0 * h);
@@ -2769,7 +3227,7 @@ mod tests {
     fn sas_center_matches_probit_at_delta1_epsilon0() {
         let etas = [-3.0, -1.2, -0.3, 0.0, 0.4, 1.7, 3.0];
         for eta in etas {
-            let sas = sas_inverse_link_jet(eta, 0.0, 0.0);
+            let sas = sas_inverse_link_jet(eta, 0.0, 0.0).expect("finite SAS eta");
             let probit = ProbitLinkKernel.jet(eta).expect("probit");
             // SAS implementation uses a smooth bounded latent (`tanh_bound`) for
             // numerical robustness, so the probit center is approximate in practice.

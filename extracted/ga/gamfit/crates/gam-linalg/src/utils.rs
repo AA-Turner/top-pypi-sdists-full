@@ -1,8 +1,9 @@
 use crate::LinalgError;
 use crate::faer_ndarray::{
-    FaerArrayView, FaerLinalgError, array2_to_matmut, factorize_symmetricwith_fallback,
+    FaerArrayView, FaerCholeskyFactor, FaerLinalgError, array2_to_matmut,
+    factorize_symmetricwith_fallback, strict_symmetric_eigh,
 };
-use crate::faer_ndarray::{FaerCholesky, FaerEigh, FaerSvd};
+use crate::faer_ndarray::{FaerCholesky, FaerEigh};
 use crate::matrix::symmetrize_in_place;
 use crate::pcg::{DotReduction, PcgCoreResult, PcgDiagnostics, PcgStop, pcg_core};
 use faer::Side;
@@ -144,57 +145,541 @@ pub fn inf_norm<I: IntoIterator<Item = f64>>(values: I) -> f64 {
     values.into_iter().fold(0.0_f64, |acc, x| acc.max(x.abs()))
 }
 
-pub fn calculate_condition_number(matrix: &Array2<f64>) -> Result<f64, FaerLinalgError> {
-    let (rows, cols) = matrix.dim();
-    if rows == 0 || cols == 0 {
-        return Ok(1.0);
-    }
 
-    // Fast path for (near-)symmetric square matrices.
-    if rows == cols {
-        let mut max_abs = 0.0_f64;
-        let mut max_asym = 0.0_f64;
-        for i in 0..rows {
-            for j in 0..cols {
-                max_abs = max_abs.max(matrix[[i, j]].abs());
-            }
-            for j in 0..i {
-                let diff = (matrix[[i, j]] - matrix[[j, i]]).abs();
-                if diff > max_asym {
-                    max_asym = diff;
-                }
-            }
-        }
-        let sym_tol = max_abs.max(1.0) * 1e-12;
-        if max_asym <= sym_tol {
-            let (evals, _) = matrix.eigh(Side::Lower)?;
-            let mut max_abs_eval = 0.0_f64;
-            let mut min_abs_eval = f64::INFINITY;
-            for &lam in evals.iter() {
-                let s = lam.abs();
-                max_abs_eval = max_abs_eval.max(s);
-                min_abs_eval = min_abs_eval.min(s);
-            }
-            if min_abs_eval < 1e-12 {
-                return Ok(f64::INFINITY);
-            }
-            return Ok(max_abs_eval / min_abs_eval);
-        }
-    }
-
-    // General matrix fallback.
-    let (_, s, _) = matrix.svd(false, false)?;
-    let max_sv = s.iter().fold(0.0_f64, |max, &val| max.max(val));
-    let min_sv = s.iter().fold(f64::INFINITY, |min, &val| min.min(val));
-    if min_sv < 1e-12 {
-        return Ok(f64::INFINITY);
-    }
-    Ok(max_sv / min_sv)
+/// A posteriori certificate for an unperturbed symmetric linear solve.
+///
+/// The reported backward error is the max-entry norm bound
+///
+/// `||A X - B||max / (n ||A||max ||X||max + ||B||max)`.
+///
+/// This denominator is the forward-error scale of a length-`n` dot product,
+/// so the ratio is invariant to uniform rescaling of either side.  Products in
+/// the denominator are evaluated in the log domain, which keeps the
+/// certificate meaningful when `||A||max * ||X||max` would overflow even
+/// though every matrix entry and the computed solution are representable.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SymmetricSolveCertificate {
+    pub dimension: usize,
+    pub matrix_max_abs: f64,
+    pub solution_max_abs: f64,
+    pub rhs_max_abs: f64,
+    pub residual_max_abs: f64,
+    pub max_norm_backward_error: f64,
+    pub allowed_backward_error: f64,
 }
 
-const HESSIAN_CONDITION_TARGET: f64 = 1e10;
-const MAX_FACTORIZATION_ATTEMPTS: usize = 4;
-const MAX_SOLVE_RETRIES: usize = 8;
+/// Certified solution of an unperturbed symmetric vector system.
+#[derive(Debug)]
+pub struct CertifiedSymmetricSolution {
+    solution: Array1<f64>,
+    certificate: SymmetricSolveCertificate,
+}
+
+impl CertifiedSymmetricSolution {
+    #[inline]
+    pub fn solution(&self) -> &Array1<f64> {
+        &self.solution
+    }
+
+    #[inline]
+    pub fn certificate(&self) -> SymmetricSolveCertificate {
+        self.certificate
+    }
+
+    #[inline]
+    pub fn into_solution(self) -> Array1<f64> {
+        self.solution
+    }
+}
+
+/// Certified inverse of an unperturbed symmetric positive-definite matrix.
+#[derive(Debug)]
+pub struct CertifiedSpdInverse {
+    inverse: Array2<f64>,
+    certificate: SymmetricSolveCertificate,
+}
+
+/// Strict, unjittered Cholesky factor coupled to the exact matrix it
+/// factorized, so every subsequent solve can be certified against that same
+/// unperturbed matrix.
+pub struct CertifiedSpdFactor<'a> {
+    matrix: &'a Array2<f64>,
+    matrix_max_abs: f64,
+    factor: FaerCholeskyFactor,
+    label: String,
+}
+
+impl CertifiedSpdFactor<'_> {
+    /// Solve one right-hand side and certify the residual against the original
+    /// matrix retained by this factor.
+    pub fn solve(
+        &self,
+        rhs: &Array1<f64>,
+    ) -> Result<CertifiedSymmetricSolution, CertifiedSymmetricSolveError> {
+        if rhs.len() != self.matrix.nrows() {
+            return Err(CertifiedSymmetricSolveError::InvalidRhsShape {
+                label: self.label.clone(),
+                expected: self.matrix.nrows(),
+                actual: rhs.len(),
+            });
+        }
+        let rhs_matrix = rhs.view().insert_axis(ndarray::Axis(1)).to_owned();
+        let solution = self.factor.solve_mat(&rhs_matrix);
+        let certificate = certify_symmetric_matrix_solution(
+            self.matrix,
+            self.matrix_max_abs,
+            &rhs_matrix,
+            &solution,
+            &self.label,
+        )?;
+        Ok(CertifiedSymmetricSolution {
+            solution: solution.column(0).to_owned(),
+            certificate,
+        })
+    }
+
+    /// Solve multiple right-hand sides and return the solution plus its shared
+    /// max-norm backward-error certificate.
+    pub fn solve_matrix(
+        &self,
+        rhs: &Array2<f64>,
+    ) -> Result<(Array2<f64>, SymmetricSolveCertificate), CertifiedSymmetricSolveError> {
+        if rhs.nrows() != self.matrix.nrows() {
+            return Err(CertifiedSymmetricSolveError::InvalidRhsShape {
+                label: self.label.clone(),
+                expected: self.matrix.nrows(),
+                actual: rhs.nrows(),
+            });
+        }
+        let solution = self.factor.solve_mat(rhs);
+        let certificate = certify_symmetric_matrix_solution(
+            self.matrix,
+            self.matrix_max_abs,
+            rhs,
+            &solution,
+            &self.label,
+        )?;
+        Ok((solution, certificate))
+    }
+
+    /// Invert the retained SPD matrix and certify `A A⁻¹ = I`.
+    pub fn inverse(&self) -> Result<CertifiedSpdInverse, CertifiedSymmetricSolveError> {
+        let rhs = Array2::<f64>::eye(self.matrix.nrows());
+        let mut inverse = self.factor.solve_mat(&rhs);
+        // Independent identity columns can differ by a few solve-roundoff bits;
+        // project those bits back to the analytic symmetry, then recertify.
+        symmetrize_in_place(&mut inverse);
+        let certificate = certify_symmetric_matrix_solution(
+            self.matrix,
+            self.matrix_max_abs,
+            &rhs,
+            &inverse,
+            &self.label,
+        )?;
+        Ok(CertifiedSpdInverse {
+            inverse,
+            certificate,
+        })
+    }
+}
+
+impl CertifiedSpdInverse {
+    #[inline]
+    pub fn inverse(&self) -> &Array2<f64> {
+        &self.inverse
+    }
+
+    #[inline]
+    pub fn certificate(&self) -> SymmetricSolveCertificate {
+        self.certificate
+    }
+
+    #[inline]
+    pub fn into_inverse(self) -> Array2<f64> {
+        self.inverse
+    }
+}
+
+/// Why an unperturbed symmetric solve could not be certified.
+#[derive(Debug, thiserror::Error, PartialEq)]
+pub enum CertifiedSymmetricSolveError {
+    #[error("{label}: symmetric system must be non-empty and square, got {rows}x{cols}")]
+    InvalidMatrixShape {
+        label: String,
+        rows: usize,
+        cols: usize,
+    },
+    #[error("{label}: right-hand side must have {expected} rows, got {actual}")]
+    InvalidRhsShape {
+        label: String,
+        expected: usize,
+        actual: usize,
+    },
+    #[error("{label}: invalid residual-certificate inputs: {reason}")]
+    InvalidCertificateInput { label: String, reason: String },
+    #[error("{label}: matrix entry ({row}, {col}) is non-finite: {value:?}")]
+    NonFiniteMatrix {
+        label: String,
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    #[error("{label}: right-hand side entry ({row}, {col}) is non-finite: {value:?}")]
+    NonFiniteRhs {
+        label: String,
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    #[error(
+        "{label}: matrix is not symmetric at ({row}, {col}): {lower:?} versus {upper:?} \
+         (defect {defect:.3e} exceeds {tolerance:.3e})"
+    )]
+    NotSymmetric {
+        label: String,
+        row: usize,
+        col: usize,
+        lower: f64,
+        upper: f64,
+        defect: f64,
+        tolerance: f64,
+    },
+    #[error("{label}: unperturbed symmetric factorization failed: {reason}")]
+    Factorization { label: String, reason: String },
+    #[error("{label}: matrix is not strictly positive definite: {reason}")]
+    NotPositiveDefinite { label: String, reason: String },
+    #[error("{label}: solution entry ({row}, {col}) is non-finite: {value:?}")]
+    NonFiniteSolution {
+        label: String,
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    #[error("{label}: residual entry ({row}, {col}) is non-finite: {value:?}")]
+    NonFiniteResidual {
+        label: String,
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    #[error(
+        "{label}: unperturbed solve failed its backward-error certificate: \
+         eta={backward_error:.3e} > {allowed:.3e} (max residual {residual_max_abs:.3e})"
+    )]
+    BackwardErrorTooLarge {
+        label: String,
+        backward_error: f64,
+        allowed: f64,
+        residual_max_abs: f64,
+    },
+}
+
+const SYMMETRY_ULP_ALLOWANCE: f64 = 32.0;
+const SOLVE_ROUNDOFF_OPS_PER_DIMENSION: f64 = 256.0;
+
+#[inline]
+fn positive_ulp(value: f64) -> f64 {
+    assert!(value.is_finite() && value >= 0.0);
+    if value == 0.0 {
+        return f64::from_bits(1);
+    }
+    let next = f64::from_bits(value.to_bits() + 1);
+    if next.is_finite() {
+        next - value
+    } else {
+        value - f64::from_bits(value.to_bits() - 1)
+    }
+}
+
+/// Validate a non-empty finite square matrix and reject material asymmetry with
+/// a pairwise ULP-scaled test. Returns its exact max-entry norm.
+pub fn validate_finite_symmetric_matrix(
+    matrix: &Array2<f64>,
+    label: &str,
+) -> Result<f64, CertifiedSymmetricSolveError> {
+    let (rows, cols) = matrix.dim();
+    if rows == 0 || cols != rows {
+        return Err(CertifiedSymmetricSolveError::InvalidMatrixShape {
+            label: label.to_string(),
+            rows,
+            cols,
+        });
+    }
+    let mut matrix_max_abs = 0.0_f64;
+    for ((row, col), &value) in matrix.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CertifiedSymmetricSolveError::NonFiniteMatrix {
+                label: label.to_string(),
+                row,
+                col,
+                value,
+            });
+        }
+        matrix_max_abs = matrix_max_abs.max(value.abs());
+    }
+    for row in 0..rows {
+        for col in 0..row {
+            let lower = matrix[[row, col]];
+            let upper = matrix[[col, row]];
+            let defect = (lower - upper).abs();
+            let pair_scale = lower.abs().max(upper.abs());
+            let tolerance = SYMMETRY_ULP_ALLOWANCE * positive_ulp(pair_scale);
+            if defect > tolerance {
+                return Err(CertifiedSymmetricSolveError::NotSymmetric {
+                    label: label.to_string(),
+                    row,
+                    col,
+                    lower,
+                    upper,
+                    defect,
+                    tolerance,
+                });
+            }
+        }
+    }
+    Ok(matrix_max_abs)
+}
+
+#[inline]
+fn max_abs_matrix(matrix: &Array2<f64>) -> f64 {
+    matrix.iter().copied().map(f64::abs).fold(0.0_f64, f64::max)
+}
+
+fn max_norm_backward_error(
+    dimension: usize,
+    matrix_max_abs: f64,
+    solution_max_abs: f64,
+    rhs_max_abs: f64,
+    residual_max_abs: f64,
+) -> f64 {
+    if residual_max_abs == 0.0 {
+        return 0.0;
+    }
+    let product_log = if matrix_max_abs == 0.0 || solution_max_abs == 0.0 {
+        f64::NEG_INFINITY
+    } else {
+        (dimension as f64).ln() + matrix_max_abs.ln() + solution_max_abs.ln()
+    };
+    let rhs_log = if rhs_max_abs == 0.0 {
+        f64::NEG_INFINITY
+    } else {
+        rhs_max_abs.ln()
+    };
+    let largest = product_log.max(rhs_log);
+    if largest == f64::NEG_INFINITY {
+        return f64::INFINITY;
+    }
+    let denominator_log =
+        largest + ((product_log - largest).exp() + (rhs_log - largest).exp()).ln();
+    (residual_max_abs.ln() - denominator_log).exp()
+}
+
+#[inline]
+fn solve_backward_error_allowance(dimension: usize) -> f64 {
+    let roundoff = SOLVE_ROUNDOFF_OPS_PER_DIMENSION * dimension as f64 * f64::EPSILON;
+    roundoff / (1.0 - roundoff)
+}
+
+fn certify_symmetric_matrix_solution(
+    matrix: &Array2<f64>,
+    matrix_max_abs: f64,
+    rhs: &Array2<f64>,
+    solution: &Array2<f64>,
+    label: &str,
+) -> Result<SymmetricSolveCertificate, CertifiedSymmetricSolveError> {
+    let residual = matrix.dot(solution) - rhs;
+    certify_linear_system_residual(
+        matrix.nrows(),
+        matrix_max_abs,
+        rhs,
+        solution,
+        &residual,
+        label,
+    )
+}
+
+/// Certify a solve performed by an exact dense or sparse factorization from
+/// its residual `A X - B` and the exact matrix max-entry norm.
+///
+/// This is the shared certification boundary for operator-backed systems that
+/// cannot materialize `A` merely to call [`certified_symmetric_solve`].  It does
+/// not establish symmetry or positive-definiteness; callers must obtain those
+/// from their exact matrix representation and strict factorization.
+pub fn certify_linear_system_residual(
+    dimension: usize,
+    matrix_max_abs: f64,
+    rhs: &Array2<f64>,
+    solution: &Array2<f64>,
+    residual: &Array2<f64>,
+    label: &str,
+) -> Result<SymmetricSolveCertificate, CertifiedSymmetricSolveError> {
+    if dimension == 0
+        || !matrix_max_abs.is_finite()
+        || matrix_max_abs < 0.0
+        || rhs.nrows() != dimension
+        || solution.dim() != rhs.dim()
+        || residual.dim() != rhs.dim()
+    {
+        return Err(CertifiedSymmetricSolveError::InvalidCertificateInput {
+            label: label.to_string(),
+            reason: format!(
+                "dimension={dimension}, matrix_max_abs={matrix_max_abs:?}, rhs={:?}, solution={:?}, residual={:?}",
+                rhs.dim(),
+                solution.dim(),
+                residual.dim()
+            ),
+        });
+    }
+    for ((row, col), &value) in rhs.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CertifiedSymmetricSolveError::NonFiniteRhs {
+                label: label.to_string(),
+                row,
+                col,
+                value,
+            });
+        }
+    }
+    for ((row, col), &value) in solution.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CertifiedSymmetricSolveError::NonFiniteSolution {
+                label: label.to_string(),
+                row,
+                col,
+                value,
+            });
+        }
+    }
+    for ((row, col), &value) in residual.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CertifiedSymmetricSolveError::NonFiniteResidual {
+                label: label.to_string(),
+                row,
+                col,
+                value,
+            });
+        }
+    }
+    let solution_max_abs = max_abs_matrix(solution);
+    let rhs_max_abs = max_abs_matrix(rhs);
+    let residual_max_abs = max_abs_matrix(residual);
+    let max_norm_backward_error = max_norm_backward_error(
+        dimension,
+        matrix_max_abs,
+        solution_max_abs,
+        rhs_max_abs,
+        residual_max_abs,
+    );
+    let allowed_backward_error = solve_backward_error_allowance(dimension);
+    if !max_norm_backward_error.is_finite() || max_norm_backward_error > allowed_backward_error {
+        return Err(CertifiedSymmetricSolveError::BackwardErrorTooLarge {
+            label: label.to_string(),
+            backward_error: max_norm_backward_error,
+            allowed: allowed_backward_error,
+            residual_max_abs,
+        });
+    }
+    Ok(SymmetricSolveCertificate {
+        dimension,
+        matrix_max_abs,
+        solution_max_abs,
+        rhs_max_abs,
+        residual_max_abs,
+        max_norm_backward_error,
+        allowed_backward_error,
+    })
+}
+
+fn certified_symmetric_matrix_solve(
+    matrix: &Array2<f64>,
+    rhs: &Array2<f64>,
+    label: &str,
+) -> Result<(Array2<f64>, SymmetricSolveCertificate), CertifiedSymmetricSolveError> {
+    let matrix_max_abs = validate_finite_symmetric_matrix(matrix, label)?;
+    if rhs.nrows() != matrix.nrows() {
+        return Err(CertifiedSymmetricSolveError::InvalidRhsShape {
+            label: label.to_string(),
+            expected: matrix.nrows(),
+            actual: rhs.nrows(),
+        });
+    }
+    for ((row, col), &value) in rhs.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CertifiedSymmetricSolveError::NonFiniteRhs {
+                label: label.to_string(),
+                row,
+                col,
+                value,
+            });
+        }
+    }
+    let factor = StableSolver::new()
+        .factorize(matrix)
+        .map_err(|error| CertifiedSymmetricSolveError::Factorization {
+            label: label.to_string(),
+            reason: error.to_string(),
+        })?;
+    let mut solution = rhs.clone();
+    let mut solution_view = array2_to_matmut(&mut solution);
+    factor.solve_in_place(solution_view.as_mut());
+    let certificate =
+        certify_symmetric_matrix_solution(matrix, matrix_max_abs, rhs, &solution, label)?;
+    Ok((solution, certificate))
+}
+
+/// Solve `matrix * x = rhs` without adding a ridge, dropping a rank, or
+/// changing the supplied estimand.  Singular and numerically unrepresentable
+/// systems are errors; success carries an a posteriori backward-error proof.
+pub fn certified_symmetric_solve(
+    matrix: &Array2<f64>,
+    rhs: &Array1<f64>,
+    label: &str,
+) -> Result<CertifiedSymmetricSolution, CertifiedSymmetricSolveError> {
+    let mut rhs_matrix = Array2::<f64>::zeros((rhs.len(), 1));
+    rhs_matrix.column_mut(0).assign(rhs);
+    let (solution_matrix, certificate) =
+        certified_symmetric_matrix_solve(matrix, &rhs_matrix, label)?;
+    Ok(CertifiedSymmetricSolution {
+        solution: solution_matrix.column(0).to_owned(),
+        certificate,
+    })
+}
+
+/// Strictly factor a finite symmetric positive-definite matrix without
+/// diagonal jitter, spectral repair, or an indefinite LDLT/LBLT route.
+pub fn certified_spd_factorize<'a>(
+    matrix: &'a Array2<f64>,
+    label: &str,
+) -> Result<CertifiedSpdFactor<'a>, CertifiedSymmetricSolveError> {
+    let matrix_max_abs = validate_finite_symmetric_matrix(matrix, label)?;
+    let factor = matrix.cholesky(Side::Lower).map_err(|error| {
+        CertifiedSymmetricSolveError::NotPositiveDefinite {
+            label: label.to_string(),
+            reason: error.to_string(),
+        }
+    })?;
+    Ok(CertifiedSpdFactor {
+        matrix,
+        matrix_max_abs,
+        factor,
+        label: label.to_string(),
+    })
+}
+
+/// Invert a symmetric positive-definite matrix without an additive
+/// perturbation or spectral truncation.
+///
+/// Strict, unjittered Cholesky is the positive-definiteness certificate.  The
+/// inverse is then accepted only when `A * A^-1 = I` also satisfies the
+/// scale-aware backward-error certificate returned with it.  In particular,
+/// this routine never routes through the repaired eigendecomposition API or an
+/// LDLT/LBLT factorization that could bless an indefinite covariance.
+pub fn certified_spd_inverse(
+    matrix: &Array2<f64>,
+    label: &str,
+) -> Result<CertifiedSpdInverse, CertifiedSymmetricSolveError> {
+    certified_spd_factorize(matrix, label)?.inverse()
+}
 
 #[derive(Default, Clone, Copy)]
 pub struct KahanSum {
@@ -217,29 +702,11 @@ impl KahanSum {
     }
 }
 
-/// Compute `matrix^{-1}` with a stabilization ridge added solely to make
-/// the Cholesky factorization succeed.
-///
-/// **Stabilization semantics:** the ridge applied here is a
-/// [`StabilizationKind::NumericalPerturbation`](crate::types::StabilizationKind)
-/// — it does NOT change the model, the objective, the gradient, or
-/// anything serialized. The returned matrix is treated by callers as
-/// `(matrix)^{-1}`, not `(matrix + δ I)^{-1}`. Callers that genuinely
-/// need a model-level prior must build that prior into `matrix` *before*
-/// calling this function and pass through a `RidgePassport` /
-/// `StabilizationLedger::explicit_prior` so the same δ is also accounted
-/// for in objective, logdet, and saved state.
-pub fn matrix_inversewith_regularization(matrix: &Array2<f64>, label: &str) -> Option<Array2<f64>> {
-    StableSolver::new(label).inversewith_regularization(matrix)
-}
+pub struct StableSolver;
 
-pub struct StableSolver<'a> {
-    label: &'a str,
-}
-
-impl<'a> StableSolver<'a> {
-    pub fn new(label: &'a str) -> Self {
-        Self { label }
+impl StableSolver {
+    pub const fn new() -> Self {
+        Self
     }
 
     pub fn factorize(
@@ -264,205 +731,6 @@ impl<'a> StableSolver<'a> {
         factorize_symmetricwith_fallback(view.as_ref(), Side::Lower)
     }
 
-    pub fn inversewith_regularization(&self, matrix: &Array2<f64>) -> Option<Array2<f64>> {
-        let p = matrix.nrows();
-        if p == 0 || matrix.ncols() != p {
-            return None;
-        }
-
-        let mut planner = RidgePlanner::new(matrix);
-        let (factor, _, regularized) = self.factorize_with_ridge_plan(matrix, &mut planner)?;
-        let mut inv = Array2::<f64>::eye(p);
-        let mut invview = array2_to_matmut(&mut inv);
-        factor.solve_in_place(invview.as_mut());
-
-        if !inv.iter().all(|v| v.is_finite()) {
-            log::warn!("Non-finite inverse produced for {}", self.label);
-            return None;
-        }
-
-        // Numerical solves can leave tiny asymmetry; enforce symmetry explicitly.
-        symmetrize_in_place(&mut inv);
-        assert_eq!(regularized.nrows(), p);
-        Some(inv)
-    }
-
-    pub fn solvevectorwithridge_retries(
-        &self,
-        matrix: &Array2<f64>,
-        rhs: &Array1<f64>,
-        baseridge: f64,
-    ) -> Option<Array1<f64>> {
-        let p = matrix.nrows();
-        if matrix.ncols() != p || rhs.len() != p {
-            return None;
-        }
-
-        // Scale the ridge by the matrix's diagonal magnitude so it is
-        // *rank-revealing* rather than absolute. A fixed `baseridge = 1e-10`
-        // is meaningless for a Hessian whose largest diagonal is `O(1e8)`
-        // (relative perturbation `1e-18` — well below f64 round-off) and
-        // simultaneously over-regularises a diagonal of `O(1e-5)`. Anchoring
-        // the ridge to `max_abs_diag(H)` makes the relative regularisation
-        // strength independent of how the family scales its likelihood, so
-        // null directions (eigenvalues < ridge) get treated consistently
-        // across blocks. Without this, the joint-Newton solver returns
-        // proposals with `|prop|∞ ≈ |g|/σ_min(H) = O(1e5–1e12)` because the
-        // absolute `1e-10` ridge cannot reach the smallest eigenvalue of an
-        // O(1e-5)-scale block while the largest block has `σ_max = 1e8`.
-        let diag_scale = max_abs_diag(matrix);
-        for retry in 0..MAX_SOLVE_RETRIES {
-            let ridge = if baseridge > 0.0 {
-                baseridge * diag_scale * 10f64.powi(retry as i32)
-            } else {
-                0.0
-            };
-            let h = addridge(matrix, ridge);
-            let factor = match self.factorize(&h) {
-                Ok(f) => f,
-                Err(_) => continue,
-            };
-            let mut out = rhs.clone();
-            let mut out_mat = crate::faer_ndarray::array1_to_col_matmut(&mut out);
-            factor.solve_in_place(out_mat.as_mut());
-            if out.iter().all(|v| v.is_finite()) {
-                return Some(out);
-            }
-        }
-        None
-    }
-
-    /// Solve `matrix · δ = rhs` with a rank-revealing fallback for the
-    /// case where `matrix` has a near-null subspace aligned with `rhs`.
-    ///
-    /// First attempts the regularised Cholesky path
-    /// (`solvevectorwithridge_retries`). If the produced δ satisfies the
-    /// linear equation well (`‖matrix·δ − rhs‖∞ / (1 + ‖rhs‖∞) < rel_tol`),
-    /// returns it. Otherwise the matrix has a real null subspace and the
-    /// Tikhonov-regularised Newton step leaves a residual of magnitude
-    /// ≈ ‖rhs_null‖ — the joint-Newton convergence test then fails
-    /// (`linearized_rel ≈ 1`) and the seed is rejected.
-    ///
-    /// In that case we fall back to the truncated-eigendecomposition
-    /// pseudoinverse:
-    ///
-    /// ```text
-    /// δ = Σ_k (uₖᵀ rhs / λₖ) · uₖ      for k with |λₖ| > cutoff
-    /// ```
-    ///
-    /// where `(λₖ, uₖ)` are the eigenpairs of `matrix` (assumed symmetric).
-    /// Components in `null(matrix)` (i.e. |λₖ| ≤ cutoff) are *excluded* from
-    /// the sum. This is the unique minimum-norm least-squares solution to
-    /// `matrix · δ ≈ rhs`. For components of `rhs` in `range(matrix)`, δ
-    /// solves the equation exactly; for components in `null(matrix)`, δ has
-    /// zero contribution (no spurious huge step) and the joint-Newton's
-    /// constrained-stationary certificate sees a *correctly small*
-    /// projected residual.
-    ///
-    /// The cutoff is `rank_tol × max(|λ|)`, the standard rank-revealing
-    /// threshold. For p ≲ a few hundred (joint Newton at large scale
-    /// has p = 33) the eigendecomposition is sub-millisecond and saves
-    /// the entire outer optimisation from rejecting ill-conditioned ρ.
-    pub fn solve_with_pseudoinverse_fallback(
-        &self,
-        matrix: &Array2<f64>,
-        rhs: &Array1<f64>,
-        baseridge: f64,
-        rel_tol: f64,
-        rank_tol: f64,
-    ) -> Option<Array1<f64>> {
-        use crate::faer_ndarray::FaerEigh;
-        use faer::Side;
-
-        let p = matrix.nrows();
-        if matrix.ncols() != p || rhs.len() != p {
-            return None;
-        }
-
-        // First try the regularised Cholesky path.
-        let delta = self.solvevectorwithridge_retries(matrix, rhs, baseridge)?;
-
-        // Compute the linear residual ‖matrix·δ − rhs‖∞ / (1 + ‖rhs‖∞)
-        // — the same quantity the joint-Newton convergence test reads off as
-        // `linearized_next_kkt_inf` / (1 + `old_kkt_inf`).
-        let matrix_delta = matrix.dot(&delta);
-        let residual_inf = matrix_delta
-            .iter()
-            .zip(rhs.iter())
-            .map(|(h, r)| (h - r).abs())
-            .fold(0.0_f64, f64::max);
-        let rhs_inf = rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-        let rel = residual_inf / (1.0 + rhs_inf);
-
-        if rel.is_finite() && rel < rel_tol {
-            return Some(delta);
-        }
-
-        // Rank-deficient. Use truncated eigendecomposition pseudoinverse.
-        let (eigvals, eigvecs) = matrix.eigh(Side::Lower).ok()?;
-        let max_abs_eig = eigvals.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-        if !max_abs_eig.is_finite() || max_abs_eig <= 0.0 {
-            return Some(delta);
-        }
-        let cutoff = rank_tol * max_abs_eig;
-
-        let mut pseudo = Array1::<f64>::zeros(p);
-        let mut excluded = 0usize;
-        for k in 0..p {
-            let lam = eigvals[k];
-            if !lam.is_finite() || lam.abs() <= cutoff {
-                excluded += 1;
-                continue;
-            }
-            let u_k = eigvecs.column(k);
-            let proj = u_k.iter().zip(rhs.iter()).map(|(u, r)| u * r).sum::<f64>();
-            let scale = proj / lam;
-            for i in 0..p {
-                pseudo[i] += scale * u_k[i];
-            }
-        }
-
-        if !pseudo.iter().all(|v| v.is_finite()) {
-            return Some(delta);
-        }
-
-        log::debug!(
-            "[{}] pseudoinverse fallback engaged: rel = {:.3e} > rel_tol = {:.3e}, \
-             excluded {} of {} eigenvalues below cutoff = {:.3e} × max |λ| = {:.3e}",
-            self.label,
-            rel,
-            rel_tol,
-            excluded,
-            p,
-            rank_tol,
-            max_abs_eig,
-        );
-
-        Some(pseudo)
-    }
-
-    fn factorize_with_ridge_plan(
-        &self,
-        matrix: &Array2<f64>,
-        planner: &mut RidgePlanner,
-    ) -> Option<(crate::faer_ndarray::FaerSymmetricFactor, f64, Array2<f64>)> {
-        loop {
-            let ridge = planner.ridge();
-            let h_eff = addridge(matrix, ridge);
-            if let Ok(factor) = self.factorize(&h_eff) {
-                return Some((factor, ridge, h_eff));
-            }
-            if planner.attempts() >= MAX_FACTORIZATION_ATTEMPTS {
-                log::warn!(
-                    "Failed to factorize {} after ridge {:.3e}",
-                    self.label,
-                    ridge
-                );
-                return None;
-            }
-            planner.bumpwith_matrix(matrix);
-        }
-    }
 }
 
 pub fn max_abs_diag(matrix: &Array2<f64>) -> f64 {
@@ -512,20 +780,6 @@ pub fn predict_gam_dimension_mismatch_message(
     None::<String>
 }
 
-pub fn add_relative_diag_ridge(matrix: &mut Array2<f64>, scale: f64, floor: f64) -> f64 {
-    let ridge = scale
-        * matrix
-            .diag()
-            .iter()
-            .map(|&value| value.abs())
-            .fold(0.0, f64::max)
-            .max(floor);
-    for idx in 0..matrix.nrows() {
-        matrix[[idx, idx]] += ridge;
-    }
-    ridge
-}
-
 pub fn boundary_hit_indices(
     values: ArrayView1<'_, f64>,
     bound: f64,
@@ -553,41 +807,34 @@ pub fn boundary_hit_indices(
 /// infinite even when the matrix is well-scaled). When the spectrum sign is
 /// unknown, inspect inertia directly via [`symmetric_extremes`].
 pub fn symmetric_spectrum_condition_number(matrix: &Array2<f64>) -> f64 {
-    matrix
-        .eigh(Side::Lower)
-        .ok()
-        .map(|(evals, _)| {
-            let min = evals
-                .iter()
-                .fold(f64::INFINITY, |acc, &value| acc.min(value));
-            let max = evals
-                .iter()
-                .fold(f64::NEG_INFINITY, |acc, &value| acc.max(value));
-            max / min.max(1e-12)
-        })
+    symmetric_extremes(matrix)
+        .map(|(min, max)| max / min.max(1e-12))
         .unwrap_or(f64::NAN)
 }
 
-/// Estimate min/max eigenvalues of a symmetric matrix via a short
-/// `eigh` call. Used by the inertia-aware stabilization rule below.
-/// Returns `None` if the eigensolver fails.
+/// Smallest and largest eigenvalues `(λ_min, λ_max)` of a symmetric matrix,
+/// obtained from the symmetric eigensolver. Unlike
+/// [`symmetric_spectrum_condition_number`], this makes **no** positive-definiteness
+/// assumption — it is the primitive for inspecting inertia directly (the sign of
+/// `λ_min` tells whether the matrix is PD). Returns `None` when the matrix is
+/// empty or the eigensolve fails (e.g. non-finite entries), so callers can treat
+/// "spectrum unavailable" distinctly from any concrete eigenvalue.
 pub fn symmetric_extremes(matrix: &Array2<f64>) -> Option<(f64, f64)> {
-    let (evals, _) = matrix.eigh(Side::Lower).ok()?;
-    let mut min = f64::INFINITY;
-    let mut max = f64::NEG_INFINITY;
-    for &v in evals.iter() {
-        if v < min {
-            min = v;
-        }
-        if v > max {
-            max = v;
-        }
+    if matrix.nrows() == 0 || matrix.ncols() == 0 {
+        return None;
     }
-    if min.is_finite() && max.is_finite() {
+    matrix.eigh(Side::Lower).ok().and_then(|(evals, _)| {
+        if evals.is_empty() {
+            return None;
+        }
+        let min = evals
+            .iter()
+            .fold(f64::INFINITY, |acc, &value| acc.min(value));
+        let max = evals
+            .iter()
+            .fold(f64::NEG_INFINITY, |acc, &value| acc.max(value));
         Some((min, max))
-    } else {
-        None
-    }
+    })
 }
 
 pub fn addridge(matrix: &Array2<f64>, ridge: f64) -> Array2<f64> {
@@ -831,117 +1078,6 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct RidgePlanner {
-    cond_estimate: Option<f64>,
-    ridge: f64,
-    attempts: usize,
-    scale: f64,
-}
-
-impl RidgePlanner {
-    pub fn new(matrix: &Array2<f64>) -> Self {
-        let scale = max_abs_diag(matrix);
-        let min_step = scale * 1e-10;
-        // Most Hessians factorize on the first attempt. Avoid an eager exact
-        // condition-number decomposition here and only pay for spectral
-        // diagnostics after an actual factorization failure.
-        //
-        // RidgePlanner is *strictly* a numerical-perturbation device: the
-        // perturbation is applied so a Cholesky factorization succeeds for
-        // an inverse / linear solve, and the matrix the caller hands back
-        // to the rest of the system is the unperturbed one.
-        Self {
-            cond_estimate: None,
-            ridge: min_step,
-            attempts: 0,
-            scale,
-        }
-    }
-
-    pub fn ridge(&self) -> f64 {
-        self.ridge
-    }
-
-    #[inline]
-    fn estimate_conditionwithridge(&self, matrix: &Array2<f64>, ridge: f64) -> Option<f64> {
-        let regularized = if ridge > 0.0 {
-            addridge(matrix, ridge)
-        } else {
-            matrix.clone()
-        };
-        calculate_condition_number(&regularized)
-            .ok()
-            .filter(|c| c.is_finite() && *c > 0.0)
-    }
-
-    pub fn bumpwith_matrix(&mut self, matrix: &Array2<f64>) {
-        self.attempts += 1;
-        let min_step = self.scale * 1e-10;
-        let base = self.ridge.max(min_step);
-
-        // Primary rule: inertia-target. Estimate λ_min(H) on the unperturbed
-        // matrix; pick δ so that λ_min(H + δ I) ≥ τ for an SPD floor τ tied
-        // to the matrix scale. This is a defensible "make it positive
-        // definite by exactly the amount needed" rule, in contrast with
-        // condition-number sqrt heuristics that happen to land in the same
-        // ballpark only by coincidence.
-        let spd_floor = self.scale * 1e-8;
-        let mut next_ridge = if let Some((lam_min, _lam_max)) = symmetric_extremes(matrix) {
-            // δ = max(min_step, τ - λ_min). Multiply by a small safety
-            // factor (1.5×) on the deficit so a single eigensolver round-off
-            // does not leave us a hair below τ on the first retry.
-            let deficit = (spd_floor - lam_min).max(0.0);
-            let proposal = (1.5 * deficit).max(base * 1.5).max(min_step);
-            // Cap escalation per attempt so we don't shoot past what's
-            // needed when λ_min is wildly negative; the surrounding loop
-            // will re-bump up to MAX_FACTORIZATION_ATTEMPTS times.
-            proposal.min(base * 10.0)
-        } else {
-            f64::NAN
-        };
-
-        // Fallback rule: condition-number heuristic. Used only when the
-        // eigensolver itself failed (rare, usually means a non-finite
-        // matrix or extreme scaling).
-        if !next_ridge.is_finite() {
-            let cond_now = self.estimate_conditionwithridge(matrix, base);
-            self.cond_estimate = cond_now;
-            next_ridge = if let Some(cond) = cond_now {
-                let ratio = cond / HESSIAN_CONDITION_TARGET;
-                let mut multiplier = if ratio > 1.0 {
-                    ratio.sqrt().clamp(1.5, 10.0)
-                } else {
-                    (2.0 + self.attempts as f64).clamp(3.0, 10.0)
-                };
-                let mut proposal = base * multiplier;
-                if let Some(cond_next) = self.estimate_conditionwithridge(matrix, proposal)
-                    && cond_next > cond * 0.9
-                    && ratio > 1.0
-                {
-                    multiplier = (multiplier * 1.8).clamp(2.0, 10.0);
-                    proposal = base * multiplier;
-                }
-                proposal.max(min_step)
-            } else if self.ridge <= 0.0 {
-                min_step
-            } else {
-                (base * 10.0).max(min_step)
-            };
-        }
-
-        if !next_ridge.is_finite() || next_ridge <= 0.0 {
-            next_ridge = self.scale;
-        }
-
-        self.ridge = next_ridge;
-    }
-
-    pub fn attempts(&self) -> usize {
-        self.attempts
-    }
-}
-
 /// Weighted ridge (penalized least-squares) solve for a multi-output Gaussian
 /// response. Forms the weighted normal equations `XᵀWX (+ λ·penalty) β = XᵀWY`
 /// (row weights `W = diag(weights)`), factorizes the symmetric system via the
@@ -1142,98 +1278,113 @@ pub fn gaussian_weighted_ridge_batch(
     Ok((coefficients, fitted))
 }
 
-/// Rank and Moore–Penrose pseudoinverse of a symmetric PSD penalty matrix via
-/// its eigendecomposition, keeping eigenpairs whose eigenvalue exceeds a
-/// relative tolerance. Returns `(rank, pinv)`.
-pub fn block_penalty_rank_and_pinv(
+/// Rank-truncated pseudoinverse of an exact finite symmetric PSD matrix.
+#[derive(Debug)]
+pub struct RankCertifiedPsdPseudoinverse {
+    rank: usize,
+    relative_cutoff: f64,
+    absolute_cutoff: f64,
+    max_eigenvalue: f64,
+    pseudoinverse: Array2<f64>,
+}
+
+impl RankCertifiedPsdPseudoinverse {
+    #[inline]
+    pub const fn rank(&self) -> usize {
+        self.rank
+    }
+
+    #[inline]
+    pub const fn relative_cutoff(&self) -> f64 {
+        self.relative_cutoff
+    }
+
+    #[inline]
+    pub const fn absolute_cutoff(&self) -> f64 {
+        self.absolute_cutoff
+    }
+
+    #[inline]
+    pub const fn max_eigenvalue(&self) -> f64 {
+        self.max_eigenvalue
+    }
+
+    #[inline]
+    pub fn pseudoinverse(&self) -> &Array2<f64> {
+        &self.pseudoinverse
+    }
+
+    #[inline]
+    pub fn into_pseudoinverse(self) -> Array2<f64> {
+        self.pseudoinverse
+    }
+
+    #[inline]
+    pub fn into_rank_and_pseudoinverse(self) -> (usize, Array2<f64>) {
+        (self.rank, self.pseudoinverse)
+    }
+}
+
+/// Compute a declared rank-truncated PSD pseudoinverse from one strict,
+/// unjittered eigendecomposition of the supplied matrix.
+///
+/// Eigenvalues `lambda > relative_cutoff * lambda_max` define the certified
+/// range. Values at or below that explicit cutoff define the discarded null
+/// space. A negative eigenvalue is admitted only within the dimension-scaled
+/// eigensolver roundoff bound; material indefiniteness is an error. No absolute
+/// floor, repaired eigendecomposition, or fallback rank is hidden here.
+pub fn rank_certified_psd_pseudoinverse(
     penalty: &Array2<f64>,
-) -> Result<(usize, Array2<f64>), LinalgError> {
-    let (eigs, vecs) =
-        penalty
-            .to_owned()
-            .eigh(Side::Lower)
-            .map_err(|_| LinalgError::ModelIsIllConditioned {
-                condition_number: f64::INFINITY,
-            })?;
-    let max_abs = eigs.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    let tol = (1.0e-10 * max_abs).max(1.0e-14);
+    relative_cutoff: f64,
+) -> Result<RankCertifiedPsdPseudoinverse, LinalgError> {
+    if !relative_cutoff.is_finite() || !(0.0..1.0).contains(&relative_cutoff) {
+        return Err(LinalgError::InvalidInput(format!(
+            "PSD pseudoinverse relative cutoff must be finite in [0, 1), got {relative_cutoff:?}"
+        )));
+    }
+    let (eigs, vecs) = strict_symmetric_eigh(penalty, Side::Lower)
+        .map_err(|error| LinalgError::InvalidInput(error.to_string()))?;
+    let max_abs = eigs
+        .iter()
+        .fold(0.0_f64, |maximum, &value| maximum.max(value.abs()));
+    let max_eigenvalue = eigs
+        .iter()
+        .fold(0.0_f64, |maximum, &value| maximum.max(value));
+    let psd_roundoff = 128.0 * penalty.nrows() as f64 * f64::EPSILON * max_abs;
+    if let Some((index, &value)) = eigs
+        .iter()
+        .enumerate()
+        .find(|(_, value)| **value < -psd_roundoff)
+    {
+        return Err(LinalgError::InvalidInput(format!(
+            "PSD pseudoinverse input is indefinite at eigenvalue {index}: {value:.3e} < -{psd_roundoff:.3e}"
+        )));
+    }
+    let absolute_cutoff = relative_cutoff * max_eigenvalue;
     let mut rank = 0_usize;
     let mut scaled = Array2::<f64>::zeros(vecs.dim());
     for col in 0..eigs.len() {
-        if eigs[col] > tol {
+        if eigs[col] > absolute_cutoff {
             rank += 1;
             for row in 0..vecs.nrows() {
                 scaled[[row, col]] = vecs[[row, col]] / eigs[col];
             }
         }
     }
-    Ok((rank, scaled.dot(&vecs.t())))
-}
-
-/// Invert a symmetric positive-definite matrix, escalating a relative diagonal
-/// ridge until the Cholesky factorization succeeds (robust SPD inverse).
-pub fn invert_spd_with_ridge(
-    matrix: &Array2<f64>,
-    ridge_rel: f64,
-) -> Result<Array2<f64>, LinalgError> {
-    let n = matrix.nrows();
-    let eye = Array2::<f64>::eye(n);
-    let scale = (0..n).map(|i| matrix[[i, i]].abs()).fold(1.0_f64, f64::max);
-    let ridges = [0.0, ridge_rel, 1.0e-10, 1.0e-8, 1.0e-6, 1.0e-4];
-    for rel in ridges {
-        let mut candidate = matrix.clone();
-        if rel > 0.0 {
-            for i in 0..n {
-                candidate[[i, i]] += rel * scale;
-            }
-        }
-        if let Ok(chol) = candidate.cholesky(Side::Lower) {
-            return Ok(chol.solve_mat(&eye));
-        }
+    let mut pseudoinverse = scaled.dot(&vecs.t());
+    symmetrize_in_place(&mut pseudoinverse);
+    if pseudoinverse.iter().any(|value| !value.is_finite()) {
+        return Err(LinalgError::InvalidInput(
+            "PSD pseudoinverse is not representable at the declared rank cutoff".to_string(),
+        ));
     }
-    Err(LinalgError::ModelIsIllConditioned {
-        condition_number: f64::INFINITY,
+    Ok(RankCertifiedPsdPseudoinverse {
+        rank,
+        relative_cutoff,
+        absolute_cutoff,
+        max_eigenvalue,
+        pseudoinverse,
     })
-}
-
-/// Solve a symmetric (possibly indefinite/ill-conditioned) linear system via
-/// eigendecomposition with a spectral floor: eigenvalues below the floor are
-/// clamped (preserving sign) before inversion, stabilizing the solve.
-pub fn solve_symmetric_vector_with_floor(
-    matrix: &Array2<f64>,
-    rhs: &Array1<f64>,
-    ridge_rel: f64,
-) -> Result<Array1<f64>, LinalgError> {
-    let n = matrix.nrows();
-    let mut sym = matrix.clone();
-    symmetrize_in_place(&mut sym);
-    let (eigs, vecs) = sym
-        .eigh(Side::Lower)
-        .map_err(|_| LinalgError::ModelIsIllConditioned {
-            condition_number: f64::INFINITY,
-        })?;
-    let max_eig = eigs.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    let floor = (ridge_rel * max_eig.max(1.0)).max(1.0e-12);
-    let projected = vecs.t().dot(rhs);
-    let mut scaled = Array1::<f64>::zeros(n);
-    for i in 0..n {
-        let denom = if eigs[i].abs() >= floor {
-            eigs[i]
-        } else if eigs[i].is_sign_negative() {
-            -floor
-        } else {
-            floor
-        };
-        scaled[i] = projected[i] / denom;
-    }
-    let out = vecs.dot(&scaled);
-    if out.iter().all(|value| value.is_finite()) {
-        Ok(out)
-    } else {
-        Err(LinalgError::ModelIsIllConditioned {
-            condition_number: f64::INFINITY,
-        })
-    }
 }
 
 /// Solve a symmetric dense block system `H x = rhs` (single right-hand side)
@@ -1244,25 +1395,114 @@ pub fn solve_dense_block_system(
     rhs: &Array1<f64>,
     context: &str,
 ) -> Result<Array1<f64>, String> {
-    let mut rhs2 = Array2::<f64>::zeros((rhs.len(), 1));
-    for i in 0..rhs.len() {
-        rhs2[[i, 0]] = rhs[i];
+    certified_symmetric_solve(hessian, rhs, context)
+        .map(CertifiedSymmetricSolution::into_solution)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod certified_inverse_tests {
+    use super::{
+        CertifiedSymmetricSolveError, certified_spd_factorize, certified_spd_inverse,
+        certified_symmetric_solve, rank_certified_psd_pseudoinverse,
+    };
+    use ndarray::array;
+
+    #[test]
+    fn spd_inverse_never_adds_a_diagonal_perturbation() {
+        let tiny = 2.0_f64.powi(-40);
+        let matrix = array![[8.0, 0.0], [0.0, tiny]];
+        let certified = certified_spd_inverse(&matrix, "unperturbed diagonal").unwrap();
+        let inverse = certified.inverse();
+        assert_eq!(inverse[[0, 0]], 0.125);
+        assert_eq!(inverse[[1, 1]], 2.0_f64.powi(40));
+        assert_eq!(inverse[[0, 1]], 0.0);
+        assert_eq!(inverse[[1, 0]], 0.0);
+        assert!(
+            certified.certificate().max_norm_backward_error
+                <= certified.certificate().allowed_backward_error
+        );
     }
-    let factor =
-        factorize_symmetricwith_fallback(FaerArrayView::new(hessian).as_ref(), Side::Lower)
-            .map_err(|err| format!("{context} factorization failed: {err}"))?;
-    {
-        let mut rhs_view = array2_to_matmut(&mut rhs2);
-        factor.solve_in_place(rhs_view.as_mut());
+
+    #[test]
+    fn spd_inverse_rejects_invertible_indefinite_covariance() {
+        let indefinite = array![[1.0, 2.0], [2.0, 1.0]];
+        assert!(matches!(
+            certified_spd_inverse(&indefinite, "indefinite covariance"),
+            Err(CertifiedSymmetricSolveError::NotPositiveDefinite { .. })
+        ));
     }
-    let mut out = Array1::<f64>::zeros(rhs.len());
-    for i in 0..rhs.len() {
-        out[i] = rhs2[[i, 0]];
+
+    #[test]
+    fn singular_system_fails_deterministically_without_rank_truncation() {
+        let singular = array![[1.0, 1.0], [1.0, 1.0]];
+        let first = certified_spd_inverse(&singular, "singular covariance")
+            .unwrap_err()
+            .to_string();
+        let second = certified_spd_inverse(&singular, "singular covariance")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(first, second);
+        assert!(first.contains("not strictly positive definite"));
     }
-    if out.iter().any(|v| !v.is_finite()) {
-        return Err(format!("{context} solve produced non-finite coefficients"));
+
+    #[test]
+    fn finite_and_symmetry_validation_reports_first_bad_coordinate() {
+        let non_finite = array![[1.0, f64::NAN], [f64::NAN, 1.0]];
+        assert!(matches!(
+            certified_spd_inverse(&non_finite, "non-finite"),
+            Err(CertifiedSymmetricSolveError::NonFiniteMatrix { row: 0, col: 1, .. })
+        ));
+
+        let asymmetric = array![[2.0, 0.25], [0.5, 2.0]];
+        assert!(matches!(
+            certified_spd_inverse(&asymmetric, "asymmetric"),
+            Err(CertifiedSymmetricSolveError::NotSymmetric { row: 1, col: 0, .. })
+        ));
     }
-    Ok(out)
+
+    #[test]
+    fn borrowed_spd_factor_certifies_solve_at_extreme_uniform_scale() {
+        let scale = 2.0_f64.powi(500);
+        let matrix = array![[4.0 * scale, scale], [scale, 3.0 * scale]];
+        let rhs = array![scale, -2.0 * scale];
+        let factor = certified_spd_factorize(&matrix, "scaled solve").unwrap();
+        let solved = factor.solve(&rhs).unwrap();
+        assert!(
+            solved.certificate().max_norm_backward_error
+                <= solved.certificate().allowed_backward_error
+        );
+        let residual = matrix.dot(solved.solution()) - &rhs;
+        assert!(residual.iter().all(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn exact_symmetric_solve_admits_nonsingular_indefinite_system_without_fallback() {
+        let matrix = array![[0.0, 2.0], [2.0, 0.0]];
+        let rhs = array![4.0, 6.0];
+        let solved = certified_symmetric_solve(&matrix, &rhs, "indefinite equation").unwrap();
+        assert_eq!(solved.solution(), &array![3.0, 2.0]);
+        assert_eq!(solved.certificate().residual_max_abs, 0.0);
+    }
+
+    #[test]
+    fn psd_pseudoinverse_reports_the_declared_scale_invariant_rank_cutoff() {
+        let matrix = array![[1.0e-200, 0.0], [0.0, 1.0e-212]];
+        let geometry = rank_certified_psd_pseudoinverse(&matrix, 1.0e-10).unwrap();
+        assert_eq!(geometry.rank(), 1);
+        assert_eq!(geometry.relative_cutoff(), 1.0e-10);
+        assert_eq!(geometry.absolute_cutoff(), 1.0e-210);
+        assert_eq!(geometry.max_eigenvalue(), 1.0e-200);
+        assert!(geometry.pseudoinverse()[[0, 0]].is_finite());
+        assert_eq!(geometry.pseudoinverse()[[1, 1]], 0.0);
+    }
+
+    #[test]
+    fn psd_pseudoinverse_rejects_material_indefiniteness_instead_of_repairing_it() {
+        let matrix = array![[1.0, 0.0], [0.0, -1.0e-4]];
+        let error = rank_certified_psd_pseudoinverse(&matrix, 1.0e-10).unwrap_err();
+        assert!(error.to_string().contains("indefinite"));
+    }
 }
 
 #[cfg(test)]
@@ -1428,7 +1668,7 @@ mod tests {
         ];
         let rhs = array![1.0, -0.5, 2.0, 0.75];
         let precond = h.diag().to_owned();
-        let factor = super::StableSolver::new("synthetic dense reference")
+        let factor = super::StableSolver::new()
             .factorize(&h)
             .expect("dense SPD reference");
         let mut dense = rhs.clone();

@@ -48,7 +48,7 @@ pub(crate) fn sae_torus_atom_recovers_two_frequency_synthetic() {
     // Penalty: identity-on-non-constant + tiny floor on constant.
     let mut penalty = Array2::<f64>::eye(m);
     penalty *= 1.0e-4;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "torus_atom",
         SaeAtomBasisKind::Torus,
         d,
@@ -130,7 +130,7 @@ pub(crate) fn sae_sphere_atom_recovers_synthetic_signal() {
     let m = phi0.ncols();
     let mut penalty = Array2::<f64>::eye(m);
     penalty *= 1.0e-4;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "sphere_atom",
         SaeAtomBasisKind::Sphere,
         d,
@@ -212,7 +212,7 @@ pub(crate) fn sae_manifold_fit_10_steps_one_harmonic_reaches_high_r2() {
     }
     let (phi0, jet0) = evaluator.evaluate(coords0_data.view()).unwrap();
 
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic_atom",
         SaeAtomBasisKind::Periodic,
         1,
@@ -311,7 +311,7 @@ pub(crate) fn sae_registry_refuses_assignment_sparsity_penalties() {
     .expect("valid assignment");
     let atoms: Vec<SaeManifoldAtom> = (0..k)
         .map(|atom_idx| {
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 format!("periodic_{atom_idx}"),
                 SaeAtomBasisKind::Periodic,
                 1,
@@ -334,18 +334,18 @@ pub(crate) fn sae_registry_refuses_assignment_sparsity_penalties() {
         .expect_err("SAE registry must reject softmax assignment sparsity");
     assert!(softmax_err.contains("assignment sparsity"));
 
-    let mut ibp_registry = AnalyticPenaltyRegistry::new();
-    ibp_registry.push(AnalyticPenaltyKind::IBPAssignment(Arc::new(
-        gam_terms::analytic_penalties::IBPAssignmentPenalty::new(k, 1.2, 0.7, false),
+    let mut ordered_beta_bernoulli_registry = AnalyticPenaltyRegistry::new();
+    ordered_beta_bernoulli_registry.push(AnalyticPenaltyKind::OrderedBetaBernoulli(Arc::new(
+        gam_terms::analytic_penalties::OrderedBetaBernoulliPenalty::new(k, 1.2, 0.7, false),
     )));
-    let ibp_err = term
-        .validate_analytic_penalty_registry(&ibp_registry)
-        .expect_err("SAE registry must reject IBP assignment sparsity");
-    assert!(ibp_err.contains("assignment sparsity"));
+    let ordered_beta_bernoulli_err = term
+        .validate_analytic_penalty_registry(&ordered_beta_bernoulli_registry)
+        .expect_err("SAE registry must reject ordered Beta--Bernoulli assignment sparsity");
+    assert!(ordered_beta_bernoulli_err.contains("assignment sparsity"));
 }
 
 #[test]
-pub(crate) fn ibp_fixed_alpha_assignment_value_matches_logit_gradient_fd() {
+pub(crate) fn ordered_beta_bernoulli_fixed_alpha_assignment_value_matches_logit_gradient_fd() {
     let n = 4usize;
     let k = 3usize;
     let logits = Array2::<f64>::from_shape_vec(
@@ -354,190 +354,41 @@ pub(crate) fn ibp_fixed_alpha_assignment_value_matches_logit_gradient_fd() {
             -0.4, 0.2, 0.7, 0.1, -0.3, 0.5, 0.8, -0.1, -0.6, 0.3, 0.6, -0.2,
         ],
     )
-    .expect("valid IBP logit grid");
+    .expect("valid ordered Beta--Bernoulli logit grid");
     let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
     let manifolds = vec![LatentManifold::Circle { period: 1.0 }; k];
     let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
         logits,
         coords,
         manifolds,
-        AssignmentMode::ibp_map(0.9, 1.4, false),
+        AssignmentMode::ordered_beta_bernoulli(0.9, 1.4, false),
     )
-    .expect("valid IBP assignment");
+    .expect("valid ordered Beta--Bernoulli assignment");
     let rho = SaeManifoldRho::new(0.23_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
-    let (grad, _) =
-        assignment_prior_grad_hdiag(&assignment, &rho).expect("IBP assignment gradient");
+    let (grad, _) = assignment_prior_grad_hdiag(&assignment, &rho)
+        .expect("ordered Beta--Bernoulli assignment gradient");
     let idx = 5usize;
     let step = 1.0e-6_f64;
     let mut plus = assignment.clone();
     plus.logits[[idx / k, idx % k]] += step;
     let mut minus = assignment.clone();
     minus.logits[[idx / k, idx % k]] -= step;
-    let fd =
-        (assignment_prior_value(&plus, &rho) - assignment_prior_value(&minus, &rho)) / (2.0 * step);
+    let fd = (assignment_prior_value(&plus, &rho).unwrap()
+        - assignment_prior_value(&minus, &rho).unwrap())
+        / (2.0 * step);
 
     assert_abs_diff_eq!(grad[idx], fd, epsilon = 2.0e-7);
 }
 
-/// #1038 assembly-site wiring: a live IBP-active multi-atom assembly must
-/// emit the exact cross-row Woodbury source `IbpCrossRowSource` whose
-/// entries reproduce the NUMERICAL off-diagonal (`i≠j`) logit Hessian of the
-/// SAE objective end-to-end. The ONLY source of cross-row `i≠j` logit
-/// coupling is the IBP empirical-mass prior `M_k = Σ_i z_ik` (the data-fit
-/// reconstruction of each row depends only on that row's own logits), so
-/// `∂²(assignment_prior_value)/∂ℓ_ik∂ℓ_jk = d_k·z'_ik·z'_jk` for `i≠j`, with
-/// `d_k = cross_row_d[k]` and `z'_ik = z_jac[i·K+k]` — exactly the rank-one
-/// `U D Uᵀ` the assembled `sys.ibp_cross_row` encodes and the arrow-Schur
-/// consumer rides as the exact Woodbury (value + logdet + θ/ρ-adjoint).
-///
-/// This certifies the assembly-site source matches the consumer's `U`/index
-/// convention bit-for-bit: each entry's `global_t_index` is the row's logit
-/// slot in the latent block (`row_offsets[i] + k` for the dense IBP layout),
-/// and the rank-one product against the central-difference Hessian closes.
 #[test]
-pub(crate) fn ibp_assembly_emits_cross_row_woodbury_source_matching_fd_hessian() {
-    let coords0 = array![[0.05], [0.20], [0.55], [0.80]];
-    let coords1 = array![[0.15], [0.30], [0.65], [0.90]];
-    let (phi0, jet0) = periodic_basis(&coords0);
-    let (phi1, jet1) = periodic_basis(&coords1);
-    let atom0 = SaeManifoldAtom::new(
-        "periodic0",
-        SaeAtomBasisKind::Periodic,
-        1,
-        phi0,
-        jet0,
-        array![[0.25], [-0.35], [0.15]],
-        Array2::<f64>::eye(3),
-    )
-    .unwrap()
-    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    let atom1 = SaeManifoldAtom::new(
-        "periodic1",
-        SaeAtomBasisKind::Periodic,
-        1,
-        phi1,
-        jet1,
-        array![[-0.10], [0.20], [0.30]],
-        Array2::<f64>::eye(3),
-    )
-    .unwrap()
-    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    // IBP-active logits (positive ⇒ near-on gate, interior π so the
-    // empirical-mass channel is live — `pi_jac ≠ 0`).
-    let logits = array![[1.2, 0.4], [0.6, 1.0], [0.9, 0.3], [1.4, 0.7]];
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        logits,
-        vec![coords0, coords1],
-        vec![
-            LatentManifold::Circle { period: 1.0 },
-            LatentManifold::Circle { period: 1.0 },
-        ],
-        AssignmentMode::ibp_map(0.8, 1.0, false),
-    )
-    .unwrap();
-    let mut term = SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap();
-    let target = array![[0.12], [-0.03], [0.08], [0.20]];
-    let rho = SaeManifoldRho::new(
-        0.3_f64.ln(),
-        0.7_f64.ln(),
-        vec![array![0.9_f64.ln()], array![1.1_f64.ln()]],
-    );
-
-    let n = term.assignment.n_obs();
-    let k = term.assignment.k_atoms();
-
-    // Assemble the live arrow system; it must now carry the IBP source.
-    let sys = term
-        .assemble_arrow_schur(target.view(), &rho, None)
-        .expect("IBP arrow assembly");
-    let source = sys
-        .ibp_cross_row
-        .as_ref()
-        .expect("an IBP-active assembly must emit the cross-row Woodbury source");
-    assert_eq!(source.r, k, "the rank must be the atom count K");
-
-    // Rebuild the dense `U` and `d` the consumer sees from the sparse entries,
-    // and check the global-index convention is the dense IBP layout
-    // (`row_offsets[i] + k`), i.e. atom `k`'s logit slot of row `i`.
-    let total_t = sys.row_offsets[n];
-    let mut u = Array2::<f64>::zeros((total_t, k));
-    for &(g, atom_k, z_prime) in &source.entries {
-        u[[g, atom_k]] += z_prime;
-    }
-    for i in 0..n {
-        for atom_k in 0..k {
-            let g = sys.row_offsets[i] + atom_k;
-            // The entry for (row i, atom k) must sit at the row's logit slot.
-            assert!(
-                u[[g, atom_k]].abs() > 0.0 || term.assignment.logits[[i, atom_k]].abs() > 1.0e3,
-                "row {i} atom {atom_k} logit slot must carry a z' entry"
-            );
-        }
-    }
-
-    // Central-difference the assignment-prior value cross-row (i≠j) Hessian
-    // and assert it equals the rank-one `d_k·z'_ik·z'_jk` the source encodes.
-    let d = source.d.clone();
-    let step = 1.0e-5_f64;
-    let fd_cross = |i: usize, j: usize, atom_k: usize| -> f64 {
-        let bump = |si: f64, sj: f64| -> f64 {
-            let mut a = term.assignment.clone();
-            a.logits[[i, atom_k]] += si * step;
-            a.logits[[j, atom_k]] += sj * step;
-            assignment_prior_value(&a, &rho)
-        };
-        // mixed second difference ∂²V/∂ℓ_ik∂ℓ_jk
-        (bump(1.0, 1.0) - bump(1.0, -1.0) - bump(-1.0, 1.0) + bump(-1.0, -1.0))
-            / (4.0 * step * step)
-    };
-
-    for atom_k in 0..k {
-        for i in 0..n {
-            for j in 0..n {
-                if i == j {
-                    continue;
-                }
-                let gi = sys.row_offsets[i] + atom_k;
-                let gj = sys.row_offsets[j] + atom_k;
-                let analytic = d[atom_k] * u[[gi, atom_k]] * u[[gj, atom_k]];
-                let fd = fd_cross(i, j, atom_k);
-                assert_abs_diff_eq!(analytic, fd, epsilon = 5.0e-6);
-            }
-        }
-    }
-
-    // Distinct atom columns do NOT couple cross-row (independent
-    // stick-breaking masses): the off-diagonal in a DIFFERENT column is zero.
-    for i in 0..n {
-        for j in 0..n {
-            if i == j {
-                continue;
-            }
-            let mut a = term.assignment.clone();
-            let cross = {
-                let s = 1.0e-5_f64;
-                let mut bump = |si: f64, sj: f64| -> f64 {
-                    a.logits[[i, 0]] = term.assignment.logits[[i, 0]] + si * s;
-                    a.logits[[j, 1]] = term.assignment.logits[[j, 1]] + sj * s;
-                    assignment_prior_value(&a, &rho)
-                };
-                (bump(1.0, 1.0) - bump(1.0, -1.0) - bump(-1.0, 1.0) + bump(-1.0, -1.0))
-                    / (4.0 * s * s)
-            };
-            assert_abs_diff_eq!(cross, 0.0, epsilon = 5.0e-6);
-        }
-    }
-}
-
-#[test]
-pub(crate) fn jumprelu_assignment_value_matches_logit_gradient_fd() {
+pub(crate) fn threshold_gate_assignment_value_matches_logit_gradient_fd() {
     let n = 4usize;
     let k = 2usize;
     let temperature = 0.35_f64;
     let threshold = 0.1_f64;
     let logits =
         Array2::<f64>::from_shape_vec((n, k), vec![-13.0, -0.2, 0.0, 0.05, 0.15, 0.4, 0.9, 1.5])
-            .expect("valid JumpReLU logit grid");
+            .expect("valid ThresholdGate logit grid");
     let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
     let manifolds = vec![LatentManifold::Circle { period: 1.0 }; k];
     let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
@@ -546,24 +397,25 @@ pub(crate) fn jumprelu_assignment_value_matches_logit_gradient_fd() {
         manifolds,
         AssignmentMode::threshold_gate(temperature, threshold),
     )
-    .expect("valid JumpReLU assignment");
+    .expect("valid ThresholdGate assignment");
     let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
     let (grad, _) =
-        assignment_prior_grad_hdiag(&assignment, &rho).expect("JumpReLU assignment gradient");
+        assignment_prior_grad_hdiag(&assignment, &rho).expect("ThresholdGate assignment gradient");
     let idx = 4usize;
     let step = 1.0e-6_f64;
     let mut plus = assignment.clone();
     plus.logits[[idx / k, idx % k]] += step;
     let mut minus = assignment.clone();
     minus.logits[[idx / k, idx % k]] -= step;
-    let fd =
-        (assignment_prior_value(&plus, &rho) - assignment_prior_value(&minus, &rho)) / (2.0 * step);
+    let fd = (assignment_prior_value(&plus, &rho).unwrap()
+        - assignment_prior_value(&minus, &rho).unwrap())
+        / (2.0 * step);
 
     assert_abs_diff_eq!(grad[idx], fd, epsilon = 2.0e-8);
 }
 
 #[test]
-pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep() {
+pub(crate) fn threshold_gate_assignment_prior_hessian_diag_is_exact_over_logit_sweep() {
     let n = 6usize;
     let k = 2usize;
     let temperature = 0.35_f64;
@@ -583,13 +435,13 @@ pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep()
         manifolds,
         AssignmentMode::threshold_gate(temperature, threshold),
     )
-    .expect("valid JumpReLU assignment");
+    .expect("valid smooth threshold assignment");
     let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
     let (grad, diag) = assignment_prior_grad_hdiag(&assignment, &rho)
-        .expect("JumpReLU assignment prior hessian diag");
+        .expect("smooth threshold assignment prior hessian diag");
     let inv_tau = 1.0 / temperature;
     let inv_tau2 = inv_tau * inv_tau;
-    let sparsity_strength = rho.log_lambda_sparse.exp();
+    let sparsity_strength = rho.lambda_sparse().unwrap();
 
     assert_eq!(grad.len(), n * k);
     assert_eq!(diag.len(), n * k);
@@ -597,25 +449,20 @@ pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep()
     for (idx, &entry) in diag.iter().enumerate() {
         let logit = logits[[idx / k, idx % k]];
         // Expected = exact second derivative of the threshold-centered
-        // surrogate σ((l−θ)/τ), using the same machine-precision support as
-        // the value and gradient paths.
-        let expected = if jumprelu_in_optimization_band(logit, threshold, temperature) {
-            let activation = gam_linalg::utils::stable_logistic((logit - threshold) * inv_tau);
-            let slope = activation * (1.0 - activation);
-            sparsity_strength * slope * (1.0 - 2.0 * activation) * inv_tau2
-        } else {
-            0.0
-        };
+        // smooth gate σ((l−θ)/τ), with no hard support branch.
+        let activation = gam_linalg::utils::stable_logistic((logit - threshold) * inv_tau);
+        let slope = activation * (1.0 - activation);
+        let expected = sparsity_strength * slope * (1.0 - 2.0 * activation) * inv_tau2;
         assert!(
             entry.is_finite(),
-            "JumpReLU hessian_diag must be finite at index {idx}"
+            "threshold-gate hessian_diag must be finite at index {idx}"
         );
         saw_negative |= entry < 0.0;
         assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
     }
     assert!(
         saw_negative,
-        "exact JumpReLU hessian_diag must go negative above the threshold"
+        "exact threshold-gate hessian_diag must go negative above the threshold"
     );
 }
 
@@ -628,7 +475,7 @@ pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep()
 /// on a clean K=2 periodic torus signal, mirroring the failing
 /// reproducer in #174.
 #[test]
-pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
+pub(crate) fn ordered_beta_bernoulli_k2_periodic_torus_recovers_signal_with_lsq_init() {
     use faer::Side as FaerSide;
     use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
 
@@ -700,7 +547,7 @@ pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
         jet_k.push(jet);
     }
 
-    // LSQ seed: joint design X = [0.5 * Phi_1 | 0.5 * Phi_2] (IBP-MAP
+    // LSQ seed: joint design X = [0.5 * Phi_1 | 0.5 * Phi_2] (ordered Beta--Bernoulli
     // logit 0 gives sigmoid(0/tau) = 0.5 for both atoms), solve normal
     // equations with a small ridge.
     let m_total = k * m;
@@ -735,7 +582,7 @@ pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
                 b[[col, j]] = b_joint[[atom_idx * m + col, j]];
             }
         }
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             format!("torus_atom_{atom_idx}"),
             SaeAtomBasisKind::Periodic,
             1,
@@ -752,12 +599,12 @@ pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
         Array2::<f64>::zeros((n, k)),
         coords_k,
         vec![LatentManifold::Circle { period: 1.0 }; k],
-        AssignmentMode::ibp_map(0.7, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(atoms, assignment).unwrap();
-    // `lambda_sparse` is the IBP assignment-sparsity prior weight (now wired
-    // through `assignment_prior_grad_hdiag`'s IBP branch, #853). The
+    // `lambda_sparse` is the ordered Beta--Bernoulli assignment-sparsity prior weight (now wired
+    // through `assignment_prior_grad_hdiag`'s ordered Beta--Bernoulli branch, #853). The
     // Beta-Bernoulli BCE energy toward the self-referential empirical active
     // fraction has its global minimum at the all-off gate, so at the old
     // full weight (`log_lambda_sparse = 0 → λ = 1`) it overwhelmed the
@@ -797,7 +644,7 @@ pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
     let r2 = 1.0 - ssr / sst.max(1.0e-12);
     assert!(
         r2 > 0.5,
-        "K=2 periodic torus IBP-MAP R² = {r2:.4} (ssr={ssr:.4}, sst={sst:.4}) should be > 0.5 with LSQ-seeded decoder"
+        "K=2 periodic torus ordered Beta--Bernoulli R² = {r2:.4} (ssr={ssr:.4}, sst={sst:.4}) should be > 0.5 with LSQ-seeded decoder"
     );
     // Also confirm at least one atom remains active (assignment did not
     // collapse to ~0) — the active mass averaged over rows must exceed
@@ -842,7 +689,7 @@ pub(crate) fn softmax_k2_periodic_completes_joint_fit_step() {
         let b = Array2::<f64>::from_shape_fn((m, p), |(i, j)| {
             0.1 * ((i as f64 + 1.0) * (j as f64 + 1.0)).sin()
         });
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             format!("a_{atom_idx}"),
             SaeAtomBasisKind::Periodic,
             1,
@@ -916,7 +763,7 @@ pub(crate) fn assert_isometry_wiring_matches_fd(
         }
     }
     let smooth = Array2::<f64>::eye(m);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "iso_wire_test",
         SaeAtomBasisKind::Periodic,
         latent_dim,
@@ -1044,7 +891,7 @@ pub(crate) fn warmstart_test_objective() -> SaeManifoldOuterObjective {
     let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
     let coords = array![[0.10], [0.35], [0.62], [0.88]];
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1083,7 +930,7 @@ pub(crate) fn warmstart_test_objective_with_evaluator() -> SaeManifoldOuterObjec
     let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
     let coords = array![[0.10_f64], [0.35], [0.62], [0.88]];
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1129,7 +976,6 @@ pub(crate) fn near_singular_outer_gradient_cache() -> ArrowFactorCache {
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         beta_gauge_quotient: None,
-        cross_row_woodbury: None,
     }
 }
 
@@ -1160,7 +1006,6 @@ pub(crate) fn diagonal_latent_cache(diagonal: &[f64]) -> ArrowFactorCache {
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         beta_gauge_quotient: None,
-        cross_row_woodbury: None,
     }
 }
 
@@ -1196,10 +1041,10 @@ pub(crate) fn outer_gradient_solver_rejects_near_singular_cache_without_matching
     // exact "without a matching gauge" path the test name describes.
     let err = match obj
         .term
-        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec())
+        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec().unwrap())
     {
         Err(err) => err,
-        Ok(..) => panic!("near-singular evidence factor without a matching gauge must reject"),
+        Ok(..) => panic!("near-singular criterion factor without a matching gauge must reject"),
     };
     assert!(
         matches!(err, OuterGradientError::NonIdentifiable { .. }),
@@ -1245,7 +1090,7 @@ pub(crate) fn rank_deficient_euclidean_outer_gradient_objective() -> SaeManifold
     // decoder column-span deficiency `decoder_channel_null_directions` must
     // recover (#1051/#1273).
     let decoder = array![[1.0_f64, 0.0], [0.5, 0.0]];
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "euclidean_line",
         SaeAtomBasisKind::EuclideanPatch,
         1,
@@ -1331,7 +1176,6 @@ pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
         deflated_row_directions: std::sync::Arc::from(Vec::new()),
         deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         beta_gauge_quotient: None,
-        cross_row_woodbury: None,
     }
 }
 
@@ -1350,7 +1194,7 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     // of rejecting with "analytic outer gradient undefined".
     let solver = obj
         .term
-        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec())
+        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec().unwrap())
         .expect("rank-deficient decoder β-null must be deflated, not rejected (#1051/#1273)");
     // The deflated solve must REGULARISE the near-null β response: a plain
     // inverse divides by the 1e-7 pivot and explodes; the deflated solve is
@@ -1426,14 +1270,14 @@ pub(crate) fn seed_inner_state_accepts_empty_beta_as_noslot() {
 /// converged evidence solve—the state a real continuation step supplies—then run
 /// one eval with zero inner Newton iterations and confirm the published
 /// `inner_beta_hint` is exactly that seed. An arbitrary off-optimum β can have no
-/// defined frozen Laplace evidence and is not a valid continuation witness.
+/// defined frozen quasi-Laplace score and is not a valid continuation witness.
 #[test]
 pub(crate) fn seed_inner_state_installs_and_reuses_matching_beta() {
     let mut source = warmstart_test_objective();
     let source_rho = source.baseline_rho.clone();
     source
         .term
-        .reml_criterion_with_cache(
+        .penalized_quasi_laplace_criterion_with_cache(
             source.target.view(),
             &source_rho,
             source.registry.as_ref(),
@@ -1508,280 +1352,46 @@ pub(crate) fn seed_inner_state_rejects_wrong_length_populated_beta() {
     }
 }
 
-/// Build a non-periodic 1-D atom with a genuine order-2 finite-difference
-/// roughness Gram, a non-constant-speed decoder, and explicit
-/// `(basis_values, basis_jacobian)` so the intrinsic reweighting in
-/// [`SaeManifoldAtom::refresh_intrinsic_smooth_penalty`] is exercised
-/// directly. A localized (near-diagonal) basis makes each coefficient's
-/// representative speed the speed at its own sample.
-pub(crate) fn intrinsic_test_atom(jacobian_scale: f64) -> SaeManifoldAtom {
-    let m = 5usize;
-    let n = m;
-    let p = 1usize;
-    let mut phi = Array2::<f64>::zeros((n, m));
-    let mut jet = Array3::<f64>::zeros((n, m, 1));
-    let mut decoder = Array2::<f64>::zeros((m, p));
-    for mu in 0..m {
-        // Localized basis: Φ_μ(t_n) ≈ δ_{nμ}.
-        phi[[mu, mu]] = 1.0;
-        // Per-sample basis derivative (axis 0) grows with μ — a
-        // non-constant-speed curve — scaled by `jacobian_scale` to emulate
-        // a global linear reparameterization t -> t / jacobian_scale.
-        jet[[mu, mu, 0]] = jacobian_scale * (1.0 + mu as f64);
-        decoder[[mu, 0]] = 1.0;
-    }
-    let s_raw = gam_terms::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
-    SaeManifoldAtom::new(
-        "intrinsic-1d",
-        SaeAtomBasisKind::EuclideanPatch,
-        1,
-        phi,
-        jet,
-        decoder,
-        s_raw,
-    )
-    .unwrap()
-}
-
-/// The roughness operator order is recovered from the raw Gram's null
-/// space: an order-2 difference penalty annihilates the affine functions,
-/// so `nullity = 2` and the arc-length exponent is `β = ½ − 2 = −3/2`.
+/// A supplied function-space Gram defines a fixed objective: changing the
+/// decoder or current chart Jacobian cannot mutate it. The quadratic trace is
+/// exactly the sum of the declared scalar-function seminorms over outputs.
 #[test]
-pub(crate) fn intrinsic_penalty_recovers_order_two_from_nullity() {
-    let atom = intrinsic_test_atom(1.0);
-    assert_eq!(atom.smooth_penalty_order, 2);
-}
-
-#[test]
-pub(crate) fn line_search_snapshot_restores_intrinsic_smooth_penalty() {
-    let atom = intrinsic_test_atom(1.0);
-    let n = atom.n_obs();
-    let logits = Array2::<f64>::zeros((n, 1));
-    let coords = vec![Array2::<f64>::zeros((n, 1))];
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        logits,
-        coords,
-        vec![LatentManifold::Euclidean],
-        AssignmentMode::softmax(1.0),
-    )
-    .unwrap();
-    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-    let original = term.atoms[0].smooth_penalty.clone();
-    let snapshot = term.snapshot_mutable_state();
-
-    term.atoms[0].decoder_coefficients[[0, 0]] *= 3.0;
-    term.atoms[0].refresh_intrinsic_smooth_penalty();
-    let changed = (&term.atoms[0].smooth_penalty - &original)
-        .mapv(f64::abs)
-        .sum();
-    assert!(
-        changed > 1e-6,
-        "test setup must perturb the live intrinsic smoothness Gram"
-    );
-
-    term.restore_mutable_state(&snapshot)
-        .expect("differential restore rebuilds the basis");
-    let restored = (&term.atoms[0].smooth_penalty - &original)
-        .mapv(f64::abs)
-        .sum();
-    assert!(
-        restored < 1e-12,
-        "line-search restore left a stale intrinsic smoothness Gram: {restored}"
-    );
-}
-
-/// Gauge invariance (issue #673): a global reparameterization of the latent
-/// coordinate scales every per-sample speed by a common factor, which
-/// cancels in the centered reweighting — so the intrinsic Gram `S̃` (and
-/// hence the topology evidence `tr(BᵀS̃B)`) is identical across the two
-/// reparameterizations, even though the basis Jacobian (the metric) differs.
-#[test]
-pub(crate) fn intrinsic_penalty_is_invariant_to_speed_rescaling() {
-    let a1 = intrinsic_test_atom(1.0);
-    let a2 = intrinsic_test_atom(7.5);
-    // Same raw Gram and decoder; only the basis Jacobian (speed) differs.
-    assert_abs_diff_eq!(
-        (&a1.smooth_penalty_raw - &a2.smooth_penalty_raw)
-            .mapv(f64::abs)
-            .sum(),
-        0.0,
-        epsilon = 1e-12
-    );
-    // The intrinsic (reweighted) Gram is identical despite the 7.5x speed
-    // rescale: the centered ratios are invariant to a global speed factor.
-    let diff = (&a1.smooth_penalty - &a2.smooth_penalty)
-        .mapv(f64::abs)
-        .sum();
-    assert!(
-        diff < 1e-9,
-        "intrinsic Gram changed under a global speed rescale (gauge leak): {diff}"
-    );
-}
-
-pub(crate) fn affine_canonicalization_test_term() -> SaeManifoldTerm {
-    let n = 80usize;
+pub(crate) fn reference_function_gram_is_fixed_and_has_exact_trace_form() {
+    let n = 4usize;
+    let m = 3usize;
     let p = 2usize;
-    let evaluator = EuclideanPatchEvaluator::new(1, 2).unwrap();
-    let mut coords = Array2::<f64>::zeros((n, 1));
-    for row in 0..n {
-        coords[[row, 0]] = -4.0 + 12.0 * row as f64 / (n as f64 - 1.0);
-    }
-    let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-    let mut decoder = Array2::<f64>::zeros((3, p));
-    decoder[[0, 0]] = 0.8;
-    decoder[[1, 0]] = -0.4;
-    decoder[[2, 0]] = 0.15;
-    decoder[[0, 1]] = -0.2;
-    decoder[[1, 1]] = 0.9;
-    decoder[[2, 1]] = -0.08;
-    let smooth_penalty = gam_terms::basis::create_difference_penalty_matrix(3, 2, None).unwrap();
-    let atom = SaeManifoldAtom::new(
-        "affine-canonicalization",
+    let phi = Array2::<f64>::zeros((n, m));
+    let jet = Array3::<f64>::zeros((n, m, 1));
+    let decoder = Array2::from_shape_vec((m, p), vec![0.3, -0.2, 1.1, 0.4, -0.7, 0.9]).unwrap();
+    let gram = gam_terms::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
+    let mut atom = SaeManifoldAtom::new_with_provided_function_gram(
+        "fixed-reference",
         SaeAtomBasisKind::EuclideanPatch,
         1,
         phi,
         jet,
-        decoder,
-        smooth_penalty,
-    )
-    .unwrap()
-    .with_basis_second_jet(Arc::new(evaluator));
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        Array2::<f64>::zeros((n, 1)),
-        vec![coords],
-        vec![LatentManifold::Euclidean],
-        AssignmentMode::softmax(1.0),
+        decoder.clone(),
+        gram.clone(),
     )
     .unwrap();
-    SaeManifoldTerm::new(vec![atom], assignment).unwrap()
-}
+    let frozen = atom.smooth_penalty.clone();
+    atom.decoder_coefficients.mapv_inplace(|value| value * 7.0);
+    atom.basis_jacobian.fill(13.0);
+    assert_eq!(atom.smooth_penalty, frozen);
+    assert_eq!(
+        atom.reference_roughness_kind,
+        SaeReferenceRoughnessKind::ProvidedFunctionGram
+    );
 
-#[test]
-pub(crate) fn affine_canonicalization_transports_live_penalty_instead_of_recomputing() {
-    let mut term = affine_canonicalization_test_term();
-    let before: f64 = term
-        .decoder_smoothness_quadratic_form_per_atom()
-        .iter()
+    let trace_form: f64 = (0..p)
+        .map(|output| {
+            let column = decoder.column(output);
+            column.dot(&gram.dot(&column))
+        })
         .sum();
-    let old_smooth_penalty = term.atoms[0].smooth_penalty.clone();
-    let old_decoder = term.atoms[0].decoder_coefficients.clone();
-
-    term.canonicalize_atom_affine_gauge(0, None).unwrap();
-    let after: f64 = term
-        .decoder_smoothness_quadratic_form_per_atom()
-        .iter()
-        .sum();
-    let invariant_gap = (after - before).abs() / before.abs().max(1.0);
-    assert!(
-        invariant_gap < 1.0e-9,
-        "canonicalization changed fixed-rho smoothness energy: before={before:.12e}, after={after:.12e}"
-    );
-
-    let mut recomputed_atom = term.atoms[0].clone();
-    recomputed_atom.refresh_intrinsic_smooth_penalty();
-    let recomputed_term = SaeManifoldTerm::new(
-        vec![recomputed_atom],
-        SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((term.n_obs(), 1)),
-            vec![term.assignment.coords[0].as_matrix()],
-            vec![LatentManifold::Euclidean],
-            AssignmentMode::softmax(1.0),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    let recomputed: f64 = recomputed_term
-        .decoder_smoothness_quadratic_form_per_atom()
-        .iter()
-        .sum();
-    let recompute_jump = (recomputed - before).abs() / before.abs().max(1.0);
-    assert!(
-        recompute_jump > 1.0e-2,
-        "test fixture failed to expose the intrinsic recompute energy jump: before={before:.12e}, recomputed={recomputed:.12e}"
-    );
-
-    let transport =
-        solve_basis_transport(term.atoms[0].basis_values.view(), old_smooth_penalty.view())
-            .expect_err("shape mismatch must reject invalid transport solve");
-    assert!(
-        transport.contains("row mismatch") || transport.contains("SVD failed"),
-        "unexpected transport-shape diagnostic: {transport}"
-    );
-    let roundtrip = transport_smooth_penalty_for_decoder(
-        solve_design_least_squares(
-            term.atoms[0].decoder_coefficients.view(),
-            old_decoder.view(),
-        )
-        .unwrap_or_else(|err| panic!("decoder transport fixture became singular: {err}"))
-        .view(),
-        old_smooth_penalty.view(),
-    );
-    assert!(
-        roundtrip.is_err(),
-        "non-square decoder transport must not be accepted as a penalty congruence"
-    );
-}
-
-/// Non-constant speed genuinely reshapes the penalty: the intrinsic Gram
-/// must differ from the raw Gram when the decoder curve is not
-/// constant-speed, otherwise the reweighting is a no-op and the gauge fix
-/// would be vacuous. The congruence preserves symmetry.
-#[test]
-pub(crate) fn intrinsic_penalty_differs_from_raw_under_varying_speed() {
-    let atom = intrinsic_test_atom(1.0);
-    let diff = (&atom.smooth_penalty - &atom.smooth_penalty_raw)
-        .mapv(f64::abs)
-        .sum();
-    assert!(
-        diff > 1e-6,
-        "intrinsic reweighting was a no-op on a non-constant-speed curve: {diff}"
-    );
-    for i in 0..atom.basis_size() {
-        for j in 0..atom.basis_size() {
-            assert_abs_diff_eq!(
-                atom.smooth_penalty[[i, j]],
-                atom.smooth_penalty[[j, i]],
-                epsilon = 1e-12
-            );
-        }
-    }
-}
-
-/// Constant-speed atoms are untouched: when every sample shares one speed
-/// (the periodic sin/cos limit), the centered weights are all `1`, so
-/// `S̃ = S_raw` exactly and the topology comparison among constant-speed
-/// atoms is unaffected.
-#[test]
-pub(crate) fn intrinsic_penalty_leaves_constant_speed_atom_unchanged() {
-    let m = 6usize;
-    let n = m;
-    let mut phi = Array2::<f64>::zeros((n, m));
-    let mut jet = Array3::<f64>::zeros((n, m, 1));
-    let mut decoder = Array2::<f64>::zeros((m, 1));
-    for mu in 0..m {
-        phi[[mu, mu]] = 1.0;
-        // Identical derivative magnitude at every sample => constant speed.
-        jet[[mu, mu, 0]] = 2.0;
-        decoder[[mu, 0]] = 1.0;
-    }
-    let s_raw = gam_terms::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
-    let atom = SaeManifoldAtom::new(
-        "constant-speed",
-        SaeAtomBasisKind::EuclideanPatch,
-        1,
-        phi,
-        jet,
-        decoder,
-        s_raw,
-    )
-    .unwrap();
-    let diff = (&atom.smooth_penalty - &atom.smooth_penalty_raw)
-        .mapv(f64::abs)
-        .sum();
-    assert!(
-        diff < 1e-9,
-        "constant-speed atom's penalty was reweighted (should be identity): {diff}"
-    );
+    let bt_s_b = decoder.t().dot(&gram).dot(&decoder);
+    let matrix_form = bt_s_b.diag().sum();
+    assert_abs_diff_eq!(trace_form, matrix_form, epsilon = 1.0e-12);
 }
 
 pub(crate) fn gamma_fd_tiny_fixture() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
@@ -1829,7 +1439,7 @@ pub(crate) fn gamma_fd_tiny_fixture() -> (SaeManifoldTerm, Array2<f64>, SaeManif
             weights[atom][basis_col][out_col]
         });
         atoms.push(
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 format!("gamma_{atom}"),
                 SaeAtomBasisKind::Periodic,
                 1,
@@ -1864,7 +1474,15 @@ pub(crate) fn fixed_state_logdet(
     rho: &SaeManifoldRho,
 ) -> f64 {
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), rho, None, 0, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            rho,
+            None,
+            0,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("fixed-state cache");
     arrow_log_det_from_cache(&cache).expect("fixed-state authoritative joint logdet")
 }

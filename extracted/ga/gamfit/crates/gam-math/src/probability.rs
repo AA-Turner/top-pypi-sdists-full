@@ -1,4 +1,8 @@
-use statrs::function::{beta::inv_beta_reg, erf::erfc};
+use libm::erfc;
+use statrs::function::beta::inv_beta_reg;
+
+const INV_SQRT_PI: f64 = 0.564_189_583_547_756_3;
+const SQRT_2_OVER_PI: f64 = 0.797_884_560_802_865_4;
 
 /// Quantile (inverse CDF) of a Beta distribution with shape parameters `a > 0`
 /// and `b > 0` at probability `p`: the value `x in [0, 1]` with
@@ -36,36 +40,42 @@ pub fn normal_pdf(x: f64) -> f64 {
 /// polynomial surrogate surface.
 #[inline]
 pub fn normal_cdf(x: f64) -> f64 {
-    0.5 * statrs::function::erf::erfc(-x / std::f64::consts::SQRT_2)
+    0.5 * erfc(-x / std::f64::consts::SQRT_2)
 }
 
 /// Scaled complementary error function `erfcx(x) = exp(x²) · erfc(x)`,
-/// specialized to `x ≥ 0`.  Returns `1.0` for `x ≤ 0` and `0.0` for
-/// `x = +∞`.  For `0 < x < 26` uses the direct `exp(x²)·erfc(x)` form;
-/// beyond that the (otherwise overflowing) `exp(x²)` is replaced by a
-/// 4-term asymptotic expansion `(1/(x√π))·(1 − 1/(2x²) + 3/(4x⁴) − …)`,
-/// keeping relative accuracy near machine epsilon. The non-negative
-/// restriction lets the caller skip the reflection identity.
+/// specialized to the closed domain `x ∈ [0, +∞]`.
+///
+/// `+∞` maps to the exact limiting value `0`; `NaN` and negative inputs map to
+/// `NaN` because they violate this restricted kernel's domain. For
+/// `0 ≤ x < 26` the direct `exp(x²)·erfc(x)` form is finite. Beyond that point
+/// a six-correction asymptotic expansion avoids overflow while retaining the
+/// representable subnormal tail. At the switch, the first omitted term is
+/// below `2e-17` relative to the leading term.
 #[inline]
 pub fn erfcx_nonnegative(x: f64) -> f64 {
-    if !x.is_finite() {
-        return if x.is_sign_positive() {
-            0.0
-        } else {
-            f64::INFINITY
-        };
+    if x.is_nan() || x < 0.0 {
+        return f64::NAN;
     }
-    if x <= 0.0 {
-        return 1.0;
+    if x == f64::INFINITY {
+        return 0.0;
     }
     if x < 26.0 {
-        ((x * x).min(700.0)).exp() * erfc(x)
+        (x * x).exp() * erfc(x)
     } else {
         let inv = 1.0 / x;
         let inv2 = inv * inv;
-        let poly = 1.0 - 0.5 * inv2 + 0.75 * inv2 * inv2 - 1.875 * inv2 * inv2 * inv2
-            + 6.5625 * inv2 * inv2 * inv2 * inv2;
-        inv * poly / std::f64::consts::PI.sqrt()
+        // erfcx(x) ~ 1/(sqrt(pi)x) * sum_n (-1)^n (2n-1)!!/(2x^2)^n.
+        // Horner form keeps the correction well scaled when `inv2` is tiny.
+        let poly = 1.0
+            + inv2
+                * (-0.5
+                    + inv2
+                        * (0.75
+                            + inv2
+                                * (-1.875
+                                    + inv2 * (6.5625 + inv2 * (-29.53125 + inv2 * 162.421875)))));
+        inv * poly * INV_SQRT_PI
     }
 }
 
@@ -183,12 +193,13 @@ pub fn signed_log_sum_exp(log_mags: &[f64], signs: &[f64]) -> (f64, f64) {
     }
 }
 
-/// Numerically stable `ln Φ(x)` for the standard normal CDF.  For `x ≥ 0`
-/// computes `ln(Φ(x))` directly with a small floor against underflow; for
-/// `x < 0` rewrites
+/// Numerically stable `ln Φ(x)` for the standard normal CDF. For `x ≥ 0`,
+/// evaluates `ln(1 - 0.5 erfc(x/sqrt(2)))` with `ln_1p`, retaining the small
+/// negative result after `Φ(x)` itself rounds to one. For `x < 0`, rewrites
 /// `ln Φ(x) = −u² + ln(½·erfcx(u))`, `u = −x/√2`,
-/// which preserves digits all the way into the deep left tail (no
-/// `ln(0)`).  Returns `±∞` and `NaN` at the corresponding inputs.
+/// which preserves digits throughout the representable left tail without a
+/// probability floor. Returns the corresponding IEEE limit at infinities and
+/// propagates `NaN`.
 #[inline]
 pub fn normal_logcdf(x: f64) -> f64 {
     if x == f64::INFINITY {
@@ -201,10 +212,11 @@ pub fn normal_logcdf(x: f64) -> f64 {
         return f64::NAN;
     }
     if x < 0.0 {
-        let u = -x / std::f64::consts::SQRT_2;
-        -u * u + (0.5 * erfcx_nonnegative(u).max(1e-300)).ln()
+        let (u, scaled_tail) = negative_normal_tail_components(x);
+        negative_normal_logcdf_from_scaled_tail(u, scaled_tail)
     } else {
-        normal_cdf(x).clamp(1e-300, 1.0).ln()
+        let upper_tail = 0.5 * erfc(x / std::f64::consts::SQRT_2);
+        (-upper_tail).ln_1p()
     }
 }
 
@@ -234,15 +246,161 @@ pub fn signed_probit_logcdf_and_mills_ratio(x: f64) -> (f64, f64) {
         return (f64::NAN, f64::NAN);
     }
     if x < 0.0 {
-        let u = -x / std::f64::consts::SQRT_2;
-        let ex = erfcx_nonnegative(u).max(1e-300);
-        let log_cdf = -u * u + (0.5 * ex).ln();
-        let lambda = (2.0 / std::f64::consts::PI).sqrt() / ex;
-        (log_cdf, lambda)
+        let (u, scaled_tail) = negative_normal_tail_components(x);
+        (
+            negative_normal_logcdf_from_scaled_tail(u, scaled_tail),
+            SQRT_2_OVER_PI / scaled_tail,
+        )
     } else {
-        let cdf = normal_cdf(x).clamp(1e-300, 1.0);
+        let upper_tail = 0.5 * erfc(x / std::f64::consts::SQRT_2);
+        let cdf = 1.0 - upper_tail;
         let lambda = normal_pdf(x) / cdf;
-        (cdf.ln(), lambda)
+        ((-upper_tail).ln_1p(), lambda)
+    }
+}
+
+#[inline]
+fn negative_normal_tail_components(x: f64) -> (f64, f64) {
+    assert!(x.is_finite() && x < 0.0);
+    let u = -x / std::f64::consts::SQRT_2;
+    (u, erfcx_nonnegative(u))
+}
+
+#[inline]
+fn negative_normal_logcdf_from_scaled_tail(u: f64, scaled_tail: f64) -> f64 {
+    -u * u + scaled_tail.ln() - std::f64::consts::LN_2
+}
+
+/// Stable value and first four derivatives of `ln Φ(x)`.
+///
+/// The moderate regime uses the exact Mills-ratio recurrence. In the deep
+/// left tail, differentiating the Laplace continued fraction
+///
+/// `φ(t)/Φ(-t) = t + 1/(t + 2/(t + 3/(...)))`, `t = -x`,
+///
+/// carries the small correction to `t` independently, so `f'' -> -1` and the
+/// higher derivatives approach zero without subtracting nearly equal `f64`s.
+/// In the right tail, signed log-magnitude sums preserve polynomially weighted
+/// derivatives even when `φ(x)/Φ(x)` itself has rounded to zero.
+#[inline]
+pub fn normal_logcdf_derivatives(x: f64) -> [f64; 5] {
+    if x.is_nan() {
+        return [f64::NAN; 5];
+    }
+    if x == f64::INFINITY {
+        return [0.0; 5];
+    }
+    if x == f64::NEG_INFINITY {
+        return [f64::NEG_INFINITY, f64::INFINITY, -1.0, 0.0, 0.0];
+    }
+
+    const LEFT_CONTINUED_FRACTION_SWITCH: f64 = -4.0;
+    const RIGHT_LOG_MAGNITUDE_SWITCH: f64 = 8.0;
+    if x <= LEFT_CONTINUED_FRACTION_SWITCH {
+        return normal_logcdf_derivatives_left_tail(x);
+    }
+    if x >= RIGHT_LOG_MAGNITUDE_SWITCH {
+        return normal_logcdf_derivatives_right_tail(x);
+    }
+
+    let (log_cdf, lambda) = signed_probit_logcdf_and_mills_ratio(x);
+    let lambda2 = lambda * lambda;
+    let lambda3 = lambda2 * lambda;
+    let x2 = x * x;
+    [
+        log_cdf,
+        lambda,
+        -lambda * (x + lambda),
+        lambda * (x2 - 1.0 + 3.0 * x * lambda + 2.0 * lambda2),
+        -lambda
+            * ((x * x2 - 3.0 * x) + (7.0 * x2 - 4.0) * lambda + 12.0 * x * lambda2 + 6.0 * lambda3),
+    ]
+}
+
+#[derive(Clone, Copy)]
+struct MillsCorrectionDerivatives {
+    value: f64,
+    first: f64,
+    second: f64,
+    third: f64,
+}
+
+#[inline]
+fn normal_logcdf_derivatives_left_tail(x: f64) -> [f64; 5] {
+    assert!(x.is_finite() && x <= -4.0);
+    let t = -x;
+    let mut q = MillsCorrectionDerivatives {
+        value: 0.0,
+        first: 0.0,
+        second: 0.0,
+        third: 0.0,
+    };
+    // The truncation error is damped by a product of the continued-fraction
+    // sensitivities `n/(t + q)^2`. At t >= 4, 32 levels put that product below
+    // binary64 roundoff while keeping this uncommon derivative path compact.
+    for n in (1..=32).rev() {
+        let denominator = t + q.value;
+        let inv_denominator = denominator.recip();
+        let value = f64::from(n) / denominator;
+        let denominator_first = 1.0 + q.first;
+        let a = denominator_first * inv_denominator;
+        let b = q.second * inv_denominator;
+        let c = q.third * inv_denominator;
+        q = MillsCorrectionDerivatives {
+            value,
+            first: -value * denominator_first / denominator,
+            second: value * (2.0 * a * a - b),
+            third: value * (-6.0 * a * a * a + 6.0 * a * b - c),
+        };
+    }
+    [
+        normal_logcdf(x),
+        t + q.value,
+        -(1.0 + q.first),
+        q.second,
+        -q.third,
+    ]
+}
+
+#[inline]
+fn normal_logcdf_derivatives_right_tail(x: f64) -> [f64; 5] {
+    assert!(x.is_finite() && x >= 8.0);
+    const LOG_SQRT_2PI: f64 = 0.918_938_533_204_672_7;
+    let log_cdf = normal_logcdf(x);
+    let u = x / std::f64::consts::SQRT_2;
+    let log_lambda = -u * u - LOG_SQRT_2PI - log_cdf;
+    let log_x = x.ln();
+    let inv_x2 = x.recip() * x.recip();
+
+    let first = log_lambda.exp();
+    let second = signed_exp_sum(&[log_x + log_lambda, 2.0 * log_lambda], &[-1.0, -1.0]);
+    let third = signed_exp_sum(
+        &[
+            2.0 * log_x + (-inv_x2).ln_1p() + log_lambda,
+            3.0_f64.ln() + log_x + 2.0 * log_lambda,
+            2.0_f64.ln() + 3.0 * log_lambda,
+        ],
+        &[1.0, 1.0, 1.0],
+    );
+    let fourth = signed_exp_sum(
+        &[
+            3.0 * log_x + (-3.0 * inv_x2).ln_1p() + log_lambda,
+            7.0_f64.ln() + 2.0 * log_x + (-(4.0 / 7.0) * inv_x2).ln_1p() + 2.0 * log_lambda,
+            12.0_f64.ln() + log_x + 3.0 * log_lambda,
+            6.0_f64.ln() + 4.0 * log_lambda,
+        ],
+        &[-1.0, -1.0, -1.0, -1.0],
+    );
+    [log_cdf, first, second, third, fourth]
+}
+
+#[inline]
+fn signed_exp_sum(log_magnitudes: &[f64], signs: &[f64]) -> f64 {
+    let (log_magnitude, sign) = signed_log_sum_exp(log_magnitudes, signs);
+    if sign == 0.0 {
+        0.0
+    } else {
+        sign * log_magnitude.exp()
     }
 }
 
@@ -443,10 +601,11 @@ mod tests {
     // ── erfcx_nonnegative ─────────────────────────────────────────────────────
 
     #[test]
-    fn erfcx_at_nonpositive_returns_one() {
+    fn erfcx_zero_is_one_and_negative_domain_is_rejected() {
         assert_eq!(erfcx_nonnegative(0.0), 1.0);
-        assert_eq!(erfcx_nonnegative(-1.0), 1.0);
-        assert_eq!(erfcx_nonnegative(-100.0), 1.0);
+        assert!(erfcx_nonnegative(-f64::MIN_POSITIVE).is_nan());
+        assert!(erfcx_nonnegative(-1.0).is_nan());
+        assert!(erfcx_nonnegative(f64::NEG_INFINITY).is_nan());
     }
 
     #[test]
@@ -455,13 +614,13 @@ mod tests {
     }
 
     #[test]
-    fn erfcx_negative_inf_returns_inf() {
-        assert_eq!(erfcx_nonnegative(f64::NEG_INFINITY), f64::INFINITY);
+    fn erfcx_nan_propagates() {
+        assert!(erfcx_nonnegative(f64::NAN).is_nan());
     }
 
     #[test]
     fn erfcx_small_positive_matches_direct() {
-        use statrs::function::erf::erfc;
+        use libm::erfc;
         for &x in &[0.1_f64, 0.5, 1.0, 5.0, 10.0, 25.0] {
             let got = erfcx_nonnegative(x);
             let expected = (x * x).exp() * erfc(x);
@@ -484,6 +643,65 @@ mod tests {
             rel_err(got, asymptotic) < 1e-3,
             "got={got} asymptotic={asymptotic}"
         );
+    }
+
+    #[test]
+    fn erfcx_asymptotic_switch_matches_finite_direct_identity() {
+        let switch = 26.0_f64;
+        let direct = (switch * switch).exp() * erfc(switch);
+        let asymptotic = erfcx_nonnegative(switch);
+        assert!(
+            rel_err(asymptotic, direct) < 5.0e-14,
+            "switch mismatch: asymptotic={asymptotic:.17e}, direct={direct:.17e}"
+        );
+
+        let immediately_below = f64::from_bits(switch.to_bits() - 1);
+        let below = erfcx_nonnegative(immediately_below);
+        assert!(
+            rel_err(asymptotic, below) < 5.0e-14,
+            "discontinuous switch: below={below:.17e}, at={asymptotic:.17e}"
+        );
+    }
+
+    #[test]
+    fn erfcx_preserves_representable_subnormal_tail() {
+        let tail = erfcx_nonnegative(f64::MAX);
+        assert!(tail > 0.0 && tail.is_subnormal(), "erfcx(MAX)={tail:e}");
+    }
+
+    /// Absolute-accuracy pin against an EXTERNAL high-precision reference
+    /// (mpmath, dps=60) spanning the direct branch `[0.1, 26)`. This is the
+    /// root-cause guard: the previous `exp(x²)·erfc(x)` direct form was built on
+    /// `statrs::erfc`, whose ~1e-10 relative accuracy silently poisoned every
+    /// downstream probit / Mills / log-CDF derivative. The `1e-13` tolerance is
+    /// far below what any ~1e-10 `erfc` can meet, so a regression to a
+    /// low-accuracy complementary error function fails here immediately —
+    /// independent of the seam-continuity check above.
+    #[test]
+    fn erfcx_matches_high_precision_reference() {
+        // (x, mpmath exp(x²)·erfc(x) at dps=60, rounded to f64).
+        let refs: &[(f64, f64)] = &[
+            (0.1, 0.89645697996912664),
+            (0.5, 0.61569034419292587),
+            (1.0, 0.427583576155807),
+            (2.0, 0.25539567631050574),
+            (3.5, 0.1552936556088943),
+            (6.0, 0.092776567800538354),
+            (9.0, 0.062307724037774684),
+            (13.0, 0.043271921864609693),
+            (18.0, 0.03129571781590521),
+            (22.0, 0.025618570005879453),
+            (25.5, 0.022108108052519827),
+            (25.9999, 0.021683668126370212),
+        ];
+        for &(x, reference) in refs {
+            let got = erfcx_nonnegative(x);
+            let rel = (got - reference).abs() / reference.abs();
+            assert!(
+                rel < 1.0e-13,
+                "erfcx({x}) = {got:.17e}, reference {reference:.17e}, rel {rel:.3e} >= 1e-13"
+            );
+        }
     }
 
     // ── log1mexp_positive ─────────────────────────────────────────────────────
@@ -637,6 +855,18 @@ mod tests {
         assert!(got.is_finite() && got < -100.0, "logcdf(-20)={got}");
     }
 
+    #[test]
+    fn logcdf_positive_tail_does_not_round_through_unit_cdf() {
+        let x = 10.0_f64;
+        let got = normal_logcdf(x);
+        let expected = (-0.5 * erfc(x / std::f64::consts::SQRT_2)).ln_1p();
+        assert!(
+            got < 0.0,
+            "logcdf(10) must retain its negative tail: {got:e}"
+        );
+        assert_eq!(got.to_bits(), expected.to_bits());
+    }
+
     // ── normal_logsf ─────────────────────────────────────────────────────────
 
     #[test]
@@ -711,6 +941,172 @@ mod tests {
                 "x={x}: lc={lc} lc_ref={lc_ref}"
             );
             assert!(mr.is_finite() && mr > 0.0, "x={x}: mr={mr}");
+        }
+    }
+
+    #[test]
+    fn probit_mills_ratio_has_no_deep_tail_floor() {
+        let x = -1.0e305_f64;
+        let (log_cdf, mills_ratio) = signed_probit_logcdf_and_mills_ratio(x);
+        assert_eq!(log_cdf, f64::NEG_INFINITY);
+        assert!(mills_ratio.is_finite());
+        assert!(
+            ((mills_ratio / -x) - 1.0).abs() < 5.0e-15,
+            "mills({x:e})={mills_ratio:e}"
+        );
+    }
+
+    #[test]
+    fn normal_logcdf_derivative_stack_has_honest_infinite_limits() {
+        assert_eq!(normal_logcdf_derivatives(f64::INFINITY), [0.0; 5]);
+        assert_eq!(
+            normal_logcdf_derivatives(f64::NEG_INFINITY),
+            [f64::NEG_INFINITY, f64::INFINITY, -1.0, 0.0, 0.0]
+        );
+        assert!(
+            normal_logcdf_derivatives(f64::NAN)
+                .into_iter()
+                .all(f64::is_nan)
+        );
+
+        for x in [-1.0e200_f64, 1.0e200_f64] {
+            let derivatives = normal_logcdf_derivatives(x);
+            assert!(
+                derivatives.into_iter().all(|value| !value.is_nan()),
+                "NaN derivative at x={x:e}: {derivatives:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn normal_logcdf_left_tail_derivatives_do_not_cancel() {
+        let x = -1.0e100_f64;
+        let derivatives = normal_logcdf_derivatives(x);
+        assert_eq!(derivatives[2], -1.0);
+        assert!(derivatives[3] > 0.0 && derivatives[3].is_finite());
+        assert!(
+            (derivatives[3] / 2.0e-300 - 1.0).abs() < 2.0e-14,
+            "third derivative={:e}",
+            derivatives[3]
+        );
+        assert_eq!(derivatives[4], 0.0);
+    }
+
+    #[test]
+    fn normal_logcdf_right_tail_preserves_weighted_subnormal_derivatives() {
+        let derivatives = normal_logcdf_derivatives(38.6);
+        assert_eq!(derivatives[1], 0.0);
+        assert!(derivatives[2] < 0.0 && derivatives[2].is_subnormal());
+        assert!(derivatives[3] > 0.0 && derivatives[3].is_subnormal());
+        assert!(derivatives[4] < 0.0 && derivatives[4].is_subnormal());
+    }
+
+    #[test]
+    fn normal_logcdf_tail_stack_is_finite_difference_consistent() {
+        let h = 1.0e-4_f64;
+        for x in [-8.0_f64, -4.0, 8.0, 20.0] {
+            let center = normal_logcdf_derivatives(x);
+            let left = normal_logcdf_derivatives(x - h);
+            let right = normal_logcdf_derivatives(x + h);
+            for order in 1..=3 {
+                let finite_difference = (right[order] - left[order]) / (2.0 * h);
+                let expected = center[order + 1];
+                let relative = (finite_difference - expected).abs() / expected.abs().max(1.0e-300);
+                assert!(
+                    relative < 2.0e-5,
+                    "x={x}, order={order}: fd={finite_difference:e}, expected={expected:e}, rel={relative:e}"
+                );
+            }
+        }
+    }
+
+    /// Absolute-accuracy pin of the full `ln Φ(x)` derivative tower against an
+    /// EXTERNAL high-precision reference (mpmath, dps=60), covering all three
+    /// branches (continued-fraction left tail at x=−4, the moderate Mills
+    /// recurrence for x∈(−4, 8), and both signs). Before the `erfc` root-cause
+    /// fix the moderate branch's `λ = φ/Φ` inherited `statrs::erfc`'s ~1e-10
+    /// error, so `f''` was wrong by ~1e-9 near the −4 seam; this pins every
+    /// entry to `2e-11` relative, catching that regression head-on rather than
+    /// through a seam-straddling finite difference.
+    #[test]
+    fn normal_logcdf_derivative_tower_matches_high_precision_reference() {
+        // (x, [value, f', f'', f''', f''''] from mpmath at dps=60).
+        let refs: &[(f64, [f64; 5])] = &[
+            (
+                -4.0,
+                [
+                    -10.360101486527291,
+                    4.2256071444894711,
+                    -0.95332716160257737,
+                    0.017856339307658426,
+                    0.0095065764315958691,
+                ],
+            ),
+            (
+                -2.0,
+                [
+                    -3.7831843336820319,
+                    2.3732155328228409,
+                    -0.88572089958591874,
+                    0.059355861291565813,
+                    0.039421993865946813,
+                ],
+            ),
+            (
+                -1.0,
+                [
+                    -1.8410216450092635,
+                    1.5251352761609812,
+                    -0.80090233442965121,
+                    0.11693119540604883,
+                    0.07917498368074563,
+                ],
+            ),
+            (
+                -0.3,
+                [
+                    -0.96210281816885066,
+                    0.99816596885848332,
+                    -0.69688551072964971,
+                    0.18398317992442132,
+                    0.11037564722092704,
+                ],
+            ),
+            (
+                0.5,
+                [
+                    -0.36894641528865639,
+                    0.50916043383703349,
+                    -0.5138245643036329,
+                    0.27099012446870783,
+                    0.088167801929197554,
+                ],
+            ),
+            (
+                2.0,
+                [
+                    -0.023012909328963488,
+                    0.055247862678989959,
+                    -0.11354805168857645,
+                    0.18439481503247759,
+                    -0.18785468561160969,
+                ],
+            ),
+        ];
+        // The moderate-branch statrs regression produced ~1e-9 errors in f'';
+        // 1e-10 catches that head-on while respecting the deep-left-tail
+        // continued-fraction branch's inherent ~2e-11 accuracy in f'''' (its
+        // 32-level derivative propagation, not the `erfc` path this pins).
+        for &(x, reference) in refs {
+            let got = normal_logcdf_derivatives(x);
+            for (order, (&g, &r)) in got.iter().zip(reference.iter()).enumerate() {
+                let rel = (g - r).abs() / r.abs().max(1.0e-3);
+                assert!(
+                    rel < 1.0e-10,
+                    "normal_logcdf_derivatives({x})[{order}] = {g:.17e}, reference {r:.17e}, \
+                     rel {rel:.3e} >= 1e-10"
+                );
+            }
         }
     }
 

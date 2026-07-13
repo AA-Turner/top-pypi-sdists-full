@@ -26,6 +26,7 @@
 #include "third_party/absl/flags/flag.h"
 #include "third_party/absl/strings/str_cat.h"
 #include "third_party/absl/strings/str_join.h"
+#include "third_party/absl/strings/string_view.h"
 #include "trainer_interface.h"
 
 ABSL_FLAG(std::string, model, "", "model file name");
@@ -52,7 +53,7 @@ ABSL_FLAG(int32_t, vocabulary_threshold, 0,
 ABSL_FLAG(bool, generate_vocabulary, false,
           "Generates vocabulary file instead of segmentation");
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   sentencepiece::ScopedResourceDestructor cleaner;
   sentencepiece::ParseCommandLineFlags(argv[0], &argc, &argv, true);
   std::vector<std::string> rest_args;
@@ -65,27 +66,28 @@ int main(int argc, char *argv[]) {
     rest_args.push_back(absl::GetFlag(FLAGS_input));
   }
 
-  if (absl::GetFlag(FLAGS_random_seed) != std::numeric_limits<uint32_t>::max()) {
+  if (absl::GetFlag(FLAGS_random_seed) !=
+      std::numeric_limits<uint32_t>::max()) {
     sentencepiece::SetRandomGeneratorSeed(absl::GetFlag(FLAGS_random_seed));
   }
 
   if (rest_args.empty())
     rest_args.push_back("");  // empty means that reading from stdin.
 
-  CHECK(!absl::GetFlag(FLAGS_model).empty());
+  QCHECK(!absl::GetFlag(FLAGS_model).empty());
 
   sentencepiece::SentencePieceProcessor sp;
-  CHECK_OK(sp.Load(absl::GetFlag(FLAGS_model)));
-  CHECK_OK(sp.SetEncodeExtraOptions(absl::GetFlag(FLAGS_extra_options)));
+  QCHECK_OK(sp.Load(absl::GetFlag(FLAGS_model)));
+  QCHECK_OK(sp.SetEncodeExtraOptions(absl::GetFlag(FLAGS_extra_options)));
 
   if (!absl::GetFlag(FLAGS_vocabulary).empty()) {
-    CHECK_OK(sp.LoadVocabulary(absl::GetFlag(FLAGS_vocabulary),
-                               absl::GetFlag(FLAGS_vocabulary_threshold)));
+    QCHECK_OK(sp.LoadVocabulary(absl::GetFlag(FLAGS_vocabulary),
+                                absl::GetFlag(FLAGS_vocabulary_threshold)));
   }
 
   auto output =
       sentencepiece::filesystem::NewWritableFile(absl::GetFlag(FLAGS_output));
-  CHECK_OK(output->status());
+  QCHECK_OK(output->status());
 
   std::string line;
   std::vector<std::string> sps;
@@ -102,71 +104,71 @@ int main(int argc, char *argv[]) {
 
   if (absl::GetFlag(FLAGS_generate_vocabulary)) {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.Encode(line, &spt));
-      for (const auto &piece : spt.pieces()) {
+      QCHECK_OK(sp.Encode(line, &spt));
+      for (const auto& piece : spt.pieces()) {
         if (!sp.IsUnknown(piece.id()) && !sp.IsControl(piece.id()))
           vocab[piece.piece()]++;
       }
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "piece") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.Encode(line, &sps));
+      QCHECK_OK(sp.Encode(line, &sps));
       output->WriteLine(absl::StrJoin(sps, " "));
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "id") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.Encode(line, &ids));
+      QCHECK_OK(sp.Encode(line, &ids));
       output->WriteLine(absl::StrJoin(ids, " "));
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "proto") {
-    process = [&](absl::string_view line) { CHECK_OK(sp.Encode(line, &spt)); };
+    process = [&](absl::string_view line) { QCHECK_OK(sp.Encode(line, &spt)); };
   } else if (absl::GetFlag(FLAGS_output_format) == "sample_piece") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &sps));
+      QCHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &sps));
       output->WriteLine(absl::StrJoin(sps, " "));
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "sample_id") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &ids));
+      QCHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &ids));
       output->WriteLine(absl::StrJoin(ids, " "));
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "sample_proto") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &spt));
+      QCHECK_OK(sp.SampleEncode(line, nbest_size, alpha, &spt));
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "nbest_piece") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_sps));
-      for (const auto &result : nbest_sps) {
+      QCHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_sps));
+      for (const auto& result : nbest_sps) {
         output->WriteLine(absl::StrJoin(result, " "));
       }
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "nbest_id") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_ids));
-      for (const auto &result : nbest_ids) {
+      QCHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_ids));
+      for (const auto& result : nbest_ids) {
         output->WriteLine(absl::StrJoin(result, " "));
       }
     };
   } else if (absl::GetFlag(FLAGS_output_format) == "nbest_proto") {
     process = [&](absl::string_view line) {
-      CHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_spt));
+      QCHECK_OK(sp.NBestEncode(line, nbest_size, &nbest_spt));
     };
   } else {
     LOG(FATAL) << "Unknown output format: "
                << absl::GetFlag(FLAGS_output_format);
   }
 
-  for (const auto &filename : rest_args) {
+  for (const auto& filename : rest_args) {
     auto input = sentencepiece::filesystem::NewReadableFile(filename);
-    CHECK_OK(input->status());
+    QCHECK_OK(input->status());
     while (input->ReadLine(&line)) {
       process(line);
     }
   }
 
   if (absl::GetFlag(FLAGS_generate_vocabulary)) {
-    for (const auto &it : sentencepiece::Sorted(vocab)) {
+    for (const auto& it : sentencepiece::Sorted(vocab)) {
       output->WriteLine(it.first + "\t" +
                         sentencepiece::string_util::SimpleItoa(it.second));
     }

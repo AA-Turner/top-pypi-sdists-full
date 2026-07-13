@@ -250,7 +250,7 @@ pub struct ArrowSolveOptions {
     /// The κ guards exist to protect the accuracy of the Newton *step*: a
     /// barely-PD `H_tt^(i)` or an over-conditioned reduced Schur yields an
     /// inaccurate `Δβ`/`Δt`. Evidence-only callers
-    /// (e.g. `SaeManifoldTerm::reml_criterion_with_cache`) do not consume the
+    /// (e.g. `SaeManifoldTerm::penalized_quasi_laplace_criterion_with_cache`) do not consume the
     /// step — they need only the factor cache for the log-determinant
     /// (`½log|H|`, exact from `diag(L)` regardless of κ) and the selected-inverse
     /// traces. For those callers the κ rejection is a false abort when ρ sweeps
@@ -282,7 +282,7 @@ pub struct ArrowSolveOptions {
     /// The inner Newton then makes a real descent step rather than crawling
     /// behind an inflated global ridge. Mirrors the per-row spectral floor the
     /// evidence path uses for #1377/#1117/#1118
-    /// ([`super::factorization::factor_spectral_deflated_evidence_row`]); the
+    /// ([`super::factorization::factor_spectral_deflated_criterion_row`]); the
     /// difference is the floored value — a small positive `floor·max λ`
     /// (Tikhonov) for the solve, vs unit stiffness `+1` (`log 1 = 0`) for the
     /// evidence log-det.
@@ -829,12 +829,32 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
 
         let mut left_active = Vec::with_capacity(k);
         let mut right_active = Vec::with_capacity(k);
+        // HOT PATH (measured 2026-07-11, A10 real-workload profile: 50% of ALL
+        // fit cycles in non-inlined bounds-checked ndarray 2-D `IndexMut`, plus
+        // 13% self-time here): every scalar of the scan and of the rank-1
+        // update went through `[[i, j]]` element access — a function call, a
+        // bounds check, and 2-D stride arithmetic per double. Go through the
+        // contiguous row slices and flat 1-D indexing instead. The operation
+        // SEQUENCE is identical (same c → a → b order, same subtractions), so
+        // the result is bit-exact — no reduction-order change.
+        let schur_cols = schur.ncols();
+        let schur_flat = schur
+            .as_slice_mut()
+            .expect("block_gemm_subtract: reduced Schur must be standard-layout");
         for c in 0..d {
             left_active.clear();
             right_active.clear();
+            let left_row = left.row(c);
+            let right_row = right.row(c);
+            let left_row = left_row
+                .as_slice()
+                .expect("block_gemm_subtract: left row must be contiguous");
+            let right_row = right_row
+                .as_slice()
+                .expect("block_gemm_subtract: right row must be contiguous");
             for col in 0..k {
-                let l = left[[c, col]];
-                let r = right[[c, col]];
+                let l = left_row[col];
+                let r = right_row[col];
                 if l != 0.0 {
                     left_active.push((col, l));
                 }
@@ -846,8 +866,23 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
                 continue;
             }
             for &(a, lca) in &left_active {
-                for &(b, rcb) in &right_active {
-                    schur[[a, b]] -= lca * rcb;
+                let row_off = a * schur_cols;
+                if right_active.len() == k {
+                    // Dense right row: at nnz == k the active list is exactly
+                    // `col = 0..k` in order, so this contiguous fused loop is
+                    // BIT-IDENTICAL to the sparse one below (same b order,
+                    // same subtractions) while being vectorizable — the old
+                    // codegen was 771 instructions with 18 bounds/compare
+                    // patterns around exactly 2 scalar FP ops and zero vector
+                    // ops (A10 asm read, 2026-07-11).
+                    let schur_row = &mut schur_flat[row_off..row_off + k];
+                    for (s, &r) in schur_row.iter_mut().zip(right_row) {
+                        *s -= lca * r;
+                    }
+                } else {
+                    for &(b, rcb) in &right_active {
+                        schur_flat[row_off + b] -= lca * rcb;
+                    }
                 }
             }
         }

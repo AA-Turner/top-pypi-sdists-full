@@ -72,7 +72,7 @@ fn logdet_audit_point(
     registry: Option<&AnalyticPenaltyRegistry>,
     inner_max_iter: usize,
 ) -> Result<LogdetAuditPoint, String> {
-    let (criterion_value, loss, cache) = term.reml_criterion_with_cache(
+    let (criterion_value, loss, cache) = term.penalized_quasi_laplace_criterion_with_cache(
         target,
         rho,
         registry,
@@ -82,7 +82,7 @@ fn logdet_audit_point(
         1.0e-6,
     )?;
     let raw_smoothness_sum: f64 = term
-        .decoder_smoothness_value_per_atom(&rho.lambda_smooth_vec())
+        .decoder_smoothness_value_per_atom(&rho.lambda_smooth_vec().unwrap())
         .iter()
         .sum();
     let smooth_renorm = if raw_smoothness_sum.abs() > 0.0 {
@@ -94,26 +94,19 @@ fn logdet_audit_point(
         "logdet_audit_point: authoritative log determinant unavailable".to_string()
     })?;
     let residual = term.reconstruction_residual(target, rho)?;
-    let dispersion =
-        term.reconstruction_dispersion(&loss, &cache, rho, Some(residual.view()))?;
+    let dispersion = term.reconstruction_dispersion(&loss, &cache, rho, Some(residual.view()))?;
     let d_eff = term.per_atom_realised_rank_dof(rho, dispersion)?;
     let n_eff = term.per_atom_effective_sample_size();
     let log_det_tt = super::construction::coordinate_block_log_det(&cache)?;
-    let laplace_complexity = super::construction::rank_adjusted_laplace_complexity(
-        log_det,
-        log_det_tt,
-        &d_eff,
-        &n_eff,
+    let quasi_laplace_complexity = super::construction::rank_adjusted_quasi_laplace_complexity(
+        log_det, log_det_tt, &d_eff, &n_eff,
     )?;
     let occam = term.reml_occam_term(rho)?;
-    let extra_penalty_energy = match registry {
-        Some(registry) => term
-            .reml_extra_penalty_value_total(registry)
-            .map_err(|error| error.to_string())?,
-        None => 0.0,
-    };
+    let extra_penalty_energy = term
+        .reml_extra_penalty_value_total(registry)
+        .map_err(|error| error.to_string())?;
     let solver = term
-        .outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec())
+        .outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec().unwrap())
         .map_err(|err| err.to_string())?;
     let exact_chart_gauge_count = term.dense_step_gauge_vectors()?.len();
     let solver_gauge_count = solver.gauge_basis.len();
@@ -130,7 +123,7 @@ fn logdet_audit_point(
         .map_err(|err| err.to_string());
     let criterion = SaeCriterion::assemble(
         loss.total() + extra_penalty_energy,
-        laplace_complexity,
+        quasi_laplace_complexity,
         occam,
         components.explicit.clone(),
         components.logdet_trace.clone(),
@@ -155,10 +148,10 @@ fn logdet_audit_point(
     let quotient_kkt_grad_norm = kkt_term.quotient_gradient_norm_from_system(
         &kkt_system,
         kkt_grad_norm_sq,
-        &rho.lambda_smooth_vec(),
+        &rho.lambda_smooth_vec().unwrap(),
     );
     let kkt_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * kkt_term.inner_iterate_scale();
-    if !SaeManifoldTerm::evidence_kkt_stationary(
+    if !SaeManifoldTerm::quasi_laplace_kkt_stationary(
         kkt_grad_norm,
         quotient_kkt_grad_norm,
         kkt_tolerance,
@@ -183,7 +176,7 @@ fn logdet_audit_point(
         .map(|atom| atom.decoder_frame.clone())
         .collect();
     let mut recurrence_rho = rho.clone();
-    let recurrence = recurrence_term.run_joint_fit_arrow_schur_for_evidence(
+    let recurrence = recurrence_term.run_joint_fit_arrow_schur_for_quasi_laplace(
         target,
         &mut recurrence_rho,
         registry,
@@ -228,8 +221,9 @@ fn frozen_raw_logdet(
     rho: &SaeManifoldRho,
     registry: Option<&AnalyticPenaltyRegistry>,
 ) -> Result<f64, String> {
-    let criterion_result =
-        term.reml_criterion_with_cache(target, rho, registry, 0, 0.05, 1.0e-6, 1.0e-6)?;
+    let criterion_result = term.penalized_quasi_laplace_criterion_with_cache(
+        target, rho, registry, 0, 0.05, 1.0e-6, 1.0e-6,
+    )?;
     arrow_log_det_from_cache(&criterion_result.2)
         .ok_or_else(|| "frozen_raw_logdet: authoritative log determinant unavailable".to_string())
 }
@@ -266,7 +260,6 @@ fn zz_planted_circle_plain_engine_stall_diagnostic_2234() {
         tau: 1.0,
         threshold: 0.0,
         top_k: None,
-        ibp_alpha_override: None,
         random_state: 45,
         initial_logits: None,
         initial_coords: None,
@@ -372,6 +365,7 @@ fn zz_planted_circle_plain_engine_stall_diagnostic_2234() {
     // internally inconsistent. Finite differences remain confined to this test.
     let banked = objective
         .try_resume_from_checkpoint(n_params)
+        .expect("checkpoint rho must satisfy the objective domain")
         .map(Array1::from)
         .unwrap_or(initial_flat);
     // Align the mutable objective term with the banked rho. The actual audit
@@ -387,7 +381,7 @@ fn zz_planted_circle_plain_engine_stall_diagnostic_2234() {
         "the #2253 discriminator must exercise the profiled Grassmann-frame path"
     );
     let center_term = objective.term.clone();
-    let center_rho = objective.baseline_rho.from_flat(banked.view());
+    let center_rho = objective.baseline_rho.from_flat(banked.view()).unwrap();
     let h = 1.0e-4;
     let mut failures = Vec::new();
     for inner_max_iter in [40usize, 200usize] {
@@ -456,8 +450,8 @@ fn zz_planted_circle_plain_engine_stall_diagnostic_2234() {
             plus[j] += h;
             let mut minus = banked.clone();
             minus[j] -= h;
-            let plus_rho = objective.baseline_rho.from_flat(plus.view());
-            let minus_rho = objective.baseline_rho.from_flat(minus.view());
+            let plus_rho = objective.baseline_rho.from_flat(plus.view()).unwrap();
+            let minus_rho = objective.baseline_rho.from_flat(minus.view()).unwrap();
             let plus = logdet_audit_point(
                 center.term.clone(),
                 z.view(),

@@ -219,7 +219,7 @@ fn conditional_prediction_backend<'a>(
     fit: &'a UnifiedFitResult,
     expected_dim: usize,
     label: &str,
-) -> Option<PredictionCovarianceBackend<'a>> {
+) -> Result<Option<PredictionCovarianceBackend<'a>>, EstimationError> {
     // The canonical conditional covariance is whatever the fitter exposes via
     // `beta_covariance` (which is `Cov(β̂ | λ̂)` after any final reparameter
     // alignment the fitter performed). The penalized Hessian is the precision
@@ -236,7 +236,11 @@ fn conditional_prediction_backend<'a>(
     // `fit.beta_covariance()` over any indirect derivation.
     if let Some(covariance) = fit.beta_covariance() {
         match validate_dense_prediction_covariance(covariance.view(), expected_dim, label) {
-            Ok(()) => return Some(PredictionCovarianceBackend::from_dense(covariance.view())),
+            Ok(()) => {
+                return Ok(Some(PredictionCovarianceBackend::from_dense(
+                    covariance.view(),
+                )));
+            }
             Err(reason) => log::warn!("{label}: ignoring invalid conditional {reason}"),
         }
     }
@@ -251,12 +255,12 @@ fn conditional_prediction_backend<'a>(
         // dispersion `φ̂` here instead would double-count it for those families
         // and shrink every SE by `√φ̂` (#679). For `φ ≡ 1` families
         // (Binomial / Poisson) this collapses to the original behavior.
-        let scale = fit.coefficient_covariance_scale();
+        let scale = fit.coefficient_covariance_scale()?;
         match PredictionCovarianceBackend::from_factorized_hessian_scaled(
             SymmetricMatrix::Dense(hessian.clone()),
             scale,
         ) {
-            Ok(backend) => return Some(backend),
+            Ok(backend) => return Ok(Some(backend)),
             Err(err) => {
                 log::warn!(
                     "{label}: failed to build factorized prediction precision backend: {err}"
@@ -264,7 +268,7 @@ fn conditional_prediction_backend<'a>(
             }
         }
     }
-    None
+    Ok(None)
 }
 
 fn selected_uncertainty_backend<'a>(
@@ -275,7 +279,7 @@ fn selected_uncertainty_backend<'a>(
 ) -> Result<(PredictionCovarianceBackend<'a>, bool), EstimationError> {
     match requested_mode {
         InferenceCovarianceMode::Conditional => {
-            conditional_prediction_backend(fit, expected_dim, label)
+            conditional_prediction_backend(fit, expected_dim, label)?
                 .map(|backend| (backend, false))
                 .ok_or_else(|| {
                     EstimationError::InvalidInput(
@@ -679,7 +683,7 @@ fn require_posterior_mean_backend<'a>(
             Err(reason) => rejected.push(reason),
         }
     }
-    if let Some(backend) = conditional_prediction_backend(fit, expected_dim, label) {
+    if let Some(backend) = conditional_prediction_backend(fit, expected_dim, label)? {
         return Ok(backend);
     }
     // The posterior mean E[g⁻¹(η)] is the estimand of this pass; without a
@@ -2756,8 +2760,11 @@ where
                                 .to_string(),
                         )
                     })?;
-                    let jets =
-                        sas_inverse_link_jetwith_param_partials(eta[i], sas.epsilon, sas.log_delta);
+                    let jets = sas_inverse_link_jetwith_param_partials(
+                        eta[i],
+                        sas.epsilon,
+                        sas.log_delta,
+                    )?;
                     let g = [jets.djet_depsilon.mu, jets.djet_dlog_delta.mu];
                     meanvar += quadratic_form(cov_theta, &g)?;
                 }
@@ -4184,11 +4191,12 @@ mod tests {
             penalty_block_trace: vec![],
             edf_total: p as f64,
             smoothing_correction: None,
+            smoothing_correction_method: None,
             penalized_hessian: Array2::<f64>::eye(p).into(),
             working_weights: Array1::zeros(0),
             working_response: Array1::zeros(0),
             reparam_qs: None,
-            dispersion: gam_problem::Dispersion::Known(1.0),
+            dispersion: gam_problem::Dispersion::UNIT,
             beta_covariance: Some(covariance.clone().into()),
             beta_standard_errors: None,
             beta_covariance_corrected: None,
@@ -5003,18 +5011,25 @@ mod tests {
         }
     }
 
-    /// Test 8: pathological β̂ (NaN/Inf entries) must not panic. NaNs
-    /// propagate into η rather than triggering an unwrap.
+    /// Test 8: a pathological plug-in β̂ (NaN/Inf entries) must not panic —
+    /// it is refused with a typed error, not silently propagated as a
+    /// non-finite prediction.
+    ///
+    /// `beta` here is the plug-in coefficient vector passed directly to
+    /// `predict_gamwith_uncertainty` (the argument under test), which is
+    /// independent of the fixture `fit`'s own stored coefficients and
+    /// bias-correction vector — those must stay finite since
+    /// `UnifiedFitResult::try_from_parts` validates them at construction.
     #[test]
     fn test_bias_correction_finite_for_pathological_inputs() {
         let beta = array![1.0_f64, f64::NAN, 0.5];
-        let bc = array![0.1_f64, 0.2, f64::INFINITY];
+        let bc = array![0.1_f64, 0.2, 0.3];
         let cov = Array2::<f64>::eye(3);
-        let fit = test_fit_with_bias_correction(beta.clone(), cov, Some(bc));
+        let fit = test_fit_with_bias_correction(Array1::<f64>::zeros(3), cov, Some(bc));
 
         let x = array![[1.0_f64, 1.0, 1.0]];
         let offset = array![0.0_f64];
-        let pred = predict_gamwith_uncertainty(
+        let error = predict_gamwith_uncertainty(
             x,
             beta.view(),
             offset.view(),
@@ -5022,11 +5037,10 @@ mod tests {
             &fit,
             &bc_options(true),
         )
-        .expect("pathological predict should not error, only propagate NaN/Inf");
+        .expect_err("a non-finite plug-in η must be a typed error, not a silent NaN prediction");
         assert!(
-            !pred.eta[0].is_finite(),
-            "expected non-finite η to propagate; got η = {}",
-            pred.eta[0]
+            matches!(error, EstimationError::InvalidInput(_)),
+            "expected a typed InvalidInput error, got {error:?}"
         );
     }
 

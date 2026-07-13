@@ -8,6 +8,11 @@ from sage.core.router import ProviderRouter
 from sage.providers.base import Message, ModelInfo, ProviderBase
 
 
+@pytest.fixture(autouse=True)
+def clear_sage_testing(monkeypatch):
+    monkeypatch.delenv("SAGE_TESTING", raising=False)
+
+
 # =============================================================================
 # Mock Provider Helper
 # =============================================================================
@@ -167,8 +172,9 @@ class TestResolve:
         assert result_provider is provider
         assert model_name == "default-model"
 
-    def test_resolve_unavailable_provider(self):
+    def test_resolve_unavailable_provider(self, monkeypatch):
         """Resolve raises for unavailable provider."""
+        monkeypatch.delenv("SAGE_TESTING", raising=False)
         provider = MockProvider("gemini", available=False)
         router = ProviderRouter(providers=[provider])
 

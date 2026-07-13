@@ -1,5 +1,58 @@
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
+/// Family-aware scalar contract for the built-in GPU PIRLS row kernels.
+///
+/// The CUDA kernel ABI still has one `double` slot shared by every built-in
+/// family, but only Gamma is allowed to populate it. Non-Gamma callers carry
+/// an explicit discriminant instead of manufacturing a unit Gamma shape; the
+/// final ABI conversion writes a NaN poison value so any future accidental
+/// non-Gamma read fails loudly rather than silently becoming unit scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PirlsLoopLikelihoodScale(PirlsLoopLikelihoodScaleKind);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum PirlsLoopLikelihoodScaleKind {
+    NonGamma,
+    GammaShape(f64),
+}
+
+impl PirlsLoopLikelihoodScale {
+    #[inline]
+    pub const fn non_gamma() -> Self {
+        Self(PirlsLoopLikelihoodScaleKind::NonGamma)
+    }
+
+    pub fn gamma_shape(shape: f64) -> Result<Self, String> {
+        if shape.is_finite() && shape > 0.0 {
+            Ok(Self(PirlsLoopLikelihoodScaleKind::GammaShape(shape)))
+        } else {
+            Err(format!(
+                "GPU PIRLS Gamma shape must be finite and strictly positive, got {shape:?}"
+            ))
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn kernel_argument(
+        self,
+        family: crate::gpu_kernels::pirls_row::PirlsRowFamily,
+    ) -> Result<f64, String> {
+        use crate::gpu_kernels::pirls_row::PirlsRowFamily;
+        match (family, self.0) {
+            (PirlsRowFamily::GammaLog, PirlsLoopLikelihoodScaleKind::GammaShape(shape)) => {
+                Ok(shape)
+            }
+            (PirlsRowFamily::GammaLog, PirlsLoopLikelihoodScaleKind::NonGamma) => {
+                Err("GPU Gamma row kernel requires an explicit resolved Gamma shape".to_string())
+            }
+            (_, PirlsLoopLikelihoodScaleKind::NonGamma) => Ok(f64::NAN),
+            (_, PirlsLoopLikelihoodScaleKind::GammaShape(shape)) => Err(format!(
+                "GPU non-Gamma row kernel {family:?} received Gamma shape {shape:?}"
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PirlsGpuInput<'a> {
     pub x: ArrayView2<'a, f64>,
@@ -163,19 +216,58 @@ pub(crate) mod cuda {
         PirlsGpuInput, PirlsGpuSharedData, PirlsGpuStep, PirlsStepStreamDeviceInput,
         PirlsStepStreamInput, SigmaPirlsGpuWorkspace,
     };
-    use gam_gpu::device_cache::PtxModuleCache;
-    use gam_gpu::driver::{from_col_major, to_col_major};
-    use gam_gpu::solver::{
-        check_deferred_potrf_info, check_deferred_potrs_info, context_and_stream, pinned_htod,
-        potrf_in_place_reuse, potrf_query_lwork, potrs_in_place_reuse,
-    };
     use cudarc::cublas::sys::{
         cublasDdgmm, cublasDgeam, cublasOperation_t, cublasSideMode_t, cublasStatus_t,
     };
     use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig};
     use cudarc::cusolver::DnHandle;
     use cudarc::driver::{CudaSlice, DevicePtr, DevicePtrMut, LaunchConfig, PushKernelArg};
+    use gam_gpu::device_cache::PtxModuleCache;
+    use gam_gpu::driver::{from_col_major, to_col_major};
+    use gam_gpu::solver::{
+        check_deferred_potrf_info, check_deferred_potrs_info, context_and_stream, pinned_htod,
+        potrf_in_place_reuse, potrf_query_lwork, potrs_in_place_reuse,
+    };
     use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+
+    /// Device/runtime failures stay distinct from exact statistical row
+    /// refusals.  The latter cross the GPU dispatch boundary as their original
+    /// typed [`gam_problem::EstimationError`] instead of being stringified or
+    /// retried on a different numerical path.
+    #[derive(Debug)]
+    pub enum PirlsGpuLoopError {
+        Geometry(gam_problem::EstimationError),
+        Runtime(String),
+    }
+
+    impl std::fmt::Display for PirlsGpuLoopError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Geometry(error) => write!(f, "{error}"),
+                Self::Runtime(message) => f.write_str(message),
+            }
+        }
+    }
+
+    impl std::error::Error for PirlsGpuLoopError {}
+
+    impl From<String> for PirlsGpuLoopError {
+        fn from(message: String) -> Self {
+            Self::Runtime(message)
+        }
+    }
+
+    impl From<&str> for PirlsGpuLoopError {
+        fn from(message: &str) -> Self {
+            Self::Runtime(message.to_owned())
+        }
+    }
+
+    impl From<gam_problem::EstimationError> for PirlsGpuLoopError {
+        fn from(error: gam_problem::EstimationError) -> Self {
+            Self::Geometry(error)
+        }
+    }
 
     /// One-thread reduction over a p×p column-major Cholesky factor's
     /// diagonal, computing `2·Σ ln(L[i,i])` device-side and writing a
@@ -1970,28 +2062,78 @@ extern "C" __global__ void negate_n(
     v[i] = -v[i];
 }
 
-// OR-reduction over a u32 status array (length n).  Single-block;
-// same launch config as deviance_sum (1 block of 1024 threads).
-// out[0] receives the bitwise-OR of all status[i] for i in [0, n).
-extern "C" __global__ void status_or(
+// Deterministically select the smallest failing row. out[0] is UINT_MAX on
+// success, otherwise the row index; out[1] carries that row's refusal code.
+extern "C" __global__ void status_first(
     const unsigned int* __restrict__ status,
     int n,
     unsigned int* __restrict__ out
 ) {
-    __shared__ unsigned int sm[1024];
+    __shared__ unsigned int sm_row[1024];
+    __shared__ unsigned int sm_code[1024];
     int tid = threadIdx.x;
     int bdim = blockDim.x;
-    unsigned int acc = 0u;
+    unsigned int best_row = 0xffffffffu;
+    unsigned int best_code = 0u;
     for (int i = tid; i < n; i += bdim) {
-        acc |= status[i];
+        unsigned int code = status[i];
+        if (code != 0u && (unsigned int)i < best_row) {
+            best_row = (unsigned int)i;
+            best_code = code;
+        }
     }
-    sm[tid] = acc;
+    sm_row[tid] = best_row;
+    sm_code[tid] = best_code;
     __syncthreads();
     for (int stride = bdim / 2; stride > 0; stride >>= 1) {
-        if (tid < stride) sm[tid] |= sm[tid + stride];
+        if (tid < stride && sm_row[tid + stride] < sm_row[tid]) {
+            sm_row[tid] = sm_row[tid + stride];
+            sm_code[tid] = sm_code[tid + stride];
+        }
         __syncthreads();
     }
-    if (tid == 0) out[0] = sm[0];
+    if (tid == 0) {
+        out[0] = sm_row[0];
+        out[1] = sm_code[0];
+    }
+}
+
+// Same deterministic reduction for the alpha-major [7*n] ladder status
+// matrix. One block handles each alpha; outputs are row[0..7), code[7..14).
+extern "C" __global__ void status_first_ladder(
+    const unsigned int* __restrict__ status,
+    int n,
+    unsigned int* __restrict__ out
+) {
+    __shared__ unsigned int sm_row[1024];
+    __shared__ unsigned int sm_code[1024];
+    int k = blockIdx.x;
+    int tid = threadIdx.x;
+    int bdim = blockDim.x;
+    unsigned int best_row = 0xffffffffu;
+    unsigned int best_code = 0u;
+    const unsigned int* candidate = status + ((long long)k * n);
+    for (int i = tid; i < n; i += bdim) {
+        unsigned int code = candidate[i];
+        if (code != 0u && (unsigned int)i < best_row) {
+            best_row = (unsigned int)i;
+            best_code = code;
+        }
+    }
+    sm_row[tid] = best_row;
+    sm_code[tid] = best_code;
+    __syncthreads();
+    for (int stride = bdim / 2; stride > 0; stride >>= 1) {
+        if (tid < stride && sm_row[tid + stride] < sm_row[tid]) {
+            sm_row[tid] = sm_row[tid + stride];
+            sm_code[tid] = sm_code[tid + stride];
+        }
+        __syncthreads();
+    }
+    if (tid == 0) {
+        out[k] = sm_row[0];
+        out[7 + k] = sm_code[0];
+    }
 }
 "#;
 
@@ -2001,21 +2143,22 @@ extern "C" __global__ void status_or(
     ///
     /// Three row-kernel modes occupy separate device buffers:
     /// - `row_solve`: solve-row (4 fields), refreshed each Newton iteration.
-    /// - `alpha_ladder`: candidate-objective (objective[7] + status[7]).
-    /// - `row_final`: final-row (9 fields), written once at convergence.
+    /// - `alpha_ladder`: candidate-objective (objective[7] + status[7*n]).
+    /// - `row_final`: five numerical fields + status, written once at convergence.
     pub struct PirlsLoopWorkspace {
         pub beta_dev: CudaSlice<f64>,
         pub eta_dev: CudaSlice<f64>,
         /// Solve-row buffers: `grad_eta`, `w_solver`, `deviance`, `status`.
         pub row_solve: crate::gpu_kernels::pirls_row::SolveRowBuffers,
-        /// Alpha-ladder buffers: `objective[7]`, `status[7]`.
+        /// Alpha-ladder buffers: `objective[7]`, alpha-major `status[7*n]`.
         pub alpha_ladder: crate::gpu_kernels::pirls_row::AlphaLadderDevBuffers,
-        /// Full final-row buffers: all 9 fields, written once at convergence.
+        /// Full production final-row buffers, written once at convergence.
         pub row_final: crate::gpu_kernels::pirls_row::RowOutputDevBuffers,
         pub direction_dev: CudaSlice<f64>,
         pub xd_dev: CudaSlice<f64>,
         pub scalar_dev: CudaSlice<f64>,
-        /// Single-element u32 for the `status_or` OR-reduction kernel.
+        /// Fourteen u32 scratch slots: row/code pairs for one row surface or
+        /// all seven alpha-ladder candidates.
         pub status_u32_dev: CudaSlice<u32>,
         pub n: usize,
         pub p: usize,
@@ -2039,7 +2182,7 @@ extern "C" __global__ void status_or(
                 row_solve: crate::gpu_kernels::pirls_row::SolveRowBuffers::allocate(stream, n)
                     .map_err(|e| format!("pirls loop alloc row_solve: {e}"))?,
                 alpha_ladder: crate::gpu_kernels::pirls_row::AlphaLadderDevBuffers::allocate(
-                    stream,
+                    stream, n,
                 )
                 .map_err(|e| format!("pirls loop alloc alpha_ladder: {e}"))?,
                 row_final: crate::gpu_kernels::pirls_row::RowOutputDevBuffers::allocate(stream, n)
@@ -2048,7 +2191,7 @@ extern "C" __global__ void status_or(
                 xd_dev: alloc_f64("xd", n)?,
                 scalar_dev: alloc_f64("scalar", 1)?,
                 status_u32_dev: stream
-                    .alloc_zeros::<u32>(1)
+                    .alloc_zeros::<u32>(14)
                     .map_err(|e| format!("pirls loop alloc status_u32: {e}"))?,
                 n,
                 p,
@@ -2128,16 +2271,6 @@ extern "C" __global__ void status_or(
         /// device-side Firth path would populate this with the active
         /// Jeffreys-logdet + hat-diagonal vector.
         pub firth: Option<crate::pirls::FirthDiagnostics>,
-        /// Canonical-basis transform `qs` (size `p × p`) that maps
-        /// transformed-basis β to original coordinates via
-        /// `beta_original = qs · beta_transformed`. Carried on the
-        /// struct for callers that need original-coordinate β; the
-        /// postpass does **not** apply `qs` to the loop's β because
-        /// the GPU loop already solved in the transformed design
-        /// `X·Qs`, so the loop's β *is* `beta_transformed`. When
-        /// `None`, no reparameterization is active and transformed
-        /// and original coordinates coincide.
-        pub qs: Option<ndarray::ArrayView2<'a, f64>>,
         /// Effective degrees of freedom at the converged mode, when
         /// the dispatch wirer has it precomputed (typical case: the
         /// outer REML caller passes its own `e_transformed` /
@@ -2261,15 +2394,6 @@ extern "C" __global__ void status_or(
         /// `PirlsResult::max_abs_eta`. Used by REML's
         /// perfect-separation detection.
         pub max_abs_eta: f64,
-        /// Bitwise-OR of all per-row status flags across the n rows at
-        /// the final accepted PIRLS step. Carries
-        /// [`crate::gpu_kernels::pirls_row::status_flags`] bits so callers can
-        /// distinguish saturation (`ETA_CLAMPED`), numerical floor
-        /// (`MU_FLOORED`), or invalid input (`INVALID_RESPONSE`,
-        /// `ZERO_PRIOR_WEIGHT`). A value of 0 means no per-row
-        /// anomaly was detected. Contributes to the `Unstable`
-        /// classification when forbidden bits are set.
-        pub per_row_status_or: u32,
     }
 
     /// Full device-resident PIRLS loop. Only three scalar (1 f64)
@@ -2303,30 +2427,29 @@ extern "C" __global__ void status_or(
         max_iter: usize,
         tol: f64,
         extra: Option<&PirlsLoopExtra<'_>>,
-    ) -> Result<PirlsLoopOutcome, String> {
+    ) -> Result<PirlsLoopOutcome, PirlsGpuLoopError> {
         let n = shared.n;
         let p = shared.p;
         if loop_ws.n != n || loop_ws.p != p {
             return Err(format!(
                 "loop workspace ({}, {}) ≠ shared ({n}, {p})",
                 loop_ws.n, loop_ws.p
-            ));
+            )
+            .into());
         }
         if beta0_host.len() != p {
-            return Err(format!("beta0 length {} ≠ p={p}", beta0_host.len()));
+            return Err(format!("beta0 length {} ≠ p={p}", beta0_host.len()).into());
         }
 
         if linear_shift.len() != p {
-            return Err(format!(
-                "linear_shift length {} ≠ p={p}",
-                linear_shift.len()
-            ));
+            return Err(format!("linear_shift length {} ≠ p={p}", linear_shift.len()).into());
         }
         if penalty_hessian.dim() != (p, p) {
             return Err(format!(
                 "penalty_hessian shape {:?} ≠ (p={p}, p={p})",
                 penalty_hessian.dim()
-            ));
+            )
+            .into());
         }
 
         ws.stream
@@ -2350,9 +2473,12 @@ extern "C" __global__ void status_or(
         let linf_func = loop_module
             .load_function("linf_norm")
             .map_err(|e| format!("load linf_norm: {e}"))?;
-        let status_or_func = loop_module
-            .load_function("status_or")
-            .map_err(|e| format!("load status_or: {e}"))?;
+        let status_first_func = loop_module
+            .load_function("status_first")
+            .map_err(|e| format!("load status_first: {e}"))?;
+        let status_first_ladder_func = loop_module
+            .load_function("status_first_ladder")
+            .map_err(|e| format!("load status_first_ladder: {e}"))?;
 
         // beta_orig = Qs · beta  (transforms from transformed to original coords).
         // For identity Qs, this is a copy; always goes through ws.beta_orig_dev.
@@ -2395,6 +2521,20 @@ extern "C" __global__ void status_or(
             &mut loop_ws.row_solve,
         )
         .map_err(|e| format!("solve-row init: {e}"))?;
+        certify_device_rows(
+            &ws.stream,
+            &status_first_func,
+            &loop_ws.row_solve.status,
+            &mut loop_ws.status_u32_dev,
+            family,
+            curvature,
+            gamma_shape,
+            &loop_ws.eta_dev,
+            &shared.y_dev,
+            &shared.prior_w_dev,
+            n,
+            "solve-row init",
+        )?;
 
         let mut prev_deviance = reduce_scalar(
             &ws.stream,
@@ -2487,8 +2627,9 @@ extern "C" __global__ void status_or(
             // -- Fused alpha-ladder (candidate-objective mode) ----------------
             // One kernel launch evaluates eta + alpha_k*xdelta for all k in
             // ALPHA_LADDER simultaneously, atomically accumulating per-row
-            // deviance into objective_dev[k] and OR-accumulating status flags
-            // into status_dev[k].  A single DtoH of 7+7 scalars selects the
+            // deviance into objective_dev[k] and writing exact per-row refusal
+            // codes. A deterministic device reduction returns 7 row/code pairs;
+            // a scalar-sized DtoH selects the
             // accepted step -- no per-alpha kernel launch, no full row-output
             // write, no per-alpha host scalar sync.
             loop_ws
@@ -2513,10 +2654,13 @@ extern "C" __global__ void status_or(
                 .stream
                 .clone_dtoh(&loop_ws.alpha_ladder.objective_dev)
                 .map_err(|e| format!("ladder dtoh obj it={it}: {e}"))?;
-            let stat_host: Vec<u32> = ws
-                .stream
-                .clone_dtoh(&loop_ws.alpha_ladder.status_dev)
-                .map_err(|e| format!("ladder dtoh stat it={it}: {e}"))?;
+            let candidate_refusals = reduce_ladder_status_first(
+                &ws.stream,
+                &status_first_ladder_func,
+                &loop_ws.alpha_ladder.status_dev,
+                n,
+                &mut loop_ws.status_u32_dev,
+            )?;
             // Download the direction (p << n; one DtoH per iteration to
             // compute the host-side penalty term and maintain beta_host).
             let direction_host: Vec<f64> = ws
@@ -2540,14 +2684,11 @@ extern "C" __global__ void status_or(
             let penalty_beta =
                 beta_host.dot(&s_beta) - 2.0 * beta_host.dot(&linear_shift) + constant_shift;
 
-            const FORBIDDEN_LINESEARCH: u32 =
-                crate::gpu_kernels::pirls_row::status_flags::INVALID_RESPONSE
-                    | crate::gpu_kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
             let mut alpha = 0.0_f64;
             let mut accepted_dev = prev_deviance;
             let mut accepted_objective = prev_objective;
             let mut halving_count: usize = 0;
-            for (k, (&dev_k, &st)) in obj_host.iter().zip(stat_host.iter()).enumerate() {
+            for (k, &dev_k) in obj_host.iter().enumerate() {
                 let a = crate::gpu_kernels::pirls_row::ALPHA_LADDER[k];
                 let pen_k = penalty_beta + a * linear_coeff + a * a * dtsd;
                 let obj_k = dev_k + pen_k;
@@ -2558,8 +2699,7 @@ extern "C" __global__ void status_or(
                 // direction) must still be accepted so the line
                 // search does not spuriously exhaust at a
                 // stationary point.
-                if obj_k.is_finite() && obj_k <= prev_objective && (st & FORBIDDEN_LINESEARCH) == 0
-                {
+                if candidate_refusals[k].is_none() && obj_k.is_finite() && obj_k <= prev_objective {
                     alpha = a;
                     accepted_dev = dev_k;
                     accepted_objective = obj_k;
@@ -2568,6 +2708,38 @@ extern "C" __global__ void status_or(
                 }
             }
             if alpha == 0.0 {
+                if candidate_refusals.iter().all(Option::is_some) {
+                    let (row, code) = candidate_refusals[0]
+                        .expect("all alpha-ladder candidates were certified as refusals");
+                    let eta_host = ws
+                        .stream
+                        .clone_dtoh(&loop_ws.eta_dev)
+                        .map_err(|error| format!("ladder refusal eta download: {error}"))?;
+                    let xd_host = ws
+                        .stream
+                        .clone_dtoh(&loop_ws.xd_dev)
+                        .map_err(|error| format!("ladder refusal direction download: {error}"))?;
+                    let y_host = ws
+                        .stream
+                        .clone_dtoh(&shared.y_dev)
+                        .map_err(|error| format!("ladder refusal response download: {error}"))?;
+                    let prior_host =
+                        ws.stream.clone_dtoh(&shared.prior_w_dev).map_err(|error| {
+                            format!("ladder refusal prior-weight download: {error}")
+                        })?;
+                    let trial_eta = eta_host[row]
+                        + crate::gpu_kernels::pirls_row::ALPHA_LADDER[0] * xd_host[row];
+                    return Err(replay_row_refusal(
+                        family,
+                        curvature,
+                        gamma_shape,
+                        row,
+                        code,
+                        trial_eta,
+                        y_host[row],
+                        prior_host[row],
+                    ));
+                }
                 // No α in the ladder produced a step lowering the
                 // *penalized* objective. The previous code (and the
                 // first draft of this rewrite) silently committed
@@ -2628,6 +2800,20 @@ extern "C" __global__ void status_or(
                 &mut loop_ws.row_solve,
             )
             .map_err(|e| format!("solve-row accepted it={it}: {e}"))?;
+            certify_device_rows(
+                &ws.stream,
+                &status_first_func,
+                &loop_ws.row_solve.status,
+                &mut loop_ws.status_u32_dev,
+                family,
+                curvature,
+                gamma_shape,
+                &loop_ws.eta_dev,
+                &shared.y_dev,
+                &shared.prior_w_dev,
+                n,
+                "solve-row accepted",
+            )?;
 
             let step_norm = alpha.abs() * dir_linf;
             let dev_delta = (prev_objective - accepted_objective).abs();
@@ -2646,7 +2832,7 @@ extern "C" __global__ void status_or(
                 && dev_delta <= tol * (1.0 + prev_objective.abs())
             {
                 converged = true;
-                // Final-row mode: write all 9 output fields once at convergence.
+                // Final-row mode: write the full production row surface once.
                 crate::gpu_kernels::pirls_row::launch_row_reweight_on_stream(
                     backend,
                     family,
@@ -2660,6 +2846,20 @@ extern "C" __global__ void status_or(
                     &mut loop_ws.row_final,
                 )
                 .map_err(|e| format!("final-row converged: {e}"))?;
+                certify_device_rows(
+                    &ws.stream,
+                    &status_first_func,
+                    &loop_ws.row_final.status,
+                    &mut loop_ws.status_u32_dev,
+                    family,
+                    curvature,
+                    gamma_shape,
+                    &loop_ws.eta_dev,
+                    &shared.y_dev,
+                    &shared.prior_w_dev,
+                    n,
+                    "final-row converged",
+                )?;
                 let h_final = rebuild_h_final(
                     shared,
                     ws,
@@ -2686,12 +2886,11 @@ extern "C" __global__ void status_or(
                         min_deviance: min_dev,
                         step_search_exhausted,
                     },
-                    &status_or_func,
                 );
             }
         }
 
-        // Final-row mode: write all 9 output fields once at max-iter exit.
+        // Final-row mode: write the full production row surface once at exit.
         crate::gpu_kernels::pirls_row::launch_row_reweight_on_stream(
             backend,
             family,
@@ -2705,6 +2904,20 @@ extern "C" __global__ void status_or(
             &mut loop_ws.row_final,
         )
         .map_err(|e| format!("final-row max_iter: {e}"))?;
+        certify_device_rows(
+            &ws.stream,
+            &status_first_func,
+            &loop_ws.row_final.status,
+            &mut loop_ws.status_u32_dev,
+            family,
+            curvature,
+            gamma_shape,
+            &loop_ws.eta_dev,
+            &shared.y_dev,
+            &shared.prior_w_dev,
+            n,
+            "final-row max_iter",
+        )?;
         let h_final = rebuild_h_final(
             shared,
             ws,
@@ -2731,7 +2944,6 @@ extern "C" __global__ void status_or(
                 min_deviance: min_dev,
                 step_search_exhausted,
             },
-            &status_or_func,
         )
     }
 
@@ -2781,8 +2993,7 @@ extern "C" __global__ void status_or(
         objective_ridge: f64,
         extra: Option<&PirlsLoopExtra<'_>>,
         diagnostics: LoopDiagnostics,
-        status_or_func: &cudarc::driver::CudaFunction,
-    ) -> Result<PirlsLoopOutcome, String> {
+    ) -> Result<PirlsLoopOutcome, PirlsGpuLoopError> {
         let beta = download_vec(&ws.stream, &loop_ws.beta_dev)?;
         let final_eta = download_vec(&ws.stream, &loop_ws.eta_dev)?;
         let final_mu = download_vec(&ws.stream, &loop_ws.row_final.mu)?;
@@ -2790,32 +3001,14 @@ extern "C" __global__ void status_or(
         let final_w_hessian = download_vec(&ws.stream, &loop_ws.row_final.w_hessian)?;
         let final_w_solver = download_vec(&ws.stream, &loop_ws.row_final.w_solver)?;
 
-        // OR-reduce the per-row status flags of the final accepted step.
-        // Any INVALID_RESPONSE or ZERO_PRIOR_WEIGHT bit that survived to
-        // the accepted iterate means the line-search fallback swallowed a
-        // structurally bad candidate; classify as Unstable.
-        let n_rows = loop_ws.n;
-        let final_row_status = reduce_status_or(
-            &ws.stream,
-            status_or_func,
-            &loop_ws.row_final.status,
-            n_rows,
-            &mut loop_ws.status_u32_dev,
-            "final_row_status",
-        )?;
-        const FORBIDDEN_FINAL: u32 = crate::gpu_kernels::pirls_row::status_flags::INVALID_RESPONSE
-            | crate::gpu_kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
-
         // Stability classification — Unstable supersedes both
         // converged and MaxIterationsReached because a non-finite η /
         // μ at the accepted step means the line search swallowed a
         // divergence (saturated likelihood / perfect separation).
-        // Also Unstable when forbidden row-status bits are set.
         let eta_finite = final_eta.iter().all(|v| v.is_finite());
         let mu_finite = final_mu.iter().all(|v| v.is_finite());
         let beta_finite = beta.iter().all(|v| v.is_finite());
-        let stability_ok =
-            eta_finite && mu_finite && beta_finite && (final_row_status & FORBIDDEN_FINAL) == 0;
+        let stability_ok = eta_finite && mu_finite && beta_finite;
         let status = if !stability_ok {
             crate::pirls::PirlsStatus::Unstable
         } else if converged {
@@ -2837,8 +3030,9 @@ extern "C" __global__ void status_or(
         // is a solve-only artefact and must never contaminate EDF / REML.
         let default_ridge = gam_problem::RidgePassport::scaled_identity(
             objective_ridge,
-            gam_linalg::RidgePolicy::explicit_stabilization_full(),
-        );
+            gam_linalg::RidgePolicy::exact_full_objective(),
+        )
+        .map_err(gam_problem::EstimationError::from)?;
 
         let max_abs_eta = final_eta.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
 
@@ -2853,7 +3047,7 @@ extern "C" __global__ void status_or(
                         &final_eta,
                         ext.priorweights,
                     )
-                    .map_err(|e| format!("pirls postpass dmu/deta: {e:?}"))?;
+                    .map_err(PirlsGpuLoopError::Geometry)?;
 
                 let (finalweights, solve_c_array, solve_d_array) = match ext.exported_curvature {
                     crate::pirls::HessianCurvatureKind::Observed => {
@@ -2865,7 +3059,7 @@ extern "C" __global__ void status_or(
                             &final_w_solver,
                             ext.priorweights,
                         )
-                        .map_err(|e| format!("pirls postpass observed curvature: {e:?}"))?
+                        .map_err(PirlsGpuLoopError::Geometry)?
                     }
                     crate::pirls::HessianCurvatureKind::Fisher => {
                         (final_w_solver.clone(), score_c.clone(), score_d.clone())
@@ -2889,11 +3083,9 @@ extern "C" __global__ void status_or(
                     // (step_lm_lambda was stripped from the export), so
                     // H_pen·β ≈ Xᵀ·grad_eta at a KKT-feasible solution.
                     let grad = penalized_hessian.dot(&beta);
-                    Some(
-                        crate::active_set::compute_constraint_kkt_diagnostics(
-                            &beta, &grad, lin,
-                        ),
-                    )
+                    Some(crate::active_set::compute_constraint_kkt_diagnostics(
+                        &beta, &grad, lin,
+                    ))
                 });
 
                 let ridge_passport = ext.ridge_passport.unwrap_or(default_ridge);
@@ -2942,7 +3134,6 @@ extern "C" __global__ void status_or(
                     final_lm_lambda: step_lm_lambda,
                     min_deviance: diagnostics.min_deviance,
                     max_abs_eta,
-                    per_row_status_or: final_row_status,
                 })
             }
             None => {
@@ -2986,7 +3177,6 @@ extern "C" __global__ void status_or(
                     final_lm_lambda: step_lm_lambda,
                     min_deviance: diagnostics.min_deviance,
                     max_abs_eta,
-                    per_row_status_or: final_row_status,
                 })
             }
         }
@@ -3074,17 +3264,16 @@ extern "C" __global__ void status_or(
         Ok(host[0])
     }
 
-    /// OR-reduce a device-resident `u32` status array into a single `u32`.
-    /// Mirrors [`reduce_scalar`] for `f64` deviance reductions: single-block,
-    /// 1024-thread launch, one scalar DtoH download.
-    fn reduce_status_or(
+    /// Deterministically select the smallest non-zero row status with one
+    /// scalar-sized transfer.  Outputs `(row, refusal_code)` or `None`.
+    fn reduce_status_first(
         stream: &std::sync::Arc<cudarc::driver::CudaStream>,
         func: &cudarc::driver::CudaFunction,
         src: &CudaSlice<u32>,
         len: usize,
         status_dev: &mut CudaSlice<u32>,
         label: &'static str,
-    ) -> Result<u32, String> {
+    ) -> Result<Option<(usize, u32)>, String> {
         const THREADS: u32 = 1024;
         let len_i = to_i32(len)?;
         let cfg = LaunchConfig {
@@ -3096,13 +3285,133 @@ extern "C" __global__ void status_or(
         builder.arg(src);
         builder.arg(&len_i);
         builder.arg(&mut *status_dev);
-        // SAFETY: status_or kernel signature (const unsigned int*, int,
-        // unsigned int*). The reborrow keeps `status_dev` available.
-        unsafe { builder.launch(cfg) }.map_err(|e| format!("{label} or reduce launch: {e}"))?;
+        // SAFETY: status_first kernel signature (const unsigned int*, int,
+        // unsigned int*). The output has at least two u32 slots.
+        unsafe { builder.launch(cfg) }.map_err(|e| format!("{label} first reduce launch: {e}"))?;
         let host = stream
             .clone_dtoh(status_dev)
             .map_err(|e| format!("download {label}: {e}"))?;
-        Ok(host[0])
+        if host[0] == u32::MAX {
+            Ok(None)
+        } else {
+            Ok(Some((host[0] as usize, host[1])))
+        }
+    }
+
+    /// Reduce the alpha-major `[7*n]` status matrix in one seven-block launch.
+    fn reduce_ladder_status_first(
+        stream: &std::sync::Arc<cudarc::driver::CudaStream>,
+        func: &cudarc::driver::CudaFunction,
+        src: &CudaSlice<u32>,
+        n: usize,
+        status_dev: &mut CudaSlice<u32>,
+    ) -> Result<[Option<(usize, u32)>; crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN], String>
+    {
+        const THREADS: u32 = 1024;
+        let n_i = to_i32(n)?;
+        let cfg = LaunchConfig {
+            grid_dim: (crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN as u32, 1, 1),
+            block_dim: (THREADS, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        let mut builder = stream.launch_builder(func);
+        builder.arg(src);
+        builder.arg(&n_i);
+        builder.arg(&mut *status_dev);
+        // SAFETY: status_first_ladder signature is (const u32*, int, u32*);
+        // status_dev owns 14 slots (seven rows followed by seven codes).
+        unsafe { builder.launch(cfg) }
+            .map_err(|e| format!("alpha-ladder status reduction launch: {e}"))?;
+        let host = stream
+            .clone_dtoh(status_dev)
+            .map_err(|e| format!("download alpha-ladder status summary: {e}"))?;
+        let mut result = [None; crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN];
+        for k in 0..crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN {
+            if host[k] != u32::MAX {
+                result[k] = Some((
+                    host[k] as usize,
+                    host[crate::gpu_kernels::pirls_row::ALPHA_LADDER_LEN + k],
+                ));
+            }
+        }
+        Ok(result)
+    }
+
+    fn replay_row_refusal(
+        family: crate::gpu_kernels::pirls_row::PirlsRowFamily,
+        curvature: crate::gpu_kernels::pirls_row::CurvatureMode,
+        gamma_shape: f64,
+        row: usize,
+        code: u32,
+        eta: f64,
+        y: f64,
+        prior_weight: f64,
+    ) -> PirlsGpuLoopError {
+        let input = crate::gpu_kernels::pirls_row::RowInput {
+            eta,
+            y,
+            prior_weight,
+        };
+        match crate::gpu_kernels::pirls_row::row_reweight_cpu_at(
+            row,
+            family,
+            curvature,
+            input,
+            gamma_shape,
+        ) {
+            Err(error) => PirlsGpuLoopError::Geometry(error),
+            Ok(_) => PirlsGpuLoopError::Geometry(
+                gam_problem::EstimationError::PirlsRowGeometryUnrepresentable {
+                    row,
+                    quantity: crate::gpu_kernels::pirls_row::status_codes::quantity(code),
+                    eta,
+                    value: f64::from(code),
+                },
+            ),
+        }
+    }
+
+    fn certify_device_rows(
+        stream: &std::sync::Arc<cudarc::driver::CudaStream>,
+        status_first_func: &cudarc::driver::CudaFunction,
+        status: &CudaSlice<u32>,
+        status_scratch: &mut CudaSlice<u32>,
+        family: crate::gpu_kernels::pirls_row::PirlsRowFamily,
+        curvature: crate::gpu_kernels::pirls_row::CurvatureMode,
+        gamma_shape: f64,
+        eta: &CudaSlice<f64>,
+        y: &CudaSlice<f64>,
+        prior_weight: &CudaSlice<f64>,
+        n: usize,
+        label: &'static str,
+    ) -> Result<(), PirlsGpuLoopError> {
+        let Some((_row, _code)) =
+            reduce_status_first(stream, status_first_func, status, n, status_scratch, label)?
+        else {
+            return Ok(());
+        };
+        let eta_host = stream
+            .clone_dtoh(eta)
+            .map_err(|error| format!("{label} refusal eta download: {error}"))?;
+        let y_host = stream
+            .clone_dtoh(y)
+            .map_err(|error| format!("{label} refusal response download: {error}"))?;
+        let prior_host = stream
+            .clone_dtoh(prior_weight)
+            .map_err(|error| format!("{label} refusal prior-weight download: {error}"))?;
+        let status_host = stream
+            .clone_dtoh(status)
+            .map_err(|error| format!("{label} refusal status download: {error}"))?;
+        crate::gpu_kernels::pirls_row::replay_first_refusal(
+            family,
+            curvature,
+            gamma_shape,
+            &eta_host,
+            &y_host,
+            &prior_host,
+            &status_host,
+        )
+        .map_err(PirlsGpuLoopError::Geometry)
     }
 
     fn download_vec(
@@ -3359,14 +3668,13 @@ pub fn solve_pirls_step_on_stream_device(
 /// `RidgePassport`, EDF, or penalty term.  `objective_ridge` is the
 /// real model ridge that enters all of those.
 #[cfg(target_os = "linux")]
-pub fn pirls_loop_on_stream(
+pub(crate) fn pirls_loop_on_stream(
     shared: &PirlsGpuSharedData,
     ws: &mut SigmaPirlsGpuWorkspace,
     loop_ws: &mut cuda::PirlsLoopWorkspace,
     family: crate::gpu_kernels::pirls_row::PirlsRowFamily,
     curvature: crate::gpu_kernels::pirls_row::CurvatureMode,
-    // Active Gamma dispersion shape (α > 0). Pass `1.0` for non-Gamma fits.
-    gamma_shape: f64,
+    likelihood_scale: PirlsLoopLikelihoodScale,
     beta0: ndarray::ArrayView1<'_, f64>,
     penalty_hessian: ndarray::ArrayView2<'_, f64>,
     // Linear shift `b` for the shifted-quadratic penalty `βᵀSβ−2βᵀb+c`.
@@ -3379,7 +3687,10 @@ pub fn pirls_loop_on_stream(
     max_iter: usize,
     tol: f64,
     extra: Option<&cuda::PirlsLoopExtra<'_>>,
-) -> Result<cuda::PirlsLoopOutcome, String> {
+) -> Result<cuda::PirlsLoopOutcome, cuda::PirlsGpuLoopError> {
+    let gamma_shape = likelihood_scale
+        .kernel_argument(family)
+        .map_err(cuda::PirlsGpuLoopError::Runtime)?;
     cuda::pirls_loop(
         shared,
         ws,
@@ -3444,9 +3755,9 @@ pub fn solve_gaussian_pls_gpu(
 /// drifting away from the GPU formula.
 mod cpu_fallback {
     use super::{PirlsGpuInput, PirlsGpuStep};
-    use gam_linalg::faer_ndarray::FaerCholesky;
     use crate::estimate::reml::assembly::xt_diag_x_dense_into;
     use faer::Side;
+    use gam_linalg::faer_ndarray::FaerCholesky;
     use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
     pub(super) fn weighted_crossprod_cpu(
@@ -3542,6 +3853,37 @@ pub fn cholesky_solve_only_gpu(
 
 pub fn cholesky_lower_gpu(hessian: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
     gam_gpu::solver::cholesky_lower_gpu(hessian)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod pirls_loop_likelihood_scale_tests {
+    use super::PirlsLoopLikelihoodScale;
+    use crate::gpu_kernels::pirls_row::PirlsRowFamily;
+
+    #[test]
+    fn gpu_row_scale_discriminant_rejects_family_mismatch() {
+        assert!(
+            PirlsLoopLikelihoodScale::non_gamma()
+                .kernel_argument(PirlsRowFamily::GammaLog)
+                .is_err()
+        );
+        let gamma = PirlsLoopLikelihoodScale::gamma_shape(2.0).expect("positive Gamma shape");
+        assert!(gamma.kernel_argument(PirlsRowFamily::PoissonLog).is_err());
+        assert_eq!(
+            gamma
+                .kernel_argument(PirlsRowFamily::GammaLog)
+                .expect("matching Gamma contract"),
+            2.0
+        );
+    }
+
+    #[test]
+    fn non_gamma_kernel_scalar_is_poisoned_not_unit_scaled() {
+        let abi_value = PirlsLoopLikelihoodScale::non_gamma()
+            .kernel_argument(PirlsRowFamily::PoissonLog)
+            .expect("matching non-Gamma contract");
+        assert!(abi_value.is_nan());
+    }
 }
 
 /// Stage 3.2 V100 parity: the device-input PIRLS step must produce
@@ -3724,7 +4066,7 @@ mod stream_device_parity_tests {
                 &mut loop_ws,
                 PirlsRowFamily::BernoulliLogit,
                 CurvatureMode::Fisher,
-                1.0,
+                PirlsLoopLikelihoodScale::non_gamma(),
                 beta0.view(),
                 penalty.view(),
                 linear_shift_zero.view(),
@@ -3757,7 +4099,8 @@ mod stream_device_parity_tests {
                         prior_weight: prior_w[i],
                     },
                     1.0,
-                );
+                )
+                .expect("CPU PIRLS benchmark row must be representable");
                 w[i] = out.w_solver;
                 g[i] = out.grad_eta;
             }
@@ -3836,7 +4179,7 @@ mod stream_device_parity_tests {
             &mut loop_ws,
             crate::gpu_kernels::pirls_row::PirlsRowFamily::GaussianIdentity,
             crate::gpu_kernels::pirls_row::CurvatureMode::Fisher,
-            1.0,
+            PirlsLoopLikelihoodScale::non_gamma(),
             beta0.view(),
             penalty.view(),
             linear_shift_zero.view(),
@@ -3928,7 +4271,10 @@ mod weighted_crossprod_cpu_fallback_tests {
         for i in 0..p {
             for j in 0..p {
                 let diff = (got[[i, j]] - expected[[i, j]]).abs();
-                assert!(diff <= 1e-10, "XtWX[{i},{j}] mismatch: got vs expected diff={diff}");
+                assert!(
+                    diff <= 1e-10,
+                    "XtWX[{i},{j}] mismatch: got vs expected diff={diff}"
+                );
             }
         }
     }

@@ -4,6 +4,12 @@ import itertools
 import os
 from pathlib import Path
 
+# All functional tests hit real cloud APIs — mark as integration.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 # Load the matrix once
 with open(Path(__file__).parent / "matrix.yml") as f:
     MATRIX = yaml.safe_load(f)

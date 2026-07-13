@@ -13,7 +13,7 @@
 //! architectural response: retire the simultaneous cold-start joint fit from the
 //! training path and build `K` from proven K=1 fits (forward-stagewise fitting +
 //! backfitting — Hastie–Tibshirani — meets k-SVD, where the per-atom update is a
-//! certified 1-manifold REML fit rather than a rank-1 SVD). The joint solver
+//! certified 1-manifold penalized quasi-Laplace fit rather than a rank-1 SVD). The joint solver
 //! survives, demoted to a warm, guards-off polish and to evaluating the joint
 //! evidence once at a converged point.
 //!
@@ -29,7 +29,7 @@
 //! versus (B) *extending the previous atom's chart* — refitting the last atom so
 //! it can absorb the residual arc it left behind (stagewise arc-tiling, caught at
 //! birth rather than by post-hoc fusion). Acceptance is an EVIDENCE gate (the
-//! frozen joint REML criterion strictly improves) PLUS an explicit MINIMUM-EFFECT
+//! frozen joint penalized quasi-Laplace criterion strictly improves) PLUS an explicit MINIMUM-EFFECT
 //! floor ([`StagewiseConfig::min_effect_ev`]): with frontier-scale `n`, evidence
 //! alone keeps true-but-trivial wiggles forever, so salience is a separate,
 //! explicit dial (a config knob whose null-recovering default is `0.0`, never a
@@ -59,9 +59,9 @@
 //! optional Tier-1 bulk term with the SAC-composed atoms via
 //! [`SaeManifoldTerm::merge_tiers`] and runs a SINGLE frozen (`inner_max_iter ==
 //! 0`, the #850 freeze) arrow-Schur pass — evaluate-don't-optimize — to read the
-//! joint Laplace evidence at the converged point without moving β. That freeze is
-//! already exposed by [`SaeManifoldTerm::reml_criterion`] at `inner_max_iter ==
-//! 0`, so no new `frozen_evaluate` primitive is needed; [`frozen_joint_evidence`]
+//! joint quasi-Laplace score at the converged point without moving β. That freeze is
+//! already exposed by [`SaeManifoldTerm::penalized_quasi_laplace_criterion`] at `inner_max_iter ==
+//! 0`, so no new `frozen_evaluate` primitive is needed; [`frozen_joint_penalized_quasi_laplace`]
 //! is the thin, named wrapper this module and its callers use.
 //!
 //! # Determinism & SPEC
@@ -69,8 +69,8 @@
 //! No RNG, no clock, no wall-clock budget, no grid search. Every threshold is a
 //! typed config knob (defaulting to the null-recovering value) or a data-derived
 //! quantity (the residual model's evidence-selected factor rank is the salience
-//! oracle). REML throughout (the inner fits and the frozen evidence pass are the
-//! same REML criterion every term is scored by).
+//! oracle). penalized quasi-Laplace throughout (the inner fits and the frozen criterion pass are the
+//! same penalized quasi-Laplace criterion every term is scored by).
 
 use ndarray::{Array1, Array2, ArrayView2};
 
@@ -170,11 +170,11 @@ pub struct BirthRecord {
     /// Explained residual energy `‖Λ_:,0‖²` of the top factor the seed came from
     /// — the birth's dose, reported so a trivial-but-real wiggle is visible.
     pub factor_energy: f64,
-    /// Frozen joint REML criterion before the round (lower is better evidence).
-    pub joint_reml_before: f64,
-    /// Frozen joint REML criterion of the winning candidate (or the unchanged
+    /// Frozen joint penalized quasi-Laplace criterion before the round (lower is better).
+    pub joint_penalized_quasi_laplace_before: f64,
+    /// Frozen joint penalized quasi-Laplace criterion of the winning candidate (or the unchanged
     /// pre-round value when the round was rejected).
-    pub joint_reml_after: f64,
+    pub joint_penalized_quasi_laplace_after: f64,
     /// Whether a candidate cleared BOTH the evidence gate and the minimum-effect
     /// floor and was adopted.
     pub accepted: bool,
@@ -204,9 +204,9 @@ pub struct StagewiseReport {
     pub backfit_ev_trace: Vec<f64>,
     /// Why the forward-birth phase stopped.
     pub stopped_reason: StagewiseStop,
-    /// The frozen (evaluate-don't-optimize) joint REML criterion of the final
+    /// The frozen (evaluate-don't-optimize) joint penalized quasi-Laplace criterion of the final
     /// composed dictionary — the terminal Phase-3 evidence.
-    pub terminal_joint_reml: f64,
+    pub terminal_joint_penalized_quasi_laplace: f64,
     /// The loss breakdown at the frozen terminal state.
     pub terminal_joint_loss: SaeManifoldLoss,
 }
@@ -253,9 +253,9 @@ pub struct StagewiseProgress<'a> {
     pub births_rejected: usize,
     pub ev: Option<f64>,
     pub factor_energy: Option<f64>,
-    pub joint_reml_before: Option<f64>,
-    pub joint_reml_after: Option<f64>,
-    pub terminal_joint_reml: Option<f64>,
+    pub joint_penalized_quasi_laplace_before: Option<f64>,
+    pub joint_penalized_quasi_laplace_after: Option<f64>,
+    pub terminal_joint_penalized_quasi_laplace: Option<f64>,
     pub term: &'a SaeManifoldTerm,
     pub rho: &'a SaeManifoldRho,
 }
@@ -282,15 +282,15 @@ fn emit_stagewise_progress(
         StagewiseEventKind::BirthAccepted | StagewiseEventKind::BirthRejected => {
             let fmt = |v: Option<f64>| v.map_or_else(|| "-".to_string(), |x| format!("{x:.4}"));
             log::warn!(
-                "[stagewise] birth round {} {:?}: K={} accepted={} rejected={} ev={} reml {} -> {}",
+                "[stagewise] birth round {} {:?}: K={} accepted={} rejected={} ev={} penalized_quasi_laplace {} -> {}",
                 event.birth_round,
                 event.event,
                 event.k_atoms,
                 event.births_accepted,
                 event.births_rejected,
                 fmt(event.ev),
-                fmt(event.joint_reml_before),
-                fmt(event.joint_reml_after),
+                fmt(event.joint_penalized_quasi_laplace_before),
+                fmt(event.joint_penalized_quasi_laplace_after),
             );
         }
         _ => {}
@@ -309,7 +309,7 @@ fn current_residual(
     Ok(&target.to_owned() - &fitted)
 }
 
-/// Frozen (`inner_max_iter == 0`, the #850 freeze) joint REML criterion of a term
+/// Frozen (`inner_max_iter == 0`, the #850 freeze) joint penalized quasi-Laplace criterion of a term
 /// at its current `(t, β)` — evaluate-don't-optimize. This is the joint-Laplace
 /// evidence at a fixed converged state (`loss.total() + extra penalties + ½
 
@@ -347,15 +347,16 @@ fn refresh_terminal_row_metric(
 }
 
 /// log|H| − Occam`), the quantity the birth evidence gate and the terminal
-/// assembly compare on. Lower is better evidence.
-pub fn frozen_joint_evidence(
+/// assembly compare on. Lower is better.
+pub fn frozen_joint_penalized_quasi_laplace(
     term: &mut SaeManifoldTerm,
     target: ArrayView2<'_, f64>,
     rho: &SaeManifoldRho,
     registry: Option<&AnalyticPenaltyRegistry>,
     config: &StagewiseConfig,
 ) -> Result<(f64, SaeManifoldLoss), String> {
-    term.reml_criterion(
+    term.assignment.validate_rho_domain(rho)?;
+    term.penalized_quasi_laplace_criterion(
         target,
         rho,
         registry,
@@ -525,7 +526,9 @@ fn fit_single_atom_response_in_place(
                 .cloned()
                 .unwrap_or_else(|| Array1::zeros(0)),
         ],
-    );
+    )
+    .for_assignment(sub_term.assignment.mode);
+    sub_term.assignment.validate_rho_domain(&sub_rho)?;
     sub_term.run_joint_fit_arrow_schur(
         response,
         &mut sub_rho,
@@ -594,7 +597,7 @@ struct BirthSeed {
     /// `f64::NEG_INFINITY` (the conservative birth default). `born_circle_atom` routes
     /// each present row at the STRONGER of this own-presence gate and the incumbent
     /// per-row logit scale, so a circle genuinely present on incumbent-SPARSE rows
-    /// (low/negative `inc_max`) still gets a gate strong enough to ESTABLISH under IBP
+    /// (low/negative `inc_max`) still gets a gate strong enough to ESTABLISH under ordered Beta--Bernoulli
     /// (the flat `BIRTH_SEED_LOGIT` starves it, and the incumbent scale is weak where
     /// the circle actually lives). Derived from `ρ_i` + the existing `λ₊` floor, no new
     /// constant. `None` for the rank-1 / shared-factor DC fallback.
@@ -645,7 +648,7 @@ fn top_factor_birth_decoder(
     // carries a genuine DEGENERATE 2-plane (a real circle, not a rank-1 shared
     // factor), seed the born atom directly ON that circle with the own-presence gate
     // — exactly the disjoint principal path — rather than the flat row-0 DC seed that
-    // dies under IBP on incumbent-sparse rows. Only a real circle (`circle_coords`
+    // dies under ordered Beta--Bernoulli on incumbent-sparse rows. Only a real circle (`circle_coords`
     // Some) is adopted; a genuine rank-1 shared factor returns a DC seed here, which
     // we IGNORE and fall through to the anchor-scored factor pick below, so the #2080
     // factor-selection behavior on non-circle residuals is unchanged. The circle
@@ -891,7 +894,7 @@ fn isa_birth_seed_batch(
 ///
 /// Used both as the Phase-2 per-atom refit and as the chart-EXTENSION birth
 /// candidate (refit the last atom on its LOO residual so it can absorb the arc it
-/// left behind). Independent-gate modes (JumpReLU / IBP) refit exactly-additively;
+/// left behind). Independent-gate modes (ThresholdGate / ordered Beta--Bernoulli) refit exactly-additively;
 /// under Softmax the K=1 sub-gate is the constant `1`, so the sub-fit sees the
 /// full partial residual (classical additive backfitting) and the subsequent warm
 /// polish reconciles the re-normalized joint gate.
@@ -903,6 +906,7 @@ fn refit_single_atom_in_place(
     registry: Option<&AnalyticPenaltyRegistry>,
     config: &StagewiseConfig,
 ) -> Result<(), String> {
+    term.assignment.validate_rho_domain(rho)?;
     let n = term.n_obs();
     let p = term.output_dim();
     let k = term.k_atoms();
@@ -955,6 +959,7 @@ fn backfit_sweep(
     registry: Option<&AnalyticPenaltyRegistry>,
     config: &StagewiseConfig,
 ) -> Result<(), String> {
+    term.assignment.validate_rho_domain(rho)?;
     term.set_guards_enabled(false);
     // Routing step: re-solve gates + coordinates jointly at frozen decoders. A
     // failed assemble is a no-op (the state stays at the last good iterate); the
@@ -1008,6 +1013,8 @@ pub fn fit_stagewise(
     // to completion. `None` ⇒ the historical, uninterruptible path, bit-for-bit.
     cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<StagewiseResult, String> {
+    rho = rho.for_assignment(seed.assignment.mode);
+    seed.assignment.validate_rho_domain(&rho)?;
     let n = target.nrows();
     if seed.k_atoms() != 1 {
         return Err(format!(
@@ -1060,9 +1067,9 @@ pub fn fit_stagewise(
             births_rejected,
             ev: ev_trace.last().copied(),
             factor_energy: None,
-            joint_reml_before: None,
-            joint_reml_after: None,
-            terminal_joint_reml: None,
+            joint_penalized_quasi_laplace_before: None,
+            joint_penalized_quasi_laplace_after: None,
+            terminal_joint_penalized_quasi_laplace: None,
             term: &term,
             rho: &rho,
         },
@@ -1098,9 +1105,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(entry_ev),
                 factor_energy: None,
-                joint_reml_before: None,
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: None,
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1130,9 +1137,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(entry_ev),
                 factor_energy: None,
-                joint_reml_before: None,
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: None,
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1184,9 +1191,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(entry_ev),
                 factor_energy: Some(factor_energy),
-                joint_reml_before: None,
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: None,
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1205,14 +1212,15 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(entry_ev),
                 factor_energy: Some(factor_energy),
-                joint_reml_before: None,
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: None,
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
         )?;
-        let (cur_reml, _) = frozen_joint_evidence(&mut term, target, &rho, registry, config)?;
+        let (current_penalized_quasi_laplace, _) =
+            frozen_joint_penalized_quasi_laplace(&mut term, target, &rho, registry, config)?;
         let cur_ev = ev_of(&term, target);
         emit_stagewise_progress(
             &mut progress,
@@ -1228,9 +1236,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(cur_ev),
                 factor_energy: Some(factor_energy),
-                joint_reml_before: Some(cur_reml),
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1251,9 +1259,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(cur_ev),
                 factor_energy: Some(factor_energy),
-                joint_reml_before: Some(cur_reml),
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1290,13 +1298,18 @@ pub fn fit_stagewise(
                     registry,
                     config,
                 )?;
-                let (reml, _) =
-                    frozen_joint_evidence(&mut cand_term, target, &cand_rho, registry, config)?;
+                let (penalized_quasi_laplace, _) = frozen_joint_penalized_quasi_laplace(
+                    &mut cand_term,
+                    target,
+                    &cand_rho,
+                    registry,
+                    config,
+                )?;
                 let ev = ev_of(&cand_term, target);
-                Ok((cand_term, cand_rho, reml, ev))
+                Ok((cand_term, cand_rho, penalized_quasi_laplace, ev))
             })
             .ok();
-        if let Some((cand_term, cand_rho, reml, ev)) = cand_a.as_ref() {
+        if let Some((cand_term, cand_rho, penalized_quasi_laplace, ev)) = cand_a.as_ref() {
             emit_stagewise_progress(
                 &mut progress,
                 StagewiseProgress {
@@ -1311,9 +1324,9 @@ pub fn fit_stagewise(
                     births_rejected,
                     ev: Some(*ev),
                     factor_energy: Some(factor_energy),
-                    joint_reml_before: Some(cur_reml),
-                    joint_reml_after: Some(*reml),
-                    terminal_joint_reml: None,
+                    joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                    joint_penalized_quasi_laplace_after: Some(*penalized_quasi_laplace),
+                    terminal_joint_penalized_quasi_laplace: None,
                     term: cand_term,
                     rho: cand_rho,
                 },
@@ -1333,9 +1346,9 @@ pub fn fit_stagewise(
                     births_rejected,
                     ev: Some(cur_ev),
                     factor_energy: Some(factor_energy),
-                    joint_reml_before: Some(cur_reml),
-                    joint_reml_after: None,
-                    terminal_joint_reml: None,
+                    joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                    joint_penalized_quasi_laplace_after: None,
+                    terminal_joint_penalized_quasi_laplace: None,
                     term: &term,
                     rho: &rho,
                 },
@@ -1360,9 +1373,9 @@ pub fn fit_stagewise(
                     births_rejected,
                     ev: Some(cur_ev),
                     factor_energy: Some(factor_energy),
-                    joint_reml_before: Some(cur_reml),
-                    joint_reml_after: None,
-                    terminal_joint_reml: None,
+                    joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                    joint_penalized_quasi_laplace_after: None,
+                    terminal_joint_penalized_quasi_laplace: None,
                     term: &term,
                     rho: &rho,
                 },
@@ -1389,13 +1402,18 @@ pub fn fit_stagewise(
                     config.ridge_ext_coord,
                     config.ridge_beta,
                 )?;
-                let (reml, _) =
-                    frozen_joint_evidence(&mut cand_term, target, &cand_rho, registry, config)?;
+                let (penalized_quasi_laplace, _) = frozen_joint_penalized_quasi_laplace(
+                    &mut cand_term,
+                    target,
+                    &cand_rho,
+                    registry,
+                    config,
+                )?;
                 let ev = ev_of(&cand_term, target);
-                Ok((cand_term, cand_rho, reml, ev))
+                Ok((cand_term, cand_rho, penalized_quasi_laplace, ev))
             })();
             let out = built.ok();
-            if let Some((cand_term, cand_rho, reml, ev)) = out.as_ref() {
+            if let Some((cand_term, cand_rho, penalized_quasi_laplace, ev)) = out.as_ref() {
                 emit_stagewise_progress(
                     &mut progress,
                     StagewiseProgress {
@@ -1410,9 +1428,9 @@ pub fn fit_stagewise(
                         births_rejected,
                         ev: Some(*ev),
                         factor_energy: Some(factor_energy),
-                        joint_reml_before: Some(cur_reml),
-                        joint_reml_after: Some(*reml),
-                        terminal_joint_reml: None,
+                        joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                        joint_penalized_quasi_laplace_after: Some(*penalized_quasi_laplace),
+                        terminal_joint_penalized_quasi_laplace: None,
                         term: cand_term,
                         rho: cand_rho,
                     },
@@ -1432,9 +1450,9 @@ pub fn fit_stagewise(
                         births_rejected,
                         ev: Some(cur_ev),
                         factor_energy: Some(factor_energy),
-                        joint_reml_before: Some(cur_reml),
-                        joint_reml_after: None,
-                        terminal_joint_reml: None,
+                        joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                        joint_penalized_quasi_laplace_after: None,
+                        terminal_joint_penalized_quasi_laplace: None,
                         term: &term,
                         rho: &rho,
                     },
@@ -1451,10 +1469,10 @@ pub fn fit_stagewise(
         };
 
         // Gate: strictly-improved joint evidence AND ΔEV ≥ the minimum-effect
-        // floor. Among the candidates that clear both gates, the lower REML wins.
-        let passes = |reml: f64, ev: f64| -> bool {
-            reml.is_finite()
-                && reml < cur_reml
+        // floor. Among the candidates that clear both gates, the lower penalized quasi-Laplace wins.
+        let passes = |penalized_quasi_laplace: f64, ev: f64| -> bool {
+            penalized_quasi_laplace.is_finite()
+                && penalized_quasi_laplace < current_penalized_quasi_laplace
                 && ev.is_finite()
                 && (ev - cur_ev) >= config.min_effect_ev
         };
@@ -1482,8 +1500,8 @@ pub fn fit_stagewise(
                     kind: BirthKind::NewAtom,
                     delta_ev: 0.0,
                     factor_energy,
-                    joint_reml_before: cur_reml,
-                    joint_reml_after: cur_reml,
+                    joint_penalized_quasi_laplace_before: current_penalized_quasi_laplace,
+                    joint_penalized_quasi_laplace_after: current_penalized_quasi_laplace,
                     accepted: false,
                 });
                 emit_stagewise_progress(
@@ -1500,9 +1518,9 @@ pub fn fit_stagewise(
                         births_rejected,
                         ev: Some(cur_ev),
                         factor_energy: Some(factor_energy),
-                        joint_reml_before: Some(cur_reml),
-                        joint_reml_after: Some(cur_reml),
-                        terminal_joint_reml: None,
+                        joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                        joint_penalized_quasi_laplace_after: Some(current_penalized_quasi_laplace),
+                        terminal_joint_penalized_quasi_laplace: None,
                         term: &term,
                         rho: &rho,
                     },
@@ -1511,7 +1529,7 @@ pub fn fit_stagewise(
             }
         };
 
-        let (kind, (cand_term, cand_rho, reml_after, ev_after)) = if choose_a {
+        let (kind, (cand_term, cand_rho, penalized_quasi_laplace_after, ev_after)) = if choose_a {
             (BirthKind::NewAtom, cand_a.take().unwrap())
         } else {
             (BirthKind::ChartExtension, cand_b.take().unwrap())
@@ -1524,8 +1542,8 @@ pub fn fit_stagewise(
             kind,
             delta_ev: ev_after - cur_ev,
             factor_energy,
-            joint_reml_before: cur_reml,
-            joint_reml_after: reml_after,
+            joint_penalized_quasi_laplace_before: current_penalized_quasi_laplace,
+            joint_penalized_quasi_laplace_after: penalized_quasi_laplace_after,
             accepted: true,
         });
         ev_trace.push(ev_after);
@@ -1543,9 +1561,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(ev_after),
                 factor_energy: Some(factor_energy),
-                joint_reml_before: Some(cur_reml),
-                joint_reml_after: Some(reml_after),
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: Some(current_penalized_quasi_laplace),
+                joint_penalized_quasi_laplace_after: Some(penalized_quasi_laplace_after),
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1583,9 +1601,9 @@ pub fn fit_stagewise(
                 births_rejected,
                 ev: Some(prev_ev),
                 factor_energy: None,
-                joint_reml_before: None,
-                joint_reml_after: None,
-                terminal_joint_reml: None,
+                joint_penalized_quasi_laplace_before: None,
+                joint_penalized_quasi_laplace_after: None,
+                terminal_joint_penalized_quasi_laplace: None,
                 term: &term,
                 rho: &rho,
             },
@@ -1611,9 +1629,9 @@ pub fn fit_stagewise(
                     births_rejected,
                     ev: Some(ev),
                     factor_energy: None,
-                    joint_reml_before: None,
-                    joint_reml_after: None,
-                    terminal_joint_reml: None,
+                    joint_penalized_quasi_laplace_before: None,
+                    joint_penalized_quasi_laplace_after: None,
+                    terminal_joint_penalized_quasi_laplace: None,
                     term: &term,
                     rho: &rho,
                 },
@@ -1635,9 +1653,9 @@ pub fn fit_stagewise(
                     births_rejected,
                     ev: Some(prev_ev),
                     factor_energy: None,
-                    joint_reml_before: None,
-                    joint_reml_after: None,
-                    terminal_joint_reml: None,
+                    joint_penalized_quasi_laplace_before: None,
+                    joint_penalized_quasi_laplace_after: None,
+                    terminal_joint_penalized_quasi_laplace: None,
                     term: &term,
                     rho: &rho,
                 },
@@ -1648,8 +1666,8 @@ pub fn fit_stagewise(
 
     // ── Phase 3 — terminal frozen joint evidence of the composed tier ──────────
     refresh_terminal_row_metric(&mut term, target, config)?;
-    let (terminal_joint_reml, terminal_joint_loss) =
-        frozen_joint_evidence(&mut term, target, &rho, registry, config)?;
+    let (terminal_joint_penalized_quasi_laplace, terminal_joint_loss) =
+        frozen_joint_penalized_quasi_laplace(&mut term, target, &rho, registry, config)?;
 
     // Re-arm the collapse-guard stack before the composed dictionary escapes: the
     // guards-off lane is an INTERNAL economy for the K=1 / backfitting refits, but
@@ -1670,9 +1688,9 @@ pub fn fit_stagewise(
             births_rejected,
             ev: Some(prev_ev),
             factor_energy: None,
-            joint_reml_before: None,
-            joint_reml_after: Some(terminal_joint_reml),
-            terminal_joint_reml: Some(terminal_joint_reml),
+            joint_penalized_quasi_laplace_before: None,
+            joint_penalized_quasi_laplace_after: Some(terminal_joint_penalized_quasi_laplace),
+            terminal_joint_penalized_quasi_laplace: Some(terminal_joint_penalized_quasi_laplace),
             term: &term,
             rho: &rho,
         },
@@ -1688,7 +1706,7 @@ pub fn fit_stagewise(
             ev_trace,
             backfit_ev_trace,
             stopped_reason,
-            terminal_joint_reml,
+            terminal_joint_penalized_quasi_laplace,
             terminal_joint_loss,
         },
     })
@@ -1732,7 +1750,7 @@ pub fn fit_stagewise(
 // atoms are disjoint on EITHER axis — two independent routes to the sufficient
 // orthogonality:
 //
-//   (1) DISJOINT GATE ROW SUPPORT under an INDEPENDENT gate (IBP / ThresholdGate):
+//   (1) DISJOINT GATE ROW SUPPORT under an INDEPENDENT gate (ordered Beta--Bernoulli / ThresholdGate):
 //       a born atom's gate is exactly `0` on rows below its threshold, so its
 //       weighted K=1 objective + gradient read ONLY its support rows. Two atoms on
 //       disjoint rows never see each other's rows.
@@ -1752,7 +1770,7 @@ pub fn fit_stagewise(
 //
 // EXACTLY (not up to tolerance — the off-block entries drop out of the sum
 // entirely), so the FIT and the per-birth reconstruction ΔEV charge are invariant
-// to acceptance order. (The RAW joint-REML VALUE does not decompose additively —
+// to acceptance order. (The RAW joint-penalized quasi-Laplace VALUE does not decompose additively —
 // its Laplace term carries a globally-pooled dispersion that couples all rows — but
 // the FIT, the accepted SET, and the ΔEV do, which is what parity needs.) This is
 // the parity license (see `tests_batched_parity_*`): batched must equal serial
@@ -1760,7 +1778,7 @@ pub fn fit_stagewise(
 //
 // Candidates that intersect an accepted atom on BOTH axes VIOLATE the orthogonality
 // condition, so we accept only the BEST of such an overlapping group (lowest joint
-// REML — the same keep-lowest tiebreak as the serial A-vs-B race) and REQUEUE the
+// penalized quasi-Laplace — the same keep-lowest tiebreak as the serial A-vs-B race) and REQUEUE the
 // rest: they are dropped this round and re-mined next round against the UPDATED
 // residual, recovering pure greedy on the conflicting part. No magic constant — the
 // criterion is per-pair support disjointness on either axis, and the per-round
@@ -1836,7 +1854,7 @@ struct RacedCandidate {
     /// planes). Co-acceptance holds when EITHER the rows OR the output dims are
     /// disjoint; the row-only test alone cannot co-accept a dense multi-circle image.
     out_support: Vec<usize>,
-    reml: f64,
+    penalized_quasi_laplace: f64,
     ev: f64,
     energy: f64,
 }
@@ -1877,6 +1895,11 @@ fn race_birth_seed(
     registry: Option<&AnalyticPenaltyRegistry>,
     config: &StagewiseConfig,
 ) -> Result<RacedCandidate, String> {
+    // High-level faer SVD/eigensolver reductions use process-global
+    // parallelism and otherwise reassociate between serial and batched birth
+    // drivers. Keep those reductions sequential for the full candidate race;
+    // the fit's rayon row fan-out is governed independently and stays enabled.
+    let faer_seq_race_guard = gam_linalg::faer_ndarray::FaerSequentialScope::enter();
     let k = term.k_atoms();
     let n = term.assignment.logits.nrows();
     let born_move = match &seed.circle_coords {
@@ -1904,7 +1927,8 @@ fn race_birth_seed(
         registry,
         config,
     )?;
-    let (reml, _) = frozen_joint_evidence(&mut cand_term, target, &cand_rho, registry, config)?;
+    let (penalized_quasi_laplace, _) =
+        frozen_joint_penalized_quasi_laplace(&mut cand_term, target, &cand_rho, registry, config)?;
     let ev = ev_of(&cand_term, target);
     // Support: a circle seed's own-presence gate marks the rows it can fire on
     // (finite gate); a shared-factor DC seed is global (all rows), which forces a
@@ -1938,7 +1962,7 @@ fn race_birth_seed(
     let born_logit_col: Vec<f64> = (0..n)
         .map(|r| cand_term.assignment.logits[[r, k]])
         .collect();
-    Ok(RacedCandidate {
+    let raced_candidate = RacedCandidate {
         born_atom: cand_term.atoms[k].clone(),
         born_coord: cand_term.assignment.coords[k].clone(),
         born_logit_col,
@@ -1946,10 +1970,12 @@ fn race_birth_seed(
         born_log_lambda_smooth: cand_rho.log_lambda_smooth[k],
         support,
         out_support,
-        reml,
+        penalized_quasi_laplace,
         ev,
         energy: seed.energy,
-    })
+    };
+    drop(faer_seq_race_guard);
+    Ok(raced_candidate)
 }
 
 /// Append an ALREADY-FITTED born atom (its decoder/coords/logit column produced
@@ -2059,8 +2085,8 @@ pub fn fit_stagewise_batched(
     sample_weights: Option<&[f64]>,
     config: &BatchedStagewiseConfig,
 ) -> Result<BatchedStagewiseResult, String> {
-    use rayon::prelude::*;
-
+    rho = rho.for_assignment(seed.assignment.mode);
+    seed.assignment.validate_rho_domain(&rho)?;
     let n = target.nrows();
     if seed.k_atoms() != 1 {
         return Err(format!(
@@ -2141,15 +2167,31 @@ pub fn fit_stagewise_batched(
 
         // Current joint evidence + EV (the birth gate's reference), computed once
         // before the parallel race so the closures borrow `term` immutably.
-        let (cur_reml, _) = frozen_joint_evidence(&mut term, target, &rho, registry, base)?;
+        let (current_penalized_quasi_laplace, _) =
+            frozen_joint_penalized_quasi_laplace(&mut term, target, &rho, registry, base)?;
         let cur_ev = ev_of(&term, target);
 
-        // ── PARALLEL racing: fit every candidate's K=1 sub-problem concurrently ──
-        // Each `race_birth_seed` clones `term` internally and mutates nothing
-        // shared; a candidate whose fit errors is dropped (mirrors the serial
+        // ── SEQUENTIAL racing, PARALLEL rows: fit candidates one at a time ──
+        // This loop was `par_iter()` and it starved the whole machine: running
+        // `race_birth_seed` as a rayon worker makes
+        // `rayon::current_thread_index()` return `Some(_)` for the ENTIRE
+        // nested K=1 joint fit, so every downstream row-fan gate
+        // (`n >= THRESHOLD && current_thread_index().is_none()` in
+        // loss_scaled, CpuBatchedBlockSolver::factor_blocks, the reduced-Schur
+        // row loops) collapsed to its sequential fallback simultaneously. With
+        // only ~2-3 certifiable candidates per round, that meant 2-3 cores
+        // busy and the rest parked for the full n·inner_max_iter solve
+        // (observed live on 44k-row GPT-2 residuals). Candidates are
+        // numerically independent (`race_birth_seed` clones `term`, nothing
+        // folds across candidates) and the row loops are contractually
+        // bit-identical across their parallel/sequential branches
+        // (par_pairwise_sum / tests_parallelism_invariance_1557), so
+        // serializing the outer loop changes no candidate's result — it only
+        // re-enables the wide, high-efficiency row fan inside each one.
+        // A candidate whose fit errors is dropped (mirrors the serial
         // `.ok()`), never aborting the round.
         let raced: Vec<RacedCandidate> = seeds
-            .par_iter()
+            .iter()
             .filter_map(|s| {
                 race_birth_seed(&term, &rho, s, residual.view(), target, registry, base).ok()
             })
@@ -2158,19 +2200,19 @@ pub fn fit_stagewise_batched(
         // Birth gate: strictly-improved joint evidence AND ΔEV ≥ the minimum-effect
         // floor — identical to the serial `passes` predicate.
         let passes = |c: &RacedCandidate| -> bool {
-            c.reml.is_finite()
-                && c.reml < cur_reml
+            c.penalized_quasi_laplace.is_finite()
+                && c.penalized_quasi_laplace < current_penalized_quasi_laplace
                 && c.ev.is_finite()
                 && (c.ev - cur_ev) >= base.min_effect_ev
         };
         let mut order: Vec<usize> = (0..raced.len()).filter(|&i| passes(&raced[i])).collect();
         let candidates_passing_gate = order.len();
-        // Best (lowest joint REML) first — the same keep-lowest tiebreak the serial
+        // Best (lowest joint penalized quasi-Laplace) first — the same keep-lowest tiebreak the serial
         // A-vs-B race uses; ties fall to the earlier (higher-energy) harvest index.
         order.sort_by(|&a, &b| {
             raced[a]
-                .reml
-                .partial_cmp(&raced[b].reml)
+                .penalized_quasi_laplace
+                .partial_cmp(&raced[b].penalized_quasi_laplace)
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then(a.cmp(&b))
         });
@@ -2206,8 +2248,8 @@ pub fn fit_stagewise_batched(
                 // across the disjoint batch).
                 delta_ev: c.ev - cur_ev,
                 factor_energy: c.energy,
-                joint_reml_before: cur_reml,
-                joint_reml_after: c.reml,
+                joint_penalized_quasi_laplace_before: current_penalized_quasi_laplace,
+                joint_penalized_quasi_laplace_after: c.penalized_quasi_laplace,
                 accepted: true,
             });
             ev_trace.push(running_ev);
@@ -2227,8 +2269,8 @@ pub fn fit_stagewise_batched(
                 kind: BirthKind::NewAtom,
                 delta_ev: 0.0,
                 factor_energy: raced.first().map(|c| c.energy).unwrap_or(0.0),
-                joint_reml_before: cur_reml,
-                joint_reml_after: cur_reml,
+                joint_penalized_quasi_laplace_before: current_penalized_quasi_laplace,
+                joint_penalized_quasi_laplace_after: current_penalized_quasi_laplace,
                 accepted: false,
             });
         } else {
@@ -2257,8 +2299,8 @@ pub fn fit_stagewise_batched(
 
     // ── Phase 3 — terminal frozen joint evidence of the composed tier ───────────
     refresh_terminal_row_metric(&mut term, target, base)?;
-    let (terminal_joint_reml, terminal_joint_loss) =
-        frozen_joint_evidence(&mut term, target, &rho, registry, base)?;
+    let (terminal_joint_penalized_quasi_laplace, terminal_joint_loss) =
+        frozen_joint_penalized_quasi_laplace(&mut term, target, &rho, registry, base)?;
     term.set_guards_enabled(true);
 
     Ok(BatchedStagewiseResult {
@@ -2271,7 +2313,7 @@ pub fn fit_stagewise_batched(
             ev_trace,
             backfit_ev_trace: Vec::new(),
             stopped_reason,
-            terminal_joint_reml,
+            terminal_joint_penalized_quasi_laplace,
             terminal_joint_loss,
         },
         batch_records,
@@ -2281,7 +2323,7 @@ pub fn fit_stagewise_batched(
 /// Phase 3 — terminal joint assembly. Merge a Tier-1 bulk term (`primary`) with
 /// the SAC-composed curved tier (`secondary`) via [`SaeManifoldTerm::merge_tiers`]
 /// and run a SINGLE frozen (evaluate-don't-optimize, `inner_max_iter == 0`)
-/// arrow-Schur pass over the merged dictionary to read its joint Laplace evidence
+/// arrow-Schur pass over the merged dictionary to read its joint quasi-Laplace score
 /// WITHOUT moving β. Returns the merged term + ρ and the frozen joint evidence.
 ///
 /// Nothing the simultaneous joint fit uniquely provided is lost: simultaneous
@@ -2298,17 +2340,21 @@ pub fn terminal_joint_assembly(
     registry: Option<&AnalyticPenaltyRegistry>,
     config: &StagewiseConfig,
 ) -> Result<(SaeManifoldTerm, SaeManifoldRho, f64, SaeManifoldLoss), String> {
+    primary.assignment.validate_rho_domain(primary_rho)?;
+    secondary.assignment.validate_rho_domain(secondary_rho)?;
     let (mut merged, merged_rho) =
         SaeManifoldTerm::merge_tiers(primary, primary_rho, secondary, secondary_rho)?;
+    merged.assignment.validate_rho_domain(&merged_rho)?;
     // Disarm the reseed guards ONLY for the frozen (evaluate-don't-optimize) pass,
     // then RE-ARM before returning: guards-off is the K=1 / backfitting rationale,
     // but the composed artifact must ship with the collapse-guard stack armed so
     // any downstream non-frozen refit / FFI consumer of the returned dictionary
     // gets the normal supervision (a disarmed term would silently skip it).
     merged.set_guards_enabled(false);
-    let (reml, loss) = frozen_joint_evidence(&mut merged, target, &merged_rho, registry, config)?;
+    let (penalized_quasi_laplace, loss) =
+        frozen_joint_penalized_quasi_laplace(&mut merged, target, &merged_rho, registry, config)?;
     merged.set_guards_enabled(true);
-    Ok((merged, merged_rho, reml, loss))
+    Ok((merged, merged_rho, penalized_quasi_laplace, loss))
 }
 
 #[cfg(test)]
@@ -2369,7 +2415,7 @@ mod tests {
         let mut decoder = Array2::<f64>::zeros((3, p));
         decoder[[1, dir_a % p]] = 1.0;
         decoder[[2, dir_b % p]] = 1.0;
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             name.to_string(),
             SaeAtomBasisKind::Periodic,
             1,
@@ -2499,8 +2545,11 @@ mod tests {
             result.report.ev_trace
         );
         assert!(
-            result.report.terminal_joint_reml.is_finite(),
-            "terminal frozen joint REML must be finite"
+            result
+                .report
+                .terminal_joint_penalized_quasi_laplace
+                .is_finite(),
+            "terminal frozen joint penalized quasi-Laplace must be finite"
         );
         // The final EV must be at least the seed EV (a birth can only be adopted if
         // it clears the ΔEV ≥ 0 floor).
@@ -2560,7 +2609,7 @@ mod tests {
 
     /// #2080 — anchor-scored birth selection must prefer the SINGLY-ATTRIBUTABLE
     /// residual factor (supported on rows the existing dictionary leaves UNCONTESTED)
-    /// over the dominant-VARIANCE factor, under an IBP routing whose per-row mass
+    /// over the dominant-VARIANCE factor, under an ordered Beta--Bernoulli routing whose per-row mass
     /// varies. Also pins the fallback: a UNIFORM routing (no anchor contrast) keeps
     /// the historical dominant-energy (column-0) pick.
     #[test]
@@ -2601,8 +2650,8 @@ mod tests {
         let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
         let (atom0, cb0) = circle_atom("t0", &evaluator, &coords, 0, 1, p);
 
-        // Helper: build a 1-atom IBP term from a per-row logit column.
-        let build_ibp = |logit: &dyn Fn(usize) -> f64| -> SaeManifoldTerm {
+        // Helper: build a 1-atom ordered Beta--Bernoulli term from a per-row logit column.
+        let build_ordered_beta_bernoulli = |logit: &dyn Fn(usize) -> f64| -> SaeManifoldTerm {
             let mut logits = Array2::<f64>::zeros((n, 1));
             for row in 0..n {
                 logits[[row, 0]] = logit(row);
@@ -2611,7 +2660,7 @@ mod tests {
                 logits,
                 vec![cb0.clone()],
                 vec![LatentManifold::Circle { period: 1.0 }],
-                AssignmentMode::ibp_map(1.0, 1.0, false),
+                AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
             )
             .unwrap();
             SaeManifoldTerm::new(vec![atom0.clone()], assignment).unwrap()
@@ -2619,11 +2668,11 @@ mod tests {
 
         // CONTESTED-vs-ANCHOR routing: existing atom ACTIVE on [0,h) (high logit),
         // INACTIVE on [h,n) (low logit) — so [h,n) are the uncontested anchor rows.
-        let contrast_term = build_ibp(&|row| if row < h { 3.0 } else { -3.0 });
+        let contrast_term = build_ordered_beta_bernoulli(&|row| if row < h { 3.0 } else { -3.0 });
         let act = activity_of(&contrast_term);
         assert!(
             act[0] > act[n - 1] + 1e-6,
-            "IBP activity must be higher on contested rows (got {} vs {})",
+            "ordered Beta--Bernoulli activity must be higher on contested rows (got {} vs {})",
             act[0],
             act[n - 1]
         );
@@ -2641,7 +2690,7 @@ mod tests {
 
         // FALLBACK: uniform routing ⇒ no anchor contrast ⇒ dominant-energy column 0
         // (channel 0, the higher-variance planted factor).
-        let uniform_term = build_ibp(&|_| 0.5);
+        let uniform_term = build_ordered_beta_bernoulli(&|_| 0.5);
         let decoder_u = top_factor_birth_decoder(&uniform_term, &model, residual.view())
             .unwrap()
             .decoder;
@@ -2971,12 +3020,12 @@ mod tests {
     /// #2109 — a born circle PRESENT on incumbent-SPARSE rows must SURVIVE. The
     /// #2101 fix routed the born gate at the incumbent per-row logit scale
     /// (`inc_max`), which is low/negative exactly where an incumbent-sparse circle
-    /// lives, so the born circle re-collapses under IBP (the #3 starvation
+    /// lives, so the born circle re-collapses under ordered Beta--Bernoulli (the #3 starvation
     /// resurfacing at scale). The #2109 fix routes each present row at the STRONGER
     /// of `inc_max` and the born circle's OWN presence gate `ln(ρ_i²/2·λ₊)`, so the
     /// circle keeps a strong gate where the incumbents do not cover it. This test
     /// FAILS with the `inc_max`-only gate (the born logit on the circle's rows is the
-    /// incumbent's very-negative `inc_max`, and the K=1 IBP sub-fit collapses ‖B‖ to
+    /// incumbent's very-negative `inc_max`, and the K=1 ordered Beta--Bernoulli sub-fit collapses ‖B‖ to
     /// ~1e-4) and PASSES with the own-presence gate.
     #[test]
     fn born_circle_survives_on_incumbent_sparse_rows_2109() {
@@ -3007,7 +3056,7 @@ mod tests {
             }
         }
 
-        // Incumbent K=1 IBP term: one circle atom on channels (4,5), co-present on
+        // Incumbent K=1 ordered Beta--Bernoulli term: one circle atom on channels (4,5), co-present on
         // [0,h) (high logit) and INACTIVE on [h,n) (very negative logit) — so `inc_max`
         // is deeply negative exactly where the born circle lives.
         let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
@@ -3021,7 +3070,7 @@ mod tests {
             inc_logits,
             vec![inc_cb],
             vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::ibp_map(0.7, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
         )
         .unwrap();
         let mut term = SaeManifoldTerm::new(vec![inc_atom], inc_assignment).unwrap();
@@ -3073,7 +3122,7 @@ mod tests {
              (>1), not the incumbent's negative inc_max (−6); got min={min_born_logit_on_circle:.3}"
         );
 
-        // BEHAVIORAL guard: the K=1 IBP birth sub-fit must keep the born circle
+        // BEHAVIORAL guard: the K=1 ordered Beta--Bernoulli birth sub-fit must keep the born circle
         // ESTABLISHED — ‖B‖ stays O(1) rather than collapsing to ~1e-4.
         let config = StagewiseConfig {
             inner_max_iter: 40,
@@ -3104,7 +3153,7 @@ mod tests {
             .sqrt();
         assert!(
             born_norm.is_finite() && born_norm > 0.3,
-            "born circle must SURVIVE the IBP sub-fit on incumbent-sparse rows \
+            "born circle must SURVIVE the ordered Beta--Bernoulli sub-fit on incumbent-sparse rows \
              (‖B‖ O(1)); got ‖B‖={born_norm:.3e} (a collapse to ~1e-4 is the #2109 bug)"
         );
     }
@@ -3114,7 +3163,7 @@ mod tests {
     /// model rank ≥ 1, so `top_factor_birth_decoder` is the primary path) ALSO carries
     /// a degenerate 2-plane circle, the born atom must be seeded ON that circle (cos/sin
     /// harmonic rows + phase coordinate + own-presence gate), not the flat row-0 DC seed
-    /// that dies under IBP. A genuine rank-1 shared factor still gets the DC seed.
+    /// that dies under ordered Beta--Bernoulli. A genuine rank-1 shared factor still gets the DC seed.
     #[test]
     fn top_factor_birth_mirrors_circle_seed_2109() {
         use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
@@ -3126,7 +3175,7 @@ mod tests {
         // diagonal correlation ⇒ `top_factor_birth_decoder` is the active path, the
         // entangled regime) — while the two equal-variance axes (uniform phase) form a
         // degenerate 2-plane the #2109 mirror must detect and seed as a circle, not the
-        // flat row-0 DC factor seed that dies under IBP on incumbent-sparse rows.
+        // flat row-0 DC factor seed that dies under ordered Beta--Bernoulli on incumbent-sparse rows.
         let mut residual = Array2::<f64>::zeros((n, p));
         for i in 0..n {
             let theta = std::f64::consts::TAU * (i as f64) / n as f64;
@@ -3156,7 +3205,7 @@ mod tests {
             logits,
             vec![cb0],
             vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::ibp_map(0.7, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
         )
         .unwrap();
         let term = SaeManifoldTerm::new(vec![atom0], assignment).unwrap();
@@ -3430,7 +3479,7 @@ mod tests {
 
     /// THE PARITY LICENSE (batch-OMP orthogonality). Two DISJOINT planted circles:
     /// A on rows `[0,h)` in ambient plane (0,1), B on rows `[h,n)` in plane (2,3).
-    /// Under a ThresholdGate the born atom's gate is EXACTLY 0 off its support, so
+    /// Under a ThresholdGate the born atom's gate is numerically negligible off its support, so
     /// B's K=1 fit reads only rows `[h,n)`. The A-deflated residual R1 equals the
     /// original R0 on those rows (A gates off there), so B's fit against R0 (the
     /// batched pass) is IDENTICAL to its fit against R1 (the serial pass). Prove it
@@ -3546,7 +3595,7 @@ mod tests {
              decoder L1 diff {decoder_diff}"
         );
         // The per-birth CHARGE that MUST be invariant to acceptance order is the
-        // reconstruction ΔEV, not the raw joint-REML delta. B touches only rows
+        // reconstruction ΔEV, not the raw joint-penalized quasi-Laplace delta. B touches only rows
         // `[h,n)` (its gate is 0 elsewhere), and the EV denominator `SS_tot` is fixed
         // by the target, so B's ΔEV = (SS_res reduction on B's rows)/SS_tot is
         // identical whether or not A — disjoint from B — is already present:
@@ -3554,9 +3603,9 @@ mod tests {
         //   batched:  EV(seed+B)   − EV(seed)     (A absent)
         //   serial:   EV(seed+A+B) − EV(seed+A)   (A present)
         //
-        // The RAW joint-REML delta does NOT decompose this way: the frozen Laplace
+        // The RAW joint-penalized quasi-Laplace delta does NOT decompose this way: the frozen Laplace
         // criterion carries a globally-pooled dispersion term that couples all rows,
-        // so adding A (which shrinks the residual on `[0,h)`) rescales B's REML
+        // so adding A (which shrinks the residual on `[0,h)`) rescales B's penalized quasi-Laplace
         // charge even though B's FIT is bit-identical (asserted above). Charging on
         // the additive quantity (ΔEV) is the honest disjoint-support parity claim.
         let seed_ev = ev_of(&seed, target.view());
@@ -3653,8 +3702,11 @@ mod tests {
             batched.report.ev_trace
         );
         assert!(
-            batched.report.terminal_joint_reml.is_finite(),
-            "batched terminal joint REML must be finite"
+            batched
+                .report
+                .terminal_joint_penalized_quasi_laplace
+                .is_finite(),
+            "batched terminal joint penalized quasi-Laplace must be finite"
         );
 
         let serial_k = serial.term.k_atoms() as i64;

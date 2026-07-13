@@ -1,4 +1,4 @@
-//! Basin-bundle lower envelope for the outer REML criterion (#2230/#2087 genus).
+//! Basin-bundle lower envelope for the outer penalized quasi-Laplace criterion (#2230/#2087 genus).
 //!
 //! The outer criterion as historically implemented is `V_{b(warm,ρ)}(ρ)` — the
 //! value of whichever inner basin the warm-started inner solve lands in. The
@@ -175,6 +175,18 @@ impl<S> BasinBundle<S> {
         }
         let idx = match self.argmin_index() {
             Some(idx) if self.members[idx].last_value.is_finite() => idx,
+            Some(idx) if last_err.is_none() => {
+                // Every member evaluated CLEANLY to the +∞ infeasibility
+                // sentinel (an `Ok(INFINITY)` criterion is the cost-only
+                // convention for an undefined quasi-Laplace score, not a solve
+                // error). The envelope value at this ρ is then genuinely +∞ —
+                // hand it to the caller's infeasibility handling. The old
+                // `expect` assumed non-finite ⇒ some member errored and
+                // panicked on exactly this all-infeasible-no-error bundle
+                // (measured: zz_collapse_2132 heldout probe, panic at the
+                // former line 178).
+                return Ok((idx, f64::INFINITY));
+            }
             _ => return Err(last_err.expect("empty or all-failed bundle must carry an error")),
         };
         Ok((idx, self.members[idx].last_value))

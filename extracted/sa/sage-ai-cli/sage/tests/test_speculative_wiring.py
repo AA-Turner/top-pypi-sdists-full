@@ -158,7 +158,7 @@ class TestOllamaModelfileDraftWiring:
         """When speculative is configured, the Modelfile must include
         `PARAMETER draft_model <name>`."""
         from sage.config import SageConfig
-        import sage.main as sage_main
+        import sage.commands_models as sage_commands_models
 
         # Force the speculative config
         monkeypatch.setattr(
@@ -166,12 +166,12 @@ class TestOllamaModelfileDraftWiring:
             lambda *a, **kw: SageConfig(speculative_draft_model="ollama:llama3.2"),
         )
         # Mock the model-size probe so we don't depend on Ollama running.
-        monkeypatch.setattr(sage_main, "_get_model_size_gb", lambda _name: 5.0)
+        monkeypatch.setattr(sage_commands_models, "_get_model_size_gb", lambda _name: 5.0)
         # Mock ollama exe + subprocess.run to avoid actually creating the model.
-        monkeypatch.setattr(sage_main, "_ollama_exe", lambda: "/bin/true")
+        monkeypatch.setattr(sage_commands_models, "_ollama_exe", lambda: "/bin/true")
         import types as _types
         monkeypatch.setattr(
-            sage_main.subprocess,
+            sage_commands_models.subprocess,
             "run",
             lambda *a, **kw: _types.SimpleNamespace(returncode=0, stdout="", stderr=""),
         )
@@ -179,7 +179,7 @@ class TestOllamaModelfileDraftWiring:
         # Use a tmp home so the modelfile lands in a known place
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
-        ok = sage_main._train_ollama_model("qwen3-coder-next")
+        ok = sage_commands_models._train_ollama_model("qwen3-coder-next")
         assert ok is True
 
         # Read the Modelfile we wrote

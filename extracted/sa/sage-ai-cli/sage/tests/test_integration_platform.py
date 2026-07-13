@@ -22,6 +22,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 
 # ── Privacy + anonymizer chokepoint ──────────────────────────────────────────
 

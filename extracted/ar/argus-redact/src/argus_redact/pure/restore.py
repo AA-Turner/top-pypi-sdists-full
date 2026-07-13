@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import re
 import warnings
 from typing import Mapping
 
 from argus_redact.pure.display_marker import strip_display_markers
+from argus_redact.pure.security_events import (
+    GUARD_NO_ANCHOR,
+    OUT_OF_SCOPE_PSEUDONYM,
+    PROVENANCE_FAILED,
+    _auto_stacklevel,
+    security_event,
+    warn_security_events,
+)
 
 
 class RestoreGuardError(Exception):
@@ -15,6 +24,55 @@ class RestoreGuardError(Exception):
         self.events = events
         codes = ", ".join(e["reason_code"] for e in events)
         super().__init__(f"restore guard failed: {codes}")
+
+
+def _strip_nonce(text: str, nonce: str) -> str:
+    """Remove the echoed verification token from the model's reply.
+
+    ``prompt_anchor`` instructs the model to end its reply with the token **on its
+    own line** (see ``compose/anchor.py`` ``_NONCE_ECHO_*`` — if that wording ever
+    changes, this stripper must change with it). Without this the token, which is
+    not a pseudonym and so is invisible to the substitution pass, would be handed
+    back to the caller as part of the restored plaintext.
+
+    The documented shape (token last) is handled in one pass; the fallbacks cover a
+    model that puts it on its own line mid-reply or echoes it inline.
+    """
+    trimmed = text.rstrip()
+    if trimmed.endswith(nonce):  # the documented case — no full-text rebuild needed
+        return trimmed[: -len(nonce)].rstrip()
+    kept = [line for line in text.split("\n") if line.strip() != nonce]
+    out = "\n".join(kept)
+    if nonce in out:  # defensive: echoed inline rather than on its own line
+        out = out.replace(nonce, "")
+    return out.rstrip()
+
+
+def _tokens_present(pseudonyms: list[str], text: str) -> list[str]:
+    """The ``pseudonyms`` that appear in ``text`` as whole tokens (sorted).
+
+    A match must not be merely a substring of a longer pseudonym-shaped run
+    (e.g. ``P-1`` embedded in ``P-10``). Generated pseudonyms are
+    ``<PREFIX>-<digits>`` runs of letters, digits, underscores and hyphens, so
+    plain ``\\b`` word boundaries are not enough — a hyphen is not a word
+    character, but must still not count as a boundary between two
+    pseudonym-shaped tokens.
+
+    ONE alternation scan over the whole set, longest-first (so ``P-10`` wins
+    over ``P-1`` at the same offset), rather than a full-text scan per
+    pseudonym: the per-key version was O(keys x len(text)) and dominated the
+    guarded path on realistic key sizes.
+
+    Used only to size the ``out_of_scope_pseudonym`` security event's ``count``
+    and ``detail``; it never changes which pseudonyms are withheld (that is
+    structural, driven by the scoped key filter in ``restore``, not by this
+    check).
+    """
+    if not pseudonyms:
+        return []
+    alternation = "|".join(re.escape(p) for p in sorted(pseudonyms, key=len, reverse=True))
+    pattern = re.compile(r"(?<![A-Za-z0-9_-])(?:" + alternation + r")(?![A-Za-z0-9_-])")
+    return sorted(set(pattern.findall(text)))
 
 
 def check_restore_safety(
@@ -57,6 +115,7 @@ def restore(
     anchor: object | None = None,
     strict: bool = False,
     detailed: bool = False,
+    _warn: bool = True,
 ) -> str | tuple[str, dict]:
     """Replace pseudonyms with originals using the key.
 
@@ -88,15 +147,26 @@ def restore(
         anchor: Anchor instance produced by make_anchor(); carries nonce + scope.
         strict: when True and guard=True, raises RestoreGuardError on any security event.
         detailed: when True, returns (result_text, {"security_events": [...]}) tuple.
+
+    ``_warn`` is internal: False suppresses the SecurityWarning for this call, for a
+    wrapper that will surface the same events itself (``glue.guarded_restore`` merges
+    them with its own H events and warns ONCE over the merged list). It never
+    suppresses the ``guard=None`` DeprecationWarning — that one is about the CALLER's
+    code and no wrapper re-emits it.
     """
     if not isinstance(key, Mapping):
         raise TypeError(f"key must be a Mapping, got {type(key).__name__}")
 
     if guard is None:
+        # Auto-detect the caller's frame, same as the security warnings. A
+        # deprecation warning exists to tell the user WHERE to change their code;
+        # a hardcoded stacklevel pointed it at argus's own glue/restore.py, which
+        # defeats the entire purpose (and collapses a whole loop of bare restores
+        # into one warning via warnings' (message, module, lineno) dedup).
         warnings.warn(
             "bare restore without guard= is deprecated; will default to guard=True in v0.8.0",
             DeprecationWarning,
-            stacklevel=2,
+            stacklevel=_auto_stacklevel(),
         )
     if not guard:  # None (deprecated default) or False (explicit opt-out) → legacy restore
         result = _do_restore(text, key, aliases=aliases, display_marker=display_marker)
@@ -105,38 +175,38 @@ def restore(
         return result
 
     # guard is True — run P + S checks
-    from argus_redact.pure.security_events import (
-        GUARD_NO_ANCHOR,
-        OUT_OF_SCOPE_PSEUDONYM,
-        PROVENANCE_FAILED,
-        security_event,
-    )
-
     events: list[dict] = []
 
     # (P) Provenance check: anchor must exist and its nonce must appear in text
     if anchor is None:
         events.append(security_event(GUARD_NO_ANCHOR, count=len(key), detail="no anchor provided"))
-        return _fail_closed(text, events, strict=strict, detailed=detailed)
+        return _fail_closed(text, events, strict=strict, detailed=detailed, warn=_warn)
 
     if anchor.nonce not in text:
         events.append(
             security_event(PROVENANCE_FAILED, count=len(key), detail="nonce absent from response")
         )
-        return _fail_closed(text, events, strict=strict, detailed=detailed)
+        return _fail_closed(text, events, strict=strict, detailed=detailed, warn=_warn)
+
+    # Provenance holds. The token has done its job — strip it so it never reaches
+    # the caller as part of the restored plaintext (it is not a pseudonym, so the
+    # substitution pass below would otherwise carry it straight through).
+    text = _strip_nonce(text, anchor.nonce)
 
     # (S) Scope filter: only restore pseudonyms within anchor.scope
     key_dict = dict(key) if not isinstance(key, dict) else key
     scoped = {k: v for k, v in key_dict.items() if k in anchor.scope}
 
-    # Detect out-of-scope pseudonyms that appear in text
-    out_of_scope_hits = [k for k in key_dict if k not in anchor.scope and k in text]
+    # Detect out-of-scope pseudonyms that appear in text — see `_tokens_present`.
+    # Cosmetic only: it sizes the event's `count`/`detail`, never which pseudonyms
+    # get withheld (that is `scoped` above).
+    out_of_scope_hits = _tokens_present([k for k in key_dict if k not in anchor.scope], text)
     if out_of_scope_hits:
         events.append(
             security_event(
                 OUT_OF_SCOPE_PSEUDONYM,
                 count=len(out_of_scope_hits),
-                detail=f"withheld: {', '.join(sorted(out_of_scope_hits))}",
+                detail=f"withheld: {', '.join(out_of_scope_hits)}",  # already sorted
             )
         )
 
@@ -145,6 +215,13 @@ def restore(
 
     if strict and events:
         raise RestoreGuardError(events)
+
+    if events and _warn:
+        # Partial restore: in-scope codes were substituted, out-of-scope ones were
+        # withheld. Without this the caller gets a plain str and no hint that some
+        # pseudonyms were deliberately left unresolved.
+        # stacklevel auto-detected — see security_events._auto_stacklevel.
+        warn_security_events(events)
 
     if detailed:
         return result, {"security_events": events}
@@ -157,10 +234,17 @@ def _fail_closed(
     *,
     strict: bool,
     detailed: bool,
+    warn: bool = True,
 ) -> str | tuple[str, dict]:
-    """Return un-restored text with security events; raise if strict."""
+    """Return un-restored text with security events; warn; raise if strict."""
     if strict:
         raise RestoreGuardError(events)
+    # The returned str is shape-identical to a successful restore, so without this
+    # the caller cannot tell a fail-closed apart from a clean round-trip. Documented
+    # in docs/security-model.md ("emits a UserWarning") — this is that warning.
+    # stacklevel auto-detected — see security_events._auto_stacklevel.
+    if warn:
+        warn_security_events(events)
     if detailed:
         return text, {"security_events": events}
     return text

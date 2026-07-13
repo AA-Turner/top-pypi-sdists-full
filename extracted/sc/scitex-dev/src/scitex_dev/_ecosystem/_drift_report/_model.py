@@ -11,7 +11,10 @@ eight-layer model and the SSoT drift rule.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ._package_watch import PackageDriftWarning
 
 # --------------------------------------------------------------------- #
 # Layer identifiers (matrix columns)                                    #
@@ -106,6 +109,23 @@ class DriftMatrix:
     hosts: tuple[str, ...] = ()
     sac_available: bool = False
     sac_note: str = ""
+    #: Critical shared-infra packages (scitex-todo, scitex-agent-container,
+    #: scitex-dev, …) found behind fleet-current IN THIS INTERPRETER, per
+    #: ``_package_watch.check_critical_package_drift`` — added after the
+    #: 2026-07-12 incident where layer 8 ("editable") silently treated a
+    #: missing local-checkout reference as "no drift" for a container that
+    #: only pip-installs its deps. See ``_package_watch`` module docstring.
+    package_drift_warnings: tuple["PackageDriftWarning", ...] = ()
+    #: Critical packages whose VERSION STRING CANNOT BE BELIEVED in this
+    #: interpreter — an orphaned or drifted ``.dist-info`` that has outlived the
+    #: code it describes (incident 2026-07-12: metadata 0.7.26 over code 0.8.7).
+    #:
+    #: Kept SEPARATE from ``package_drift_warnings`` on purpose: "you are behind"
+    #: and "I cannot tell what you are running" are different findings with
+    #: different fixes, and the second one INVALIDATES the first for that package
+    #: — a version comparison against a fossil is wrong in both directions. See
+    #: ``_package_watch.check_untrustworthy_installs``.
+    untrustworthy_installs: tuple["UntrustworthyInstallWarning", ...] = ()
 
     @property
     def drifting(self) -> list[PackageDrift]:
@@ -117,7 +137,15 @@ class DriftMatrix:
 
     @property
     def has_drift(self) -> bool:
-        return bool(self.drifting)
+        # An untrustworthy install counts as a finding: not knowing what you are
+        # running is at least as serious as knowing you are behind, and a report
+        # that exits clean while a package's version string is a fossil is
+        # exactly the false all-clear this check exists to prevent.
+        return (
+            bool(self.drifting)
+            or bool(self.package_drift_warnings)
+            or bool(self.untrustworthy_installs)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -131,6 +159,10 @@ class DriftMatrix:
                 "drifting": len(self.drifting),
             },
             "packages": [p.to_dict() for p in self.packages],
+            "package_drift_warnings": [w.to_dict() for w in self.package_drift_warnings],
+            "untrustworthy_installs": [
+                w.to_dict() for w in self.untrustworthy_installs
+            ],
         }
 
 

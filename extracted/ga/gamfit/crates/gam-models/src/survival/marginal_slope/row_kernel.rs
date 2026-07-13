@@ -4,7 +4,7 @@
 
 use super::*;
 
-use gam_math::jet_scalar::{JetScalar, OneSeed, TwoSeed};
+use gam_math::jet_scalar::JetScalar;
 
 // ── Static-sparsity (v,g,H) scalar (#932 perf) ─────────────────────────
 //
@@ -869,7 +869,7 @@ pub(crate) fn rigid_row_inputs(
 /// * `S = TwoSeed<4>` → contracted fourth `Σ_{cd} ℓ_{abcd} u_c v_d`
 ///   (`row_fourth_contracted`),
 /// * `S = Tower4<4>`  → the full dense `(v,g,H,t3,t4)` oracle / #979 all-axes
-///   build-once path ([`rigid_row_kernel_nll_tower`]).
+///   build-once truth (via [`gam_math::jet_tower::program_full_tower`]).
 ///
 /// The four primaries are `(q0, q1, qd1, g)`. From them
 ///   `c(g) = √(1 + (s·g)²·covariance_ones)`,
@@ -967,24 +967,13 @@ pub(crate) fn rigid_row_nll<S: JetScalar<4>>(
     Ok(exit.add(&entry).add(&event_density).add(&time_deriv))
 }
 
-/// Thin `Tower4<4>` wrapper over the single-source [`rigid_row_nll`]: evaluates
-/// the SAME expression at the all-channels dense scalar to obtain the full
-/// `(v, g, H, t3, t4)` in one pass. Used by the `RowNllProgram<4>` impl (the
-/// contraction.rs helpers) and the #979 all-axes build-once path
-/// ([`SurvivalMarginalSlopeRowKernel::build_row_towers`]), which genuinely
-/// reuses a row's `t3`/`t4` across every coefficient axis.
-pub(crate) fn rigid_row_kernel_nll_tower(
-    family: &SurvivalMarginalSlopeFamily,
-    block_states: &[ParameterBlockState],
-    row: usize,
-    p: &[gam_math::jet_tower::Tower4<4>; 4],
-    context: &str,
-) -> Result<gam_math::jet_tower::Tower4<4>, String> {
-    let inputs = rigid_row_inputs(family, block_states, row, context)?;
-    rigid_row_nll(p, &inputs)
-}
-
-impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRowKernel {
+/// #932: the canonical single-source seam. The row NLL is written ONCE as
+/// [`rigid_row_nll`]; this exposes it through [`gam_math::jet_tower::RowProgram`]
+/// so the `RowKernel` derivative channels below derive mechanically from `eval`
+/// via the `program_*` helpers. Instantiating this same method at `S = Tower4`
+/// through [`gam_math::jet_tower::program_full_tower`] supplies the dense oracle;
+/// there is no second tower-only program surface.
+impl gam_math::jet_tower::RowProgram<4> for SurvivalMarginalSlopeRowKernel {
     fn n_rows(&self) -> usize {
         self.family.n
     }
@@ -993,18 +982,14 @@ impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRowKernel {
         rigid_row_kernel_primaries(&self.family, &self.block_states, row)
     }
 
-    fn row_nll(
-        &self,
-        row: usize,
-        p: &[gam_math::jet_tower::Tower4<4>; 4],
-    ) -> Result<gam_math::jet_tower::Tower4<4>, String> {
-        rigid_row_kernel_nll_tower(
+    fn eval<S: JetScalar<4>>(&self, row: usize, p: &[S; 4]) -> Result<S, String> {
+        let inputs = rigid_row_inputs(
             &self.family,
             &self.block_states,
             row,
-            p,
-            "survival marginal-slope rigid row tower",
-        )
+            "survival marginal-slope rigid row program",
+        )?;
+        rigid_row_nll(p, &inputs)
     }
 }
 
@@ -1044,68 +1029,93 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
     /// Batched all-rows `(nll, grad, hess)` via the A100 NVRTC survival row-jet
     /// (#932-GPU). Gathers every row's primaries + scalar inputs, then calls the
     /// device dispatcher ([`crate::gpu_kernels::survival_rowjet`]) which runs the
-    /// SAME unified `rigid_row_nll` jet on device for all `n` rows in parallel and
-    /// falls back to the CPU jet on no-GPU / small-`n` / any device error. The
-    /// result is bit-close (≤1e-9; measured 4.7e-12) to the per-row `row_kernel`
-    /// loop, so the cache is identical.
+    /// same order-2 `rigid_row_nll` lowering for all `n` rows in parallel. Linux
+    /// batches below device admission return `None` and use the ordinary per-row
+    /// cache path. Once admitted, probe/compile/launch/transfer failures are
+    /// returned and never hidden by a CPU retry.
     ///
-    /// Returns `None` (per-row CPU loop) when ANY row violates the monotonicity
-    /// guard — that domain failure must surface as the `MonotonicityViolation`
-    /// error the per-row path raises, not be masked by the device kernel (which
-    /// does not re-derive the guard).
+    /// The host gather validates the monotonicity guard before launch because the
+    /// device kernel consumes already-admitted primaries.
     fn batched_value_grad_hess_all(
         &self,
     ) -> Option<Result<(Vec<f64>, Vec<[f64; 4]>, Vec<[[f64; 4]; 4]>), String>> {
-        use crate::gpu_kernels::survival_rowjet::{SurvivalRowInputs, survival_rigid_row_jets};
+        use crate::gpu_kernels::survival_rowjet::survival_rigid_row_vgh_device_selected;
+
         let n = self.family.n;
-        let probit_scale = self.family.probit_frailty_scale();
-        let qd1_lower = self.family.time_derivative_lower_bound();
-        // Gather per-row inputs in parallel (the pure-f64 score summary + primary
-        // projections — the same quantities the per-row path computes). Surface
-        // any gather error; bail to the per-row path on a monotonicity violation.
-        let gather: Result<Vec<SurvivalRowInputs>, String> = (0..n)
-            .into_par_iter()
-            .map(|row| {
-                let p = rigid_row_kernel_primaries(&self.family, &self.block_states, row)?;
-                if survival_derivative_guard_violated(p[2], qd1_lower) {
-                    return Err("monotonicity-violation-fallback".to_string());
-                }
-                let inputs = rigid_row_inputs(
-                    &self.family,
-                    &self.block_states,
-                    row,
-                    "survival marginal-slope rigid row kernel (batched)",
-                )?;
-                Ok(SurvivalRowInputs {
-                    primaries: p,
-                    wi: inputs.wi,
-                    di: inputs.di,
-                    z_sum: inputs.z_sum,
-                    cov_ones: inputs.covariance_ones,
+        if !survival_rigid_row_vgh_device_selected(n) {
+            return None;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            use crate::gpu_kernels::survival_rowjet::{
+                SurvivalRowInputs, survival_rigid_row_vgh,
+            };
+            let probit_scale = self.family.probit_frailty_scale();
+            let qd1_lower = self.family.time_derivative_lower_bound();
+            // Gather per-row inputs in parallel (the pure-f64 score summary + primary
+            // projections — the same quantities the per-row path computes).
+            let gather: Result<Vec<SurvivalRowInputs>, String> = (0..n)
+                .into_par_iter()
+                .map(|row| {
+                    let p = rigid_row_kernel_primaries(&self.family, &self.block_states, row)?;
+                    let inputs = rigid_row_inputs(
+                        &self.family,
+                        &self.block_states,
+                        row,
+                        "survival marginal-slope rigid row kernel (batched)",
+                    )?;
+                    if survival_derivative_guard_violated(p[2], qd1_lower) {
+                        let observed_g = p[3] * probit_scale;
+                        let correction =
+                            (1.0 + observed_g * observed_g * inputs.covariance_ones).sqrt();
+                        return Err(SurvivalMarginalSlopeError::MonotonicityViolation {
+                            reason: format!(
+                                "survival marginal-slope monotonicity violated at row {row}: \
+                             raw time derivative={:.3e} must be at least \
+                             derivative_guard={qd1_lower:.3e}; transformed time \
+                             derivative={:.3e}",
+                                p[2],
+                                p[2] * correction,
+                            ),
+                        }
+                        .into());
+                    }
+                    Ok(SurvivalRowInputs {
+                        primaries: p,
+                        wi: inputs.wi,
+                        di: inputs.di,
+                        z_sum: inputs.z_sum,
+                        cov_ones: inputs.covariance_ones,
+                    })
                 })
-            })
-            .collect();
-        let rows = match gather {
-            Ok(rows) => rows,
-            // Monotonicity violation or gather failure → defer to the per-row
-            // path, which raises the precise error.
-            Err(_) => return None,
-        };
-        // (v,g,H) only — the third/fourth direction args are unused for the
-        // value cache; pass zeros.
-        let zero = [0.0_f64; 4];
-        let ch = survival_rigid_row_jets(&rows, probit_scale, &zero, &zero, &zero);
-        let mut grads = vec![[0.0_f64; 4]; n];
-        let mut hesss = vec![[[0.0_f64; 4]; 4]; n];
-        for row in 0..n {
-            for a in 0..4 {
-                grads[row][a] = ch.grad[row * 4 + a];
-                for b in 0..4 {
-                    hesss[row][a][b] = ch.hess[row * 16 + a * 4 + b];
+                .collect();
+            let rows = match gather {
+                Ok(rows) => rows,
+                Err(error) => return Some(Err(error)),
+            };
+            let ch = match survival_rigid_row_vgh(&rows, probit_scale) {
+                Ok(channels) => channels,
+                Err(error) => return Some(Err(error)),
+            };
+            let mut grads = vec![[0.0_f64; 4]; n];
+            let mut hesss = vec![[[0.0_f64; 4]; 4]; n];
+            for row in 0..n {
+                for a in 0..4 {
+                    grads[row][a] = ch.grad[row * 4 + a];
+                    for b in 0..4 {
+                        hesss[row][a][b] = ch.hess[row * 16 + a * 4 + b];
+                    }
                 }
             }
+            Some(Ok((ch.value, grads, hesss)))
         }
-        Some(Ok((ch.value, grads, hesss)))
+
+        // Non-Linux hosts can never pass device admission (the selector is
+        // `cfg!(target_os = "linux") && …`), so the early `None` above is the
+        // only exit and the per-row cache path handles every row.
+        #[cfg(not(target_os = "linux"))]
+        None
     }
 
     fn jacobian_action(&self, row: usize, d_beta: &[f64]) -> [f64; 4] {
@@ -1242,19 +1252,12 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
     }
 
     fn row_third_contracted(&self, row: usize, dir: &[f64; 4]) -> Result<[[f64; 4]; 4], String> {
-        // Packed one-seed directional scalar: the ε-Hessian channel is exactly
-        // `Σ_c ℓ_{abc} dir_c` without materialising the dense `t3`. Bit-identical
-        // to `rigid_row_kernel_nll_tower(row)?.third_contracted(dir)`.
-        let inputs = rigid_row_inputs(
-            &self.family,
-            &self.block_states,
-            row,
-            "survival marginal-slope rigid row third",
-        )?;
-        let p = rigid_row_kernel_primaries(&self.family, &self.block_states, row)?;
-        let vars: [OneSeed<4>; 4] =
-            std::array::from_fn(|a| OneSeed::seed_direction(p[a], a, dir[a]));
-        Ok(rigid_row_nll(&vars, &inputs)?.contracted_third())
+        // #932: derived mechanically from the single-source `RowProgram::eval`
+        // (one-seed scalar → ε-Hessian channel `Σ_c ℓ_{abc} dir_c`, no dense
+        // `t3`). Byte-identical to the previous hand-seeded `rigid_row_nll` at
+        // `OneSeed<4>` — same `primaries` + `rigid_row_inputs` + `rigid_row_nll`
+        // — pinned by `rigid_row_kernel_agrees_with_jet_tower_program_all_channels`.
+        gam_math::jet_tower::program_third_contracted(self, row, dir)
     }
 
     fn row_fourth_contracted(
@@ -1263,31 +1266,22 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
         dir_u: &[f64; 4],
         dir_v: &[f64; 4],
     ) -> Result<[[f64; 4]; 4], String> {
-        // Packed two-seed scalar: the εδ-Hessian channel is exactly
-        // `Σ_{cd} ℓ_{abcd} u_c v_d` without materialising the dense `t4`.
-        // Bit-identical to `rigid_row_kernel_nll_tower(row)?.fourth_contracted(u, v)`.
-        let inputs = rigid_row_inputs(
-            &self.family,
-            &self.block_states,
-            row,
-            "survival marginal-slope rigid row fourth",
-        )?;
-        let p = rigid_row_kernel_primaries(&self.family, &self.block_states, row)?;
-        let vars: [TwoSeed<4>; 4] =
-            std::array::from_fn(|a| TwoSeed::seed(p[a], a, dir_u[a], dir_v[a]));
-        Ok(rigid_row_nll(&vars, &inputs)?.contracted_fourth())
+        // #932: derived mechanically from the single-source `RowProgram::eval`
+        // (two-seed scalar → εδ-Hessian channel `Σ_{cd} ℓ_{abcd} u_c v_d`, no
+        // dense `t4`). Byte-identical to the previous hand-seeded `rigid_row_nll`
+        // at `TwoSeed<4>`.
+        gam_math::jet_tower::program_fourth_contracted(self, row, dir_u, dir_v)
     }
 
     /// Batched all-axes FIRST directional derivative of the joint Hessian for
     /// the rigid survival marginal-slope kernel (gam#979).
     ///
     /// The generic per-axis fall-back (`row_kernel_directional_derivative_all_axes`)
-    /// asks for `Hdot[e_a]` `p` separate times, and EACH per-axis sweep rebuilds
-    /// the per-row fourth-order `Tower4<4>` for every row inside
-    /// `row_third_contracted` (`evaluate_program` → full t3/t4 build) — `n·p`
-    /// tower evaluations per all-axes call. For survival the tower is the
-    /// expensive object (closed-form probit/log-pdf composition over four
-    /// primaries), so this is the #979 inner-Newton Jeffreys/Firth hot path.
+    /// asks for `Hdot[e_a]` `p` separate times, and EACH per-axis sweep evaluates
+    /// the per-row one-seed program scalar inside `row_third_contracted` — `n·p`
+    /// program evaluations per all-axes call. For survival the expression is
+    /// expensive (closed-form probit/log-pdf composition over four primaries),
+    /// so this is the #979 inner-Newton Jeffreys/Firth hot path.
     ///
     /// This override builds each row's `t3` tensor ONCE (the swept axis enters
     /// only through the cheap primary projection `dir_a = Jᵢ·e_a` and the linear
@@ -1296,7 +1290,7 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
     /// `Tower4::third_contracted`, and `add_pullback_hessian` in the EXACT SAME
     /// `ARROW_ROW_CHUNK`-chunked reduction order as the generic per-axis path
     /// (`par_try_reduce_fold(RowSet::All)`): the cached `t3[row]` is bit-for-bit
-    /// the tensor a fresh `evaluate_program(row)` would produce (a deterministic
+    /// the tensor a fresh `program_full_tower(row)` would produce (a deterministic
     /// pure function of the row), and every float op downstream is identical, so
     /// axis `a` matches `row_kernel_directional_derivative(self, All, e_a)`
     /// bit-for-bit. Only the redundant `(p−1)·n` tower rebuilds are removed.
@@ -1326,8 +1320,8 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
     /// Jeffreys `H_Φ` drift analogue of the first-order override above.
     ///
     /// With `d_beta_u` fixed and the second direction sweeping every canonical
-    /// axis, the generic per-axis path runs `p` full-data sweeps each rebuilding
-    /// the per-row `Tower4<4>` (`row_fourth_contracted` → `evaluate_program`).
+    /// axis, the generic per-axis path runs `p` full-data sweeps each evaluating
+    /// the per-row two-seed program scalar through `row_fourth_contracted`.
     /// This override builds each row's `t4` tensor and the fixed-direction
     /// projection `dir_u = Jᵢ·u` ONCE, then closes every axis with the cheap
     /// linear `t4.fourth_contracted(dir_u, dir_a)` and the kernel's own
@@ -1406,14 +1400,14 @@ impl SurvivalMarginalSlopeRowKernel {
     ///
     /// Evaluates the SAME single-source [`rigid_row_nll`] (including its
     /// monotonicity guard) at the static-sparsity [`SparseTower4<RIGID_LINEAR_MASK>`]
-    /// scalar instead of the dense `Tower4<4>` `evaluate_program` build: the
+    /// scalar instead of the dense `Tower4<4>` `program_full_tower` build: the
     /// affine rigid primaries `q0,q1,qd1` make the multi-linear-leg derivative
     /// blocks structurally zero on every `mul`/`compose` intermediate, so the
     /// `t4` Leibniz/Faà-di-Bruno reads that touch them are elided (measured 2.89×
     /// fewer FP ops on the `t4` build; standalone oracle scratchpad/sparse_t4_probe.rs,
     /// 5000/5000 rows `to_bits`-identical to the engine `Tower4<4>` on every
     /// channel). The cached `t4` (and the `fourth_contracted` accumulation order)
-    /// is therefore bit-for-bit what `evaluate_program(row)` would produce, so the
+    /// is therefore bit-for-bit what `program_full_tower(row)` would produce, so the
     /// build-once batched override contracts against it without changing any
     /// downstream arithmetic.
     fn build_row_towers(&self) -> Result<Vec<SparseTower4<RIGID_LINEAR_MASK>>, String> {
@@ -1439,7 +1433,7 @@ impl SurvivalMarginalSlopeRowKernel {
     /// all-axes path (#1591). Evaluates the SAME single-source [`rigid_row_nll`]
     /// (including its monotonicity guard) at the static-sparsity
     /// [`SparseTower3<RIGID_LINEAR_MASK>`] scalar instead of the dense `Tower4<4>`
-    /// `evaluate_program` builds: the consumer reads only `third_contracted` (a
+    /// `program_full_tower` build: the consumer reads only `third_contracted` (a
     /// `t3` contraction), so the discarded `K⁴ = 256`-entry fourth tensor is never
     /// computed, AND the affine rigid primaries make the multi-linear-leg `t3`
     /// reads structurally zero, eliding them too (measured 1.81× fewer FP ops on
@@ -1552,5 +1546,157 @@ impl SurvivalMarginalSlopeRowKernel {
                 })
             })
             .collect()
+    }
+
+    /// gam#979 Jeffreys wide-p contracted-trace-Hessian for the rigid survival
+    /// marginal-slope kernel: `∇²_β tr(W · H(β))` for a caller-supplied
+    /// full-joint trace weight `W`. Binary twin of BMS's
+    /// `rigid_row_contracted_trace_hessian_coefficients` +
+    /// `joint_jeffreys_information_contracted_trace_hessian_with_specs`,
+    /// generalized from BMS's 2 block-orthogonal primaries to survival's 4
+    /// primaries `(q0, q1, qd1, g)`. Unlike BMS, the primaries are NOT
+    /// block-diagonal in coefficient space: `q0, q1, qd1` all read the SAME
+    /// `time` coefficient block (through three different design matrices),
+    /// and `q0, q1` are additionally coupled through `marginal_design`. So the
+    /// trace-weight projection cannot use BMS's simple per-block scalar
+    /// extraction; it goes through each primary's actual design-row
+    /// components (`primary_trace_weight`).
+    ///
+    /// Per row: project `W` into the row's 4×4 primary space via
+    /// `w_row[a][b] = jᵃᵀ·W·jᵇ` (`primary_trace_weight`), then contract the
+    /// row's fourth-order primary tensor `t4` against it —
+    /// `coeff[c][d] = Σ_{a,b} w_row[a][b]·t4[a][b][c][d]` — and pull the
+    /// resulting 4×4 back into coefficient space with the kernel's own
+    /// `add_pullback_hessian`, in the SAME deterministic `ARROW_ROW_CHUNK`
+    /// chunked-fold order the batched all-axes overrides above use.
+    pub(crate) fn contracted_trace_hessian(
+        &self,
+        weight: &Array2<f64>,
+    ) -> Result<Array2<f64>, String> {
+        let p = self.n_coefficients();
+        if weight.dim() != (p, p) {
+            return Err(format!(
+                "SurvivalMarginalSlopeRowKernel::contracted_trace_hessian: weight shape {:?} != ({p}, {p})",
+                weight.dim()
+            ));
+        }
+        let towers = self.build_row_towers()?;
+        self.chunked_pullback_reduce(p, |row, acc| -> Result<(), String> {
+            let w_row = self.primary_trace_weight(row, weight)?;
+            let t4 = &towers[row].t4;
+            let mut coeff = [[0.0_f64; 4]; 4];
+            for c in 0..4 {
+                for d in 0..4 {
+                    let mut s = 0.0;
+                    for a in 0..4 {
+                        for b in 0..4 {
+                            s += w_row[a][b] * t4[a][b][c][d];
+                        }
+                    }
+                    coeff[c][d] = s;
+                }
+            }
+            self.add_pullback_hessian(row, &coeff, acc);
+            Ok(())
+        })
+    }
+
+    /// Project the caller's full-joint trace weight `W` into row `row`'s 4×4
+    /// primary space: `w_row[a][b] = jᵃᵀ·W·jᵇ`, where `jᵃ` is primary `a`'s
+    /// row Jacobian written as its design-row COMPONENTS (each component a
+    /// `(design row, coefficient range)` pair) rather than a materialized
+    /// dense length-`p` vector — `q0 = (entry design, time) + (marginal
+    /// design, marginal)`, `q1 = (exit design, time) + (marginal design,
+    /// marginal)`, `qd1 = (derivative-exit design, time)`, `g = (logslope
+    /// design, logslope)`. Summing `component(a)·W[range,range]·component(b)`
+    /// over every pair of components is exactly `jᵃᵀ·W·jᵇ` since `W`
+    /// restricted to any range pair not covered by a component is multiplied
+    /// by an implicit zero there. Cost is `O(Σ p_block²)` per row (the same
+    /// complexity class as BMS's per-row trace contraction), not
+    /// `O(p_total²)`, since only the 3 real blocks (`time, marginal,
+    /// logslope`) — never the optional flex/influence ones, which this hook
+    /// only runs when inactive — are read.
+    fn primary_trace_weight(
+        &self,
+        row: usize,
+        weight: &Array2<f64>,
+    ) -> Result<[[f64; 4]; 4], String> {
+        let xt_e = self
+            .family
+            .design_entry
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| format!("primary_trace_weight: design_entry row chunk failed: {e}"))?;
+        let xt_x = self
+            .family
+            .design_exit
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| format!("primary_trace_weight: design_exit row chunk failed: {e}"))?;
+        let xt_d = self
+            .family
+            .design_derivative_exit
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| {
+                format!("primary_trace_weight: design_derivative_exit row chunk failed: {e}")
+            })?;
+        let xm = self
+            .family
+            .marginal_design
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| format!("primary_trace_weight: marginal_design row chunk failed: {e}"))?;
+        let xg = self
+            .family
+            .logslope_design
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| format!("primary_trace_weight: logslope_design row chunk failed: {e}"))?;
+
+        struct Component<'a> {
+            vec: ArrayView1<'a, f64>,
+            range: std::ops::Range<usize>,
+        }
+        let components: [Vec<Component<'_>>; 4] = [
+            vec![
+                Component {
+                    vec: xt_e.row(0),
+                    range: self.slices.time.clone(),
+                },
+                Component {
+                    vec: xm.row(0),
+                    range: self.slices.marginal.clone(),
+                },
+            ],
+            vec![
+                Component {
+                    vec: xt_x.row(0),
+                    range: self.slices.time.clone(),
+                },
+                Component {
+                    vec: xm.row(0),
+                    range: self.slices.marginal.clone(),
+                },
+            ],
+            vec![Component {
+                vec: xt_d.row(0),
+                range: self.slices.time.clone(),
+            }],
+            vec![Component {
+                vec: xg.row(0),
+                range: self.slices.logslope.clone(),
+            }],
+        ];
+
+        let mut w_row = [[0.0_f64; 4]; 4];
+        for a in 0..4 {
+            for b in 0..4 {
+                let mut acc = 0.0;
+                for ca in &components[a] {
+                    for cb in &components[b] {
+                        let wblk = weight.slice(s![ca.range.clone(), cb.range.clone()]);
+                        acc += ca.vec.dot(&wblk.dot(&cb.vec));
+                    }
+                }
+                w_row[a][b] = acc;
+            }
+        }
+        Ok(w_row)
     }
 }

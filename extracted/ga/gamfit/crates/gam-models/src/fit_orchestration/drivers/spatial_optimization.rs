@@ -597,11 +597,28 @@ fn latent_id_objective_contribution(
             ..
         } => {
             let (log_mu, mu) = match strength {
-                AuxPriorStrength::Fixed(mu) => (mu.ln(), *mu),
+                AuxPriorStrength::Fixed(mu) => (
+                    gam_problem::checked_log_strength(*mu).map_err(|error| {
+                        EstimationError::InvalidInput(format!(
+                            "fixed latent auxiliary-prior precision is outside the canonical physical-strength domain: {error}"
+                        ))
+                    })?,
+                    *mu,
+                ),
                 AuxPriorStrength::Auto => {
-                    let log_mu = theta[cursor];
+                    let log_mu = *theta.get(cursor).ok_or_else(|| {
+                        EstimationError::InvalidInput(format!(
+                            "latent auxiliary-prior precision coordinate {cursor} is missing from theta length {}",
+                            theta.len(),
+                        ))
+                    })?;
                     cursor += 1;
-                    (log_mu, log_mu.exp())
+                    let mu = gam_problem::checked_exp_log_strength(log_mu).map_err(|error| {
+                        EstimationError::InvalidInput(format!(
+                            "latent auxiliary-prior log precision is outside the canonical log-strength domain: {error}"
+                        ))
+                    })?;
+                    (log_mu, mu)
                 }
             };
             let targets = aux_prior_targets(t.view(), u.view(), *family)
@@ -649,11 +666,28 @@ fn latent_id_objective_contribution(
             }
             let mu_slot = cursor;
             let (log_mu, mu) = match strength {
-                AuxPriorStrength::Fixed(mu) => (mu.ln(), *mu),
+                AuxPriorStrength::Fixed(mu) => (
+                    gam_problem::checked_log_strength(*mu).map_err(|error| {
+                        EstimationError::InvalidInput(format!(
+                            "fixed latent isometry precision is outside the canonical physical-strength domain: {error}"
+                        ))
+                    })?,
+                    *mu,
+                ),
                 AuxPriorStrength::Auto => {
-                    let log_mu = theta[cursor];
+                    let log_mu = *theta.get(cursor).ok_or_else(|| {
+                        EstimationError::InvalidInput(format!(
+                            "latent isometry precision coordinate {cursor} is missing from theta length {}",
+                            theta.len(),
+                        ))
+                    })?;
                     cursor += 1;
-                    (log_mu, log_mu.exp())
+                    let mu = gam_problem::checked_exp_log_strength(log_mu).map_err(|error| {
+                        EstimationError::InvalidInput(format!(
+                            "latent isometry log precision is outside the canonical log-strength domain: {error}"
+                        ))
+                    })?;
+                    (log_mu, mu)
                 }
             };
             let residual = &t - reference;
@@ -681,6 +715,12 @@ fn latent_id_objective_contribution(
             // the head's latent-code gradient flows into the `t` block (the
             // arrow-Schur cross-channel coupling).
             let n_coeffs = head.n_coeffs(latent_dim);
+            if cursor + n_coeffs > theta.len() {
+                crate::bail_invalid_estim!(
+                    "latent auxiliary-outcome coefficient block overruns theta: start={cursor}, width={n_coeffs}, theta_len={}",
+                    theta.len(),
+                );
+            }
             let coeffs = theta
                 .slice(ndarray::s![cursor..cursor + n_coeffs])
                 .to_owned();
@@ -705,9 +745,23 @@ fn latent_id_objective_contribution(
         LatentIdMode::AuxPriorDimSelection { .. }
         | LatentIdMode::DimSelection { .. }
         | LatentIdMode::AuxOutcome { .. } => {
+            if cursor + latent_dim > theta.len() {
+                crate::bail_invalid_estim!(
+                    "latent dimension-selection precision block overruns theta: start={cursor}, width={latent_dim}, theta_len={}",
+                    theta.len(),
+                );
+            }
+            let alphas = gam_problem::checked_exp_log_strengths(
+                theta.slice(s![cursor..cursor + latent_dim]).iter().copied(),
+            )
+            .map_err(|error| {
+                EstimationError::InvalidInput(format!(
+                    "latent dimension-selection log precision is outside the canonical log-strength domain: {error}"
+                ))
+            })?;
             for axis in 0..latent_dim {
                 let log_alpha = theta[cursor + axis];
-                let alpha = log_alpha.exp();
+                let alpha = alphas[axis];
                 let mut q_axis = 0.0;
                 for n in 0..n_obs {
                     let flat_idx = n * latent_dim + axis;
@@ -779,6 +833,9 @@ fn analytic_penalty_objective_contribution(
     }
     let target_t = theta.slice(s![t_start..t_end]);
     let rho = theta.slice(s![rho_start..rho_end]);
+    registry
+        .validate_rho(rho)
+        .map_err(EstimationError::InvalidInput)?;
     let mut cost = 0.0_f64;
     let mut gradient = Array1::<f64>::zeros(theta.len());
     for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(registry.rho_layout()) {
@@ -852,6 +909,9 @@ fn add_analytic_penalty_hessian_to_eval(
     }
     let target_t = theta.slice(s![t_start..t_end]);
     let rho = theta.slice(s![rho_start..rho_end]);
+    registry
+        .validate_rho(rho)
+        .map_err(EstimationError::InvalidInput)?;
     for (penalty, (rho_slice, tier, _name)) in registry.penalties.iter().zip(registry.rho_layout())
     {
         let rho_local = rho.slice(s![rho_slice]);
@@ -1022,49 +1082,48 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
         let mut ssecond_components = vec![None; log_kappa_dim];
         ssecond_components[i] = Some(s2_components);
         let mut penaltysecond_partner_indices: Option<Vec<usize>> = None;
-        let penaltysecond_component_provider = if let (Some(provider), Some(gid)) =
-            (aniso_cross_penalty_provider, aniso_group_id)
-        {
-            let group_indices = group_indices_map.get(&gid).cloned().unwrap_or_default();
-            let axis_in_group =
-                group_indices
-                    .iter()
-                    .position(|&idx| idx == i)
-                    .ok_or_else(|| {
-                        EstimationError::InvalidInput(format!(
-                            "missing spatial hyper axis {} in anisotropy group {}",
-                            i, gid
-                        ))
-                    })?;
-            penaltysecond_partner_indices = Some(
-                group_indices
-                    .iter()
-                    .copied()
-                    .filter(|&idx| idx != i)
-                    .collect(),
-            );
-            let penalty_indices_inner = penalty_indices.clone();
-            let global_range_inner = global_range.clone();
-            let total_p_inner = total_p;
-            let group_indices_inner = group_indices;
-            Some(std::sync::Arc::new(
-                move |j: usize| -> Result<
-                    Option<Vec<gam_solve::estimate::reml::PenaltyDerivativeComponent>>,
-                    EstimationError,
-                > {
-                    let Some(other_axis_in_group) =
-                        group_indices_inner.iter().position(|&idx| idx == j)
-                    else {
-                        return Ok(None);
-                    };
-                    if other_axis_in_group == axis_in_group {
-                        return Ok(None);
-                    }
-                    let cross_pens = provider(other_axis_in_group)?;
-                    if cross_pens.is_empty() {
-                        return Ok(None);
-                    }
-                    Ok(Some(
+        let penaltysecond_component_provider =
+            if let (Some(provider), Some(gid)) = (aniso_cross_penalty_provider, aniso_group_id) {
+                let group_indices = group_indices_map.get(&gid).cloned().unwrap_or_default();
+                let axis_in_group =
+                    group_indices
+                        .iter()
+                        .position(|&idx| idx == i)
+                        .ok_or_else(|| {
+                            EstimationError::InvalidInput(format!(
+                                "missing spatial hyper axis {} in anisotropy group {}",
+                                i, gid
+                            ))
+                        })?;
+                penaltysecond_partner_indices = Some(
+                    group_indices
+                        .iter()
+                        .copied()
+                        .filter(|&idx| idx != i)
+                        .collect(),
+                );
+                let penalty_indices_inner = penalty_indices.clone();
+                let global_range_inner = global_range.clone();
+                let total_p_inner = total_p;
+                let group_indices_inner = group_indices;
+                Some(std::sync::Arc::new(
+                    move |j: usize| -> Result<
+                        Option<Vec<gam_solve::estimate::reml::PenaltyDerivativeComponent>>,
+                        EstimationError,
+                    > {
+                        let Some(other_axis_in_group) =
+                            group_indices_inner.iter().position(|&idx| idx == j)
+                        else {
+                            return Ok(None);
+                        };
+                        if other_axis_in_group == axis_in_group {
+                            return Ok(None);
+                        }
+                        let cross_pens = provider(other_axis_in_group)?;
+                        if cross_pens.is_empty() {
+                            return Ok(None);
+                        }
+                        Ok(Some(
                         penalty_indices_inner
                             .iter()
                             .copied()
@@ -1083,21 +1142,21 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
                             })
                             .collect(),
                     ))
-                },
-            )
-                as std::sync::Arc<
-                    dyn Fn(
-                            usize,
-                        ) -> Result<
-                            Option<Vec<gam_solve::estimate::reml::PenaltyDerivativeComponent>>,
-                            EstimationError,
-                        > + Send
-                        + Sync
-                        + 'static,
-                >)
-        } else {
-            None
-        };
+                    },
+                )
+                    as std::sync::Arc<
+                        dyn Fn(
+                                usize,
+                            ) -> Result<
+                                Option<Vec<gam_solve::estimate::reml::PenaltyDerivativeComponent>>,
+                                EstimationError,
+                            > + Send
+                            + Sync
+                            + 'static,
+                    >)
+            } else {
+                None
+            };
         // First derivative: use implicit operator when available to avoid
         // storing dense (n x p) matrices for all D axes simultaneously.
         let x_first_hyper = if let Some(ref op) = implicit_operator {
@@ -2608,7 +2667,16 @@ fn try_exact_joint_spatial_length_scale_optimization(
         )));
     }
 
-    let rho_star = theta_star.slice(s![..rho_dim]).mapv(f64::exp);
+    let selected_lambdas = Array1::from_vec(
+        gam_problem::checked_exp_log_strengths(
+            theta_star.slice(s![..rho_dim]).iter().copied(),
+        )
+        .map_err(|error| {
+            EstimationError::InvalidInput(format!(
+                "selected joint spatial smoothing coordinate is outside the canonical log-strength domain: {error}"
+            ))
+        })?,
+    );
     let log_kappa_star =
         SpatialLogKappaCoords::from_theta_tail_with_dims(&theta_star, rho_dim, dims_per_term);
     // #1464 diagnostic (ban-clean): the joint solver's CONVERGED ψ-tail κ for each
@@ -2637,7 +2705,7 @@ fn try_exact_joint_spatial_length_scale_optimization(
         weights,
         offset,
         &optimized_spec,
-        rho_star.as_slice(),
+        selected_lambdas.as_slice(),
         family.clone(),
         options,
     )?;
@@ -3942,7 +4010,7 @@ fn run_exact_joint_spatial_optimization(
                     Some(SmoothBasisSpec::Matern { .. })
                 )
             }),
-    );
+    )?;
 
     let eval_outer = |ctx: &mut &mut SpatialJointContext<'_>,
                       theta: &Array1<f64>,
@@ -6024,7 +6092,7 @@ impl<'d> ExactJointDesignCache<'d> {
     impl_exact_joint_theta_memo!();
 
     /// Cache a cost-only result. Called after `ensure_theta(theta)` for
-    /// line-search probes that pay only for the cost evaluation. We
+    /// line-search probes and value-only seed prewarming. We
     /// intentionally do not populate `last_eval` because no gradient was
     /// computed; the next outer evaluation at this θ will recompute
     /// (V, ∇V) via `evaluate_with_order` if the optimizer asks for it.
@@ -6142,18 +6210,14 @@ mod exact_joint_seed_config_tests {
 
     #[test]
     fn exact_joint_marginal_slope_profiles_get_deeper_startup_validation() {
-        let bms = exact_joint_seed_config(
-            gam_problem::SeedRiskProfile::GeneralizedLinear,
-            2,
-            false,
-        );
+        let bms =
+            exact_joint_seed_config(gam_problem::SeedRiskProfile::GeneralizedLinear, 2, false);
         assert_eq!(bms.max_seeds, 1);
         assert_eq!(bms.seed_budget, 1);
         assert_eq!(bms.screen_max_inner_iterations, 8);
         assert_eq!(bms.num_auxiliary_trailing, 2);
 
-        let survival =
-            exact_joint_seed_config(gam_problem::SeedRiskProfile::Survival, 3, false);
+        let survival = exact_joint_seed_config(gam_problem::SeedRiskProfile::Survival, 3, false);
         assert_eq!(survival.max_seeds, 8);
         assert_eq!(survival.seed_budget, 4);
         assert_eq!(survival.screen_max_inner_iterations, 8);
@@ -6303,10 +6367,24 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     // budget; generic multi-block and latent-coordinate callers retain their
     // family-specific multistart policies.
     initial_seed_only: bool,
-) -> gam_solve::rho_optimizer::OuterProblem {
+) -> Result<gam_solve::rho_optimizer::OuterProblem, EstimationError> {
+    if rho_dim > theta0.len() {
+        crate::bail_invalid_estim!(
+            "exact joint outer problem declares {rho_dim} smoothing coordinates for theta length {}",
+            theta0.len(),
+        );
+    }
     let mut seed_heuristic = theta0.to_vec();
-    for value in &mut seed_heuristic[..rho_dim] {
-        *value = value.exp();
+    let initial_lambdas = gam_problem::checked_exp_log_strengths(
+        theta0.iter().take(rho_dim).copied(),
+    )
+    .map_err(|error| {
+        EstimationError::InvalidInput(format!(
+            "exact joint initial smoothing coordinate is outside the canonical log-strength domain: {error}"
+        ))
+    })?;
+    for (value, lambda) in seed_heuristic[..rho_dim].iter_mut().zip(initial_lambdas) {
+        *value = lambda;
     }
     // Over-smoothing ρ ceiling: widened only for a constant-curvature fit (see
     // the `has_constant_curvature` param doc). Drives both the scalar saturation
@@ -6340,8 +6418,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
         .with_bfgs_step_cap(bfgs_step_cap)
         .with_bfgs_step_cap_psi(bfgs_step_cap_psi)
         .with_seed_config({
-            let mut sc =
-                exact_joint_seed_config(risk_profile, auxiliary_dim, initial_seed_only);
+            let mut sc = exact_joint_seed_config(risk_profile, auxiliary_dim, initial_seed_only);
             if has_constant_curvature {
                 // Let the seed grid reach the widened over-smoothing ceiling so a
                 // smooth whose true REML optimum genuinely lives at large λ can be
@@ -6385,7 +6462,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
             .with_screening_cap(screening_cap)
             .with_screen_initial_rho(true);
     }
-    problem
+    Ok(problem)
 }
 
 pub fn optimize_spatial_length_scale_exact_joint<FitOut, FitFn, ExactFn, ExactEfsFn, SeedFn>(
@@ -6726,7 +6803,8 @@ where
         // Multi-block optimization has no preceding scalar Matérn endpoint
         // certificate, so retain its family-specific seed cascade.
         false,
-    );
+    )
+    .map_err(|e| e.to_string())?;
 
     // Helper: collect specs and designs from cache into owned Vecs for closure calls.
     fn collect_specs(cache: &ExactJointDesignCache<'_>) -> Vec<TermCollectionSpec> {
@@ -6744,8 +6822,10 @@ where
             if let Some((cost, grad, hess)) = ctx.cache.memoized_eval(theta) {
                 let cached_satisfies_order = match order {
                     OuterEvalOrder::Value => true,
-                    OuterEvalOrder::ValueAndGradient => true,
-                    OuterEvalOrder::ValueGradientHessian => hess.is_analytic(),
+                    OuterEvalOrder::ValueAndGradient => grad.len() == theta.len(),
+                    OuterEvalOrder::ValueGradientHessian => {
+                        grad.len() == theta.len() && hess.is_analytic()
+                    }
                 };
                 if cached_satisfies_order {
                     if !cost.is_finite() {
@@ -6791,9 +6871,12 @@ where
             // top-of-function declaration so the optimizer and the
             // evaluator never disagree on what was requested.
             let clamped = outer_derivative_policy.order_for_evaluation(order);
+            let value_only = matches!(clamped, OuterEvalOrder::Value);
             let need_hessian = matches!(clamped, OuterEvalOrder::ValueGradientHessian)
                 && analytic_outer_hessian_available;
-            let eval_mode = if need_hessian {
+            let eval_mode = if value_only {
+                gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueOnly
+            } else if need_hessian {
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
             } else {
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient
@@ -6818,7 +6901,11 @@ where
             );
             match result {
                 Ok((cost, grad, hess)) => {
-                    ctx.cache.store_eval((cost, grad.clone(), hess.clone()));
+                    if value_only {
+                        ctx.cache.store_cost_only(theta, cost);
+                    } else {
+                        ctx.cache.store_eval((cost, grad.clone(), hess.clone()));
+                    }
                     if !cost.is_finite() {
                         return Ok(OuterEval::infeasible(theta.len()));
                     }
@@ -7157,6 +7244,23 @@ fn try_exact_joint_latent_coord_optimization(
         lower[axis] = -latent_bound;
         upper[axis] = latent_bound;
     }
+    if let Some(registry) = latent.analytic_penalties.as_ref() {
+        let (domain_lower, domain_upper) = registry
+            .rho_domain_bounds()
+            .map_err(EstimationError::InvalidInput)?;
+        let start = rho_dim + latent_flat_dim;
+        for local in 0..analytic_rho_count {
+            lower[start + local] = lower[start + local].max(domain_lower[local]);
+            upper[start + local] = upper[start + local].min(domain_upper[local]);
+            if lower[start + local] >= upper[start + local] {
+                return Err(EstimationError::InvalidInput(format!(
+                    "analytic-penalty rho domain has no searchable interval at coordinate {local}: lower={}, upper={}",
+                    lower[start + local],
+                    upper[start + local]
+                )));
+            }
+        }
+    }
 
     struct LatentJointContext<'d> {
         rho_dim: usize,
@@ -7403,7 +7507,7 @@ fn try_exact_joint_latent_coord_optimization(
         !constant_curvature_term_indices(resolvedspec).is_empty(),
         // Latent-coordinate optimization is not a profiled Matérn range solve.
         false,
-    );
+    )?;
 
     let eval_outer = |ctx: &mut &mut LatentJointContext<'_>,
                       theta: &Array1<f64>,
@@ -7452,7 +7556,16 @@ fn try_exact_joint_latent_coord_optimization(
     }
 
     let theta_star = result.rho;
-    let rho_star = theta_star.slice(s![..rho_dim]).mapv(f64::exp);
+    let selected_lambdas = Array1::from_vec(
+        gam_problem::checked_exp_log_strengths(
+            theta_star.slice(s![..rho_dim]).iter().copied(),
+        )
+        .map_err(|error| {
+            EstimationError::InvalidInput(format!(
+                "selected latent-coordinate smoothing coordinate is outside the canonical log-strength domain: {error}"
+            ))
+        })?,
+    );
     let mut final_data = data.to_owned();
     let flat_t = theta_star
         .slice(s![rho_dim..rho_dim + latent_flat_dim])
@@ -7472,7 +7585,7 @@ fn try_exact_joint_latent_coord_optimization(
         weights,
         offset,
         resolvedspec,
-        rho_star.as_slice(),
+        selected_lambdas.as_slice(),
         family,
         options,
     )?;
@@ -7589,14 +7702,12 @@ fn select_isotropic_matern_range_basin(
         else {
             continue;
         };
-        let num_centers =
-            gam_terms::basis::center_strategy_num_centers(&matern.center_strategy).ok_or_else(
-                || {
-                    EstimationError::InvalidInput(format!(
-                        "resolved isotropic Matérn term {term_idx} has no finite center count"
-                    ))
-                },
-            )?;
+        let num_centers = gam_terms::basis::center_strategy_num_centers(&matern.center_strategy)
+            .ok_or_else(|| {
+                EstimationError::InvalidInput(format!(
+                    "resolved isotropic Matérn term {term_idx} has no finite center count"
+                ))
+            })?;
         let companion_length_scale = matern_low_rank_center_resolution_length_scale(
             data,
             feature_cols,
@@ -8421,7 +8532,11 @@ pub fn smooth_term_lr_inference_forspec(
     // Full design as a dense n×p array for the Lawley pair-matrix reduction.
     let full_design_dense = full.design.design.to_dense();
     let influence = full.fit.coefficient_influence();
-    let family_disp = lawley_dispersion_for_family(&family, &full.fit);
+    let fitted_likelihood = resolved_likelihood_for_fit(&full.fit)?;
+    let family_disp = lawley_dispersion_for_family(&fitted_likelihood, &full.fit)?;
+    let coefficient_covariance_scale = fitted_likelihood
+        .coefficient_covariance_scale(family_disp)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
 
     // The penalty-block cursor walks the same block order the summary table
     // uses: any leading linear/random-effect penalty blocks first (skipped
@@ -8493,12 +8608,17 @@ pub fn smooth_term_lr_inference_forspec(
         // collapse; `edf` and `null_dim` never exceed `edf1` in a healthy fit.
         // This mirrors the summary Wald path, which floors its reference at the
         // statistic's own rank for the same reason.
-        let rho_uncertainty_df = wps_block_uncertainty_df(
+        let rho_uncertainty_df = match wps_block_uncertainty_df(
             full.fit.weighted_gram(),
             full.fit.smoothing_correction(),
             &coeff_range,
-            family_disp,
-        );
+            coefficient_covariance_scale,
+        )? {
+            // Missing correction artifacts explicitly mean that this optional
+            // WPS term was not computed; the base Wood reference df remains.
+            Some(extra_df) => extra_df,
+            None => 0.0,
+        };
         let ref_df = (wood_reference_df(influence, &coeff_range)
             .unwrap_or(0.0)
             .max(edf)
@@ -8567,8 +8687,12 @@ pub fn smooth_term_lr_inference_forspec(
         ) {
             let kappas: Option<Vec<_>> = (0..n)
                 .map(|i| {
-                    known_scale_expected_jets_with_dispersion(&family, eta[i], family_disp)
-                        .and_then(|jets| jets.kappas().ok())
+                    known_scale_expected_jets_with_dispersion(
+                        &fitted_likelihood.spec,
+                        eta[i],
+                        family_disp,
+                    )
+                    .and_then(|jets| jets.kappas().ok())
                 })
                 .collect();
             if let (Some(kappas), Some(dist)) = (kappas, chi2.as_ref()) {
@@ -8656,58 +8780,105 @@ pub fn smooth_term_lr_inference_forspec(
     Ok(out)
 }
 
-/// The dispersion `φ` Lawley needs for the family's cumulant scaling: Gaussian
-/// `σ̂²`, Gamma `1/shape`, and `1` for the scale-free Poisson/Binomial.
-fn lawley_dispersion_for_family(family: &LikelihoodSpec, fit: &UnifiedFitResult) -> f64 {
-    match family.response {
-        gam_spec::ResponseFamily::Gaussian => {
-            let sd = fit.standard_deviation;
-            (sd * sd).max(f64::MIN_POSITIVE)
-        }
-        gam_spec::ResponseFamily::Gamma => {
-            let shape = fit.standard_deviation;
-            if shape.is_finite() && shape > 0.0 {
-                1.0 / shape
-            } else {
-                1.0
-            }
-        }
-        _ => 1.0,
-    }
+fn resolved_likelihood_for_fit(
+    fit: &UnifiedFitResult,
+) -> Result<gam_spec::GlmLikelihoodSpec, EstimationError> {
+    let spec = fit.likelihood_family.as_ref().ok_or_else(|| {
+        EstimationError::InvalidInput(
+            "smooth-term LR inference requires an engine-level GLM likelihood".to_string(),
+        )
+    })?;
+    gam_spec::GlmLikelihoodSpec::try_new(spec.clone(), fit.likelihood_scale.clone())
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))
+}
+
+/// The response dispersion `phi` Lawley needs for cumulant scaling. This is
+/// deliberately distinct from the coefficient-covariance multiplier used by
+/// the WPS trace below: Gamma Lawley uses `1 / shape`, while its PIRLS Hessian
+/// already carries `shape` and therefore has covariance multiplier one.
+fn lawley_dispersion_for_family(
+    likelihood: &gam_spec::GlmLikelihoodSpec,
+    fit: &UnifiedFitResult,
+) -> Result<f64, EstimationError> {
+    let profiled_standard_deviation = matches!(
+        likelihood
+            .resolved_scale()
+            .map_err(|error| EstimationError::InvalidInput(error.to_string()))?,
+        gam_spec::ResolvedLikelihoodScale::ProfiledGaussian
+    )
+    .then_some(fit.standard_deviation);
+    gam_solve::estimate::dispersion_from_likelihood(likelihood, profiled_standard_deviation)
+        .map(|dispersion| dispersion.phi())
 }
 
 fn wps_block_uncertainty_df(
     weighted_gram: Option<&Array2<f64>>,
     smoothing_correction: Option<&Array2<f64>>,
     coeff_range: &Range<usize>,
-    phi: f64,
-) -> f64 {
+    coefficient_covariance_scale: f64,
+) -> Result<Option<f64>, EstimationError> {
     let (Some(xwx), Some(corr)) = (weighted_gram, smoothing_correction) else {
-        return 0.0;
+        return Ok(None);
     };
     let (start, end) = (coeff_range.start, coeff_range.end);
-    if start >= end
-        || end > xwx.nrows()
-        || end > xwx.ncols()
-        || end > corr.nrows()
-        || end > corr.ncols()
-        || !(phi.is_finite() && phi > 0.0)
-    {
-        return 0.0;
+    if start >= end {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS coefficient block must be non-empty, got {coeff_range:?}"
+        )));
+    }
+    if xwx.nrows() != xwx.ncols() || corr.nrows() != corr.ncols() {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS matrices must be square, got X'WX={}x{} and correction={}x{}",
+            xwx.nrows(),
+            xwx.ncols(),
+            corr.nrows(),
+            corr.ncols()
+        )));
+    }
+    if xwx.dim() != corr.dim() || end > xwx.nrows() {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS block {coeff_range:?} is incompatible with X'WX={:?} and correction={:?}",
+            xwx.dim(),
+            corr.dim()
+        )));
+    }
+    if !(coefficient_covariance_scale.is_finite() && coefficient_covariance_scale > 0.0) {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS coefficient-covariance scale must be finite and strictly positive, got {coefficient_covariance_scale:?}"
+        )));
     }
 
-    let mut trace = 0.0;
+    let mut trace = gam_linalg::utils::KahanSum::default();
     for i in start..end {
         for j in start..end {
-            trace += xwx[[i, j]] * corr[[j, i]];
+            let gram_value = xwx[[i, j]];
+            let correction_value = corr[[j, i]];
+            if !gram_value.is_finite() || !correction_value.is_finite() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "WPS trace has non-finite matrix entry at ({i}, {j}): X'WX={gram_value:?}, correction-transpose={correction_value:?}"
+                )));
+            }
+            let product = gram_value * correction_value;
+            if !product.is_finite() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "WPS trace product is not representable at ({i}, {j}): {gram_value:?} * {correction_value:?}"
+                )));
+            }
+            trace.add(product);
         }
     }
-    trace /= phi;
-    if trace.is_finite() && trace > 0.0 {
-        trace
-    } else {
-        0.0
+    let trace = trace.sum() / coefficient_covariance_scale;
+    if !trace.is_finite() {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS corrected-EDF trace is not representable after coefficient scale {coefficient_covariance_scale:?}: {trace:?}"
+        )));
     }
+    if trace < 0.0 {
+        return Err(EstimationError::InvalidInput(format!(
+            "WPS corrected-EDF trace must be non-negative, got {trace:?}"
+        )));
+    }
+    Ok(Some(trace))
 }
 
 /// Wood's smoothing-selection-corrected reference d.f. `edf1 = 2·tr(F_jj) −
@@ -8743,6 +8914,37 @@ fn wood_reference_df(influence: Option<&Array2<f64>>, coeff_range: &Range<usize>
     let tr = (0..block.nrows()).map(|i| block[[i, i]]).sum::<f64>();
     let tr2 = block.dot(&block).diag().sum();
     (tr.is_finite() && tr2.is_finite() && tr > 0.0).then(|| (2.0 * tr - tr2).max(tr).max(1e-12))
+}
+
+#[cfg(test)]
+mod likelihood_scale_wps_tests {
+    use super::wps_block_uncertainty_df;
+    use ndarray::array;
+
+    #[test]
+    fn wps_trace_uses_coefficient_covariance_scale() {
+        let xwx = array![[1.0, 0.0], [0.0, 1.0]];
+        let correction = array![[1.0, 0.0], [0.0, 1.0]];
+        let extra_df = wps_block_uncertainty_df(Some(&xwx), Some(&correction), &(0..2), 4.0)
+            .expect("valid WPS geometry")
+            .expect("correction artifacts are present");
+        assert_eq!(extra_df, 0.5);
+    }
+
+    #[test]
+    fn wps_absence_is_distinct_from_invalid_geometry() {
+        let xwx = array![[1.0]];
+        assert_eq!(
+            wps_block_uncertainty_df(Some(&xwx), None, &(0..1), 1.0)
+                .expect("missing optional artifact is not malformed geometry"),
+            None
+        );
+
+        let negative_correction = array![[-1.0]];
+        let error = wps_block_uncertainty_df(Some(&xwx), Some(&negative_correction), &(0..1), 1.0)
+            .expect_err("negative corrected EDF must not be silently zeroed");
+        assert!(error.to_string().contains("must be non-negative"));
+    }
 }
 
 #[cfg(test)]

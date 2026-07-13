@@ -36,11 +36,11 @@ use super::{
     array1_l2_norm,
     attach_penalty_shift,
     // compute functions
-    calculate_deviance,
+    calculate_deviance_from_eta,
     // edf helpers
     calculate_edf_with_penalty,
     calculate_edfwithworkspace_with_penalty,
-    calculate_loglikelihood,
+    calculate_loglikelihood_omitting_constants_from_eta,
     compute_constraint_kkt_diagnostics,
     computeworkingweight_derivatives_from_eta,
     inf_norm,
@@ -62,8 +62,8 @@ use gam_linalg::matrix::{DesignMatrix, LinearOperator, ReparamOperator, Symmetri
 use gam_math::probability::standard_normal_quantile;
 use gam_problem::{
     Coefficients, GlmLikelihoodSpec, InverseLink, LinearPredictor, LinkFunction,
-    LogSmoothingParamsView, MixtureLinkState, ResponseFamily, RidgePassport, RidgePolicy,
-    SasLinkState, StandardLink,
+    LogSmoothingParamsView, MixtureLinkState, ResolvedLikelihoodScale, ResponseFamily,
+    RidgePassport, RidgePolicy, SasLinkState, StandardLink,
 };
 use gam_terms::construction::{KroneckerReparamResult, ReparamResult};
 use ndarray::{ArcArray1, Array1, Array2, ArrayView1, ArrayView2, s};
@@ -107,6 +107,10 @@ pub(crate) fn record_nfree_skip_row_touches(elems: usize) {
 /// κ-optimisation phase and thread them into the reported timing.
 pub fn nfree_skip_row_element_touches() -> u64 {
     NFREE_SKIP_ROW_ELEMENT_TOUCHES.load(Ordering::Relaxed)
+}
+
+pub(crate) fn exact_lambdas_from_rho(rho: LogSmoothingParamsView<'_>) -> Array1<f64> {
+    rho.exact_exp()
 }
 
 pub(super) fn default_beta_guess_external(
@@ -341,23 +345,22 @@ pub(super) fn assemble_pirls_result(
     x_transformed: DesignMatrix,
     coordinate_frame: PirlsCoordinateFrame,
     linear_constraints_transformed: Option<LinearInequalityConstraints>,
-) -> PirlsResult {
+) -> Result<PirlsResult, EstimationError> {
     // #1868: the full-assembly path is legitimately O(n) (this is the one-off
     // final fit, not a per-callback n-free skip); wrap its freshly-realised row
     // arrays in the shared `ArcArray1` representation (`.into_shared()` moves the
     // owned buffer into an `Arc`, O(1)). `finalmu`/`solvemu` share one handle.
     let final_eta_arr = working_summary.state.eta.as_ref().clone();
     let finalmu_shared = finalmu.clone().into_shared();
-    PirlsResult {
+    Ok(PirlsResult {
         likelihood,
         beta_transformed: working_summary.beta.clone(),
         penalized_hessian_transformed,
         stabilizedhessian_transformed,
         ridge_passport: RidgePassport::scaled_identity(
             working_summary.state.ridge_used,
-            RidgePolicy::explicit_stabilization_full(),
-        ),
-        ridge_used: working_summary.state.ridge_used,
+            RidgePolicy::exact_full_objective(),
+        )?,
         deviance: working_summary.state.deviance,
         edf,
         stable_penalty_term: penalty_term,
@@ -395,7 +398,7 @@ pub(super) fn assemble_pirls_result(
         used_device: false,
         cache_compacted: false,
         min_penalized_deviance: working_summary.min_penalized_deviance,
-    }
+    })
 }
 
 pub(super) fn detect_logit_instability(
@@ -830,36 +833,18 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         glm_first_step_gram,
     } = problem;
     let quadctx = crate::quadrature::QuadratureContext::new();
-    // gam#1379 — finite-ceiling λ = exp(ρ). When the outer REML / spatial-κ
-    // optimizer drives a redundant penalty direction's log-λ past ~709 (it does
-    // so deterministically on 1-D `matern(x)` / `bs="gp"` data whose kernel
-    // already controls the smoothness an operator block also penalizes, so REML
-    // wants λ → ∞), `exp(ρ)` overflows to `+∞`. A literal `+∞` λ then poisons
-    // every downstream consumer that forms `λ · S`: the range-penalty block
-    // assembled as `Σ λ_k S_k` hits `∞ · 0 = NaN` and the eigensolve aborts, and
-    // the final fit-result validation rejects the non-finite stored λ outright.
-    // `exp(709.78) ≈ 1.8e308` is already the largest finite f64; capping log-λ at
-    // a value whose `exp` stays finite pins the over-penalized direction exactly
-    // as hard as `+∞` would for every finite-arithmetic consumer (the penalized
-    // block is numerically a hard constraint at λ this large) while keeping
-    // `λ · 0 = 0`. Ordinary finite λ are untouched, so non-degenerate fits and
-    // their recorded λ̂ are bit-identical. `ln(1e300) ≈ 690.78` keeps this in lock
-    // step with the post-exp λ ceiling (`1e300`) used by the reparam range-block
-    // assembly and the stored fit result, so a fully-smoothed direction carries
-    // the SAME finite λ everywhere it is consumed.
-    const LOG_LAMBDA_CEILING: f64 = 690.0;
-    let lambdas = rho.mapv(|r| {
-        if r.is_nan() {
-            r
-        } else {
-            r.min(LOG_LAMBDA_CEILING).exp()
-        }
-    });
+    let lambdas = exact_lambdas_from_rho(rho);
     let lambdas_slice = lambdas.as_slice_memory_order().ok_or_else(|| {
         EstimationError::InvalidInput("non-contiguous lambda storage".to_string())
     })?;
 
     let likelihood = &config.likelihood;
+    // Resolve family and scalar ownership once at the fit boundary. This makes
+    // malformed family/metadata pairs fail before either the CPU or GPU path
+    // can interpret an absent scalar as a unit value.
+    let resolved_likelihood_scale = likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     let link_function = config.link_function();
 
     use gam_terms::construction::{
@@ -1276,16 +1261,21 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                 .as_ref()
                 .map(|transform| transform.apply_transpose(&grad_orig))
                 .unwrap_or(grad_orig);
-            let weighted_rss = (cache.centered_weighted_y_sq
-                - 2.0 * qbeta.dot(&cache.xtwy_orig)
+            let weighted_rss = (cache.centered_weighted_y_sq - 2.0 * qbeta.dot(&cache.xtwy_orig)
                 + qbeta.dot(&cache.xtwx_orig.dot(&qbeta)))
             .max(0.0);
-            let phi = likelihood.scale.fixed_phi().unwrap_or(1.0);
-            let deviance = if phi.is_finite() && phi > 0.0 {
-                weighted_rss / phi
-            } else {
-                f64::NAN
+            let phi = match resolved_likelihood_scale {
+                // Profiled Gaussian deliberately leaves the row geometry
+                // scale-free; the residual variance is profiled after fitting.
+                ResolvedLikelihoodScale::ProfiledGaussian => 1.0,
+                ResolvedLikelihoodScale::FixedGaussian { phi } => phi.value(),
+                other => {
+                    return Err(EstimationError::InvalidInput(format!(
+                        "Gaussian identity cache received non-Gaussian resolved scale {other:?}"
+                    )));
+                }
             };
+            let deviance = weighted_rss / phi;
 
             if let Some(bundle) = cache.frozen_rows.as_ref() {
                 // Zero length-`n` touches: every row array is an O(1) Arc clone
@@ -1323,7 +1313,13 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                         &final_eta,
                         priorweights_owned.view(),
                     )?;
-                let log_likelihood = calculate_loglikelihood(y, &finalmu, likelihood, priorweights);
+                let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+                    y,
+                    &final_eta,
+                    likelihood,
+                    &config.link_kind,
+                    priorweights,
+                )?;
                 let max_abs_eta = inf_norm(finalmu.iter().copied());
                 ZeroIterRows {
                     final_offset: offset.to_owned().into_shared(),
@@ -1362,8 +1358,20 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                 .as_ref()
                 .map(|transform| transform.apply_transpose(&xt_wr))
                 .unwrap_or(xt_wr);
-            let deviance = calculate_deviance(y, &finalmu, likelihood, priorweights);
-            let log_likelihood = calculate_loglikelihood(y, &finalmu, likelihood, priorweights);
+            let deviance = calculate_deviance_from_eta(
+                y,
+                &final_eta,
+                likelihood,
+                &config.link_kind,
+                priorweights,
+            )?;
+            let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+                y,
+                &final_eta,
+                likelihood,
+                &config.link_kind,
+                priorweights,
+            )?;
             let max_abs_eta = inf_norm(finalmu.iter().copied());
             let (c, d, dmu_deta, d2mu_deta2, d3mu_deta3) =
                 computeworkingweight_derivatives_from_eta(
@@ -1489,9 +1497,8 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             stabilizedhessian_transformed: stabilizedhessian,
             ridge_passport: RidgePassport::scaled_identity(
                 ridge_used,
-                RidgePolicy::explicit_stabilization_full(),
-            ),
-            ridge_used,
+                RidgePolicy::exact_full_objective(),
+            )?,
             deviance,
             edf,
             stable_penalty_term: penalty_term,
@@ -1761,8 +1768,18 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // Warm-started solves (every REML cost eval) already sit near the converged
     // η, so the first refresh check confirms ν and exits without a re-solve; the
     // added cost there is a single O(n) shape evaluation.
+    let gamma_scale = working_model
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     if refine_dispersion_at_converged_eta
-        && working_model.likelihood.scale.gamma_shape_is_estimated()
+        && matches!(
+            gamma_scale,
+            ResolvedLikelihoodScale::Gamma {
+                estimated: true,
+                ..
+            }
+        )
     {
         // A few passes suffice: the converged-η shape map is a strong
         // contraction (β̂ barely moves once the mean is captured), so cold
@@ -1776,8 +1793,11 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                 y,
                 working_summary.state.eta.as_ref(),
                 priorweights,
-            );
-            let prior_shape = working_model.likelihood.gamma_shape().unwrap_or(1.0);
+            )?;
+            let prior_shape = working_model
+                .likelihood
+                .resolved_gamma_shape()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             let rel_change =
                 (refreshed_shape - prior_shape).abs() / prior_shape.max(f64::MIN_POSITIVE);
             // Install the refreshed shape and hold it fixed for any re-solve so
@@ -1842,8 +1862,18 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // estimate and the final weights/Hessian/SE are internally consistent with
     // it. Held OFF inside the REML λ search (the flag), φ is refreshed only at
     // the reported fit, so it cannot couple to the smoothing parameter.
+    let tweedie_scale = working_model
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     if refine_dispersion_at_converged_eta
-        && working_model.likelihood.scale.tweedie_phi_is_estimated()
+        && matches!(
+            tweedie_scale,
+            ResolvedLikelihoodScale::Tweedie {
+                estimated: true,
+                ..
+            }
+        )
     {
         if let ResponseFamily::Tweedie { p } = working_model.likelihood.spec.response {
             // The converged-η Pearson map is a strong contraction (β̂ scale-free
@@ -1859,8 +1889,11 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                     working_summary.state.eta.as_ref(),
                     priorweights,
                     p,
-                );
-                let prior_phi = working_model.likelihood.fixed_phi().unwrap_or(1.0);
+                )?;
+                let prior_phi = working_model
+                    .likelihood
+                    .resolved_tweedie_phi()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 let rel_change =
                     (refreshed_phi - prior_phi).abs() / prior_phi.max(f64::MIN_POSITIVE);
                 // Install the refreshed φ (the scale metadata the working weight
@@ -1932,7 +1965,18 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // re-solve, so the reported φ (which flows into `EstimatedBetaPhi`, the
     // embedded `Beta { phi }`, `dispersion`, and every SE) always equals
     // `estimate_beta_phi_from_eta(final_eta)`.
-    if refine_dispersion_at_converged_eta && working_model.likelihood.scale.beta_phi_is_estimated()
+    let beta_scale = working_model
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+    if refine_dispersion_at_converged_eta
+        && matches!(
+            beta_scale,
+            ResolvedLikelihoodScale::BetaPrecision {
+                estimated: true,
+                ..
+            }
+        )
     {
         // The mean moves between passes (φ feeds back through the digamma
         // score), so allow a few more passes than the scale-free Gamma case;
@@ -1946,8 +1990,11 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                 y,
                 working_summary.state.eta.as_ref(),
                 priorweights,
-            );
-            let prior_phi = working_model.likelihood.fixed_phi().unwrap_or(1.0);
+            )?;
+            let prior_phi = working_model
+                .likelihood
+                .resolved_beta_precision()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             let rel_change = (refreshed_phi - prior_phi).abs() / prior_phi.max(f64::MIN_POSITIVE);
             // Install the refreshed φ (updates BOTH the `Beta { phi }` family
             // variant every weight/deviance expression reads and the
@@ -2013,8 +2060,18 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // embedded `NegativeBinomial { theta }`, the `EstimatedNegBinTheta` scale
     // metadata, the predictive-interval variance, and every SE) always equals
     // `estimate_negbin_theta_from_eta(final_eta)`.
+    let negbin_scale = working_model
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     if refine_dispersion_at_converged_eta
-        && working_model.likelihood.scale.negbin_theta_is_estimated()
+        && matches!(
+            negbin_scale,
+            ResolvedLikelihoodScale::NegativeBinomial {
+                estimated: true,
+                ..
+            }
+        )
     {
         // θ feeds back through the working response, so allow a few more passes
         // than the scale-free Gamma case; the alternation is a strong contraction
@@ -2028,8 +2085,11 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
                 y,
                 working_summary.state.eta.as_ref(),
                 priorweights,
-            );
-            let prior_theta = working_model.likelihood.negbin_theta().unwrap_or(1.0);
+            )?;
+            let prior_theta = working_model
+                .likelihood
+                .resolved_negbin_theta()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             let rel_change =
                 (refreshed_theta - prior_theta).abs() / prior_theta.max(f64::MIN_POSITIVE);
             // Install the refreshed θ (updates BOTH the `NegativeBinomial { theta }`
@@ -2209,7 +2269,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         x_transformed_final,
         coordinate_frame,
         linear_constraints,
-    );
+    )?;
 
     Ok((pirls_result, working_summary))
 }

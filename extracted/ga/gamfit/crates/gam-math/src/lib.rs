@@ -1,8 +1,8 @@
-pub mod fidelity_metrics;
 pub mod jet_algebra;
 pub mod jet_partitions;
 pub mod jet_scalar;
 pub mod jet_tower;
+pub mod nested_dual;
 pub mod probability;
 pub mod score_opt;
 pub mod special;

@@ -194,11 +194,11 @@ impl<'a> DeflatedArrowSolver<'a> {
     ///
     /// [`Self::latent_inverse_diagonal`] returns the diagonal of the DEFLATED
     /// inverse, which assigns `1/λ̃ = 1` to every per-row direction `vᵢ` that the
-    /// undamped evidence factor stiffened to unit curvature; a `½ tr(H⁻¹ ∂H/∂ρ)`
+    /// undamped criterion factor stiffened to unit curvature; a `½ tr(H⁻¹ ∂H/∂ρ)`
     /// diagonal contraction against it therefore spuriously includes
     /// `Σ_i vᵢ[s]²` at slot `s`, a ρ/θ-independent contribution that must be 0.
     /// This variant subtracts the per-row deflated outer-product diagonal
-    /// `Σ_i vᵢ[s]²` so the diagonal traces (ARD precision, IBP/softmax assignment
+    /// `Σ_i vᵢ[s]²` so the diagonal traces (ARD precision, ordered Beta--Bernoulli/softmax assignment
     /// log-strength) see only the kept subspace. The deflated subspace's β-Schur
     /// coupling is higher order and left to the per-block subtraction the
     /// off-diagonal (`solve`-based) traces apply directly.
@@ -226,12 +226,9 @@ impl<'a> DeflatedArrowSolver<'a> {
     /// `solve`'s selected entries EXACTLY. It does so only on the plain bordered
     /// arrow: when a gauge Woodbury deflation is active (`woodbury_factor`) the
     /// `solve` output carries the rank-`R` gauge correction the row-local blocks
-    /// omit, and when a #1038 cross-row IBP Woodbury is present the cache's
-    /// per-row factors are the NO-SELF base `H₀'` (not the full operator). In
-    /// either case callers MUST fall back to the per-row `solve` loop — the
-    /// row-local blocks are NOT valid there.
+    /// omit. Callers must then fall back to the per-row `solve` loop.
     pub(crate) fn plain_selected_inverse_available(&self) -> bool {
-        self.woodbury_factor.is_none() && self.cache.cross_row_woodbury.is_none()
+        self.woodbury_factor.is_none()
     }
 
     /// #932 FRONT C — the full `(H⁻¹)_ββ = S⁻¹` block (`K×K`), formed ONCE per
@@ -403,7 +400,6 @@ mod selected_inverse_row_blocks_oracle_tests {
             deflated_row_directions: Arc::from(Vec::new()),
             deflation_row_spectra: Arc::from(Vec::new()),
             beta_gauge_quotient: None,
-            cross_row_woodbury: None,
         }
     }
 
@@ -565,18 +561,6 @@ pub(crate) fn apply_cached_arrow_hessian(
         }
     }
 
-    // #1038 IBP cross-row curvature: when the cache carries the exact rank-`R`
-    // Woodbury, the operator it represents is `H_full = H₀' + U D Uᵀ` (the same
-    // operator `full_inverse_apply` inverts and `arrow_log_det` reports). The
-    // per-row factors reconstructed above are only the NO-SELF base `H₀'`, so the
-    // forward apply MUST add `U D Uᵀ v` here — otherwise the forward operator
-    // (used by the #1418 exact-stationarity solve) silently drops the cross-row
-    // block while its CG preconditioner inverts the full `H_full`, desyncing the
-    // outer-REML gradient. `U` has no `β` support ⇒ only the `t` block changes.
-    if let Some(woodbury) = cache.cross_row_woodbury.as_ref() {
-        woodbury.apply_forward_t(v_t, &mut out_t);
-    }
-
     Ok(SaeArrowVector {
         t: out_t,
         beta: out_beta,
@@ -636,11 +620,34 @@ pub(crate) struct SaeBorderChannel {
 #[derive(Debug, Clone)]
 pub(crate) struct SaeRowJets {
     pub(crate) vars: Vec<SaeLocalRowVar>,
-    pub(crate) first: Vec<Vec<f64>>,
-    pub(crate) second: Vec<Vec<Vec<f64>>>,
-    pub(crate) beta: Vec<Vec<f64>>,
-    pub(crate) beta_deriv: Vec<Vec<Vec<f64>>>,
-    pub(crate) beta_l_deriv: Vec<Vec<Vec<f64>>>,
+    pub(crate) channels: crate::row_jet_program::SaeScheduledRowJets,
+}
+
+impl SaeRowJets {
+    #[inline]
+    pub(crate) fn first(&self, primary: usize) -> &[f64] {
+        self.channels.first(primary)
+    }
+
+    #[inline]
+    pub(crate) fn second(&self, a: usize, b: usize) -> &[f64] {
+        self.channels.second(a, b)
+    }
+
+    #[inline]
+    pub(crate) fn beta(&self, border: usize) -> &[f64] {
+        self.channels.beta(border)
+    }
+
+    #[inline]
+    pub(crate) fn beta_deriv(&self, primary: usize, border: usize) -> &[f64] {
+        self.channels.beta_deriv(primary, border)
+    }
+
+    #[inline]
+    pub(crate) fn beta_l_deriv(&self, primary: usize, border: usize) -> &[f64] {
+        self.channels.beta_l_deriv(primary, border)
+    }
 }
 
 pub(crate) fn sae_dot(a: &[f64], b: &[f64]) -> f64 {
@@ -665,19 +672,22 @@ pub(crate) fn sae_norm(a: &SaeArrowVector) -> f64 {
 
 /// Largest Arnoldi basis admitted by the live cgroup-aware host budget.
 ///
-/// A GMRES cycle owns `(m+1)` length-`dim` basis vectors, an
-/// `(m+1)×m` Hessenberg matrix, and the fixed work vectors. Choosing `m` from
-/// the memory ledger makes small/medium arrow systems full-memory (and hence
-/// exact in at most `dim` Krylov directions) without imposing a dimension or
-/// iteration constant; genuinely large systems use the largest restart that
-/// can be allocated without violating the process budget.
+/// A flexible-GMRES cycle owns `(m+1)` length-`dim` residual-basis vectors,
+/// `m` length-`dim` preconditioned directions, an `(m+1)×m` Hessenberg matrix,
+/// and the fixed work vectors. Choosing `m` from the memory ledger makes
+/// small/medium arrow systems full-memory (and hence exact in at most `dim`
+/// Krylov directions) without imposing a dimension or iteration constant;
+/// genuinely large systems use the largest restart that can be allocated
+/// without violating the process budget.
 fn admitted_gmres_restart(dim: usize) -> Result<usize, String> {
     let (budget, available) = sae_host_in_core_budget_bytes();
     let storage_bytes = |m: usize| -> Option<usize> {
         let basis = m.checked_add(1)?.checked_mul(dim)?;
+        let preconditioned_directions = m.checked_mul(dim)?;
         let hessenberg = m.checked_add(1)?.checked_mul(m)?;
         let fixed = dim.checked_mul(6)?.checked_add(m.checked_mul(4)?)?;
         basis
+            .checked_add(preconditioned_directions)?
             .checked_add(hessenberg)?
             .checked_add(fixed)?
             .checked_mul(std::mem::size_of::<f64>())
@@ -704,17 +714,23 @@ fn admitted_gmres_restart(dim: usize) -> Result<usize, String> {
     Ok(low)
 }
 
-/// Solve `A x = rhs` by left-preconditioned restarted GMRES.
+/// Solve `A x = rhs` by flexible right-preconditioned restarted GMRES.
 ///
 /// The exact stationarity Jacobian `A` contains residual and prior curvature and
 /// can be indefinite. Conjugate gradients is therefore not admissible: its SPD
 /// recurrence can stop at negative curvature and silently return a non-solution.
-/// GMRES instead minimizes the preconditioned residual without an SPD assumption.
-/// A candidate is returned only after the *original* residual `||rhs - A x||`
-/// meets tolerance; exhaustion or Arnoldi breakdown is a typed error, never a
-/// last-iterate fallback. The preconditioner closure supports both the dense
-/// factor cache and the matrix-free reduced-Schur inverse through this one live
-/// implementation.
+/// Flexible GMRES instead minimizes the original residual without an SPD or
+/// linear-preconditioner assumption. At Arnoldi direction `v_j` it stores
+/// `z_j = P_j(v_j)`, applies `A z_j`, and updates the physical solution as
+/// `x += Σ_j z_j y_j`. This is essential for the matrix-free arrow inverse:
+/// its tolerance-driven adaptive CG is not one fixed linear `B⁻¹`, so recovering
+/// `P(Σ_j v_j y_j)` after the least-squares solve is not equal to the Arnoldi
+/// combination `Σ_j P_j(v_j)y_j` (#2258). Because preconditioning remains on the
+/// right, the Arnoldi least-squares norm is the physical residual that certifies
+/// `A x = rhs`; an ill-scaled or adaptive inverse cannot certify only a
+/// preconditioned proxy. Exhaustion or Arnoldi breakdown is a typed error, never
+/// a last-iterate fallback. The same implementation serves the fixed dense
+/// factor cache and the adaptive matrix-free reduced-Schur inverse.
 pub(crate) fn solve_b_preconditioned_gmres_with<F, P>(
     rhs: &SaeArrowVector,
     apply_a: F,
@@ -744,42 +760,42 @@ where
     if !rhs_norm.is_finite() {
         return Err("solve_b_preconditioned_gmres: non-finite right-hand side".to_string());
     }
-    let b = precondition(rhs)
-        .map_err(|err| format!("solve_b_preconditioned_gmres: B inverse: {err}"))?;
-    let b = flatten_arrow_parts(b.t.view(), b.beta.view());
-    let b_norm = b.dot(&b).sqrt();
-    if !(b_norm.is_finite() && b_norm > 0.0) {
-        return Err(format!(
-            "solve_b_preconditioned_gmres: invalid preconditioned right-hand-side norm {b_norm}"
-        ));
-    }
+    let b = rhs_flat;
+    let b_norm = rhs_norm;
     let relative_floor = f64::EPSILON.sqrt();
     // Full-memory whenever the live memory ledger admits it. There is no
     // iteration ceiling: each restarted cycle must make a strictly
-    // representable reduction in the preconditioned residual, and inability to
-    // do so is the typed numerical-stagnation certificate.
+    // representable reduction in the original residual, and inability to do so
+    // is the typed numerical-stagnation certificate.
     let restart = admitted_gmres_restart(dim)?;
     let mut iterations = 0usize;
-    let mut x = Array1::<f64>::zeros(dim);
+    let mut solution = Array1::<f64>::zeros(dim);
 
     let as_arrow = |flat: &Array1<f64>| SaeArrowVector {
         t: flat.slice(s![..t_len]).to_owned(),
         beta: flat.slice(s![t_len..]).to_owned(),
     };
-    let apply_preconditioned = |flat: &Array1<f64>| -> Result<Array1<f64>, String> {
-        let v = as_arrow(flat);
-        let av = apply_a(&v)?;
-        let pav = precondition(&av)
-            .map_err(|err| format!("solve_b_preconditioned_gmres: B preconditioner: {err}"))?;
-        Ok(flatten_arrow_parts(pav.t.view(), pav.beta.view()))
+    let apply_preconditioner = |flat: &Array1<f64>| -> Result<Array1<f64>, String> {
+        let direction = as_arrow(flat);
+        let preconditioned = precondition(&direction)
+            .map_err(|err| format!("solve_b_preconditioned_gmres: B inverse: {err}"))?;
+        Ok(flatten_arrow_parts(
+            preconditioned.t.view(),
+            preconditioned.beta.view(),
+        ))
+    };
+    let apply_operator = |flat: &Array1<f64>| -> Result<Array1<f64>, String> {
+        let physical = as_arrow(flat);
+        let applied = apply_a(&physical)?;
+        Ok(flatten_arrow_parts(applied.t.view(), applied.beta.view()))
     };
 
     loop {
-        let px = apply_preconditioned(&x)?;
-        let mut residual = &b - &px;
+        let ax = apply_operator(&solution)?;
+        let mut residual = &b - &ax;
         let residual_norm = residual.dot(&residual).sqrt();
         if residual_norm <= relative_floor * b_norm {
-            let candidate = as_arrow(&x);
+            let candidate = as_arrow(&solution);
             let ax = apply_a(&candidate)?;
             let original = SaeArrowVector {
                 t: &rhs.t - &ax.t,
@@ -791,15 +807,14 @@ where
             }
         }
         if !(residual_norm.is_finite() && residual_norm > 0.0) {
-            return Err(
-                "solve_b_preconditioned_gmres: non-finite preconditioned residual".to_string(),
-            );
+            return Err("solve_b_preconditioned_gmres: non-finite original residual".to_string());
         }
 
         residual.mapv_inplace(|value| value / residual_norm);
         let cycle = restart;
         let mut basis: Vec<Array1<f64>> = Vec::with_capacity(cycle + 1);
         basis.push(residual);
+        let mut preconditioned_basis: Vec<Array1<f64>> = Vec::with_capacity(cycle);
         let mut h = Array2::<f64>::zeros((cycle + 1, cycle));
         let mut cosines = vec![0.0_f64; cycle];
         let mut sines = vec![0.0_f64; cycle];
@@ -808,7 +823,19 @@ where
         let mut used = 0usize;
 
         for j in 0..cycle {
-            let mut w = apply_preconditioned(&basis[j])?;
+            let preconditioned_direction = apply_preconditioner(&basis[j])?;
+            if !preconditioned_direction
+                .iter()
+                .all(|value| value.is_finite())
+            {
+                return Err(format!(
+                    "solve_b_preconditioned_gmres: non-finite preconditioned direction at \
+                     iteration {}",
+                    iterations + j
+                ));
+            }
+            let mut w = apply_operator(&preconditioned_direction)?;
+            preconditioned_basis.push(preconditioned_direction);
             // Modified Gram-Schmidt Arnoldi.
             for i in 0..=j {
                 let hij = basis[i].dot(&w);
@@ -873,11 +900,11 @@ where
         }
         for i in 0..used {
             for slot in 0..dim {
-                x[slot] += y[i] * basis[i][slot];
+                solution[slot] += y[i] * preconditioned_basis[i][slot];
             }
         }
 
-        let candidate = as_arrow(&x);
+        let candidate = as_arrow(&solution);
         let ax = apply_a(&candidate)?;
         let original = SaeArrowVector {
             t: &rhs.t - &ax.t,
@@ -892,18 +919,104 @@ where
         if original_norm <= roundoff_floor {
             return Ok(candidate);
         }
-        let next_px = apply_preconditioned(&x)?;
-        let next_residual = &b - &next_px;
+        let next_ax = apply_operator(&solution)?;
+        let next_residual = &b - &next_ax;
         let next_norm = next_residual.dot(&next_residual).sqrt();
         if !(next_norm.is_finite() && next_norm < residual_norm) {
             return Err(format!(
                 "solve_b_preconditioned_gmres: no representable residual reduction after \
-                 {iterations} iterations (restart {restart}, dimension {dim}); preconditioned \
-                 residual {residual_norm:.3e} -> {next_norm:.3e}, original relative residual \
+                 {iterations} iterations (restart {restart}, dimension {dim}); original \
+                 residual {residual_norm:.3e} -> {next_norm:.3e}, relative residual \
                  {:.3e}, round-off certification floor {:.3e}",
                 original_norm / rhs_norm,
                 roundoff_floor / rhs_norm,
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod right_preconditioned_gmres_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn certifies_original_residual_under_ill_scaled_preconditioner_2258() {
+        // A x = rhs has x=(1,1). B^-1 scales the two physical coordinates in
+        // opposite directions, so a left-preconditioned residual is a poor
+        // proxy for the physical equation. Right GMRES must still solve and
+        // certify rhs-Ax in the original norm.
+        let rhs = SaeArrowVector {
+            t: array![5.0_f64, 5.0],
+            beta: Array1::zeros(0),
+        };
+        let apply_a = |value: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(SaeArrowVector {
+                t: array![
+                    3.0 * value.t[0] + 2.0 * value.t[1],
+                    value.t[0] + 4.0 * value.t[1],
+                ],
+                beta: Array1::zeros(0),
+            })
+        };
+        let precondition = |value: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            Ok(SaeArrowVector {
+                t: array![1.0e-3 * value.t[0], 1.0e3 * value.t[1]],
+                beta: Array1::zeros(0),
+            })
+        };
+
+        let solved = solve_b_preconditioned_gmres_with(&rhs, apply_a, precondition)
+            .expect("right-preconditioned solve");
+        let applied = apply_a(&solved).expect("physical operator");
+        let residual = SaeArrowVector {
+            t: &rhs.t - &applied.t,
+            beta: Array1::zeros(0),
+        };
+        assert!(
+            sae_norm(&residual) <= f64::EPSILON.sqrt() * sae_norm(&rhs),
+            "physical residual was not certified: relative={:.3e}",
+            sae_norm(&residual) / sae_norm(&rhs),
+        );
+        assert!((solved.t[0] - 1.0).abs() <= f64::EPSILON.sqrt());
+        assert!((solved.t[1] - 1.0).abs() <= f64::EPSILON.sqrt());
+    }
+
+    #[test]
+    fn supports_non_linear_adaptive_preconditioner_2258() {
+        // The adaptive inverse normalizes each requested direction. It is
+        // deliberately nonlinear: for rhs=5v, P(rhs)=v while 5P(v)=5v. A
+        // standard right-GMRES implementation that recovers P(Vy) therefore
+        // returns v after its one-direction Arnoldi solve and cannot reduce the
+        // physical residual. Flexible GMRES stores z=P(v) and updates x=zy=5v,
+        // which exactly solves the identity equation.
+        let rhs = SaeArrowVector {
+            t: array![3.0_f64, 4.0],
+            beta: Array1::zeros(0),
+        };
+        let apply_a =
+            |value: &SaeArrowVector| -> Result<SaeArrowVector, String> { Ok(value.clone()) };
+        let precondition = |value: &SaeArrowVector| -> Result<SaeArrowVector, String> {
+            let norm = sae_norm(value);
+            if norm == 0.0 {
+                return Ok(value.clone());
+            }
+            Ok(SaeArrowVector {
+                t: &value.t / norm,
+                beta: &value.beta / norm,
+            })
+        };
+
+        let solved = solve_b_preconditioned_gmres_with(&rhs, apply_a, precondition)
+            .expect("flexible right-preconditioned solve");
+        let residual = SaeArrowVector {
+            t: &rhs.t - &solved.t,
+            beta: &rhs.beta - &solved.beta,
+        };
+        assert!(
+            sae_norm(&residual) <= f64::EPSILON.sqrt() * sae_norm(&rhs),
+            "adaptive inverse must certify the physical equation: relative={:.3e}",
+            sae_norm(&residual) / sae_norm(&rhs),
+        );
     }
 }

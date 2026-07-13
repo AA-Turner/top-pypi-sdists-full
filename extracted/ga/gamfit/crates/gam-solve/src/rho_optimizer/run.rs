@@ -8,12 +8,13 @@ pub(crate) struct OuterConfig {
     pub(crate) tolerance: f64,
     /// Optional override for the *relative-cost-decrease* convergence stop,
     /// decoupled from `tolerance`. `outer_gradient_tolerance` normally derives
-    /// BOTH the absolute projected-gradient floor (`max(tolerance, scale·1e-9)`)
+    /// BOTH the absolute projected-gradient floor
+    /// (`max(tolerance, scale·√ε_machine)`)
     /// AND the relative-cost stop (`rel_cost = tolerance`) from the single
     /// `tolerance`. That conflation forces a caller who needs a *tight absolute
     /// floor* (to resolve λ to the genuine REML optimum at large `n`, where the
-    /// floor is `scale·1e-9`) to also accept a *tight rel-cost stop*, which on a
-    /// flat REML ridge never trips and grinds the optimizer to `max_iter` —
+    /// floor is `scale·√ε_machine`) to also accept a *tight rel-cost stop*,
+    /// which on a flat REML ridge never trips and grinds the optimizer to `max_iter` —
     /// dozens of surplus O(D·p³) Laplace-derivative outer iterations (the #1082
     /// multinomial smooth-by-factor wall-clock blow-up). When `Some(r)`, the
     /// rel-cost stop uses `r` while the absolute floor keeps using `tolerance`
@@ -373,7 +374,7 @@ impl OuterProblem {
 
     /// Set the objective's natural magnitude scale, used to derive an
     /// `n`-aware absolute gradient-norm floor. When set to `Some(s)`,
-    /// the runner uses `abs_floor = max(tol, s * 1e-9)` for the
+    /// the runner uses `abs_floor = max(tol, s * √ε_machine)` for the
     /// projected-gradient convergence check.
     ///
     /// Rationale: a fixed `abs = tol` (e.g. 1e-6) is appropriate when the
@@ -390,7 +391,7 @@ impl OuterProblem {
 
     /// Decouple the *relative-cost-decrease* convergence stop from the
     /// absolute projected-gradient floor. By default both are derived from the
-    /// single `with_tolerance` value (`abs = max(tol, scale·1e-9)`,
+    /// single `with_tolerance` value (`abs = max(tol, scale·√ε_machine)`,
     /// `rel_cost = tol`). Supplying `Some(r)` here makes the rel-cost stop use
     /// `r` while the absolute floor keeps using `tolerance` (so a caller can
     /// keep a tight absolute floor for accuracy at large `n` AND a loose
@@ -635,6 +636,16 @@ impl OuterProblem {
         context: &str,
     ) -> Result<OuterResult, EstimationError> {
         let mut config = self.config();
+        let objective_lower = obj.outer_domain_lower_bound()?;
+        let objective_upper = obj.outer_domain_upper_bound()?;
+        if objective_lower.is_some() || objective_upper.is_some() {
+            install_objective_domain(
+                &mut config,
+                self.n_params,
+                objective_lower,
+                objective_upper,
+            )?;
+        }
         let Some(session) = config.cache_session.clone() else {
             return run_outer(obj, &config, context);
         };
@@ -1117,12 +1128,9 @@ pub(crate) fn certificate_hessian_is_psd(hessian: &Array2<f64>) -> Option<bool> 
 /// [`certificate_hessian_is_psd`] so the definiteness verdict and this decrement
 /// agree on the same regularized operator. Returns `None` when the shapes are
 /// malformed, an entry is non-finite, the shifted factor is not PD, or the
-/// resulting quadratic form is negative (impossible for a PD factor, guarded
-/// against roundoff).
-pub(crate) fn newton_predicted_decrease(
-    hessian: &Array2<f64>,
-    grad: &Array1<f64>,
-) -> Option<f64> {
+/// resulting quadratic form is negative (which a PD factor rules out; retained
+/// as a roundoff guard).
+pub(crate) fn newton_predicted_decrease(hessian: &Array2<f64>, grad: &Array1<f64>) -> Option<f64> {
     let n = hessian.nrows();
     if n == 0 || hessian.ncols() != n || grad.len() != n {
         return None;
@@ -1496,7 +1504,8 @@ pub(crate) fn certify_outer_optimality(
     // stationarity certificate below, and the vector feeds the curvature-scaled
     // flat-valley Newton decrement (#2253/#2249/#2015) once the analytic Hessian
     // is in hand.
-    let projected_gradient = project_gradient_vector(&result.rho, &evaluation.gradient, Some(&bounds));
+    let projected_gradient =
+        project_gradient_vector(&result.rho, &evaluation.gradient, Some(&bounds));
     let projected_grad_norm = projected_gradient.iter().map(|v| v * v).sum::<f64>().sqrt();
     let solver_bound = outer_gradient_tolerance(config).threshold(evaluation.cost, grad_norm);
     let mut stationarity_bound = if matches!(
@@ -1549,8 +1558,8 @@ pub(crate) fn certify_outer_optimality(
     const OUTER_WALL_SENTINEL_FLOOR: f64 = 1.0e10;
     let solver_is_wall =
         !solver_final_value.is_finite() || solver_final_value.abs() >= OUTER_WALL_SENTINEL_FLOOR;
-    let analytic_is_real = result.final_value.is_finite()
-        && result.final_value.abs() < OUTER_WALL_SENTINEL_FLOOR;
+    let analytic_is_real =
+        result.final_value.is_finite() && result.final_value.abs() < OUTER_WALL_SENTINEL_FLOOR;
     let transient_wall = solver_is_wall && analytic_is_real;
     if !transient_wall
         && (!solver_final_value.is_finite()
@@ -1649,9 +1658,33 @@ pub(crate) fn certify_outer_optimality(
     // decrement scales quadratically with ‖g‖ at fixed direction, that bound is
     // `‖Pg‖·√(objective_tol/Δpred)`, which clears the actual ‖Pg‖ iff
     // `Δpred ≤ objective_tol`.
-    if let Some(hessian) = analytic_hessian.as_ref()
-        && let Some(predicted_decrease) =
-            newton_predicted_decrease(hessian, &projected_gradient)
+    // #2269 (c) — MEASURED curvature for the gradient-only path. The rescue
+    // above requires a Hessian; objectives on the gradient-only / matrix-free
+    // lane (hessian_psd = n/a) historically had NO rescue and refused at
+    // small multiples of the band (measured post-desync-retry: |Pg| = 8.24e-4
+    // against 3.66e-4 after 14 iterations — 2.25×, with no way to ask whether
+    // any resolvable descent remains). With the deterministic-reduction stack
+    // the outer criterion is reproducible, so at tiny ρ-dimension the honest
+    // answer is cheap: central differences of the ANALYTIC gradient
+    // (2·n_params extra evaluations, first-order-accurate in the gradient so
+    // immune to value-noise second-differencing) give a measured Hessian for
+    // the SAME decrement certificate. Computed lazily, only on the
+    // would-refuse path (the point currently becomes a hard typed refusal
+    // anyway), only when no analytic Hessian exists, and capped at 3
+    // parameters so the cost stays a handful of evaluations. An indefinite
+    // measured Hessian fails the decrement gate (and the certificate's PSD
+    // gate) exactly as an analytic one would.
+    const FD_CURVATURE_MAX_PARAMS: usize = 3;
+    let fd_hessian: Option<Array2<f64>> = if analytic_hessian.is_none()
+        && layout.n_params <= FD_CURVATURE_MAX_PARAMS
+        && projected_grad_norm > stationarity_bound
+    {
+        fd_outer_hessian_from_gradient(obj, &result.rho)
+    } else {
+        None
+    };
+    if let Some(hessian) = analytic_hessian.as_ref().or(fd_hessian.as_ref())
+        && let Some(predicted_decrease) = newton_predicted_decrease(hessian, &projected_gradient)
         && predicted_decrease.is_finite()
         && predicted_decrease > 0.0
     {
@@ -1683,6 +1716,7 @@ pub(crate) fn certify_outer_optimality(
         },
         hessian_psd: analytic_hessian
             .as_ref()
+            .or(fd_hessian.as_ref())
             .and_then(certificate_hessian_is_psd),
         lambdas_railed: certificate_railed_lambdas(&result.rho, layout.rho_dim(), config),
     };
@@ -1907,6 +1941,65 @@ pub enum OperatorTrustRegionStopReason {
 /// Do not wrap `run_outer` calls in try/catch with ad-hoc solver recovery.
 /// Callers should declare only the primary capability and, at most, whether
 /// automatic fallback is enabled at all.
+/// Central-difference Hessian of the outer criterion from its ANALYTIC
+/// gradient, for the #2269 gradient-only-path decrement rescue. `None` on any
+/// evaluation failure, length mismatch, or non-finite entry — the caller then
+/// simply has no curvature evidence, exactly as before. The mixed-partial
+/// asymmetry (truncation + residual inner noise) is symmetrized away.
+///
+/// This is the ONE canonical FD-of-analytic-gradient stepper. Besides the
+/// certificate decrement rescue above, the small-ρ dense outer-Hessian route
+/// (#2228/#2266: `gam-sae`'s `SaeManifoldOuterObjective::eval_with_order`
+/// materializes a `HessianValue::Dense` so the planner selects ARC instead of
+/// first-order BFGS/EFS across the saddle band) calls it through this same
+/// entry, so the in-loop Hessian, the seed Hessian, and the final-point
+/// certificate Hessian are byte-identical functionals — no parallel stepper.
+/// The probe evals request `ValueAndGradient` only, so a caller whose
+/// `ValueGradientHessian` order routes here never recurses into a nested
+/// Hessian build.
+pub fn fd_outer_hessian_from_gradient(
+    obj: &mut dyn OuterObjective,
+    rho: &Array1<f64>,
+) -> Option<Array2<f64>> {
+    let n = rho.len();
+    let mut h_mat = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        // Physically small in log-λ space, comfortably above the inner
+        // solve's certified-band noise on the gradient.
+        let h = 1.0e-3 * (1.0 + rho[i].abs());
+        let mut rho_plus = rho.clone();
+        rho_plus[i] += h;
+        let mut rho_minus = rho.clone();
+        rho_minus[i] -= h;
+        let g_plus = obj
+            .eval_with_order(&rho_plus, OuterEvalOrder::ValueAndGradient)
+            .ok()?
+            .gradient;
+        let g_minus = obj
+            .eval_with_order(&rho_minus, OuterEvalOrder::ValueAndGradient)
+            .ok()?
+            .gradient;
+        if g_plus.len() != n || g_minus.len() != n {
+            return None;
+        }
+        for j in 0..n {
+            let value = (g_plus[j] - g_minus[j]) / (2.0 * h);
+            if !value.is_finite() {
+                return None;
+            }
+            h_mat[[i, j]] = value;
+        }
+    }
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let symmetric = 0.5 * (h_mat[[i, j]] + h_mat[[j, i]]);
+            h_mat[[i, j]] = symmetric;
+            h_mat[[j, i]] = symmetric;
+        }
+    }
+    Some(h_mat)
+}
+
 pub(crate) fn run_outer(
     obj: &mut dyn OuterObjective,
     config: &OuterConfig,
@@ -1960,8 +2053,63 @@ pub(crate) fn run_outer(
     // point, outside every hot loop, for every solver path and every iteration
     // budget. Missing or failed evidence is typed non-convergence; there is no
     // max-iteration or logging-level bypass.
-    result.criterion_certificate =
-        Some(certify_outer_optimality(obj, config, context, &mut result)?);
+    //
+    // #2273 STALE-TOLERANCE DESYNC RETRY. The solver's in-loop convergence
+    // threshold is resolved ONCE from the SEED's cost scale
+    // (`rel_cost·(1+|seed_cost|)`), while this certificate re-derives the
+    // same formula at the terminal point's own (often far smaller) cost — on
+    // a perfectly-separated binomial the score plunges between the
+    // oversmoothed heuristic seed and the first accepted step, so the solver
+    // can declare victory against a bound orders of magnitude looser than
+    // the one that then refuses it here (measured: |g|=8.1e-1 accepted
+    // in-loop vs bound 8.3e-3 at certification, 'NOT STATIONARY after 1
+    // outer iteration'; the pass/fail pattern was non-monotone in n because
+    // it tracked the seed-to-terminus cost ratio, not identifiability). The
+    // desync exists precisely because the tolerance anchor differs from the
+    // terminus, so ONE re-run seeded AT the refused checkpoint removes it by
+    // construction: the retry's seed cost IS the certificate's cost, its
+    // in-loop bound equals the certificate bound, and the solver either
+    // genuinely closes the remaining gradient gap or exhausts its budget and
+    // takes the same typed refusal as before. Bounded to a single retry;
+    // only fires when the solver CLAIMED convergence (a budget-exhausted
+    // result is not a desync — its refusal is genuine).
+    let claimed_converged = result.converged;
+    result.criterion_certificate = match certify_outer_optimality(obj, config, context, &mut result)
+    {
+        Ok(certificate) => Some(certificate),
+        Err(refusal) if claimed_converged => {
+            let prior_iterations = result.iterations;
+            log::info!(
+                "[OUTER] {context}: solver convergence claim failed analytic \
+                     certification after {prior_iterations} iteration(s); re-running once \
+                     seeded at the refused checkpoint so the in-loop tolerance anchors to \
+                     the terminal cost scale (#2273 stale-tolerance desync)"
+            );
+            let mut retry_cfg = config.clone();
+            retry_cfg.initial_rho = Some(result.rho.clone());
+            retry_cfg.heuristic_lambdas = None;
+            retry_cfg.seed_config.max_seeds = 1;
+            retry_cfg.seed_config.seed_budget = 1;
+            retry_cfg.screen_initial_rho = false;
+            retry_cfg.warm_start_cache_hit = true;
+            retry_cfg.operator_initial_trust_radius = result.operator_trust_radius;
+            retry_cfg.warm_start_outer_hessian = result.final_hessian.clone();
+            obj.reset();
+            match run_outer_uncertified(obj, &retry_cfg, context) {
+                Ok(mut retried) => {
+                    retried.iterations = retried.iterations.saturating_add(prior_iterations);
+                    result = retried;
+                    Some(certify_outer_optimality(obj, config, context, &mut result)?)
+                }
+                // The retry could not even run (e.g. the checkpoint is a
+                // hard refusal wall for the objective): surface the
+                // ORIGINAL certification refusal, which carries the
+                // checkpoint evidence.
+                Err(_) => return Err(refusal),
+            }
+        }
+        Err(refusal) => return Err(refusal),
+    };
     result.rho_uncertainty_diagnostic = Some(compute_rho_uncertainty_diagnostic(
         obj,
         config,
@@ -2408,6 +2556,70 @@ pub(crate) fn outer_bounds_template(config: &OuterConfig, n: usize) -> (Array1<f
     })
 }
 
+/// Intersect typed objective-domain faces with the caller's configured search
+/// box. The resulting box is stored back on `config`, making it the one source
+/// consumed by seed projection, continuation entry, every solver, and terminal
+/// projected-stationarity certification.
+fn install_objective_domain(
+    config: &mut OuterConfig,
+    n_params: usize,
+    objective_lower: Option<Array1<f64>>,
+    objective_upper: Option<Array1<f64>>,
+) -> Result<(), EstimationError> {
+    let (mut lower, mut upper) = outer_bounds_template(config, n_params);
+    if lower.len() != n_params || upper.len() != n_params {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer configured bounds dimension mismatch: parameters={n_params}, lower={}, upper={}",
+            lower.len(),
+            upper.len(),
+        )));
+    }
+    if let Some(domain) = objective_lower.as_ref()
+        && domain.len() != n_params
+    {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer objective-domain lower-bound dimension mismatch: parameters={n_params}, lower={}",
+            domain.len()
+        )));
+    }
+    if let Some(domain) = objective_upper.as_ref()
+        && domain.len() != n_params
+    {
+        return Err(EstimationError::InvalidInput(format!(
+            "outer objective-domain upper-bound dimension mismatch: parameters={n_params}, upper={}",
+            domain.len()
+        )));
+    }
+    for index in 0..n_params {
+        if let Some(domain) = objective_lower.as_ref() {
+            let value = domain[index];
+            if !value.is_finite() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "outer objective-domain lower bound[{index}] must be finite; got {value}"
+                )));
+            }
+            lower[index] = lower[index].max(value);
+        }
+        if let Some(domain) = objective_upper.as_ref() {
+            let value = domain[index];
+            if !value.is_finite() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "outer objective-domain upper bound[{index}] must be finite; got {value}"
+                )));
+            }
+            upper[index] = upper[index].min(value);
+        }
+        if !(lower[index].is_finite() && upper[index].is_finite() && lower[index] < upper[index]) {
+            return Err(EstimationError::InvalidInput(format!(
+                "outer objective-domain intersection is empty or non-finite at coordinate {index}: lower={}, upper={}",
+                lower[index], upper[index]
+            )));
+        }
+    }
+    config.bounds = Some((lower, upper));
+    Ok(())
+}
+
 pub(crate) fn outer_tolerance(value: f64) -> Result<Tolerance, EstimationError> {
     Tolerance::new(value)
         .map_err(|err| EstimationError::InvalidInput(format!("outer tolerance is invalid: {err}")))
@@ -2416,7 +2628,13 @@ pub(crate) fn outer_tolerance(value: f64) -> Result<Tolerance, EstimationError> 
 pub(crate) fn outer_gradient_tolerance(config: &OuterConfig) -> GradientTolerance {
     let abs = config
         .objective_scale
-        .map(|scale| config.tolerance.max(scale * 1.0e-9))
+        // A matrix-factorization REML/LAML score cannot resolve relative
+        // perturbations below the forward-error scale √ε. Requiring a smaller
+        // absolute residual made gradient-only / operator-curvature objectives
+        // impossible to certify unless an unrelated Hessian or probe-noise
+        // rescue happened to be available (#2269). This is the arithmetic
+        // resolution of the declared objective scale, not a fitted tolerance.
+        .map(|scale| config.tolerance.max(scale * f64::EPSILON.sqrt()))
         .unwrap_or(config.tolerance);
     GradientTolerance {
         abs,

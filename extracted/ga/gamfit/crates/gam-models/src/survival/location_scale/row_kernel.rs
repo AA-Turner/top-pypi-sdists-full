@@ -2,9 +2,11 @@ use super::*;
 
 use crate::outer_subsample::{ARROW_ROW_CHUNK, arrow_row_chunk_count};
 use gam_math::jet_scalar::{
-    DynamicJetArena, DynamicOneSeed, DynamicOrder2, DynamicTwoSeed, JetScalar, OneSeed,
-    OneSeedBatch, OneSeedLane, Order2, Order2Lane, RuntimeJetScalar, TwoSeed,
+    DynamicJetArena, DynamicOneSeed, DynamicOrder2, DynamicTwoSeed, JetScalar,
+    MappedOrder2Accumulator, OneSeedBatch, OneSeedLane, Order2AtomChannels, Order2Lane,
+    RuntimeJetScalar,
 };
+use gam_row_macros::row_atom;
 use wide::f64x4;
 
 #[derive(Clone, Copy, Debug)]
@@ -155,12 +157,6 @@ pub(crate) struct SurvivalJointQuantities {
     pub(crate) d1_q1: Array1<f64>,
     pub(crate) d2_q1: Array1<f64>,
     pub(crate) d3_q1: Array1<f64>,
-    /// Exit-only derivatives of ell w.r.t. qdot1 = dq/dt.
-    pub(crate) d1_qdot1: Array1<f64>,
-    pub(crate) d2_qdot1: Array1<f64>,
-    pub(crate) h_time_h0: Array1<f64>,
-    pub(crate) h_time_h1: Array1<f64>,
-    pub(crate) h_time_d: Array1<f64>,
     /// Exit-side dq/d(eta_t) = -exp(-eta_ls_exit).
     pub(crate) dq_t: Array1<f64>,
     /// Exit-side dq/d(eta_ls).
@@ -177,59 +173,6 @@ pub(crate) struct SurvivalJointQuantities {
     pub(crate) d2q_ls_entry: Option<Array1<f64>>,
     pub(crate) d3q_tls_ls_entry: Option<Array1<f64>>,
     pub(crate) d3q_ls_entry: Option<Array1<f64>>,
-    pub(crate) dqdot_t: Array1<f64>,
-    pub(crate) dqdot_ls: Array1<f64>,
-    pub(crate) dqdot_td: Array1<f64>,
-    pub(crate) dqdot_lsd: Array1<f64>,
-    pub(crate) d2qdot_tt: Array1<f64>,
-    pub(crate) d2qdot_tls: Array1<f64>,
-    pub(crate) d2qdot_ttd: Array1<f64>,
-    pub(crate) d2qdot_tlsd: Array1<f64>,
-    pub(crate) d2qdot_ls: Array1<f64>,
-    pub(crate) d2qdot_lstd: Array1<f64>,
-    pub(crate) d2qdot_lslsd: Array1<f64>,
-    // NOTE: the only consumer of the 3rd-order qdot maps (d3qdot_tls_ls /
-    // _tls_lsd / _td_ls_ls / _ls_ls_ls / _ls_ls_lsd) is the dense `Tower4<9>`
-    // location-scale directional path, which `row_kernel_directional_supported`
-    // reports as unsupported (returns false). With no live reader, this kernel
-    // and `SurvivalDynamicGeometry` carry no 3rd-order qdot state.
-}
-
-/// Per-row negative-log-likelihood **curvatures** of the three functionally
-/// independent time-channel indices `(h0, h1, d_raw)` — i.e. the diagonal of
-/// the row NLL Hessian in time-channel space.
-///
-/// The stored `SurvivalJointQuantities` fields (`h_time_h0`, `h_time_h1`,
-/// `h_time_d`) all hold the *log-likelihood* second derivatives `+∂²ℓ/∂·²`
-/// (they are `-tower.h[i][i]` of the NLL jet, double-negated). The NLL Hessian
-/// negates each **uniformly** — `H = -∂²ℓ`. Historically each assembly site
-/// hand-applied that minus per channel, and one site drifted to `+h_time_d`,
-/// flipping the event-Jacobian (`g`) self-term and every `g`-coupled
-/// cross-block term (gam#1396). This type makes the sign live in exactly one
-/// place: the three channels are negated together at construction, so a
-/// per-channel sign skew is structurally unrepresentable.
-pub(crate) struct TimeChannelNllCurvatures {
-    /// `-∂²ℓ/∂h0²` (entry-survival channel).
-    pub(crate) h0: Array1<f64>,
-    /// `-∂²ℓ/∂h1²` (exit-survival/event-density channel).
-    pub(crate) h1: Array1<f64>,
-    /// `-∂²ℓ/∂d_raw²` (event-Jacobian `g = d_raw + qdot` channel).
-    pub(crate) d: Array1<f64>,
-}
-
-impl SurvivalJointQuantities {
-    /// Build the time-channel NLL curvature triple, applying the `H = -∂²ℓ`
-    /// negation once and uniformly across `(h0, h1, d_raw)`. Every diagonal
-    /// time-channel Hessian assembly site (block-diagonal time-time, full-joint
-    /// time-time, and the `g`-coupled time×{threshold,log_sigma,wiggle} cross
-    /// blocks) consumes this so the three channels can never disagree on sign.
-    pub(crate) fn time_channel_nll_curvatures(&self) -> TimeChannelNllCurvatures {
-        TimeChannelNllCurvatures {
-            h0: -&self.h_time_h0,
-            h1: -&self.h_time_h1,
-            d: -&self.h_time_d,
-        }
-    }
 }
 
 pub(crate) struct SurvivalJointPsiDirection {
@@ -306,18 +249,21 @@ pub(crate) fn split_survival_psi_design(
 /// | 7   | eta_ls_entry    | `x_log_sigma_entry` (or log_sigma)  | u0    |
 /// | 8   | eta_ls_deriv    | `x_log_sigma_deriv` (or none)       | g     |
 ///
-/// `H[a][b] = -Σ_i (ell_ii·D_i[a]·D_i[b] + ell_i·D2_i[a][b])` reproduces
-/// `assemble_joint_hessian_from_quantities` term-for-term (verified by the
-/// equivalence test). Indices `i ∈ {u0,u1,g}` are functionally independent so
-/// the index-space derivative tensors are diagonal in `i`.
+/// `H[a][b] = -Σ_i (ell_ii·D_i[a]·D_i[b] + ell_i·D2_i[a][b])` is lowered by
+/// [`SurvivalLocationScaleFamily::survival_ls_coefficient_hessian`] through the
+/// 24 structurally live upper-triangle pairs. Indices `i ∈ {u0,u1,g}` are
+/// functionally independent, so the index-space derivative tensors are diagonal.
 pub(crate) const SLS_ROW_K: usize = 9;
+const SLS_U0_AXES: [usize; 3] = [0, 4, 7];
+const SLS_U1_AXES: [usize; 3] = [1, 3, 6];
+const SLS_G_AXES: [usize; 5] = [2, 3, 5, 6, 8];
 
 /// `RowKernel<9>` adapter for the survival location-scale joint likelihood
 /// (non-wiggle path). Holds the per-β quantities already computed by
 /// [`SurvivalLocationScaleFamily::collect_joint_quantities_rescaled`] and
 /// [`SurvivalLocationScaleFamily::build_dynamic_geometry`]; every trait method
 /// is a pure repackaging of those scalars into linear-predictor primary space,
-/// so the math is identical to the bespoke assembly by construction.
+/// so every coefficient-space target consumes the same row program by construction.
 pub(crate) struct SurvivalLsRowKernel<'a> {
     pub(crate) family: &'a SurvivalLocationScaleFamily,
     pub(crate) dynamic: &'a SurvivalDynamicGeometry,
@@ -467,11 +413,10 @@ impl SurvivalLsRowKernel<'_> {
 /// * `S = TwoSeed<9>` → the contracted fourth `Σ_{cd} ℓ_{abcd} u_c v_d`
 ///   (2.8 KiB/row, the `RowKernel::row_fourth_contracted` path).
 ///
-/// (The packed `Order2<9>` value/grad/Hessian scalar — 728 B — is the base each
-/// of `OneSeed`/`TwoSeed` is built on, and is itself the oracle the live
-/// hand-assembled joint Hessian / block gradient are pinned against; a future
-/// joint-Hessian cutover would instantiate it here once a sparsity-aware packed
-/// jet closes the measured 3.8–5.3× gap against the bespoke sparse assembler.)
+/// The value/gradient/Hessian consumer lowers the same three scalar indices
+/// `(u0,u1,g)` through [`MappedOrder2Accumulator`]. Each index is differentiated
+/// in its natural 3/3/5-dimensional support and scattered through a literal
+/// axis map, so no dense 9×9 intermediates or runtime dependency masks survive.
 ///
 /// The nine primary channels are `(h_entry, h_exit, hdot_exit, eta_t_exit,
 /// eta_t_entry, eta_t_deriv, eta_ls_exit, eta_ls_entry, eta_ls_deriv)` — see
@@ -486,63 +431,293 @@ impl SurvivalLsRowKernel<'_> {
 /// `[f64; 5]` derivative stack on the kernel and entered through
 /// [`JetScalar::compose_unary`]. There is exactly one source for value and every
 /// derivative order (the #736/#932 single-source contract).
-pub(crate) fn sls_row_nll<S: JetScalar<SLS_ROW_K>>(
-    vars: &[S; SLS_ROW_K],
-    kernel: &SurvivalExactRowKernel,
-) -> Result<S, String> {
-    let inv_sigma_entry = vars[7].neg().exp();
-    let u0 = vars[0].sub(&vars[4].mul(&inv_sigma_entry));
-    let inv_sigma_exit = vars[6].neg().exp();
-    let u1 = vars[1].sub(&vars[3].mul(&inv_sigma_exit));
-    let g = vars[2].add(&inv_sigma_exit.mul(&vars[3].mul(&vars[8]).sub(&vars[5])));
+#[derive(Clone, Copy)]
+struct SlsOuterPlan {
+    u0: [f64; 5],
+    u1: Option<[f64; 5]>,
+    g: Option<[f64; 5]>,
+}
 
-    let mut nll = u0
-        .compose_unary([
+#[inline(always)]
+fn add_scaled_stack(target: &mut [f64; 5], stack: [f64; 5], scale: f64) {
+    for i in 0..5 {
+        target[i] += scale * stack[i];
+    }
+}
+
+/// Collapse the row's additive unary terms by scalar index. The censoring and
+/// event transforms of `u1` share the same inner index, so linearity lets the
+/// compiler combine their derivative stacks before one Faà di Bruno pass.
+#[inline(always)]
+fn sls_outer_plan(kernel: &SurvivalExactRowKernel) -> SlsOuterPlan {
+    let mut u0 = [0.0; 5];
+    add_scaled_stack(
+        &mut u0,
+        [
             kernel.log_s0,
             -kernel.r0,
             -kernel.dr0,
             -kernel.ddr0,
             -kernel.dddr0,
-        ])
-        .scale(kernel.w);
+        ],
+        kernel.w,
+    );
+
     let censored_weight = kernel.w * (1.0 - kernel.d);
+    let event_weight = kernel.w * kernel.d;
+    let mut u1 = [0.0; 5];
     if censored_weight != 0.0 {
-        nll = nll.add(
-            &u1.compose_unary([
+        add_scaled_stack(
+            &mut u1,
+            [
                 kernel.log_s1,
                 -kernel.r1,
                 -kernel.dr1,
                 -kernel.ddr1,
                 -kernel.dddr1,
-            ])
-            .scale(-censored_weight),
+            ],
+            -censored_weight,
         );
     }
-    let event_weight = kernel.w * kernel.d;
     if event_weight != 0.0 {
-        nll = nll
-            .add(
-                &u1.compose_unary([
-                    kernel.logphi1,
-                    kernel.dlogphi1,
-                    kernel.d2logphi1,
-                    kernel.d3logphi1,
-                    kernel.d4logphi1,
-                ])
-                .scale(-event_weight),
-            )
-            .add(
-                &g.compose_unary([
-                    kernel.log_g,
-                    kernel.d_log_g,
-                    kernel.d2_log_g,
-                    kernel.d3_log_g,
-                    kernel.d4_log_g,
-                ])
-                .scale(-event_weight),
-            );
+        add_scaled_stack(
+            &mut u1,
+            [
+                kernel.logphi1,
+                kernel.dlogphi1,
+                kernel.d2logphi1,
+                kernel.d3logphi1,
+                kernel.d4logphi1,
+            ],
+            -event_weight,
+        );
+    }
+    let g = (event_weight != 0.0).then(|| {
+        let mut stack = [0.0; 5];
+        add_scaled_stack(
+            &mut stack,
+            [
+                kernel.log_g,
+                kernel.d_log_g,
+                kernel.d2_log_g,
+                kernel.d3_log_g,
+                kernel.d4_log_g,
+            ],
+            -event_weight,
+        );
+        stack
+    });
+    SlsOuterPlan {
+        u0,
+        u1: (censored_weight != 0.0 || event_weight != 0.0).then_some(u1),
+        g,
+    }
+}
+
+row_atom! {
+    fn sls_index [generic, order2](h, eta_t, eta_ls) {
+        h - eta_t * exp(-eta_ls)
+    }
+}
+
+row_atom! {
+    fn sls_event_rate [generic, order2](
+        hdot,
+        eta_t,
+        eta_t_deriv,
+        eta_ls,
+        eta_ls_deriv
+    ) {
+        hdot + exp(-eta_ls) * (eta_t * eta_ls_deriv - eta_t_deriv)
+    }
+}
+
+#[inline(always)]
+pub(crate) fn sls_row_nll<S: JetScalar<SLS_ROW_K>>(
+    vars: &[S; SLS_ROW_K],
+    kernel: &SurvivalExactRowKernel,
+) -> Result<S, String> {
+    let u0 = sls_index(&vars[0], &vars[4], &vars[7]);
+    let u1 = sls_index(&vars[1], &vars[3], &vars[6]);
+    let g = sls_event_rate(&vars[2], &vars[3], &vars[5], &vars[6], &vars[8]);
+    let plan = sls_outer_plan(kernel);
+
+    let mut nll = u0.compose_unary(plan.u0);
+    if let Some(stack) = plan.u1 {
+        nll = nll.add(&u1.compose_unary(stack));
+    }
+    if let Some(stack) = plan.g {
+        nll = nll.add(&g.compose_unary(stack));
     }
     Ok(nll)
+}
+
+/// Ahead-of-time sparse lowering of [`sls_row_nll`] for the V/G/H consumer.
+/// The scalar index expressions and outer derivative plan above are shared with
+/// every higher-order jet; only the execution representation changes.
+#[inline(always)]
+fn sls_row_vgh_compiled(
+    primary: &[f64; SLS_ROW_K],
+    kernel: &SurvivalExactRowKernel,
+) -> (f64, [f64; SLS_ROW_K], [[f64; SLS_ROW_K]; SLS_ROW_K]) {
+    // These static atoms are symbolically differentiated and CSE'd at build
+    // time from the exact same `row_atom!` expressions used by the generic
+    // high-order jets. Only final live channels exist at runtime.
+    let u0 = sls_index_order2(
+        primary[SLS_U0_AXES[0]],
+        primary[SLS_U0_AXES[1]],
+        primary[SLS_U0_AXES[2]],
+    );
+    let u1 = sls_index_order2(
+        primary[SLS_U1_AXES[0]],
+        primary[SLS_U1_AXES[1]],
+        primary[SLS_U1_AXES[2]],
+    );
+    let g = sls_event_rate_order2(
+        primary[SLS_G_AXES[0]],
+        primary[SLS_G_AXES[1]],
+        primary[SLS_G_AXES[2]],
+        primary[SLS_G_AXES[3]],
+        primary[SLS_G_AXES[4]],
+    );
+    let plan = sls_outer_plan(kernel);
+    let truncate = |stack: [f64; 5]| [stack[0], stack[1], stack[2]];
+    let mut output = MappedOrder2Accumulator::zero();
+    output.add_composed(
+        &u0,
+        SLS_U0_AXES,
+        truncate(plan.u0),
+        false,
+        [false; 3],
+        [false; 6],
+    );
+    if let Some(stack) = plan.u1 {
+        output.add_composed(
+            &u1,
+            SLS_U1_AXES,
+            truncate(stack),
+            true,
+            [false; 3],
+            [false; 6],
+        );
+    }
+    if let Some(stack) = plan.g {
+        output.add_composed(
+            &g,
+            SLS_G_AXES,
+            truncate(stack),
+            true,
+            [false, true, false, true, false],
+            [
+                false, false, false, false, false, true, false, true, false, false, false, false,
+                true, false, false,
+            ],
+        );
+    }
+    output.into_channels()
+}
+
+/// Hessian-only lowering of the same build-time symbolic atoms used by
+/// [`sls_row_vgh_compiled`]. Only the 24 structurally live upper-triangle
+/// channels exist in the output; no 9×9 primary Hessian is materialized.
+#[inline(always)]
+fn add_composed_hessian_pairs<const N: usize, const H: usize, A: Order2AtomChannels<N>>(
+    output: &mut [f64; SLS_HESSIAN_PAIRS.len()],
+    atom: &A,
+    axes: [usize; N],
+    first: f64,
+    second: f64,
+    add: [bool; H],
+) {
+    assert!(H == N * (N + 1) / 2);
+    let mut packed = 0;
+    for local_row in 0..N {
+        for local_column in local_row..N {
+            let row = axes[local_row];
+            let column = axes[local_column];
+            let slot = SLS_HESSIAN_PAIR_SLOTS[row][column];
+            let inner_live = A::HESSIAN_BITS & (1u128 << packed) != 0;
+            let outer_live = A::GRADIENT_BITS & (1u128 << local_row) != 0
+                && A::GRADIENT_BITS & (1u128 << local_column) != 0;
+            let channel = if inner_live {
+                let inner = first * atom.hessian_at(local_row, local_column);
+                if outer_live {
+                    inner + second * atom.gradient_at(local_row) * atom.gradient_at(local_column)
+                } else {
+                    inner
+                }
+            } else if outer_live {
+                second * atom.gradient_at(local_row) * atom.gradient_at(local_column)
+            } else {
+                packed += 1;
+                continue;
+            };
+            if add[packed] {
+                output[slot] += channel;
+            } else {
+                output[slot] = channel;
+            }
+            packed += 1;
+        }
+    }
+}
+
+#[inline(always)]
+fn sls_row_hessian_pairs_compiled(
+    primary: &[f64; SLS_ROW_K],
+    kernel: &SurvivalExactRowKernel,
+) -> [f64; SLS_HESSIAN_PAIRS.len()] {
+    let u0 = sls_index_order2(
+        primary[SLS_U0_AXES[0]],
+        primary[SLS_U0_AXES[1]],
+        primary[SLS_U0_AXES[2]],
+    );
+    let u1 = sls_index_order2(
+        primary[SLS_U1_AXES[0]],
+        primary[SLS_U1_AXES[1]],
+        primary[SLS_U1_AXES[2]],
+    );
+    let g = sls_event_rate_order2(
+        primary[SLS_G_AXES[0]],
+        primary[SLS_G_AXES[1]],
+        primary[SLS_G_AXES[2]],
+        primary[SLS_G_AXES[3]],
+        primary[SLS_G_AXES[4]],
+    );
+    let plan = sls_outer_plan(kernel);
+    let mut output = [0.0; SLS_HESSIAN_PAIRS.len()];
+    add_composed_hessian_pairs(
+        &mut output,
+        &u0,
+        SLS_U0_AXES,
+        plan.u0[1],
+        plan.u0[2],
+        [false; 6],
+    );
+    if let Some(stack) = plan.u1 {
+        add_composed_hessian_pairs(
+            &mut output,
+            &u1,
+            SLS_U1_AXES,
+            stack[1],
+            stack[2],
+            [false; 6],
+        );
+    }
+    if let Some(stack) = plan.g {
+        add_composed_hessian_pairs(
+            &mut output,
+            &g,
+            SLS_G_AXES,
+            stack[1],
+            stack[2],
+            [
+                false, false, false, false, false, true, false, true, false, false, false, false,
+                true, false, false,
+            ],
+        );
+    }
+    output
 }
 
 /// Materialize `X[row, :]` as a dense length-`ncols` vector (no sparse-aware
@@ -1402,6 +1577,29 @@ fn batched_axis_thirds(
     out
 }
 
+/// #932: the canonical single-source seam. The row NLL is written ONCE as
+/// [`sls_row_nll`]; this exposes it through [`gam_math::jet_tower::RowProgram`]
+/// so the `RowKernel` contraction channels derive mechanically from `eval` (via
+/// the `program_*` helpers) rather than re-seeding the packed jet per method.
+/// Non-positive-weight rows carry no exact kernel and evaluate to a structural
+/// zero — the `None` arm the hand contraction methods short-circuited on.
+impl gam_math::jet_tower::RowProgram<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
+    fn n_rows(&self) -> usize {
+        self.family.n
+    }
+
+    fn primaries(&self, row: usize) -> Result<[f64; SLS_ROW_K], String> {
+        Ok(self.row_primary_values(row))
+    }
+
+    fn eval<S: JetScalar<SLS_ROW_K>>(&self, row: usize, p: &[S; SLS_ROW_K]) -> Result<S, String> {
+        match self.row_nll_inputs_opt(row)? {
+            Some((_, kernel)) => sls_row_nll(p, &kernel),
+            None => Ok(S::constant(0.0)),
+        }
+    }
+}
+
 impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
     fn n_rows(&self) -> usize {
         self.family.n
@@ -1415,39 +1613,18 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         &self,
         row: usize,
     ) -> Result<(f64, [f64; SLS_ROW_K], [[f64; SLS_ROW_K]; SLS_ROW_K]), String> {
-        // #932: value, gradient and Hessian derive from the SAME single-sourced
-        // row NLL (`sls_row_nll`) instantiated at the packed `Order2<9>` scalar —
-        // the exact order-≤2 truncation of the Leibniz / Faà di Bruno rules (728
-        // B/row). There is no longer a hand-assembled coefficient-space chain rule
-        // here: the `(v, g, H)` channels are the order-≤2 part of the very
-        // expression whose order-3/4 directional contractions `row_third_contracted`
-        // / `row_fourth_contracted` already evaluate, so all four channels share one
-        // mathematical definition (the #736/#932 single-source contract). Identity
-        // seeding (`Order2::variable`) makes the ε/δ-free tower carry ∂/∂p_a and
-        // ∂²/∂p_a∂p_b directly. Bit-identical to `row_nll_tower(row)?` value/grad/
-        // Hessian by the `survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`
-        // oracle (≤ 1e-9).
-        //
-        // MEASURED PERF EXCEPTION (#932 speed audit, measured CPU): this dense
-        // `Order2<9>` v/g/H definition is ORACLE-PINNED (it is the single source
-        // the analytic joint-Hessian and block-gradient oracles compare the live
-        // hand assemblers against) but is NOT the production joint-Hessian path.
-        // The production non-wiggle joint Hessian ships the sparse
-        // `assemble_joint_hessian_from_quantities` because this dense jet is
-        // ~3.8–5.3× SLOWER (standalone ns/row + `--emit asm` op counts): a dense
-        // order-2 tower over 9 channels cannot recover the
-        // 3-functionally-independent-index × ≤5-touched-channel sparsity the
-        // bespoke chain rule hard-codes — inherent, not a tuning gap. DO NOT route
-        // the production joint Hessian through this dense `Order2<9>` row kernel
-        // without FIRST replacing it with a sparsity-aware packed jet; doing so
-        // as-is is a 3.8–5.3× regression. The hand path stays faithful to THIS
-        // single source via the analytic oracles named in
-        // `assemble_joint_hessian_from_quantities`'s doc.
-        let (p, kernel) = self.row_nll_inputs(row)?;
-        let vars: [Order2<SLS_ROW_K>; SLS_ROW_K] =
-            std::array::from_fn(|a| Order2::variable(p[a], a));
-        let out = sls_row_nll(&vars, &kernel)?;
-        Ok((out.value(), out.g(), out.h()))
+        // #932: value, gradient and Hessian lower the SAME scalar `u0/u1/g`
+        // expressions and outer derivative plan used by `sls_row_nll`. Each
+        // independent index is differentiated at its natural width (3/3/5) and
+        // mapped into the nine primary channels by the universal
+        // `MappedOrder2Accumulator`; no family-specific derivative formula,
+        // runtime dependency mask, or dense 9×9 intermediate exists. The
+        // `survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`
+        // oracle pins this compiled schedule to the full Tower4 source.
+        match self.row_nll_inputs_opt(row)? {
+            Some((p, kernel)) => Ok(sls_row_vgh_compiled(&p, &kernel)),
+            None => Ok((0.0, [0.0; SLS_ROW_K], [[0.0; SLS_ROW_K]; SLS_ROW_K])),
+        }
     }
 
     fn jacobian_action(&self, row: usize, d_beta: &[f64]) -> [f64; SLS_ROW_K] {
@@ -1596,19 +1773,13 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         row: usize,
         dir: &[f64; SLS_ROW_K],
     ) -> Result<[[f64; SLS_ROW_K]; SLS_ROW_K], String> {
-        // Packed one-seed directional scalar (1.46 KiB/row): the ε-Hessian
-        // channel is exactly `Σ_c ℓ_{abc} dir_c` without materialising the dense
-        // `t3`. Bit-identical to `row_nll_tower(row)?.third_contracted(dir)` by
-        // the `survival_ls_packed_scalar_*` oracle.
-        //
-        // `None` is reserved for non-positive observation weight, whose
-        // likelihood and every derivative are structurally zero.
-        let Some((p, kernel)) = self.row_nll_inputs_opt(row)? else {
-            return Ok([[0.0; SLS_ROW_K]; SLS_ROW_K]);
-        };
-        let vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] =
-            std::array::from_fn(|a| OneSeed::seed_direction(p[a], a, dir[a]));
-        Ok(sls_row_nll(&vars, &kernel)?.contracted_third())
+        // #932: derived mechanically from the single-source `RowProgram::eval`
+        // (one-seed scalar → ε-Hessian channel `Σ_c ℓ_{abc} dir_c`, no dense
+        // `t3`). Byte-identical to the previous hand-seeded `sls_row_nll` at
+        // `OneSeed<9>` — same `row_primary_values` + `row_nll_inputs_opt` kernel,
+        // same `None`→zero structural-zero arm (eval returns `constant(0.0)`) —
+        // pinned by the `survival_ls_packed_scalar_*` oracles.
+        gam_math::jet_tower::program_third_contracted(self, row, dir)
     }
 
     fn row_fourth_contracted(
@@ -1617,18 +1788,11 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         dir_u: &[f64; SLS_ROW_K],
         dir_v: &[f64; SLS_ROW_K],
     ) -> Result<[[f64; SLS_ROW_K]; SLS_ROW_K], String> {
-        // Packed two-seed scalar (2.8 KiB/row): the εδ-Hessian channel is exactly
-        // `Σ_{cd} ℓ_{abcd} u_c v_d` without materialising the dense `t4`.
-        // Bit-identical to `row_nll_tower(row)?.fourth_contracted(u, v)`.
-        //
-        // Non-positive-weight rows have the same structural zero contribution
-        // as in `row_third_contracted`.
-        let Some((p, kernel)) = self.row_nll_inputs_opt(row)? else {
-            return Ok([[0.0; SLS_ROW_K]; SLS_ROW_K]);
-        };
-        let vars: [TwoSeed<SLS_ROW_K>; SLS_ROW_K] =
-            std::array::from_fn(|a| TwoSeed::seed(p[a], a, dir_u[a], dir_v[a]));
-        Ok(sls_row_nll(&vars, &kernel)?.contracted_fourth())
+        // #932: derived mechanically from the single-source `RowProgram::eval`
+        // (two-seed scalar → εδ-Hessian channel `Σ_{cd} ℓ_{abcd} u_c v_d`, no
+        // dense `t4`). Byte-identical to the previous hand-seeded `sls_row_nll`
+        // at `TwoSeed<9>`, same `None`→zero structural-zero arm.
+        gam_math::jet_tower::program_fourth_contracted(self, row, dir_u, dir_v)
     }
 
     /// Batched all-axes first directional derivative with the per-row NLL
@@ -1754,6 +1918,129 @@ fn require_fitted_block_geometry(
     Ok(())
 }
 
+/// The three coefficient-space views lowered from the same packed survival-LS
+/// row-Hessian coefficients. `DenseFull` is the coupled exact-Newton matrix,
+/// `BlockDiagonal` is the per-block inner-Newton working set, and
+/// `DiagonalOnly` is the trust metric. No target re-evaluates row calculus.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SlsCoefficientHessianTarget {
+    DenseFull,
+    BlockDiagonal,
+    DiagonalOnly,
+}
+
+pub(crate) enum SlsCoefficientHessian {
+    DenseFull(Array2<f64>),
+    BlockDiagonal(Vec<Array2<f64>>),
+    DiagonalOnly(Array1<f64>),
+}
+
+impl SlsCoefficientHessian {
+    /// Consume the coupled dense-full Newton matrix. The lowering is
+    /// single-sourced from `survival_ls_coefficient_hessian`: the returned
+    /// variant always matches the `SlsCoefficientHessianTarget` that was
+    /// requested. A mismatch is therefore a solver-internal invariant break,
+    /// surfaced as a real error rather than a panic.
+    pub(crate) fn into_dense_full(self) -> Result<Array2<f64>, String> {
+        match self {
+            SlsCoefficientHessian::DenseFull(dense) => Ok(dense),
+            other => Err(SlsCoefficientHessian::variant_mismatch("DenseFull", &other)),
+        }
+    }
+
+    /// Consume the per-block inner-Newton working set. See `into_dense_full`
+    /// for the single-source invariant that makes a mismatch an internal error.
+    pub(crate) fn into_block_diagonal(self) -> Result<Vec<Array2<f64>>, String> {
+        match self {
+            SlsCoefficientHessian::BlockDiagonal(blocks) => Ok(blocks),
+            other => Err(SlsCoefficientHessian::variant_mismatch(
+                "BlockDiagonal",
+                &other,
+            )),
+        }
+    }
+
+    /// Consume the trust-metric diagonal. See `into_dense_full` for the
+    /// single-source invariant that makes a mismatch an internal error.
+    pub(crate) fn into_diagonal_only(self) -> Result<Array1<f64>, String> {
+        match self {
+            SlsCoefficientHessian::DiagonalOnly(diagonal) => Ok(diagonal),
+            other => Err(SlsCoefficientHessian::variant_mismatch(
+                "DiagonalOnly",
+                &other,
+            )),
+        }
+    }
+
+    fn variant_mismatch(expected: &str, got: &SlsCoefficientHessian) -> String {
+        let got_name = match got {
+            SlsCoefficientHessian::DenseFull(_) => "DenseFull",
+            SlsCoefficientHessian::BlockDiagonal(_) => "BlockDiagonal",
+            SlsCoefficientHessian::DiagonalOnly(_) => "DiagonalOnly",
+        };
+        SurvivalLocationScaleError::InternalInvariant {
+            reason: format!(
+                "survival-LS coefficient Hessian: requested {expected} view but lowered \
+                 {got_name}; packed 24-pair plan target and returned shape are single-sourced"
+            ),
+        }
+        .into()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SlsHessianPairGroup {
+    left_channel: usize,
+    right_channel: usize,
+    left_design: usize,
+    right_design: usize,
+    pair_slots: Vec<usize>,
+}
+
+/// The only structurally live upper-triangle pairs of the canonical
+/// nine-primary survival-LS row program. The ordering is block-major:
+/// TT, TQ, TL, QQ, QL, LL. Symmetry supplies the omitted lower triangle.
+const SLS_HESSIAN_PAIRS: [(usize, usize); 24] = [
+    (0, 0),
+    (1, 1),
+    (2, 2),
+    (0, 4),
+    (1, 3),
+    (2, 3),
+    (2, 5),
+    (0, 7),
+    (1, 6),
+    (2, 6),
+    (2, 8),
+    (3, 3),
+    (3, 5),
+    (4, 4),
+    (5, 5),
+    (3, 6),
+    (3, 8),
+    (4, 7),
+    (5, 6),
+    (5, 8),
+    (6, 6),
+    (6, 8),
+    (7, 7),
+    (8, 8),
+];
+
+const fn sls_hessian_pair_slots() -> [[usize; SLS_ROW_K]; SLS_ROW_K] {
+    let mut slots = [[SLS_HESSIAN_PAIRS.len(); SLS_ROW_K]; SLS_ROW_K];
+    let mut slot = 0;
+    while slot < SLS_HESSIAN_PAIRS.len() {
+        let (row, column) = SLS_HESSIAN_PAIRS[slot];
+        slots[row][column] = slot;
+        slots[column][row] = slot;
+        slot += 1;
+    }
+    slots
+}
+
+const SLS_HESSIAN_PAIR_SLOTS: [[usize; SLS_ROW_K]; SLS_ROW_K] = sls_hessian_pair_slots();
+
 impl SurvivalLocationScaleFamily {
     pub(crate) const BLOCK_TIME: usize = 0;
     pub(crate) const BLOCK_THRESHOLD: usize = 1;
@@ -1793,6 +2080,270 @@ impl SurvivalLocationScaleFamily {
             dynamic,
             deriv_log_scale,
             offsets: self.joint_block_offsets(),
+        }
+    }
+
+    /// Lower the canonical non-wiggle [`RowProgram`] Hessian into coefficient
+    /// space through one packed 24-pair plan.
+    ///
+    /// Channels which resolve to the same physical design share a group before
+    /// any cross product is run: entry falls back to exit, while absent
+    /// derivative designs remove their pairs. Thus the 24 structural pairs
+    /// become 12 cross products for invariant threshold/scale designs, 18 when
+    /// one block is fully time-varying, and 24 when both are. Per-row coefficients
+    /// live in one slot-major `groups × n` buffer. An HT mask, when present, is
+    /// multiplied into each final grouped row coefficient exactly once.
+    pub(crate) fn survival_ls_coefficient_hessian(
+        &self,
+        dynamic: &SurvivalDynamicGeometry,
+        deriv_log_scale: f64,
+        row_mask: Option<&Array1<f64>>,
+        target: SlsCoefficientHessianTarget,
+    ) -> Result<SlsCoefficientHessian, String> {
+        if self.x_link_wiggle.is_some() {
+            return Err(SurvivalLocationScaleError::InternalInvariant {
+                reason: "the packed 24-pair survival-LS plan requires fixed non-wiggle geometry"
+                    .to_string(),
+            }
+            .into());
+        }
+        if let Some(mask) = row_mask
+            && mask.len() != self.n
+        {
+            return Err(SurvivalLocationScaleError::DimensionMismatch {
+                reason: format!(
+                    "survival-LS coefficient Hessian mask length {} != row count {}",
+                    mask.len(),
+                    self.n
+                ),
+            }
+            .into());
+        }
+
+        let threshold_exit = self.x_threshold.to_dense_cow();
+        let threshold_entry = self
+            .x_threshold_entry
+            .as_ref()
+            .map(DesignMatrix::to_dense_cow);
+        let threshold_deriv = self
+            .x_threshold_deriv
+            .as_ref()
+            .map(DesignMatrix::to_dense_cow);
+        let log_sigma_exit = self.x_log_sigma.to_dense_cow();
+        let log_sigma_entry = self
+            .x_log_sigma_entry
+            .as_ref()
+            .map(DesignMatrix::to_dense_cow);
+        let log_sigma_deriv = self
+            .x_log_sigma_deriv
+            .as_ref()
+            .map(DesignMatrix::to_dense_cow);
+
+        let designs: [Option<&Array2<f64>>; SLS_ROW_K] = [
+            Some(&dynamic.time_jac_entry),
+            Some(&dynamic.time_jac_exit),
+            Some(&dynamic.time_jac_deriv),
+            Some(threshold_exit.as_ref()),
+            Some(
+                threshold_entry
+                    .as_deref()
+                    .unwrap_or(threshold_exit.as_ref()),
+            ),
+            threshold_deriv.as_deref(),
+            Some(log_sigma_exit.as_ref()),
+            Some(
+                log_sigma_entry
+                    .as_deref()
+                    .unwrap_or(log_sigma_exit.as_ref()),
+            ),
+            log_sigma_deriv.as_deref(),
+        ];
+
+        // Stable design identities. A fallback channel deliberately receives
+        // its exit channel's identity, which is what merges pair coefficients
+        // before the single X'WX call. Optional derivative channels have no
+        // identity and their structural pairs disappear.
+        let design_ids: [Option<usize>; SLS_ROW_K] = [
+            Some(0),
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(if threshold_entry.is_some() { 4 } else { 3 }),
+            threshold_deriv.as_ref().map(|_| 5),
+            Some(6),
+            Some(if log_sigma_entry.is_some() { 7 } else { 6 }),
+            log_sigma_deriv.as_ref().map(|_| 8),
+        ];
+
+        let mut groups: Vec<SlsHessianPairGroup> = Vec::with_capacity(SLS_HESSIAN_PAIRS.len());
+        for (pair_slot, (left_channel, right_channel)) in SLS_HESSIAN_PAIRS.into_iter().enumerate()
+        {
+            let (Some(left_design), Some(right_design)) =
+                (design_ids[left_channel], design_ids[right_channel])
+            else {
+                continue;
+            };
+            if let Some(group) = groups.iter_mut().find(|group| {
+                group.left_design == left_design && group.right_design == right_design
+            }) {
+                group.pair_slots.push(pair_slot);
+            } else {
+                groups.push(SlsHessianPairGroup {
+                    left_channel,
+                    right_channel,
+                    left_design,
+                    right_design,
+                    pair_slots: vec![pair_slot],
+                });
+            }
+        }
+
+        // Block and diagonal consumers cannot observe cross-block groups. Drop
+        // those slots before allocating or evaluating the shared row buffer.
+        if target != SlsCoefficientHessianTarget::DenseFull {
+            groups.retain(|group| group.left_channel / 3 == group.right_channel / 3);
+        }
+
+        let kernel = self.survival_ls_row_kernel_rescaled(dynamic, deriv_log_scale);
+        let mut slots = Array2::<f64>::zeros((groups.len(), self.n));
+        slots
+            .axis_iter_mut(Axis(1))
+            .into_par_iter()
+            .enumerate()
+            .try_for_each(|(row, mut row_slots)| -> Result<(), String> {
+                let coefficients = match kernel.row_nll_inputs_opt(row)? {
+                    Some((primary, exact)) => sls_row_hessian_pairs_compiled(&primary, &exact),
+                    None => [0.0; SLS_HESSIAN_PAIRS.len()],
+                };
+                for (slot, group) in groups.iter().enumerate() {
+                    let coefficient = group
+                        .pair_slots
+                        .iter()
+                        .fold(0.0, |sum, &pair_slot| sum + coefficients[pair_slot]);
+                    row_slots[slot] = match row_mask {
+                        Some(mask) => coefficient * mask[row],
+                        None => coefficient,
+                    };
+                }
+                Ok(())
+            })?;
+
+        let offsets = self.joint_block_offsets();
+        let p_total = *offsets
+            .last()
+            .ok_or_else(|| "missing survival-LS joint block offsets".to_string())?;
+        if offsets.len() != 4 {
+            return Err(SurvivalLocationScaleError::InternalInvariant {
+                reason: format!(
+                    "packed survival-LS plan expected three coefficient blocks, got {}",
+                    offsets.len().saturating_sub(1)
+                ),
+            }
+            .into());
+        }
+
+        if target == SlsCoefficientHessianTarget::DiagonalOnly {
+            let mut diagonal = Array1::<f64>::zeros(p_total);
+            for (slot, group) in groups.iter().enumerate() {
+                let left_block = group.left_channel / 3;
+                let right_block = group.right_channel / 3;
+                if left_block != right_block {
+                    continue;
+                }
+                let left =
+                    designs[group.left_channel].expect("active survival-LS pair has a left design");
+                let right = designs[group.right_channel]
+                    .expect("active survival-LS pair has a right design");
+                let weights = sanitize_survival_weight_vector(&slots.row(slot).to_owned());
+                let multiplicity = if group.left_channel == group.right_channel {
+                    1.0
+                } else {
+                    2.0
+                };
+                let offset = offsets[left_block];
+                for row in 0..self.n {
+                    let weight = multiplicity * weights[row];
+                    if weight == 0.0 {
+                        continue;
+                    }
+                    for coefficient in 0..left.ncols() {
+                        diagonal[offset + coefficient] +=
+                            weight * left[[row, coefficient]] * right[[row, coefficient]];
+                    }
+                }
+            }
+            return Ok(SlsCoefficientHessian::DiagonalOnly(diagonal));
+        }
+
+        let selected = groups
+            .iter()
+            .enumerate()
+            .filter(|(_, group)| {
+                target == SlsCoefficientHessianTarget::DenseFull
+                    || group.left_channel / 3 == group.right_channel / 3
+            })
+            .collect::<Vec<_>>();
+        let products = selected
+            .into_par_iter()
+            .map(|(slot, group)| {
+                let left =
+                    designs[group.left_channel].expect("active survival-LS pair has a left design");
+                let right = designs[group.right_channel]
+                    .expect("active survival-LS pair has a right design");
+                let weights = slots.row(slot).to_owned();
+                weighted_crossprod_dense_with_parallelism(left, &weights, right, faer::Par::Seq)
+                    .map(|product| (group, product))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+
+        match target {
+            SlsCoefficientHessianTarget::DenseFull => {
+                let mut dense = Array2::<f64>::zeros((p_total, p_total));
+                for (group, product) in products {
+                    let left_block = group.left_channel / 3;
+                    let right_block = group.right_channel / 3;
+                    let (left_start, left_end) = (offsets[left_block], offsets[left_block + 1]);
+                    let (right_start, right_end) = (offsets[right_block], offsets[right_block + 1]);
+                    dense
+                        .slice_mut(s![left_start..left_end, right_start..right_end])
+                        .scaled_add(1.0, &product);
+                    if left_block != right_block {
+                        dense
+                            .slice_mut(s![right_start..right_end, left_start..left_end])
+                            .scaled_add(1.0, &product.t());
+                    } else if group.left_channel != group.right_channel {
+                        dense
+                            .slice_mut(s![left_start..left_end, right_start..right_end])
+                            .scaled_add(1.0, &product.t());
+                    }
+                }
+                Ok(SlsCoefficientHessian::DenseFull(dense))
+            }
+            SlsCoefficientHessianTarget::BlockDiagonal => {
+                let mut blocks = (0..3)
+                    .map(|block| {
+                        Array2::<f64>::zeros((
+                            offsets[block + 1] - offsets[block],
+                            offsets[block + 1] - offsets[block],
+                        ))
+                    })
+                    .collect::<Vec<_>>();
+                for (group, product) in products {
+                    let block = group.left_channel / 3;
+                    blocks[block].scaled_add(1.0, &product);
+                    if group.left_channel != group.right_channel {
+                        blocks[block].scaled_add(1.0, &product.t());
+                    }
+                }
+                Ok(SlsCoefficientHessian::BlockDiagonal(blocks))
+            }
+            SlsCoefficientHessianTarget::DiagonalOnly => {
+                Err(SurvivalLocationScaleError::InternalInvariant {
+                    reason: "diagonal-only survival-LS lowering escaped its dedicated branch"
+                        .to_string(),
+                }
+                .into())
+            }
         }
     }
 
@@ -2209,16 +2760,11 @@ impl SurvivalLocationScaleFamily {
         let mut d1_q1 = Array1::<f64>::zeros(n);
         let mut d2_q1 = Array1::<f64>::zeros(n);
         let mut d3_q1 = Array1::<f64>::zeros(n);
-        let mut d1_qdot1 = Array1::<f64>::zeros(n);
-        let mut d2_qdot1 = Array1::<f64>::zeros(n);
-        let mut h_time_h0 = Array1::<f64>::zeros(n);
-        let mut h_time_h1 = Array1::<f64>::zeros(n);
-        let mut h_time_d = Array1::<f64>::zeros(n);
 
-        // Write each row's 21 derivative scalars directly into the
+        // Write each row's six live derivative scalars directly into the
         // preallocated output arrays in parallel. The previous path collected
-        // a `Vec<Option<SurvivalRowDerivatives>>` (21 fields per row) and then
-        // serially scattered into 21 `Array1`s — at large scale that is the
+        // a `Vec<Option<SurvivalRowDerivatives>>` and then serially scattered it
+        // into `Array1`s — at large scale that is the
         // worst-case transient allocation among the family row builders.
         // Rows where `row_derivatives_rescaled` returns `Ok(None)` keep their
         // zero-initialized slots (matching the previous `continue` branch).
@@ -2253,11 +2799,6 @@ impl SurvivalLocationScaleFamily {
         let p_d1_q1 = SendPtr(d1_q1.as_mut_ptr());
         let p_d2_q1 = SendPtr(d2_q1.as_mut_ptr());
         let p_d3_q1 = SendPtr(d3_q1.as_mut_ptr());
-        let p_d1_qdot1 = SendPtr(d1_qdot1.as_mut_ptr());
-        let p_d2_qdot1 = SendPtr(d2_qdot1.as_mut_ptr());
-        let p_h_time_h0 = SendPtr(h_time_h0.as_mut_ptr());
-        let p_h_time_h1 = SendPtr(h_time_h1.as_mut_ptr());
-        let p_h_time_d = SendPtr(h_time_d.as_mut_ptr());
 
         let dyn_ref = &dynamic;
         (0..n)
@@ -2284,11 +2825,6 @@ impl SurvivalLocationScaleFamily {
                     p_d1_q1.write(i, row.d1_q1);
                     p_d2_q1.write(i, row.d2_q1);
                     p_d3_q1.write(i, row.d3_q1);
-                    p_d1_qdot1.write(i, row.d1_qdot1);
-                    p_d2_qdot1.write(i, row.d2_qdot1);
-                    p_h_time_h0.write(i, row.h_time_h0);
-                    p_h_time_h1.write(i, row.h_time_h1);
-                    p_h_time_d.write(i, row.h_time_d);
                 }
                 Ok(())
             })?;
@@ -2300,11 +2836,6 @@ impl SurvivalLocationScaleFamily {
             d1_q1,
             d2_q1,
             d3_q1,
-            d1_qdot1,
-            d2_qdot1,
-            h_time_h0,
-            h_time_h1,
-            h_time_d,
             dq_t: dynamic.dq_t_exit,
             dq_ls: dynamic.dq_ls_exit,
             d2q_tls: dynamic.d2q_tls_exit,
@@ -2317,17 +2848,6 @@ impl SurvivalLocationScaleFamily {
             d2q_ls_entry: Some(dynamic.d2q_ls_entry),
             d3q_tls_ls_entry: Some(dynamic.d3q_tls_ls_entry),
             d3q_ls_entry: Some(dynamic.d3q_ls_entry),
-            dqdot_t: dynamic.dqdot_t,
-            dqdot_ls: dynamic.dqdot_ls,
-            dqdot_td: dynamic.dqdot_td,
-            dqdot_lsd: dynamic.dqdot_lsd,
-            d2qdot_tt: dynamic.d2qdot_tt,
-            d2qdot_tls: dynamic.d2qdot_tls,
-            d2qdot_ttd: dynamic.d2qdot_ttd,
-            d2qdot_tlsd: dynamic.d2qdot_tlsd,
-            d2qdot_ls: dynamic.d2qdot_ls,
-            d2qdot_lstd: dynamic.d2qdot_lstd,
-            d2qdot_lslsd: dynamic.d2qdot_lslsd,
         })
     }
 
@@ -3270,7 +3790,6 @@ impl SurvivalLocationScaleFamily {
             d2_q1,
             d3_q1,
             d1_qdot1,
-            d2_qdot1,
             grad_time_eta_h0: d1_q0,
             grad_time_eta_h1: d1_q1,
             grad_time_eta_d: d1_qdot1,
@@ -3294,8 +3813,536 @@ pub(crate) fn q_chain_derivs_scalar(eta_t: f64, eta_ls: f64) -> (f64, f64, f64, 
 }
 
 #[cfg(test)]
+mod patterned_order2_perf_tests {
+    use super::*;
+    use gam_math::jet_scalar::Order2;
+    use std::hint::black_box;
+
+    /// The exact structural Hessian support of [`sls_row_nll`]. The likelihood is a
+    /// sum of three univariate outer functions of:
+    ///
+    /// - `u0`, depending on primaries `{0,4,7}`;
+    /// - `u1`, depending on `{1,3,6}`;
+    /// - `g`, depending on `{2,3,5,6,8}`.
+    ///
+    /// Their symmetric pair union contains 24 channels. This pattern is an
+    /// execution schedule for the same generic row expression, not a derivative
+    /// formula.
+    #[derive(Clone, Copy, Debug)]
+    struct SlsHessianPattern;
+
+    const SLS_HESSIAN_PAIRS: [(usize, usize); 24] = [
+        (0, 0),
+        (0, 4),
+        (0, 7),
+        (1, 1),
+        (1, 3),
+        (1, 6),
+        (2, 2),
+        (2, 3),
+        (2, 5),
+        (2, 6),
+        (2, 8),
+        (3, 3),
+        (3, 5),
+        (3, 6),
+        (3, 8),
+        (4, 4),
+        (4, 7),
+        (5, 5),
+        (5, 6),
+        (5, 8),
+        (6, 6),
+        (6, 8),
+        (7, 7),
+        (8, 8),
+    ];
+
+    impl gam_math::jet_scalar::HessianPattern<SLS_ROW_K, 24> for SlsHessianPattern {
+        const PAIRS: [(usize, usize); 24] = SLS_HESSIAN_PAIRS;
+        const PAIR_BITS: [[u128; SLS_ROW_K]; SLS_ROW_K] =
+            gam_math::jet_scalar::hessian_pair_bits(Self::PAIRS);
+    }
+
+    type SlsOrder2 = gam_math::jet_scalar::PatternedOrder2<SlsHessianPattern, SLS_ROW_K, 24>;
+    use std::time::Instant;
+
+    fn fixture() -> ([f64; SLS_ROW_K], SurvivalExactRowKernel) {
+        (
+            [0.4, -0.7, 0.2, 0.8, -0.35, 0.11, -0.25, 0.31, -0.17],
+            SurvivalExactRowKernel {
+                w: 1.3,
+                d: 1.0,
+                log_s0: -0.8,
+                r0: 0.7,
+                dr0: -0.3,
+                ddr0: 0.12,
+                dddr0: -0.05,
+                log_s1: -1.1,
+                r1: 0.9,
+                dr1: -0.4,
+                ddr1: 0.18,
+                dddr1: -0.08,
+                logphi1: -1.4,
+                dlogphi1: -0.6,
+                d2logphi1: -1.0,
+                d3logphi1: 0.0,
+                d4logphi1: 0.0,
+                log_g: -0.2,
+                d_log_g: 1.4,
+                d2_log_g: -1.96,
+                d3_log_g: 5.488,
+                d4_log_g: -23.0496,
+            },
+        )
+    }
+
+    fn dense(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        let vars: [Order2<SLS_ROW_K>; SLS_ROW_K] =
+            std::array::from_fn(|axis| Order2::variable(p[axis], axis));
+        let out = sls_row_nll(&vars, kernel).expect("dense row NLL");
+        (out.value(), out.g(), out.h())
+    }
+
+    fn patterned(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        let vars: [SlsOrder2; SLS_ROW_K] =
+            std::array::from_fn(|axis| SlsOrder2::variable(p[axis], axis));
+        let out = sls_row_nll(&vars, kernel).expect("patterned row NLL");
+        (out.value(), out.g(), out.h())
+    }
+
+    /// Same generic row program as [`patterned`], with literal identity seeds.
+    /// This exposes every structural dependency mask as a compile-time constant
+    /// after inlining, instead of asking LLVM to unroll `array::from_fn` before
+    /// sparse-jet propagation. It is kept as a separate benchmark variant until
+    /// the generated code and release timing establish whether that distinction
+    /// matters on the production compiler profile.
+    fn patterned_literal_seeds(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        let vars: [SlsOrder2; SLS_ROW_K] = [
+            SlsOrder2::variable(p[0], 0),
+            SlsOrder2::variable(p[1], 1),
+            SlsOrder2::variable(p[2], 2),
+            SlsOrder2::variable(p[3], 3),
+            SlsOrder2::variable(p[4], 4),
+            SlsOrder2::variable(p[5], 5),
+            SlsOrder2::variable(p[6], 6),
+            SlsOrder2::variable(p[7], 7),
+            SlsOrder2::variable(p[8], 8),
+        ];
+        let out = sls_row_nll(&vars, kernel).expect("literal-seeded patterned row NLL");
+        (out.value(), out.g(), out.h())
+    }
+
+    fn compiled(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        sls_row_vgh_compiled(p, kernel)
+    }
+
+    /// Direct sparse chain-rule schedule used only as the performance baseline.
+    /// This deliberately duplicates the calculus in test code so the generic
+    /// backend is compared with the strongest plausible hand implementation.
+    fn hand(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        struct Index {
+            gradient: [f64; 9],
+            hessian: [[f64; 9]; 9],
+        }
+
+        let inv_entry = (-p[7]).exp();
+        let mut u0 = Index {
+            gradient: [0.0; 9],
+            hessian: [[0.0; 9]; 9],
+        };
+        u0.gradient[0] = 1.0;
+        u0.gradient[4] = -inv_entry;
+        u0.gradient[7] = p[4] * inv_entry;
+        u0.hessian[4][7] = inv_entry;
+        u0.hessian[7][4] = inv_entry;
+        u0.hessian[7][7] = -p[4] * inv_entry;
+
+        let inv_exit = (-p[6]).exp();
+        let mut u1 = Index {
+            gradient: [0.0; 9],
+            hessian: [[0.0; 9]; 9],
+        };
+        u1.gradient[1] = 1.0;
+        u1.gradient[3] = -inv_exit;
+        u1.gradient[6] = p[3] * inv_exit;
+        u1.hessian[3][6] = inv_exit;
+        u1.hessian[6][3] = inv_exit;
+        u1.hessian[6][6] = -p[3] * inv_exit;
+
+        let inner = p[3] * p[8] - p[5];
+        let mut g = Index {
+            gradient: [0.0; 9],
+            hessian: [[0.0; 9]; 9],
+        };
+        g.gradient[2] = 1.0;
+        g.gradient[3] = inv_exit * p[8];
+        g.gradient[5] = -inv_exit;
+        g.gradient[6] = -inv_exit * inner;
+        g.gradient[8] = inv_exit * p[3];
+        for (i, j, value) in [
+            (3, 6, -inv_exit * p[8]),
+            (3, 8, inv_exit),
+            (5, 6, inv_exit),
+            (6, 6, inv_exit * inner),
+            (6, 8, -inv_exit * p[3]),
+        ] {
+            g.hessian[i][j] = value;
+            g.hessian[j][i] = value;
+        }
+
+        let mut value = 0.0;
+        let mut gradient = [0.0; 9];
+        let mut hessian = [[0.0; 9]; 9];
+        let mut add = |index: &Index, stack: [f64; 3], scale: f64| {
+            value += stack[0] * scale;
+            let first = stack[1] * scale;
+            let second = stack[2] * scale;
+            for i in 0..9 {
+                gradient[i] += first * index.gradient[i];
+            }
+            for &(i, j) in &SLS_HESSIAN_PAIRS {
+                let channel =
+                    second * index.gradient[i] * index.gradient[j] + first * index.hessian[i][j];
+                hessian[i][j] += channel;
+                if i != j {
+                    hessian[j][i] += channel;
+                }
+            }
+        };
+        add(&u0, [kernel.log_s0, -kernel.r0, -kernel.dr0], kernel.w);
+        let censored_weight = kernel.w * (1.0 - kernel.d);
+        if censored_weight != 0.0 {
+            add(
+                &u1,
+                [kernel.log_s1, -kernel.r1, -kernel.dr1],
+                -censored_weight,
+            );
+        }
+        let event_weight = kernel.w * kernel.d;
+        if event_weight != 0.0 {
+            add(
+                &u1,
+                [kernel.logphi1, kernel.dlogphi1, kernel.d2logphi1],
+                -event_weight,
+            );
+            add(
+                &g,
+                [kernel.log_g, kernel.d_log_g, kernel.d2_log_g],
+                -event_weight,
+            );
+        }
+        (value, gradient, hessian)
+    }
+
+    /// Strongest direct row-chain baseline: fuse the two transforms of `u1`,
+    /// visit each index's live upper-triangle support once, and materialize no
+    /// intermediate dense derivative arrays. This is the schedule a successful
+    /// generic compiler must beat; comparison only with [`hand`] would reward
+    /// avoidable repeated 24-pair walks.
+    fn hand_fused(
+        p: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
+        let entry_exp = (-p[7]).exp();
+        let exit_exp = (-p[6]).exp();
+
+        let mut value = kernel.w * kernel.log_s0;
+        let u0_first = -kernel.w * kernel.r0;
+        let u0_second = -kernel.w * kernel.dr0;
+
+        let censored_weight = kernel.w * (1.0 - kernel.d);
+        let event_weight = kernel.w * kernel.d;
+        let mut u1_first = 0.0;
+        let mut u1_second = 0.0;
+        if censored_weight != 0.0 {
+            value -= censored_weight * kernel.log_s1;
+            u1_first += censored_weight * kernel.r1;
+            u1_second += censored_weight * kernel.dr1;
+        }
+
+        let mut g_first = 0.0;
+        let mut g_second = 0.0;
+        if event_weight != 0.0 {
+            value -= event_weight * (kernel.logphi1 + kernel.log_g);
+            u1_first -= event_weight * kernel.dlogphi1;
+            u1_second -= event_weight * kernel.d2logphi1;
+            g_first = -event_weight * kernel.d_log_g;
+            g_second = -event_weight * kernel.d2_log_g;
+        }
+
+        let u0_g4 = -entry_exp;
+        let u0_g7 = p[4] * entry_exp;
+        let u1_g3 = -exit_exp;
+        let u1_g6 = p[3] * exit_exp;
+        let inner = p[3] * p[8] - p[5];
+        let g3 = exit_exp * p[8];
+        let g5 = -exit_exp;
+        let g6 = -exit_exp * inner;
+        let g8 = exit_exp * p[3];
+
+        let mut gradient = [0.0; SLS_ROW_K];
+        gradient[0] = u0_first;
+        gradient[4] = u0_first * u0_g4;
+        gradient[7] = u0_first * u0_g7;
+        if censored_weight != 0.0 || event_weight != 0.0 {
+            gradient[1] += u1_first;
+            gradient[3] += u1_first * u1_g3;
+            gradient[6] += u1_first * u1_g6;
+        }
+        if event_weight != 0.0 {
+            gradient[2] += g_first;
+            gradient[3] += g_first * g3;
+            gradient[5] += g_first * g5;
+            gradient[6] += g_first * g6;
+            gradient[8] += g_first * g8;
+        }
+
+        let mut hessian = [[0.0; SLS_ROW_K]; SLS_ROW_K];
+        macro_rules! symmetric {
+            ($i:expr, $j:expr, $value:expr) => {{
+                let channel = $value;
+                hessian[$i][$j] += channel;
+                if $i != $j {
+                    hessian[$j][$i] += channel;
+                }
+            }};
+        }
+
+        symmetric!(0, 0, u0_second);
+        symmetric!(0, 4, u0_second * u0_g4);
+        symmetric!(0, 7, u0_second * u0_g7);
+        symmetric!(4, 4, u0_second * u0_g4 * u0_g4);
+        symmetric!(4, 7, u0_second * u0_g4 * u0_g7 + u0_first * entry_exp);
+        symmetric!(7, 7, u0_second * u0_g7 * u0_g7 - u0_first * u0_g7);
+
+        if censored_weight != 0.0 || event_weight != 0.0 {
+            symmetric!(1, 1, u1_second);
+            symmetric!(1, 3, u1_second * u1_g3);
+            symmetric!(1, 6, u1_second * u1_g6);
+            symmetric!(3, 3, u1_second * u1_g3 * u1_g3);
+            symmetric!(3, 6, u1_second * u1_g3 * u1_g6 + u1_first * exit_exp);
+            symmetric!(6, 6, u1_second * u1_g6 * u1_g6 - u1_first * u1_g6);
+        }
+
+        if event_weight != 0.0 {
+            symmetric!(2, 2, g_second);
+            symmetric!(2, 3, g_second * g3);
+            symmetric!(2, 5, g_second * g5);
+            symmetric!(2, 6, g_second * g6);
+            symmetric!(2, 8, g_second * g8);
+            symmetric!(3, 3, g_second * g3 * g3);
+            symmetric!(3, 5, g_second * g3 * g5);
+            symmetric!(3, 6, g_second * g3 * g6 - g_first * exit_exp * p[8]);
+            symmetric!(3, 8, g_second * g3 * g8 + g_first * exit_exp);
+            symmetric!(5, 5, g_second * g5 * g5);
+            symmetric!(5, 6, g_second * g5 * g6 + g_first * exit_exp);
+            symmetric!(5, 8, g_second * g5 * g8);
+            symmetric!(6, 6, g_second * g6 * g6 + g_first * exit_exp * inner);
+            symmetric!(6, 8, g_second * g6 * g8 - g_first * exit_exp * p[3]);
+            symmetric!(8, 8, g_second * g8 * g8);
+        }
+
+        (value, gradient, hessian)
+    }
+
+    #[test]
+    fn measure_sls_patterned_vs_dense_932() {
+        let (p, kernel) = fixture();
+        let want = dense(&p, &kernel);
+        let got = patterned(&p, &kernel);
+        let literal_seed_result = patterned_literal_seeds(&p, &kernel);
+        let compiled_result = compiled(&p, &kernel);
+        let hand_result = hand(&p, &kernel);
+        let hand_fused_result = hand_fused(&p, &kernel);
+        let close = |a: f64, b: f64, label: &str| {
+            let tolerance = 1e-12 * a.abs().max(b.abs()).max(1.0);
+            assert!(
+                (a - b).abs() <= tolerance,
+                "{label}: {a:+.16e} vs {b:+.16e}"
+            );
+        };
+        close(got.0, want.0, "value");
+        close(literal_seed_result.0, want.0, "literal-seed value");
+        close(compiled_result.0, want.0, "compiled value");
+        close(hand_result.0, want.0, "hand value");
+        close(hand_fused_result.0, want.0, "fused-hand value");
+        for i in 0..SLS_ROW_K {
+            close(got.1[i], want.1[i], &format!("gradient[{i}]"));
+            close(
+                literal_seed_result.1[i],
+                want.1[i],
+                &format!("literal-seed gradient[{i}]"),
+            );
+            close(
+                compiled_result.1[i],
+                want.1[i],
+                &format!("compiled gradient[{i}]"),
+            );
+            close(hand_result.1[i], want.1[i], &format!("hand gradient[{i}]"));
+            close(
+                hand_fused_result.1[i],
+                want.1[i],
+                &format!("fused-hand gradient[{i}]"),
+            );
+            for j in 0..SLS_ROW_K {
+                close(got.2[i][j], want.2[i][j], &format!("Hessian[{i},{j}]"));
+                close(
+                    literal_seed_result.2[i][j],
+                    want.2[i][j],
+                    &format!("literal-seed Hessian[{i},{j}]"),
+                );
+                close(
+                    compiled_result.2[i][j],
+                    want.2[i][j],
+                    &format!("compiled Hessian[{i},{j}]"),
+                );
+                close(
+                    hand_result.2[i][j],
+                    want.2[i][j],
+                    &format!("hand Hessian[{i},{j}]"),
+                );
+                close(
+                    hand_fused_result.2[i][j],
+                    want.2[i][j],
+                    &format!("fused-hand Hessian[{i},{j}]"),
+                );
+            }
+        }
+
+        // Exact event/censor endpoints are semantically active branches, not
+        // merely convenient benchmark inputs: the inactive derivative stack
+        // may be non-finite, so a fused schedule must never manufacture
+        // `0 * Inf`. Pin both endpoints to the generic program separately.
+        for d in [0.0, 1.0] {
+            let mut endpoint_kernel = kernel;
+            endpoint_kernel.d = d;
+            if d == 0.0 {
+                endpoint_kernel.logphi1 = f64::NAN;
+                endpoint_kernel.dlogphi1 = f64::NAN;
+                endpoint_kernel.d2logphi1 = f64::NAN;
+                endpoint_kernel.log_g = f64::NAN;
+                endpoint_kernel.d_log_g = f64::NAN;
+                endpoint_kernel.d2_log_g = f64::NAN;
+            } else {
+                endpoint_kernel.log_s1 = f64::NAN;
+                endpoint_kernel.r1 = f64::NAN;
+                endpoint_kernel.dr1 = f64::NAN;
+            }
+            let endpoint_want = dense(&p, &endpoint_kernel);
+            let endpoint_got = hand_fused(&p, &endpoint_kernel);
+            let endpoint_compiled = compiled(&p, &endpoint_kernel);
+            close(endpoint_got.0, endpoint_want.0, "fused-hand endpoint value");
+            close(
+                endpoint_compiled.0,
+                endpoint_want.0,
+                "compiled endpoint value",
+            );
+            for i in 0..SLS_ROW_K {
+                close(
+                    endpoint_got.1[i],
+                    endpoint_want.1[i],
+                    &format!("fused-hand endpoint gradient d={d} [{i}]"),
+                );
+                close(
+                    endpoint_compiled.1[i],
+                    endpoint_want.1[i],
+                    &format!("compiled endpoint gradient d={d} [{i}]"),
+                );
+                for j in 0..SLS_ROW_K {
+                    close(
+                        endpoint_got.2[i][j],
+                        endpoint_want.2[i][j],
+                        &format!("fused-hand endpoint Hessian d={d} [{i},{j}]"),
+                    );
+                    close(
+                        endpoint_compiled.2[i][j],
+                        endpoint_want.2[i][j],
+                        &format!("compiled endpoint Hessian d={d} [{i},{j}]"),
+                    );
+                }
+            }
+        }
+
+        let iterations = 2_000_000usize;
+        let mut best_dense = f64::INFINITY;
+        let mut best_patterned = f64::INFINITY;
+        let mut best_literal_seeds = f64::INFINITY;
+        let mut best_compiled = f64::INFINITY;
+        let mut best_hand = f64::INFINITY;
+        let mut best_hand_fused = f64::INFINITY;
+        for _ in 0..5 {
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(hand(black_box(&p), black_box(&kernel)));
+            }
+            best_hand = best_hand.min(started.elapsed().as_secs_f64());
+
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(hand_fused(black_box(&p), black_box(&kernel)));
+            }
+            best_hand_fused = best_hand_fused.min(started.elapsed().as_secs_f64());
+
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(dense(black_box(&p), black_box(&kernel)));
+            }
+            best_dense = best_dense.min(started.elapsed().as_secs_f64());
+
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(patterned(black_box(&p), black_box(&kernel)));
+            }
+            best_patterned = best_patterned.min(started.elapsed().as_secs_f64());
+
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(patterned_literal_seeds(black_box(&p), black_box(&kernel)));
+            }
+            best_literal_seeds = best_literal_seeds.min(started.elapsed().as_secs_f64());
+
+            let started = Instant::now();
+            for _ in 0..iterations {
+                black_box(compiled(black_box(&p), black_box(&kernel)));
+            }
+            best_compiled = best_compiled.min(started.elapsed().as_secs_f64());
+        }
+        let dense_ns = best_dense * 1e9 / iterations as f64;
+        let patterned_ns = best_patterned * 1e9 / iterations as f64;
+        let literal_seeds_ns = best_literal_seeds * 1e9 / iterations as f64;
+        let compiled_ns = best_compiled * 1e9 / iterations as f64;
+        let hand_ns = best_hand * 1e9 / iterations as f64;
+        let hand_fused_ns = best_hand_fused * 1e9 / iterations as f64;
+        eprintln!(
+            "SLS-PATTERNED-932 hand={hand_ns:.2} ns/row fused-hand={hand_fused_ns:.2} ns/row dense={dense_ns:.2} ns/row patterned={patterned_ns:.2} ns/row literal-seeds={literal_seeds_ns:.2} ns/row compiled={compiled_ns:.2} ns/row compiled/fused-hand={:.3} patterned/fused-hand={:.3} literal-seeds/fused-hand={:.3} compiled/dense={:.3}",
+            compiled_ns / hand_fused_ns,
+            patterned_ns / hand_fused_ns,
+            literal_seeds_ns / hand_fused_ns,
+            compiled_ns / dense_ns,
+        );
+    }
+}
+
+#[cfg(test)]
 mod simd_batch_bit_identity_tests {
     use super::*;
+    use gam_math::jet_scalar::OneSeed;
 
     #[test]
     fn missing_fitted_state_is_a_typed_geometry_error() {

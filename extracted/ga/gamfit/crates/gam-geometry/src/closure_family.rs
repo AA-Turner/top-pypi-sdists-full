@@ -8,18 +8,19 @@
 //!
 //! ## The period-extension chart
 //!
-//! On the observed coordinate window `s ∈ [0, 2π]` the basis is
+//! On the observed coordinate window `s ∈ [0, W]`, write
+//! `u = 2πs/W ∈ [0, 2π]`. The basis is
 //!
 //! ```text
-//! Φ_m(s; γ) = [cos(m γ s), sin(m γ s)],   γ = 2π / L ∈ [0, 1].
+//! Φ_m(s; γ) = [cos(m γ u), sin(m γ u)],   γ = W / period ∈ [0, 1].
 //! ```
 //!
 //! * `γ = 1`: the window is one full period, endpoints are identified — the
 //!   current circle.
 //! * `0 < γ < 1`: the data occupy an arc of a larger periodic chart, so the
 //!   endpoint seam is not forced closed.
-//! * `γ = 0`: the removable interval/Taylor limit — `sin(m γ s)/(m γ) → s`,
-//!   `1 − cos(m γ s) → ½ m² γ² s²`, so after the rank-stabilising gauge the
+//! * `γ = 0`: the removable interval/Taylor limit — `sin(m γ u)/(m γ) → u`,
+//!   `1 − cos(m γ u) → ½ m² γ² u²`, so after the rank-stabilising gauge the
 //!   columns become an interval (polynomial) basis.
 //!
 //! This is the **support-moving** version. The cheap MVP, implemented in
@@ -56,9 +57,20 @@ use wide::f64x4;
 #[derive(Clone, Debug)]
 pub struct ClosureFamily {
     /// Number of harmonic pairs.
-    pub harmonics: usize,
+    harmonics: usize,
     /// Observed window length `[0, window]`.
-    pub window: f64,
+    window: f64,
+}
+
+/// Canonical angular coordinate on an observed window.
+///
+/// The closure parameter is dimensionless: rescaling both the coordinate and
+/// its window must leave the basis unchanged. Mapping `s in [0, window]` to
+/// `u = 2pi*s/window` makes `gamma = 1` exactly one full turn for every positive
+/// finite window, rather than only for the special case `window = 2pi`.
+#[inline]
+fn closure_coordinate(s: f64, window: f64) -> f64 {
+    (s / window) * std::f64::consts::TAU
 }
 
 /// Seed the stable trigonometric recurrence for the base angle `φ`.
@@ -79,8 +91,22 @@ fn recurrence_seed(phi: f64) -> (f64, f64, f64, f64) {
 
 impl ClosureFamily {
     /// Build a closure family of `harmonics` Fourier pairs on `[0, window]`.
-    pub fn new(harmonics: usize, window: f64) -> Self {
-        Self { harmonics, window }
+    pub fn new(harmonics: usize, window: f64) -> Result<Self, String> {
+        if !window.is_finite() || window <= 0.0 {
+            return Err(format!(
+                "closure-family window must be finite and positive; got {window}"
+            ));
+        }
+        if harmonics
+            .checked_mul(2)
+            .and_then(|pairs| pairs.checked_add(1))
+            .is_none()
+        {
+            return Err(format!(
+                "closure-family harmonic count {harmonics} overflows the raw basis dimension"
+            ));
+        }
+        Ok(Self { harmonics, window })
     }
 
     /// Number of raw basis columns: constant + `2·harmonics` Fourier columns.
@@ -94,15 +120,16 @@ impl ClosureFamily {
     ///
     /// ## Why this beats the per-harmonic transcendental
     ///
-    /// The angle `θ_m = m·γ·s` is **affine in γ** (`∂θ_m/∂γ = m·s`, `∂²θ_m/∂γ² =
+    /// With `u = 2π·s/window`, the angle `θ_m = m·γ·u` is **affine in γ**
+    /// (`∂θ_m/∂γ = m·u`, `∂²θ_m/∂γ² =
     /// 0`), so the entire γ-jet of a column is a fixed scaling of its value:
-    /// `cos` column `(cos θ_m, −sin θ_m·m·s, −cos θ_m·(m·s)²)`, `sin` column
-    /// `(sin θ_m, cos θ_m·m·s, −sin θ_m·(m·s)²)`. The only transcendental work is
+    /// `cos` column `(cos θ_m, −sin θ_m·m·u, −cos θ_m·(m·u)²)`, `sin` column
+    /// `(sin θ_m, cos θ_m·m·u, −sin θ_m·(m·u)²)`. The only transcendental work is
     /// therefore the `cos θ_m`/`sin θ_m` ladder for `m = 1..=H`.
     ///
     /// The earlier form called `sin_cos` once **per harmonic** — `H` libm
     /// transcendentals per row, each on the progressively larger argument
-    /// `m·γ·s`. We instead seed a single `sin_cos(φ/2)` (`φ = γ·s`) and run the
+    /// `m·γ·u`. We instead seed a single `sin_cos(φ/2)` (`φ = γ·u`) and run the
     /// numerically stable trigonometric recurrence (Singleton / Numerical
     /// Recipes §5.5):
     ///
@@ -113,8 +140,8 @@ impl ClosureFamily {
     /// ```
     ///
     /// One transcendental per row instead of `H`, ~2–2.6× faster. Because the
-    /// recurrence never forms the large argument `m·γ·s` (whose unavoidable f64
-    /// rounding is `ε·m·γ·s`), it is in fact **more accurate** than the old
+    /// recurrence never forms the large argument `m·γ·u` (whose unavoidable f64
+    /// rounding is `ε·m·γ·u`), it is in fact **more accurate** than the old
     /// per-harmonic libm calls: across 2000 inputs × `H ∈ {4,8,16,32,64,128}`
     /// its max absolute error vs an extended-precision (double-double) reference
     /// is 0.72–0.92× that of the old form at every `H` (see the
@@ -134,9 +161,10 @@ impl ClosureFamily {
         if self.harmonics == 0 {
             return;
         }
-        let (alpha, beta, mut cs, mut sn) = recurrence_seed(gamma * s);
+        let u = closure_coordinate(s, self.window);
+        let (alpha, beta, mut cs, mut sn) = recurrence_seed(gamma * u);
         for m in 1..=self.harmonics {
-            let ms = m as f64 * s; // ∂θ_m/∂γ
+            let ms = m as f64 * u; // ∂θ_m/∂γ
             let ci = 2 * m - 1;
             let si = 2 * m;
             // cos column: v=cos, ∂γ=-sin·θ_g, ∂²γ=-cos·θ_g².
@@ -163,7 +191,8 @@ impl ClosureFamily {
         if self.harmonics == 0 {
             return;
         }
-        let (alpha, beta, mut cs, mut sn) = recurrence_seed(gamma * s);
+        let u = closure_coordinate(s, self.window);
+        let (alpha, beta, mut cs, mut sn) = recurrence_seed(gamma * u);
         for m in 1..=self.harmonics {
             value[2 * m - 1] = cs;
             value[2 * m] = sn;
@@ -174,7 +203,8 @@ impl ClosureFamily {
         }
     }
 
-    /// Raw design row `Φ(s; γ) = [1, cos(γs), sin(γs), cos(2γs), …]` and its γ-jet.
+    /// Raw design row `Φ(s; γ) = [1, cos(γu), sin(γu), cos(2γu), …]`
+    /// and its γ-jet, where `u = 2π·s/window`.
     ///
     /// Returns `(value, d/dγ, d²/dγ²)` per column — the support-moving basis and
     /// its exact first/second closure derivatives in one pass. The constant
@@ -220,8 +250,13 @@ impl ClosureFamily {
         let mut i = 0;
         if h > 0 {
             while i + 4 <= n {
-                let s4 = [s[i], s[i + 1], s[i + 2], s[i + 3]];
-                let (alpha, beta, mut cc, mut sn) = seed_lanes(gamma, &s4);
+                let u4 = [
+                    closure_coordinate(s[i], self.window),
+                    closure_coordinate(s[i + 1], self.window),
+                    closure_coordinate(s[i + 2], self.window),
+                    closure_coordinate(s[i + 3], self.window),
+                ];
+                let (alpha, beta, mut cc, mut sn) = seed_lanes(gamma, &u4);
                 for l in 0..4 {
                     pv[(i + l) * d] = 1.0;
                 }
@@ -271,15 +306,20 @@ impl ClosureFamily {
         let mut i = 0;
         if h > 0 {
             while i + 4 <= n {
-                let s4 = [s[i], s[i + 1], s[i + 2], s[i + 3]];
-                let (alpha, beta, mut cc, mut sn) = seed_lanes(gamma, &s4);
-                let svec = f64x4::from(s4);
+                let u4 = [
+                    closure_coordinate(s[i], self.window),
+                    closure_coordinate(s[i + 1], self.window),
+                    closure_coordinate(s[i + 2], self.window),
+                    closure_coordinate(s[i + 3], self.window),
+                ];
+                let (alpha, beta, mut cc, mut sn) = seed_lanes(gamma, &u4);
+                let uvec = f64x4::from(u4);
                 for l in 0..4 {
                     pv[(i + l) * d] = 1.0;
                 }
                 for m in 1..=h {
                     let (ci, si) = (2 * m - 1, 2 * m);
-                    let ms = svec * f64x4::splat(m as f64); // ∂θ_m/∂γ
+                    let ms = uvec * f64x4::splat(m as f64); // ∂θ_m/∂γ
                     // Same per-lane association as the scalar hand-fold.
                     let cca = cc.to_array();
                     let sna = sn.to_array();
@@ -320,20 +360,21 @@ impl ClosureFamily {
     }
 }
 
-/// Seed four independent recurrence lanes for base angles `φ_l = γ·s_l`.
+/// Seed four independent recurrence lanes for canonical base angles
+/// `φ_l = γ·u_l`, where `u_l = 2π·s_l/window`.
 ///
 /// Returns `(α, β, cos φ, sin φ)` as `f64x4` lanes. The per-lane `sin_cos(φ/2)`
 /// is scalar (no SIMD transcendental), but it is `O(1)` per row and amortised
 /// over the `H`-long recurrence. Lane `l` reproduces [`recurrence_seed`]
 /// bit-for-bit.
 #[inline]
-fn seed_lanes(gamma: f64, s4: &[f64; 4]) -> (f64x4, f64x4, f64x4, f64x4) {
+fn seed_lanes(gamma: f64, u4: &[f64; 4]) -> (f64x4, f64x4, f64x4, f64x4) {
     let mut al = [0.0; 4];
     let mut be = [0.0; 4];
     let mut ca = [0.0; 4];
     let mut sa = [0.0; 4];
     for l in 0..4 {
-        let (a, b, c, s) = recurrence_seed(gamma * s4[l]);
+        let (a, b, c, s) = recurrence_seed(gamma * u4[l]);
         al[l] = a;
         be[l] = b;
         ca[l] = c;
@@ -350,14 +391,16 @@ fn seed_lanes(gamma: f64, s4: &[f64; 4]) -> (f64x4, f64x4, f64x4, f64x4) {
 /// The smooth penalty closure-coefficient `c(γ)` for the boundary-conductance
 /// MVP `S(γ) = S_open + c(γ)·S_wrap`, with `c(0)=0, c(1)=1`, and its γ-jet.
 ///
-/// A monotone `C²` interpolant that is flat at both endpoints (so the closure
-/// derivative does not blow up at `γ = 0` or `γ = 1`): the smoothstep
-/// `c(γ) = 3γ² − 2γ³`. Returns `(c, c′, c″)`.
+/// A monotone `C²` interpolant that is flat through second order at both
+/// endpoints (so a box-constrained closure Hessian agrees with the constant
+/// extension outside `[0, 1]`): the quintic smootherstep
+/// `c(γ) = 6γ⁵ − 15γ⁴ + 10γ³`. Returns `(c, c′, c″)`.
 pub fn boundary_conductance(gamma: f64) -> (f64, f64, f64) {
     let g = gamma.clamp(0.0, 1.0);
-    let c = 3.0 * g * g - 2.0 * g * g * g;
-    let cp = 6.0 * g - 6.0 * g * g;
-    let cpp = 6.0 - 12.0 * g;
+    let one_minus_g = 1.0 - g;
+    let c = g * g * g * (10.0 + g * (-15.0 + 6.0 * g));
+    let cp = 30.0 * g * g * one_minus_g * one_minus_g;
+    let cpp = 60.0 * g * one_minus_g * (1.0 - 2.0 * g);
     (c, cp, cpp)
 }
 
@@ -421,49 +464,90 @@ fn chi2_1_quantile(level: f64) -> f64 {
 /// nuisance `θ` and `λ_smooth` already optimised at each γ — the issue's
 /// requirement that γ and λ_smooth are confounded and must both be profiled).
 /// The grid must be sorted ascending in γ and lie in `[0, 1]`.
-pub fn profile_ci_from_grid(grid: &[(f64, f64)], level: f64) -> Result<ClosureProfileCi, String> {
+/// `interval_boundary_support_collapsed` is an independent rank/effective-range
+/// diagnostic at `γ = 0`: collapse cannot be inferred from the scalar profile
+/// values, because an ordinary regular one-sided optimum has the same monotone
+/// score shape.
+pub fn profile_ci_from_grid(
+    grid: &[(f64, f64)],
+    level: f64,
+    interval_boundary_support_collapsed: bool,
+) -> Result<ClosureProfileCi, String> {
     if grid.len() < 2 {
         return Err("closure profile CI needs at least two grid points".into());
     }
-    let half_chi2 = 0.5 * chi2_1_quantile(level);
-
-    // Profile minimiser.
-    let (mut gamma_hat, mut v_min) = (grid[0].0, grid[0].1);
-    for &(g, v) in grid {
-        if !g.is_finite() || !v.is_finite() {
+    if !(level.is_finite() && level > 0.0 && level < 1.0) {
+        return Err("closure profile CI level must lie in (0, 1)".into());
+    }
+    for (index, &(gamma, value)) in grid.iter().enumerate() {
+        if !gamma.is_finite() || !value.is_finite() {
             return Err("closure profile grid has non-finite entries".into());
         }
+        if !(0.0..=1.0).contains(&gamma) {
+            return Err(format!(
+                "closure profile gamma at index {index} lies outside [0, 1]: {gamma}"
+            ));
+        }
+        if index > 0 && gamma <= grid[index - 1].0 {
+            return Err(format!(
+                "closure profile gamma grid must be strictly increasing; indices {} and {index} are {} and {gamma}",
+                index - 1,
+                grid[index - 1].0
+            ));
+        }
+    }
+    let half_chi2 = 0.5 * chi2_1_quantile(level);
+
+    // Profile minimiser (ties keep the first occurrence, so `hat_idx` is a
+    // single well-defined grid index to walk outward from below).
+    let mut hat_idx = 0usize;
+    let (mut gamma_hat, mut v_min) = (grid[0].0, grid[0].1);
+    for (idx, &(g, v)) in grid.iter().enumerate() {
         if v < v_min {
             v_min = v;
             gamma_hat = g;
+            hat_idx = idx;
         }
     }
 
-    // Wilks set: contiguous-or-not membership by linear interpolation of the
-    // crossing 2[V(γ) − V̂] = χ². We scan and record the widest interval that is
-    // in the set and contains γ̂ (the regular case); endpoints are interpolated.
+    // Wilks set: the CI is the single connected component of
+    // `{γ : V(γ) − V̂ ≤ χ²/2}` that contains γ̂, found by walking outward from
+    // `hat_idx` in each direction and stopping (with a linearly-interpolated
+    // crossing) at the first rejected neighbour. A profile that dips back
+    // in-set further out (e.g. a second, shallower local minimum) must NOT be
+    // unioned into the reported interval — that would report a "confidence
+    // interval" spanning clearly-rejected γ in between, which is not a
+    // confidence set at all.
     let in_set = |v: f64| v - v_min <= half_chi2 + 1e-12;
+    let target = v_min + half_chi2;
+
     let mut ci_lo = gamma_hat;
+    let mut i = hat_idx;
+    while i > 0 {
+        let (g0, v0) = grid[i - 1];
+        let (g1, v1) = grid[i];
+        if in_set(v0) {
+            ci_lo = g0;
+            i -= 1;
+        } else {
+            let t = ((target - v1) / (v0 - v1)).clamp(0.0, 1.0);
+            ci_lo = g1 + t * (g0 - g1);
+            break;
+        }
+    }
+
     let mut ci_hi = gamma_hat;
-    for w in grid.windows(2) {
-        let (g0, v0) = w[0];
-        let (g1, v1) = w[1];
-        let (a0, a1) = (in_set(v0), in_set(v1));
-        if a0 {
-            ci_lo = ci_lo.min(g0);
-            ci_hi = ci_hi.max(g0);
-        }
-        if a1 {
-            ci_lo = ci_lo.min(g1);
-            ci_hi = ci_hi.max(g1);
-        }
-        if a0 != a1 {
-            // Linear crossing of the χ² threshold between g0 and g1.
-            let target = v_min + half_chi2;
+    let mut i = hat_idx;
+    while i + 1 < grid.len() {
+        let (g0, v0) = grid[i];
+        let (g1, v1) = grid[i + 1];
+        if in_set(v1) {
+            ci_hi = g1;
+            i += 1;
+        } else {
             let t = ((target - v0) / (v1 - v0)).clamp(0.0, 1.0);
-            let g_cross = g0 + t * (g1 - g0);
-            ci_lo = ci_lo.min(g_cross);
-            ci_hi = ci_hi.max(g_cross);
+            ci_hi = g0 + t * (g1 - g0);
+            break;
         }
     }
     ci_lo = ci_lo.clamp(0.0, 1.0);
@@ -471,14 +555,7 @@ pub fn profile_ci_from_grid(grid: &[(f64, f64)], level: f64) -> Result<ClosurePr
 
     let ci_includes_circle = ci_hi >= 1.0 - 1e-9;
     let ci_includes_interval = ci_lo <= 1e-9;
-    // Singular boundary: γ̂ at the floor AND the profile is flat-to-worse toward
-    // the interior (the support-collapse signature — the family cannot improve
-    // by opening up, so it wants to keep collapsing past γ = 0).
-    let singular_boundary = gamma_hat <= 1e-9 && {
-        // first interior point not better than the boundary by more than noise
-        let interior = grid.iter().find(|&&(g, _)| g > 1e-9);
-        interior.map(|&(_, v)| v >= v_min - 1e-9).unwrap_or(false)
-    };
+    let singular_boundary = gamma_hat <= 1e-9 && interval_boundary_support_collapsed;
 
     Ok(ClosureProfileCi {
         gamma_hat,
@@ -558,7 +635,7 @@ mod tests {
     /// columns `[1, cos(s), sin(s), …]`.
     #[test]
     fn gamma_one_is_circle_basis() {
-        let fam = ClosureFamily::new(2, std::f64::consts::TAU);
+        let fam = ClosureFamily::new(2, std::f64::consts::TAU).expect("valid window");
         let s = 1.3_f64;
         let (v, _, _) = fam.row_jet(s, 1.0);
         assert!((v[0] - 1.0).abs() < 1e-15);
@@ -568,11 +645,75 @@ mod tests {
         assert!((v[4] - (2.0 * s).sin()).abs() < 1e-14);
     }
 
+    /// `gamma = 1` means one full turn on EVERY observed window, not only on
+    /// the canonical `2pi` window. Consequently the two endpoints have the
+    /// same value in every Fourier column.
+    #[test]
+    fn gamma_one_closes_every_positive_window() {
+        for &window in &[0.125_f64, 3.7, 10.0, 1.0e6] {
+            let fam = ClosureFamily::new(8, window).expect("valid window");
+            let (left, _, _) = fam.row_jet(0.0, 1.0);
+            let (right, _, _) = fam.row_jet(window, 1.0);
+            for col in 0..fam.raw_dim() {
+                assert!(
+                    (left[col] - right[col]).abs() < 2.0e-13,
+                    "window={window}, column={col}: left={} right={}",
+                    left[col],
+                    right[col]
+                );
+            }
+        }
+    }
+
+    /// The closure coordinate is dimensionless. A change of measurement units
+    /// `s -> a*s`, `window -> a*window` therefore leaves the value and both
+    /// gamma-derivative channels invariant.
+    #[test]
+    fn basis_and_gamma_jets_are_invariant_to_coordinate_rescaling() {
+        let window = 7.3_f64;
+        let scale = 3.7_f64;
+        let gamma = 0.63_f64;
+        let s = array![0.0, 0.17, 1.9, 3.65, 5.8, 7.11, window];
+        let scaled_s = &s * scale;
+        let base = ClosureFamily::new(9, window).expect("valid base window");
+        let scaled = ClosureFamily::new(9, window * scale).expect("valid rescaled window");
+        let (v0, d0, dd0) = base.design_jet(s.view(), gamma);
+        let (v1, d1, dd1) = scaled.design_jet(scaled_s.view(), gamma);
+
+        for (label, lhs, rhs) in [
+            ("value", v0, v1),
+            ("d_gamma", d0, d1),
+            ("dd_gamma", dd0, dd1),
+        ] {
+            let max_error = lhs
+                .iter()
+                .zip(rhs.iter())
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(
+                max_error < 2.0e-11,
+                "{label} changed under coordinate rescaling: max error {max_error:.3e}"
+            );
+        }
+    }
+
+    #[test]
+    fn nonpositive_or_nonfinite_window_is_rejected() {
+        for window in [0.0_f64, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                ClosureFamily::new(2, window).is_err(),
+                "invalid window {window} was accepted"
+            );
+        }
+        assert!(ClosureFamily::new(usize::MAX, 1.0).is_err());
+    }
+
     /// The analytic γ-jet of the basis matches a central finite difference at
-    /// an interior γ and across the γ → 0 Taylor limit.
+    /// an interior γ and across the γ → 0 Taylor limit. The deliberately
+    /// non-canonical window makes this exercise the `2π/window` chain factor.
     #[test]
     fn basis_gamma_jet_matches_fd() {
-        let fam = ClosureFamily::new(3, std::f64::consts::TAU);
+        let fam = ClosureFamily::new(3, 5.3).expect("valid window");
         let s = 0.8_f64;
         for &g0 in &[1.0_f64, 0.5, 0.05, 1e-6] {
             let (_, dg, dgg) = fam.row_jet(s, g0);
@@ -597,13 +738,22 @@ mod tests {
         }
     }
 
-    /// Boundary conductance endpoints and flatness: c(0)=0, c(1)=1, c′(0)=c′(1)=0.
+    /// Boundary conductance endpoints and C² flatness under the constant
+    /// extension: c(0)=0, c(1)=1 and both derivative channels vanish there.
     #[test]
     fn conductance_endpoints_and_flat() {
-        let (c0, cp0, _) = boundary_conductance(0.0);
-        let (c1, cp1, _) = boundary_conductance(1.0);
+        let (c0, cp0, cpp0) = boundary_conductance(0.0);
+        let (c1, cp1, cpp1) = boundary_conductance(1.0);
         assert!(c0.abs() < 1e-15 && (c1 - 1.0).abs() < 1e-15);
         assert!(cp0.abs() < 1e-15 && cp1.abs() < 1e-15);
+        assert!(cpp0.abs() < 1e-15 && cpp1.abs() < 1e-15);
+
+        for &g in &[-2.0_f64, -0.1] {
+            assert_eq!(boundary_conductance(g), (0.0, 0.0, 0.0));
+        }
+        for &g in &[1.1_f64, 3.0] {
+            assert_eq!(boundary_conductance(g), (1.0, 0.0, 0.0));
+        }
     }
 
     /// The conductance-penalty γ-jet interpolates S_open ⇄ S_circle and its
@@ -636,7 +786,7 @@ mod tests {
             .map(|k| k as f64 / 100.0)
             .map(|g| (g, v(g)))
             .collect();
-        let ci = profile_ci_from_grid(&grid, 0.95).unwrap();
+        let ci = profile_ci_from_grid(&grid, 0.95, false).unwrap();
         assert!((ci.gamma_hat - 0.6).abs() < 0.02, "γ̂ {}", ci.gamma_hat);
         assert!(!ci.ci_includes_circle, "CI hi {}", ci.ci_hi);
         assert!(!ci.ci_includes_interval, "CI lo {}", ci.ci_lo);
@@ -655,13 +805,51 @@ mod tests {
             .map(|k| k as f64 / 100.0)
             .map(|g| (g, v(g)))
             .collect();
-        let ci = profile_ci_from_grid(&grid, 0.95).unwrap();
+        let ci = profile_ci_from_grid(&grid, 0.95, false).unwrap();
         assert!(ci.ci_includes_circle);
         assert!(!ci.singular_boundary);
     }
 
-    /// A profile that keeps improving toward γ = 0 with the floor as the
-    /// minimiser flags the singular boundary for the mixture-rung handoff.
+    /// A bimodal profile — a deep global minimum at γ = 0.6 plus an isolated,
+    /// shallower dip elsewhere that also happens to lie inside the Wilks
+    /// threshold — must report only the connected in-set region around γ̂, not
+    /// a union that swallows the clearly-rejected γ in between (the region
+    /// around γ = 0.3 sits far above the threshold and must stay excluded).
+    #[test]
+    fn profile_ci_excludes_disjoint_in_set_region() {
+        let v = |g: f64| -> f64 {
+            if g < 0.35 {
+                // Isolated dip near γ = 0.2, shallow enough to be in-set on
+                // its own, but separated from γ̂ by clearly-rejected points.
+                100.1 + 40.0 * (g - 0.2).powi(2)
+            } else {
+                100.0 + 50.0 * (g - 0.6).powi(2)
+            }
+        };
+        let grid: Vec<(f64, f64)> = (0..=100)
+            .map(|k| k as f64 / 100.0)
+            .map(|g| (g, v(g)))
+            .collect();
+        let ci = profile_ci_from_grid(&grid, 0.95, false).unwrap();
+        assert!((ci.gamma_hat - 0.6).abs() < 0.02, "γ̂ {}", ci.gamma_hat);
+        // The disjoint dip near γ = 0.2 must not be unioned in: γ = 0.4 (well
+        // above threshold, V=110) sits between it and γ̂ and must be rejected.
+        assert!(
+            ci.ci_lo > 0.4,
+            "CI lower bound {} wrongly reaches into the disjoint region",
+            ci.ci_lo
+        );
+        let half_width = (chi2_1_quantile(0.95) / (2.0 * 50.0)).sqrt();
+        assert!(
+            (ci.ci_lo - (0.6 - half_width)).abs() < 0.02,
+            "ci_lo {} should match the connected-component crossing near γ̂",
+            ci.ci_lo
+        );
+    }
+
+    /// A profile that keeps improving toward γ = 0 is not by itself evidence of
+    /// support collapse: a separate effective-range diagnostic distinguishes a
+    /// regular one-sided optimum from the singular mixture-rung handoff.
     #[test]
     fn profile_flags_singular_boundary() {
         let v = |g: f64| 10.0 + 20.0 * g; // monotone increasing ⇒ min at 0, interior worse
@@ -669,10 +857,32 @@ mod tests {
             .map(|k| k as f64 / 100.0)
             .map(|g| (g, v(g)))
             .collect();
-        let ci = profile_ci_from_grid(&grid, 0.95).unwrap();
+        let regular_ci = profile_ci_from_grid(&grid, 0.95, false).unwrap();
+        assert!(!regular_ci.singular_boundary);
+
+        let ci = profile_ci_from_grid(&grid, 0.95, true).unwrap();
         assert!((ci.gamma_hat).abs() < 1e-9);
         assert!(ci.singular_boundary);
         assert!(ci.ci_includes_interval);
+    }
+
+    #[test]
+    fn profile_grid_contract_is_enforced() {
+        for (grid, level) in [
+            (vec![(0.0, 1.0), (1.0, 2.0)], 0.0),
+            (vec![(0.0, 1.0), (1.0, 2.0)], 1.0),
+            (vec![(0.0, 1.0), (1.0, 2.0)], f64::NAN),
+            (vec![(-0.1, 1.0), (1.0, 2.0)], 0.95),
+            (vec![(0.0, 1.0), (1.1, 2.0)], 0.95),
+            (vec![(0.5, 1.0), (0.4, 2.0)], 0.95),
+            (vec![(0.5, 1.0), (0.5, 2.0)], 0.95),
+            (vec![(0.0, f64::NAN), (1.0, 2.0)], 0.95),
+        ] {
+            assert!(
+                profile_ci_from_grid(&grid, level, false).is_err(),
+                "invalid profile contract was accepted: grid={grid:?}, level={level}"
+            );
+        }
     }
 
     /// χ²₁ quantile sanity: the 95% point is ≈ 3.841.
@@ -786,9 +996,9 @@ mod tests {
         }
     }
 
-    /// Exact double-double argument `m·γ·s` (`m` a small integer).
-    fn dd_arg(m: usize, gamma: f64, s: f64) -> Dd {
-        let (p, e) = two_prod(gamma, s);
+    /// Exact double-double argument `m·γ·u` (`m` a small integer).
+    fn dd_arg(m: usize, gamma: f64, u: f64) -> Dd {
+        let (p, e) = two_prod(gamma, u);
         Dd { hi: p, lo: e }.mul_f(m as f64)
     }
 
@@ -819,19 +1029,20 @@ mod tests {
             (seed >> 11) as f64 / (1u64 << 53) as f64
         };
         for &h in &[4usize, 8, 16, 32, 64, 128] {
-            let fam = ClosureFamily::new(h, std::f64::consts::TAU);
+            let fam = ClosureFamily::new(h, std::f64::consts::TAU).expect("valid window");
             let mut max_old = 0.0f64;
             let mut max_new = 0.0f64;
             for _ in 0..2000 {
                 let s = (rng() * 2.0 - 1.0) * std::f64::consts::TAU;
                 let gamma = rng();
+                let u = closure_coordinate(s, std::f64::consts::TAU);
                 let (val, dg, dgg) = fam.row_jet(s, gamma);
                 for m in 1..=h {
-                    let (ts, tc) = dd_sincos(dd_arg(m, gamma, s));
+                    let (ts, tc) = dd_sincos(dd_arg(m, gamma, u));
                     let (tcf, tsf) = (tc.to_f64(), ts.to_f64());
-                    let ms = m as f64 * s;
+                    let ms = m as f64 * u;
                     let (cs_new, sn_new) = (val[2 * m - 1], val[2 * m]);
-                    // OLD: per-harmonic libm on the large argument m·γ·s.
+                    // OLD: per-harmonic libm on the large argument m·γ·u.
                     let (osn, ocs) = (gamma * ms).sin_cos();
                     // Accuracy gate on the transcendental VALUE channels (cos/sin
                     // are O(1), so absolute ≈ relative). The γ-jet channels are
@@ -869,7 +1080,7 @@ mod tests {
     #[test]
     fn simd_design_is_bit_identical_to_scalar_rows() {
         for &h in &[0usize, 1, 3, 7, 16] {
-            let fam = ClosureFamily::new(h, std::f64::consts::TAU);
+            let fam = ClosureFamily::new(h, 7.3).expect("valid window");
             // n deliberately not a multiple of 4 to exercise the remainder.
             let n = 11;
             let s: Vec<f64> = (0..n).map(|k| (k as f64) * 0.37 - 1.9).collect();

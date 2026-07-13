@@ -12,6 +12,7 @@ use super::derivative_oracle::{
 use super::dual::{Dual, DualKinkBranch};
 use super::tests::{fixed_state_logdet, gamma_fd_tiny_fixture};
 use super::*;
+use approx::assert_abs_diff_eq;
 
 #[derive(Clone, Copy)]
 struct TinyComplex {
@@ -301,7 +302,7 @@ fn smooth_rho_derivative_matrix_2156(
     let border = term
         .border_channels_for_cache(cache)
         .expect("border channels");
-    let lambda = rho.lambda_smooth_vec()[atom_idx];
+    let lambda = rho.lambda_smooth_vec().unwrap()[atom_idx];
     for left in &border {
         if left.atom != atom_idx {
             continue;
@@ -335,7 +336,7 @@ fn softmax_sparse_rho_derivative_matrix_2156(
     else {
         panic!("softmax sparse derivative requires softmax mode");
     };
-    let scale = rho.lambda_sparse() * sparsity / (temperature * temperature);
+    let scale = rho.lambda_sparse().unwrap() * sparsity / (temperature * temperature);
     for row in 0..term.n_obs() {
         let assignments =
             crate::assignment::softmax_row(term.assignment.logits.row(row), temperature);
@@ -356,7 +357,7 @@ fn softmax_sparse_rho_derivative_matrix_2156(
     dh
 }
 
-fn ibp_sparse_rho_derivative_matrix_2156(
+fn ordered_beta_bernoulli_sparse_rho_derivative_matrix_2156(
     term: &SaeManifoldTerm,
     rho: &SaeManifoldRho,
     cache: &ArrowFactorCache,
@@ -365,60 +366,40 @@ fn ibp_sparse_rho_derivative_matrix_2156(
     let dim = total_t + cache.k;
     let mut dh = Array2::<f64>::zeros((dim, dim));
     let k_atoms = term.k_atoms();
-    let mut hdiag = assignment_prior_log_strength_hdiag(&term.assignment, rho).expect("IBP hdiag");
-    let mut channels = ibp_assignment_third_channels(&term.assignment, rho, false)
-        .expect("IBP channels")
-        .expect("IBP sparse derivative requires IBP channels");
-    // #2144/#1038: the production assembly PSD-majorizes the IBP curvature
+    let mut hdiag = assignment_prior_log_strength_hdiag(&term.assignment, rho)
+        .expect("ordered Beta--Bernoulli hdiag");
+    let channels = ordered_beta_bernoulli_psd_majorizer_third_channels(&term.assignment, rho)
+        .expect("ordered Beta--Bernoulli channels")
+        .expect(
+            "ordered Beta--Bernoulli sparse derivative requires ordered Beta--Bernoulli channels",
+        );
+    // #2144/#1038: the production assembly PSD-majorizes the ordered Beta--Bernoulli curvature
     // UNCONDITIONALLY, so this mirror does too.
     for row in 0..term.n_obs() {
         for atom in 0..k_atoms {
             let slot = row * k_atoms + atom;
-            hdiag[slot] = ibp_majorized_hdiag_2156(&channels, row, k_atoms, atom, hdiag[slot]);
+            hdiag[slot] = ordered_beta_bernoulli_majorized_hdiag_2156(
+                &channels,
+                row,
+                k_atoms,
+                atom,
+                hdiag[slot],
+            );
         }
     }
-    for atom in 0..k_atoms {
-        if channels.cross_row_d[atom] < 0.0 {
-            channels.cross_row_d[atom] = 0.0;
-        }
-    }
-
-    let mut sites: Vec<Vec<(usize, usize)>> = vec![Vec::new(); k_atoms];
     for row in 0..term.n_obs() {
         let vars = term
             .row_vars_for_cache_row(row, cache)
-            .expect("IBP row vars");
-        let mut row_no_self = Array2::<f64>::zeros((cache.row_dims[row], cache.row_dims[row]));
-        let mut row_self = Array2::<f64>::zeros((cache.row_dims[row], cache.row_dims[row]));
+            .expect("ordered Beta--Bernoulli row vars");
+        let mut row_derivative = Array2::<f64>::zeros((cache.row_dims[row], cache.row_dims[row]));
         for (pos, var) in vars.iter().enumerate() {
             if let SaeLocalRowVar::Logit { atom } = *var {
                 let slot = row * k_atoms + atom;
-                let j = channels.z_jac[slot];
-                let self_curv = channels.cross_row_d[atom] * j * j;
-                row_no_self[[pos, pos]] = hdiag[slot] - self_curv;
-                row_self[[pos, pos]] = self_curv;
-                sites[atom].push((row, cache.row_offsets[row] + pos));
+                row_derivative[[pos, pos]] = hdiag[slot];
             }
         }
-        let pushed = row_deflation_pushforward_2156(cache, row, &row_no_self);
+        let pushed = row_deflation_pushforward_2156(cache, row, &row_derivative);
         add_row_block_2156(&mut dh, cache, row, &pushed);
-        add_row_block_2156(&mut dh, cache, row, &row_self);
-    }
-
-    for (atom, atom_sites) in sites.iter().enumerate() {
-        let d_k = channels.cross_row_d[atom];
-        if d_k == 0.0 {
-            continue;
-        }
-        for &(row_i, idx_i) in atom_sites {
-            let j_i = channels.z_jac[row_i * k_atoms + atom];
-            for &(row_j, idx_j) in atom_sites {
-                if row_i != row_j {
-                    let j_j = channels.z_jac[row_j * k_atoms + atom];
-                    dh[[idx_i, idx_j]] += d_k * j_i * j_j;
-                }
-            }
-        }
     }
     dh
 }
@@ -434,10 +415,12 @@ fn rho_logdet_derivative_matrix_2156(
             AssignmentMode::Softmax { .. } => {
                 softmax_sparse_rho_derivative_matrix_2156(term, rho, cache)
             }
-            AssignmentMode::IBPMap { .. } => {
-                ibp_sparse_rho_derivative_matrix_2156(term, rho, cache)
+            AssignmentMode::OrderedBetaBernoulli { .. } => {
+                ordered_beta_bernoulli_sparse_rho_derivative_matrix_2156(term, rho, cache)
             }
-            _ => panic!("rho sparse derivative fixture must use softmax or IBP"),
+            _ => {
+                panic!("rho sparse derivative fixture must use softmax or ordered Beta--Bernoulli")
+            }
         }
     } else {
         let atom = coord - 1;
@@ -458,10 +441,10 @@ fn ard_rho_derivative_matrix_2156(
     let mut dh = Array2::<f64>::zeros((dim, dim));
     let coord_offsets = term.assignment.coord_offsets();
     let periods = term.assignment.coords[atom].effective_axis_periods();
-    let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
+    let alpha = rho.ard_precisions().unwrap()[atom][axis];
     for row in 0..term.n_obs() {
         let t = term.assignment.coords[atom].row(row)[axis];
-        let hess = ArdAxisPrior::eval(alpha, t, periods[axis]).hess.max(0.0);
+        let hess = ArdAxisPrior::eval(alpha, t, periods[axis]).psd_majorizer_hess();
         let mut row_d = Array2::<f64>::zeros((cache.row_dims[row], cache.row_dims[row]));
         match term.last_row_layout.as_ref() {
             Some(layout) => {
@@ -614,13 +597,13 @@ fn softmax_logit_dual_channel_report_2156(
 
     for a in 0..jets.vars.len() {
         for b in 0..jets.vars.len() {
-            let entry = sae_dot(&jets.second[a][local_w], &jets.first[b])
-                + sae_dot(&jets.first[a], &jets.second[b][local_w]);
+            let entry = sae_dot(jets.second(a, local_w), jets.first(b))
+                + sae_dot(jets.first(a), jets.second(b, local_w));
             tt_data[[base + a, base + b]] = entry;
         }
     }
 
-    let scale = rho.lambda_sparse() * sparsity / (temperature * temperature);
+    let scale = rho.lambda_sparse().unwrap() * sparsity / (temperature * temperature);
     let majorizer_deriv = gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
         term.k_atoms(),
         temperature,
@@ -634,8 +617,8 @@ fn softmax_logit_dual_channel_report_2156(
 
     for a in 0..jets.vars.len() {
         for (beta_pos, channel) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.second[a][local_w], &jets.beta[beta_pos])
-                + sae_dot(&jets.first[a], &jets.beta_deriv[local_w][beta_pos]);
+            let entry = sae_dot(jets.second(a, local_w), jets.beta(beta_pos))
+                + sae_dot(jets.first(a), jets.beta_deriv(local_w, beta_pos));
             let t_idx = base + a;
             let b_idx = total_t + channel.index;
             t_beta[[t_idx, b_idx]] = entry;
@@ -644,8 +627,8 @@ fn softmax_logit_dual_channel_report_2156(
     }
     for (beta_i, channel_i) in border.iter().enumerate() {
         for (beta_j, channel_j) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.beta_deriv[local_w][beta_i], &jets.beta[beta_j])
-                + sae_dot(&jets.beta[beta_i], &jets.beta_deriv[local_w][beta_j]);
+            let entry = sae_dot(jets.beta_deriv(local_w, beta_i), jets.beta(beta_j))
+                + sae_dot(jets.beta(beta_i), jets.beta_deriv(local_w, beta_j));
             beta_beta[[total_t + channel_i.index, total_t + channel_j.index]] = entry;
         }
     }
@@ -663,7 +646,7 @@ fn softmax_logit_dual_channel_report_2156(
     )
 }
 
-fn install_low_rank_ibp_metric_2156(term: &mut SaeManifoldTerm) {
+fn install_low_rank_ordered_beta_bernoulli_metric_2156(term: &mut SaeManifoldTerm) {
     use gam_problem::{RowMetric, pack_probe_factors};
     use std::sync::Arc;
 
@@ -694,18 +677,19 @@ fn install_low_rank_ibp_metric_2156(term: &mut SaeManifoldTerm) {
     );
 }
 
-fn ibp_majorized_hdiag_2156(
-    channels: &IbpHessianDiagThirdChannels,
+fn ordered_beta_bernoulli_majorized_hdiag_2156(
+    channels: &OrderedBetaBernoulliHessianDiagThirdChannels,
     row: usize,
     k_atoms: usize,
     atom: usize,
     raw_hdiag: f64,
 ) -> f64 {
-    let j = channels.z_jac[row * k_atoms + atom];
-    let d = channels.cross_row_d[atom];
-    let self_term = d * j * j;
-    let diag_score_c = raw_hdiag - self_term;
-    d.max(0.0) * j * j + diag_score_c.max(0.0)
+    let index = row * k_atoms + atom;
+    if channels.diagonal_term[index] <= 0.0 {
+        return 0.0;
+    }
+    let j = channels.z_jac[index];
+    raw_hdiag - channels.mass_hessian_coefficient[atom] * j * j
 }
 
 fn dense_trace_hinv_dh_2156(h: &Array2<f64>, dh: &Array2<f64>) -> f64 {
@@ -795,7 +779,7 @@ fn assert_dual_rho_logdet_parity_2156(
         sparse_analytic_half,
     ));
 
-    let lambda_smooth = rho.lambda_smooth_vec();
+    let lambda_smooth = rho.lambda_smooth_vec().unwrap();
     let smooth_analytic = term
         .decoder_smoothness_effective_dof_with_solver_per_atom(cache, &solver, &lambda_smooth)
         .expect("production smoothness rho trace");
@@ -921,11 +905,27 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
     softmax_rho.log_lambda_sparse = 0.5;
     softmax_rho.log_lambda_smooth = vec![-1.7, -1.2];
     softmax_term
-        .reml_criterion_with_cache(target.view(), &softmax_rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &softmax_rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged softmax parity cache");
     configure_decisive_softmax_logits_2156(&mut softmax_term);
     let (softmax_value, softmax_loss, softmax_cache) = softmax_term
-        .reml_criterion_with_cache(target.view(), &softmax_rho, None, 0, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &softmax_rho,
+            None,
+            0,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("fixed-branch softmax parity cache");
     assert!(
         softmax_value.is_finite() && softmax_loss.total().is_finite(),
@@ -945,47 +945,70 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
     let softmax_max_rel =
         assert_dual_rho_logdet_parity_2156("softmax", &softmax_term, &softmax_rho, &softmax_cache);
 
-    let (mut ibp_term, ibp_target, mut ibp_rho) = gamma_fd_tiny_fixture();
-    ibp_term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
-    install_low_rank_ibp_metric_2156(&mut ibp_term);
-    ibp_rho.log_lambda_sparse = 0.6;
-    ibp_rho.log_lambda_smooth = vec![-1.6, -1.1];
-    let (ibp_value, ibp_loss, ibp_cache) = ibp_term
-        .reml_criterion_with_cache(ibp_target.view(), &ibp_rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged low-rank-metric IBP parity cache");
+    let (
+        mut ordered_beta_bernoulli_term,
+        ordered_beta_bernoulli_target,
+        mut ordered_beta_bernoulli_rho,
+    ) = gamma_fd_tiny_fixture();
+    ordered_beta_bernoulli_term.assignment.mode =
+        AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
+    install_low_rank_ordered_beta_bernoulli_metric_2156(&mut ordered_beta_bernoulli_term);
+    ordered_beta_bernoulli_rho.log_lambda_sparse = 0.6;
+    ordered_beta_bernoulli_rho.log_lambda_smooth = vec![-1.6, -1.1];
+    let (ordered_beta_bernoulli_value, ordered_beta_bernoulli_loss, ordered_beta_bernoulli_cache) =
+        ordered_beta_bernoulli_term
+            .penalized_quasi_laplace_criterion_with_cache(
+                ordered_beta_bernoulli_target.view(),
+                &ordered_beta_bernoulli_rho,
+                None,
+                200,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
+            .expect("converged low-rank-metric ordered Beta--Bernoulli parity cache");
     assert!(
-        ibp_value.is_finite() && ibp_loss.total().is_finite(),
-        "IBP parity fixture must produce a finite cache"
+        ordered_beta_bernoulli_value.is_finite() && ordered_beta_bernoulli_loss.total().is_finite(),
+        "ordered Beta--Bernoulli parity fixture must produce a finite cache"
     );
-    let low_rank_certificate =
-        BranchCertificate::from_arrow_cache(&ibp_cache, MajorizerAnchorMode::FrozenAnchor);
+    let low_rank_certificate = BranchCertificate::from_arrow_cache(
+        &ordered_beta_bernoulli_cache,
+        MajorizerAnchorMode::FrozenAnchor,
+    );
     assert!(
-        ibp_term
+        ordered_beta_bernoulli_term
             .row_metric()
-            .is_some_and(|m| m.whitens_likelihood() && m.metric_rank() < ibp_term.output_dim())
-            && low_rank_certificate.cross_row_woodbury_rank > 0,
-        "IBP parity fixture must exercise the low-rank metric and IBP Woodbury branch; \
+            .is_some_and(|m| m.whitens_likelihood()
+                && m.metric_rank() < ordered_beta_bernoulli_term.output_dim()),
+        "ordered Beta--Bernoulli parity fixture must exercise the low-rank metric branch; \
          certificate={low_rank_certificate:?}"
     );
-    let ibp_theta_probes: Vec<(usize, usize)> = (0..ibp_cache.n_rows())
-        .flat_map(|row| (0..ibp_cache.row_dims[row]).map(move |local| (row, local)))
+    let ordered_beta_bernoulli_theta_probes: Vec<(usize, usize)> = (0
+        ..ordered_beta_bernoulli_cache.n_rows())
+        .flat_map(|row| {
+            (0..ordered_beta_bernoulli_cache.row_dims[row]).map(move |local| (row, local))
+        })
         .collect();
-    let ibp_theta_max_rel = assert_live_theta_logdet_fd_2156(
-        "low_rank_metric_ibp",
-        &ibp_term,
-        &ibp_target,
-        &ibp_rho,
-        &ibp_cache,
-        &ibp_theta_probes,
+    let ordered_beta_bernoulli_theta_max_rel = assert_live_theta_logdet_fd_2156(
+        "low_rank_metric_ordered_beta_bernoulli",
+        &ordered_beta_bernoulli_term,
+        &ordered_beta_bernoulli_target,
+        &ordered_beta_bernoulli_rho,
+        &ordered_beta_bernoulli_cache,
+        &ordered_beta_bernoulli_theta_probes,
     );
-    let ibp_max_rel =
-        assert_dual_rho_logdet_parity_2156("low_rank_metric_ibp", &ibp_term, &ibp_rho, &ibp_cache);
+    let ordered_beta_bernoulli_max_rel = assert_dual_rho_logdet_parity_2156(
+        "low_rank_metric_ordered_beta_bernoulli",
+        &ordered_beta_bernoulli_term,
+        &ordered_beta_bernoulli_rho,
+        &ordered_beta_bernoulli_cache,
+    );
 
     let (mut deflated_term, deflated_target, mut deflated_rho) = gamma_fd_tiny_fixture();
-    deflated_term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+    deflated_term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, true);
     deflated_rho.log_lambda_sparse = 0.5;
     let (deflated_value, deflated_loss, deflated_cache) = deflated_term
-        .reml_criterion_with_cache(
+        .penalized_quasi_laplace_criterion_with_cache(
             deflated_target.view(),
             &deflated_rho,
             None,
@@ -1017,7 +1040,7 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
         .flat_map(|row| (0..deflated_cache.row_dims[row]).map(move |local| (row, local)))
         .collect();
     let deflated_theta_max_rel = assert_live_theta_logdet_fd_2156(
-        "deflated_rows_ibp_theta",
+        "deflated_rows_ordered_beta_bernoulli_theta",
         &deflated_term,
         &deflated_target,
         &deflated_rho,
@@ -1032,7 +1055,7 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
     );
 
     eprintln!(
-        "gam#2156/#2144 logdet parity max_rel: softmax_theta_live_fd={softmax_theta_max_rel:.3e}, softmax_rho={softmax_max_rel:.3e}, low_rank_metric_ibp_theta_live_fd={ibp_theta_max_rel:.3e}, low_rank_metric_ibp_rho={ibp_max_rel:.3e}, deflated_ibp_theta_live_fd={deflated_theta_max_rel:.3e}, deflated_ard={deflated_ard_max_rel:.3e}"
+        "gam#2156/#2144 logdet parity max_rel: softmax_theta_live_fd={softmax_theta_max_rel:.3e}, softmax_rho={softmax_max_rel:.3e}, low_rank_metric_ordered_beta_bernoulli_theta_live_fd={ordered_beta_bernoulli_theta_max_rel:.3e}, low_rank_metric_ordered_beta_bernoulli_rho={ordered_beta_bernoulli_max_rel:.3e}, deflated_ordered_beta_bernoulli_theta_live_fd={deflated_theta_max_rel:.3e}, deflated_ard={deflated_ard_max_rel:.3e}"
     );
 }
 
@@ -1041,11 +1064,27 @@ pub(crate) fn branch_guarded_dual_oracle_pins_live_softmax_channels_2156() {
     let (mut softmax_term, target, mut softmax_rho) = gamma_fd_tiny_fixture();
     softmax_rho.log_lambda_sparse = 0.5;
     softmax_term
-        .reml_criterion_with_cache(target.view(), &softmax_rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &softmax_rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged softmax cache");
     configure_decisive_softmax_logits_2156(&mut softmax_term);
     let (softmax_value, softmax_loss, softmax_cache) = softmax_term
-        .reml_criterion_with_cache(target.view(), &softmax_rho, None, 0, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &softmax_rho,
+            None,
+            0,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("fixed-state softmax cache");
     assert!(
         softmax_value.is_finite() && softmax_loss.total().is_finite(),
@@ -1131,11 +1170,27 @@ pub(crate) fn softmax_tt_weight_product_logit_adjoint_hits_both_factors_2156() {
 pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
     rho.log_lambda_sparse = 0.5;
-    term.reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged cache");
+    term.penalized_quasi_laplace_criterion_with_cache(
+        target.view(),
+        &rho,
+        None,
+        200,
+        0.4,
+        1.0e-6,
+        1.0e-6,
+    )
+    .expect("converged cache");
     configure_decisive_softmax_logits_2156(&mut term);
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 0, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            0,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("off-kink fixed-state cache");
 
     let row = 0usize;
@@ -1168,7 +1223,7 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
             temperature,
             sparsity,
         } => {
-            let scale = rho.lambda_sparse() * sparsity / (temperature * temperature);
+            let scale = rho.lambda_sparse().unwrap() * sparsity / (temperature * temperature);
             let row_logits: Vec<f64> = (0..term.k_atoms())
                 .map(|atom| term.assignment.logits[[row, atom]])
                 .collect();
@@ -1182,8 +1237,8 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     };
     for a in 0..jets.vars.len() {
         for b in 0..jets.vars.len() {
-            let mut entry = sae_dot(&jets.second[a][local_w], &jets.first[b])
-                + sae_dot(&jets.first[a], &jets.second[b][local_w]);
+            let mut entry = sae_dot(jets.second(a, local_w), jets.first(b))
+                + sae_dot(jets.first(a), jets.second(b, local_w));
             if let (
                 SaeLocalRowVar::Logit { atom: atom_a },
                 SaeLocalRowVar::Logit { atom: atom_b },
@@ -1200,8 +1255,8 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     }
     for a in 0..jets.vars.len() {
         for (beta_pos, channel) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.second[a][local_w], &jets.beta[beta_pos])
-                + sae_dot(&jets.first[a], &jets.beta_deriv[local_w][beta_pos]);
+            let entry = sae_dot(jets.second(a, local_w), jets.beta(beta_pos))
+                + sae_dot(jets.first(a), jets.beta_deriv(local_w, beta_pos));
             let global_a = base + a;
             let global_beta = total_t + channel.index;
             dh[[global_a, global_beta]] = entry;
@@ -1210,8 +1265,8 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     }
     for (beta_i, channel_i) in border.iter().enumerate() {
         for (beta_j, channel_j) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.beta_deriv[local_w][beta_i], &jets.beta[beta_j])
-                + sae_dot(&jets.beta[beta_i], &jets.beta_deriv[local_w][beta_j]);
+            let entry = sae_dot(jets.beta_deriv(local_w, beta_i), jets.beta(beta_j))
+                + sae_dot(jets.beta(beta_i), jets.beta_deriv(local_w, beta_j));
             dh[[total_t + channel_i.index, total_t + channel_j.index]] = entry;
         }
     }
@@ -1264,270 +1319,6 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     );
 }
 
-/// #1416 exact NUMERICAL ORACLE for the IBP cross-row log-det derivatives.
-///
-/// The issue pins a two-row, one-column interior example with a clean,
-/// independently-derivable closed form: `α = 1.8`, `τ = 0.8`,
-/// `ℓ = (0.2, −0.4)`, and a DATA curvature of exactly `1.2·I` on the two
-/// (one-per-row) logit slots. The full joint Hessian is then
-/// `H = 1.2·I + H_p`, where the IBP prior column Hessian is
-/// `H_p = d·J Jᵀ + diag(s·c)` with `J_i = ∂z_i/∂ℓ_i`, `c_i = ∂²z_i/∂ℓ_i²`,
-/// `s` the column score, and `d = ∂s/∂M` (`= w·s'` at unit weight). The
-/// cross-row rank-one `d·J Jᵀ` couples the two rows, and its off-diagonal is
-/// what the pre-#1416 diagonal-only contractions dropped.
-///
-/// Oracle values are the exact 2nd/3rd derivatives of the IMPLEMENTED IBP energy
-/// (`IBPAssignmentPenalty::value`), verified three independent ways — a
-/// from-scratch Python derivative, the production analytic contraction, and a
-/// central FD of the cache-built `log|H|` — all agreeing to ≈8 digits:
-///   * ρ-trace half-trace `½ tr(H⁻¹ H_p) = −0.1220750367`,
-///   * logit adjoint `∂/∂ℓ_2 log|H| = −0.0229591145`.
-/// (The pre-#1416 hand-derived constants `−0.1609707929` / `−0.0498935387` did
-/// NOT match the implemented energy — the analytic adjoint was correct, those
-/// oracle numbers were the mis-derivation; superseded here with FD cross-checks.)
-///
-/// To exercise the REAL derivative code paths (`assignment_log_strength_hessian_trace`
-/// for the ρ-trace and `logdet_theta_adjoint` for the logit adjoint) on EXACTLY
-/// this `H`, we drive the production arrow-Schur assembly directly: a 2-row,
-/// K=1 IBP term carries the logits, and a hand-built [`ArrowSchurSystem`] with
-/// one 1×1 logit slot per row, base diagonal `H₀ = 1.2 + (H_p)_ii`, and the
-/// installed [`IbpCrossRowSource`] (the same source the live assembly emits) is
-/// factored through `solve_arrow_newton_step_with_options`. The solver downdates
-/// the rank-one self term and layers the exact Woodbury correction, so the
-/// factored cache reconstructs `H = 1.2·I + H_p` to roundoff — the one operator
-/// the value, log-det, ρ-trace, and θ-adjoint all differentiate. The diagonal-only
-/// pre-fix contractions FAIL these tight (1e-7) assertions; the cross-row passes
-/// pass them.
-fn ibp_1416_oracle_term() -> (SaeManifoldTerm, SaeManifoldRho) {
-    // A single trivial K=1 atom only supplies `assignment` (logits / mode) to the
-    // derivative code; its decoder/coords are never read by the IBP logit-slot
-    // contractions, and the cache layout below is hand-built, not assembled from
-    // this atom. n = 2, p = 1.
-    let n = 2usize;
-    let p = 1usize;
-    let m = 3usize;
-    // A periodic-harmonic atom supplies the second-jet evaluator the θ-adjoint
-    // needs, but its decoder is ZERO so the data Gauss-Newton block is identically
-    // zero: the logit and coord slots are decoupled, and the data curvature on the
-    // logit slots is injected by hand (1.2·I) in the cache builders below. The
-    // coords are nonzero arbitrary phases (their jets are real, just multiplied by
-    // the zero decoder).
-    let coords = Array2::from_shape_vec((n, 1), vec![0.15_f64, 0.65_f64]).unwrap();
-    let evaluator = std::sync::Arc::new(PeriodicHarmonicEvaluator::new(m).unwrap());
-    // ZERO basis values AND zero decoder: the θ-adjoint reconstructs the data
-    // Gauss-Newton jets from the atom's stored `basis_values`/decoder, so zeroing
-    // BOTH makes every data jet (`jets.first`/`second`/`beta`) vanish. The data
-    // block is then identically zero and `H` is block-diagonal across the logit,
-    // coord, and β slots — leaving the IBP assignment-prior logit channels as the
-    // sole live source for the logit-slot adjoint, on exactly the oracle `H`.
-    let atom = SaeManifoldAtom::new(
-        "ibp1416",
-        SaeAtomBasisKind::Periodic,
-        1,
-        Array2::<f64>::zeros((n, m)),
-        Array3::<f64>::zeros((n, m, 1)),
-        Array2::<f64>::zeros((m, p)),
-        Array2::<f64>::eye(m),
-    )
-    .unwrap()
-    .with_basis_second_jet(evaluator);
-    let logits = Array2::from_shape_vec((n, 1), vec![0.2_f64, -0.4_f64]).unwrap();
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        logits,
-        vec![coords],
-        vec![LatentManifold::Circle { period: 1.0 }],
-        // alpha = 1.8, tau = 0.8, fixed alpha.
-        AssignmentMode::ibp_map(0.8, 1.8, false),
-    )
-    .unwrap();
-    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
-    // log_lambda_sparse = 0 ⇒ λ_sparse = 1 ⇒ the IBP penalty weight w = 1 (the
-    // oracle's unit weight). The single atom carries a one-element ARD vector.
-    let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::from_vec(vec![0.0])]);
-    (term, rho)
-}
-
-/// Build the factored `ArrowFactorCache` for `H = 1.2·I + H_p` on the two
-/// logit slots, using the production IBP source + Woodbury machinery. Each row
-/// contributes ONE latent slot (its logit); the per-row base diagonal is the
-/// FULL `H₀ = 1.2 + (H_p)_ii` (the solver downdates the rank-one self term and
-/// re-adds the full `d·J Jᵀ` through the Woodbury carrier).
-fn ibp_1416_oracle_cache(term: &SaeManifoldTerm, rho: &SaeManifoldRho) -> ArrowFactorCache {
-    let n = term.n_obs();
-    let channels = ibp_assignment_third_channels(&term.assignment, rho, false)
-        .expect("channels")
-        .expect("IBP mode must yield cross-row channels");
-    // Full per-row IBP prior diagonal `(H_p)_ii = d·J_i² + s·c_i`, where the
-    // diagonal `hessian_diag` already carries `d·J_i² + s·c_i` for IBP. Use the
-    // penalty's assembled diagonal so the base matches the live assembly exactly.
-    let hdiag = assignment_prior_log_strength_hdiag(&term.assignment, rho).expect("hdiag");
-    let data_curv = 1.2_f64;
-    let mut sys = ArrowSchurSystem::new(n, 1, 0);
-    for row in 0..n {
-        // `hdiag[row*K + 0]` is the assignment prior's full logit-slot curvature
-        // `(H_p)_ii`; add the data curvature 1.2 to form the full `H₀` diagonal.
-        sys.rows[row].htt[[0, 0]] = data_curv + hdiag[row];
-    }
-    // IBP source: rank R = 1, coefficient d_0 = w·s'_0 = cross_row_d[0]; the two
-    // entries place `J_i = z_jac[i]` at row i's logit slot (global index i).
-    let entries: Vec<(usize, usize, f64)> =
-        (0..n).map(|i| (i, 0usize, channels.z_jac[i])).collect();
-    let source = IbpCrossRowSource {
-        r: 1,
-        d: channels.cross_row_d.clone(),
-        entries,
-    };
-    sys.set_ibp_cross_row_source(source);
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
-    let (_dt, _db, cache) =
-        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).expect("factor H");
-    cache
-}
-
-/// Coord-aware variant of [`ibp_1416_oracle_cache`] for the θ-adjoint, which
-/// (unlike the ρ-trace) walks the per-row jets and therefore needs the row's
-/// coordinate slot present in the cache layout. Each row carries TWO latent
-/// slots: the logit (local pos 0) and the atom's one coordinate (local pos 1).
-/// The decoder is zero (see `ibp_1416_oracle_term`), so there is NO data
-/// coupling between the logit and coord slots: the joint `H` is block-diagonal,
-/// the logit 2×2 sub-block is exactly `1.2·I + H_p` (the issue's oracle `H`),
-/// and the coord slots carry an independent PD curvature. Because `∂H/∂ℓ_w`
-/// touches only the logit block and `H` is block-diagonal, the logit-adjoint
-/// entry equals `tr((1.2·I+H_p)⁻¹ ∂(1.2·I+H_p)/∂ℓ_w)` — exactly the issue's
-/// `∂log|H|/∂ℓ` — independent of the coord curvature value.
-fn ibp_1416_oracle_cache_with_coord(
-    term: &SaeManifoldTerm,
-    rho: &SaeManifoldRho,
-) -> ArrowFactorCache {
-    let n = term.n_obs();
-    let channels = ibp_assignment_third_channels(&term.assignment, rho, false)
-        .expect("channels")
-        .expect("IBP mode must yield cross-row channels");
-    let hdiag = assignment_prior_log_strength_hdiag(&term.assignment, rho).expect("hdiag");
-    let data_curv = 1.2_f64;
-    // d = 2 latent slots per row ([logit, coord]); the decoder border carries
-    // `border_dim = Σ_atoms m·p` channels so `border_channels_for_cache` (which
-    // the θ-adjoint calls) matches `cache.k`. The decoder is zero, so the t↔β
-    // coupling (`htbeta`) is zero and `H` stays block-diagonal across {logit,
-    // coord} and β; `H_ββ = I` is an independent PD constant block whose log-det
-    // is invariant under ℓ — it cancels in the logit derivative and the FD.
-    let border_dim = term.factored_border_dim();
-    let mut sys = ArrowSchurSystem::new(n, 2, border_dim);
-    for c in 0..border_dim {
-        sys.hbb[[c, c]] = 1.0;
-    }
-    for row in 0..n {
-        sys.rows[row].htt[[0, 0]] = data_curv + hdiag[row]; // logit: full H₀ diagonal
-        sys.rows[row].htt[[1, 1]] = 1.0; // coord: independent PD curvature
-        // htbeta stays zero (decoder is zero ⇒ no t↔β data coupling).
-    }
-    // IBP source entries place `J_i` at row i's LOGIT slot, global index 2·i.
-    let entries: Vec<(usize, usize, f64)> =
-        (0..n).map(|i| (2 * i, 0usize, channels.z_jac[i])).collect();
-    let source = IbpCrossRowSource {
-        r: 1,
-        d: channels.cross_row_d.clone(),
-        entries,
-    };
-    sys.set_ibp_cross_row_source(source);
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
-    let (_dt, _db, cache) =
-        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).expect("factor H");
-    cache
-}
-
-#[test]
-pub(crate) fn ibp_rho_trace_matches_exact_numerical_oracle_1416() {
-    let (term, rho) = ibp_1416_oracle_term();
-    let cache = ibp_1416_oracle_cache(&term, &rho);
-    let solver = DeflatedArrowSolver::plain(&cache);
-
-    // The real ρ-trace contraction returns `½ tr(H⁻¹ ∂H_p/∂ρ) = ½ tr(H⁻¹ H_p)`
-    // for fixed alpha (the whole IBP prior scales with λ_sparse = eᵖ).
-    let analytic = term
-        .assignment_log_strength_hessian_trace(&rho, &cache, &solver)
-        .expect("rho-trace");
-
-    // Exact half-trace `½ tr(H⁻¹ H_p)` for `H = 1.2·I + H_p` with `H_p` the TRUE
-    // IBP-MAP energy Hessian (`H_p = s'·J Jᵀ + diag(s·c)`), INCLUDING the
-    // cross-row off-diagonal `½ s' Σ_{i≠j}(H⁻¹)_{ij} J_i J_j`. Verified against a
-    // from-scratch Python second-derivative of `IBPAssignmentPenalty::value` AND
-    // the FD numerical oracle below. (The pre-#1416 hand-derived constant
-    // `-0.1609707929` did NOT match the implemented energy; it is superseded.)
-    const ORACLE: f64 = -0.1220750367;
-    assert!(
-        (analytic - ORACLE).abs() <= 1.0e-7,
-        "IBP ρ-trace exact oracle: analytic={analytic:.10e}, oracle={ORACLE:.10e}"
-    );
-
-    // Independent numerical ground truth: for fixed-α IBP the whole prior scales
-    // with `λ_sparse = e^ρ`, so `∂H/∂ρ = H_p` (the `1.2·I` data curvature is
-    // ρ-independent) and `½ ∂log|H|/∂ρ = ½ tr(H⁻¹ H_p)`. Rebuild the SAME cache
-    // at `ρ ± h` (the assembled `hdiag`/`cross_row_d` carry the `e^ρ` weight) and
-    // central-difference `log|H|`; the analytic must equal half that FD.
-    let fd_rho = |dr: f64| -> f64 {
-        let mut r = rho.clone();
-        r.log_lambda_sparse += dr;
-        let c = ibp_1416_oracle_cache(&term, &r);
-        c.arrow_log_det()
-            .expect("authoritative IBP oracle rho logdet")
-    };
-    let h = 1.0e-6;
-    let fd_half = 0.5 * (fd_rho(h) - fd_rho(-h)) / (2.0 * h);
-    assert!(
-        (fd_half - analytic).abs() <= 1.0e-5,
-        "IBP ρ-trace vs ½ FD of log|H|: fd_half={fd_half:.8e}, analytic={analytic:.8e}"
-    );
-}
-
-#[test]
-pub(crate) fn ibp_logit_adjoint_matches_exact_numerical_oracle_1416() {
-    let (term, rho) = ibp_1416_oracle_term();
-    let cache = ibp_1416_oracle_cache_with_coord(&term, &rho);
-    let solver = DeflatedArrowSolver::plain(&cache);
-
-    // The real θ-adjoint returns Γ = tr(H⁻¹ ∂H/∂θ) = ∂log|H|/∂θ over the inner
-    // variables. Row-1's logit slot is local position 0 of its block, global
-    // t-index `row_offsets[1]`.
-    let gamma = term
-        .logdet_theta_adjoint(&rho, &cache, &solver)
-        .expect("theta-adjoint");
-    let analytic = gamma.t[cache.row_offsets[1]];
-
-    // Exact value of `∂/∂ℓ_2 log|H|` for `H = 1.2·I + H_p` with `H_p` the TRUE
-    // IBP-MAP energy Hessian (`H_p = s'·J Jᵀ + diag(s·c)`, `s' = ∂score/∂M`).
-    // Verified three independent ways: the analytic θ-adjoint contraction below,
-    // the central FD of the cache-built `log|H|`, and a from-scratch Python
-    // second/third-derivative of `IBPAssignmentPenalty::value` — all agree to
-    // ≈8 digits. (The pre-#1416 hand-derived constant `-0.0498935387` did NOT
-    // match the implemented energy; it is superseded here.)
-    const ORACLE: f64 = -0.0229591145;
-    assert!(
-        (analytic - ORACLE).abs() <= 1.0e-7,
-        "IBP logit adjoint exact oracle ∂/∂ℓ_2 log|H|: analytic={analytic:.10e}, \
-         oracle={ORACLE:.10e}"
-    );
-
-    // Cross-check the analytic adjoint against a central finite difference of the
-    // joint log|H| w.r.t. ℓ_2, holding the rest of the state fixed. The cache is
-    // rebuilt at each perturbed logit (its base + Woodbury both depend on ℓ_2),
-    // so this FD differentiates the SAME `H = 1.2·I + H_p` the adjoint does — the
-    // genuine numerical ground truth for the operator the θ-adjoint contracts.
-    let fd_logdet = |dl: f64| -> f64 {
-        let mut t = term.clone();
-        t.assignment.logits[[1, 0]] += dl;
-        let c = ibp_1416_oracle_cache_with_coord(&t, &rho);
-        c.arrow_log_det()
-            .expect("authoritative IBP oracle theta logdet")
-    };
-    let h = 1.0e-6;
-    let fd = (fd_logdet(h) - fd_logdet(-h)) / (2.0 * h);
-    assert!(
-        (fd - analytic).abs() <= 1.0e-5,
-        "IBP logit adjoint vs FD of log|H|: fd={fd:.8e}, analytic={analytic:.8e}"
-    );
-}
-
 #[test]
 pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_on_tiny_fixture() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
@@ -1549,8 +1340,16 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_on_tiny_fixture() {
     // row-varying logit margins keep the softmax away from that kink without
     // saturating the row to a near-boundary PD block, so the fixed-state central
     // difference below differentiates a locally smooth majorizer branch.
-    term.reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged cache");
+    term.penalized_quasi_laplace_criterion_with_cache(
+        target.view(),
+        &rho,
+        None,
+        200,
+        0.4,
+        1.0e-6,
+        1.0e-6,
+    )
+    .expect("converged cache");
     for r in 0..term.n_obs() {
         let center = 0.05 * (r as f64);
         let margin = 1.55 + 0.04 * (r as f64);
@@ -1563,7 +1362,15 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_on_tiny_fixture() {
         }
     }
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 0, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            0,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("off-kink fixed-state cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let gamma = term
@@ -1609,17 +1416,17 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_on_tiny_fixture() {
 }
 
 #[test]
-pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map() {
-    // The #1006 empirical-π third channel: under IBP-MAP, pi_k(M_k) couples
-    // every row of column k, so perturbing one logit shifts EVERY row's
+pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ordered_beta_bernoulli() {
+    // The integrated marginal's empirical-mass channel couples every row of
+    // column `k`, so perturbing one logit shifts every retained row-local
     // assembled `htt` diagonal in that column. `fixed_state_logdet` rebuilds
     // H at the perturbed state, so a single-logit FD captures both the
-    // row-local direct-z channel and the global cross-row M_k channel that
+    // row-local direct-z channel and the global `M_k` channel that
     // `logdet_theta_adjoint` accumulates column-wise. lambda_sparse is the
     // active prior weight (fixed alpha), so the channel is genuinely live.
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
-    // Same #1625 setup fix as the sibling `..._on_tiny_fixture`: the IBP prior
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
+    // Same #1625 setup fix as the sibling `..._on_tiny_fixture`: the ordered Beta--Bernoulli prior
     // Hessian is genuinely indefinite in the low-`ρ_sparse` basin, so at the old
     // `ρ_sparse = −1.0` / 5-iter probe the assembled joint `H` was non-PD and
     // `log|H|` (and hence BOTH its FD and the analytic θ-adjoint contraction of
@@ -1630,24 +1437,26 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map() {
     // tolerance is weakened.
     rho.log_lambda_sparse = 0.5;
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let gamma = term
         .logdet_theta_adjoint(&rho, &cache, &solver)
         .expect("Gamma");
     let h = 1.0e-5;
-    // Probe both atoms across distinct rows so the cross-row coupling (different
-    // rows sharing a column) is exercised on both columns, AND probe the COORD
-    // channel — the #1641 defect made BOTH the logit and the coord channel of the
-    // IBP θ-adjoint disagree with dense FD (logit ~4× over tol; coord ~10× off),
-    // because the cross-row Woodbury pass double-counted the rank-one self term and
-    // carried the ρ-trace ½ instead of the full trace. The coord slots do not pass
-    // through the Woodbury pass, but they contract the SAME assembled `htt`
-    // (whose IBP diagonal carries the cross-row self curvature), so they guard the
-    // one-operator consistency of the whole θ-adjoint, not just the logit lane.
+    // Probe both atoms across distinct rows so the shared-mass derivative is
+    // exercised on both columns, and probe coordinate channels so the whole
+    // theta adjoint remains on the same assembled curvature operator.
     //
-    // Dense IBP layout (K = 2, `last_row_layout = None`): per row block, local
+    // Dense ordered Beta--Bernoulli layout (K = 2, `last_row_layout = None`): per row block, local
     // positions `0..K` are the logit slots (atom = local_pos) and `K..2K` are the
     // coordinate slots (atom = local_pos − K, axis 0), so local_pos 2 ↔ atom 0
     // coord and local_pos 3 ↔ atom 1 coord.
@@ -1683,27 +1492,111 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map() {
         let tol = 3.0e-3 * (1.0 + fd.abs().max(analytic.abs()));
         assert!(
             (fd - analytic).abs() <= tol,
-            "IBP Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
+            "ordered Beta--Bernoulli Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
         );
     }
 }
 
-/// gam#2144/#1038 consistency: the assembly PSD-majorizes the IBP curvature
-/// (`ibp_psd_majorized_hdiag` + clamped Woodbury `d`) UNCONDITIONALLY, so the
+#[test]
+pub(crate) fn exact_stationarity_a_minus_b_includes_ordered_beta_bernoulli_shared_mass_hvp() {
+    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
+    rho.log_lambda_sparse = 0.5;
+    let (_value, _loss, cache) = term
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
+        .expect("converged ordered Beta--Bernoulli exact-stationarity cache");
+
+    let mut vector = SaeArrowVector {
+        t: Array1::<f64>::zeros(cache.delta_t_len()),
+        beta: Array1::<f64>::zeros(cache.k),
+    };
+    let mut flat_logit_direction = Array1::<f64>::zeros(term.n_obs() * term.k_atoms());
+    let row_zero_vars = term
+        .row_vars_for_cache_row(0, &cache)
+        .expect("row-zero variable layout");
+    let local = row_zero_vars
+        .iter()
+        .position(|var| matches!(var, SaeLocalRowVar::Logit { atom: 0 }))
+        .expect("ordered assignment must expose atom-zero logit");
+    vector.t[cache.row_offsets[0] + local] = 0.7;
+    flat_logit_direction[0] = 0.7;
+
+    let correction = term
+        .apply_exact_hessian_minus_b(&rho, target.view(), &cache, &vector)
+        .expect("base A-B apply");
+    let mut doubled_rho = rho.clone();
+    doubled_rho.log_lambda_sparse += 2.0_f64.ln();
+    let doubled_correction = term
+        .apply_exact_hessian_minus_b(&doubled_rho, target.view(), &cache, &vector)
+        .expect("doubled-strength A-B apply");
+    let expected =
+        crate::assignment::ordered_beta_bernoulli_exact_hessian_minus_majorizer_hvp_weighted(
+            &term.assignment,
+            &rho,
+            term.row_loss_weights.as_deref(),
+            flat_logit_direction.view(),
+        )
+        .expect("ordered exact-Hessian helper");
+
+    let mut saw_cross_row = false;
+    for row in 0..term.n_obs() {
+        let vars = term
+            .row_vars_for_cache_row(row, &cache)
+            .expect("row variable layout");
+        for (local, var) in vars.iter().enumerate() {
+            let index = cache.row_offsets[row] + local;
+            let actual = doubled_correction.t[index] - correction.t[index];
+            let wanted = match *var {
+                SaeLocalRowVar::Logit { atom } => expected[row * term.k_atoms() + atom],
+                SaeLocalRowVar::Coord { .. } => 0.0,
+            };
+            assert!(
+                (actual - wanted).abs() <= 2.0e-9 * (1.0 + wanted.abs()),
+                "row {row} local {local}: scaled A-B difference={actual}, expected={wanted}"
+            );
+            if row > 0 && matches!(var, SaeLocalRowVar::Logit { atom: 0 }) {
+                saw_cross_row |= wanted.abs() > 1.0e-8;
+            }
+        }
+    }
+    for beta in 0..cache.k {
+        assert_abs_diff_eq!(
+            doubled_correction.beta[beta] - correction.beta[beta],
+            0.0,
+            epsilon = 2.0e-10
+        );
+    }
+    assert!(
+        saw_cross_row,
+        "the exact integrated marginal must couple the one-row probe into other rows"
+    );
+}
+
+/// The assembly PSD-majorizes the ordered Beta--Bernoulli curvature
+/// unconditionally, so the
 /// θ-adjoint must differentiate that SAME majorized operator. This is the
-/// metric-first analogue of `..._ibp_map`: install a rank-2 BehavioralFisher
-/// metric (`s = 2 < p = 3`, a genuinely rank-deficient whitening) on the IBP tiny
+/// metric-first analogue of `..._ordered_beta_bernoulli`: install a rank-2 BehavioralFisher
+/// metric (`s = 2 < p = 3`, a genuinely rank-deficient whitening) on the ordered Beta--Bernoulli tiny
 /// fixture and check the analytic `Γ` matches the fixed-state dense FD of `log|H|`
 /// — both flow through the majorized assembly (`fixed_state_logdet` rebuilds the
 /// SAME majorized `H`). This guards the majorized θ-adjoint channels against the
-/// majorized evidence log-det in the whitened+rank-deficient regime, where the
+/// majorized criterion log-det in the whitened+rank-deficient regime, where the
 /// whitened data curvature cannot dominate the raw indefinite prior pieces.
 #[test]
-pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_low_rank_metric_2144() {
+pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ordered_beta_bernoulli_low_rank_metric_2144()
+ {
     use gam_problem::{RowMetric, pack_probe_factors};
     use std::sync::Arc;
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
     let n = term.n_obs();
     let p = term.output_dim();
     let s = 2usize;
@@ -1733,7 +1626,15 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_low_rank_metric_2144
     );
     rho.log_lambda_sparse = 0.5;
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged majorized cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let gamma = term
@@ -1771,7 +1672,7 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_low_rank_metric_2144
         let tol = 3.0e-3 * (1.0 + fd.abs().max(analytic.abs()));
         assert!(
             (fd - analytic).abs() <= tol,
-            "majorized IBP Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
+            "majorized ordered Beta--Bernoulli Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
         );
     }
 }
@@ -1782,7 +1683,7 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_low_rank_metric_2144
 /// (`Jᵀ U Uᵀ J`) under any whitening factor, so a FULL-RANK non-identity factor
 /// (here `diag(1, 2, 1.5)`, `rank == p == 3`) rescales the output-space
 /// derivatives just like a low-rank sketch does. The pre-fix code gated jet
-/// whitening on `ibp_low_rank_whiten()` (`whitens_likelihood && rank < p`), so
+/// whitening on `ordered_beta_bernoulli_low_rank_whiten()` (`whitens_likelihood && rank < p`), so
 /// full-rank whitening left the row jets in RAW output space — differentiating
 /// `JᵀJ` against an assembled `Jᵀ U Uᵀ J`. This pins the production
 /// `logdet_theta_adjoint` against a fixed-state central difference of the
@@ -1793,7 +1694,7 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_full_rank_whitening_2144
     use gam_problem::RowMetric;
     use std::sync::Arc;
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
     let n = term.n_obs();
     let p = term.output_dim();
     // Full-rank (rank == p) DIAGONAL non-identity whitening factor U = diag(d).
@@ -1820,7 +1721,7 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_full_rank_whitening_2144
         "rank-{s} == p={p} metric must be genuinely full-rank (this test discriminates \
          jet whitening from rank-deficiency handling)"
     );
-    // #2144/#1038: the IBP PSD majorization is now UNCONDITIONAL (any rank, any
+    // #2144/#1038: the ordered Beta--Bernoulli PSD majorization is now UNCONDITIONAL (any rank, any
     // metric), so the joint Hessian here is the majorized operator too — the
     // historical #1416 non-PD landscape at `log_lambda_sparse = 0.5` no longer
     // exists. Keep the historical PD-island level `−0.8` for continuity (the
@@ -1829,7 +1730,15 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_full_rank_whitening_2144
     // what the fixed-state FD comparison pins).
     rho.log_lambda_sparse = -0.8;
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged full-rank whitened cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let gamma = term
@@ -1872,35 +1781,28 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_full_rank_whitening_2144
     }
 }
 
-/// #1416 — the IBP fixed-alpha `ρ_sparse`-trace `½ tr(H⁻¹ ∂H_p/∂ρ_sparse)` must
-/// include the FULL cross-row off-diagonal of the rank-one Woodbury source, not
-/// just the diagonal. Under IBP-MAP the per-column empirical-mass `M_k` couples
-/// every row of column `k` through `H_p = d·J Jᵀ + diag(s, c)`, and for fixed
-/// alpha the entire IBP prior scales with `λ_sparse = eᵖ`, so
-/// `∂H_p/∂ρ_sparse = H_p`. The analytic
+/// The ordered Beta--Bernoulli fixed-alpha sparse-strength trace must
+/// differentiate the same row-local PSD majorizer the factorization uses. For
+/// fixed alpha the prior curvature scales with `lambda_sparse`, so the analytic
 /// `assignment_log_strength_hessian_trace` returns `½ ∂log|H|/∂ρ_sparse`; this
-/// pins it against a fixed-state central difference of the joint `log|H|`. A
-/// diagonal-only contraction (the pre-#1416 bug) would miss the
-/// `½ d Σ_{i≠j}(H⁻¹)_{ij} J_i J_j` cross-row term and fail this FD.
+/// pins it against a fixed-state central difference of the joint `log|H|`.
 #[test]
-pub(crate) fn ibp_rho_sparse_logdet_trace_matches_dense_fd_1416() {
+pub(crate) fn ordered_beta_bernoulli_sparse_strength_trace_matches_dense_fd() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    // Fixed-alpha IBP-MAP with an active sparse prior so the cross-row Woodbury
-    // source is genuinely live.
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
-    // Fixed-alpha IBP-MAP is PD only on a JAGGED ρ_sparse landscape on this n=10
-    // periodic-bilinear fixture: most values (including the previously-pinned 1.0,
-    // which a `log_lambda_sparse`-sweep shows is non-PD — the converge call panics
-    // with "Schur complement Cholesky failed: non-PD pivot") leave the undamped
-    // joint Hessian indefinite at setup. The contiguous island ρ_sparse ∈
-    // [−1.0, −0.4] is solidly PD, and −0.8 sits in its interior: it converges to
-    // the SAME PD cache for every inner budget (iter ∈ {5…40}), the cross-row
-    // Woodbury source is genuinely live there (max|d_k| ≈ 0.21), and the analytic
-    // ρ_sparse trace matches the fixed-state central difference of log|H| to ≈10
-    // digits. Setup fix only — no tolerance weakened.
+    // Fixed-alpha ordered Beta--Bernoulli with an active sparse prior.
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
+    // Keep a moderate prior strength so the retained diagonal majorizer is live.
     rho.log_lambda_sparse = -0.8;
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let analytic = term
@@ -1922,21 +1824,17 @@ pub(crate) fn ibp_rho_sparse_logdet_trace_matches_dense_fd_1416() {
     let tol = 3.0e-3 * (1.0 + fd_half.abs().max(analytic.abs()));
     assert!(
         (fd_half - analytic).abs() <= tol,
-        "IBP ρ_sparse logdet trace: fd(½∂log|H|/∂ρ)={fd_half:.8e}, \
+        "ordered Beta--Bernoulli ρ_sparse logdet trace: fd(½∂log|H|/∂ρ)={fd_half:.8e}, \
          analytic={analytic:.8e}"
     );
 }
 
-/// #1625 (scope expansion) — the LEARNABLE-α IBP-MAP logit θ-adjoint. This is
-/// the cross-row Woodbury logit channel of `Γ = tr(H⁻¹ ∂H/∂ℓ)` under
-/// `learnable_alpha = true`, a path the fixed-alpha `..._ibp_map` sibling never
+/// Learnable-alpha ordered Beta--Bernoulli logit theta-adjoint.
+/// `learnable_alpha = true`, a path the fixed-alpha `..._ordered_beta_bernoulli` sibling never
 /// exercises. Under learnable α the resolved weight convention flips (`weight`
 /// stays 1.0 and `log_lambda_sparse` drives `α` via `resolve_learnable_weight`
-/// instead of scaling the prior), so the per-column Woodbury coefficient
-/// `d_k = w·s'_k` and its mass-derivative `dd_k = w·s''_k` take DIFFERENT numeric
-/// values than the fixed-alpha path — yet a single logit perturbation holds α
-/// fixed (it only moves `M_k` and the local `z`), so the same off-diagonal
-/// cross-row contraction must hold.
+/// instead of scaling the prior), so a single logit perturbation holds alpha
+/// fixed and moves only `M_k` and the local sigmoid gate.
 ///
 /// The comparison point must EXIST and be STATIONARY: like the indefinite-basin
 /// diagnosis driving the whole #1625 fix, the analytic
@@ -1949,23 +1847,31 @@ pub(crate) fn ibp_rho_sparse_logdet_trace_matches_dense_fd_1416() {
 /// (`iter = 200`, tol `1e-8`) makes Γ and the FD share one stationary state, and
 /// the learnable-α logit adjoint then matches to ≈6 digits.
 #[test]
-pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map_learnable_alpha_1625() {
+pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ordered_beta_bernoulli_learnable_alpha_1625()
+ {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, true);
     // ρ₀ = 0.6 drives a PD learnable-α cache on this fixture (a sweep shows the
-    // default 0.1 and ρ₀ ≤ −0.8 are non-PD for learnable α); the cross-row
-    // Woodbury source is genuinely live there.
+    // default 0.1 and rho0 <= -0.8 were poorly conditioned on this fixture).
     rho.log_lambda_sparse = 0.6;
     let (_value, _loss, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-8, 1.0e-8)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-8,
+            1.0e-8,
+        )
         .expect("converged learnable-α cache");
     let solver = DeflatedArrowSolver::plain(&cache);
     let gamma = term
         .logdet_theta_adjoint(&rho, &cache, &solver)
         .expect("Gamma");
     let h = 1.0e-5;
-    // Probe both atoms across distinct rows so the cross-row coupling (different
-    // rows sharing a column) is exercised on both columns under learnable α.
+    // Probe both atoms across distinct rows so the shared-mass channel is
+    // exercised on both columns under learnable alpha.
     let probes = [
         (0usize, 0usize, 0usize),
         (4usize, 1usize, 1usize),
@@ -1983,95 +1889,10 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map_learnable_alpha_
         let tol = 3.0e-3 * (1.0 + fd.abs().max(analytic.abs()));
         assert!(
             (fd - analytic).abs() <= tol,
-            "learnable-α IBP Gamma row={row} local_pos={local_pos}: \
+            "learnable-α ordered Beta--Bernoulli Gamma row={row} local_pos={local_pos}: \
              fd={fd:.8e}, analytic={analytic:.8e}"
         );
     }
-}
-
-/// #1416 (compact-layout completion) — the IBP cross-row ρ-trace
-/// (`assignment_log_strength_hessian_trace`) must add the
-/// `½ d_k Σ_{i≠j}(H⁻¹)_{ij} J_i J_j` off-diagonal term under the COMPACT
-/// (#1420 top-`k`) row layout, not only the dense layout. The cross-row Woodbury
-/// source is installed for both layouts and the θ-adjoint already differentiates
-/// both, but the ρ-trace cross-row pass (and the deflation self-curvature
-/// downdate) were gated `if last_row_layout.is_none()` — so whenever the budget /
-/// `top_k` engaged the compact layout the ρ-gradient of `log|H|` silently dropped
-/// the cross-row term.
-///
-/// A FULL-SUPPORT compact layout (every row active for both atoms) is
-/// geometrically IDENTICAL to dense — same logit slots, same assembled `H` — so
-/// its `½ ∂log|H|/∂ρ_sparse` must equal both the dense analytic trace and the
-/// dense fixed-state central difference. Before the fix the compact trace skipped
-/// the cross-row pass and diverged from both; the sibling
-/// `ibp_rho_sparse_logdet_trace_matches_dense_fd_1416` confirms the dropped
-/// off-diagonal term is genuinely nonzero at this ρ (max|d_k| ≈ 0.21), so this
-/// equality is non-vacuous.
-#[test]
-pub(crate) fn ibp_rho_sparse_logdet_trace_compact_layout_matches_dense_1416() {
-    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
-    // Same solidly-PD island the dense sibling pins (ρ_sparse ∈ [−1.0, −0.4]).
-    rho.log_lambda_sparse = -0.8;
-
-    // Converge the inner fit. The tiny fixture's dense Gram is far under the host
-    // budget, so production keeps the dense layout (`last_row_layout = None`);
-    // this also mutates `term` to the converged (t, β, logit) state.
-    let (_value, _loss, dense_cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
-        .expect("dense converged cache");
-    let dense_solver = DeflatedArrowSolver::plain(&dense_cache);
-    let analytic_dense = term
-        .assignment_log_strength_hessian_trace(&rho, &dense_cache, &dense_solver)
-        .expect("dense rho_sparse trace");
-
-    // Re-assemble the SAME converged state under a forced full-support compact
-    // layout, factor it, and recompute the ρ-trace. `assemble_arrow_schur_inner`
-    // sets `last_row_layout = Some(layout)`, so the trace takes the compact path.
-    let n = target.nrows();
-    let coord_dims = vec![1usize, 1usize];
-    let coord_offsets = term.assignment.coord_offsets();
-    let full_active: Vec<Vec<usize>> = (0..n).map(|_| vec![0usize, 1usize]).collect();
-    let layout = SaeRowLayout::from_active_atoms(full_active, coord_dims, coord_offsets);
-    let probe = SAE_DENSE_BETA_PENALTY_PROBE_MAX_DIM;
-    let sys = term
-        .assemble_arrow_schur_inner(target.view(), &rho, None, 1.0, probe, Some(Some(layout)))
-        .expect("full-support compact assembly");
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
-    let (_dt, _db, compact_cache) =
-        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).expect("compact factor");
-    let compact_solver = DeflatedArrowSolver::plain(&compact_cache);
-    let analytic_compact = term
-        .assignment_log_strength_hessian_trace(&rho, &compact_cache, &compact_solver)
-        .expect("compact rho_sparse trace");
-
-    // Full-support compact must reproduce the dense trace to roundoff.
-    let struct_tol = 1.0e-7 * (1.0 + analytic_dense.abs());
-    assert!(
-        (analytic_dense - analytic_compact).abs() <= struct_tol,
-        "compact-layout IBP ρ_sparse logdet trace must equal the dense trace on \
-         full support: dense={analytic_dense:.10e}, compact={analytic_compact:.10e}"
-    );
-
-    // And the compact trace must independently match the dense fixed-state central
-    // difference of log|H| (the full ½ ∂log|H|/∂ρ_sparse including the cross-row
-    // off-diagonal) — FD-validating the compact path itself, not just the
-    // dense/compact equality.
-    let h = 1.0e-5;
-    let mut rho_plus = rho.clone();
-    let mut rho_minus = rho.clone();
-    rho_plus.log_lambda_sparse += h;
-    rho_minus.log_lambda_sparse -= h;
-    let fd_half = 0.5
-        * (fixed_state_logdet(term.clone(), &target, &rho_plus)
-            - fixed_state_logdet(term.clone(), &target, &rho_minus))
-        / (2.0 * h);
-    let fd_tol = 3.0e-3 * (1.0 + fd_half.abs().max(analytic_compact.abs()));
-    assert!(
-        (fd_half - analytic_compact).abs() <= fd_tol,
-        "compact-layout IBP ρ_sparse logdet trace vs dense FD: \
-         fd(½∂log|H|/∂ρ)={fd_half:.8e}, compact analytic={analytic_compact:.8e}"
-    );
 }
 
 /// #2080 shared assertion: the matrix-free θ-adjoint
@@ -2154,60 +1975,60 @@ fn sae_logdet_theta_adjoint_from_probes_matches_dense_softmax_2080() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
     rho.log_lambda_sparse = 0.5;
     let (_v, _l, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect("converged softmax cache");
     assert_theta_adjoint_from_probes_matches_dense(&term, &rho, &cache);
 }
 
-/// #2080 θ-adjoint from-probes — IBP cross-row Woodbury hard-refuse. The border-only
-/// probe bundle reconstructs only the NO-SELF base inverse `(H₀')⁻¹`; the #1038
-/// cross-row rank-one `W_k` is a T-space rank-R correction the bundle cannot carry, so
-/// an IBP-MAP cache must REFUSE (route to the dense channel) rather than return the
-/// wrong base-inverse θ-adjoint.
+/// The ordered Beta--Bernoulli majorizer is row-local, so the full-basis probe
+/// bundle must reproduce the dense theta adjoint exactly.
 #[test]
-fn sae_logdet_theta_adjoint_from_probes_refuses_ibp_cross_row_2080() {
+fn sae_logdet_theta_adjoint_from_probes_matches_ordered_beta_bernoulli() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, false);
     rho.log_lambda_sparse = 0.5;
     let (_v, _l, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged ibp-map cache");
-    let k = cache.k;
-    let sqrt_k = (k as f64).sqrt();
-    let probes: Vec<ndarray::Array1<f64>> = (0..k)
-        .map(|j| {
-            let mut v = ndarray::Array1::<f64>::zeros(k);
-            v[j] = sqrt_k;
-            v
-        })
-        .collect();
-    let sinv: Vec<ndarray::Array1<f64>> = probes
-        .iter()
-        .map(|v| {
-            cache
-                .schur_inverse_apply(v.view())
-                .expect("schur_inverse_apply")
-        })
-        .collect();
-    let result = term.logdet_theta_adjoint_from_probes(&rho, &cache, &probes, &sinv);
-    assert!(
-        result.is_err(),
-        "the from-probes theta-adjoint must refuse an IBP cross-row cache; got Ok"
-    );
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            200,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
+        .expect("converged ordered Beta--Bernoulli cache");
+    assert_theta_adjoint_from_probes_matches_dense(&term, &rho, &cache);
 }
 
 /// #2080 θ-adjoint from-probes — DEFLATION hard-refuse. On the known-deflating
-/// PD-region learnable-IBP fixture (per-row gauge deflation surfaced into the cache),
+/// PD-region learnable-ordered Beta--Bernoulli fixture (per-row gauge deflation surfaced into the cache),
 /// the from-probes θ-adjoint must REFUSE (route to the dense channel) rather than
 /// silently drop the Daleckii–Krein correction the plain-S⁻¹ bundle cannot rebuild.
 #[test]
 fn sae_logdet_theta_adjoint_from_probes_refuses_deflated_rows_2080() {
     let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+    term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, true);
     rho.log_lambda_sparse = 0.5;
     let (_v, _l, cache) = term
-        .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
-        .expect("converged learnable-ibp cache");
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            5,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        )
+        .expect("converged learnable ordered Beta--Bernoulli cache");
     assert!(
         cache.deflated_row_directions.iter().any(|d| !d.is_empty()),
         "fixture must genuinely deflate to exercise the hard-refuse (re-pick ρ if not)"

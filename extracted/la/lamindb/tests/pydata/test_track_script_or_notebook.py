@@ -1,0 +1,868 @@
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import lamindb as ln
+import lamindb_setup as ln_setup
+import pytest
+from lamindb._finish import clean_r_notebook_html, get_shortcut
+from lamindb._secret_redaction import redact_secrets_in_source_code
+from lamindb.core._context import (
+    REDACTED_SECRET_VALUE,
+    LogStreamTracker,
+    context,
+    detect_and_process_source_code_file,
+    serialize_params_to_json,
+)
+from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
+from lamindb_setup.core.upath import UPath
+
+SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
+NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
+
+
+def test_serialize_params_to_json():
+    a_path = Path("/some/local/folder")
+    a_upath = UPath("s3://bucket/key")
+    params = {
+        "path_key": a_path,
+        "none_key": None,
+        "empty_list_key": [],
+        "list_str_key": ["string"],
+        "upath_key": a_upath,
+        "str_key": "plain",
+        "api_key": "test-api-key-value",
+        "openAIApiKey": "another-secret",
+        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
+    }
+    result = serialize_params_to_json(params)
+    # None is omitted
+    assert "none_key" not in result
+    # Empty list is omitted (same as None)
+    assert "empty_list_key" not in result
+    # Path is serialized to posix string
+    assert result["path_key"] == "/some/local/folder"
+    # UPath is serialized to posix string
+    assert result["upath_key"] == "s3://bucket/key"
+    # List of strings is JSON-serialized as-is (list[cat ? str])
+    assert result["list_str_key"] == ["string"]
+    # Other values unchanged
+    assert result["str_key"] == "plain"
+    assert result["api_key"] == REDACTED_SECRET_VALUE
+    assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
+    assert result["database_url"] == REDACTED_SECRET_VALUE
+    assert set(result.keys()) == {
+        "path_key",
+        "upath_key",
+        "str_key",
+        "list_str_key",
+        "api_key",
+        "openAIApiKey",
+        "database_url",
+    }
+
+
+def test_redact_secrets_in_source_code():
+    source_code = """
+api_key = "test-api-key-value"
+openAIApiKey = "another-secret"
+uid = "a6yhtobqTjQM6q8t"
+db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
+os.environ["API_KEY"] = "sdk-key"
+config = {"client_secret": "client-secret-value", "id": "abc123"}
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 5
+    assert 'api_key = "***REDACTED***"' in redacted
+    assert 'openAIApiKey = "***REDACTED***"' in redacted
+    assert 'db_url = "***REDACTED***"' in redacted
+    assert 'os.environ["API_KEY"] = "***REDACTED***"' in redacted
+    assert '"client_secret": "***REDACTED***"' in redacted
+    assert 'uid = "a6yhtobqTjQM6q8t"' in redacted
+
+
+def test_redact_secrets_in_source_code_keeps_env_references():
+    source_code = """
+api_key = os.getenv("OPENAI_API_KEY")
+openAIApiKey = getenv("OPENAI_API_KEY")
+model_api_key = os.environ["MODEL_API_KEY"]
+provider_token = os.environ.get("PROVIDER_TOKEN")
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
+    assert redaction_count == 0
+    assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
+    assert 'openAIApiKey = getenv("OPENAI_API_KEY")' in redacted
+    assert 'model_api_key = os.environ["MODEL_API_KEY"]' in redacted
+    assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
+
+
+def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+    source_code = """
+def run(api_key: str) -> None:
+    raise RuntimeError("fail")
+
+run_agent(
+    api_key=api_key,
+)
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
+    assert redaction_count == 0
+    assert "def run(api_key: str) -> None:" in redacted
+    assert "api_key=api_key," in redacted
+
+
+def test_serialize_params_to_json_redacts_provider_api_key_names():
+    params = {
+        "LAMIN_API_KEY": "lamin-super-secret",
+        "OPENAI_API_KEY": "openai-super-secret",
+        "ANTHROPIC_API_KEY": "anthropic-super-secret",
+        "GEMINI_API_KEY": "gemini-super-secret",
+        "provider_name": "safe-value",
+    }
+    result = serialize_params_to_json(params)
+    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["provider_name"] == "safe-value"
+
+
+def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+    source_code = """
+LAMIN_API_KEY = "lamin-super-secret"
+OPENAI_API_KEY = "openai-super-secret"
+ANTHROPIC_API_KEY = "anthropic-super-secret"
+GEMINI_API_KEY = "gemini-super-secret"
+provider = "openai"
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 4
+    assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
+    assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
+    assert 'ANTHROPIC_API_KEY = "***REDACTED***"' in redacted
+    assert 'GEMINI_API_KEY = "***REDACTED***"' in redacted
+    assert 'provider = "openai"' in redacted
+
+
+def test_track_basic_invocation():
+    project = "non-existing project"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.track(project=project)
+    assert (
+        error.exconly()
+        == f"lamindb.errors.InvalidArgument: Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+    )
+    space = "non-existing space"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.track(space=space)
+    assert (
+        error.exconly()
+        == f"lamindb.errors.InvalidArgument: Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+    )
+
+    test_transform = ln.Transform(key="test_transform").save()
+
+    # first invocation using features
+    kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14}
+    with pytest.raises(ValidationError) as exc:
+        ln.track(transform=test_transform, features=kwargs)
+    assert exc.exconly().startswith(
+        """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']"""
+    )
+    feature1 = ln.Feature(name="param1", dtype=int).save()
+    feature2 = ln.Feature(name="param2", dtype=str).save()
+    feature3 = ln.Feature(name="param3", dtype=float).save()
+    feature4 = ln.Feature(name="label_param", dtype=ln.Record).save()
+    record = ln.Record(name="my_label").save()
+    kwargs["label_param"] = "my_label"
+    ln.track(transform=test_transform, features=kwargs)
+    assert ln.context.run.features.get_values() == kwargs
+    print(ln.context.run.features.describe(return_str=True))
+    assert (
+        ln.context.run.features.describe(return_str=True)
+        == f"""\
+Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
+└── Features
+    └── label_param         Record                   my_label
+        param1              int                      1
+        param2              str                      my-string
+        param3              float                    3.14"""
+    )
+    # also call describe() plainly without further checks
+    ln.context.run.describe()
+    # second invocation
+    kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
+    param4 = ln.Feature(name="param4", dtype="int").save()
+    with pytest.raises(ValidationError) as exc:
+        ln.track(transform=test_transform, features=kwargs)
+    assert "Column 'param4' failed dtype check for 'int': got object" in exc.exconly()
+    # fix param4 dtype
+    param4.delete(permanent=True)
+    param4 = ln.Feature(name="param4", dtype=list[int]).save()
+    # re-run
+    ln.track(transform=test_transform, features=kwargs)
+    assert ln.context.run.features.get_values() == kwargs
+
+    # now use the params arg
+    ln.track(transform=test_transform, params=kwargs)
+    assert ln.context.run.params == kwargs
+    assert ln.Run.filter(params__param1=kwargs["param1"]).count() == 1
+
+    # test that run populates things like records
+    record = ln.Record(name="my-label-in-track")
+    assert record.run == ln.context.run
+
+    # test that we can call ln.finish() also for pipeline-like transforms
+    run = ln.context.run
+    assert run.finished_at is None
+    ln.finish()
+    assert (
+        run.finished_at is not None
+    )  # context is cleared after finish(); use captured run
+
+    # clean up
+    run.delete(permanent=True)
+    ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
+    ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    feature3.delete(permanent=True)
+    feature4.delete(permanent=True)
+    param4.delete(permanent=True)
+    test_transform.delete(permanent=True)
+
+
+def test_track_accepts_initiated_by_run_uid():
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        ln.track(
+            transform=child_transform,
+            initiated_by_run=parent_run.uid,
+            new_run=True,
+        )
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+        with pytest.raises(InvalidArgument) as error:
+            ln.track(
+                transform=child_transform,
+                initiated_by_run="does-not-exist",
+                new_run=True,
+            )
+        assert error.exconly().startswith(
+            "lamindb.errors.InvalidArgument: Run 'does-not-exist' not found"
+        )
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
+
+
+def test_track_uses_initiated_by_run_uid_from_env(monkeypatch: pytest.MonkeyPatch):
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-env-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-env-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        monkeypatch.setenv("LAMIN_INITIATED_BY_RUN_UID", parent_run.uid)
+        ln.track(transform=child_transform, new_run=True)
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
+
+
+@pytest.mark.parametrize("pass_plan_as_key", [False, True], ids=["artifact", "key"])
+def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
+    unique = time.time_ns()
+    plan_path = tmp_path / f"my-agent-plan-{unique}.md"
+    plan_path.write_text("# Agent plan\n\n- Step 1\n")
+    plan_artifact = ln.Artifact(
+        plan_path,
+        key=f".plans/my-agent-plan-{unique}.md",
+        kind="plan",
+    ).save()
+    transform = ln.Transform(key=f"test-track-with-plan-{unique}").save()
+    try:
+        plan = plan_artifact.key if pass_plan_as_key else plan_artifact
+        ln.track(transform=transform, plan=plan)
+        run = ln.context.run
+        assert run.plan is not None
+        assert run.plan.uid == plan_artifact.uid
+        run_from_db = ln.Run.get(uid=run.uid)
+        assert run_from_db.plan is not None
+        assert run_from_db.plan.uid == plan_artifact.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        plan_artifact.delete(permanent=True)
+        transform.delete(permanent=True)
+
+
+@pytest.fixture
+def create_record():
+    """Factory fixture that returns a function to create records."""
+    created_records = []
+
+    def create(kind: str) -> ln.models.SQLRecord:
+        if kind == "artifact":
+            record = ln.Artifact("README.md", key="README.md").save()
+        elif kind == "collection":
+            a1 = ln.Artifact("README.md", key="README.md").save()
+            created_records.append(a1)
+            a2 = ln.Artifact("pyproject.toml", key="pyproject.toml").save()
+            created_records.append(a2)
+            record = ln.Collection([a1, a2], key="test-collection").save()
+        created_records.append(record)
+        return record
+
+    yield create
+
+    for record in created_records[::-1]:
+        record.delete(permanent=True)
+
+
+@pytest.mark.parametrize("kind", ["artifact", "collection"])
+def test_track_input_record(create_record, kind):
+    # First run
+    ln.track()
+    previous_run = ln.context.run
+    record = create_record(kind)
+    record.cache()
+    assert (
+        record not in getattr(ln.context.run, f"input_{kind}s").all()
+    )  # avoid cycle with created artifact
+
+    # Second run
+    ln.track(new_run=True)
+    assert ln.context.run != previous_run
+    record = create_record(kind)
+    assert ln.context.run in record.recreating_runs.all()
+    assert record._subsequent_run_id == ln.context.run.id
+    record.cache()
+    assert (
+        record not in getattr(ln.context.run, f"input_{kind}s").all()
+    )  # avoid cycle with re-created artifact
+
+    # Third run
+    ln.track(new_run=True)
+    assert ln.context.run != previous_run
+    if kind == "artifact":
+        record = ln.Artifact.get(key="README.md")
+    else:
+        record = ln.Collection.get(key="test-collection")
+    record.cache()
+    assert ln.context.run not in record.recreating_runs.all()
+    assert not hasattr(record, "_subsequent_run_id")
+    assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
+
+
+def test_track_notebook_colab():
+    notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
+    ln.context._track_notebook(path_str=notebook_path)
+
+
+def test_track_notebook_untitled():
+    notebook_path = "Untitled.ipynb"
+    with pytest.raises(RuntimeError) as error:
+        ln.context._track_notebook(path_str=notebook_path)
+    assert (
+        "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
+        in error.exconly()
+    )
+
+
+def test_detect_and_process_source_code_file_returns_key_from_module_for_package():
+    """When path is inferred from stack and caller __name__ has '.', key_from_module is module path."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "mypackage.mymodule"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module == "pypackages/mypackage/mymodule.py"
+    assert path == Path(script_path)
+
+
+def test_detect_and_process_source_code_file_returns_none_key_for_script():
+    """When path is inferred from stack and caller __name__ has no '.', key_from_module is None."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "__main__"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module is None
+
+
+def test_finish_before_track():
+    ln.context._run = None
+    with pytest.raises(TrackNotCalled) as error:
+        ln.finish()
+    assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
+
+
+def test_invalid_transform_kind():
+    transform = ln.Transform(key="test transform")
+    ln.track(transform=transform)
+    ln.context._path = None
+    ln.context.run.transform.kind = "script"
+    with pytest.raises(ValueError) as error:
+        ln.finish()
+    assert "Transform type is not allowed to be" in error.exconly()
+
+    # unset to remove side effects
+    ln.context._run = None
+
+
+def test_create_or_load_transform():
+    title = "title"
+    version = "2.0"
+    uid = "NJvdsWWbJlZS0000"
+    context.uid = uid
+    context.version = version
+    context._path = Path("my-test-transform-create-or-load.py")
+    context._path.touch(exist_ok=True)
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
+        description=title,
+        transform_kind="notebook",
+        uid=context.uid,
+        version=context.version,
+    )
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == title
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
+        description=title,
+        uid=context.uid,
+        version=context.version,
+    )
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == title
+
+    # now, test an updated transform name
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
+        description="updated title",
+        uid=context.uid,
+        version=context.version,
+    )
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == "updated title"
+
+    # unset to remove side effects
+    ln.context._uid = None
+    ln.context._run = None
+    ln.context._transform = None
+    ln.context._path.unlink()
+    ln.context._path = None
+
+
+def test_create_or_load_transform_warns_when_outside_dev_dir(
+    tmp_path, ccaplog: pytest.LogCaptureFixture
+):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    path_outside_dev_dir = tmp_path / f"outside-{time.time_ns()}.py"
+    path_outside_dev_dir.write_text("print('track test')\n")
+    expected_key = path_outside_dev_dir.name
+    transform: ln.Transform | None = None
+    try:
+        ln_setup.settings.dev_dir = tmp_path / "configured-dev-dir"
+        ln_setup.settings.dev_dir.mkdir(exist_ok=True)
+        ccaplog.clear()
+        context._path = path_outside_dev_dir
+        transform, _ = ln.Transform._create_or_load_from_source(
+            path=context._path,
+            description="outside dev dir warning test",
+        )
+        assert "falling back to using filename as transform key" in ccaplog.text
+        assert transform.key == expected_key
+    finally:
+        ln_setup.settings.dev_dir = previous_dev_dir
+        ln.context._uid = None
+        ln.context._run = None
+        ln.context._transform = None
+        ln.context._path = None
+        if transform is not None:
+            transform.delete(permanent=True)
+
+
+def test_create_or_load_transform_uses_dev_dir_relative_key_for_relative_path(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_cwd = Path.cwd()
+    path_in_dev_dir = tmp_path / "flows" / f"track-{time.time_ns()}.py"
+    path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
+    path_in_dev_dir.write_text("print('track relative key test')\n")
+    transform: ln.Transform | None = None
+    try:
+        ln_setup.settings.dev_dir = tmp_path
+        os.chdir(tmp_path)
+        context._path = Path("flows") / path_in_dev_dir.name
+        transform, _ = ln.Transform._create_or_load_from_source(path=context._path)
+        assert transform.key == f"flows/{path_in_dev_dir.name}"
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.dev_dir = previous_dev_dir
+        ln.context._uid = None
+        ln.context._run = None
+        ln.context._transform = None
+        ln.context._path = None
+        if transform is not None:
+            transform.delete(permanent=True)
+
+
+def test_run_scripts():
+    # regular execution
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'script-to-test-versioning.py --param 42'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "created Transform('Ro1gl7n8YrdH0000'" in result.stdout.decode()
+    assert "started new Run(" in result.stdout.decode()
+    transform = ln.Transform.get("Ro1gl7n8YrdH0000")
+    assert transform.latest_run.cli_args == "--param 42"
+    assert transform.source_code is not None
+    assert "ln.track(" in transform.source_code
+
+    # updated key (filename change)
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'script-to-test-filename-change.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "renaming transform" in result.stdout.decode()
+    transform = ln.Transform.get(key="script-to-test-filename-change.py")
+    assert transform.latest_run.cli_args is None
+
+    # version already taken
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate1/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 1
+    assert (
+        "✗ version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        in result.stderr.decode()
+    )
+
+    # regular version bump
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate2/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "created Transform('Ro1gl7n8YrdH0002'" in result.stdout.decode()
+    assert "started new Run(" in result.stdout.decode()
+    assert not ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
+    assert ln.Transform.get("Ro1gl7n8YrdH0002").is_latest
+
+    # inconsistent version
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate3/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 1
+    assert (
+        "Transform is already tagged with version 2, but you passed 3"
+        in result.stderr.decode()
+    )
+
+    # multiple folders, do not match the key because of the folder structure
+    ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
+        key="teamA/script-to-test-versioning.py"
+    )
+    # this test creates a transform with key script-to-test-versioning.py at the root level
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "ignoring transform" in result.stdout.decode()
+
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+
+    # multiple folders, match the key, also test is finished
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate5/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert f"{transform.stem_uid}" in result.stdout.decode()
+    assert "making new version" in result.stdout.decode()
+
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    assert transform.latest_run.finished_at is not None
+
+
+def test_run_external_script():
+    script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
+    result = subprocess.run(  # noqa: S602
+        f"python {script_path}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
+    assert "created Transform" in result.stdout.decode()
+    assert "started new Run" in result.stdout.decode()
+    transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
+    # the algorithm currently picks different commits depending on the state of the repo
+    # any of these commits are valid
+    assert transform.uid == "m5uCHTTpJnjQ0000"
+    assert transform.reference.endswith(
+        "/tests/scripts/run-track-and-finish-sync-git.py"
+    )
+    assert transform.reference.startswith(
+        "https://github.com/laminlabs/lamin-cli/blob/"
+    )
+    assert transform.reference_type == "url"
+    assert transform.description == "My good script"
+    # ensure that the source code is not saved as an output artifact
+    assert transform.latest_run.output_artifacts.count() == 0
+    assert transform.runs.count() == 1
+    assert transform.hash == "VC1oTPcaVSrzNrXUT9p4qw"
+
+
+@pytest.mark.parametrize("type", ["notebook", "script"])
+def test_track_notebook_or_script_manually(type):
+    transform = ln.Transform(key="My notebook", kind=type)
+    with pytest.raises(ValueError) as error:
+        ln.track(transform=transform)
+    assert (
+        error.exconly()
+        == "ValueError: Use `ln.track()` without passing transform in a notebook or script - metadata is automatically parsed"
+    )
+
+
+def test_clean_r_notebook_html():
+    orig_notebook_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html"
+    content = orig_notebook_path.read_text()
+    orig_notebook_path.write_text(content.replace("SHORTCUT", get_shortcut()))
+    comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
+    compare = comparison_path.read_text()
+    comparison_path.unlink()
+    title_text, cleaned_path = clean_r_notebook_html(orig_notebook_path)
+    assert comparison_path == cleaned_path
+    assert title_text == "My exemplary R analysis"
+    assert compare == cleaned_path.read_text()  # check that things have been stripped
+    comparison_path.write_text(compare)
+    orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
+
+
+def test_notebook_to_script_notebooknode_metadata(tmp_path):
+    """Test that notebook_to_script handles NotebookNode metadata.
+
+    https://github.com/laminlabs/lamindb/issues/3480
+    """
+    import nbformat
+    from lamindb._finish import notebook_to_script
+
+    nb = nbformat.v4.new_notebook()
+    nb.metadata["kernelspec"] = nbformat.NotebookNode({"display_name": "python3"})
+    notebook_path = tmp_path / "test.ipynb"
+    nbformat.write(nb, notebook_path)
+
+    # This would raise RepresenterError without metadata.clear()
+    result = notebook_to_script("Test", notebook_path)
+    assert result is not None
+    assert "NotebookNode" not in result
+
+
+class MockRun:
+    def __init__(self, uid):
+        self.uid = uid
+        self.report = None
+        self.saved = False
+
+    def save(self):
+        self.saved = True
+
+
+def test_logstream_tracker_multiple():
+    tracker1 = LogStreamTracker()
+    tracker2 = LogStreamTracker()
+    tracker3 = LogStreamTracker()
+
+    try:
+        # Start trackers one by one and print messages
+        print("Initial stdout")
+
+        tracker1.start(MockRun("run1"))
+        print("After starting tracker1")
+
+        tracker2.start(MockRun("run2"))
+        print("After starting tracker2")
+
+        tracker3.start(MockRun("run3"))
+        print("After starting tracker3")
+
+        print("Testing stderr", file=sys.stderr)
+
+        time.sleep(0.1)
+
+        # Clean up in reverse order
+        tracker3.finish()
+        tracker2.finish()
+        tracker1.finish()
+
+        # Verify log contents - each log should only contain messages after its start
+        expected_contents = {
+            1: [
+                "After starting tracker1",
+                "After starting tracker2",
+                "After starting tracker3",
+                "Testing stderr",
+            ],
+            2: ["After starting tracker2", "After starting tracker3", "Testing stderr"],
+            3: ["After starting tracker3", "Testing stderr"],
+        }
+
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            with open(log_path) as f:
+                content = f.read()
+                print(f"\nContents of run{i} log:")
+                print(content)
+                # Check each expected line is in the content
+                for expected_line in expected_contents[i]:
+                    assert expected_line in content, (
+                        f"Expected '{expected_line}' in log {i}"
+                    )
+
+                # Check earlier messages are NOT in the content
+                if i > 1:
+                    assert "Initial stdout" not in content
+                    assert "After starting tracker" + str(i - 1) not in content
+
+    finally:
+        # Cleanup
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            if log_path.exists():
+                log_path.unlink()
+
+
+def test_logstream_tracker_exception_handling():
+    tracker = LogStreamTracker()
+    original_excepthook = sys.excepthook
+    run = MockRun("error")
+
+    try:
+        tracker.start(run)
+        print("Before error")
+
+        # Create and capture exception info
+        exc_type = ValueError
+        exc_value = ValueError("Test error")
+        exc_traceback = None
+        try:
+            raise exc_value
+        except ValueError:
+            exc_traceback = sys.exc_info()[2]
+
+        # Handle the exception - this will trigger cleanup
+        tracker.handle_exception(exc_type, exc_value, exc_traceback)
+
+        # Verify run status
+        assert run.saved
+        assert run.report is not None
+
+        # Verify the content was written before cleanup
+        content = run.report.cache().read_text()
+        print("Log contents:", content)
+        assert "Before error" in content
+        assert "ValueError: Test error" in content
+        assert "Traceback" in content
+
+    finally:
+        tracker.finish()
+        sys.excepthook = original_excepthook
+        log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
+        if log_path.exists():
+            log_path.unlink()
+
+
+def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
+    tracker = LogStreamTracker()
+    run = MockRun("sigint")
+    original_excepthook = sys.excepthook
+
+    def raising_sigint_handler(signum, frame):
+        raise KeyboardInterrupt
+
+    try:
+        with (
+            patch(
+                "signal.getsignal",
+                side_effect=[signal.SIG_DFL, raising_sigint_handler],
+            ),
+            patch("signal.signal"),
+            patch("lamindb._finish.save_run_logs"),
+        ):
+            tracker.start(run)
+            with pytest.raises(KeyboardInterrupt):
+                tracker.cleanup(signo=signal.SIGINT, frame=None)
+    finally:
+        tracker.finish()
+        sys.excepthook = original_excepthook
+        log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
+        if log_path.exists():
+            log_path.unlink()

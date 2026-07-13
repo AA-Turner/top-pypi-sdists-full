@@ -13,6 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 
 _runner = CliRunner()
 

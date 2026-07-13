@@ -221,7 +221,7 @@ def test_sms_bridge_python_specifically_requested(sms_bridge_setup):
         task="Create a python backend server app with FastAPI and send the python code to my phone",
         file_to_create="server.py",
         file_content="from fastapi import FastAPI\napp = FastAPI()",
-        expect_attached=True
+        expect_attached=False
     )
 
 

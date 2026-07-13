@@ -1,20 +1,7 @@
 use super::*;
 
 pub(crate) const MIN_CONDITIONAL_PRECISION: f64 = 1.0e-12;
-
-/// Half-width of the open-interval clamp `[ε, 1−ε]` applied to IBP-assignment
-/// probabilities before `ln`/`1/p` so the Bernoulli cross-entropy and its score
-/// stay finite at the simplex boundary.
-pub(crate) const IBP_PROBABILITY_CLAMP: f64 = 1.0e-12;
-
-/// Interior tolerance for the IBP straight-through Bernoulli mean: the
-/// pass-through Jacobian `∂π/∂(mass)` is taken only when the unclamped mean lies
-/// strictly inside `(δ, 1−δ)`; at the saturated boundary the gradient is zero.
-pub(crate) const IBP_INTERIOR_TOL: f64 = 1.0e-9;
-
-/// Floor on the IBP posterior-count denominator `n + a − 1`, guarding the
-/// per-component mean against a zero (or negative) effective count.
-pub(crate) const IBP_COUNT_DENOM_FLOOR: f64 = 1.0e-9;
+pub(crate) use gam_problem::{LOG_STRENGTH_MAX, LOG_STRENGTH_MIN, checked_exp_log_strength};
 
 // ---------------------------------------------------------------------------
 // Common trait
@@ -64,58 +51,75 @@ impl PsiSlice {
     }
 }
 
-/// Resolve a learnable penalty strength `base_weight · exp(rho)` without ever
-/// overflowing to `inf` or (for a nonzero base weight) underflowing to exact
-/// `0.0`.
+/// Resolve the exact learnable strength `base_weight · exp(rho)` in log space.
 ///
-/// For finite `rho ≳ 709` the naive `base_weight * rho.exp()` overflows to
-/// `inf`; the resulting `inf` then poisons the solve via `inf · 0.0 = NaN` or
-/// `inf / inf = NaN` in the value/grad/Hessian. Conversely for `rho ≲ -745`
-/// `rho.exp()` underflows to `0.0`, silently disabling a penalty whose base
-/// weight is strictly positive and reintroducing `0/0` in ratios that divide by
-/// the strength.
-///
-/// The fix is to evaluate the product in log-space and clamp the *log-strength*
-/// into the finite-normal band before exponentiating, so the returned strength
-/// is always finite (and strictly positive whenever `base_weight ≠ 0`). The
-/// clamp band is symmetric in log-strength about zero, matched to the largest /
-/// smallest positive normal `f64`, leaving a safety margin so subsequent
-/// multiplications by `O(1)` factors stay finite.
-pub fn resolve_learnable_weight(base_weight: f64, rho: f64) -> f64 {
-    // Largest / smallest log-magnitude that keeps the strength a finite normal
-    // `f64` with headroom for downstream `O(1)` arithmetic.
-    const MAX_LOG_STRENGTH: f64 = 700.0;
-    const MIN_LOG_STRENGTH: f64 = -700.0;
+/// The effective log-strength `ln|base_weight| + rho` must lie in the closed
+/// [`LOG_STRENGTH_MIN`, `LOG_STRENGTH_MAX`] domain. Values outside that domain
+/// are rejected instead of saturated: a plateau would make the evaluated
+/// value constant while analytic `rho` derivatives remain nonzero. Computing
+/// the product as `sign(base_weight) · exp(ln|base_weight| + rho)` also avoids
+/// an overflowing intermediate `exp(rho)` when a very small base permits a
+/// large legal coordinate.
+pub fn resolve_learnable_weight(base_weight: f64, rho: f64) -> Result<f64, String> {
     if base_weight == 0.0 {
-        return 0.0;
+        return Err(
+            "a multiplicatively learnable weight requires a nonzero base; zero would make its rho coordinate structurally dead"
+                .to_string(),
+        );
     }
-    assert!(
-        base_weight.is_finite() && rho.is_finite(),
-        "resolve_learnable_weight requires finite inputs; got base_weight={base_weight}, rho={rho}"
-    );
-    let log_strength = base_weight.abs().ln() + rho;
-    let clamped = log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH);
-    clamped.exp().copysign(base_weight)
+    if !(base_weight.is_finite() && rho.is_finite()) {
+        return Err(format!(
+            "learnable weight requires finite base and coordinate; got base_weight={base_weight}, rho={rho}"
+        ));
+    }
+    let log_base = base_weight.abs().ln();
+    let (lower, upper) = (LOG_STRENGTH_MIN - log_base, LOG_STRENGTH_MAX - log_base);
+    if !(lower..=upper).contains(&rho) {
+        return Err(format!(
+            "learnable coordinate must be in [{lower}, {upper}] so its effective log strength is in [{LOG_STRENGTH_MIN}, {LOG_STRENGTH_MAX}]; got {rho}"
+        ));
+    }
+    // Map the two emitted faces back to their mathematical effective values
+    // exactly. This is not saturation: values beyond either face were refused
+    // above. It only removes one subtraction/addition roundoff at a legal face.
+    let log_strength = if rho == lower {
+        LOG_STRENGTH_MIN
+    } else if rho == upper {
+        LOG_STRENGTH_MAX
+    } else {
+        log_base + rho
+    };
+    Ok(checked_exp_log_strength(log_strength)
+        .map_err(|error| error.to_string())?
+        .copysign(base_weight))
+}
+pub fn learnable_weight_coordinate_domain(base_weight: f64) -> Result<Option<(f64, f64)>, String> {
+    if base_weight == 0.0 {
+        return Ok(None);
+    }
+    if !base_weight.is_finite() {
+        return Err(format!(
+            "learnable weight domain requires a finite base; got {base_weight}"
+        ));
+    }
+    let log_base = base_weight.abs().ln();
+    Ok(Some((
+        LOG_STRENGTH_MIN - log_base,
+        LOG_STRENGTH_MAX - log_base,
+    )))
 }
 
-/// Exponentiate a learnable log-precision `exp(log_alpha)` with the exponent
-/// clamped into the finite-normal band, returning a finite, strictly-positive
-/// precision.
-///
-/// A raw `log_alpha.exp()` overflows to `inf` for `log_alpha ≳ 709` (an `inf`
-/// precision then poisons the ARD value/grad/Hessian via `inf · 0.0 = NaN`) and
-/// underflows to exact `0.0` for `log_alpha ≲ -745` (a zero precision drops a
-/// prior the term still expects to be positive). Clamping the exponent and
-/// flooring at the smallest positive normal keeps the precision a finite,
-/// strictly-positive `f64` while still spanning arbitrarily small / large
-/// values within range (#742, Issue 4).
-pub(crate) fn stable_exp_log_precision(log_alpha: f64) -> f64 {
-    const MAX_LOG_STRENGTH: f64 = 700.0;
-    const MIN_LOG_STRENGTH: f64 = -700.0;
-    log_alpha
-        .clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH)
-        .exp()
-        .max(f64::MIN_POSITIVE)
+/// Exact strength for trait methods whose owning evaluation seam has already
+/// called `AnalyticPenalty::validate_rho`. Keeping this preconditioned helper
+/// private prevents an unchecked public plateau/error path.
+pub(crate) fn validated_learnable_weight(base_weight: f64, rho: f64) -> f64 {
+    resolve_learnable_weight(base_weight, rho)
+        .expect("analytic-penalty rho must be validated before strength evaluation")
+}
+
+pub(crate) fn validated_exp_log_strength(log_strength: f64) -> f64 {
+    checked_exp_log_strength(log_strength)
+        .expect("analytic-penalty rho must be validated before precision evaluation")
 }
 
 /// Scalar annealing schedule for analytic penalty weights.
@@ -215,6 +219,39 @@ pub trait AnalyticPenalty: Send + Sync {
     /// Tier the target lives in (β or ext-coord).
     fn tier(&self) -> PenaltyTier;
 
+    /// Validate the penalty-local outer-rho vector before any value or
+    /// derivative method consumes it. Implementations with a multiplicative
+    /// base weight override this to validate `ln|base| + rho`; the default is
+    /// the unit-base log-strength domain.
+    fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+        if rho.len() != self.rho_count() {
+            return Err(format!(
+                "analytic penalty `{}` rho length {} != declared {}",
+                self.name(),
+                rho.len(),
+                self.rho_count()
+            ));
+        }
+        for (axis, &value) in rho.iter().enumerate() {
+            checked_exp_log_strength(value).map_err(|error| {
+                format!(
+                    "analytic penalty `{}` rho axis {axis}: {error}",
+                    self.name()
+                )
+            })?;
+        }
+        Ok(())
+    }
+
+    /// Per-local-coordinate legal intervals. The generic optimizer intersects
+    /// these with its configured box before evaluating a penalty. Ordinary
+    /// non-log coordinates may return infinite endpoints to denote an
+    /// unbounded face; evaluation still requires every supplied coordinate to
+    /// be finite.
+    fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+        Ok(vec![(LOG_STRENGTH_MIN, LOG_STRENGTH_MAX); self.rho_count()])
+    }
+
     /// Scalar penalty contribution `P(target; ρ)`. The strength factor
     /// `exp(ρ)` (or whatever parameterization the penalty uses) is folded in.
     fn value(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> f64;
@@ -288,7 +325,7 @@ pub trait AnalyticPenalty: Send + Sync {
     /// re-weighted-ℓ₂ / MM surrogate `diag(B(target; ρ))` with
     /// `B ⪰ ∂²P/∂target²` everywhere and `B ⪰ 0`. This is a *different*
     /// operator from [`Self::hessian_diag`]: for nonconvex penalties (log
-    /// sparsity, JumpReLU) the exact Hessian is indefinite, but the inner
+    /// sparsity, smooth-threshold) the exact Hessian is indefinite, but the inner
     /// Newton / PIRLS solve and the log-det / preconditioner pipeline require
     /// a PSD curvature block. For convex penalties the majorizer coincides
     /// with the exact Hessian, so the default simply delegates to
@@ -411,6 +448,40 @@ macro_rules! impl_learnable_weight_rho_count {
     () => {
         fn rho_count(&self) -> usize {
             usize::from(self.learnable_weight)
+        }
+    };
+}
+
+macro_rules! impl_learnable_weight_domain {
+    ($field:ident) => {
+        fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+            if rho.len() != self.rho_count() {
+                return Err(format!(
+                    "analytic penalty `{}` rho length {} != declared {}",
+                    self.name(),
+                    rho.len(),
+                    self.rho_count()
+                ));
+            }
+            if self.learnable_weight {
+                resolve_learnable_weight(self.$field, rho[self.rho_index]).map_err(|error| {
+                    format!("analytic penalty `{}`: {error}", self.name())
+                })?;
+            }
+            Ok(())
+        }
+
+        fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+            if !self.learnable_weight {
+                return Ok(Vec::new());
+            }
+            let domain = learnable_weight_coordinate_domain(self.$field)?.ok_or_else(|| {
+                format!(
+                    "analytic penalty `{}` cannot expose a learnable coordinate with zero base weight",
+                    self.name()
+                )
+            })?;
+            Ok(vec![domain])
         }
     };
 }

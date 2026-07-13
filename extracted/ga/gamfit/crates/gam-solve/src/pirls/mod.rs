@@ -42,7 +42,7 @@ mod tests;
 pub use curvature::*;
 pub use deviance::*;
 pub(crate) use dispersion::*;
-pub use family_state::*;
+pub(crate) use family_state::*;
 pub(crate) use gam_working_model::*;
 pub use glm_update::*;
 pub use low_rank::*;
@@ -64,8 +64,6 @@ use edf::{
     calculate_edf_from_sparse_factor, calculate_edf_with_penalty,
     calculate_edfwithworkspace_from_factor, calculate_edfwithworkspace_with_penalty,
 };
-
-use log_link_working_state::ETA_CLAMP;
 
 pub(crate) use penalty::PirlsPenalty;
 use penalty::{

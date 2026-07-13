@@ -116,7 +116,7 @@ fn two_circle_k2_term(n: usize, p: usize, m: usize) -> (SaeManifoldTerm, Array2<
         penalties.view(),
         logits.view(),
         &coords_vec,
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         &evaluators,
     )
     .unwrap();
@@ -217,7 +217,7 @@ pub(crate) fn sequential_deflation_gives_both_atoms_material_norm_2027() {
 ///
 /// NOTE: this exercises the INNER joint solve (`run_joint_fit_arrow_schur` at a
 /// fixed ρ) — the co-collapse / structure-recovery layer the seeding + anchoring fix
-/// lives in — not the outer REML ρ-search whose non-PD-Hessian retries are the
+/// lives in — not the outer penalized quasi-Laplace ρ-search whose non-PD-Hessian retries are the
 /// separate Python-side "hang" at wide `p`.
 #[test]
 pub(crate) fn two_circle_separates_at_narrow_and_wide_widths_2027() {
@@ -295,7 +295,7 @@ pub(crate) fn two_circle_separates_at_narrow_and_wide_widths_2027() {
 ///      phases) → the atoms decode DIFFERENT rows, so their gated contributions
 ///      `Y_k = diag(a)ΦB` are NOT collinear → benign, NOT flagged. This is the
 ///      over-complete (`K > rank`) regime the old frame-coherence detector
-///      false-positived on (the `ibp_default_alpha` regression: healthy EV≈0.99,
+///      false-positived on (the `ordered_beta_bernoulli_default_alpha` regression: healthy EV≈0.99,
 ///      frame coherence ≈1, contribution cosine ≈ the independence null): several
 ///      curved atoms MUST share the ≤`p`-dim output space while encoding distinct
 ///      structure.
@@ -349,7 +349,7 @@ pub(crate) fn structural_coherence_detector_fires_on_duplicate_not_orthogonal_20
             .unwrap()
             .is_none(),
         "same output subspace with DIFFERENT charts is benign over-completeness and \
-         must NOT be flagged (the ibp_default_alpha false positive)"
+         must NOT be flagged (the ordered_beta_bernoulli_default_alpha false positive)"
     );
 
     // (3) TRUE DUPLICATE: identical decoder AND identical chart (copy atom 0's
@@ -370,5 +370,253 @@ pub(crate) fn structural_coherence_detector_fires_on_duplicate_not_orthogonal_20
         hit.2 > 0.9,
         "true-duplicate contribution cosine must be ~1, got {}",
         hit.2
+    );
+}
+
+/// #2132 #2b — build a K=3 periodic term whose three atoms ALL decode into the
+/// SAME 2-D output plane (the first-harmonic sin/cos map onto output columns 0
+/// and 1 of a `p`-dim output), so the union output-frame rank `R = 2 < K = 3`
+/// and the dictionary is OVERCOMPLETE. `duplicate = true` makes atoms 0 and 1 a
+/// TRUE duplicate (identical decoder AND identical chart/phase) with atom 2 on a
+/// distinct phase; `duplicate = false` gives all three DISTINCT phases (identical
+/// decoder, different charts) — benign pigeonhole sharing.
+fn overcomplete_k3_planar_term(n: usize, p: usize, m: usize, duplicate: bool) -> SaeManifoldTerm {
+    let d = 1usize;
+    let k = 3usize;
+    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(m).unwrap());
+    let mut basis_values = Array3::<f64>::zeros((k, n, m));
+    let mut basis_jacobian = Array4::<f64>::zeros((k, n, m, d));
+    let mut decoder = Array3::<f64>::zeros((k, m, p));
+    let mut penalties = Array3::<f64>::zeros((k, m, m));
+    let mut coords_vec: Vec<Array2<f64>> = Vec::new();
+    for atom in 0..k {
+        // atoms 0,1 share phase 0 when duplicating (atom 2 shifted); otherwise all
+        // three phases are distinct.
+        let phase = if duplicate {
+            if atom == 2 {
+                1.0 / 3.0
+            } else {
+                0.0
+            }
+        } else {
+            atom as f64 / k as f64
+        };
+        let mut coords = Array2::<f64>::zeros((n, d));
+        for row in 0..n {
+            coords[[row, 0]] = ((row as f64) / (n as f64) + phase).rem_euclid(1.0);
+        }
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        basis_values.slice_mut(s![atom, .., ..]).assign(&phi);
+        basis_jacobian.slice_mut(s![atom, .., .., ..]).assign(&jet);
+        penalties
+            .slice_mut(s![atom, .., ..])
+            .assign(&Array2::<f64>::eye(m));
+        // Every atom decodes the first harmonic into the (e0, e1) output plane
+        // (sin → col 0, cos → col 1), so all three output frames span the same
+        // 2-D subspace ⇒ union rank 2 < k = 3 (overcomplete).
+        decoder[[atom, 1, 0]] = 1.0;
+        decoder[[atom, 2, 1]] = 1.0;
+        coords_vec.push(coords);
+    }
+    let logits = Array2::<f64>::zeros((n, k));
+    let mut evaluators: Vec<Option<Arc<dyn SaeBasisSecondJet>>> = Vec::new();
+    for _ in 0..k {
+        evaluators.push(Some(evaluator.clone()));
+    }
+    term_from_padded_blocks_with_mode(
+        n,
+        p,
+        &vec![SaeAtomBasisKind::Periodic; k],
+        basis_values.view(),
+        basis_jacobian.view(),
+        &vec![m; k],
+        &vec![d; k],
+        decoder.view(),
+        penalties.view(),
+        logits.view(),
+        &coords_vec,
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
+        &evaluators,
+    )
+    .unwrap()
+}
+
+/// #2132 #2b — an OVERCOMPLETE (`K > R`) true duplicate must be detected. The old
+/// union-frame-rank gate returned NO collapsed pairs whenever `K > R`, which
+/// DISABLED the detector exactly in the overcomplete regime where duplicates are
+/// most likely (the second-stage contribution-cosine verdict was never reached).
+/// #2b keeps the detector alive overcomplete — it drops only the pigeonhole-
+/// forced PASS-1 frame prune — so PASS 2 flags the true duplicate (0,1). This
+/// fixture is genuinely overcomplete (three atoms in a 2-D output plane, R=2<K=3).
+#[test]
+pub(crate) fn overcomplete_duplicate_is_detected_past_the_k_gt_r_gate_2132() {
+    let term = overcomplete_k3_planar_term(96, 4, 5, true);
+    let hit = term
+        .structural_coherence_collapse_detected()
+        .unwrap()
+        .expect(
+            "an overcomplete (K>R) true duplicate must be flagged now that the detector \
+             reaches PASS 2 past the K>R gate",
+        );
+    assert_eq!((hit.0, hit.1), (0, 1), "the duplicate pair is (0, 1)");
+    assert!(
+        hit.2 > 0.9,
+        "overcomplete duplicate contribution cosine must be ~1, got {}",
+        hit.2
+    );
+}
+
+/// #2132 #2b — the overcomplete detector must NOT false-fire on benign pigeonhole
+/// sharing. Same K=3-in-a-2-plane geometry but all three atoms carry DISTINCT
+/// phases (identical decoder, different charts): every output frame overlaps by
+/// pigeonhole, yet the PASS-2 contribution cosine sits at the independence null,
+/// so nothing is flagged (the `ordered_beta_bernoulli` false-positive the K>R gate was
+/// originally meant to avoid — now avoided by the verdict stage, not by disabling
+/// the detector).
+#[test]
+pub(crate) fn overcomplete_distinct_phases_stay_silent_2132() {
+    let term = overcomplete_k3_planar_term(96, 4, 5, false);
+    assert!(
+        term.structural_coherence_collapse_detected()
+            .unwrap()
+            .is_none(),
+        "benign overcomplete pigeonhole sharing (distinct phases) must NOT be flagged"
+    );
+}
+
+/// Two circles of UNEQUAL amplitude on disjoint output-channel parities: circle A
+/// (unit amplitude, winding 1) on the even channels {0, 2}, circle B (`amp_b < 1`)
+/// on the odd channels {1, 3}. Circle B winds THREE times per revolution of A, a
+/// harmonic index BEYOND the atoms' order-2 (`m = 5`) chart span, so neither
+/// circle lies in the other's harmonic reach: atom A's decoder cannot absorb B as
+/// one of its own harmonics (which an absorbable 2× winding would let it do,
+/// collapsing the residual to zero and making the second reseed correctly
+/// terminal). A DOMINATES, so a co-collapse reseed that seeds both atoms from the
+/// same residual reads circle A for BOTH (re-collision); only a sequential-
+/// deflation reseed — peel A onto atom 0, then seed atom 1 from what A genuinely
+/// leaves behind (circle B) — separates them onto the two disjoint circles.
+fn two_amplitude_circle_target(n: usize, amp_b: f64) -> Array2<f64> {
+    let p = 4usize;
+    let mut z = Array2::<f64>::zeros((n, p));
+    for row in 0..n {
+        let ta = std::f64::consts::TAU * (row as f64) / (n as f64);
+        let tb = std::f64::consts::TAU * (3.0 * row as f64 + 0.37) / (n as f64);
+        z[[row, 0]] = ta.cos();
+        z[[row, 2]] = ta.sin();
+        z[[row, 1]] = amp_b * tb.cos();
+        z[[row, 3]] = amp_b * tb.sin();
+    }
+    z
+}
+
+/// Build a fresh K=2 periodic term (production PCA seed, decoders cold at zero)
+/// from an arbitrary target — the general form of [`two_circle_k2_term`].
+fn k2_periodic_term_from_target(target: &Array2<f64>, m: usize) -> SaeManifoldTerm {
+    let n = target.nrows();
+    let p = target.ncols();
+    let d = 1usize;
+    let k = 2usize;
+    let basis_kinds = vec![SaeAtomBasisKind::Periodic; k];
+    let dims = vec![d; k];
+    let seed = sae_pca_seed_initial_coords(target.view(), &basis_kinds, &dims).unwrap();
+    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(m).unwrap());
+
+    let mut basis_values = Array3::<f64>::zeros((k, n, m));
+    let mut basis_jacobian = Array4::<f64>::zeros((k, n, m, d));
+    let decoder = Array3::<f64>::zeros((k, m, p));
+    let mut penalties = Array3::<f64>::zeros((k, m, m));
+    let mut coords_vec: Vec<Array2<f64>> = Vec::new();
+    for atom in 0..k {
+        let coords = seed.slice(s![atom, .., 0..d]).to_owned();
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        basis_values.slice_mut(s![atom, .., ..]).assign(&phi);
+        basis_jacobian.slice_mut(s![atom, .., .., ..]).assign(&jet);
+        penalties
+            .slice_mut(s![atom, .., ..])
+            .assign(&Array2::<f64>::eye(m));
+        coords_vec.push(coords);
+    }
+    let logits = Array2::<f64>::zeros((n, k));
+    let mut evaluators: Vec<Option<Arc<dyn SaeBasisSecondJet>>> = Vec::new();
+    for _ in 0..k {
+        evaluators.push(Some(evaluator.clone()));
+    }
+    term_from_padded_blocks_with_mode(
+        n,
+        p,
+        &basis_kinds,
+        basis_values.view(),
+        basis_jacobian.view(),
+        &vec![m; k],
+        &dims,
+        decoder.view(),
+        penalties.view(),
+        logits.view(),
+        &coords_vec,
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
+        &evaluators,
+    )
+    .unwrap()
+}
+
+/// #2132 births — the SEQUENTIAL-DEFLATION birth reseed must separate co-collapsed
+/// CURVED atoms onto DISJOINT structure. With cold decoders the reconstruction
+/// residual is the full two-circle target; reseeding both atoms must peel the
+/// dominant circle A onto atom 0 and land atom 1 on circle B (what atom 0 left
+/// behind), so their provisional decoders concentrate on OPPOSITE output-channel
+/// parities. A simultaneous seed reads circle A for both atoms (both even-dominant
+/// = re-collision), which this opposite-parity assertion rejects.
+#[test]
+pub(crate) fn birth_reseed_sequential_deflation_separates_curved_atoms_2132() {
+    let n = 96usize;
+    let m = 5usize;
+    let target = two_amplitude_circle_target(n, 0.4);
+    let p = target.ncols();
+    let mut term = k2_periodic_term_from_target(&target, m);
+    let rho = SaeManifoldRho::new(
+        0.0,
+        -6.0,
+        vec![Array1::<f64>::zeros(1), Array1::<f64>::zeros(1)],
+    );
+    // Cold decoders ⇒ reconstruction residual == target (both circles uncovered),
+    // so both atoms carry distinct signal and the sequence reseeds both.
+    let reseeded = term
+        .reseed_curved_atoms_sequential_deflation(&[0, 1], target.view(), &rho)
+        .unwrap();
+    assert_eq!(
+        reseeded,
+        vec![0, 1],
+        "both curved atoms sit above the residual noise floor, so both reseed"
+    );
+
+    // Per-atom provisional-decoder energy split across even vs odd output channels:
+    // circle A lives on the even channels, circle B on the odd.
+    let mut even_frac = [0.0_f64; 2];
+    for (atom_idx, atom) in term.atoms.iter().enumerate() {
+        let b = &atom.decoder_coefficients; // (m × p)
+        let (mut e_even, mut e_odd) = (0.0_f64, 0.0_f64);
+        for col in 0..b.nrows() {
+            for out in 0..p {
+                let v = b[[col, out]] * b[[col, out]];
+                if out % 2 == 0 {
+                    e_even += v;
+                } else {
+                    e_odd += v;
+                }
+            }
+        }
+        even_frac[atom_idx] = e_even / (e_even + e_odd).max(1.0e-300);
+    }
+    eprintln!("[#2132 birth reseed] per-atom even-energy fraction = {even_frac:?}");
+    let (lo, hi) = if even_frac[0] <= even_frac[1] {
+        (even_frac[0], even_frac[1])
+    } else {
+        (even_frac[1], even_frac[0])
+    };
+    assert!(
+        lo < 0.5 && hi > 0.5,
+        "sequential-deflation birth reseed did NOT separate the two curved atoms onto \
+         disjoint structure: even-energy fractions {even_frac:?} both on one side of 0.5 \
+         (a simultaneous seed re-reads the dominant circle for both atoms = re-collision)"
     );
 }

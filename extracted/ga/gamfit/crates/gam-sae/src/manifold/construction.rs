@@ -1,4 +1,5 @@
 use super::*;
+use gam_math::special::bessel_i0_centered_terms_from_log_abs;
 
 // ── Theorem K: the rank charge is a RUNNING COMPLEXITY λ(n) ──────────────────
 //
@@ -12,25 +13,28 @@ use super::*;
 // the coefficient of log n in the evidence. Theorem K observes that the THREE
 // quantities this code juggles are the SAME object λ evaluated in three regimes:
 //
-//   • HARD rank (n → ∞ limit, atom well above the noise edge): every resolved
-//     decoder direction is a regular parameter, λ → ½·rank_eff·basis_edf = ½·d_eff.
-//     This is the canonical criterion (hard MP count).
+//   • HARD MP reconstruction rank (n → ∞ limit, atom well above the noise edge):
+//     every resolved decoder direction is a regular parameter,
+//     λ → ½·rank_reconstructed·basis_edf = ½·d_eff.
 //   • WBIC SOFT count (finite n, atom NEAR the Marchenko–Pastur edge): the
 //     audit-only `wbic_audit` report records the tempered fractional count. It
 //     is diagnostic, not an alternative production criterion.
 //   • RLCT (SINGULAR truth, a symmetry orbit or a null atom): λ drops below ½·d
 //     to the real log-canonical threshold. The null atom (truth B*=0) has λ=½ from
-//     the amplitude singularity of a²‖B‖² — see the veto in `reml_criterion`.
+//     the amplitude singularity of a²‖B‖² — see the veto in `penalized_quasi_laplace_criterion`.
 //
 // Soft → hard away from the edge (every sigmoid → 1) and soft → RLCT at singular
 // truths (sigmoids → 0), so the single ledger `λ(n_eff)·ln n_eff` interpolates all
 // three regimes continuously. The log-scale is the OCCUPANCY-corrected `ln n_eff`
 // (Fisher information actually accumulated by a gated atom), never the global row
-// count — see the #2a inert-row axiom in `reml_criterion`.
+// count — see the #2a inert-row axiom in `penalized_quasi_laplace_criterion`.
 //
-// The production criterion has one charge currency: the hard MP branch. Keeping
-// an un-differentiated soft alternative would make value and analytic gradient
-// describe different objectives, so the fractional count remains audit-only.
+// The production criterion has one charge currency: the chargeable-rank branch.
+// It equals the hard MP reconstruction rank when at least one direction clears the edge;
+// #2258 promotes an MP-rank-zero but numerically alive decoder to the minimum
+// chargeable rank one. Keeping an un-differentiated soft alternative would make
+// value and analytic gradient describe different objectives, so the fractional
+// WBIC count remains audit-only.
 
 /// #9 streaming rank-charge inputs, accumulated in a SINGLE pass through
 /// [`SaeManifoldTerm::streaming_exact_arrow_log_det`]: the coordinate-block
@@ -53,14 +57,281 @@ pub struct StreamingRankInputs {
 /// (m×p), effective sample size `n_eff = Σ_row a²`, output dim `p_out`, noise floor
 /// `r_floor` (dispersion R, assumed already guarded > 0), and smoothness `(lam_smooth,
 /// smooth_penalty)`.
-///   * `rank_eff` = Marchenko–Pastur HARD count on the per-atom reconstruction Gram
+///   * `rank_reconstructed` = Marchenko–Pastur HARD reconstruction count on the per-atom
+///     reconstruction Gram
 ///     `(1/n_eff)·BᵀB`, `B = diag(a)·Φ·D`: eigenvalues = svd(diag(√λ)·Uᵀ·D)²/n_eff with
 ///     `(λ,U)=eigh(gram)`; count those above `R·(1+√(p/n_eff))²` (a real rank-2 circle
-///     → 2, a vanishing decoder → 0).  [#1893/#11]
+///     → 2). `rank_eff` is the production chargeable rank: it equals
+///     `rank_reconstructed` unless the #2258 alive-below-edge rule promotes 0 to 1;
+///     only a vanished decoder remains 0. [#1893/#11]
 ///   * `basis_edf = tr(gram·(gram+λS)⁻¹)`.
 /// This is the source of truth the term-level `rank_dof_from_grams` (dense + #9
 /// streaming) loops, AND that the #2023 migration gate prices linear/curved candidates
 /// through — so PROMOTE (birth) and DEMOTE (hybrid split) adjudicate in ONE currency.
+/// #2258 reconstruction-rank-vs-degeneracy threshold: a rank-0 atom whose top
+/// reconstruction-Gram eigenvalue exceeds `RANK_VANISHED_REL · R` is ALIVE
+/// (below the MP reconstruction-rank edge, not degenerate) and is promoted to the
+/// minimum chargeable rank 1; at or below it the decoder has genuinely
+/// vanished and the categorical Laplace-validity veto applies. Shared by the
+/// value path here, the WBIC diagnostic, and the ρ-derivative through
+/// [`classify_reconstruction_rank`], so the three views cannot desync.
+pub(crate) const RANK_VANISHED_REL: f64 = 1.0e-9;
+
+/// The two integer rank notions carried by the evidence code.
+///
+/// `mp_reconstruction_rank` counts how many reconstruction directions clear
+/// the Marchenko–Pastur rank edge. It is not an information-theoretic detection
+/// limit.
+/// `production_chargeable_rank` answers a different degeneracy question: how
+/// many directions may the Laplace value price? They differ only when no
+/// direction clears the MP edge but the fitted decoder is still numerically
+/// alive, in which case #2258 charges the minimum non-degenerate rank one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct ReconstructionRankClassification {
+    pub mp_reconstruction_rank: usize,
+    pub production_chargeable_rank: usize,
+    pub top_signal: f64,
+}
+
+/// Convert a reconstruction singular value to per-observation energy without
+/// forming `singular_value²` first. Squaring first can overflow even when the
+/// quotient is representable; normalizing by `√n_eff` before squaring preserves
+/// that representable range. A genuinely unrepresentable energy is an error,
+/// not an infinite direction that silently wins the MP comparison.
+pub(super) fn normalized_reconstruction_energy(
+    singular_value: f64,
+    n_eff: f64,
+) -> Result<f64, String> {
+    if !singular_value.is_finite() || singular_value < 0.0 {
+        return Err(format!(
+            "reconstruction singular value must be finite and non-negative; got {singular_value}"
+        ));
+    }
+    if !n_eff.is_finite() || n_eff <= 0.0 {
+        return Err(format!(
+            "reconstruction energy needs finite positive n_eff; got {n_eff}"
+        ));
+    }
+    let normalized = singular_value / n_eff.sqrt();
+    let energy = normalized * normalized;
+    if !energy.is_finite() {
+        return Err(format!(
+            "per-observation reconstruction energy overflowed for singular value \
+             {singular_value} and n_eff={n_eff}"
+        ));
+    }
+    Ok(energy)
+}
+
+/// Single source of truth for MP reconstruction rank versus production chargeability.
+///
+/// Callers supply the per-observation reconstruction-Gram eigenvalues `mu`, the
+/// MP reconstruction-rank `edge`, and the reconstruction dispersion `r_floor`. Inputs are
+/// validated by [`validate_rank_charge_problem`] before production reaches this
+/// helper; [`super::wbic_audit::ReconSpectrum`] stores the same validated values.
+pub(super) fn classify_reconstruction_rank(
+    mu: &[f64],
+    edge: f64,
+    r_floor: f64,
+) -> ReconstructionRankClassification {
+    let mut mp_reconstruction_rank = 0usize;
+    let mut top_signal = 0.0_f64;
+    for &signal in mu {
+        if signal > edge {
+            mp_reconstruction_rank += 1;
+        }
+        top_signal = top_signal.max(signal);
+    }
+    let production_chargeable_rank = if mp_reconstruction_rank > 0 {
+        mp_reconstruction_rank
+    } else if top_signal > RANK_VANISHED_REL * r_floor {
+        1
+    } else {
+        0
+    };
+    ReconstructionRankClassification {
+        mp_reconstruction_rank,
+        production_chargeable_rank,
+        top_signal,
+    }
+}
+
+/// Validate the shared reconstruction-rank problem before either the production
+/// value path or the WBIC audit touches a factorization. Keeping this contract
+/// in one place prevents the two mathematically identical paths from drifting,
+/// and turns ndarray dimension mismatches into ordinary errors instead of dot-
+/// product panics.
+pub(super) fn validate_rank_charge_problem(
+    gram: &Array2<f64>,
+    decoder: &Array2<f64>,
+    n_eff: f64,
+    p_out: f64,
+    r_floor: f64,
+    lam_smooth: f64,
+    smooth_penalty: Option<&Array2<f64>>,
+) -> Result<(), String> {
+    let m = gram.nrows();
+    if gram.ncols() != m {
+        return Err(format!(
+            "rank-charge Gram must be square; got {:?}",
+            gram.dim()
+        ));
+    }
+    if decoder.nrows() != m {
+        return Err(format!(
+            "rank-charge decoder must have {m} rows; got {:?}",
+            decoder.dim()
+        ));
+    }
+    if !p_out.is_finite() || p_out < 0.0 || p_out != decoder.ncols() as f64 {
+        return Err(format!(
+            "rank-charge p_out must equal the decoder width {}; got {p_out}",
+            decoder.ncols()
+        ));
+    }
+    if !n_eff.is_finite() || n_eff < 0.0 {
+        return Err(format!(
+            "rank-charge n_eff must be finite and non-negative; got {n_eff}"
+        ));
+    }
+    if !r_floor.is_finite() || r_floor < 0.0 {
+        return Err(format!(
+            "rank-charge dispersion must be finite and non-negative; got {r_floor}"
+        ));
+    }
+    if !lam_smooth.is_finite() || lam_smooth < 0.0 {
+        return Err(format!(
+            "rank-charge smoothing weight must be finite and non-negative; got {lam_smooth}"
+        ));
+    }
+    if gram.iter().any(|value| !value.is_finite()) {
+        return Err("rank-charge Gram must be finite".to_string());
+    }
+    if decoder.iter().any(|value| !value.is_finite()) {
+        return Err("rank-charge decoder must be finite".to_string());
+    }
+
+    let gram_scale = gram.iter().map(|value| value.abs()).fold(0.0_f64, f64::max);
+    let gram_symmetry_tolerance =
+        64.0 * m as f64 * f64::EPSILON * gram_scale.max(f64::MIN_POSITIVE);
+    for row in 0..m {
+        for col in 0..row {
+            if (gram[[row, col]] - gram[[col, row]]).abs() > gram_symmetry_tolerance {
+                return Err(format!(
+                    "rank-charge Gram is materially asymmetric at ({row}, {col})"
+                ));
+            }
+        }
+    }
+
+    if let Some(penalty) = smooth_penalty {
+        if penalty.dim() != (m, m) {
+            return Err(format!(
+                "rank-charge smooth penalty shape {:?} does not match Gram shape ({m}, {m})",
+                penalty.dim()
+            ));
+        }
+        if penalty.iter().any(|value| !value.is_finite()) {
+            return Err("rank-charge smooth penalty must be finite".to_string());
+        }
+        let penalty_scale = penalty
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        let penalty_symmetry_tolerance =
+            64.0 * m as f64 * f64::EPSILON * penalty_scale.max(f64::MIN_POSITIVE);
+        for row in 0..m {
+            for col in 0..row {
+                if (penalty[[row, col]] - penalty[[col, row]]).abs() > penalty_symmetry_tolerance {
+                    return Err(format!(
+                        "rank-charge smooth penalty is materially asymmetric at ({row}, {col})"
+                    ));
+                }
+            }
+        }
+        let (penalty_eigenvalues, _) = penalty
+            .eigh(super::Side::Lower)
+            .map_err(|error| format!("rank-charge smooth-penalty eigendecomposition: {error}"))?;
+        certified_psd_spectrum(penalty_eigenvalues.view(), "rank-charge smooth penalty")?;
+    }
+    Ok(())
+}
+
+/// Certify the eigenspectrum of a matrix promised to be a Gram matrix. Tiny
+/// negative eigenvalues inside the symmetric eigensolver's backward-error
+/// envelope are numerical zero; a material negative direction is invalid data,
+/// not a direction the rank charge may silently discard.
+pub(super) fn certified_psd_spectrum(
+    eigenvalues: ArrayView1<'_, f64>,
+    matrix_name: &str,
+) -> Result<Vec<f64>, String> {
+    if eigenvalues.iter().any(|value| !value.is_finite()) {
+        return Err(format!("{matrix_name} eigenspectrum is non-finite"));
+    }
+    let scale = eigenvalues
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    let tolerance = 64.0 * eigenvalues.len() as f64 * f64::EPSILON * scale.max(f64::MIN_POSITIVE);
+    let mut certified = Vec::with_capacity(eigenvalues.len());
+    for (axis, &eigenvalue) in eigenvalues.iter().enumerate() {
+        if eigenvalue < -tolerance {
+            return Err(format!(
+                "{matrix_name} is materially indefinite: eigenvalue {axis}={eigenvalue:.6e} is below -{tolerance:.6e}"
+            ));
+        }
+        certified.push(eigenvalue.max(0.0));
+    }
+    Ok(certified)
+}
+
+/// Certify the ridge-trace effective dimension
+/// `tr((G + lambda S)^-1 G)`.  For positive-semidefinite `G` and `S` and a
+/// positive-definite penalized Gram matrix the exact value lies in `[0, m]`.
+/// Only roundoff inside the standard dense-solve backward-error envelope may
+/// be snapped to that interval; a larger excursion is a failed numerical
+/// certificate, not an EDF that may be silently projected to a different
+/// model.
+pub(super) fn certified_basis_edf(
+    raw_basis_edf: f64,
+    basis_dim: usize,
+    context: &str,
+) -> Result<f64, String> {
+    if !raw_basis_edf.is_finite() {
+        return Err(format!("{context}: basis EDF is non-finite"));
+    }
+    let upper = basis_dim as f64;
+    let tolerance = 64.0
+        * upper.max(1.0)
+        * f64::EPSILON
+        * raw_basis_edf.abs().max(upper).max(f64::MIN_POSITIVE);
+    if raw_basis_edf < -tolerance || raw_basis_edf > upper + tolerance {
+        return Err(format!(
+            "{context}: basis EDF {raw_basis_edf:.6e} is outside the certified [0, {upper}] interval (roundoff tolerance {tolerance:.6e})"
+        ));
+    }
+    Ok(raw_basis_edf.clamp(0.0, upper))
+}
+
+#[cfg(test)]
+mod basis_edf_certificate_tests {
+    use super::certified_basis_edf;
+
+    #[test]
+    fn snaps_only_backward_error_scale_boundary_drift() {
+        let drift = 64.0 * f64::EPSILON;
+        assert_eq!(certified_basis_edf(-drift, 4, "test").unwrap(), 0.0);
+        assert_eq!(certified_basis_edf(4.0 + drift, 4, "test").unwrap(), 4.0);
+    }
+
+    #[test]
+    fn refuses_material_or_nonfinite_edf_excursions() {
+        for raw in [-1.0e-8, 4.0 + 1.0e-8, f64::NAN, f64::INFINITY] {
+            assert!(certified_basis_edf(raw, 4, "test").is_err());
+        }
+    }
+}
+
 pub(crate) fn realised_rank_charge_dof(
     gram: &Array2<f64>,
     decoder: &Array2<f64>,
@@ -71,18 +342,28 @@ pub(crate) fn realised_rank_charge_dof(
     smooth_penalty: Option<&Array2<f64>>,
 ) -> Result<f64, String> {
     let m = gram.nrows();
-    if m == 0 || !(n_eff > 0.0) {
+    validate_rank_charge_problem(
+        gram,
+        decoder,
+        n_eff,
+        p_out,
+        r_floor,
+        lam_smooth,
+        smooth_penalty,
+    )?;
+    if m == 0 || n_eff == 0.0 {
         return Ok(0.0);
     }
-    // rank_eff: MP hard count on the reconstruction Gram. U orthogonal ⇒ svd of
+    // MP reconstruction rank on the reconstruction Gram. U orthogonal ⇒ svd of
     // diag(√λ)·Uᵀ·D equals svd of the reconstruction square root G^½·D.
     let (evals, u) = gram
         .eigh(super::Side::Lower)
         .map_err(|e| format!("realised_rank_charge_dof: eigh(G): {e}"))?;
+    let evals = certified_psd_spectrum(evals.view(), "rank-charge Gram")?;
     let mut scaled = u.t().dot(decoder);
     let cols = scaled.ncols();
     for i in 0..m {
-        let s = evals[i].max(0.0).sqrt();
+        let s = evals[i].sqrt();
         for j in 0..cols {
             scaled[[i, j]] *= s;
         }
@@ -91,17 +372,52 @@ pub(crate) fn realised_rank_charge_dof(
         Ok((_, sv, _)) => sv,
         Err(e) => return Err(format!("realised_rank_charge_dof: recon svd: {e}")),
     };
-    let edge = r_floor * (1.0 + (p_out / n_eff).sqrt()).powi(2);
-    let rank_eff = sv.iter().filter(|&&s| (s * s) / n_eff > edge).count() as f64;
+    let edge = crate::null_battery::mp_reconstruction_rank_edge(n_eff, p_out, r_floor)
+        .map_err(|error| format!("realised_rank_charge_dof: {error}"))?;
+    let mu = sv
+        .iter()
+        .map(|&singular_value| normalized_reconstruction_energy(singular_value, n_eff))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("realised_rank_charge_dof: {error}"))?;
+    let rank = classify_reconstruction_rank(&mu, edge, r_floor);
+    // RECONSTRUCTION RANK vs DEGENERACY (#2258 real-activation class). MP rank zero
+    // conflated two regimes with opposite correct handling:
+    //   · VANISHED decoder (a²‖B‖² → 0): the β-mode is degenerate, the
+    //     β-Schur log-det → −∞ is the Laplace approximation BREAKING DOWN,
+    //     and the RLCT argument above makes the categorical +∞ veto the only
+    //     valid pricing. This is the regime the veto was built for (births on
+    //     featureless residuals).
+    //   · BELOW the MP RECONSTRUCTION-RANK EDGE but numerically alive: in a p ≈ n_eff
+    //     regime the edge is ≈ 4R (measured on real GPT-2 activations:
+    //     R=1.005, n_eff=84, p=64 ⇒ edge=3.53 vs top signal 0.32–0.84), so a
+    //     genuine fitted decoder simply isn't separable from noise AT THIS
+    //     SAMPLE SIZE. The Laplace value is perfectly valid there; vetoing
+    //     turned every weak-signal PRIMARY fit into a hard refusal — the
+    //     mechanism behind the 0/39 real-activation grid. Price such an atom
+    //     at the MINIMUM non-degenerate rank (1): an alive decoder occupies
+    //     at least a ray, the charge is strictly HIGHER than the rank-0 zero
+    //     charge (so the birth-gate null-license stays closed — a
+    //     featureless-residual birth must now pay ½·basis_edf·ln n it cannot
+    //     earn), and the fit minted for the user carries its honest weak
+    //     evidence instead of no model at all.
+    if rank.mp_reconstruction_rank == 0 && rank.production_chargeable_rank == 1 {
+        log::debug!(
+            "realised_rank_charge_dof: below-reconstruction-rank-edge atom promoted to rank 1 — \
+             top sv²/n_eff={:.6e} vs MP edge={edge:.6e} \
+             (R={r_floor:.6e}, n_eff={n_eff:.3e}, p_out={p_out})",
+            rank.top_signal
+        );
+    } else if rank.production_chargeable_rank == 0 {
+        log::debug!(
+            "realised_rank_charge_dof: VANISHED decoder (categorical veto upstream) — \
+             top sv²/n_eff={:.6e} ≤ {RANK_VANISHED_REL:.0e}·R (R={r_floor:.6e}, \
+             n_eff={n_eff:.3e}, p_out={p_out})",
+            rank.top_signal
+        );
+    }
     // basis_edf = tr(gram·(gram+λS)⁻¹).
     let mut mmat = gram.clone();
     if let Some(pen) = smooth_penalty {
-        if pen.dim() != (m, m) {
-            return Err(format!(
-                "realised_rank_charge_dof: smooth penalty shape {:?} does not match Gram shape ({m}, {m})",
-                pen.dim()
-            ));
-        }
         for i in 0..m {
             for j in 0..m {
                 mmat[[i, j]] += lam_smooth * pen[[i, j]];
@@ -112,8 +428,9 @@ pub(crate) fn realised_rank_charge_dof(
         format!("realised_rank_charge_dof: G + lambda*S is not positive definite: {error}")
     })?;
     let x = factor.solve_mat(gram); // X = (G+λS)⁻¹ G
-    let basis_edf = (0..m).map(|i| x[[i, i]]).sum::<f64>().clamp(0.0, m as f64);
-    Ok(rank_eff * basis_edf)
+    let raw_basis_edf = (0..m).map(|i| x[[i, i]]).sum::<f64>();
+    let basis_edf = certified_basis_edf(raw_basis_edf, m, "realised_rank_charge_dof")?;
+    Ok(rank.production_chargeable_rank as f64 * basis_edf)
 }
 
 /// Coordinate-block log-determinant `log|H_tt|` carried by an exact dense
@@ -148,7 +465,7 @@ pub(crate) fn coordinate_block_log_det(cache: &ArrowFactorCache) -> Result<f64, 
 /// gradient has switched to the realised-rank charge. A zero realised rank is
 /// the categorical Laplace-invalid branch and therefore yields positive
 /// infinity, matching the production criterion contract.
-pub(crate) fn rank_adjusted_laplace_complexity(
+pub(crate) fn rank_adjusted_quasi_laplace_complexity(
     log_det: f64,
     log_det_tt: f64,
     d_eff: &[f64],
@@ -156,7 +473,7 @@ pub(crate) fn rank_adjusted_laplace_complexity(
 ) -> Result<f64, String> {
     if d_eff.len() != n_eff.len() {
         return Err(format!(
-            "rank_adjusted_laplace_complexity: d_eff length {} does not match N_eff length {}",
+            "rank_adjusted_quasi_laplace_complexity: d_eff length {} does not match N_eff length {}",
             d_eff.len(),
             n_eff.len()
         ));
@@ -166,7 +483,7 @@ pub(crate) fn rank_adjusted_laplace_complexity(
     }
     if !(log_det.is_finite() && log_det_tt.is_finite()) {
         return Err(format!(
-            "rank_adjusted_laplace_complexity: non-finite logdet input \
+            "rank_adjusted_quasi_laplace_complexity: non-finite logdet input \
              (joint={log_det}, coordinate={log_det_tt})"
         ));
     }
@@ -174,12 +491,12 @@ pub(crate) fn rank_adjusted_laplace_complexity(
     for (atom, (&dof, &occupancy)) in d_eff.iter().zip(n_eff.iter()).enumerate() {
         if !(dof.is_finite() && dof > 0.0) {
             return Err(format!(
-                "rank_adjusted_laplace_complexity: atom {atom} has invalid positive realised DOF {dof}"
+                "rank_adjusted_quasi_laplace_complexity: atom {atom} has invalid positive realised DOF {dof}"
             ));
         }
         if !(occupancy.is_finite() && occupancy >= 0.0) {
             return Err(format!(
-                "rank_adjusted_laplace_complexity: atom {atom} has invalid effective sample size {occupancy}"
+                "rank_adjusted_quasi_laplace_complexity: atom {atom} has invalid effective sample size {occupancy}"
             ));
         }
         rank_charge += 0.5 * dof * occupancy.max(1.0).ln();
@@ -189,7 +506,7 @@ pub(crate) fn rank_adjusted_laplace_complexity(
         Ok(value)
     } else {
         Err(format!(
-            "rank_adjusted_laplace_complexity: assembled non-finite value {value}"
+            "rank_adjusted_quasi_laplace_complexity: assembled non-finite value {value}"
         ))
     }
 }
@@ -214,7 +531,7 @@ include!("construction_rank_charge_derivative.rs");
 // under the per-file line-count gate. They re-enter this module's scope via the
 // parent's glob re-export (`use super::*;` above).
 
-/// The undamped (ridge-0) deflated evidence factorization at an acceptance
+/// The undamped (ridge-0) deflated criterion factorization at an acceptance
 /// iterate, packaged with the factorisation-independent KKT residual norms read
 /// off the SAME assembled system. Produced by
 /// [`SaeManifoldTerm::factor_deflated_evidence_with_grad_norms`] at the
@@ -283,14 +600,13 @@ impl SaeManifoldTerm {
             last_frames_active: false,
             assembly_chunk_override: None,
             fixed_decoder_assembly: false,
-            softmax_active_cap: None,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
             arrow_assembly_workspace: SaeArrowAssemblyWorkspace::default(),
             certificate_dispersion: None,
             curvature_walk_report: None,
-            expected_evidence_gauge_deflated_directions: None,
-            evidence_gauge_deflation_reanchors: 0,
-            evidence_gauge_deflation_last_delta_sign: 0,
+            expected_criterion_gauge_deflated_directions: None,
+            criterion_gauge_deflation_reanchors: 0,
+            criterion_gauge_deflation_last_delta_sign: 0,
             dictionary_cocollapse_reseeds: 0,
             best_cocollapse_incumbent: None,
             best_fit_incumbent: None,
@@ -316,21 +632,23 @@ impl SaeManifoldTerm {
             // historical path is bit-for-bit). Installed via `set_tier0_mean` /
             // `fit_tier0_mean`.
             tier0_mean: None,
+            tier0_scale: None,
         })
     }
 
     /// Apply the FFI-facing [`SaeFitConfig`] as the source of truth for this fit.
     ///
     /// Distributes the config to its two authorities: the barrier strength override
-    /// onto the term (read by `separation_barrier_strength`), and the IBP-α
+    /// onto the term (read by `separation_barrier_strength`), and the ordered Beta--Bernoulli-α
     /// override onto the assignment (read by
-    /// [`SaeAssignment::resolved_ibp_alpha`]). A `None` field selects the canonical
+    /// [`SaeAssignment::resolved_ordered_beta_bernoulli_alpha`]). A `None` field selects the canonical
     /// data-derived or assignment-mode default. Call this after building the term
     /// and before fitting; distinct terms remain isolated by construction.
     pub fn set_fit_config(&mut self, config: SaeFitConfig) {
         self.separation_barrier_strength_override = config.separation_barrier_strength_override;
-        self.assignment
-            .set_ibp_alpha_override(config.ibp_alpha_override);
+        self.assignment.set_ordered_beta_bernoulli_alpha_override(
+            config.ordered_beta_bernoulli_alpha_override,
+        );
     }
 
     /// #1777 — the per-fit configuration currently in force on this term,
@@ -340,7 +658,9 @@ impl SaeManifoldTerm {
     pub fn fit_config(&self) -> SaeFitConfig {
         SaeFitConfig {
             separation_barrier_strength_override: self.separation_barrier_strength_override,
-            ibp_alpha_override: self.assignment.ibp_alpha_override,
+            ordered_beta_bernoulli_alpha_override: self
+                .assignment
+                .ordered_beta_bernoulli_alpha_override,
         }
     }
 
@@ -357,7 +677,7 @@ impl SaeManifoldTerm {
     /// `primary` is the linear/bulk tier that defines the fit's global regime —
     /// it owns the sparse-penalty scale (`log_lambda_sparse`), the observation
     /// `row_metric` / row-loss weighting (the whitening the curved tier is fit
-    /// *against*), and the fit-config (barrier / IBP-α). The curved `secondary`
+    /// *against*), and the fit-config (barrier / ordered Beta--Bernoulli-α). The curved `secondary`
     /// tier is fit on the whitened residual under that same regime, so it
     /// contributes only its per-atom parameters (atoms, coords, ungated,
     /// per-atom `log_lambda_smooth` / `log_ard`); its globals are byproducts of
@@ -373,7 +693,7 @@ impl SaeManifoldTerm {
     /// not in this merge — see below.
     ///
     /// Fitted-additivity `merged.fitted() == primary.fitted() + secondary.fitted()`
-    /// holds EXACTLY for independent-gate modes (JumpReLU / IBP, where each atom's
+    /// holds EXACTLY for independent-gate modes (ThresholdGate / ordered Beta--Bernoulli, where each atom's
     /// gate is computed independently); under Softmax the gate re-normalizes over
     /// the merged `K`, so the merge is a WARM START into the joint objective (the
     /// two-tier driver's final joint polish reconciles it).
@@ -439,7 +759,7 @@ impl SaeManifoldTerm {
             ));
         }
         // Assignment: column-hstack logits (n×K1 | n×K2), append per-atom coords
-        // and ungated flags. Carries primary's mode + ibp_alpha_override.
+        // and ungated flags. Carries primary's mode + ordered_beta_bernoulli_alpha_override.
         let mut logits = Array2::<f64>::zeros((n, k1 + k2));
         logits
             .slice_mut(s![.., 0..k1])
@@ -474,14 +794,14 @@ impl SaeManifoldTerm {
         primary.barrier_coactivation_gate = None;
         // Evidence-gauge / co-collapse cluster — the canonical reset (mirrors
         // outer_objective.rs and the ctor) clears all FIVE fields together: the
-        // reanchor count and last-delta sign feed the reml_criterion reversal-
+        // reanchor count and last-delta sign feed the penalized_quasi_laplace_criterion reversal-
         // budget loop, so carrying `primary`'s stale tier-1 values would either
         // spuriously flag a reversal on the merged term's FIRST deflation step or
         // start the joint polish with a partially-consumed budget (erroring
         // earlier than a fresh fit on an ill-conditioned tier-1).
-        primary.expected_evidence_gauge_deflated_directions = None;
-        primary.evidence_gauge_deflation_reanchors = 0;
-        primary.evidence_gauge_deflation_last_delta_sign = 0;
+        primary.expected_criterion_gauge_deflated_directions = None;
+        primary.criterion_gauge_deflation_reanchors = 0;
+        primary.criterion_gauge_deflation_last_delta_sign = 0;
         primary.dictionary_cocollapse_reseeds = 0;
         primary.best_cocollapse_incumbent = None;
         primary.best_fit_incumbent = None;
@@ -603,18 +923,6 @@ impl SaeManifoldTerm {
         self.last_frames_active = false;
         self.border_hbb_workspace = Array2::<f64>::zeros((0, 0));
         Ok(())
-    }
-
-    /// #1408/#1409 — install the optional hard per-row active-atom cap for
-    /// Softmax mode (threaded from the fit/encode `top_k`). A `Some(k)` with
-    /// `1 <= k < K` makes the Softmax assignment optimize on the COMPACT
-    /// top-`k` row layout (see [`Self::softmax_active_cap`]); `Some(k) >= K`
-    /// and `None` are both no-ops (full support). Non-softmax modes ignore it.
-    pub fn set_softmax_active_cap(&mut self, top_k: Option<usize>) {
-        self.softmax_active_cap = match top_k {
-            Some(k) if k >= 1 && k < self.k_atoms() => Some(k),
-            _ => None,
-        };
     }
 
     /// Install the fitted reconstruction dispersion used by
@@ -899,7 +1207,9 @@ impl SaeManifoldTerm {
     /// corrections of a designed corpus subsample (see the field docs on
     /// `row_loss_weights` for exactly where they enter the objective).
     ///
-    /// Weights must be finite and strictly positive, one per term row. They
+    /// Weights must be finite and nonnegative, with positive total mass and one
+    /// value per term row. Exact zeros represent rows excluded by a designed
+    /// estimation split; no numerical epsilon is substituted for zero. They
     /// are self-normalized to mean `1.0` here (only the *relative* design
     /// correction matters at the fitted sample size; the absolute `n/budget`
     /// scale would silently inflate the dispersion estimate against the
@@ -930,10 +1240,11 @@ impl SaeManifoldTerm {
             self.row_loss_weights = None;
             return Ok(());
         }
-        if !weights.iter().all(|w| w.is_finite() && *w > 0.0) {
+        if !weights.iter().all(|w| w.is_finite() && *w >= 0.0) || !weights.iter().any(|w| *w > 0.0)
+        {
             return Err(
-                "SaeManifoldTerm::set_row_loss_weights: weights must be finite and strictly \
-                 positive"
+                "SaeManifoldTerm::set_row_loss_weights: weights must be finite, nonnegative, \
+                 and contain positive total mass"
                     .to_string(),
             );
         }
@@ -1078,11 +1389,52 @@ impl SaeManifoldTerm {
         self.tier0_mean.as_ref()
     }
 
-    /// #2023 C4 — add the Tier-0 shared mean μ back (row-broadcast) to an assembled
-    /// `Σ_k a_k g_k` reconstruction, in place. A strict no-op on the historical
-    /// path (`tier0_mean == None`), so every reconstruction entry point can call it
-    /// unconditionally and stay bit-for-bit unchanged when Tier-0 is inactive.
+    /// Tier-0 per-column scale σ (input standardization). The fit runs on
+    /// `(Z − μ)/σ`; every reconstruction lifts back `x̂ = μ + σ ⊙ x̂_internal`.
+    /// Standardization is a CONDITIONING fix at the model level: with no column
+    /// equilibration anywhere in the fit path, raw activation targets carry
+    /// measured column-norm spreads of ~1e4 (joint Hessian κ ≈ 1e8, #2015),
+    /// which sets the linear contraction rate of the majorized inner solver —
+    /// the direct driver of the "~1e3 iterations then refusal" wall. Each σ_c
+    /// must be finite and positive.
+    pub fn set_tier0_scale(&mut self, scale: Array1<f64>) -> Result<(), String> {
+        let p = self.output_dim();
+        if scale.len() != p {
+            return Err(format!(
+                "SaeManifoldTerm::set_tier0_scale: scale length {} must equal output_dim {p}",
+                scale.len()
+            ));
+        }
+        if !scale.iter().all(|v| v.is_finite() && *v > 0.0) {
+            return Err(
+                "SaeManifoldTerm::set_tier0_scale: scale must be finite and positive".to_string(),
+            );
+        }
+        self.tier0_scale = Some(scale);
+        Ok(())
+    }
+
+    /// The installed Tier-0 per-column scale, or `None` on the historical
+    /// (unstandardized) path. Round-trips with [`Self::set_tier0_scale`].
+    pub fn tier0_scale(&self) -> Option<&Array1<f64>> {
+        self.tier0_scale.as_ref()
+    }
+
+    /// #2023 C4 — lift an assembled `Σ_k a_k g_k` reconstruction from the
+    /// internal (standardized, de-meaned) frame back to raw-target space, in
+    /// place: `x̂ ← μ + σ ⊙ x̂`. A strict no-op on the historical path
+    /// (`tier0_mean == None`, `tier0_scale == None`), so every reconstruction
+    /// entry point can call it unconditionally and stay bit-for-bit unchanged
+    /// when Tier-0 is inactive. The scale multiplies BEFORE the mean adds —
+    /// the fit frame is `(Z − μ)/σ`, so the inverse is `σ·x̂ + μ`.
     pub(crate) fn add_tier0_mean_inplace(&self, out: &mut Array2<f64>) {
+        if let Some(scale) = self.tier0_scale.as_ref() {
+            for mut out_row in out.rows_mut() {
+                for (out_col, s) in out_row.iter_mut().zip(scale.iter()) {
+                    *out_col *= *s;
+                }
+            }
+        }
         if let Some(mean) = self.tier0_mean.as_ref() {
             for mut out_row in out.rows_mut() {
                 for (out_col, m) in out_row.iter_mut().zip(mean.iter()) {
@@ -1190,7 +1542,8 @@ impl SaeManifoldTerm {
         rho: &SaeManifoldRho,
         dispersion_r: f64,
     ) -> Result<Vec<f64>, String> {
-        let lam = rho.lambda_smooth_vec();
+        self.assignment.validate_rho_domain(rho)?;
+        let lam = rho.lambda_smooth_vec()?;
         // Fixed noise floor R = residual variance (dispersion). Guard finite/positive.
         let r_floor = if dispersion_r.is_finite() && dispersion_r > 0.0 {
             dispersion_r
@@ -1203,8 +1556,10 @@ impl SaeManifoldTerm {
             // Each atom is priced through the shared `realised_rank_charge_dof` core
             // (the SAME fn the #2023 migration gate uses), so dense, #9 streaming, and
             // the tier PROMOTE/DEMOTE sites all adjudicate in one currency.
-            let n_eff_k = n_eff.get(k).copied().unwrap_or(0.0);
-            let lam_k = lam.get(k).copied().unwrap_or(0.0);
+            let n_eff_k = *n_eff.get(k).ok_or_else(|| {
+                format!("rank_dof_from_grams: missing effective sample size for atom {k}")
+            })?;
+            let lam_k = lam[k];
             let d = realised_rank_charge_dof(
                 &grams[k],
                 &self.atoms[k].decoder_coefficients,
@@ -1461,9 +1816,8 @@ impl SaeManifoldTerm {
 
     /// Build the trust-diagnostics producer for the Python `diagnostics` block.
     ///
-    /// `assignments` is supplied by the payload assembly site so top-k projection,
-    /// when requested, is reflected in coverage/frequency and in the tangent
-    /// spectra. Each atom's support is read through [`SupportMeasure`] so the
+    /// `assignments` is the exact matrix used by reconstruction. Each atom's
+    /// support is read through [`SupportMeasure`] so the
     /// trust scores use the same occupancy/effective-N convention as coordinate
     /// fidelity, persistence, and rank charge.
     pub fn trust_diagnostics_report(
@@ -2072,7 +2426,7 @@ impl SaeManifoldTerm {
     /// 1. Every Psi-tier penalty is either in [`sae_penalty_is_row_block_supported`],
     ///    or `NuclearNorm` (which is redirected to the per-atom decoder (β) block
     ///    rather than the coord "t" row block). Assignment sparsity penalties
-    ///    (`IBPAssignment`, `SoftmaxAssignmentSparsity`) are refused because the SAE
+    ///    (`OrderedBetaBernoulli`, `SoftmaxAssignmentSparsity`) are refused because the SAE
     ///    term already owns them through its built-in assignment path
     ///    (`loss.assignment_sparsity`). Penalty kinds with cross-row structure
     ///    (`TotalVariation`, `Monotonicity`, `BlockSparsity`,
@@ -2101,7 +2455,7 @@ impl SaeManifoldTerm {
             }
             if matches!(
                 penalty,
-                AnalyticPenaltyKind::IBPAssignment(_)
+                AnalyticPenaltyKind::OrderedBetaBernoulli(_)
                     | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
             ) {
                 return Err(format!(
@@ -2124,7 +2478,7 @@ impl SaeManifoldTerm {
                      has cross-row structure and cannot be expressed in the \
                      arrow-Schur row layout. Use only row-block-supported \
                      coord penalties (ARD, BlockOrthogonality, \
-                     Sparsity/TopK/JumpReLU, RowPrecisionPrior, \
+                     Sparsity/TopK/ThresholdGate, RowPrecisionPrior, \
                      ParametricRowPrecisionPrior, ScadMcp, Isometry) on the \
                      coord latent block, or move the penalty to a non-SAE \
                      term",
@@ -2135,7 +2489,7 @@ impl SaeManifoldTerm {
             // (per-atom-additive, dim-adaptive: ScadMcp / Sparsity / native ARD /
             // Isometry) dispatches cleanly on a mixed dictionary, so it never
             // forces a uniform `atom_dim`. Only the fixed-`d` structural
-            // penalties (BlockOrthogonality, TopK/JumpReLU, row-precision) do.
+            // penalties (BlockOrthogonality, TopK/ThresholdGate, row-precision) do.
             if !sae_row_block_penalty_composes_over_heterogeneous_coord_dims(penalty) {
                 non_composing_row_block = Some(penalty.name());
             }
@@ -2149,7 +2503,7 @@ impl SaeManifoldTerm {
                          atoms have heterogeneous coord latent dims (saw {first} \
                          and {mismatch}). This penalty carries a fixed per-axis \
                          structure bound to one shared `d` (BlockOrthogonality \
-                         reshapes to `(n_eff × d)` and groups axes; TopK/JumpReLU \
+                         reshapes to `(n_eff × d)` and groups axes; TopK/ThresholdGate \
                          hold per-axis thresholds; the row-precision priors hold a \
                          `(n_eff × d × d)` stack), so per-atom dispatch with mixed \
                          `d_k` would silently truncate or expand axes. Configure all \
@@ -2168,13 +2522,13 @@ impl SaeManifoldTerm {
     /// dictionary is compatible with the *dim-adaptive* row-block "t"-block
     /// penalties (native ARD / SCAD-MCP coord sparsity / sparsity / isometry) but
     /// incompatible with the *fixed-`d` structural* ones (block-orthogonality,
-    /// TopK/JumpReLU, row-precision priors).
+    /// TopK/ThresholdGate, row-precision priors).
     ///
     /// The dim-adaptive penalties are per-atom-additive and read each atom's own
     /// `d_k` (`ScadMcp`/`Sparsity` iterate the flat block element-wise; native
     /// ARD sums per atom over `d_k` axes with a per-atom `log_ard[k]`; isometry
     /// is rebuilt per atom by `corrected_isometry_penalty`), so the arrow-Schur
-    /// assembler dispatches them cleanly across mixed dims and the Laplace/REML
+    /// assembler dispatches them cleanly across mixed dims and the penalized quasi-Laplace
     /// evidence — itself a per-atom sum — stays exact with no padding or
     /// truncation (see
     /// [`sae_row_block_penalty_composes_over_heterogeneous_coord_dims`]). The
@@ -2185,7 +2539,7 @@ impl SaeManifoldTerm {
     ///
     /// The engine self-protects here so a genuine incompatibility surfaces as a
     /// direct, actionable error at the FFI boundary rather than as a deep
-    /// `RemlConvergenceError` mid-REML (the failure mode
+    /// `RemlConvergenceError` mid penalized quasi-Laplace solve (the failure mode
     /// [`Self::validate_analytic_penalty_registry`] otherwise produces during
     /// `assemble_arrow_schur`).
     ///
@@ -2233,7 +2587,7 @@ impl SaeManifoldTerm {
             "SAE-manifold fit refuses row-block analytic penalty {:?} on heterogeneous \
              atom coordinate dims (saw {first} and {mismatch}): this penalty carries a \
              fixed per-axis structure bound to one shared `d` (BlockOrthogonality reshapes \
-             to `(n_eff × d)` and groups axes; TopK/JumpReLU hold per-axis thresholds; the \
+             to `(n_eff × d)` and groups axes; TopK/ThresholdGate hold per-axis thresholds; the \
              row-precision priors hold a `(n_eff × d × d)` stack), so mixed per-atom \
              coordinate dims cannot be dispatched (they would silently truncate or pad axes). \
              Either configure a uniform atom_dim for all atoms, or drop this penalty. The \
@@ -2251,9 +2605,9 @@ impl SaeManifoldTerm {
     /// gam#2144 — `true` when the installed row metric whitens the likelihood at
     /// ANY rank. Drives whitening of the log-det row jets so they differentiate
     /// the SAME whitened operator (`JᵀU UᵀJ`) the assembly builds. Independent of
-    /// the IBP PSD majorization, which (#2144/#1038) is UNCONDITIONAL — the
-    /// assembly, evidence log-det, ρ-trace, and θ-adjoint all carry the majorized
-    /// IBP curvature on every path, whitened or not, so there is no rank-gated
+    /// the ordered Beta--Bernoulli PSD majorization, which (#2144/#1038) is UNCONDITIONAL — the
+    /// assembly, criterion log-det, ρ-trace, and θ-adjoint all carry the majorized
+    /// ordered Beta--Bernoulli curvature on every path, whitened or not, so there is no rank-gated
     /// majorization predicate anymore. `false` for the identity metric or no
     /// metric.
     pub(crate) fn whiten_logdet_row_jets(&self) -> bool {
@@ -2322,7 +2676,7 @@ impl SaeManifoldTerm {
     /// number of decoder coordinates the border actually carries once the
     /// low-rank Grassmann frames are profiled out. Atoms with no active frame
     /// contribute their full `M_k · p` (`r_k == p`), so on the all-full-`B` path
-    /// this equals [`Self::beta_dim`]. The border Cholesky / evidence log-det
+    /// this equals [`Self::beta_dim`]. The border Cholesky / criterion log-det
     /// scale with THIS count, not `beta_dim`.
     pub fn factored_border_dim(&self) -> usize {
         self.atoms.iter().map(|a| a.border_coeff_count()).sum()
@@ -2331,7 +2685,7 @@ impl SaeManifoldTerm {
     /// Total profiled-out Grassmann manifold dimension `Σ_k r_k·(p − r_k)` across
     /// all active frames (issue #972). This is the count of decoder-frame degrees
     /// of freedom estimated OUTSIDE the border by closed-form polar steps, and it
-    /// must enter the Laplace evidence dimension accounting (evidence honesty):
+    /// must enter the quasi-Laplace score dimension accounting (evidence honesty):
     /// the profiled frame is a MAP point on `∏_k Gr(r_k, p)`, contributing this
     /// many free dimensions to the model. `0` when every atom is on the full-`B`
     /// path. Counted (unscaled by `log λ`) in the effective decoder-parameter dof
@@ -2767,172 +3121,44 @@ impl SaeManifoldTerm {
         Arc::from(ranges.into_boxed_slice())
     }
 
-    /// Decide whether the sparse per-row active-set layout is engaged for a
-    /// dense-weight assignment mode, and if so derive the per-row active-atom
-    /// cap and magnitude cutoff.
-    ///
-    /// #1408: this plan is mode-agnostic. `assemble_arrow_schur` consults it
-    /// directly for IBP-MAP, and for `AssignmentMode::Softmax` via
-    /// [`Self::softmax_active_plan`], which tightens it with an explicit `top_k`
-    /// (`softmax_active_cap`). Softmax therefore engages the compact active-set
-    /// layout whenever `top_k` or the budget bounds the active set (the
-    /// active-sub-block Gershgorin majorizer + coherent logdet/θ-adjoint are
-    /// landed — see `SaeRowLayout`'s doc); it keeps the full `K`-atom layout only
-    /// when neither lever engages. The decision is auto-derived from
-    /// the problem size and the device/host working-set budget — never a CLI flag
-    /// or kwarg. JumpReLU is not handled here (it always uses its structural gate
-    /// via [`SaeRowLayout::from_jumprelu`]). The dense Gauss-Newton data Gram `G`
-    /// is `(m_total × m_total)` f64; if its dense form fits the budget we keep
-    /// the exact full-support solve (every atom active per row), so small-`K`
-    /// problems are bit-for-bit unchanged. Above that, we cap each row to the
-    /// `k_active` atoms that make the *sparse* Gram fit the same budget, with a
-    /// relative magnitude cutoff that drops assignment mass contributing
-    /// negligible `O(a²)` curvature.
-    ///
-    /// Returns `Some((k_active_cap, cutoff))` to engage sparsity, or `None` to
-    /// keep the dense full-support layout.
-    pub(crate) fn sparse_active_plan(&self) -> Option<(usize, f64)> {
-        // The per-row Riemannian tangent projection for non-Euclidean atom
-        // latents is now applied directly on the compact active-set rows (see
-        // the `Some(layout)` arm in `assemble_arrow_schur`, via
-        // `compact_row_ext_manifold_and_point`), which rebuilds each row's
-        // product manifold in its compact column order and applies the SAME
-        // gt/htt/htbeta + Kronecker-Jacobian projections the dense path uses. So
-        // the sparse plan may engage on curved ext-coord manifolds (circle /
-        // torus / sphere atoms) — the affordability lever for manifold-SAE at
-        // large `K`, where the dense `K²` co-assignment Gram is the cost. (The
-        // former `is_euclidean()`-only restriction punted every curved atom to
-        // the dense layout; it is lifted.) The host/device in-core budget is the
-        // single gate now; it is parameterised in `sparse_active_plan_for_budget`
-        // so the engagement regression can pin a small budget without allocating
-        // a multi-GB dense Gram.
-        // Size gate BEFORE any CUDA probe (startup-tax fix, #1017 ordering):
-        // decide against `min(host budget, conservative device-pool floor)`
-        // first. `sparse_active_plan_for_budget` returns `None` (keep the dense
-        // full-support layout) exactly when the dense data Gram fits the
-        // budget, and that verdict is monotone in the budget — so a Gram that
-        // fits the PESSIMISTIC budget also fits the host budget AND any probed
-        // device pool's budget (every real pool clears
-        // `SAE_MIN_DEVICE_POOL_IN_CORE_BUDGET_BYTES`). The probe could not flip
-        // the decision, so we return without creating any CUDA context. Only a
-        // Gram that overflows the pessimistic budget needs the real (possibly
-        // pooled-device) budget — and only then do we pay for the probe.
-        let host_budget = sae_host_in_core_budget_bytes().0;
-        let pessimistic = host_budget.min(SAE_MIN_DEVICE_POOL_IN_CORE_BUDGET_BYTES);
-        if self.sparse_active_plan_for_budget(pessimistic).is_none() {
-            return None;
-        }
-        let budget = match crate::gpu::device_runtime::GpuRuntime::global() {
-            // Allow up to one quarter of the AGGREGATE device budget for the dense
-            // Gram, matching the streaming dispatcher's in-core fraction. The
-            // per-atom-pair Gram blocks fan out across the whole device pool, so
-            // the in-core fraction sums every ordinal's budget, not just the
-            // primary's.
-            Some(rt) => {
-                let aggregate: usize = rt
-                    .device_ordinals()
-                    .iter()
-                    .map(|&ord| rt.memory_budget_for(ord))
-                    .sum();
-                aggregate / 4
-            }
-            None => host_budget,
+    /// Irreducible resident bytes for exact full-support row curvature and the
+    /// decoder data Gram. This is a lower bound used for admission before either
+    /// allocation; saturating arithmetic turns dimension overflow into refusal.
+    pub(crate) fn exact_dense_assignment_bytes(&self) -> usize {
+        let n = self.n_obs();
+        let q = self.assignment.row_block_dim();
+        let m_total: usize = self.atoms.iter().map(|atom| atom.basis_size()).sum();
+        n.saturating_mul(q)
+            .saturating_mul(q)
+            .saturating_mul(SAE_BYTES_PER_F64)
+            .saturating_add(
+                m_total
+                    .saturating_mul(m_total)
+                    .saturating_mul(SAE_BYTES_PER_F64),
+            )
+    }
+
+    /// Enforce exact dense-assignment admission. Smooth assignment families are
+    /// never converted into an active-set surrogate to fit memory.
+    pub(crate) fn require_exact_dense_assignment_budget(
+        &self,
+        budget_bytes: usize,
+    ) -> Result<(), String> {
+        let family = match self.assignment.mode {
+            AssignmentMode::TopK { .. } => return Ok(()),
+            AssignmentMode::Softmax { .. } => "softmax",
+            AssignmentMode::OrderedBetaBernoulli { .. } => "ordered_beta_bernoulli",
+            AssignmentMode::ThresholdGate { .. } => "threshold_gate",
         };
-        self.sparse_active_plan_for_budget(budget)
-    }
-
-    /// Budget-parameterised core of [`Self::sparse_active_plan`]. The dense data
-    /// Gram footprint `(m_total · m_total) f64` is compared against `budget`; a
-    /// term whose dense Gram exceeds the budget engages the compact active-set
-    /// plan (returns `Some((k_active_cap, cutoff))`), regardless of whether any
-    /// atom latent is curved. Pulled out so the curved-atom engagement
-    /// regression can pin a small budget deterministically.
-    pub(crate) fn sparse_active_plan_for_budget(&self, budget: usize) -> Option<(usize, f64)> {
-        // Relative magnitude cutoff: assignment mass below this fraction of the
-        // row's peak `|a_k|` enters the Gram only as `O(a²)` curvature and is
-        // dropped. Chosen so dropped terms are ~1e-6 of the peak self-coupling.
-        const RELATIVE_CUTOFF: f64 = 1.0e-3;
-
-        let k_atoms = self.k_atoms();
-        if k_atoms <= 1 {
-            return None;
+        let required_bytes = self.exact_dense_assignment_bytes();
+        if required_bytes <= budget_bytes {
+            return Ok(());
         }
-        let p = self.output_dim();
-        let m_total: usize = self.atoms.iter().map(|a| a.basis_size()).sum();
-        // Dense data Gram footprint: (m_total · m_total) f64.
-        let dense_gram_bytes = m_total
-            .saturating_mul(m_total)
-            .saturating_mul(SAE_BYTES_PER_F64);
-        if dense_gram_bytes <= budget {
-            return None;
-        }
-
-        // Sparse Gram footprint scales with the per-row active basis count
-        // `k_active · m_atom`. Solve for the largest `k_active` whose sparse
-        // Gram `(k_active · m_atom)²` still fits the budget.
-        let m_atom = (m_total as f64 / k_atoms as f64).max(1.0);
-        let max_active_basis = ((budget as f64 / SAE_BYTES_PER_F64 as f64).sqrt() / m_atom).floor();
-        let k_active_cap = (max_active_basis as usize).clamp(1, k_atoms);
-        // p does not enter the Gram dimension (it is carried by the `⊗ I_p`
-        // structure), but a degenerate `p == 0` term has no decoder columns.
-        if p == 0 {
-            return None;
-        }
-        Some((k_active_cap, RELATIVE_CUTOFF))
-    }
-
-    /// #1408/#1409 — per-row active-set plan for the Softmax assignment.
-    ///
-    /// Engages the compact top-`k` row layout when EITHER the user supplied a
-    /// hard `top_k` cap ([`Self::softmax_active_cap`], `1 <= k < K`) OR the
-    /// dense data Gram exceeds the in-core budget (the same memory lever the
-    /// IBP path uses via [`Self::sparse_active_plan`]). The returned
-    /// `k_active_cap` is the tighter of the two, so an explicit `top_k`
-    /// genuinely bounds the optimization even below the memory threshold and a
-    /// large-K budget breach still bounds it when no `top_k` is set. Returns
-    /// `None` (keep the exact full-`K` dense softmax layout) when neither lever
-    /// engages.
-    ///
-    /// The cutoff is the same relative magnitude floor as the budget plan
-    /// (`1e-3` of the row peak); under an explicit `top_k` cap alone (no budget
-    /// breach) it is `0.0` so exactly the top-`k` atoms are retained.
-    pub(crate) fn softmax_active_plan(&self) -> Option<(usize, f64)> {
-        if self.k_atoms() <= 1 {
-            return None;
-        }
-        let budget_plan = self.sparse_active_plan();
-        // #2134 — the deployment `top_k` (`softmax_active_cap`) is a HARD fit-time
-        // truncation of the softmax RECONSTRUCTION, faithful in only two regimes:
-        //   * the FIXED-DECODER encode / OOS assembly, where the decoder is frozen
-        //     so the dictionary cannot co-collapse — this is the load-bearing
-        //     large-K compact-encode contract
-        //     (`large_k_softmax_compact_encode_is_o1_per_token_and_recovers_support`);
-        //   * the winner-take-all `cap == 1` (#2132): the top-1 truncation's
-        //     optimum coincides with a valid full-softmax state (`a_winner → 1`),
-        //     and installing it keeps the cold routing-refine seed and the
-        //     subsequent Arrow-Schur solve on the SAME support (the saddle escape).
-        //
-        // In the JOINT co-training fit with `cap >= 2`, nothing forces the softmax
-        // to concentrate onto exactly `top_k` atoms per row, so the truncated,
-        // NON-renormalized reconstruction `Σ_{k∈top_k} a_k B_k g_k` (formed
-        // identically by the compact assembly and the line-search objective) is a
-        // SUPPORT-DEPENDENT surrogate: the per-row top-k support flips across outer
-        // Newton iterations, the objective jumps at every re-selection, monotone
-        // descent breaks, and the dictionary co-collapses — the reported top_k>1
-        // divergence. Route joint `cap >= 2` through the memory-budget lever ALONE
-        // (faithful at large K where the softmax IS concentrated so the dropped
-        // mass is `O(a²)`; a no-op dense fit at small/moderate K) and apply `top_k`
-        // only as the post-fit projection. The winner-take-all cap and the
-        // fixed-decoder encode cap are unchanged.
-        let honor_user_cap = self.fixed_decoder_assembly || self.softmax_active_cap == Some(1);
-        let user_cap = self.softmax_active_cap.filter(|_| honor_user_cap);
-        match (user_cap, budget_plan) {
-            (Some(cap), Some((budget_cap, cutoff))) => Some((cap.min(budget_cap), cutoff)),
-            // Explicit cap only: retain exactly the top-`cap` atoms (no extra
-            // magnitude cutoff beyond the cap).
-            (Some(cap), None) => Some((cap, 0.0)),
-            (None, plan) => plan,
-        }
+        Err(format!(
+            "exact {family} assignment assembly requires at least {required_bytes} bytes for row curvature and decoder Gram, exceeding the in-core budget {budget_bytes} bytes at N={}, K={}. Use assignment='topk' with an explicit support size; smooth assignments are never silently truncated",
+            self.n_obs(),
+            self.k_atoms(),
+        ))
     }
 
     pub fn flatten_beta(&self) -> Array1<f64> {
@@ -3023,7 +3249,6 @@ impl SaeManifoldTerm {
                         beta[[off + basis_col, out_col]];
                 }
             }
-            self.atoms[atom_idx].refresh_intrinsic_smooth_penalty();
         }
         Ok(())
     }
@@ -3039,9 +3264,8 @@ impl SaeManifoldTerm {
     /// (`Θ → 0`) sub-model. Empty when no report has been computed
     /// (`hybrid_split_report == None`, e.g. mid-fit) or no slot collapsed. The
     /// SINGLE source of the collapse policy — every reconstruction path (the
-    /// rho-keyed `try_fitted_with_rho`, the explicit-assignment
-    /// [`Self::reconstruct_from_assignments`] used by the top-k projection)
-    /// reads it so train, OOS, and top-k reconstructions decode collapsed slots
+    /// rho-keyed `try_fitted_with_rho` and the explicit-assignment
+    /// [`Self::reconstruct_from_assignments`]) reads it so every reconstruction decodes collapsed slots
     /// identically (#1228, #1233).
     pub(crate) fn hybrid_linear_image_map(
         &self,
@@ -3134,13 +3358,11 @@ impl SaeManifoldTerm {
     }
 
     /// Assemble the reconstruction `Σ_k a[i,k]·g_k(t_{ik})` from an EXPLICIT
-    /// per-row assignment matrix (e.g. a hard top-k projection of the fitted
-    /// soft assignments), honouring the #1026 hybrid collapse when `collapse` is
+    /// per-row assignment matrix, honouring the #1026 hybrid collapse when `collapse` is
     /// set: a verdict-linear `d = 1` slot decodes its straight sub-model image
     /// instead of its curved curve, exactly as the production `try_fitted` does.
-    /// This is the shared assembler the FFI top-k path uses so the projected
-    /// reconstruction composes with hybrid collapse (#1233) instead of
-    /// re-deriving the curved image by hand and silently bypassing the verdict.
+    /// This shared assembler prevents callers from re-deriving the curved image
+    /// by hand and silently bypassing the verdict.
     /// The atom coordinates (`t`) and decoded curves are the term's own fitted
     /// ones; only the assignment masses come from `assignments`. Because this
     /// entry point has no target, it explicitly refuses a collapse-rescued image;
@@ -3243,6 +3465,42 @@ impl SaeManifoldTerm {
         target: ArrayView2<'_, f64>,
         assignments: ArrayView2<'_, f64>,
     ) -> Result<Array2<f64>, String> {
+        let (fitted, _, _) =
+            self.reconstruct_from_assignments_target_aware_impl(target, assignments, false)?;
+        Ok(fitted)
+    }
+
+    /// Target-aware reconstruction together with each effective, unweighted
+    /// atom image and coordinate block. OOS reporting uses this entry so a
+    /// hybrid-linear verdict changes both the summed reconstruction and the
+    /// per-atom attribution exposed to callers.
+    pub(crate) fn reconstruct_with_atom_images_target_aware(
+        &self,
+        target: ArrayView2<'_, f64>,
+        assignments: ArrayView2<'_, f64>,
+    ) -> Result<(Array2<f64>, Vec<Array2<f64>>, Vec<Array2<f64>>), String> {
+        let (fitted, images, coords) =
+            self.reconstruct_from_assignments_target_aware_impl(target, assignments, true)?;
+        Ok((
+            fitted,
+            images.expect("capture=true materializes atom images"),
+            coords.expect("capture=true materializes effective coordinates"),
+        ))
+    }
+
+    fn reconstruct_from_assignments_target_aware_impl(
+        &self,
+        target: ArrayView2<'_, f64>,
+        assignments: ArrayView2<'_, f64>,
+        capture_atoms: bool,
+    ) -> Result<
+        (
+            Array2<f64>,
+            Option<Vec<Array2<f64>>>,
+            Option<Vec<Array2<f64>>>,
+        ),
+        String,
+    > {
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
@@ -3255,8 +3513,32 @@ impl SaeManifoldTerm {
         }
         let linear_images = self.hybrid_linear_image_map();
         let full_curved = self.reconstruct_from_assignments(assignments, false)?;
+        let mut atom_images = capture_atoms.then(|| {
+            (0..k_atoms)
+                .map(|_| Array2::<f64>::zeros((n, p)))
+                .collect::<Vec<_>>()
+        });
+        let mut effective_coords = capture_atoms.then(|| {
+            self.assignment
+                .coords
+                .iter()
+                .map(|coords| coords.as_matrix())
+                .collect::<Vec<_>>()
+        });
+
         if linear_images.is_empty() {
-            return Ok(full_curved);
+            if let Some(images) = atom_images.as_mut() {
+                let mut decoded = vec![0.0_f64; p];
+                for (atom_index, image) in images.iter_mut().enumerate() {
+                    for row in 0..n {
+                        self.atoms[atom_index].fill_decoded_row(row, &mut decoded);
+                        for output in 0..p {
+                            image[[row, output]] = decoded[output];
+                        }
+                    }
+                }
+            }
+            return Ok((full_curved, atom_images, effective_coords));
         }
 
         let mut out = Array2::<f64>::zeros((n, p));
@@ -3266,7 +3548,7 @@ impl SaeManifoldTerm {
         for row in 0..n {
             for atom_idx in 0..k_atoms {
                 let mass = assignments[[row, atom_idx]];
-                if mass == 0.0 {
+                if mass == 0.0 && !capture_atoms {
                     continue;
                 }
                 if let Some(image) = linear_images.get(&atom_idx) {
@@ -3285,8 +3567,19 @@ impl SaeManifoldTerm {
                         self.assignment.coords[atom_idx].as_matrix()[[row, 0]]
                     };
                     image.fill_row(coordinate, &mut image_row);
+                    if let Some(coords) = effective_coords.as_mut() {
+                        coords[atom_idx][[row, 0]] = coordinate;
+                    }
                 } else {
                     self.atoms[atom_idx].fill_decoded_row(row, &mut image_row);
+                }
+                if let Some(images) = atom_images.as_mut() {
+                    for output in 0..p {
+                        images[atom_idx][[row, output]] = image_row[output];
+                    }
+                }
+                if mass == 0.0 {
+                    continue;
                 }
                 for output in 0..p {
                     out[[row, output]] += mass * image_row[output];
@@ -3294,7 +3587,7 @@ impl SaeManifoldTerm {
             }
         }
         self.add_tier0_mean_inplace(&mut out);
-        Ok(out)
+        Ok((out, atom_images, effective_coords))
     }
 
     /// #1777 — TARGET-AWARE hybrid-collapsed reconstruction: identical to
@@ -3529,7 +3822,7 @@ impl SaeManifoldTerm {
 
     /// Build the #1026 curved-vs-linear hybrid-split report by adjudicating each
     /// eligible `d = 1` atom's fitted curved image against its straight (linear
-    /// special-case) sub-model on the common rank-aware Laplace evidence scale.
+    /// special-case) sub-model on the common rank-aware quasi-Laplace score scale.
     ///
     /// Both candidates are scored against the SAME data — the atom's
     /// leave-this-atom-out response residual `y_resp = target − (full − a_k·γ_k)`
@@ -4003,7 +4296,7 @@ impl SaeManifoldTerm {
 
     /// #1154 — amortized-encoder consistency of the CURRENT dictionary against
     /// its own fit-time target. This is the co-training signal of the joint
-    /// amortized-encoder + REML loop (Design A): the amortized (one-mat-vec)
+    /// amortized-encoder + penalized quasi-Laplace loop (Design A): the amortized (one-mat-vec)
     /// encode is built from the *current* fitted decoder, run on `targets`, and
     /// scored on two principled axes —
     ///
@@ -4015,7 +4308,7 @@ impl SaeManifoldTerm {
     ///   to first order by the per-chart IFT predictor scores near zero; a
     ///   dictionary the amortized encoder *cannot* invert faithfully (sharp
     ///   curvature, poorly-charted regions) scores high. Minimising this jointly
-    ///   with REML steers the fit toward dictionaries that admit a fast,
+    ///   with penalized quasi-Laplace steers the fit toward dictionaries that admit a fast,
     ///   faithful amortized encode — the architectural co-adaptation #1154 adds.
     /// * `unconverged_fraction`: the share of rowwise joint shared-residual
     ///   solves that did not meet the first-order stationarity tolerance.
@@ -4090,27 +4383,27 @@ impl SaeManifoldTerm {
         })
     }
 
-    /// #1154 — the co-trained REML criterion: the exact REML criterion at `rho`
+    /// #1154 — the co-trained penalized quasi-Laplace criterion: the exact penalized quasi-Laplace criterion at `rho`
     /// PLUS the amortized-encoder consistency penalty, so the outer optimizer
     /// co-adapts the dictionary + smoothing parameters λ toward a dictionary the
     /// fast initializer and joint refinement can faithfully invert.
     ///
     /// This is Design A of #1154. The inner solve still converges the `(t, β)`
     /// system to stationarity at the engine's current ρ (so the implicit-function
-    /// REML λ-gradient `dβ̂/dλ = −(H+S_λ)⁻¹(dS_λ/dλ)β̂` stays EXACT — the encoder
+    /// penalized quasi-Laplace λ-gradient `dβ̂/dλ = −(H+S_λ)⁻¹(dS_λ/dλ)β̂` stays exact — the encoder
     /// only warm-starts/co-adapts, it never replaces the stationary point). The
     /// added term
     ///
     /// ```text
-    ///   J_cotrain(ρ) = REML(ρ)  +  w · ‖x̂_amortized − x̂_exact‖²/(n·p)
+    ///   J_cotrain(ρ) = penalized_quasi_laplace(ρ) + w · ‖x̂_amortized − x̂_exact‖²/(n·p)
     ///                            +  w_conv · unconverged_fraction
     /// ```
     ///
     /// folds the post-fit amortized-encode quality into the ranked objective. The
-    /// weights are auto-scaled to the REML criterion magnitude (magic by default:
+    /// weights are auto-scaled to the penalized quasi-Laplace criterion magnitude (magic by default:
     /// no caller knob) so the consistency term is a meaningful but non-dominant
     /// fraction of the objective regardless of problem scale.
-    pub fn reml_criterion_cotrained(
+    pub fn penalized_quasi_laplace_criterion_cotrained(
         &mut self,
         target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
@@ -4121,52 +4414,54 @@ impl SaeManifoldTerm {
         ridge_beta: f64,
     ) -> Result<(f64, SaeManifoldLoss, AmortizedEncoderConsistency), String> {
         // #1154: always attempt the amortized warm-start first inside
-        // `reml_criterion_cotrained` (the encode/warm path for the cotrained
+        // `penalized_quasi_laplace_criterion_cotrained` (the encode/warm path for the cotrained
         // objective). Good warm-starts from the running dictionary land the
         // inner solve closer to the stationary point used for the fold.
         // Advisory only (0 or err falls back to cold); telemetry recorded by
         // outer objective callers when present.
         self.warm_start_latents_from_amortized_encoder(target, rho)
             .unwrap_or(0);
-        let (reml, loss) = self.reml_criterion_with_refine_policy(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-            true,
-        )?;
+        let (penalized_quasi_laplace, loss) = self
+            .penalized_quasi_laplace_criterion_with_refine_policy(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+                true,
+            )?;
         let consistency = self.amortized_encoder_consistency(target, rho)?;
-        // Auto-scale the co-training weights to the REML magnitude so the
+        // Auto-scale the co-training weights to the penalized quasi-Laplace magnitude so the
         // consistency penalty is a bounded, scale-free fraction of the objective
-        // (magic by default: no caller knob). `reml_scale` floors at 1 so a
+        // (magic by default: no caller knob). `criterion_scale` floors at 1 so a
         // near-zero criterion still admits a meaningful consistency contribution.
-        let cotrained = Self::fold_cotrain_consistency(reml, &consistency);
+        let cotrained = Self::fold_cotrain_consistency(penalized_quasi_laplace, &consistency);
         Ok((cotrained, loss, consistency))
     }
 
     /// #1154 — the single source of the co-training fold arithmetic: add the
     /// auto-scaled amortized-encoder consistency penalty to an already-computed
-    /// REML criterion at the converged dictionary. Both the public
-    /// [`Self::reml_criterion_cotrained`] entry point and the outer-loop value /
+    /// penalized quasi-Laplace criterion at the converged dictionary. Both the public
+    /// [`Self::penalized_quasi_laplace_criterion_cotrained`] entry point and the outer-loop value /
     /// gradient lanes (`SaeManifoldOuterObjective::fold_cotrain_consistency`)
     /// route through THIS function, so the folded objective cannot drift between
     /// the criterion and the cascade-ranked cost (the objective↔gradient desync
-    /// bug class). The weights are auto-scaled to the REML magnitude (`max(|REML|,
+    /// bug class). The weights are auto-scaled to the penalized quasi-Laplace magnitude
+    /// (`max(|penalized_quasi_laplace|,
     /// 1)`) so the penalty is a bounded, scale-free fraction of the objective
     /// regardless of problem scale; the fold carries no analytic gradient (under
-    /// Design A the REML λ-gradient stays the exact implicit-function path).
+    /// Design A the penalized quasi-Laplace λ-gradient stays the exact implicit-function path).
     #[must_use]
     pub fn fold_cotrain_consistency(
-        reml_cost: f64,
+        penalized_quasi_laplace_cost: f64,
         consistency: &AmortizedEncoderConsistency,
     ) -> f64 {
-        let reml_scale = reml_cost.abs().max(1.0);
-        reml_cost
-            + COTRAIN_RECON_WEIGHT * reml_scale * consistency.recon_consistency
-            + COTRAIN_CONVERGENCE_WEIGHT * reml_scale * consistency.unconverged_fraction
+        let criterion_scale = penalized_quasi_laplace_cost.abs().max(1.0);
+        penalized_quasi_laplace_cost
+            + COTRAIN_RECON_WEIGHT * criterion_scale * consistency.recon_consistency
+            + COTRAIN_CONVERGENCE_WEIGHT * criterion_scale * consistency.unconverged_fraction
     }
 
     /// #1154 item 2 — warm-start the inner latent coordinates from the amortized
@@ -4176,7 +4471,7 @@ impl SaeManifoldTerm {
     /// stationarity. Unconverged rows are left at their current coordinates, so the
     /// warm-start can only help. The subsequent inner Newton refines from this seed to
     /// the SAME stationary point (the warm-start changes only the basin entry,
-    /// not the root), so the REML λ-gradient stays exactly the implicit-function
+    /// not the root), so the penalized quasi-Laplace λ-gradient stays exactly the implicit-function
     /// path and the criterion is unchanged at convergence — the amortized encoder
     /// only accelerates/co-adapts the inner solve, it never replaces the
     /// stationary point.
@@ -4317,6 +4612,7 @@ impl SaeManifoldTerm {
         rho: &SaeManifoldRho,
         penalty_scale: f64,
     ) -> Result<SaeManifoldLoss, String> {
+        self.assignment.validate_rho_domain(rho)?;
         if !(penalty_scale.is_finite() && penalty_scale > 0.0) {
             return Err(format!(
                 "SaeManifoldTerm::loss_scaled: penalty_scale must be finite and positive; got {penalty_scale}"
@@ -4362,7 +4658,7 @@ impl SaeManifoldTerm {
         // Arrow-Schur assembly used, so this scalar objective value and the
         // assembled Newton gradient/Hessian are derivatives of ONE truncated
         // reconstruction. When a compact layout is engaged (softmax top-k /
-        // large-K IBP), the assembly forms `fitted` from the row's active atoms
+        // large-K ordered Beta--Bernoulli), the assembly forms `fitted` from the row's active atoms
         // only; summing all K here would make `loss_scaled` a DIFFERENT objective
         // than the Newton step descends whenever dropped atoms carry mass. `None`
         // (dense layout) ⇒ the historical full-K sum, bit-for-bit. Guarded on the
@@ -4380,10 +4676,11 @@ impl SaeManifoldTerm {
         // into ONE row-parallel pass that never materialises the fitted matrix:
         // each row decodes its atoms into per-worker scratch, differences
         // against the target, and contributes its scalar `0.5·w·‖r‖²` to a
-        // chunk-ordered fold (bit-identical run-to-run). Per-worker scratch
-        // (`map_init`) keeps the only allocations one `g_buf`/`fitted_row` pair
-        // per rayon thread rather than per row. Stay sequential inside a worker
-        // (the topology race owns the outer pool) to avoid nested
+        // deterministic length-only pairwise tree (bit-identical across thread
+        // count AND nesting — see the fold below). Per-block scratch keeps the
+        // only allocations one `g_buf`/`fitted_row`/`assign_buf` triple per base
+        // block rather than per row, and each base block pins its faer GEMMs to
+        // `Par::Seq` (the topology race owns the outer pool) to avoid nested
         // oversubscription.
         let parallel = n >= SAE_LOSS_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none();
         let row_data_fit = |row: usize,
@@ -4444,56 +4741,74 @@ impl SaeManifoldTerm {
             }
             Ok(acc)
         };
+        // #2228 reduction doctrine: the parallel and sequential branches MUST be
+        // bit-identical, so both reduce the per-row scalars through the SAME
+        // length-only pairwise tree (`pairwise_sum` over base blocks of
+        // `BASE_CHUNK`, combined by `left_split`). The parallel branch drives
+        // that tree with `par_deterministic_try_block_fold` (each base block owns
+        // its own scratch and folds its rows through `pairwise_sum`); the
+        // sequential branch materialises the same per-row scalars and calls
+        // `pairwise_sum` directly. Both are pure functions of the ordered row
+        // values, so a nested K=1 fit (where `current_thread_index()` is `None`
+        // and the parallel branch is taken) matches the top-level serial sweep to
+        // the last bit. A per-chunk running sum would associate differently from
+        // the whole-slice fold and silently perturb the objective (#2228).
         let data_fit = if parallel {
-            use rayon::prelude::*;
-            const CHUNK: usize = 32;
-            let partials: Vec<Result<f64, String>> = (0..n)
-                .into_par_iter()
-                .chunks(CHUNK)
-                .map_init(
-                    || (vec![0.0_f64; p], vec![0.0_f64; p], vec![0.0_f64; k_atoms]),
-                    |(g_buf, fitted_row, assign_buf), idxs| {
-                        // #1557 — pin any faer GEMM reached from this row-parallel
-                        // data-fit chunk to `Par::Seq` (no nested Rayon re-fan); the
-                        // per-row reductions are tiny, so the result is bit-identical.
-                        with_nested_parallel(|| {
-                            let mut acc = 0.0_f64;
-                            for row in idxs {
-                                acc += row_data_fit(row, g_buf, fitted_row, assign_buf)?;
-                            }
-                            Ok(acc)
-                        })
-                    },
-                )
-                .collect();
-            let mut total = 0.0_f64;
-            for partial in partials {
-                total += partial?;
-            }
-            total
+            use gam_linalg::pairwise_reduce::{pairwise_sum, par_deterministic_try_block_fold};
+            par_deterministic_try_block_fold(
+                n,
+                |range: core::ops::Range<usize>| -> Result<f64, String> {
+                    // #1557 — pin any faer GEMM reached from this base block to
+                    // `Par::Seq` (no nested Rayon re-fan); the per-row reductions
+                    // are tiny, so the result is bit-identical.
+                    with_nested_parallel(|| {
+                        let mut g_buf = vec![0.0_f64; p];
+                        let mut fitted_row = vec![0.0_f64; p];
+                        let mut assign_buf = vec![0.0_f64; k_atoms];
+                        let mut block = Vec::with_capacity(range.len());
+                        for row in range {
+                            block.push(row_data_fit(
+                                row,
+                                &mut g_buf,
+                                &mut fitted_row,
+                                &mut assign_buf,
+                            )?);
+                        }
+                        Ok(pairwise_sum(&block))
+                    })
+                },
+                |a, b| Ok(a + b),
+            )?
+            .unwrap_or(0.0)
         } else {
+            use gam_linalg::pairwise_reduce::pairwise_sum;
             let mut g_buf = vec![0.0_f64; p];
             let mut fitted_row = vec![0.0_f64; p];
             let mut assign_buf = vec![0.0_f64; k_atoms];
-            let mut total = 0.0_f64;
+            let mut vals = Vec::with_capacity(n);
             for row in 0..n {
-                total += row_data_fit(row, &mut g_buf, &mut fitted_row, &mut assign_buf)?;
+                vals.push(row_data_fit(
+                    row,
+                    &mut g_buf,
+                    &mut fitted_row,
+                    &mut assign_buf,
+                )?);
             }
-            total
+            pairwise_sum(&vals)
         };
         let assignment_sparsity = crate::assignment::assignment_prior_value_weighted(
             &self.assignment,
             rho,
             self.row_loss_weights.as_deref(),
-        );
-        let smoothness = penalty_scale * self.decoder_smoothness_value(&rho.lambda_smooth_vec());
+        )?;
+        let smoothness = penalty_scale * self.decoder_smoothness_value(&rho.lambda_smooth_vec()?);
         let ard = self.ard_value(rho)?;
         Ok(SaeManifoldLoss {
             data_fit,
             assignment_sparsity,
             smoothness,
             ard,
-            evidence_gauge_deflated_directions: 0,
+            criterion_gauge_deflated_directions: 0,
         })
     }
 
@@ -4569,6 +4884,9 @@ impl SaeManifoldTerm {
             });
         }
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        registry
+            .validate_rho(rho_global.view())
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let layout = registry.rho_layout();
         let beta = self.flatten_beta();
         let mut value = 0.0_f64;
@@ -4662,12 +4980,12 @@ impl SaeManifoldTerm {
     ///
     /// This is deliberately narrower than [`Self::analytic_penalty_value_total`]:
     /// it excludes the Psi-tier coordinate / assignment penalties (ARD,
-    /// Isometry, ScadMcp, BlockOrthogonality, IBP/softmax assignment sparsity).
+    /// Isometry, ScadMcp, BlockOrthogonality, ordered Beta--Bernoulli/softmax assignment sparsity).
     /// The SAE already carries its own ARD (`loss.ard`) and assignment sparsity
     /// (`loss.assignment_sparsity`) energy, so adding the registry ARD /
     /// assignment value on top would double-count, and the gauge-only
     /// coordinate penalties are not part of the penalized deviance the
-    /// REML/Laplace criterion scores. The decoder-block penalties, by contrast,
+    /// penalized quasi-Laplace criterion scores. The decoder-block penalties, by contrast,
     /// are real penalized-energy terms with no `loss.*` representative: the
     /// inner solve minimizes them (they enter `gb`/`hbb`) but they were absent
     /// from the criterion scalar `v`. This restores that consistency so the
@@ -4678,7 +4996,7 @@ impl SaeManifoldTerm {
     /// NOTE: the coordinate-block penalties with no native `loss.*` twin
     /// (`ScadMcp`, `BlockOrthogonality`) carry the same residual inconsistency
     /// (scored in the line search via `penalized_objective_total`, absent from
-    /// the REML scalar). They are left out here because they share a registry
+    /// the penalized quasi-Laplace scalar). They are left out here because they share a registry
     /// dispatch with the always-on `Isometry` gauge, whose inclusion in the
     /// topology-comparison criterion is a separate design question (#673:
     /// topology evidence is gauge-conditional). Folding the coord-tier energy in
@@ -4691,6 +5009,9 @@ impl SaeManifoldTerm {
         // does (registry-local rho at zeros), so a learnable decoder-penalty weight
         // is honoured rather than indexing into an empty view.
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        registry
+            .validate_rho(rho_global.view())
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let layout = registry.rho_layout();
         let beta = self.flatten_beta();
         let mut value = 0.0_f64;
@@ -4725,7 +5046,7 @@ impl SaeManifoldTerm {
     /// summed over atoms, evaluated through `corrected_isometry_penalty` so the
     /// live decoder/coordinate caches drive the value exactly as the assemble
     /// path does. It has no `SaeManifoldLoss` twin (the loss carries only
-    /// data-fit / assignment / smoothness / ARD), so the Laplace/REML criterion
+    /// data-fit / assignment / smoothness / ARD), so the penalized quasi-Laplace criterion
     /// must add it explicitly to score the same penalized objective the inner
     /// solve descends.
     pub fn isometry_penalty_value_total(
@@ -4733,6 +5054,9 @@ impl SaeManifoldTerm {
         registry: &AnalyticPenaltyRegistry,
     ) -> Result<f64, ArrowSchurError> {
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        registry
+            .validate_rho(rho_global.view())
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let layout = registry.rho_layout();
         let mut value = 0.0_f64;
         for (penalty, (rho_slice, _tier, _name)) in registry.penalties.iter().zip(layout.iter()) {
@@ -4779,15 +5103,42 @@ impl SaeManifoldTerm {
                 .any(|coord| coord.manifold().preserves_isometry_cross_block_coherence())
     }
 
-    /// Extra analytic-penalty energy that has no native `SaeManifoldLoss`
-    /// component but is part of the penalized objective ranked by the SAE
-    /// Laplace/REML criterion.
+    /// Extra penalized-objective energy that has no native `SaeManifoldLoss`
+    /// component but is part of the objective the inner Newton solve descends,
+    /// and therefore of the penalized deviance the SAE penalized quasi-Laplace criterion
+    /// must rank.
+    ///
+    /// ENVELOPE CONTRACT: the criterion value `v = loss.total() + extra +
+    /// ½log|H| … − occam` is differentiated at the inner KKT root by the
+    /// envelope theorem, which cancels the fitted-state response ONLY when the
+    /// value's data+prior base is the SAME function whose gradient the KKT gate
+    /// certified. That gradient (assembled in `assemble_arrow_schur`) carries
+    /// every registry analytic penalty (Isometry, SCAD/MCP, BlockOrthogonality,
+    /// DecoderIncoherence, MechanismSparsity, NuclearNorm), the decoder
+    /// repulsion conditioner, and the Jeffreys separation barrier. The former
+    /// composition here (decoder-block + isometry only) omitted ScadMcp,
+    /// BlockOrthogonality, repulsion, and the barrier — a documented "residual
+    /// inconsistency" that is inert at K=1 but a live envelope violation
+    /// exactly in the K≥2 near-collinear / co-collapse regime where those
+    /// terms carry energy. The base is now exactly
+    /// `penalized_objective_total − loss.total()`: the full registry value
+    /// (ARD skipped inside, `loss.ard` already carries it) plus repulsion plus
+    /// the separation barrier. All of these have zero DIRECT ρ-derivative
+    /// (their weights are not ρ coordinates), so the analytic outer-gradient
+    /// channels are unchanged — this only restores value/gradient consistency.
     pub fn reml_extra_penalty_value_total(
         &self,
-        registry: &AnalyticPenaltyRegistry,
+        registry: Option<&AnalyticPenaltyRegistry>,
     ) -> Result<f64, ArrowSchurError> {
-        Ok(self.analytic_decoder_penalty_value_total(registry)?
-            + self.isometry_penalty_value_total(registry)?)
+        let registry_energy = match registry {
+            Some(reg) => self.analytic_penalty_value_total(reg, 1.0)?,
+            None => 0.0,
+        };
+        Ok(
+            registry_energy
+                + self.decoder_repulsion_value(1.0)
+                + self.separation_barrier_value(1.0),
+        )
     }
 
     pub fn penalized_objective_total(
@@ -4858,13 +5209,8 @@ impl SaeManifoldTerm {
     }
 
     pub(crate) fn ard_value(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
-        if rho.log_ard.len() != self.k_atoms() {
-            return Err(format!(
-                "ARD rho has {} atoms but term has {}",
-                rho.log_ard.len(),
-                self.k_atoms()
-            ));
-        }
+        self.assignment.validate_rho_domain(rho)?;
+        let ard_precisions = self.validated_ard_precisions(rho)?;
         let n = self.n_obs();
         // Design-honesty weights change the relative contribution of rows while
         // preserving total sample mass: `set_row_loss_weights` normalizes them to
@@ -4878,22 +5224,12 @@ impl SaeManifoldTerm {
             if rho.log_ard[atom_idx].is_empty() {
                 continue;
             }
-            if rho.log_ard[atom_idx].len() != d {
-                return Err(format!(
-                    "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
-                    rho.log_ard[atom_idx].len()
-                ));
-            }
             // Per-axis periodicity selects the smooth von-Mises energy on
             // wrapped (Circle) axes and the Gaussian on Euclidean axes.
             let periods = coord.effective_axis_periods();
             for axis in 0..d {
                 let log_alpha = rho.log_ard[atom_idx][axis];
-                // Clamp the log-precision before exponentiating: a raw
-                // `exp(log_ard)` overflows to `inf` for `log_ard ≳ 709`, and the
-                // `inf` precision then poisons the ARD energy / curvature with
-                // `inf · 0.0 = NaN` (#742, Issue 4).
-                let alpha = SaeManifoldRho::stable_exp_strength(log_alpha);
+                let alpha = ard_precisions[atom_idx][axis];
                 let period = periods[axis];
                 let mut energy = 0.0;
                 for row in 0..n {
@@ -4916,11 +5252,11 @@ impl SaeManifoldTerm {
                         acc += energy - 0.5 * n_eff * log_alpha;
                     }
                     Some(p) => {
-                        let kappa = std::f64::consts::TAU / p;
-                        let eta = alpha / (kappa * kappa);
-                        // Overflow-free `log I0(η)`; `bessel_i0(η).ln()` would be
-                        // `+inf` for `η ≳ 709` (#1113).
-                        let log_i0 = bessel_i0_log_and_ratio(eta).0;
+                        // Evaluate η = αP²/(2π)² in log space: both η and the
+                        // intermediate κ² can leave the float range even when
+                        // the centered log-partition remains representable.
+                        let log_eta = log_alpha + 2.0 * (p.ln() - std::f64::consts::TAU.ln());
+                        let centered_log_i0 = bessel_i0_centered_terms_from_log_abs(log_eta).0;
                         // EXACT von-Mises precision log-partition. The partition over
                         // one period is `Z(α) = ∫₀ᴾ exp[-V] dt = P·e^{-η}·I0(η)` (sub
                         // `u=κt`, `dt = P/(2π) du`), so `log Z = log P − η + log I0(η)`.
@@ -4930,7 +5266,7 @@ impl SaeManifoldTerm {
                         // `P=2π`) by `n_eff·ln P` in the absolute prior evidence that
                         // cross-topology/K model comparison consumes. `ln P` is
                         // ρ-independent, so no inner gradient / FD channel is affected.
-                        acc += energy + n_eff * (p.ln() - eta + log_i0);
+                        acc += energy + n_eff * (p.ln() + centered_log_i0);
                     }
                 }
             }
@@ -4987,43 +5323,18 @@ impl SaeManifoldTerm {
 
     /// Build the compact-layout ext-coord product manifold and point for one row.
     ///
-    /// The dense `ext_coord_manifold()` is keyed to the full-`q` block ordering
-    /// `[assignment parts (all Euclidean for IBP-MAP / JumpReLU), then per-atom
-    /// coord blocks in atom order]`. A compact active-set row instead lays its
-    /// `q_active` columns out as `[one Euclidean logit slot per active atom,
-    /// then each active atom's coord block in `active` order]` (see
-    /// [`SaeRowLayout::from_active_atoms`] / `coord_starts`). To reuse the exact
-    /// per-row Riemannian projector on the compact block we rebuild a product
-    /// manifold and the matching ext-coord point in that compact order: the
-    /// `active.len()` logit slots are `Euclidean` (the assignment channel is
-    /// always Euclidean for the modes that engage sparsity — `assignment_coord_dim
-    /// == k_atoms`), and each active atom contributes its own coordinate
-    /// manifold. On the shared active support this is byte-identical to slicing
-    /// the dense full-`q` product manifold, so the compact projection matches the
-    /// dense path exactly — it only drops the inactive atoms' (negligible-mass)
-    /// coordinate blocks the compact layout already excludes from curvature.
-    ///
-    /// Returns `(manifold, t_compact)` where `t_compact` has length `q_active`.
-    /// The logit-slot entries of `t_compact` are filled from the row logits (the
-    /// Euclidean projector ignores the point, so any finite value is equivalent;
-    /// using the true logits keeps the point well-defined and finite).
+    /// TopK has no free gate coordinates, so a compact row is exactly the
+    /// product of its selected atoms' coordinate manifolds in support order.
+    /// On that support this is identical to slicing the full product manifold.
     pub(crate) fn compact_row_ext_manifold_and_point(
         &self,
         row: usize,
         layout: &SaeRowLayout,
     ) -> (LatentManifold, Array1<f64>) {
         let active = &layout.active_atoms[row];
-        let logit_atoms = &layout.logit_atoms[row];
         let q_active = layout.row_q_active(row);
-        let mut parts: Vec<LatentManifold> = Vec::with_capacity(logit_atoms.len() + active.len());
+        let mut parts: Vec<LatentManifold> = Vec::with_capacity(active.len());
         let mut point = Array1::<f64>::zeros(q_active);
-        // Logit slots: one Euclidean part per FREE-logit atom (softmax's reference
-        // atom has coords but no logit slot; `logit_atoms == active` otherwise). (#Bug1)
-        let logits_row = self.assignment.logits.row(row);
-        for (j, &k) in logit_atoms.iter().enumerate() {
-            parts.push(LatentManifold::Euclidean);
-            point[j] = logits_row[k];
-        }
         // Coordinate blocks: each active atom's coordinate manifold + point, at
         // the compact coord start the layout assigned it.
         for (j, &k) in active.iter().enumerate() {
@@ -5049,7 +5360,7 @@ impl SaeManifoldTerm {
     /// relative spectral cutoff used elsewhere in the codebase).
     ///
     /// Used to count the penalised dimension of each atom's `smooth_penalty`
-    /// `S_k` so the REML criterion's `−½·p·rank(S)·log λ_smooth` Occam term
+    /// `S_k` so the penalized quasi-Laplace criterion's `−½·p·rank(S)·log λ_smooth` Occam term
     /// uses the *effective* penalty rank rather than the ambient basis size
     /// (a thin-plate / B-spline penalty has a non-trivial null space).
     pub(crate) fn symmetric_rank(s: &Array2<f64>) -> Result<usize, String> {
@@ -5081,11 +5392,11 @@ impl SaeManifoldTerm {
     }
 }
 
-// [#780 line-count gate] The quasi-Laplace evidence criterion (`reml_criterion*`)
+// [#780 line-count gate] The quasi-Laplace criterion (`penalized_quasi_laplace_criterion*`)
 // and the evidence-pricing machinery around it live in the sibling
-// `construction_reml_evidence.rs` as a second `impl SaeManifoldTerm` block,
+// `construction_quasi_laplace.rs` as a second `impl SaeManifoldTerm` block,
 // inlined here so it keeps the SAME module scope and private-field access.
-include!("construction_reml_evidence.rs");
+include!("construction_quasi_laplace.rs");
 
 // [#780 line-count gate] Per-row jet / reconstruction-channel assembly for the
 // streaming-exact arrow log-det lives in a sibling file as a second

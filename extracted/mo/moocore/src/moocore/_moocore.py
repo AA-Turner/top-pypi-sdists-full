@@ -25,9 +25,18 @@ from ._utils import (
     is_integer_value,
     _get_seed_for_c,
 )
+from ._docsubstitute import DocSubstitute
 
 ## The CFFI library is used to create C bindings.
 from ._libmoocore import lib, ffi
+
+# Maximum number of objectives (columns) supported by the C library. These
+# mirror the limits defined in c/config.h: most functions support up to 255
+# (the range of dimension_t == uint_fast8_t), while the hypervolume and
+# hypervolume-approximation functions use a smaller limit for efficiency.
+DIMENSION_MAX = lib.MOOCORE_DIMENSION_MAX
+HV_DIMENSION_MAX = lib.MOOCORE_HV_DIMENSION_MAX
+HVAPPROX_DIMENSION_MAX = lib.MOOCORE_HVAPPROX_DIMENSION_MAX
 
 
 class ReadDatasetsError(Exception):
@@ -53,6 +62,13 @@ class ReadDatasetsError(Exception):
         self.error = error_code
         self.message = self._error_strings[abs(error_code)]
         super().__init__(self.message)
+
+
+def _check_dimension_max(dim: int, max_dim: int):
+    if dim > max_dim:
+        raise ValueError(
+            f"This function supports at most {max_dim} columns, but input has {dim}"
+        )
 
 
 def read_datasets(filename: str | os.PathLike | StringIO) -> np.ndarray:
@@ -173,8 +189,91 @@ def _all_positive(x: ArrayLike) -> bool:
     return x.min() > 0
 
 
+def _igd_python(
+    points: ArrayLike,
+    ref: ArrayLike,
+    maximise: bool | Sequence[bool] = False,
+    p: int = 1,
+) -> float:
+    points = np.asarray(points, dtype=float)
+    points_sq = (points * points).sum(axis=1)
+    ref = np.atleast_2d(np.asarray(ref, dtype=float))
+    ref_sq = (ref * ref).sum(axis=1)
+    # Exploit that ||r - a||^2 = ||r||^2 + ||a||^2 - 2 r^T \cdot a
+    sq_dists = ref_sq[:, None] + points_sq[None, :] - 2 * (ref @ points.T)
+    # (avoid tiny negative values from numerical cancellation)
+    np.maximum(sq_dists, 0, out=sq_dists)
+    res = (sq_dists.min(axis=1) ** (p / 2.0)).mean() ** (1.0 / p)
+    return float(res)
+
+
+def _igd_plus_python(points, ref, maximise: bool | Sequence[bool] = False):
+    points, points_copied = asarray_maybe_copy(points)
+    ref, ref_copied = asarray_maybe_copy(ref)
+    ref = np.atleast_2d(ref)
+    nobj = points.shape[1]
+    maximise = _parse_maximise(maximise, nobj)
+    # FIXME: Do this in C.
+    if maximise.any():
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
+        if not ref_copied:
+            ref = ref.copy()
+        ref[:, maximise] = -ref[:, maximise]
+
+    res = np.sqrt(
+        [(np.maximum(points - r, 0) ** 2).sum(axis=1).min() for r in ref]
+    ).mean()
+    return float(res)
+
+
+def _avg_hausdorff_dist_python(
+    points, ref, maximise: bool | Sequence[bool] = False, p: int = 1
+):
+    return max(_igd_python(points, ref, p), _igd_python(ref, points, p))
+
+
+def _epsilon_addi_python(points, ref, maximise: bool | Sequence[bool] = False):
+    points, points_copied = asarray_maybe_copy(points)
+    ref, ref_copied = asarray_maybe_copy(ref)
+    ref = np.atleast_2d(ref)
+    nobj = points.shape[1]
+    maximise = _parse_maximise(maximise, nobj)
+    # FIXME: Do this in C.
+    if maximise.any():
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
+        if not ref_copied:
+            ref = ref.copy()
+        ref[:, maximise] = -ref[:, maximise]
+
+    res = np.array([np.max(points - r, axis=1).min() for r in ref]).max()
+    return float(res)
+
+
+def _epsilon_mult_python(points, ref, maximise: bool | Sequence[bool] = False):
+    points, points_copied = asarray_maybe_copy(points)
+    ref, ref_copied = asarray_maybe_copy(ref)
+    ref = np.atleast_2d(ref)
+    nobj = points.shape[1]
+    maximise = _parse_maximise(maximise, nobj)
+    # FIXME: Do this in C.
+    if maximise.any():
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = 1.0 / points[:, maximise]
+        if not ref_copied:
+            ref = ref.copy()
+        ref[:, maximise] = 1.0 / ref[:, maximise]
+
+    res = np.array([np.max(points / r, axis=1).min() for r in ref]).max()
+    return float(res)
+
+
 def _unary_refset_common(
-    data: ArrayLike,
+    points: ArrayLike,
     ref: ArrayLike,
     maximise: bool | Sequence[bool],
     check_all_positive: bool = False,
@@ -183,33 +282,36 @@ def _unary_refset_common(
     # np.asarray(dtype=float) to convert it to floating-point, otherwise if a
     # user inputs something like ref = np.array([10, 10]) then numpy would
     # interpret it as an int array.
-    data = np.asarray(data, dtype=float)
+    points = np.asarray(points, dtype=float)
     ref = np.atleast_2d(np.asarray(ref, dtype=float))
-    nobj = data.shape[1]
-    if nobj != ref.shape[1]:
-        raise ValueError(
-            f"data and ref need to have the same number of columns ({nobj} != {ref.shape[1]})"
-        )
     if check_all_positive:
-        if not _all_positive(data):
+        if not _all_positive(points):
             raise ValueError(
-                "All values must be larger than 0 in the input data"
+                "All values must be larger than 0 in the input points"
             )
         if not _all_positive(ref):
             raise ValueError(
                 "All values must be larger than 0 in the reference set"
             )
+    nobj = points.shape[1]
+    if nobj != ref.shape[1]:
+        raise ValueError(
+            f"points and ref need to have the same number of columns ({nobj} != {ref.shape[1]})"
+        )
+    if nobj == 0:
+        raise ValueError("The number of columns cannot be 0")
 
-    data_p, npoints_c, nobj_c = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints_c, nobj_c = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     ref_p, ref_size = np1d_to_double_array(ref, ctype_size="size_t")
     maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
-    return data_p, npoints_c, nobj_c, ref_p, ref_size, maximise_p
+    return nobj, points_p, npoints_c, nobj_c, ref_p, ref_size, maximise_p
 
 
+@DocSubstitute()
 def igd(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -217,21 +319,34 @@ def igd(
 ) -> float:
     """Inverted Generational Distance (IGD).
 
-    .. seealso:: For details about parameters, return value and examples, see :func:`igd_plus`.  For details of the calculation, see :ref:`igd_hausdorf`.
+    .. seealso:: For examples, see :func:`igd_plus`.
+                 For details of the calculation, see :ref:`igd_hausdorf`.
+
+    Parameters
+    ----------
+    points :
+        ${points}
+    ref :
+        ${ref_set}
+    maximise :
+        ${maximise}
 
     Returns
     -------
         A single numerical value.
 
     """
-    data_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
-        data, ref, maximise
+    nobj, points_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
+        points, ref, maximise
     )
-    return lib.IGD(data_p, n, d, ref_p, ref_size, maximise_p)
+    if nobj == 1 or nobj > DIMENSION_MAX:
+        return _igd_python(points, ref)
+    return lib.IGD(points_p, n, d, ref_p, ref_size, maximise_p)
 
 
+@DocSubstitute()
 def igd_plus(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -245,17 +360,13 @@ def igd_plus(
 
     Parameters
     ----------
-    data :
-        Matrix of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created from the :func:`read_datasets` function, remove the last (set) column.
-
+    points :
+        ${points}
     ref :
-        Reference set as a matrix of numerical values. Must have the same number of columns as ``data``.
-
+        ${ref_set}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective.
+        ${maximise}
+
 
     Returns
     -------
@@ -293,26 +404,35 @@ def igd_plus(
 
 
     """  # noqa: D401
-    data_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
-        data, ref, maximise
+    nobj, points_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
+        points, ref, maximise
     )
-    return lib.IGD_plus(data_p, n, d, ref_p, ref_size, maximise_p)
+    if nobj == 1 or nobj > DIMENSION_MAX:
+        return _igd_plus_python(points, ref, maximise)
+    return lib.IGD_plus(points_p, n, d, ref_p, ref_size, maximise_p)
 
 
-def avg_hausdorff_dist(  # noqa: D417
-    data: ArrayLike,
+@DocSubstitute()
+def avg_hausdorff_dist(
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
     maximise: bool | Sequence[bool] = False,
-    p: float = 1,
+    p: int = 1,
 ) -> float:
     """Average Hausdorff distance.
 
-    .. seealso:: For details about parameters, return value and examples, see :func:`igd_plus`.  For details of the calculation, see :ref:`igd_hausdorf`.
+    .. seealso:: For examples, see :func:`igd_plus`.  For details of the calculation, see :ref:`igd_hausdorf`.
 
     Parameters
     ----------
+    points :
+        ${points}
+    ref :
+        ${ref_set}
+    maximise :
+        ${maximise}
     p :
         Hausdorff distance parameter. Must be larger than 0.
 
@@ -321,18 +441,26 @@ def avg_hausdorff_dist(  # noqa: D417
         A single numerical value.
 
     """
+    nobj, points_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
+        points, ref, maximise
+    )
+    if not is_integer_value(p):
+        raise ValueError("'p' must be an integer")
     if p <= 0:
         raise ValueError("'p' must be larger than zero")
 
-    data_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
-        data, ref, maximise
-    )
+    if nobj == 1 or nobj > DIMENSION_MAX:
+        return _avg_hausdorff_dist_python(points, ref, p)
+
     p = ffi.cast("unsigned int", p)
-    return lib.avg_Hausdorff_dist(data_p, n, d, ref_p, ref_size, maximise_p, p)
+    return lib.avg_Hausdorff_dist(
+        points_p, n, d, ref_p, ref_size, maximise_p, p
+    )
 
 
+@DocSubstitute()
 def epsilon_additive(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -349,15 +477,13 @@ def epsilon_additive(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created from the :func:`read_datasets` function, remove the last (set) column.
+    points :
+        ${points}
     ref :
-        Reference set as a matrix of numerical values. Must have the same number of columns as ``data``.
+        ${ref_set}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
+
 
     Returns
     -------
@@ -376,14 +502,18 @@ def epsilon_additive(
     3.5
 
     """
-    data_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
-        data, ref, maximise
+    nobj, points_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
+        points, ref, maximise
     )
-    return lib.epsilon_additive(data_p, n, d, ref_p, ref_size, maximise_p)
+    if nobj == 1 or nobj > DIMENSION_MAX:
+        return _epsilon_addi_python(points, ref, maximise)
+
+    return lib.epsilon_additive(points_p, n, d, ref_p, ref_size, maximise_p)
 
 
+@DocSubstitute()
 def epsilon_mult(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -392,34 +522,49 @@ def epsilon_mult(
     """Multiplicative epsilon metric.
 
     .. warning::
-       All values in ``data`` and ``ref`` must be larger than 0.
+       All values in ``points`` and ``ref`` must be larger than 0.
 
-    .. seealso:: For details about parameters, return value and examples, see :func:`epsilon_additive`.  For details of the calculation, see :ref:`epsilon_metric`.
+    .. seealso:: For examples, see :func:`epsilon_additive`.  For details of the calculation, see :ref:`epsilon_metric`.
+
+    Parameters
+    ----------
+    points :
+        ${points}
+    ref :
+        ${ref_set}
+    maximise :
+        ${maximise}
+
 
     Returns
     -------
         A single numerical value.
 
     """
-    data_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
-        data, ref, maximise, check_all_positive=True
+    nobj, points_p, n, d, ref_p, ref_size, maximise_p = _unary_refset_common(
+        points, ref, maximise, check_all_positive=True
     )
-    return lib.epsilon_mult(data_p, n, d, ref_p, ref_size, maximise_p)
+    if nobj == 1 or nobj > DIMENSION_MAX:
+        return _epsilon_mult_python(points, ref, maximise)
+
+    return lib.epsilon_mult(points_p, n, d, ref_p, ref_size, maximise_p)
 
 
-def _hypervolume(data: ArrayLike, ref: ArrayLike) -> float:
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+def _hypervolume(points: ArrayLike, ref: ArrayLike) -> float:
+    _check_dimension_max(points.shape[1], HV_DIMENSION_MAX)
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     ref_buf = ffi.from_buffer("double []", ref)
-    hv = lib.fpli_hv(data_p, npoints, nobj, ref_buf)
+    hv = lib.fpli_hv(points_p, npoints, nobj, ref_buf)
     if hv < 0:
         raise MemoryError("memory allocation failed")
     return hv
 
 
+@DocSubstitute()
 def hypervolume(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -436,15 +581,13 @@ def hypervolume(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point.
-        If the array is created from the :func:`read_datasets` function, remove the last column.
+    points :
+        ${points}
     ref :
-        Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
+
 
     Returns
     -------
@@ -472,13 +615,13 @@ def hypervolume(
     correctly handles weakly dominated points and has been further optimized
     for speed.
 
-    For 5D or higher and up to 12 points, the implementation uses the
-    inclusion-exclusion algorithm :footcite:p:`WuAza2001metrics`, which has
-    :math:`O(m 2^{n})` time and :math:`O(n\cdot m)` space complexity, where
-    :math:`m` is the dimension of the points, but it is very fast for such
-    small sets.  For larger number of points, it uses a recursive algorithm
-    :footcite:p:`FonPaqLop06:hypervolume` that computes 4D contributions
-    :footcite:p:`GueFon2017hv4d` as the base case, resulting in a
+    For 5D or higher and up to |HV_INEX_MAX_ROWS| points, the implementation
+    uses the inclusion-exclusion algorithm :footcite:p:`WuAza2001metrics`,
+    which has :math:`O(m 2^{n})` time and :math:`O(n\cdot m)` space complexity,
+    where :math:`m` is the dimension of the points, but it is very fast for
+    such small sets.  For larger number of points, it uses a recursive
+    algorithm :footcite:p:`FonPaqLop06:hypervolume` that computes 4D
+    contributions :footcite:p:`GueFon2017hv4d` as the base case, resulting in a
     :math:`O(n^{m-2})` time complexity and :math:`O(n)` space complexity in the
     worst-case.  Experimental results show that the pruning techniques used may
     reduce the time complexity even further.  The original proposal
@@ -487,7 +630,7 @@ def hypervolume(
     P. Guerreiro enhanced the numerical stability of the recursive algorithm by
     avoiding floating-point comparisons of partial hypervolumes.
 
-    The hypervolume of 1D inputs is defined as :code:`max(0, ref - data.min())`.
+    The hypervolume of 1D inputs is defined as :code:`max(0, ref - points.min())`.
 
 
     References
@@ -530,38 +673,37 @@ def hypervolume(
     # np.asarray to convert it to floating-point, otherwise if a user inputs
     # something like ref = np.array([10, 10]) then numpy would interpret it as
     # an int array.
-    data, data_copied = asarray_maybe_copy(data)
-    nobj = data.shape[1]
+    points, points_copied = asarray_maybe_copy(points)
+    nobj = points.shape[1]
     if nobj == 0:
-        raise ValueError("input data must have at least 1 column")
+        raise ValueError("input points must have at least 1 column")
     # Make sure it is a 1D array of length nobj.
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
-
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
-        if not data_copied:
-            data = data.copy()
-        data[:, maximise] = -data[:, maximise]
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
         ref = ref.copy()
         ref[maximise] = -ref[maximise]
 
-    return _hypervolume(data, ref)
+    return _hypervolume(points, ref)
 
 
+@DocSubstitute()
 class Hypervolume:
     """Object-oriented interface for the hypervolume indicator.
 
-    .. seealso:: For details about parameters, return value and examples, see :func:`hypervolume`.
+    .. seealso:: For examples, see :func:`hypervolume`.
 
     Parameters
     ----------
     ref :
-       Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
     maximise :
-       Whether the objectives must be maximised instead of minimised.
-       Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-       Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
+
 
     Examples
     --------
@@ -602,43 +744,44 @@ class Hypervolume:
             self._ref[self._maximise] = -self._ref[self._maximise]
         self._nobj = n
 
-    def __call__(self, data: ArrayLike) -> float:
+    @DocSubstitute()
+    def __call__(self, points: ArrayLike) -> float:
         r"""Compute hypervolume indicator.
 
         Parameters
         ----------
-        data :
-            Numpy array of numerical values, where each row gives the coordinates of a point.
-            If the array is created from the :func:`read_datasets` function, remove the last column.
+        points :
+            ${points}
 
         Returns
         -------
-           A single numerical value, the hypervolume indicator.
+            A single numerical value, the hypervolume indicator.
 
         """
-        data, data_copied = asarray_maybe_copy(data)
+        points, points_copied = asarray_maybe_copy(points)
         nobj = self._nobj
         ref = self._ref
         maximise = self._maximise
 
         if nobj == 1:
-            nobj = data.shape[1]
+            nobj = points.shape[1]
             ref = np.full((nobj), ref[0])
             maximise = np.full((nobj), maximise[0])
-        elif nobj != data.shape[1]:
+        elif nobj != points.shape[1]:
             raise ValueError(
-                f"data and ref need to have the same number of objectives ({data.shape[1]} != {nobj})"
+                f"points and ref need to have the same number of objectives ({points.shape[1]} != {nobj})"
             )
 
         # FIXME: Do this in C.
         if maximise.any():
-            if not data_copied:
-                data = data.copy()
-            data[:, maximise] = -data[:, maximise]
+            if not points_copied:
+                points = points.copy()
+            points[:, maximise] = -points[:, maximise]
 
-        return _hypervolume(data, ref)
+        return _hypervolume(points, ref)
 
 
+@DocSubstitute()
 class RelativeHypervolume(Hypervolume):
     r"""Computes the hypervolume value of fronts relative to the hypervolume of a reference front.
 
@@ -652,14 +795,12 @@ class RelativeHypervolume(Hypervolume):
     Parameters
     ----------
     ref :
-       Reference point as a 1D vector. Must be same length as a single point in ``ref_set``.
+        ${ref_point}
     ref_set :
-       Reference set (front) as 2D array. The reference front does not need to
-       weakly dominate the input sets. If this is required, the user must ensure it.
+        Reference set (front) as 2D array. The reference front does not need to
+        weakly dominate the input sets. If this is required, the user must ensure it.
     maximise :
-       Whether the objectives must be maximised instead of minimised.
-       Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-       Also accepts a 1D numpy array with value 0/1 for each objective.
+        ${maximise}
 
 
     References
@@ -696,32 +837,32 @@ class RelativeHypervolume(Hypervolume):
         if self._ref_set_hv == 0:
             raise ValueError("hypervolume of 'ref_set' is zero")
 
-    def __call__(self, data: ArrayLike) -> float:
-        r"""Compute relative hypervolume indicator as ``1 - (hypervolume(data, ref=ref) / hypervolume(ref_set, ref=ref))``.
+    @DocSubstitute()
+    def __call__(self, points: ArrayLike) -> float:
+        r"""Compute relative hypervolume indicator as ``1 - (hypervolume(points, ref=ref) / hypervolume(ref_set, ref=ref))``.
 
         Parameters
         ----------
-        data :
-            Numpy array of numerical values, where each row gives the
-            coordinates of a point.  If the array is created from the
-            :func:`read_datasets` function, remove the last column.
+        points :
+            ${points}
 
         Returns
         -------
-           A single numerical value, the relative hypervolume indicator, which must be minimized.
+            A single numerical value, the relative hypervolume indicator, which must be minimized.
 
         """
-        data_hv = super().__call__(data)
-        return 1.0 - data_hv / self._ref_set_hv
+        points_hv = super().__call__(points)
+        return 1.0 - points_hv / self._ref_set_hv
 
 
+@DocSubstitute()
 def hv_contributions(
-    x: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     maximise: bool | Sequence[bool] = False,
     ignore_dominated: bool = True,
-) -> np.array:
+) -> np.ndarray:
     r"""Hypervolume contributions of a set of points.
 
     Computes the hypervolume contribution of each point of a set of points with
@@ -734,15 +875,12 @@ def hv_contributions(
 
     Parameters
     ----------
-    x :
-        Numpy array of numerical values, where each row gives the coordinates of a point.
-        If the array is created from the :func:`read_datasets` function, remove the last column.
+    points :
+        ${points}
     ref :
-        Reference point as a 1D vector. Must be same length as a single point in ``x``.
+        ${ref_point}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
     ignore_dominated :
         Whether dominated points are ignored when computing the contribution of nondominated points.
         The value of this parameter has an effect on the return values only if the input contains dominated points.
@@ -752,8 +890,8 @@ def hv_contributions(
 
     Returns
     -------
-        An array of floating-point values as long as the number of rows in ``x``.
-        Each value is the contribution of the corresponding point in ``x``.
+        An array of floating-point values as long as the number of rows in ``points``.
+        Each value is the contribution of the corresponding point in ``points``.
 
 
     Notes
@@ -820,31 +958,38 @@ def hv_contributions(
     # np.asarray to convert it to floating-point, otherwise if a user inputs
     # something like ref = np.array([10, 10]) then numpy would interpret it as
     # an int array.
-    x, x_copied = asarray_maybe_copy(x)
-    nobj = x.shape[1]
+    points, points_copied = asarray_maybe_copy(points)
+    nobj = points.shape[1]
+    if nobj < 2:
+        raise ValueError("input points must have at least 2 columns")
+    _check_dimension_max(nobj, HV_DIMENSION_MAX)
+
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
-        if not x_copied:
-            x = x.copy()
-        x[:, maximise] = -x[:, maximise]
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
         ref = ref.copy()
         ref[maximise] = -ref[maximise]
 
-    hvc = np.empty(len(x), dtype=float)
+    hvc = np.empty(len(points), dtype=float)
     hvc_p, _ = np1d_to_double_array(hvc)
-    x_p, npoints, nobj = np2d_to_double_array(
-        x, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     ref_buf = ffi.from_buffer("double []", ref)
     ignore_dominated = ffi.cast("bool", bool(ignore_dominated))
-    lib.hv_contributions(hvc_p, x_p, npoints, nobj, ref_buf, ignore_dominated)
+    lib.hv_contributions(
+        hvc_p, points_p, npoints, nobj, ref_buf, ignore_dominated
+    )
     return hvc
 
 
+@DocSubstitute()
 def hv_approx(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -871,23 +1016,17 @@ def hv_approx(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point.
-        If the array is created from the :func:`read_datasets` function, remove the last column.
+    points :
+        ${points}
     ref :
-        Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
     nsamples :
         Number of samples for Monte-Carlo sampling. Higher values typically produce more
         accurate approximations of the true hypervolume, but require more time.
     seed :
-        Either an integer to seed :func:`numpy.random.default_rng`, Numpy
-        default random number generator (RNG) or an instance of a
-        Numpy-compatible RNG. ``None`` uses the equivalent of a random seed
-        (see :func:`numpy.random.default_rng`).
+        ${random_seed}
     method :
         Method to approximate the hypervolume.
 
@@ -995,16 +1134,26 @@ def hv_approx(
     # np.asarray to convert it to floating-point, otherwise if a user inputs
     # something like ref = np.array([10, 10]) then numpy would interpret it as
     # an int array.
-    data = np.asarray(data, dtype=float)
-    nobj = data.shape[1]
+    points = np.asarray(points, dtype=float)
+    nobj = points.shape[1]
+    if nobj < 2:
+        if nobj == 1:  # Just return the exact hypervolume.
+            return hypervolume(points, ref, maximise=maximise)
+        else:  # nobj == 0
+            raise ValueError("input points must have at least 1 column")
+
+    _check_dimension_max(nobj, HVAPPROX_DIMENSION_MAX)
+
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
 
-    if not is_integer_value(nsamples):
-        raise ValueError(f"nsamples must be an integer value: {nsamples}")
+    if not is_integer_value(nsamples) or nsamples <= 0 or nsamples > 2147483648:
+        raise ValueError(
+            f"nsamples ({nsamples}) must be a positive integer value smaller than 2147483648"
+        )
     nsamples = ffi.cast("uint_fast32_t", nsamples)
     maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     ref = ffi.from_buffer("double []", ref)
 
@@ -1012,15 +1161,15 @@ def hv_approx(
         case "DZ2019-MC":
             seed = _get_seed_for_c(seed)
             hv = lib.hv_approx_normal(
-                data_p, npoints, nobj, ref, maximise_p, nsamples, seed
+                points_p, npoints, nobj, ref, maximise_p, nsamples, seed
             )
         case "DZ2019-HW":
             hv = lib.hv_approx_hua_wang(
-                data_p, npoints, nobj, ref, maximise_p, nsamples
+                points_p, npoints, nobj, ref, maximise_p, nsamples
             )
         case "Rphi-FWE+":
             hv = lib.hv_approx_rphi_fang_wang_plus(
-                data_p, npoints, nobj, ref, maximise_p, nsamples
+                points_p, npoints, nobj, ref, maximise_p, nsamples
             )
         case _:
             raise ValueError("Unknown method = {method}")
@@ -1034,6 +1183,7 @@ def hv_approx(
 # https://github.com/renaudlr/moo-nondominated-sets/blob/master/wfgHardGenerator.R)
 
 
+@DocSubstitute()
 def generate_ndset(
     n: int,
     d: int,
@@ -1041,7 +1191,7 @@ def generate_ndset(
     method: str,
     *,
     seed: int | np.random.Generator | None = None,
-    integer=False,
+    integer: bool = False,
 ) -> np.ndarray:
     r"""Generate a random set of ``n`` mutually nondominated points of dimension ``d`` with the shape defined by ``method``.
 
@@ -1059,10 +1209,7 @@ def generate_ndset(
     method :
         Method used to generate the random nondominated set. See the Notes below for more details.
     seed :
-        Either an integer to seed :func:`numpy.random.default_rng`, Numpy
-        default random number generator (RNG) or an instance of a
-        Numpy-compatible RNG. ``None`` uses the equivalent of a random seed
-        (see :func:`numpy.random.default_rng`).
+        ${random_seed}
     integer:
         If ``True``, return integer-valued points.
 
@@ -1226,8 +1373,11 @@ def generate_ndset(
         x *= 2
 
 
+@DocSubstitute()
 def is_nondominated(
-    data: ArrayLike,
+    points: ArrayLike,
+    /,
+    *,
     maximise: bool | Sequence[bool] = False,
     keep_weakly: bool = False,
 ) -> np.ndarray:
@@ -1237,19 +1387,16 @@ def is_nondominated(
 
     Parameters
     ----------
-    data :
-        Array of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created by the :func:`read_datasets()` function, remove the last column.
+    points :
+        ${points}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of boolean values, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective.
+        ${maximise}
     keep_weakly:
         If ``False``, return ``False`` for any duplicates of nondominated points except the first one.
 
     Returns
     -------
-        Returns a boolean array of the same length as the number of rows of data,
+        Returns a boolean array of the same length as the number of rows of points,
         where ``True`` means that the point is not dominated by any other point.
 
     See Also
@@ -1268,9 +1415,10 @@ def is_nondominated(
 
     For :math:`m \geq 4`, functions :func:`is_nondominated` and
     :func:`filter_dominated` use the best-known :math:`O(n \log^{m-2} n)`
-    algorithm :footcite:p:`KunLucPre1975jacm` when :math:`n > 16`, and the naive
-    :math:`O(m n^2)` algorithm otherwise.  Function :func:`any_dominated`
-    always uses the naive algorithm for :math:`m \geq 4`.
+    algorithm :footcite:p:`KunLucPre1975jacm` when :math:`n > \KUNGSMALLTHRESHOLD`,
+    and the naive :math:`O(m n^2)` algorithm otherwise.
+    Function :func:`any_dominated` always uses the naive algorithm for :math:`m
+    \geq 4`.
 
 
     References
@@ -1294,34 +1442,39 @@ def is_nondominated(
            [1, 0]])
 
     """
-    data = np.asarray(data, dtype=float)
-    if len(data.shape) != 2:
-        raise ValueError("'data' must be a matrix")
+    points = np.asarray(points, dtype=float)
+    if len(points.shape) != 2:
+        raise ValueError("'points' must be a matrix")
 
-    nrows, nobj = data.shape
+    nrows, nobj = points.shape
     if nrows == 0:
         return np.array([], dtype=bool)
 
-    if nobj == 1:  # Handle single-objective inputs
-        maximise = array_1d_of_length_n(maximise, 1).astype(bool)
-        if keep_weakly:
-            best = data.max() if maximise else data.min()
-            return (data == best).ravel()
-        else:
-            nondom = np.zeros(len(data), dtype=bool)
-            nondom[data.argmax() if maximise else data.argmin()] = True
-            return nondom
+    if nobj < 2:
+        if nobj == 1:  # Handle single-objective inputs
+            maximise = array_1d_of_length_n(maximise, 1).astype(bool)
+            if keep_weakly:
+                best = points.max() if maximise else points.min()
+                return (points == best).ravel()
+            else:
+                nondom = np.zeros(len(points), dtype=bool)
+                nondom[points.argmax() if maximise else points.argmin()] = True
+                return nondom
+        else:  # nobj == 0
+            raise ValueError("input points must have at least 1 column")
+
+    _check_dimension_max(nobj, DIMENSION_MAX)
 
     keep_weakly = ffi.cast("bool", bool(keep_weakly))
     maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     nondom = np.empty(nrows, dtype=bool)
     # The C library uses uint8_t for boolean vectors.
     lib.is_nondominated(
         ffi.from_buffer("uint8_t []", nondom.view(np.uint8)),
-        data_p,
+        points_p,
         npoints,
         nobj,
         keep_weakly,
@@ -1330,16 +1483,28 @@ def is_nondominated(
     return nondom
 
 
+@DocSubstitute()
 def any_dominated(
-    data: ArrayLike,
+    points: ArrayLike,
+    /,
+    *,
     maximise: bool | Sequence[bool] = False,
     keep_weakly: bool = False,
 ) -> bool:
-    r"""Test whether the input data contains any (weakly-)dominated point.
+    r"""Test whether the input points contains any (weakly-)dominated point.
 
     This function is equivalent to ``np.logical_not(moocore.is_nondominated(x)).any()``, but significantly faster.
 
-    .. seealso:: For details about parameters and the calculation, see :func:`is_nondominated`.
+    .. seealso:: For details about the calculation, see :func:`is_nondominated`.
+
+    Parameters
+    ----------
+    points :
+        ${points}
+    maximise :
+        ${maximise}
+    keep_weakly:
+        If ``False``,  return ``True`` if any point is duplicated.
 
     Returns
     -------
@@ -1361,30 +1526,37 @@ def any_dominated(
     False
     """
     if keep_weakly:
-        data = np.unique(data, axis=0)
+        points = np.unique(points, axis=0)
 
-    data = np.asarray(data, dtype=float)
-    if len(data.shape) != 2:
-        raise ValueError("'data' must be a matrix")
-    nrows, nobj = data.shape
-    if nrows == 0:
-        raise ValueError("no points in the input data")
-    if nrows == 1:
-        return False
-    if nobj == 1:  # Handle single-objective inputs
-        # If there are more than one row, then something is dominated.
-        return True
+    points = np.asarray(points, dtype=float)
+    if len(points.shape) != 2:
+        raise ValueError("'points' must be a matrix")
+    nrows, nobj = points.shape
+    if nrows < 2:
+        if nrows == 0:
+            raise ValueError("no points in the input points")
+        else:
+            return False
+    if nobj < 2:
+        if nobj == 1:  # Handle single-objective inputs
+            # If there are more than one row, then something is dominated.
+            return True
+        else:  # nobj == 0
+            raise ValueError("input points must have at least 1 column")
+
+    _check_dimension_max(nobj, DIMENSION_MAX)
 
     maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
-    res = lib.find_weakly_dominated_point(data_p, npoints, nobj, maximise_p)
+    res = lib.find_weakly_dominated_point(points_p, npoints, nobj, maximise_p)
     return res < nrows
 
 
+@DocSubstitute()
 def is_nondominated_within_sets(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     sets: ArrayLike,
     *,
@@ -1395,26 +1567,23 @@ def is_nondominated_within_sets(
 
     Executes the :func:`is_nondominated` function within each set in a dataset
     and returns back a 1D array of booleans. This is equivalent to
-    ``apply_within_sets(data, sets, is_nondominated, ...)`` but slightly
+    ``apply_within_sets(points, sets, is_nondominated, ...)`` but slightly
     faster.
 
     Parameters
     ----------
-    data :
-        Array of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created by the :func:`read_datasets()` function, remove the last column.
+    points :
+        ${points}
     sets :
-        1D vector or list of values that define the sets to which each row of ``data`` belongs.
+        ${sets_of_points}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of boolean values, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective.
-    keep_weakly:
+        ${maximise}
+    keep_weakly :
         If ``False``, return ``False`` for any duplicates of nondominated points.
 
     Returns
     -------
-        Returns a boolean array of the same length as the number of rows of data,
+        Returns a boolean array of the same length as the number of rows of points,
         where ``True`` means that the point is not dominated by any other point.
 
     See Also
@@ -1454,19 +1623,19 @@ def is_nondominated_within_sets(
            [ 6.43135537,  1.00153569, 10.        ]])
 
     """
-    data = np.asarray(data, dtype=float)
-    ncols = data.shape[1]
+    points = np.asarray(points, dtype=float)
+    ncols = points.shape[1]
     if ncols < 2:
-        raise ValueError("'data' must have at least 2 columns (2 objectives)")
+        raise ValueError("'points' must have at least 2 columns (2 objectives)")
 
     # FIXME: How can we make this faster?
     _, idx, inv = np.unique(sets, return_index=True, return_inverse=True)
     # Remember the original position of each element of each set.
     idx = [np.flatnonzero(inv == i) for i in idx.argsort()]
-    data = np.concatenate(
+    points = np.concatenate(
         [
             is_nondominated(
-                data.take(g_idx, axis=0),
+                points.take(g_idx, axis=0),
                 maximise=maximise,
                 keep_weakly=keep_weakly,
             )
@@ -1474,11 +1643,12 @@ def is_nondominated_within_sets(
         ]
     )
     idx = np.concatenate(idx).argsort()
-    return data.take(idx, axis=0)
+    return points.take(idx, axis=0)
 
 
+@DocSubstitute()
 def filter_dominated(
-    data,
+    points: ArrayLike,
     /,
     *,
     maximise: bool | Sequence[bool] = False,
@@ -1486,16 +1656,29 @@ def filter_dominated(
 ) -> np.ndarray:
     """Remove dominated points according to Pareto optimality.
 
-    .. seealso:: For details about parameters and examples, see :func:`is_nondominated`.
+    .. seealso:: For examples, see :func:`is_nondominated`.
+
+    Parameters
+    ----------
+    points :
+        ${points}
+    maximise :
+        ${maximise}
+    keep_weakly :
+        If ``False``, delete duplicates of nondominated points.
+
 
     Returns
     -------
-        Returns the rows of ``data`` where :func:`is_nondominated` is ``True``.
+        Returns the rows of ``points`` where :func:`is_nondominated` is ``True``.
 
     """
-    return data[is_nondominated(data, maximise, keep_weakly)]
+    return points[
+        is_nondominated(points, maximise=maximise, keep_weakly=keep_weakly)
+    ]
 
 
+@DocSubstitute()
 def filter_dominated_within_sets(
     data: ArrayLike,
     /,
@@ -1503,10 +1686,10 @@ def filter_dominated_within_sets(
     maximise: bool | Sequence[bool] = False,
     keep_weakly: bool = False,
 ) -> np.ndarray:
-    """Given a dataset with multiple sets (last column gives the set index), filter dominated points within each set.
+    """Given a matrix that represents multiple sets of points (last column gives the set index), filter dominated points within each set.
 
     Executes the :func:`filter_dominated` function within each set in a dataset
-    and returns back a dataset. This is roughly equivalent to partitioning ``data`` according to the last column,
+    and returns back a dataset. This is roughly equivalent to partitioning ``dataset`` according to the last column,
     filtering dominated solutions within each partition, and joining back the result.
 
     Parameters
@@ -1514,11 +1697,9 @@ def filter_dominated_within_sets(
     data :
         Numpy array of numerical values and set numbers, containing multiple datasets. For example the output of the :func:`read_datasets` function.
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with values 0 or 1 for each objective
+        ${maximise}
     keep_weakly :
-        If ``False``, do not delete duplicates of nondominated points.
+        If ``False``, delete duplicates of nondominated points.
 
     Returns
     -------
@@ -1591,8 +1772,9 @@ def filter_dominated_within_sets(
     return data[is_nondom, :]
 
 
+@DocSubstitute()
 def pareto_rank(
-    data: ArrayLike, /, *, maximise: bool | Sequence[bool] = False
+    points: ArrayLike, /, *, maximise: bool | Sequence[bool] = False
 ) -> np.ndarray:
     r"""Rank points according to Pareto-optimality (nondominated sorting).
 
@@ -1608,17 +1790,14 @@ def pareto_rank(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created from the :func:`read_datasets()` function, remove the last column.
+    points :
+        ${points}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of boolean values, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective.
+        ${maximise}
 
     Returns
     -------
-        An integer vector of the same length as the number of rows of ``data`` with values within ``[0, len(data) - 1]``, where each value gives the Pareto rank of each point (lower is better).
+        An integer vector of the same length as the number of rows of ``points`` with values within ``[0, len(points) - 1]``, where each value gives the Pareto rank of each point (lower is better).
 
     Notes
     -----
@@ -1670,36 +1849,38 @@ def pareto_rank(
     True
 
     """
-    data, data_copied = asarray_maybe_copy(data)
-    nrows, nobj = data.shape
-    maximise = _parse_maximise(maximise, nobj)
-
+    points, points_copied = asarray_maybe_copy(points)
+    nrows, nobj = points.shape
     if nobj < 2:
         if nobj == 1:
-            data = data.ravel()
+            points = points.ravel()
             if maximise:
-                data = -data
+                points = -points
                 # FIXME: Can we do the same faster?
-            return np.unique(data, return_inverse=True)[1]
-        if nobj == 0:
+            return np.unique(points, return_inverse=True)[1]
+        else:  # nobj == 0
             return np.zeros(shape=nrows, dtype=int)
 
+    _check_dimension_max(nobj, DIMENSION_MAX)
+
+    maximise = _parse_maximise(maximise, nobj)
     if maximise.any():
         # FIXME: Do this in C.
-        if not data_copied:
-            data = data.copy()
-        data[:, maximise] = -data[:, maximise]
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
 
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     ranks = np.empty(nrows, dtype=np.intc())
-    lib.pareto_rank(ffi.from_buffer("int []", ranks), data_p, npoints, nobj)
+    lib.pareto_rank(ffi.from_buffer("int []", ranks), points_p, npoints, nobj)
     return ranks
 
 
+@DocSubstitute()
 def normalise(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     to_range: ArrayLike = (0.0, 1.0),
     *,
@@ -1711,8 +1892,8 @@ def normalise(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point in objective space.
+    points :
+        ${points}
 
     to_range :
         Range composed of two numerical values. Normalise values to this range. If the objective is maximised, it is normalised to ``(to_range[1], to_range[0])`` instead.
@@ -1721,13 +1902,12 @@ def normalise(
         Bounds on the values. If :data:`numpy.nan`, the maximum and minimum values of each coordinate are used.
 
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with values 0 or 1 for each objective
+        ${maximise}
+
 
     Returns
     -------
-        Returns the data normalised as requested.
+        Returns the points normalised as requested.
 
     Examples
     --------
@@ -1745,12 +1925,14 @@ def normalise(
            [2.  , 0.  ]])
 
     """
-    # normalise() modifies the data, so we need to create a copy.
+    # normalise() modifies the points, so we need to create a copy.
     # order='C' is needed for np2d_to_double_array()
-    data = np.array(data, dtype=float, order="C")
-    npoints, nobj = data.shape
-    if nobj == 1:
-        raise ValueError("'data' must have at least two columns")
+    points = np.array(points, dtype=float, order="C")
+    npoints, nobj = points.shape
+    if nobj < 2:
+        raise ValueError("'points' must have at least two columns")
+    _check_dimension_max(nobj, DIMENSION_MAX)
+
     to_range = np.asarray(to_range, dtype=float)
     if to_range.shape[0] != 2:
         raise ValueError("'to_range' must have length 2")
@@ -1761,18 +1943,18 @@ def normalise(
         np.asarray(upper, dtype=float), nobj, name="upper"
     )
     if np.any(np.isnan(lower)):
-        lower = np.where(np.isnan(lower), data.min(axis=0), lower)
+        lower = np.where(np.isnan(lower), points.min(axis=0), lower)
     if np.any(np.isnan(upper)):
-        upper = np.where(np.isnan(upper), data.max(axis=0), upper)
+        upper = np.where(np.isnan(upper), points.max(axis=0), upper)
 
     maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
     lbound_p = ffi.from_buffer("double []", lower)
     ubound_p = ffi.from_buffer("double []", upper)
     lib.agree_normalise(
-        data_p,
+        points_p,
         npoints,
         nobj,
         maximise_p,
@@ -1781,12 +1963,13 @@ def normalise(
         lbound_p,
         ubound_p,
     )
-    # We can return data directly because we only changed the data, not the shape.
-    return data
+    # We can return points directly because we only changed the values, not the shape.
+    return points
 
 
+@DocSubstitute()
 def eaf(
-    data: ArrayLike, /, sets: ArrayLike, *, percentiles: Sequence[float] = ()
+    points: ArrayLike, /, sets: ArrayLike, *, percentiles: Sequence[float] = ()
 ) -> np.ndarray:
     r"""Exact computation of the Empirical Attainment Function (EAF).
 
@@ -1794,10 +1977,10 @@ def eaf(
 
     Parameters
     ----------
-    data :
-        Matrix of numerical values that represents multiple sets of points, where each row represents a point.
+    points :
+        ${points}
     sets :
-        Vector that indicates the set of each point in ``data``.
+        ${sets_of_points}
     percentiles :
         List indicating which percentiles are computed. By default, all possible percentiles are calculated.
 
@@ -1873,17 +2056,17 @@ def eaf(
            [  7.92511295,   3.92669598, 100.        ]])
 
     """
-    data = np.asarray(data, dtype=float)
-    ncols = data.shape[1]
+    points = np.asarray(points, dtype=float)
+    ncols = points.shape[1]
     if ncols < 2:
-        raise ValueError("'data' must have at least 2 columns")
+        raise ValueError("'points' must have at least 2 columns")
     if ncols > 3:
         raise NotImplementedError(
             "Only 2D or 3D datasets are currently supported for computing the EAF"
         )
-    if len(sets) != data.shape[0]:
+    if len(sets) != points.shape[0]:
         raise ValueError(
-            "'sets' must have the same length as the number of rows of 'data'"
+            "'sets' must have the same length as the number of rows of 'points'"
         )
 
     _, cumsizes = np.unique(sets, return_counts=True)
@@ -1898,11 +2081,11 @@ def eaf(
     percentile_p, npercentiles = np1d_to_double_array(percentiles)
 
     # Get C pointers + matrix size for calling CFFI generated extension module
-    data_p, _, nobj = np2d_to_double_array(data)
+    points_p, _, nobj = np2d_to_double_array(points)
     eaf_npoints = ffi.new("int *")
     eaf_data_p = lib.eaf_compute_matrix(
         eaf_npoints,
-        data_p,
+        points_p,
         nobj,
         cumsizes_p,
         ncumsizes,
@@ -1916,23 +2099,25 @@ def eaf(
     return np.frombuffer(eaf_buf).reshape((eaf_npoints, -1))
 
 
-def vorob_t(data: ArrayLike, /, sets: ArrayLike, *, ref: ArrayLike) -> dict:
+@DocSubstitute()
+def vorob_t(points: ArrayLike, /, sets: ArrayLike, *, ref: ArrayLike) -> dict:
     r"""Compute Vorob'ev threshold and expectation.
 
     .. seealso:: For the definition of these concepts, see :ref:`vorobev_expectation_and_deviation`.
 
     Parameters
     ----------
-    data :
-        Matrix of numerical values that represents multiple sets of points, where each row represents a point.
+    points :
+        ${points}
     sets :
-        Vector that indicates the set of each point in ``data``.
+        ${sets_of_points}
     ref :
-       Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
+
 
     Returns
     -------
-        A dictionary with elements ``threshold``, ``ve``, and ``avg_hyp`` (average hypervolume).  The threshold is returned as a percentile :math:`\beta^{*} \in [0,100]`.  The expectation :math:`\mathcal{Q}_{\beta^{*}}` is returned as a 2D array (``np.ndarray``).  In addition, the hypervolume of the expectation is returned as ``avg_hyp``.
+        A dictionary with elements ``threshold``, ``ve``, and ``avg_hyp`` (average hypervolume).  The threshold is returned as a percentile :math:`\beta^{*} \in [0,100]`.  The expectation :math:`\mathcal{Q}_{\beta^{*}}` is returned as a 2D array (:class:`numpy.ndarray`).  In addition, the hypervolume of the expectation is returned as ``avg_hyp``.
 
 
     See Also
@@ -1950,19 +2135,19 @@ def vorob_t(data: ArrayLike, /, sets: ArrayLike, *, ref: ArrayLike) -> dict:
     >>> res["ve"].shape
     (213, 2)
     """
-    data = np.asarray(data, dtype=float)
-    nobj = data.shape[1]
+    points = np.asarray(points, dtype=float)
+    nobj = points.shape[1]
     if nobj < 2:
-        raise ValueError("'data' must have at least 2 columns")
+        raise ValueError("'points' must have at least 2 columns")
 
     hv_ind = Hypervolume(ref=ref)
-    avg_hyp = np.mean(apply_within_sets(data, sets, hv_ind))
+    avg_hyp = np.mean(apply_within_sets(points, sets, hv_ind))
     prev_hyp = diff = np.inf  # hypervolume of quantile at previous step
     a = 0.0
     b = 100.0
     while diff != 0:
         c = (a + b) / 2.0
-        eaf_res = eaf(data, sets=sets, percentiles=c)[:, :nobj]
+        eaf_res = eaf(points, sets=sets, percentiles=c)[:, :nobj]
         tmp = hv_ind(eaf_res)
         if tmp > avg_hyp:
             a = c
@@ -1974,19 +2159,25 @@ def vorob_t(data: ArrayLike, /, sets: ArrayLike, *, ref: ArrayLike) -> dict:
     return dict(threshold=c, ve=eaf_res, avg_hyp=float(avg_hyp))
 
 
+@DocSubstitute()
 def vorob_dev(
-    data: ArrayLike, /, sets: ArrayLike, *, ref: ArrayLike, ve: ArrayLike = None
+    points: ArrayLike,
+    /,
+    sets: ArrayLike,
+    *,
+    ref: ArrayLike,
+    ve: ArrayLike = None,
 ) -> float:
     r"""Compute Vorob'ev deviation.
 
     Parameters
     ----------
-    data :
-        Matrix of numerical values that represents multiple sets of points, where each row represents a point.
+    points :
+        ${points}
     sets :
-        Vector that indicates the set of each point in ``data``.
+        ${sets_of_points}
     ref :
-       Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
     ve :
        Vorob'ev expectation, e.g., as returned by :func:`vorob_t`.  If not
        provided, it is calculated by calling ``vorob_t(data, sets, ref)``.
@@ -2015,29 +2206,30 @@ def vorob_dev(
     3017.12989402326
 
     """
-    data = np.asarray(data, dtype=float)
-    nobj = data.shape[1]
+    points = np.asarray(points, dtype=float)
+    nobj = points.shape[1]
     if nobj < 2:
-        raise ValueError("'data' must have at least 2 columns")
+        raise ValueError("'points' must have at least 2 columns")
 
     # Hypervolume of the symmetric difference between A and B:
     # 2 * H(AUB) - H(A) - H(B)
     hv_ind = Hypervolume(ref=ref)
 
     if ve is None:
-        res = vorob_t(data, sets=sets, ref=ref)
+        res = vorob_t(points, sets=sets, ref=ref)
         ve = res["ve"]
         h1 = res["avg_hyp"]
     else:
-        h1 = np.mean(apply_within_sets(data, sets, hv_ind))
+        h1 = np.mean(apply_within_sets(points, sets, hv_ind))
 
     h2 = hv_ind(ve)
     vd = 2 * np.mean(
-        apply_within_sets(data, sets, lambda g: hv_ind(np.vstack((g, ve))))
+        apply_within_sets(points, sets, lambda g: hv_ind(np.vstack((g, ve))))
     )
     return float(vd - h1 - h2)
 
 
+@DocSubstitute()
 def eafdiff(
     x: ArrayLike,
     y: ArrayLike,
@@ -2067,9 +2259,7 @@ def eafdiff(
        The absolute range of the differences :math:`[0, 1]` is partitioned into the number of intervals provided.
 
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with values 0 or 1 for each objective
+        ${maximise}
 
     rectangles :
        If ``True``, the output is in the form of rectangles of the same color.
@@ -2241,8 +2431,9 @@ def eafdiff(
 #     return np.reshape(eaf_arr, (num_data_columns, -1)).T
 
 
+@DocSubstitute()
 def whv_rect(
-    x: ArrayLike,
+    points: ArrayLike,
     /,
     rectangles: ArrayLike,
     *,
@@ -2251,10 +2442,23 @@ def whv_rect(
 ) -> float:
     """Compute weighted hypervolume given a set of rectangles.
 
-    .. seealso:: For details about parameters, return value and examples, see :func:`total_whv_rect`.
+    .. seealso:: For examples, see :func:`total_whv_rect`.
 
     .. warning::
         The current implementation only supports 2 objectives.
+
+
+    Parameters
+    ----------
+    points :
+        ${points}
+    rectangles :
+        ${whv_rectangles}
+    ref :
+        ${ref_point}
+    maximise :
+        ${maximise}
+
 
     Returns
     -------
@@ -2265,10 +2469,10 @@ def whv_rect(
     total_whv_rect, whv_hype
 
     """
-    x = np.asarray(x, dtype=float)
-    nobj = x.shape[1]
+    points, _ = asarray_maybe_copy(points)
+    nobj = points.shape[1]
     if nobj != 2:
-        raise NotImplementedError("Only 2D datasets are currently supported")
+        raise NotImplementedError("Only 2D points are currently supported")
     if rectangles.shape[1] != 5:
         raise ValueError(
             "Invalid number of columns in 'rectangles' (should be 5)"
@@ -2289,9 +2493,11 @@ def whv_rect(
     #         rectangles[:, pos] = -rectangles[:, pos]
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     ref = ffi.from_buffer("double []", ref)
-    x, npoints, _ = np2d_to_double_array(x)
+    points, npoints, _ = np2d_to_double_array(points)
     rectangles, rectangles_nrow, _ = np2d_to_double_array(rectangles)
-    hv = lib.rect_weighted_hv2d(x, npoints, rectangles, rectangles_nrow, ref)
+    hv = lib.rect_weighted_hv2d(
+        points, npoints, rectangles, rectangles_nrow, ref
+    )
     return hv
 
 
@@ -2302,8 +2508,9 @@ def get_ideal(x, maximise):
     return np.where(maximise, upper, lower)
 
 
+@DocSubstitute()
 def total_whv_rect(
-    x: ArrayLike,
+    points: ArrayLike,
     /,
     rectangles: ArrayLike,
     *,
@@ -2325,25 +2532,16 @@ def total_whv_rect(
 
     Parameters
     ----------
-    x :
-        Numpy array of numerical values, where each row gives the coordinates of a point.
-        If the array is created from the :func:`read_datasets` function, remove the last column.
-
+    points :
+        ${points}
     rectangles :
-        Weighted rectangles that will bias the computation of the hypervolume.
-        Maybe generated by :func:`eafdiff()` with  ``rectangles=True`` or by :func:`choose_eafdiff()`.
-
+        ${whv_rectangles}
     ref :
-        Reference point as a 1D vector. Must be same length as a single row in  ``x``.
-
-    maximise : bool or or list of bool
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with values 0 or 1 for each objective.
-
+        ${ref_point}
+    maximise :
+        ${maximise}
     ideal :
-        Ideal point as a vector of numerical values.  If ``None``, it is calculated as minimum (or maximum if maximising that objective) of each objective in the input data.
-
+        Ideal point as a vector of numerical values.  If ``None``, it is calculated as minimum (or maximum if maximising that objective) of each objective in the input points.
     scalefactor :
         Real value within :math:`(0,1]` that scales the overall weight of the differences. This is parameter psi (:math:`\psi`) in :footcite:t:`DiaLop2020ejor`.
 
@@ -2382,8 +2580,8 @@ def total_whv_rect(
     37.5
 
     """
-    x = np.asarray(x, dtype=float)
-    nobj = x.shape[1]
+    points = np.asarray(points, dtype=float)
+    nobj = points.shape[1]
     if nobj != 2:
         raise NotImplementedError("Only 2D datasets are currently supported")
     if rectangles.shape[1] != 5:
@@ -2394,11 +2592,11 @@ def total_whv_rect(
         raise ValueError("'scalefactor' must be within (0,1]")
 
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
-    whv = whv_rect(x, rectangles, ref=ref, maximise=maximise)
-    hv = hypervolume(x, ref=ref)  # FIXME: maximise = maximise)
+    whv = whv_rect(points, rectangles, ref=ref, maximise=maximise)
+    hv = hypervolume(points, ref=ref)  # FIXME: maximise = maximise)
     if ideal is None:
         # FIXME: Should we include the range of the rectangles here?
-        ideal = get_ideal(x, maximise=maximise)
+        ideal = get_ideal(points, maximise=maximise)
     else:
         ideal = array_1d_of_length_n(
             np.asarray(ideal, dtype=float), nobj, name="ideal"
@@ -2408,6 +2606,7 @@ def total_whv_rect(
     return float(hv + beta * whv)
 
 
+@DocSubstitute()
 def largest_eafdiff(
     x: list,
     /,
@@ -2434,9 +2633,7 @@ def largest_eafdiff(
         Reference point as a 1D vector. Must be same length as a single point in the input data.
 
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective
+        ${maximise}
 
     intervals :
        The absolute range of the differences :math:`[0, 1]` is partitioned into the number of intervals provided.
@@ -2542,8 +2739,9 @@ def largest_eafdiff(
     return best_pair, best_value
 
 
+@DocSubstitute()
 def whv_hype(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     *,
     ref: ArrayLike,
@@ -2557,33 +2755,27 @@ def whv_hype(
     r"""Approximation of the (weighted) hypervolume by Monte-Carlo sampling (2D only).
 
     Return an estimation of the hypervolume of the space dominated by the input
-    data following the procedure described by :footcite:t:`AugBadBroZit2009gecco`. A weight
-    distribution describing user preferences may be specified.
+    points following the procedure described by :footcite:t:`AugBadBroZit2009gecco`.
+    A weight distribution describing user preferences may be specified.
 
     .. warning::
         The current implementation only supports 2 objectives.
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point in objective space.
-        If the array is created from the :func:`read_datasets` function, remove the last (set) column.
+    points :
+        ${points}
     ref :
-        Reference point as a numpy array or list. Must have same length as the number of columns of the dataset.
+        ${ref_point}
     ideal :
         Ideal point as a numpy array or list. Must have same length as the number of columns of the dataset.
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with values 0 or 1 for each objective.
+        ${maximise}
     nsamples :
         Number of samples for Monte-Carlo sampling. Higher values give more
         accurate approximation of the true hypervolume but require more time.
     seed :
-        Either an integer to seed :func:`numpy.random.default_rng`, Numpy
-        default random number generator (RNG) or an instance of a
-        Numpy-compatible RNG. ``None`` uses the equivalent of a random seed
-        (see :func:`numpy.random.default_rng`).
+        ${random_seed}
     dist :
         Weight distribution :footcite:p:`AugBadBroZit2009gecco`. The ones currently supported are:
 
@@ -2598,11 +2790,11 @@ def whv_hype(
        ``'exponential'``
          describes an exponential distribution with rate parameter ``1/mu``, i.e., :math:`\lambda = \frac{1}{\mu}`.
     mu :
-       Parameter of ``dist``. See above for details.
+        Parameter of ``dist``. See above for details.
 
     Returns
     -------
-       A single numerical value, the approximated (weighted) hypervolume.
+        A single numerical value, the approximated (weighted) hypervolume.
 
 
     See Also
@@ -2650,10 +2842,10 @@ def whv_hype(
     # Convert to numpy.array in case the user provides a list.  We use
     # np.asarray to convert it to floating-point, otherwise if a user inputs
     # something like [10, 10] then numpy would interpret it as an int array.
-    data, data_copied = asarray_maybe_copy(data)
-    nobj = data.shape[1]
+    points, points_copied = asarray_maybe_copy(points)
+    nobj = points.shape[1]
     if nobj != 2:
-        raise NotImplementedError("Only 2D datasets are currently supported")
+        raise NotImplementedError("Only 2D points are currently supported")
 
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     ideal = array_1d_of_length_n(
@@ -2662,16 +2854,16 @@ def whv_hype(
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
-        if not data_copied:
-            data = data.copy()
-        data[:, maximise] = -data[:, maximise]
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
         # These are so small that is ok to just copy them.
         ref = ref.copy()
         ref[maximise] = -ref[maximise]
         ideal = ideal.copy()
         ideal[maximise] = -ideal[maximise]
 
-    data_p, npoints, nobj = np2d_to_double_array(data)
+    points_p, npoints, nobj = np2d_to_double_array(points)
     ref = ffi.from_buffer("double []", ref)
     ideal = ffi.from_buffer("double []", ideal)
     # FIXME: Check ranges.
@@ -2679,14 +2871,18 @@ def whv_hype(
     nsamples = ffi.cast("int", nsamples)
 
     if dist == "uniform":
-        hv = lib.whv_hype_unif(data_p, npoints, ideal, ref, nsamples, seed)
+        hv = lib.whv_hype_unif(points_p, npoints, ideal, ref, nsamples, seed)
     elif dist == "exponential":
         mu = ffi.cast("double", mu)
-        hv = lib.whv_hype_expo(data_p, npoints, ideal, ref, nsamples, seed, mu)
+        hv = lib.whv_hype_expo(
+            points_p, npoints, ideal, ref, nsamples, seed, mu
+        )
     elif dist == "point":
         mu = array_1d_of_length_n(np.asarray(mu, dtype=float), nobj, name="mu")
         mu, _ = np1d_to_double_array(mu)
-        hv = lib.whv_hype_gaus(data_p, npoints, ideal, ref, nsamples, seed, mu)
+        hv = lib.whv_hype_gaus(
+            points_p, npoints, ideal, ref, nsamples, seed, mu
+        )
     else:
         raise ValueError("Unknown value of dist = {dist}")
 
@@ -2795,8 +2991,9 @@ def apply_within_sets(
     return res
 
 
+@DocSubstitute()
 def r2_exact(
-    data: ArrayLike,
+    points: ArrayLike,
     /,
     ref: ArrayLike,
     *,
@@ -2814,15 +3011,12 @@ def r2_exact(
 
     Parameters
     ----------
-    data :
-        Numpy array of numerical values, where each row gives the coordinates of a point.
-        If the array is created from the :func:`read_datasets` function, remove the last column.
+    points :
+        ${points}
     ref :
-        Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+        ${ref_point}
     maximise :
-        Whether the objectives must be maximised instead of minimised.
-        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1D numpy array with value 0/1 for each objective.
+        ${maximise}
 
     Returns
     -------
@@ -2874,27 +3068,27 @@ def r2_exact(
     # np.asarray to convert it to floating-point, otherwise if a user inputs
     # something like ref = np.array([10, 10]) then numpy would interpret it as
     # an int array.
-    data, data_copied = asarray_maybe_copy(data)
-    nobj = data.shape[1]
+    points, points_copied = asarray_maybe_copy(points)
+    nobj = points.shape[1]
     if nobj != 2:
-        raise NotImplementedError("Only 2D datasets are currently supported")
+        raise NotImplementedError("Only 2D points are currently supported")
     # Make sure it is a 1D array of length nobj.
     ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
 
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
-        if not data_copied:
-            data = data.copy()
-        data[:, maximise] = -data[:, maximise]
+        if not points_copied:
+            points = points.copy()
+        points[:, maximise] = -points[:, maximise]
         ref = ref.copy()
         ref[maximise] = -ref[maximise]
 
-    data_p, npoints, nobj = np2d_to_double_array(
-        data, ctype_shape=("size_t", "uint_fast8_t")
+    points_p, npoints, nobj = np2d_to_double_array(
+        points, ctype_shape=("size_t", "uint_fast8_t")
     )
-    ref_buf = ffi.from_buffer("double []", ref)
-    r2 = lib.r2_exact(data_p, npoints, nobj, ref_buf)
+    ref = ffi.from_buffer("double []", ref)
+    r2 = lib.r2_exact(points_p, npoints, nobj, ref)
     # if r2 < 0:
     #     raise MemoryError("memory allocation failed")
 

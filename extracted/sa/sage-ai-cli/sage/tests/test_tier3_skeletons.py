@@ -105,7 +105,7 @@ def test_react_vite_skeleton_has_valid_package_json():
     from sage.core.content_validator import validate_content
     from sage.core.skeletons import SKELETONS
     s = next(s for s in SKELETONS if s.name == "react-vite")
-    pkg = s.files.get("package.json", "")
+    pkg = s.files.get("frontend/package.json", "")
     assert pkg.strip()
     result = validate_content("package.json", pkg)
     assert result.ok, result.reason

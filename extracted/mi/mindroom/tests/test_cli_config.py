@@ -241,6 +241,7 @@ class TestConfigInit:
             "subagents",
             "matrix_message",
             "thread_tags",
+            "thread_summary",
         ]
         assert mind["skills"] == ["mindroom-docs"]
         assert "knowledge_bases" not in config
@@ -2016,7 +2017,47 @@ class TestVersionAndHelp:
         assert export_kwargs["output_dir"] == output_path
         assert export_kwargs["room_filter"] == "lob"
         assert export_kwargs["max_thread_roots"] == 11
+        assert export_kwargs["prefer_cache"] is False
+        assert export_kwargs["include_invited_rooms"] is True
         assert export_kwargs["runtime_paths"].storage_root == storage_path.resolve()
+
+    def test_threads_export_forwards_no_invited_rooms_flag(self, tmp_path: Path) -> None:
+        """The --no-invited-rooms flag should reach the exporter."""
+        config_path = tmp_path / "config.yaml"
+        storage_path = tmp_path / "storage"
+        _write_minimal_runtime_config(config_path)
+
+        with patch(
+            "mindroom.thread_export.export_threads_once",
+            new=AsyncMock(return_value=ThreadExportStats(output_dir=tmp_path / "exports")),
+        ) as export_threads_once:
+            result = _invoke_with_runtime(
+                ["threads", "export", "--no-invited-rooms"],
+                config_path,
+                storage_path=storage_path,
+            )
+
+        assert result.exit_code == 0
+        assert export_threads_once.await_args.kwargs["include_invited_rooms"] is False
+
+    def test_threads_export_forwards_prefer_cache_flag(self, tmp_path: Path) -> None:
+        """The --prefer-cache flag should reach the exporter."""
+        config_path = tmp_path / "config.yaml"
+        storage_path = tmp_path / "storage"
+        _write_minimal_runtime_config(config_path)
+
+        with patch(
+            "mindroom.thread_export.export_threads_once",
+            new=AsyncMock(return_value=ThreadExportStats(output_dir=tmp_path / "exports")),
+        ) as export_threads_once:
+            result = _invoke_with_runtime(
+                ["threads", "export", "--prefer-cache"],
+                config_path,
+                storage_path=storage_path,
+            )
+
+        assert result.exit_code == 0
+        assert export_threads_once.await_args.kwargs["prefer_cache"] is True
 
     @pytest.mark.asyncio
     async def test_threads_export_watch_retries_runtime_errors(self, tmp_path: Path) -> None:
@@ -2054,6 +2095,8 @@ class TestVersionAndHelp:
                 watch=True,
                 interval=7,
                 max_thread_roots=11,
+                prefer_cache=False,
+                include_invited_rooms=True,
             )
 
         assert exit_info.value.exit_code == 0
@@ -3520,7 +3563,7 @@ class TestLocalStackSetup:
     """Tests for `mindroom local-stack-setup`."""
 
     def test_starts_synapse_and_cinny_containers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Command starts Synapse compose and the Cinny container."""
+        """Command starts Synapse compose and the MindRoom Chat container."""
         synapse_dir = tmp_path / "matrix"
         synapse_dir.mkdir()
         (synapse_dir / "docker-compose.yml").write_text("services: {}\n")
@@ -3561,6 +3604,7 @@ class TestLocalStackSetup:
         assert ["docker", "compose", "up", "-d"] in commands
         assert any(cmd[:3] == ["docker", "rm", "-f"] for cmd in commands)
         assert any(cmd[:3] == ["docker", "run", "-d"] for cmd in commands)
+        assert any(cmd[-1] == "ghcr.io/mindroom-ai/mindroom-chat:latest" for cmd in commands)
 
         cinny_config = storage_path / "local" / "cinny-config.json"
         assert cinny_config.exists()

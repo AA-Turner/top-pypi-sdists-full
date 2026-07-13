@@ -28,6 +28,12 @@ from sage.core.query_orchestrator import (
     QueryType,
 )
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 
 # ── QueryClassification ──────────────────────────────────────────────────────
 

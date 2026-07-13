@@ -22,6 +22,7 @@
 #include "third_party/absl/strings/ascii.h"
 #include "third_party/absl/strings/str_join.h"
 #include "third_party/absl/strings/str_split.h"
+#include "third_party/absl/strings/string_view.h"
 #include "util.h"
 
 using sentencepiece::NormalizerSpec;
@@ -68,7 +69,8 @@ ABSL_FLAG(int32_t, num_sub_iterations, kDefaultTrainerSpec.num_sub_iterations(),
 ABSL_FLAG(int32_t, max_sentencepiece_length,
           kDefaultTrainerSpec.max_sentencepiece_length(),
           "maximum length of sentence piece");
-ABSL_FLAG(int32_t, max_sentence_length, kDefaultTrainerSpec.max_sentence_length(),
+ABSL_FLAG(int32_t, max_sentence_length,
+          kDefaultTrainerSpec.max_sentence_length(),
           "maximum length of sentence in byte");
 ABSL_FLAG(bool, split_by_unicode_script,
           kDefaultTrainerSpec.split_by_unicode_script(),
@@ -161,7 +163,7 @@ ABSL_FLAG(std::uint64_t, differential_privacy_clipping_threshold, 0,
           "Threshold for"
           " clipping the counts for DP");
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   sentencepiece::ScopedResourceDestructor cleaner;
   sentencepiece::ParseCommandLineFlags(argv[0], &argc, &argv, true);
 
@@ -169,17 +171,18 @@ int main(int argc, char *argv[]) {
   sentencepiece::NormalizerSpec normalizer_spec;
   NormalizerSpec denormalizer_spec;
 
-  CHECK(!absl::GetFlag(FLAGS_input).empty());
-  CHECK(!absl::GetFlag(FLAGS_model_prefix).empty());
+  QCHECK(!absl::GetFlag(FLAGS_input).empty());
+  QCHECK(!absl::GetFlag(FLAGS_model_prefix).empty());
 
-  if (absl::GetFlag(FLAGS_random_seed) != std::numeric_limits<uint32_t>::max()) {
+  if (absl::GetFlag(FLAGS_random_seed) !=
+      std::numeric_limits<uint32_t>::max()) {
     sentencepiece::SetRandomGeneratorSeed(absl::GetFlag(FLAGS_random_seed));
   }
 
   auto load_lines = [](absl::string_view filename) {
     std::vector<std::string> lines;
     auto input = sentencepiece::filesystem::NewReadableFile(filename);
-    CHECK_OK(input->status());
+    QCHECK_OK(input->status());
     std::string line;
     while (input->ReadLine(&line)) lines.emplace_back(line);
     return lines;
@@ -200,7 +203,7 @@ int main(int argc, char *argv[]) {
 
 #define SetRepeatedTrainerSpecFromFlag(name)                                \
   if (!absl::GetFlag(FLAGS_##name).empty()) {                               \
-    for (const auto &v :                                                    \
+    for (const auto& v :                                                    \
          sentencepiece::util::StrSplitAsCSV(absl::GetFlag(FLAGS_##name))) { \
       trainer_spec.add_##name(v);                                           \
     }                                                                       \
@@ -208,7 +211,7 @@ int main(int argc, char *argv[]) {
 
 #define SetRepeatedTrainerSpecFromFile(name)                               \
   if (!absl::GetFlag(FLAGS_##name##_file).empty()) {                       \
-    for (const auto &v : load_lines(absl::GetFlag(FLAGS_##name##_file))) { \
+    for (const auto& v : load_lines(absl::GetFlag(FLAGS_##name##_file))) { \
       trainer_spec.add_##name(v);                                          \
     }                                                                      \
   }
@@ -276,10 +279,10 @@ int main(int argc, char *argv[]) {
     denormalizer_spec.set_escape_whitespaces(false);
   }
 
-  CHECK_OK(sentencepiece::SentencePieceTrainer::PopulateModelTypeFromString(
+  QCHECK_OK(sentencepiece::SentencePieceTrainer::PopulateModelTypeFromString(
       absl::GetFlag(FLAGS_model_type), &trainer_spec));
 
-  CHECK_OK(sentencepiece::SentencePieceTrainer::Train(
+  QCHECK_OK(sentencepiece::SentencePieceTrainer::Train(
       trainer_spec, normalizer_spec, denormalizer_spec));
 
   return 0;

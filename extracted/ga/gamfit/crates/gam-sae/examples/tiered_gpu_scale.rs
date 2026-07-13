@@ -26,23 +26,25 @@
 //! runnable without a data file; the point is to exercise the GPU routing lane at
 //! scale, not to recover a specific dictionary.
 //!
-//! # Seeding wall (why N defaults modest)
+//! # Seeding at high `K`
 //!
-//! [`fit_tiered`]'s one-shot Tier-1 ([`gam_sae::sparse_dict::fit_block_sparse_dictionary`])
-//! seeds its `K` frames with a SERIAL farthest-point pass over the corpus
-//! (`sparse_dict::update::seed_decoder`), an `O(K·N·P)` cost that at `K≈1e4`
-//! dominates the fit and is unrelated to routing. The streaming lane
-//! (`examples/scale_k.rs`) sidesteps it with `new_with_decoder` + a cheap
-//! coordinate seed; the one-shot lane has no such hook yet. So this harness
-//! defaults to a modest `N` (device admission depends on `minibatch·K`, not `N`,
-//! so routing still engages at `K≈1e4`); raise `--rows` to push corpus size once
-//! the one-shot lane accepts a caller-supplied seed. See the run's wall time: at
-//! high `K` the seed pass, not the GPU route, is the current scaling wall.
+//! [`fit_tiered`]'s Tier-1 seeds its `K` frames per the `TieredSeedPolicy` on the
+//! config (default `Auto`): below the serial farthest-point budget it uses the
+//! data-aware `O(N·P·K)` seed, and once that pass would dominate — as it does at
+//! the `K≈1e4` default width here — it switches to the cheap `O(K·b)`
+//! coordinate-partition seed (the same seed the streaming lane
+//! `examples/scale_k.rs` uses via `new_with_decoder`). So the serial seed is no
+//! longer the scaling wall: raise `--rows` toward the #2023 `N=1e5` target and the
+//! GPU route, not the seed pass, dominates the wall time. Device admission still
+//! depends on `minibatch·K` (not `N`), so routing engages at `K≈1e4` at any `N`.
 
 use gam_sae::tiered::{TieredFitConfig, fit_tiered};
 use ndarray::Array2;
 use std::process::ExitCode;
 use std::time::Instant;
+
+mod common;
+use common::splitmix64;
 
 struct Args {
     rows: usize,
@@ -50,6 +52,7 @@ struct Args {
     n_blocks: usize,
     block_size: usize,
     block_topk: usize,
+    aux_k: usize,
     epochs: usize,
     minibatch: usize,
     tier2: bool,
@@ -76,6 +79,7 @@ fn parse_args() -> Result<Args, String> {
         n_blocks: 2_500,
         block_size: 4,
         block_topk: 8,
+        aux_k: 0,
         epochs: 3,
         minibatch: 512,
         tier2: false,
@@ -99,6 +103,7 @@ fn parse_args() -> Result<Args, String> {
             "--blocks" => args.n_blocks = parse_usize(value, key)?,
             "--block-size" => args.block_size = parse_usize(value, key)?,
             "--block-topk" => args.block_topk = parse_usize(value, key)?,
+            "--aux-k" => args.aux_k = parse_usize(value, key)?,
             "--epochs" => args.epochs = parse_usize(value, key)?,
             "--minibatch" => args.minibatch = parse_usize(value, key)?,
             "--gpu" => {
@@ -152,14 +157,6 @@ fn planted_activations(rows: usize, p: usize) -> Array2<f64> {
     })
 }
 
-fn splitmix64(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    let mut z = x;
-    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    z ^ (z >> 31)
-}
-
 fn run() -> Result<(), String> {
     let args = parse_args()?;
 
@@ -168,7 +165,7 @@ fn run() -> Result<(), String> {
     let k = args.atoms();
     let admitted = gam_gpu::DictionaryScoreRoutePlan::default_for_shape(args.minibatch, k, args.p);
     println!(
-        "[tiered gpu scale] N={} P={} K={} (blocks={} b={}) topk={} epochs={} minibatch={} \
+        "[tiered gpu scale] N={} P={} K={} (blocks={} b={}) topk={} aux_k={} epochs={} minibatch={} \
          tier2={} gpu={:?}",
         args.rows,
         args.p,
@@ -176,6 +173,7 @@ fn run() -> Result<(), String> {
         args.n_blocks,
         args.block_size,
         args.block_topk,
+        args.aux_k,
         args.epochs,
         args.minibatch,
         args.tier2,
@@ -213,6 +211,7 @@ fn run() -> Result<(), String> {
         TieredFitConfig::linear_bulk(args.n_blocks, args.block_size)
     };
     config.tier1.block_topk = args.block_topk;
+    config.tier1.aux_k = args.aux_k;
     config.tier1.max_epochs = args.epochs;
     config.tier1.minibatch = args.minibatch;
 

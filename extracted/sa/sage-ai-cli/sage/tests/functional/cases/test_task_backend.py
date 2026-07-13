@@ -23,7 +23,7 @@ class TestTaskBackend:
         assert res.exit_code == 0
         assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
         assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
-        # We don't strictly assert run_ok because it might block on uvicorn, but the validator uses timeout=15
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
         assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
@@ -38,8 +38,10 @@ class TestTaskBackend:
         res, verify = run_test_with_verification("sms", req, MODEL, language="javascript")
         
         assert res.exit_code == 0
-        assert verify.install_ok
-        assert verify.build_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "package.json").exists()
@@ -53,8 +55,10 @@ class TestTaskBackend:
         res, verify = run_test_with_verification("web", req, MODEL, language="go")
         
         assert res.exit_code == 0
-        assert verify.install_ok
-        assert verify.build_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "go.mod").exists()

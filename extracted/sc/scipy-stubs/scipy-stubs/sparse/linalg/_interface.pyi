@@ -202,15 +202,19 @@ class LinearOperator(Generic[_SCT_co, _ShapeT_co]):
     # ruff: noqa: ERA001
 
     # @overload
-    # def __init__(self, /, dtype: onp.ToDType[_SCT_co], shape: _ToShape) -> None: ...
+    # def __init__(self, /, dtype: onp.ToDType[_SCT_co], shape: _ShapeT_co) -> None: ...
     # @overload
-    # def __init__(self: LinearOperator[np.int_], /, dtype: onp.AnyIntDType, shape: _ToShape) -> None: ...
+    # def __init__[ShapeT: _Shape](self: LinearOperator[np.int_, ShapeT], /, dtype: onp.AnyIntDType, shape: ShapeT) -> None: ...
     # @overload
-    # def __init__(self: LinearOperator[np.float64], /, dtype: onp.AnyFloat64DType, shape: _ToShape) -> None: ...
+    # def __init__[ShapeT: _Shape](
+    #     self: LinearOperator[np.float64, ShapeT], /, dtype: onp.AnyFloat64DType, shape: ShapeT
+    # ) -> None: ...
     # @overload
-    # def __init__(self: LinearOperator[np.complex128], /, dtype: onp.AnyComplex128DType, shape: _ToShape) -> None: ...
+    # def __init__[ShapeT: _Shape](
+    #     self: LinearOperator[np.complex128, ShapeT], /, dtype: onp.AnyComplex128DType, shape: ShapeT
+    # ) -> None: ...
     # @overload
-    # def __init__(self: LinearOperator[Any], /, dtype: type | str | None, shape: _ToShape) -> None: ...
+    # def __init__[ShapeT: _Shape](self: LinearOperator[Any, ShapeT], /, dtype: type | str | None, shape: ShapeT) -> None: ...
 
     @override
     def __getstate__(self, /) -> dict[str, Any]: ...
@@ -520,13 +524,16 @@ class _ProductLinearOperator(LinearOperator[_SCT1_co | _SCT2_co, _ShapeT_co], Ge
     @override
     def _adjoint(self, /) -> Self: ...
 
+# mypy reports a false positive `overload-overlap` error with numpy<2.5
+# mypy: disable-error-code=overload-overlap
+
 @final
 class _ScaledLinearOperator(LinearOperator[_SCT_co, _ShapeT_co], Generic[_SCT_co, _ShapeT_co]):
     args: tuple[LinearOperator[_SCT_co, _ShapeT_co], _SCT_co | complex]
 
     #
     @overload
-    def __new__(cls, A: LinearOperator[_SCT_co, _ShapeT_co], alpha: _SCT_co | complex, xp: ModuleType | None = None) -> Self: ...  # type:ignore[overload-overlap]
+    def __new__(cls, A: LinearOperator[_SCT_co, _ShapeT_co], alpha: _SCT_co | complex, xp: ModuleType | None = None) -> Self: ...
     @overload
     def __new__[ShapeT: _Shape](
         cls, A: LinearOperator[npc.floating, ShapeT], alpha: onp.ToFloat64, xp: ModuleType | None = None
@@ -647,22 +654,16 @@ class IdentityOperator(LinearOperator[_SCT_co, _ShapeT_co], Generic[_SCT_co, _Sh
 
 #
 @overload
-def aslinearoperator[InexactT: npc.inexact, ShapeT: _Shape](
-    A: nptc.CanArray[ShapeT, np.dtype[InexactT]],
-) -> MatrixLinearOperator[InexactT, ShapeT]: ...
+def aslinearoperator[ScalarT: _Scalar, ShapeT: _Shape](
+    A: nptc.CanArray[ShapeT, np.dtype[ScalarT]],
+) -> MatrixLinearOperator[ScalarT, ShapeT]: ...
 @overload
-def aslinearoperator[InexactT: npc.inexact, ShapeT: _Shape](
-    A: _spbase[InexactT, ShapeT],
-) -> MatrixLinearOperator[InexactT, ShapeT]: ...
+def aslinearoperator[ScalarT: _Scalar, ShapeT: _Shape](A: _spbase[ScalarT, ShapeT]) -> MatrixLinearOperator[ScalarT, ShapeT]: ...
 @overload
-def aslinearoperator[ShapeT: _Shape](
-    A: onp.ArrayND[np.bool | npc.integer | np.float64, ShapeT] | _spbase[np.bool | npc.integer | np.float64, ShapeT],
-) -> MatrixLinearOperator[np.float64, ShapeT]: ...
+def aslinearoperator[ScalarT: npc.inexact, ShapeT: _Shape](
+    A: _HasShapeAndDTypeAndMatVec[ScalarT, ShapeT],
+) -> MatrixLinearOperator[ScalarT, ShapeT]: ...
 @overload
-def aslinearoperator[InexactT: npc.inexact, ShapeT: _Shape](
-    A: _HasShapeAndDTypeAndMatVec[InexactT, ShapeT],
-) -> MatrixLinearOperator[InexactT, ShapeT]: ...
-@overload
-def aslinearoperator[InexactT: npc.inexact, ShapeT: _Shape](
-    A: _HasShapeAndMatVec[InexactT, ShapeT],
-) -> MatrixLinearOperator[InexactT, ShapeT]: ...
+def aslinearoperator[ScalarT: npc.inexact, ShapeT: _Shape](
+    A: _HasShapeAndMatVec[ScalarT, ShapeT],
+) -> MatrixLinearOperator[ScalarT, ShapeT]: ...

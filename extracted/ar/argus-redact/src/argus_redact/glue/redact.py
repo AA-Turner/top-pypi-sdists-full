@@ -13,7 +13,7 @@ from pathlib import Path
 
 from argus_redact._safe_io import safe_read_text as _safe_read_text
 from argus_redact._types import PatternMatch
-from argus_redact.exceptions import LayerUnavailableError
+from argus_redact.exceptions import LayerUnavailableError, SecurityWarning
 from argus_redact.lang._loader import core_patterns
 from argus_redact.layers import LAYER_NER, LAYER_SEMANTIC
 from argus_redact.pure.grammar import normalize_grammar_en
@@ -27,7 +27,7 @@ from argus_redact.pure.hints import (
 from argus_redact.pure.lang_detect import detect_languages
 from argus_redact.pure.merger import merge_entities
 from argus_redact.pure.normalize import MAX_INPUT_SIZE
-from argus_redact.pure.replacer import SecurityWarning, replace
+from argus_redact.pure.replacer import replace
 from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
 
 logger = logging.getLogger(__name__)
@@ -184,11 +184,14 @@ def _load_patterns(lang: str | list[str]) -> list[dict]:
             continue
         all_patterns.extend(core_patterns(code))
 
-    # Always also load `language_neutral` patterns (CN structured numeric IDs)
-    # from any source lang not requested — a CN phone/ID number is the same digits
-    # regardless of surrounding script, so it must be detectable in en/ja/ko/…
+    # Always also load `language_neutral` patterns (CN structured numeric IDs, the
+    # en card PAN) from any source lang not requested — those digits are the same
+    # regardless of surrounding script, so they must be detectable in en/ja/ko/…
     # text too. The per-pattern flag is the single source of truth (no separate
-    # allowlist). Mirrors argus_redact_core::redact_l1::load_patterns so the
+    # allowlist, no denylist): a neutral pattern that duplicates a requested lang's
+    # native one (en credit_card vs zh bank_card) is collapsed by the overlap merge,
+    # and the spurious near_miss it used to raise is suppressed at the hint layer.
+    # Mirrors argus_redact_core::redact_l1::load_patterns so the
     # _load_patterns-based detection parity tests match.
     for src in _LANG_PATTERNS:
         if src in langs:

@@ -65,9 +65,11 @@ class TestRefundEndpointHttp:
     def client(self):
         from fastapi.testclient import TestClient
         from backend.app import app
+
         return TestClient(app)
 
-    def test_endpoint_requires_auth(self, client):
+    def test_endpoint_requires_auth(self, client, monkeypatch):
+        monkeypatch.delenv("SAGE_TESTING", raising=False)
         r = client.post("/billing/refund")
         # No Authorization → either 401 or 403
         assert r.status_code in (401, 403)

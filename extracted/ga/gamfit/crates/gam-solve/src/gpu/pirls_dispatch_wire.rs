@@ -7,8 +7,8 @@
 //! loop fully completed and assembled the CPU-oracle-equivalent surface;
 //! returns `None` when admission denied dispatch, the workload is shaped
 //! in a way the GPU loop does not cover yet (sparse-native, Kronecker,
-//! diagonal-penalty, constraints, Firth), or the device call failed in a
-//! way the host wants to retry on CPU.
+//! diagonal-penalty, constraints, Firth). Once admitted, device errors retain
+//! their typed identity and are never retried on a different implementation.
 //!
 //! Linux-only — `pirls_loop_on_stream` is gated behind `target_os =
 //! "linux"`, and so is the entire wire surface. Non-Linux builds expose a
@@ -103,7 +103,8 @@ mod linux_impl {
     use crate::gpu_kernels::pirls_row::{CurvatureMode, PirlsRowFamily};
     use crate::pirls::{
         ExportedLaplaceCurvature, FirthDiagnostics, HessianCurvatureKind, PirlsCoordinateFrame,
-        PirlsResult, PirlsStatus, WorkingModelPirlsResult, WorkingState, calculate_loglikelihood,
+        PirlsResult, PirlsStatus, WorkingModelPirlsResult, WorkingState,
+        calculate_loglikelihood_omitting_constants_from_eta,
         compute_observed_hessian_curvature_arrays, computeworkingweight_derivatives_from_eta,
     };
     use gam_gpu::cuda_selected;
@@ -112,7 +113,9 @@ mod linux_impl {
     use gam_linalg::matrix::DesignMatrix;
     use gam_linalg::matrix::SymmetricMatrix;
     use gam_problem::LinearInequalityConstraints;
-    use gam_problem::{Coefficients, GlmLikelihoodSpec, InverseLink, LinearPredictor};
+    use gam_problem::{
+        Coefficients, EstimationError, GlmLikelihoodSpec, InverseLink, LinearPredictor,
+    };
     use gam_terms::construction::ReparamResult;
 
     /// All inputs needed for the GPU PIRLS loop end-to-end. Built by the
@@ -234,7 +237,7 @@ mod linux_impl {
     /// and the full CPU-oracle surface was assembled.
     pub fn try_gpu_pirls_loop_dispatch(
         input: GpuPirlsDispatchInput<'_>,
-    ) -> Option<Result<(PirlsResult, WorkingModelPirlsResult), String>> {
+    ) -> Option<Result<(PirlsResult, WorkingModelPirlsResult), EstimationError>> {
         // Honor the documented GPU policy: never route to the GPU loop when
         // the caller has explicitly selected CPU execution.
         if !cuda_selected() {
@@ -273,7 +276,7 @@ mod linux_impl {
         curvature: CurvatureMode,
         n: usize,
         p: usize,
-    ) -> Result<(PirlsResult, WorkingModelPirlsResult), String> {
+    ) -> Result<(PirlsResult, WorkingModelPirlsResult), EstimationError> {
         assert_eq!(admission.n, n);
         assert_eq!(admission.p, p);
         // --- Device upload + workspace allocation -----------------------
@@ -283,23 +286,38 @@ mod linux_impl {
             input.y,
             input.priorweights,
             input.offset,
-        )?;
+        )
+        .map_err(EstimationError::InvalidInput)?;
         // Upload Qs for this ρ/σ point. Identity when no reparameterization.
-        let mut ws = pirls_gpu::allocate_sigma_pirls_workspace(&shared)?;
+        let mut ws = pirls_gpu::allocate_sigma_pirls_workspace(&shared)
+            .map_err(EstimationError::InvalidInput)?;
         if let Some(qs) = input.qs {
-            pirls_gpu::upload_qs_pirls(&mut ws, qs)?;
+            pirls_gpu::upload_qs_pirls(&mut ws, qs).map_err(EstimationError::InvalidInput)?;
         } else {
-            pirls_gpu::upload_qs_identity_pirls(&mut ws)?;
+            pirls_gpu::upload_qs_identity_pirls(&mut ws).map_err(EstimationError::InvalidInput)?;
         }
-        let mut loop_ws = pirls_gpu::allocate_pirls_loop_workspace(&shared, &ws)?;
+        let mut loop_ws = pirls_gpu::allocate_pirls_loop_workspace(&shared, &ws)
+            .map_err(EstimationError::InvalidInput)?;
 
         let lm_ridge = input.initial_lm_lambda.unwrap_or(1e-6);
-        // Forward the active Gamma shape so the GammaLog kernel uses the
-        // correct dispersion. Defaults to 1.0 (unit-shape Gamma / Poisson
-        // analogue) when the spec does not carry an explicit shape — this
-        // matches the CPU PIRLS path's `gamma_shape().unwrap_or(1.0)` fallback.
-        let gamma_shape = input.likelihood.gamma_shape().unwrap_or(1.0);
-        let qs_view = input.qs;
+        let likelihood_scale = match family {
+            PirlsRowFamily::GammaLog => pirls_gpu::PirlsLoopLikelihoodScale::gamma_shape(
+                input
+                    .likelihood
+                    .resolved_gamma_shape()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?,
+            )
+            .map_err(EstimationError::InvalidInput)?,
+            _ => {
+                // Validate family and metadata even though these kernels have
+                // no scalar likelihood parameter in their ABI contract.
+                input
+                    .likelihood
+                    .resolved_scale()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+                pirls_gpu::PirlsLoopLikelihoodScale::non_gamma()
+            }
+        };
         let firth_default = FirthDiagnostics::Inactive;
         // Sanity-check that the host-side enum maps round-trip; if a future
         // change to PirlsLoopCurvatureKind / HessianCurvatureKind drops a
@@ -319,7 +337,6 @@ mod linux_impl {
             exported_curvature: input.exported_curvature,
             ridge_passport: None,
             firth: Some(firth_default.clone()),
-            qs: qs_view,
             edf: input.edf,
         };
         // step_lm_lambda = lm_ridge (temporary Newton stabilization only).
@@ -332,7 +349,7 @@ mod linux_impl {
             &mut loop_ws,
             family,
             curvature,
-            gamma_shape,
+            likelihood_scale,
             input.initial_beta,
             input.s_transformed,
             input.linear_shift,
@@ -342,7 +359,13 @@ mod linux_impl {
             input.max_iterations,
             input.convergence_tolerance,
             Some(&extra),
-        )?;
+        )
+        .map_err(|error| match error {
+            cuda::PirlsGpuLoopError::Geometry(error) => error,
+            cuda::PirlsGpuLoopError::Runtime(message) => {
+                EstimationError::RemlOptimizationFailed(format!("GPU PIRLS runtime: {message}"))
+            }
+        })?;
 
         // --- Assemble PirlsResult + WorkingModelPirlsResult ------------
         let cuda::PirlsLoopOutcome {
@@ -378,24 +401,7 @@ mod linux_impl {
             final_lm_lambda,
             min_deviance,
             max_abs_eta,
-            per_row_status_or,
         } = outcome;
-        // per_row_status_or already drives `status` (Unstable when forbidden
-        // bits are set) via build_loop_outcome. Enforce the invariant here so
-        // a future regression that breaks the loop's classification is caught
-        // at the dispatch boundary rather than silently passing a corrupt
-        // iterate to the outer REML loop.
-        {
-            const FORBIDDEN_ROW: u32 = crate::gpu_kernels::pirls_row::status_flags::INVALID_RESPONSE
-                | crate::gpu_kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
-            if (per_row_status_or & FORBIDDEN_ROW) != 0 && !matches!(status, PirlsStatus::Unstable)
-            {
-                return Err(format!(
-                    "GPU PIRLS: per_row_status_or={per_row_status_or:#010x} has forbidden row \
-                     status bits but outcome status is {status:?} — expected Unstable"
-                ));
-            }
-        }
 
         // `logdet` corresponds to log|H_penalized| at the converged β; it is
         // not on the CPU oracle's `PirlsResult` surface (REML recomputes it
@@ -403,9 +409,9 @@ mod linux_impl {
         // catches a non-PD final factorisation before downstream code
         // touches the Hessian.
         if !logdet.is_finite() {
-            return Err(format!(
+            return Err(EstimationError::InvalidInput(format!(
                 "GPU PIRLS loop returned non-finite log|H| = {logdet}"
-            ));
+            )));
         }
         // `converged` already feeds `status` (Converged / Unstable /
         // MaxIterationsReached); make the relationship explicit so a future
@@ -446,8 +452,7 @@ mod linux_impl {
                     input.inverse_link,
                     &final_eta,
                     input.priorweights,
-                )
-                .map_err(|e| format!("derivative recompute failed: {e:?}"))?;
+                )?;
                 (sdmu, sd2, sd3, sc, sd)
             } else {
                 (
@@ -472,8 +477,7 @@ mod linux_impl {
                     input.y,
                     &final_w_solver,
                     input.priorweights,
-                )
-                .map_err(|e| format!("observed-curvature finalisation failed: {e:?}"))?
+                )?
             } else {
                 (finalweights.clone(), final_c.clone(), final_d.clone())
             };
@@ -485,7 +489,7 @@ mod linux_impl {
         };
 
         // Stabilised Hessian = penalized_hessian + δI per ridge_passport.
-        let delta = ridge_passport.delta;
+        let delta = ridge_passport.delta();
         let mut stab = penalized_hessian.clone();
         if delta > 0.0 {
             for i in 0..p {
@@ -582,12 +586,13 @@ mod linux_impl {
             eta: LinearPredictor::new(final_eta.clone()),
             gradient: gradient_total.clone(),
             hessian: penalized_hessian_sym.clone(),
-            log_likelihood: calculate_loglikelihood(
+            log_likelihood: calculate_loglikelihood_omitting_constants_from_eta(
                 input.y,
-                &final_mu,
+                &final_eta,
                 input.likelihood,
+                input.inverse_link,
                 input.priorweights,
-            ),
+            )?,
             deviance,
             penalty_term,
             firth: firth.clone(),
@@ -632,7 +637,6 @@ mod linux_impl {
             penalized_hessian_transformed: penalized_hessian_sym,
             stabilizedhessian_transformed: stabilizedhessian_sym,
             ridge_passport,
-            ridge_used: delta,
             deviance,
             edf: edf_final,
             stable_penalty_term: penalty_term,
@@ -752,8 +756,8 @@ mod linux_impl {
     ///
     /// Returns `Some(Ok(...))` when the device solve completed and the full
     /// CPU-oracle surface was assembled; returns `None` when admission was
-    /// denied; returns `Some(Err(...))` on device failure (caller logs and
-    /// falls through to CPU).
+    /// denied; returns `Some(Err(...))` on admitted-device failure, which is
+    /// propagated without a CPU retry.
     pub fn try_gpu_gaussian_pls_dispatch(
         input: GpuGaussianPlsInput<'_>,
     ) -> Option<Result<(PirlsResult, WorkingModelPirlsResult), String>> {
@@ -767,7 +771,8 @@ mod linux_impl {
         input: GpuGaussianPlsInput<'_>,
     ) -> Result<(PirlsResult, WorkingModelPirlsResult), String> {
         use crate::pirls::{
-            array1_l2_norm, calculate_deviance, calculate_loglikelihood,
+            array1_l2_norm, calculate_deviance_from_eta,
+            calculate_loglikelihood_omitting_constants_from_eta,
             computeworkingweight_derivatives_from_eta,
         };
         use gam_linalg::matrix::LinearOperator;
@@ -860,9 +865,22 @@ mod linux_impl {
         let gradient_norm = array1_l2_norm(&gradient);
         let max_abs_eta = inf_norm(finalmu.iter().copied());
 
-        let deviance = calculate_deviance(input.y, &finalmu, input.likelihood, input.priorweights);
-        let log_likelihood =
-            calculate_loglikelihood(input.y, &finalmu, input.likelihood, input.priorweights);
+        let deviance = calculate_deviance_from_eta(
+            input.y,
+            &eta,
+            input.likelihood,
+            input.inverse_link,
+            input.priorweights,
+        )
+        .map_err(|error| format!("GPU Gaussian deviance evaluation failed: {error}"))?;
+        let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+            input.y,
+            &eta,
+            input.likelihood,
+            input.inverse_link,
+            input.priorweights,
+        )
+        .map_err(|error| format!("GPU Gaussian log-likelihood evaluation failed: {error}"))?;
 
         // Stabilised Hessian = penalized_hessian + ridge_used·I.
         let mut stab = penalized_hessian.clone();
@@ -935,9 +953,9 @@ mod linux_impl {
             stabilizedhessian_transformed: stabilizedhessian_sym,
             ridge_passport: RidgePassport::scaled_identity(
                 ridge_used,
-                RidgePolicy::explicit_stabilization_full(),
-            ),
-            ridge_used,
+                RidgePolicy::exact_full_objective(),
+            )
+            .map_err(|error| format!("invalid GPU PIRLS ridge metadata: {error}"))?,
             deviance,
             edf: f64::NAN, // recomputed by outer REML from penalized_hessian + e_transformed
             stable_penalty_term: penalty_term,

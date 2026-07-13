@@ -22,7 +22,7 @@ use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd};
 /// pairwise barrier `−μ·q·w(o)·log(1−o+ε)` was only the `K = 2` shadow
 /// (`det[[1,r],[r,1]] = 1 − r²`, `r = q·o`): the Jeffreys exponent `½` is fixed —
 /// there is no free strength `μ_C` — and it is the exact reparametrization-
-/// invariant counter-term to the Laplace evidence's `+½·log(volume)` collapse
+/// invariant counter-term to the quasi-Laplace score's `+½·log(volume)` collapse
 /// reward. Because a pair that never co-fires has `q_jk = 0`, `Q` is block
 /// diagonal across co-firing components and `det F` factorizes over them: atoms
 /// that never fire together contribute a determinant factor of exactly `1` (zero
@@ -135,7 +135,7 @@ impl SaeManifoldTerm {
         // are nonzero there, so iterating each row's active atoms and accumulating
         // their outer product yields the IDENTICAL matrix as the dense `k²·n`
         // triple loop — every skipped `(j,k,row)` term had a zero gate factor and
-        // contributed nothing. For the sparse IBP/Softmax routing this term exists
+        // contributed nothing. For the sparse ordered Beta--Bernoulli/Softmax routing this term exists
         // to regularize, the per-row active set is `≪ K`, so the cost collapses
         // from `O(K²·N)` (35e12 products at K=32768) to `O(N·active²)` with no
         // change to the result — the same coactive-pairs reduction proven exact
@@ -195,8 +195,8 @@ impl SaeManifoldTerm {
     }
 
     /// #1026 — refresh the frozen per-assembly decoder-repulsion gate from the
-    /// current decoder state. Lagged-diffusivity discipline (mirrors
-    /// [`SaeManifoldAtom::refresh_intrinsic_smooth_penalty`]): the gate WEIGHT is
+    /// current decoder state. Lagged-diffusivity discipline applies only to this
+    /// repulsion heuristic (the atom's reference roughness is fixed): the gate WEIGHT is
     /// frozen here at assembly entry so the assembly's gradient/curvature and the
     /// line-search value path use the same gate even as trial decoders move.
     ///
@@ -489,11 +489,10 @@ impl SaeManifoldTerm {
     /// (truncated numerator over `J∩K` but full-row denominators `Σ_all a_ik²`),
     /// which was NOT the full normalized coactivation NOR the truncated one — it
     /// systematically UNDER-weighted the barrier for dense-tail (softmax)
-    /// assignments (the full-row denominator inflates the divisor). For structurally
-    /// sparse assignments (JumpReLU hard gate / IBP-MAP) every sub-floor entry is a
-    /// hard zero, so `J` is the full nonzero support, the truncated and full sums
-    /// coincide, and this is EXACTLY the full normalized coactivation to the last
-    /// bit (unchanged from before). Cost is `O(N·K)` to read the gates plus
+    /// assignments (the full-row denominator inflates the divisor). For hard
+    /// TopK assignments every inactive entry is exactly zero, so `J` is the full
+    /// nonzero support, the truncated and full sums coincide, and this is exactly
+    /// the full normalized coactivation. Cost is `O(N·K)` to read the gates plus
     /// `O(Σ_row active_row²)` over the per-row support.
     pub(crate) fn barrier_coactive_pairs(&self) -> Vec<(usize, usize, f64)> {
         self.barrier_coactive_support().0
@@ -507,9 +506,9 @@ impl SaeManifoldTerm {
     /// `per_atom_effective_sample_size` (`fisher_n = Σ w²`) uses, restricted to
     /// the same relative-mass active support as the numerator so numerator,
     /// denominator and softening `ε_C` are one measure
-    /// (for hard-gated routings — JumpReLU/IBP/TopK — the truncated and full sums
-    /// coincide exactly; for softmax the sub-floor tail is dropped from ALL of
-    /// them consistently). Returned together so the frozen gate can pin both at
+    /// (for hard TopK routing the truncated and full sums coincide exactly; for
+    /// every smooth gate family the sub-floor tail is dropped from all of them
+    /// consistently). Returned together so the frozen gate can pin both at
     /// the same chokepoint.
     pub(crate) fn barrier_coactive_support(&self) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
         let k_atoms = self.k_atoms();
@@ -524,13 +523,11 @@ impl SaeManifoldTerm {
         // the score is a well-defined truncated cosine rather than a hybrid.
         //
         // "Co-firing" on a row means carrying NON-NEGLIGIBLE mass relative to that
-        // row's peak (`SAE_COACTIVE_RELATIVE_MASS_FLOOR`), not merely `a ≠ 0`. For
-        // structurally sparse modes (JumpReLU/IBP) the active atoms sit far above
-        // the floor and the hard zeros are excluded either way, so the support is
-        // the full nonzero support and the score is the exact full normalized
-        // coactivation. For SOFTMAX the sub-floor tail is dropped from BOTH sums,
-        // keeping the scan `O(N·active²)` and the score consistent with the compact
-        // row layout's cutoff.
+        // row's peak (`SAE_COACTIVE_RELATIVE_MASS_FLOOR`), not merely `a ≠ 0`.
+        // TopK's exact zeros make this its full nonzero support. ThresholdGate,
+        // ordered Beta--Bernoulli, and Softmax instead have smooth finite-logit
+        // tails, which are dropped from both sums so the scan stays
+        // `O(N·active²)` and the truncated cosine remains internally consistent.
         let mut energy = vec![0.0_f64; k_atoms];
         let mut num: std::collections::BTreeMap<(usize, usize), f64> =
             std::collections::BTreeMap::new();
@@ -599,7 +596,7 @@ impl SaeManifoldTerm {
     /// #1610 — the EVIDENCE-DERIVED data-fit INSEPARABILITY `γ_jk ∈ [0, 1]` of a
     /// coactive atom pair: the largest canonical correlation between the two atoms'
     /// coactivation-weighted chart-design column spaces. This is the quantity that
-    /// decides whether the SAE's joint inner (Laplace/REML) Hessian stays positive
+    /// decides whether the SAE's joint inner (penalized quasi-Laplace) Hessian stays positive
     /// definite — i.e. whether the model evidence is even DEFINED — so it is read
     /// straight off the reconstruction objective, not from a rank-count heuristic.
     ///
@@ -765,7 +762,7 @@ impl SaeManifoldTerm {
     /// `μ_C`), a subdominant Gauss–Newton nudge on near-collinear co-firing pairs.
     ///
     /// The repulsion is an interior-point SAFEGUARD whose job is to help keep the
-    /// joint inner (Laplace/REML) Hessian positive definite; it is NOT statistical
+    /// joint inner (penalized quasi-Laplace) Hessian positive definite; it is NOT statistical
     /// shrinkage. The principled strength is the reciprocal-margin to the data-fit's
     /// co-collapse boundary, the data-fit inseparability `γ_jk`
     /// ([`Self::design_inseparability_with_gates`]): the whitened data Hessian loses
@@ -1688,6 +1685,9 @@ impl SaeManifoldTerm {
         factored_row_projection: Option<&FrameProjection>,
     ) -> Result<SaeBetaPenaltyAssembly, ArrowSchurError> {
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        registry
+            .validate_rho(rho_global.view())
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let layout = registry.rho_layout();
         let beta = self.flatten_beta();
         let mut beta_assembly = SaeBetaPenaltyAssembly::default();
@@ -1707,7 +1707,7 @@ impl SaeManifoldTerm {
             // `½λ(t_after²−t_before²)` across the cut, so a near-zero Newton step
             // crossing the cut changes the line-search objective discontinuously
             // and Armijo rejects it. Skip it on every SAE path so the von-Mises
-            // built-in is the single source of truth (matching the REML criterion,
+            // built-in is the single source of truth (matching the penalized quasi-Laplace criterion,
             // which already scores only `loss.ard`).
             if matches!(penalty, AnalyticPenaltyKind::Ard(_)) {
                 continue;
@@ -1736,7 +1736,7 @@ impl SaeManifoldTerm {
                         // refused everything else upfront, so this branch
                         // is total and the K=1 vs K>=2 path is the same
                         // loop. Row-block coord penalties (ARD,
-                        // BlockOrthogonality, Sparsity/TopK/JumpReLU,
+                        // BlockOrthogonality, Sparsity/TopK/ThresholdGate,
                         // RowPrecisionPrior, ScadMcp, Isometry) target the
                         // "t" latent block (n_obs × d) and apply per atom
                         // — accumulate into the corresponding row offsets.
@@ -1868,12 +1868,16 @@ impl SaeManifoldTerm {
     ) -> Result<AnalyticPenaltyKind, ArrowSchurError> {
         // Isometry requires per-step cache refresh from the atom's second jet
         // before value / grad_target / hvp are live. The registry-held
-        // IsometryPenalty was constructed with p_out equal to the latent dim
-        // from the JSON latent spec; clone it and correct p_out to the atom's
-        // true decoder output dimension before refreshing caches.
+        // IsometryPenalty was constructed from the registry-wide latent spec;
+        // clone it and retarget both its local coordinate slice and p_out to
+        // this atom before refreshing caches. In a heterogeneous SAE the
+        // registry target uses d_max, while each cache has shape (N, p*d_atom).
+        // Leaving d_max on the clone makes `value` reshape a d=1 atom as d=2
+        // and then ask `pullback_metric` for p*2 Jacobian columns.
         let atom = &self.atoms[atom_idx];
         let p = atom.decoder_coefficients.ncols();
         let mut corrected: IsometryPenalty = (**iso).clone();
+        corrected.target = PsiSlice::full(coord.len(), Some(atom.latent_dim));
         corrected.p_out = p;
         // Single-source-of-truth gauge metric: the isometry pullback weight is
         // taken from the SAME RowMetric the reconstruction likelihood whitens
@@ -2099,11 +2103,9 @@ impl SaeManifoldTerm {
         let beta_off = self.beta_offsets()[atom_idx];
         let beta_block = m * p;
         let jet = &atom.basis_jacobian;
-        // Resolve the learnable isometry strength `scalar_weight · exp(rho)` in
-        // log-space with a clamped exponent: the naive `scalar_weight *
-        // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
-        // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
-        // block and β-penalty, poisoning the joint solve (#742, Issue 4).
+        // Resolve the exact learnable isometry strength after the registry seam
+        // has validated its effective log-strength domain. There is no
+        // saturated tail, so value and analytic rho derivatives stay aligned.
         //
         // #795 scale-invariant curvature: the value / gradient paths penalize
         // the SCALE-INVARIANT residual `R_n = g_n/gbar − g^ref_n` (normalized by
@@ -2124,7 +2126,8 @@ impl SaeManifoldTerm {
         // is unavailable/degenerate we skip the block rather than write a
         // mis-scaled one.
         let mu_raw =
-            resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+            resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index])
+                .expect("analytic-penalty rho must be validated before SAE assembly");
         let Some(gbar) = corrected.metric_normalizer(d) else {
             return;
         };
@@ -2161,7 +2164,7 @@ impl SaeManifoldTerm {
         // `is_euclidean()` instead wrongly dropped the cross-block for the
         // single-circle fit, leaving a block-diagonal Hessian that misses the
         // strong isometry `t`↔`B` coupling; the joint Newton step then never
-        // reaches the KKT stationarity the REML criterion now requires, and the
+        // reaches the KKT stationarity the penalized quasi-Laplace criterion now requires, and the
         // arrow-Schur proximal ridge saturates at 1e15 (issue #795, a regression
         // of #681). For a genuinely curved chart (Sphere, an active Interval
         // boundary) we contribute only the PSD `htt` diagonal block and DROP the
@@ -2368,11 +2371,9 @@ impl SaeManifoldTerm {
             };
             weighted_jacobian_rows.push(wj);
         }
-        // Resolve the learnable isometry strength `scalar_weight · exp(rho)` in
-        // log-space with a clamped exponent: the naive `scalar_weight *
-        // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
-        // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
-        // block and β-penalty, poisoning the joint solve (#742, Issue 4).
+        // Resolve the exact learnable isometry strength after the registry seam
+        // has validated its effective log-strength domain. There is no
+        // saturated tail, so value and analytic rho derivatives stay aligned.
         //
         // #795 scale-invariant curvature (decoder β block): the `gb` gradient
         // accumulated above routes through the gbar-normalized
@@ -2385,7 +2386,8 @@ impl SaeManifoldTerm {
         // preserving (positive scalar on a PSD Gram block); skip on a degenerate
         // normalizer rather than write a mis-scaled block.
         let mu_raw =
-            resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+            resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index])
+                .expect("analytic-penalty rho must be validated before SAE assembly");
         let Some(gbar) = corrected.metric_normalizer(d) else {
             return;
         };
@@ -2474,7 +2476,7 @@ pub(crate) fn sae_penalty_is_row_block_supported(penalty: &AnalyticPenaltyKind) 
         penalty,
         AnalyticPenaltyKind::Ard(_)
             | AnalyticPenaltyKind::TopKActivation(_)
-            | AnalyticPenaltyKind::JumpReLU(_)
+            | AnalyticPenaltyKind::SmoothThreshold(_)
             | AnalyticPenaltyKind::Sparsity(_)
             | AnalyticPenaltyKind::RowPrecisionPrior(_)
             | AnalyticPenaltyKind::ParametricRowPrecisionPrior(_)
@@ -2491,7 +2493,7 @@ pub(crate) fn sae_penalty_is_row_block_supported(penalty: &AnalyticPenaltyKind) 
 /// single registry entry dispatches cleanly across atoms whose coordinate dims
 /// differ (issue F6). For these the assembled value / gradient / curvature is
 /// *exactly* the sum of the per-atom energies — the same additive
-/// decomposition the Laplace/REML evidence log-det already sums per atom — so
+/// decomposition the penalized quasi-Laplace score log-det already sums per atom — so
 /// admitting them on a mixed `{d=1 circle, d=2 patch, linear}` dictionary keeps
 /// the evidence exact with zero padding or truncation.
 ///
@@ -2513,7 +2515,7 @@ pub(crate) fn sae_penalty_is_row_block_supported(penalty: &AnalyticPenaltyKind) 
 /// different dim (reshape to the wrong `(n_eff × d)`, index an out-of-range
 /// axis, or misalign a per-axis threshold / precision):
 /// [`AnalyticPenaltyKind::BlockOrthogonality`] (reshapes to `(n_eff × d)` and
-/// partitions a fixed axis set into groups), [`AnalyticPenaltyKind::JumpReLU`]
+/// partitions a fixed axis set into groups), [`AnalyticPenaltyKind::SmoothThreshold`]
 /// and [`AnalyticPenaltyKind::TopKActivation`] (per-axis thresholds / top-k
 /// across a fixed `latent_dim`), and the row-precision priors
 /// ([`AnalyticPenaltyKind::RowPrecisionPrior`],
@@ -2608,7 +2610,7 @@ pub fn sae_row_block_penalty_kinds() -> &'static [&'static str] {
     &[
         "ard",
         "top_k_activation",
-        "jumprelu",
+        "smooth_threshold",
         "sparsity",
         "row_precision_prior",
         "parametric_row_precision_prior",
@@ -2633,7 +2635,7 @@ mod tests_findings_234 {
         let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45]];
         let (phi0, jet0) = periodic_basis(&coords0);
         let (phi1, jet1) = periodic_basis(&coords1);
-        let atom0 = SaeManifoldAtom::new(
+        let atom0 = SaeManifoldAtom::new_with_provided_function_gram(
             "a0",
             SaeAtomBasisKind::Periodic,
             1,
@@ -2644,7 +2646,7 @@ mod tests_findings_234 {
         )
         .unwrap()
         .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        let atom1 = SaeManifoldAtom::new(
+        let atom1 = SaeManifoldAtom::new_with_provided_function_gram(
             "a1",
             SaeAtomBasisKind::Periodic,
             1,
@@ -2854,7 +2856,7 @@ mod tests_findings_234 {
         let coords1 = array![[0.15], [0.30], [0.65], [0.90]];
         let (phi0, jet0) = periodic_basis(&coords0);
         let (phi1, jet1) = periodic_basis(&coords1);
-        let atom0 = SaeManifoldAtom::new(
+        let atom0 = SaeManifoldAtom::new_with_provided_function_gram(
             "a0",
             SaeAtomBasisKind::Periodic,
             1,
@@ -2865,7 +2867,7 @@ mod tests_findings_234 {
         )
         .unwrap()
         .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        let atom1 = SaeManifoldAtom::new(
+        let atom1 = SaeManifoldAtom::new_with_provided_function_gram(
             "a1",
             SaeAtomBasisKind::Periodic,
             1,

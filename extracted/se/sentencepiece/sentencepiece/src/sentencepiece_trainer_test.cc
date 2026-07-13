@@ -17,7 +17,9 @@
 #include "filesystem.h"
 #include "sentencepiece_model.pb.h"
 #include "testharness.h"
+#include "third_party/absl/status/status.h"
 #include "third_party/absl/strings/str_cat.h"
+#include "third_party/absl/strings/string_view.h"
 #include "util.h"
 
 namespace sentencepiece {
@@ -41,8 +43,8 @@ void CheckNormalizer(absl::string_view filename, bool expected_has_normalizer,
                      bool expected_has_denormalizer) {
   SentencePieceProcessor sp;
   ASSERT_TRUE(sp.Load(filename.data()).ok());
-  const auto &normalizer_spec = sp.model_proto().normalizer_spec();
-  const auto &denormalizer_spec = sp.model_proto().denormalizer_spec();
+  const auto& normalizer_spec = sp.model_proto().normalizer_spec();
+  const auto& denormalizer_spec = sp.model_proto().denormalizer_spec();
   EXPECT_EQ(!normalizer_spec.precompiled_charsmap().empty(),
             expected_has_normalizer);
   EXPECT_EQ(!denormalizer_spec.precompiled_charsmap().empty(),
@@ -102,13 +104,13 @@ TEST(SentencePieceTrainerTest, TrainFromArgsTest) {
 TEST(SentencePieceTrainerTest, TrainFromIterator) {
   class VectorIterator : public SentenceIterator {
    public:
-    explicit VectorIterator(std::vector<std::string> &&vec)
+    explicit VectorIterator(std::vector<std::string>&& vec)
         : vec_(std::move(vec)) {}
 
     bool done() const override { return idx_ == vec_.size(); }
     void Next() override { ++idx_; }
-    const std::string &value() const override { return vec_[idx_]; }
-    util::Status status() const override { return util::OkStatus(); }
+    const std::string& value() const override { return vec_[idx_]; }
+    absl::Status status() const override { return absl::OkStatus(); }
 
    private:
     std::vector<std::string> vec_;
@@ -391,15 +393,27 @@ TEST(SentencePieceTrainerTest, NormalizationTest) {
     EXPECT_EQ(normalized, "▁ガイダンス");
     ConvertToUnicodeAlignment(kInput, normalized, &offsets);
     EXPECT_EQ(offsets, std::vector<size_t>({0, 0, 2, 3, 5, 6, 7}));
+
+    // Regression: truncated UTF-8 lead bytes (e.g. a single 0xF0 announces a
+    // 4-byte sequence but supplies only 1) must not cause out-of-bounds writes
+    // inside the utf8_to_unicode_offsets lambda.
+    for (const char lead : {static_cast<char>(0xC2), static_cast<char>(0xE0),
+                            static_cast<char>(0xF0)}) {
+      const std::string truncated(1, lead);
+      std::vector<size_t> trunc_offsets = {0};
+      ConvertToUnicodeAlignment(truncated, truncated, &trunc_offsets);
+      EXPECT_EQ(trunc_offsets, std::vector<size_t>({0, 0}));
+    }
   }
 
-  auto set_normalization_only = [](SentencePieceNormalizer *normalizer) {
-    SentencePieceTrainer::SetProtoField("add_dummy_prefix", "false",
-                                        normalizer->mutable_normalizer_spec());
-    SentencePieceTrainer::SetProtoField("escape_whitespaces", "false",
-                                        normalizer->mutable_normalizer_spec());
-    SentencePieceTrainer::SetProtoField("remove_extra_whitespaces", "false",
-                                        normalizer->mutable_normalizer_spec());
+  auto set_normalization_only = [](SentencePieceNormalizer* normalizer) {
+    EXPECT_OK(SentencePieceTrainer::SetProtoField(
+        "add_dummy_prefix", "false", normalizer->mutable_normalizer_spec()));
+    EXPECT_OK(SentencePieceTrainer::SetProtoField(
+        "escape_whitespaces", "false", normalizer->mutable_normalizer_spec()));
+    EXPECT_OK(SentencePieceTrainer::SetProtoField(
+        "remove_extra_whitespaces", "false",
+        normalizer->mutable_normalizer_spec()));
   };
 
   {
@@ -441,6 +455,77 @@ TEST(SentencePieceTrainerTest, NormalizationTest) {
     EXPECT_FALSE(sp.LoadFromRuleName("__unknown__").ok());
   }
 }
+
+TEST(SentencePieceTrainerTest, NormalizerMapTest) {
+  std::vector<std::pair<std::string, std::string>> norm_map = {
+      {"foo", "bar"},
+      {"apple", "orange"},
+  };
+
+  SentencePieceNormalizer sp;
+  EXPECT_OK(sp.LoadFromMap(norm_map));
+
+  EXPECT_OK(SentencePieceTrainer::SetProtoField(
+      "add_dummy_prefix", "false", sp.mutable_normalizer_spec()));
+  EXPECT_OK(SentencePieceTrainer::SetProtoField(
+      "escape_whitespaces", "false", sp.mutable_normalizer_spec()));
+  EXPECT_OK(SentencePieceTrainer::SetProtoField(
+      "remove_extra_whitespaces", "false",
+      sp.mutable_normalizer_spec()));
+
+  EXPECT_EQ(sp.Normalize("foo"), "bar");
+  EXPECT_EQ(sp.Normalize("apple"), "orange");
+  EXPECT_EQ(sp.Normalize("banana"), "banana");
+  EXPECT_EQ(sp.Normalize("foo apple"), "bar orange");
+
+  std::vector<std::pair<std::string, std::string>> decompiled_map;
+  EXPECT_OK(sp.Decompile(&decompiled_map));
+
+  ASSERT_EQ(decompiled_map.size(), 2);
+  EXPECT_EQ(decompiled_map[0].first, "apple");
+  EXPECT_EQ(decompiled_map[0].second, "orange");
+  EXPECT_EQ(decompiled_map[1].first, "foo");
+  EXPECT_EQ(decompiled_map[1].second, "bar");
+
+  // Test invalid UTF-8 validation, empty source, identity conversion, and duplicate keys
+  SentencePieceNormalizer sp_invalid;
+  EXPECT_FALSE(sp_invalid.LoadFromMap({{"\xFF", "bar"}}).ok());
+  EXPECT_FALSE(sp_invalid.LoadFromMap({{"foo", "\xFF"}}).ok());
+  EXPECT_FALSE(sp_invalid.LoadFromMap({{"" , "bar"}}).ok());
+  EXPECT_FALSE(sp_invalid.LoadFromMap({{"foo", "foo"}}).ok());
+  EXPECT_FALSE(sp_invalid.LoadFromMap({{"foo", "bar"}, {"foo", "baz"}}).ok());
+}
+
+TEST(SentencePieceTrainerTest, NormalizerConflictTest) {
+  SentencePieceNormalizer normalizer;
+  std::vector<std::pair<std::string, std::string>> norm_map = {{"foo", "bar"}};
+  EXPECT_OK(normalizer.LoadFromMap(norm_map));
+  EXPECT_OK(SentencePieceTrainer::SetProtoField(
+      "escape_whitespaces", "true", normalizer.mutable_normalizer_spec()));
+
+  const std::string serialized_spec = normalizer.serialized_normalizer_spec();
+
+  auto train_with_kwargs = [&serialized_spec](const std::string& key,
+                                              const std::string& value) {
+    std::unordered_map<std::string, std::string> kwargs = {
+        {"_serialized_normalizer_spec", serialized_spec}, {key, value}};
+    TrainerSpec trainer_spec;
+    NormalizerSpec normalizer_spec;
+    NormalizerSpec denormalizer_spec;
+    return SentencePieceTrainer::MergeSpecsFromArgs(
+        kwargs, &trainer_spec, &normalizer_spec, &denormalizer_spec);
+  };
+
+  EXPECT_FALSE(train_with_kwargs("normalization_rule_name", "nfkc").ok());
+  EXPECT_FALSE(train_with_kwargs("normalization_rule_tsv", "rules.tsv").ok());
+  EXPECT_OK(train_with_kwargs("denormalization_rule_tsv", "rules.tsv"));
+  EXPECT_FALSE(train_with_kwargs("add_dummy_prefix", "true").ok());
+  EXPECT_FALSE(train_with_kwargs("escape_whitespaces", "true").ok());
+  EXPECT_FALSE(train_with_kwargs("remove_extra_whitespaces", "true").ok());
+
+  EXPECT_OK(train_with_kwargs("character_coverage", "0.99"));
+}
+
 
 }  // namespace
 }  // namespace sentencepiece

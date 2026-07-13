@@ -24,11 +24,11 @@
 //! predictive log-density table by cross-validation folds within the race and
 //! feed it to [`crate::evidence::solve_stacking_weights`]. This module
 //! does exactly that when a race mixes model classes (smooth manifold vs the
-//! discrete-mixture rung): the HEADLINE ranking statistic switches to held-out
-//! predictive log-density / stacking weights, with the rank-aware Laplace
-//! evidence retained as corroboration. Same-class races keep today's
-//! winner-take-all evidence behavior. The class mix is auto-detected from the
-//! candidate kinds — there is no flag.
+//! discrete-mixture rung), or contains an adaptive order-selection class: the
+//! HEADLINE ranking statistic switches to held-out predictive log-density /
+//! stacking weights, with rank-aware Laplace evidence retained as
+//! corroboration. Same-class races of fixed candidates keep winner-take-all
+//! evidence behavior. The requirement is inferred from typed candidate kinds.
 //!
 //! What is still future work: persisting a mixture predictor for OOS prediction
 //! on new rows. The selection-time stacking table is computed from fits that
@@ -36,14 +36,13 @@
 //! prediction path. That OOS-retention package is out of scope here.
 
 use crate::evidence::{
-    GaussianMixtureConfig, StackingConfig, StackingWeights, TopologyScoreScale,
-    UNION_STRUCTURE_LADDER, UnionStructure, UnionStructureFit, fit_gaussian_mixture,
-    fit_union_ladder, fit_union_structure, solve_stacking_weights, union_per_point_log_density,
+    GaussianMixtureConfig, StackingConfig, StackingWeights, TopologyScoreScale, UnionStructure,
+    UnionStructureFit, fit_gaussian_mixture, fit_union_ladder, fit_union_structure,
+    solve_stacking_weights, union_per_point_log_density,
 };
 use crate::priority_selection::{PriorityCandidate, rank_priority_candidates};
 use crate::row_sampling_measure::CoresetCertificate;
 use ndarray::{Array2, ArrayView2};
-use serde_json::Value as JsonValue;
 use statrs::distribution::{ChiSquared, ContinuousCDF};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -102,6 +101,12 @@ pub enum AutoTopologyKind {
     Mixture {
         k: usize,
     },
+    /// `k` tight Gaussian clusters whose centers share one fitted circle
+    /// (#2262). This is the density class for discrete cyclic concepts: it
+    /// preserves clustered mass while pricing the common circular geometry.
+    RingOfClusters {
+        k: usize,
+    },
     /// Structured-union composite (#907): a small FIXED set of component
     /// structures joined by a hard responsibility split (e.g. circle+circle,
     /// circle+cluster, line+cluster). Like the mixture rung it is a discrete,
@@ -114,11 +119,10 @@ pub enum AutoTopologyKind {
 }
 
 impl AutoTopologyKind {
-    /// Stable display name. The mixture variant carries its order `k`, so its
-    /// label is rendered with [`AutoTopologyKind::display_name`]; the borrowed
-    /// `as_str` returns the class tag for the smooth variants and the bare
-    /// `"mixture"` tag for the discrete rung.
-    pub const fn as_str(self) -> &'static str {
+    /// Coarse family tag for aggregate reports. This intentionally omits the
+    /// fixed order of mixture/ring candidates; use [`Self::display_name`] for
+    /// identity, serialization, diagnostics, and race columns.
+    pub const fn family_tag(self) -> &'static str {
         match self {
             AutoTopologyKind::Euclidean => "euclidean",
             AutoTopologyKind::Circle => "circle",
@@ -129,6 +133,7 @@ impl AutoTopologyKind {
             AutoTopologyKind::DuchonSheet => "duchon_sheet",
             AutoTopologyKind::ConstantCurvature => "constant_curvature",
             AutoTopologyKind::Mixture { .. } => "mixture",
+            AutoTopologyKind::RingOfClusters { .. } => "ring_clusters",
             AutoTopologyKind::Union { structure } => structure.as_str(),
         }
     }
@@ -138,7 +143,8 @@ impl AutoTopologyKind {
     pub fn display_name(self) -> String {
         match self {
             AutoTopologyKind::Mixture { k } => format!("mixture_k{k}"),
-            other => other.as_str().to_string(),
+            AutoTopologyKind::RingOfClusters { k } => format!("ring_clusters_k{k}"),
+            other => other.family_tag().to_string(),
         }
     }
 
@@ -146,6 +152,10 @@ impl AutoTopologyKind {
     /// opposed to a smooth manifold / Euclidean latent topology).
     pub const fn is_discrete_mixture(self) -> bool {
         matches!(self, AutoTopologyKind::Mixture { .. })
+    }
+
+    pub const fn is_ring_of_clusters(self) -> bool {
+        matches!(self, AutoTopologyKind::RingOfClusters { .. })
     }
 
     /// `true` iff this candidate is the structured-union composite class (#907).
@@ -158,49 +168,72 @@ impl AutoTopologyKind {
     /// triggered when a race mixes a smooth/Euclidean candidate with any
     /// discrete one.
     pub const fn is_discrete_class(self) -> bool {
-        self.is_discrete_mixture() || self.is_structured_union()
+        self.is_discrete_mixture() || self.is_ring_of_clusters() || self.is_structured_union()
     }
 
     pub fn parse(value: &str) -> Result<Self, String> {
-        let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
-        if let Some(structure) = parse_union_name(&normalized) {
-            return Ok(AutoTopologyKind::Union { structure });
-        }
-        if let Some(rest) = normalized.strip_prefix("mixture") {
-            // Accept "mixture", "mixture_k7", "mixture7", "mixture_7".
-            let digits: String = rest.chars().filter(|c| c.is_ascii_digit()).collect();
-            if digits.is_empty() {
-                // Bare "mixture" expands to the full ladder; callers that want a
-                // single order pass "mixture_k{n}". Here we default to the
-                // richest ladder order so a singleton request is still valid.
-                return Ok(AutoTopologyKind::Mixture {
-                    k: *MIXTURE_K_LADDER.last().unwrap_or(&7),
-                });
+        if let Some(rest) = value.strip_prefix("ring_clusters_k") {
+            if rest.is_empty() || !rest.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(format!(
+                    "ring-of-clusters candidate must use ring_clusters_k{{n}}; got {value:?}"
+                ));
             }
-            let k: usize = digits
+            let k: usize = rest
                 .parse()
-                .map_err(|_| format!("mixture order must be a positive integer; got {value:?}"))?;
+                .map_err(|_| format!("ring-of-clusters order is out of range; got {value:?}"))?;
+            if k < 3 {
+                return Err("ring-of-clusters order k must be >= 3".to_string());
+            }
+            if rest != k.to_string() {
+                return Err(format!(
+                    "ring-of-clusters candidate must use canonical ring_clusters_k{{n}} without leading zeroes; got {value:?}"
+                ));
+            }
+            return Ok(AutoTopologyKind::RingOfClusters { k });
+        }
+        if value.starts_with("ring_clusters") {
+            return Err(format!(
+                "ring-of-clusters candidate must use ring_clusters_k{{n}}; got {value:?}"
+            ));
+        }
+        if let Some(rest) = value.strip_prefix("mixture_k") {
+            if rest.is_empty() || !rest.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(format!(
+                    "mixture candidate must use mixture_k{{n}}; got {value:?}"
+                ));
+            }
+            let k: usize = rest
+                .parse()
+                .map_err(|_| format!("mixture order is out of range; got {value:?}"))?;
             if k == 0 {
                 return Err("mixture order k must be >= 1".to_string());
             }
+            if rest != k.to_string() {
+                return Err(format!(
+                    "mixture candidate must use canonical mixture_k{{n}} without leading zeroes; got {value:?}"
+                ));
+            }
             return Ok(AutoTopologyKind::Mixture { k });
         }
-        match normalized.as_str() {
-            "euclidean" | "flat" | "euclidean_patch" | "euclideanpatch" => {
-                Ok(AutoTopologyKind::Euclidean)
-            }
-            "circle" | "periodic" | "s1" => Ok(AutoTopologyKind::Circle),
-            "sphere" | "s2" => Ok(AutoTopologyKind::Sphere),
+        if value.starts_with("mixture") {
+            return Err(format!(
+                "mixture candidate must use mixture_k{{n}}; got {value:?}"
+            ));
+        }
+        if let Some(structure) = parse_union_name(value) {
+            return Ok(AutoTopologyKind::Union { structure });
+        }
+        match value {
+            "euclidean" => Ok(AutoTopologyKind::Euclidean),
+            "circle" => Ok(AutoTopologyKind::Circle),
+            "sphere" => Ok(AutoTopologyKind::Sphere),
             "torus" => Ok(AutoTopologyKind::Torus),
             "cylinder" => Ok(AutoTopologyKind::Cylinder),
-            "duchon" | "duchon_sheet" | "duchonsheet" | "thin_plate" | "thinplate" => {
-                Ok(AutoTopologyKind::DuchonSheet)
-            }
-            "constant_curvature" | "curv" | "curvature" | "mkappa" | "m_kappa" => {
-                Ok(AutoTopologyKind::ConstantCurvature)
-            }
-            other => Err(format!(
-                "topology candidate must be euclidean, circle, sphere, torus, cylinder, duchon_sheet, constant_curvature, mixture[_k{{n}}], or a union (union_circle+circle, union_circle+cluster, union_line+cluster); got {other:?}"
+            "mobius" => Ok(AutoTopologyKind::Mobius),
+            "duchon_sheet" => Ok(AutoTopologyKind::DuchonSheet),
+            "constant_curvature" => Ok(AutoTopologyKind::ConstantCurvature),
+            _ => Err(format!(
+                "topology candidate must be an exact canonical name: euclidean, circle, sphere, torus, cylinder, mobius, duchon_sheet, constant_curvature, mixture_k{{n}}, ring_clusters_k{{n}}, union_circle+circle, union_circle+cluster, or union_line+cluster; got {value:?}"
             )),
         }
     }
@@ -281,53 +314,74 @@ impl AutoTopologyKind {
         }
         out
     }
+}
 
-    /// The full discrete-mixture rung: one candidate per `k` in
-    /// [`MIXTURE_K_LADDER`].
-    pub fn mixture_ladder() -> Vec<Self> {
-        MIXTURE_K_LADDER
-            .iter()
-            .map(|&k| AutoTopologyKind::Mixture { k })
-            .collect()
+/// A predictive column in a cross-class race.
+///
+/// Fixed topology fits and adaptive model-selection procedures are different
+/// statistical objects. In particular, an adaptive class chooses its order
+/// independently inside every outer training fold; it must never alias a fixed
+/// topology name or take the evidence-only same-class shortcut.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PredictiveCandidateKind {
+    Fixed(AutoTopologyKind),
+    MixtureClass,
+    RingOfClustersClass,
+}
+
+impl PredictiveCandidateKind {
+    /// Injective, stable identity for predictive columns and reports.
+    pub fn display_name(self) -> String {
+        match self {
+            PredictiveCandidateKind::Fixed(kind) => kind.display_name(),
+            PredictiveCandidateKind::MixtureClass => "mixture_class".to_string(),
+            PredictiveCandidateKind::RingOfClustersClass => "ring_clusters_class".to_string(),
+        }
     }
 
-    /// The full structured-union rung: one candidate per composite in
-    /// [`UNION_STRUCTURE_LADDER`] (#907). Fixed and closed — no open-ended
-    /// structure search (that stays owned by #976's move set).
-    pub fn union_ladder() -> Vec<Self> {
-        UNION_STRUCTURE_LADDER
-            .iter()
-            .map(|&structure| AutoTopologyKind::Union { structure })
-            .collect()
+    /// Coarse density family used only where a report explicitly asks for a
+    /// family label rather than a predictive-column identity.
+    pub const fn family_tag(self) -> &'static str {
+        match self {
+            PredictiveCandidateKind::Fixed(kind) => kind.family_tag(),
+            PredictiveCandidateKind::MixtureClass => "mixture",
+            PredictiveCandidateKind::RingOfClustersClass => "ring_clusters",
+        }
+    }
+
+    pub const fn is_discrete_class(self) -> bool {
+        match self {
+            PredictiveCandidateKind::Fixed(kind) => kind.is_discrete_class(),
+            PredictiveCandidateKind::MixtureClass
+            | PredictiveCandidateKind::RingOfClustersClass => true,
+        }
+    }
+
+    /// Adaptive classes require honest outer-fold refitting even when every
+    /// entry in the race is a discrete class.
+    pub const fn requires_predictive_stacking(self) -> bool {
+        matches!(
+            self,
+            PredictiveCandidateKind::MixtureClass | PredictiveCandidateKind::RingOfClustersClass
+        )
+    }
+
+    pub const fn is_circular(self) -> bool {
+        matches!(
+            self,
+            PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle)
+                | PredictiveCandidateKind::Fixed(AutoTopologyKind::RingOfClusters { .. })
+                | PredictiveCandidateKind::RingOfClustersClass
+        )
     }
 }
 
-/// Parse a structured-union composite name (#907). Accepts the canonical display
-/// tags (`union_circle+circle`, `union_circle+cluster`, `union_line+cluster`)
-/// and tolerant `_`/`-` separators in place of `+`. Returns `None` for any name
-/// that is not a union so [`AutoTopologyKind::parse`] can fall through to the
-/// smooth/mixture variants. Input is assumed already lowercased with `-`→`_`.
-pub fn parse_union_name(normalized: &str) -> Option<UnionStructure> {
-    let Some(rest) = normalized.strip_prefix("union") else {
-        return None;
-    };
-    // Canonicalize component separators: both `+` and the tolerant `_`/`-`
-    // forms collapse to `+`, and any leading separator after the `union`
-    // prefix is dropped (so `union_circle+circle` and `union__circle_circle`
-    // both normalize to `circle+circle`).
-    let body: String = rest
-        .chars()
-        .map(|c| if c == '_' || c == '-' { '+' } else { c })
-        .collect();
-    let body = body.trim_matches('+');
-    match body {
-        "circle+circle" => Some(UnionStructure::CircleCircle),
-        "circle+cluster" | "circle+point+cluster" | "circle+pointcluster" => {
-            Some(UnionStructure::CirclePointCluster)
-        }
-        "line+cluster" | "line+point+cluster" | "line+pointcluster" => {
-            Some(UnionStructure::LineCluster)
-        }
+/// Parse one exact structured-union display name (#907).
+pub fn parse_union_name(value: &str) -> Option<UnionStructure> {
+    match value {
+        "union_circle+circle" => Some(UnionStructure::CircleCircle),
+        "union_circle+cluster" => Some(UnionStructure::CirclePointCluster),
+        "union_line+cluster" => Some(UnionStructure::LineCluster),
         _ => None,
     }
 }
@@ -336,7 +390,6 @@ pub fn parse_union_name(normalized: &str) -> Option<UnionStructure> {
 pub struct TopologyAutoSelector {
     pub candidates: Vec<AutoTopologyKind>,
     pub score_scale: TopologyScoreScale,
-    pub latent: Option<String>,
 }
 
 impl TopologyAutoSelector {
@@ -344,75 +397,7 @@ impl TopologyAutoSelector {
         Self {
             candidates: candidates.unwrap_or_else(AutoTopologyKind::all),
             score_scale: TopologyScoreScale::PerEffectiveDim,
-            latent: None,
         }
-    }
-
-    pub fn from_json(value: &JsonValue) -> Result<Self, String> {
-        let obj = value
-            .as_object()
-            .ok_or_else(|| "topology_auto_selector must be an object".to_string())?;
-        let candidates = match obj.get("candidates").filter(|value| !value.is_null()) {
-            None => AutoTopologyKind::all(),
-            Some(raw) => {
-                let items = raw.as_array().ok_or_else(|| {
-                    "topology_auto_selector.candidates must be a list".to_string()
-                })?;
-                if items.is_empty() {
-                    return Err(
-                        "topology_auto_selector.candidates must have at least one entry"
-                            .to_string(),
-                    );
-                }
-                let mut out = Vec::with_capacity(items.len());
-                for (idx, item) in items.iter().enumerate() {
-                    let name = item.as_str().ok_or_else(|| {
-                        format!("topology_auto_selector.candidates[{idx}] must be a string")
-                    })?;
-                    let kind = AutoTopologyKind::parse(name)?;
-                    if out.contains(&kind) {
-                        return Err(format!(
-                            "topology_auto_selector duplicate candidate {:?}",
-                            kind.as_str()
-                        ));
-                    }
-                    out.push(kind);
-                }
-                out
-            }
-        };
-        let score_scale = match obj
-            .get("score_scale")
-            .and_then(JsonValue::as_str)
-            .unwrap_or("per_effective_dim")
-            .trim()
-            .to_ascii_lowercase()
-            .replace('-', "_")
-            .as_str()
-        {
-            "per_observation" => TopologyScoreScale::PerObservation,
-            "per_effective_dim" => TopologyScoreScale::PerEffectiveDim,
-            other => {
-                return Err(format!(
-                    "topology_auto_selector.score_scale must be per_effective_dim or per_observation; got {other:?}"
-                ));
-            }
-        };
-        let latent = obj
-            .get("latent")
-            .filter(|value| !value.is_null())
-            .map(|value| {
-                value
-                    .as_str()
-                    .map(str::to_string)
-                    .ok_or_else(|| "topology_auto_selector.latent must be a string".to_string())
-            })
-            .transpose()?;
-        Ok(Self {
-            candidates,
-            score_scale,
-            latent,
-        })
     }
 }
 
@@ -609,9 +594,12 @@ fn failed_topology_summary(failed: &[TopologyAutoFailedCandidate]) -> String {
 pub struct TopologyRaceParallelCandidate<FitResult> {
     /// Original position in the input candidate vector.
     pub candidate_index: usize,
-    /// The number of Rayon workers made available to this candidate's fit body.
+    /// Diagnostic sizing metadata from [`TopologyRaceThreadPlan::for_budget`]
+    /// (#2274 follow-up: no longer sizes a real per-candidate Rayon pool —
+    /// each candidate runs on a plain OS thread and fans its own internal
+    /// Rayon work into the shared global pool; see `run_one_topology_race_candidate`).
     pub per_fit_threads: usize,
-    /// Wall-clock time spent inside the candidate's local Rayon pool.
+    /// Wall-clock time spent running the candidate's fit body.
     pub wall_time: Duration,
     /// The fit closure's output. Use `FitResult = Result<T, E>` when individual
     /// candidate failures should be collected rather than short-circuiting.
@@ -620,17 +608,28 @@ pub struct TopologyRaceParallelCandidate<FitResult> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TopologyRaceThreadPlan {
-    coordinator_threads: usize,
     per_fit_threads: usize,
     concurrent_fits: usize,
 }
 
 impl TopologyRaceThreadPlan {
+    /// `per_fit_threads` is reporting metadata on the returned race rows, not
+    /// a real Rayon pool size (#2274 follow-up — see
+    /// `run_one_topology_race_candidate`): each candidate now runs on a plain
+    /// OS thread and its own internal Rayon work fans into the shared global
+    /// pool, so there is no per-candidate pool left to size. `concurrent_fits`
+    /// remains the real knob — it still bounds how many candidate threads run
+    /// simultaneously per batch. The one-slot-per-concurrent-candidate
+    /// reservation this function used to attribute to a "coordinator" Rayon
+    /// pool is folded directly into the `remaining` budget below (a scoped OS
+    /// thread costs no Rayon pool slot, but keeping the reservation preserves
+    /// the original conservative `per_fit_threads` sizing — halving it further
+    /// would only be justified by evidence the old, more cautious number was
+    /// ever a bottleneck, which it wasn't: the bottleneck was the nesting).
     fn for_budget(candidate_count: usize, max_total_threads: usize) -> Self {
         let max_total_threads = max_total_threads.max(1);
         if candidate_count <= 1 {
             return Self {
-                coordinator_threads: 0,
                 per_fit_threads: max_total_threads,
                 concurrent_fits: candidate_count,
             };
@@ -641,31 +640,42 @@ impl TopologyRaceThreadPlan {
         } else {
             1
         };
-        let coordinator_threads = concurrent_fits;
-        let remaining = max_total_threads.saturating_sub(coordinator_threads);
+        let remaining = max_total_threads.saturating_sub(concurrent_fits);
         let per_fit_threads = if remaining == 0 {
             1
         } else {
             (remaining / concurrent_fits).max(1)
         };
         Self {
-            coordinator_threads,
             per_fit_threads,
             concurrent_fits,
         }
     }
 }
 
-/// Run independent topology-race candidates concurrently with bounded nested
-/// Rayon use.
+/// Run independent topology-race candidates concurrently on plain OS threads
+/// (never nested Rayon pools).
 ///
-/// Each candidate is executed inside its own local Rayon pool, so fit internals
-/// that call `par_iter`, `rayon::join`, or faer-through-Rayon consume the
-/// candidate's `per_fit_threads` budget rather than the global pool. For
-/// multi-candidate races the runner batches candidates through a Rayon scope and
-/// chooses `concurrent_fits`/`per_fit_threads` so the coordinator workers plus
-/// per-fit workers do not exceed `std::thread::available_parallelism()` on hosts
-/// with at least two cores. Single-core hosts run candidates sequentially.
+/// Each candidate's fit runs on its own `std::thread`, NOT inside a per-candidate
+/// `rayon::ThreadPool` (see the `#2274` follow-up note on
+/// `run_one_topology_race_candidate` for why: a nested Rayon pool makes every
+/// row-fan gate downstream — `SaeManifoldTerm::loss_scaled`,
+/// `CpuBatchedBlockSolver::factor_blocks`, the reduced-Schur row loops — read
+/// `rayon::current_thread_index().is_some()` and silently fall back to a fully
+/// sequential per-row loop, discarding whatever thread budget the nested pool
+/// was given). A plain OS thread is not a Rayon worker of anything, so those
+/// gates see `None` and fan into the process's one shared global Rayon pool
+/// exactly as they would for an ordinary top-level call; when multiple
+/// candidates race concurrently they each submit to that same global pool,
+/// which is precisely the many-producer-threads-one-pool pattern Rayon's
+/// work-stealing scheduler is built to host (and it can rebalance dynamically
+/// as candidates finish at different times, which a static per-candidate
+/// thread slice could not). For multi-candidate races the runner still batches
+/// candidates (via `TopologyRaceThreadPlan::for_budget`'s `concurrent_fits`) so
+/// the number of simultaneously-live candidate threads stays bounded by
+/// `std::thread::available_parallelism()`; `per_fit_threads` is retained purely
+/// as reporting metadata on the returned rows (existing callers/tests read it)
+/// and no longer sizes a real pool.
 ///
 /// The return vector is in input order and keeps each closure output intact; use
 /// `FitResult = Result<T, E>` to collect per-candidate failures with wall times.
@@ -723,15 +733,18 @@ where
             }
         }
     } else {
-        let coordinator_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(plan.coordinator_threads)
-            .thread_name(|idx| format!("topology-race-coordinator-{idx}"))
-            .build()
-            .map_err(|err| format!("topology race coordinator Rayon pool: {err}"))?;
+        // #2274 follow-up — batch concurrent candidates over plain OS threads
+        // (`std::thread::scope`), NOT a `rayon::ThreadPool` "coordinator" pool.
+        // The coordinator pool previously existed only to host `scope.spawn`
+        // for each candidate; a scoped OS thread does the same job (bounded
+        // concurrency within a batch, borrow-checked access to `candidates`/
+        // `slots`/`pool_error`) without making the candidates' OWN internal
+        // Rayon work nested under it. See `run_one_topology_race_candidate`
+        // for why that nesting was the root cause of the row-fan collapse.
         let mut batch_start = 0usize;
         while batch_start < candidate_count {
             let batch_end = (batch_start + plan.concurrent_fits).min(candidate_count);
-            coordinator_pool.scope(|scope| {
+            std::thread::scope(|scope| {
                 for idx in batch_start..batch_end {
                     let candidate = candidates[idx]
                         .take()
@@ -739,7 +752,7 @@ where
                     let slot = &slots[idx];
                     let pool_error = &pool_error;
                     let fit_one = &fit_one;
-                    scope.spawn(move |_| {
+                    scope.spawn(move || {
                         run_one_topology_race_candidate(
                             idx,
                             candidate,
@@ -769,6 +782,19 @@ where
     Ok(out)
 }
 
+/// Extract a readable message from a caught `std::thread` panic payload,
+/// mirroring `gam_pyffi::ffi::ffi_errors::panic_payload_message`'s handling of
+/// the two payload shapes `std::panic!`/`unwrap`/`expect` actually produce.
+fn topology_race_panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "non-string panic payload".to_string()
+    }
+}
+
 fn run_one_topology_race_candidate<Candidate, FitResult, FitOne>(
     candidate_index: usize,
     candidate: Candidate,
@@ -781,39 +807,72 @@ fn run_one_topology_race_candidate<Candidate, FitResult, FitOne>(
     FitResult: Send,
     FitOne: Fn(Candidate) -> FitResult + Sync,
 {
-    let pool = match rayon::ThreadPoolBuilder::new()
-        .num_threads(per_fit_threads)
-        .thread_name(move |idx| format!("topology-race-fit-{candidate_index}-{idx}"))
-        .build()
-    {
-        Ok(pool) => pool,
-        Err(err) => {
-            *pool_error.lock().expect("pool_error mutex poisoned") =
-                Some(format!("topology race candidate Rayon pool: {err}"));
-            return;
-        }
-    };
-
     let started = Instant::now();
-    // #2074 — each candidate fit runs inside its own nested Rayon pool. faer's
-    // high-level solvers (arrow-Schur Cholesky/solve, SVD, QR) read the global
-    // parallelism policy and, under the default `Par::rayon(0)`, dispatch through
-    // faer's `spindle` barrier pool. From inside this already-nested Rayon worker
-    // that barrier waits for pool slots the outer fan-out holds, deadlocking the
-    // fit at 0% CPU. Pin faer to `Par::Seq` for the whole nested fit so it never
-    // spawns a nested barrier pool; the per-candidate parallelism is the race
-    // itself, and faer reductions are parallelism-invariant so the result is
-    // bit-identical to the sequential path.
-    let result =
-        pool.install(|| gam_linalg::faer_ndarray::with_faer_sequential(|| fit_one(candidate)));
+    // #2274 follow-up (root cause of the E1 SAE inner solve's 2/30-core
+    // ceiling: `crates/gam-sae/src/manifold/stagewise.rs`'s birth race had the
+    // SAME disease one layer up — a `seeds.par_iter()` fan running each
+    // candidate's ENTIRE inner solve nested inside a Rayon worker, which
+    // silently disabled every downstream CPU row-fan gate). This function had
+    // the identical bug: `rayon::ThreadPoolBuilder::new().num_threads(per_fit_threads)`
+    // + `pool.install(|| ...)` unconditionally makes the executing frame
+    // report `rayon::current_thread_index() == Some(_)` (relative to that
+    // fresh pool) for the ENTIRE nested call into `fit_one` — regardless of
+    // how many threads the pool was built with. Every row-fan gate downstream
+    // (`SaeManifoldTerm::loss_scaled`, `CpuBatchedBlockSolver::factor_blocks`,
+    // the reduced-Schur row loops in reduced_solve.rs/system.rs/newton_step.rs)
+    // reads exactly that condition to decide "am I nested, fall back to
+    // sequential" — so `per_fit_threads` was NEVER actually available to those
+    // gates; they always took the single-threaded fallback.
+    //
+    // Fix: run `fit_one` on a plain, non-Rayon OS thread instead. A
+    // `std::thread` is not a worker of any Rayon pool, so
+    // `current_thread_index()` reports `None` inside it, exactly like an
+    // ordinary top-level (non-raced) call — every downstream row-fan gate
+    // takes its real parallel branch, fanning into the process's one shared
+    // global Rayon pool (the pool those gates were written assuming). When
+    // several candidates race concurrently (the `concurrent_fits > 1` caller),
+    // each gets its own OS thread and independently submits parallel work to
+    // that SAME global pool: Rayon's work-stealing scheduler is explicitly
+    // built to host many concurrent producer threads against one pool and
+    // fairly interleaves their submissions, rebalancing dynamically as each
+    // candidate's row-fan finishes at a different wall-clock time — something
+    // a static per-candidate thread slice could never do. `per_fit_threads` is
+    // kept as reporting/diagnostic metadata on the returned row (existing
+    // callers/tests read it); it no longer sizes a real pool.
+    //
+    // Cannot deadlock: no nested Rayon pool is created here anymore, so the
+    // #2074 class this function's old comment warned about (faer's `spindle`
+    // barrier waiting on pool slots an outer fan-out already holds) cannot
+    // occur — `with_faer_sequential` below still pins faer's own internal
+    // solvers to `Par::Seq` for defense in depth, but there is no longer any
+    // Rayon-in-Rayon nesting for that barrier to even be reached through. Nor
+    // does this touch the OnceLock×Rayon deadlock class: a plain `std::thread`
+    // does no lazy static init of its own, and the GPU-resident caller
+    // (`run_resident_fits_multiplexed_with`) already documents that its
+    // `OnceLock`s are warmed BEFORE any candidate here runs.
+    let outcome = std::thread::scope(|scope| {
+        scope
+            .spawn(move || gam_linalg::faer_ndarray::with_faer_sequential(|| fit_one(candidate)))
+            .join()
+    });
     let wall_time = started.elapsed();
-    *slot.lock().expect("topology race result mutex poisoned") =
-        Some(TopologyRaceParallelCandidate {
-            candidate_index,
-            per_fit_threads,
-            wall_time,
-            result,
-        });
+    match outcome {
+        Ok(result) => {
+            *slot.lock().expect("topology race result mutex poisoned") =
+                Some(TopologyRaceParallelCandidate {
+                    candidate_index,
+                    per_fit_threads,
+                    wall_time,
+                    result,
+                });
+        }
+        Err(payload) => {
+            *pool_error.lock().expect("pool_error mutex poisoned") = Some(format!(
+                "topology race candidate {candidate_index} panicked: {}",
+                topology_race_panic_message(payload)
+            ));
+        }
+    }
 }
 
 pub fn select_topology_with_fit<FitHandle, FitErr>(
@@ -1302,22 +1361,20 @@ pub fn bic_score(deviance: f64, n_obs: usize, basis_size: usize) -> Result<f64, 
 // ===========================================================================
 
 /// One fitted entry of the discrete-mixture rung: the mixture order `k`, the
-/// fitted Gaussian mixture, and its rank-aware Laplace **negative** log evidence
-/// computed through the SAME [`crate::evidence::laplace_evidence`]
-/// entry point used by the smooth rungs. Lower negative-log-evidence is better.
+/// fitted Gaussian mixture, and its BIC-form negative log evidence. Lower is
+/// better.
 #[derive(Debug, Clone)]
 pub struct MixtureRungFit {
     pub k: usize,
     pub fit: crate::evidence::GaussianMixtureFit,
-    /// Free-parameter count `P` — the quantity that enters the rank-aware
-    /// normalizer as `dim(H) − rank(S) = P − 0`.
+    /// Free-parameter count `P` in the `P log(n) / 2` BIC price.
     pub num_parameters: usize,
-    /// Rank-aware Laplace negative log evidence on the smooth-rung scale.
-    pub negative_log_evidence: f64,
+    /// `-loglik + P log(n) / 2`, on the smooth parametric candidates' scale.
+    pub bic: f64,
 }
 
 /// Result of fitting the whole mixture ladder: every fitted order plus the index
-/// of the in-class winner (lowest rank-aware Laplace negative-log-evidence).
+/// of the in-class winner (lowest BIC).
 #[derive(Debug, Clone)]
 pub struct MixtureRungResult {
     pub fits: Vec<MixtureRungFit>,
@@ -1330,20 +1387,143 @@ impl MixtureRungResult {
     }
 }
 
+/// Which adaptive discrete class produced a rung error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdaptiveRungKind {
+    GaussianMixture,
+    RingOfClusters,
+}
+
+impl AdaptiveRungKind {
+    const fn display_name(self) -> &'static str {
+        match self {
+            Self::GaussianMixture => "Gaussian-mixture",
+            Self::RingOfClusters => "ring-of-clusters",
+        }
+    }
+}
+
+/// Stage at which one eligible adaptive-rung order failed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdaptiveRungFailureStage {
+    Fit,
+    Evidence,
+}
+
+/// Failure of one specific, eligible order in an adaptive rung.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdaptiveRungOrderFailure {
+    pub k: usize,
+    pub stage: AdaptiveRungFailureStage,
+    pub message: String,
+}
+
+/// A fail-closed adaptive-rung refusal.
+///
+/// Order selection is only meaningful when all evidence values being compared
+/// came from certified fits. A failed order is therefore surfaced, even if a
+/// different order fitted successfully; choosing among the survivors would
+/// silently change the estimand. Likewise, hitting the local-refinement budget
+/// is an explicit refusal rather than an unbracketed best-so-far result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdaptiveRungError {
+    InvalidInput {
+        kind: AdaptiveRungKind,
+        message: String,
+    },
+    OrderFailures {
+        kind: AdaptiveRungKind,
+        failures: Vec<AdaptiveRungOrderFailure>,
+    },
+    RefinementBudgetExhausted {
+        kind: AdaptiveRungKind,
+        best_k: usize,
+        completed_probes: usize,
+    },
+}
+
+impl std::fmt::Display for AdaptiveRungError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidInput { kind, message } => {
+                write!(formatter, "invalid {} rung: {message}", kind.display_name())
+            }
+            Self::OrderFailures { kind, failures } => {
+                write!(
+                    formatter,
+                    "{} rung refused because {} eligible order(s) failed",
+                    kind.display_name(),
+                    failures.len()
+                )?;
+                for failure in failures {
+                    write!(
+                        formatter,
+                        "; k={} {:?}: {}",
+                        failure.k, failure.stage, failure.message
+                    )?;
+                }
+                Ok(())
+            }
+            Self::RefinementBudgetExhausted {
+                kind,
+                best_k,
+                completed_probes,
+            } => write!(
+                formatter,
+                "{} rung exhausted its {completed_probes}-probe refinement budget before bracketing k={best_k}",
+                kind.display_name()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for AdaptiveRungError {}
+
+fn eligible_adaptive_orders(
+    kind: AdaptiveRungKind,
+    ladder: &[usize],
+    minimum_order: usize,
+    n: usize,
+) -> Result<Vec<usize>, AdaptiveRungError> {
+    if ladder.is_empty() {
+        return Err(AdaptiveRungError::InvalidInput {
+            kind,
+            message: "order ladder must not be empty".to_string(),
+        });
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut orders = Vec::with_capacity(ladder.len());
+    for &k in ladder {
+        if k < minimum_order || k > n {
+            return Err(AdaptiveRungError::InvalidInput {
+                kind,
+                message: format!(
+                    "requested order k={k} is outside this class on n={n} rows; require {minimum_order} <= k <= n"
+                ),
+            });
+        }
+        if !seen.insert(k) {
+            return Err(AdaptiveRungError::InvalidInput {
+                kind,
+                message: format!("order ladder contains duplicate k={k}"),
+            });
+        }
+        orders.push(k);
+    }
+    Ok(orders)
+}
+
 /// Hard cap on the number of EXTRA orders the local refinement around the
 /// coarse-ladder winner may probe. Refinement walks one neighbour at a time
 /// and stops as soon as the running winner is bracketed (both immediate
-/// neighbours fitted and worse), so this cap only binds on a pathological
-/// evidence profile that keeps improving monotonically past the ladder — a
-/// regime the rank-aware parameter pricing rules out for any real cluster
-/// structure. It exists so the sweep stays a bounded pure function of the
-/// data, never a runaway loop.
+/// neighbours fitted and worse). If the cap binds, the rung returns
+/// [`AdaptiveRungError::RefinementBudgetExhausted`]; it never treats an
+/// unbracketed best-so-far order as a certified winner.
 pub const MIXTURE_REFINEMENT_MAX_PROBES: usize = 16;
 
 /// Fit the discrete-mixture rung over a fixed `k`-ladder, then **refine
-/// locally around the winner**, and rank in-class by rank-aware Laplace
-/// evidence. Each order is priced by its own free-parameter count entering the
-/// `−½ (dim(H) − rank(S)) log(2π)` normalizer. Deterministic: the seeding is
+/// locally around the winner**, and rank in-class by BIC. Each order is priced
+/// by its own free-parameter count. Deterministic: the seeding is
 /// the basis k-means farthest-point init, EM is a pure map, and the refinement
 /// order is a pure function of the fitted scores.
 ///
@@ -1359,83 +1539,123 @@ pub fn fit_mixture_rung(
     data: ArrayView2<'_, f64>,
     ladder: &[usize],
     config: GaussianMixtureConfig,
-) -> Result<MixtureRungResult, String> {
+) -> Result<MixtureRungResult, AdaptiveRungError> {
+    fit_mixture_rung_with_minimum_order(data, ladder, 1, config)
+}
+
+/// Fit the free-cluster adaptive class. Unlike the general Gaussian-mixture
+/// rung, this class owns only orders `k >= 2`: the one-component full Gaussian
+/// is the Euclidean candidate. The minimum is enforced inside refinement, so a
+/// coarse `k = 2` winner can never be bracketed by an ineligible `k = 1` fit.
+pub fn fit_free_cluster_rung(
+    data: ArrayView2<'_, f64>,
+    ladder: &[usize],
+    config: GaussianMixtureConfig,
+) -> Result<MixtureRungResult, AdaptiveRungError> {
+    fit_mixture_rung_with_minimum_order(data, ladder, 2, config)
+}
+
+fn fit_mixture_rung_with_minimum_order(
+    data: ArrayView2<'_, f64>,
+    ladder: &[usize],
+    minimum_order: usize,
+    config: GaussianMixtureConfig,
+) -> Result<MixtureRungResult, AdaptiveRungError> {
+    let kind = AdaptiveRungKind::GaussianMixture;
     let n = data.nrows();
+    let coarse_orders = eligible_adaptive_orders(kind, ladder, minimum_order, n)?;
     let mut fits: Vec<MixtureRungFit> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
     // Every order ever attempted (fitted OR failed): refinement must not
     // re-propose a failed order forever.
     let mut attempted: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
 
     let try_order = |k: usize,
                      fits: &mut Vec<MixtureRungFit>,
-                     errors: &mut Vec<String>,
-                     attempted: &mut std::collections::BTreeSet<usize>| {
-        if k == 0 || k > n || !attempted.insert(k) {
-            return;
-        }
+                     attempted: &mut std::collections::BTreeSet<usize>|
+     -> Option<AdaptiveRungOrderFailure> {
+        assert!(k >= minimum_order && k <= n && !attempted.contains(&k));
+        attempted.insert(k);
         match fit_gaussian_mixture(data, k, config) {
-            Ok(fit) => match fit.laplace_negative_log_evidence(data) {
-                Ok(nle) => {
-                    let num_parameters = fit.num_free_parameters();
+            Ok(fit) => {
+                let num_parameters = fit.num_free_parameters();
+                let bic = fit.bic();
+                if bic.is_finite() {
                     fits.push(MixtureRungFit {
                         k,
                         fit,
                         num_parameters,
-                        negative_log_evidence: nle,
+                        bic,
                     });
+                    None
+                } else {
+                    Some(AdaptiveRungOrderFailure {
+                        k,
+                        stage: AdaptiveRungFailureStage::Evidence,
+                        message: "BIC is not finite".to_string(),
+                    })
                 }
-                Err(e) => errors.push(format!("mixture k={k} evidence: {e}")),
-            },
-            Err(e) => errors.push(format!("mixture k={k} fit: {e}")),
+            }
+            Err(error) => Some(AdaptiveRungOrderFailure {
+                k,
+                stage: AdaptiveRungFailureStage::Fit,
+                message: error.to_string(),
+            }),
         }
     };
 
-    for &k in ladder {
-        try_order(k, &mut fits, &mut errors, &mut attempted);
+    let mut failures = Vec::new();
+    for k in coarse_orders {
+        if let Some(failure) = try_order(k, &mut fits, &mut attempted) {
+            failures.push(failure);
+        }
     }
-    if fits.is_empty() {
-        return Err(format!(
-            "mixture rung produced no fittable orders{}",
-            if errors.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", errors.join("; "))
-            }
-        ));
+    if !failures.is_empty() {
+        return Err(AdaptiveRungError::OrderFailures { kind, failures });
     }
 
     // Local refinement: bracket the running winner. The running winner uses
-    // the same rule as the final ranking (lower negative-log-evidence, ties to
-    // the smaller k), so refinement and ranking can never disagree about who
-    // the winner is.
+    // the same rule as the final ranking (lower BIC, ties to the smaller k), so
+    // refinement and ranking can never disagree about who the winner is.
     let mut probes = 0usize;
-    while probes < MIXTURE_REFINEMENT_MAX_PROBES {
-        let best_k = fits
+    loop {
+        let Some(best_k) = fits
             .iter()
-            .min_by(|a, b| {
-                a.negative_log_evidence
-                    .partial_cmp(&b.negative_log_evidence)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then(a.k.cmp(&b.k))
-            })
+            .min_by(|a, b| a.bic.total_cmp(&b.bic).then(a.k.cmp(&b.k)))
             .map(|f| f.k)
-            .unwrap_or(1);
-        let next = [best_k.saturating_sub(1), best_k + 1]
+        else {
+            return Err(AdaptiveRungError::InvalidInput {
+                kind,
+                message: "no eligible order produced a fit".to_string(),
+            });
+        };
+        let next = [best_k.checked_sub(1), best_k.checked_add(1)]
             .into_iter()
-            .find(|&k| k >= 1 && k <= n && !attempted.contains(&k));
+            .flatten()
+            .find(|&k| k >= minimum_order && k <= n && !attempted.contains(&k));
         let Some(k) = next else {
             break; // bracketed: both neighbours attempted (or out of range).
         };
-        try_order(k, &mut fits, &mut errors, &mut attempted);
+        if probes == MIXTURE_REFINEMENT_MAX_PROBES {
+            return Err(AdaptiveRungError::RefinementBudgetExhausted {
+                kind,
+                best_k,
+                completed_probes: probes,
+            });
+        }
+        if let Some(failure) = try_order(k, &mut fits, &mut attempted) {
+            return Err(AdaptiveRungError::OrderFailures {
+                kind,
+                failures: vec![failure],
+            });
+        }
         probes += 1;
     }
-    // In-class winner-take-all on the rank-aware evidence scale (lower wins).
+    // In-class winner-take-all on the BIC scale (lower wins).
     let ranked = rank_priority_candidates(
         fits.into_iter()
             .enumerate()
             .map(|(idx, row)| {
-                let score = row.negative_log_evidence;
+                let score = row.bic;
                 let tie = row.k; // simpler (smaller k) wins ties
                 PriorityCandidate::new(row, idx, score, tie)
             })
@@ -1450,31 +1670,154 @@ pub fn fit_mixture_rung(
     })
 }
 
+/// One order of the constrained ring-of-clusters rung (#2262).
+#[derive(Debug, Clone)]
+pub struct RingOfClustersRungFit {
+    pub k: usize,
+    pub fit: crate::evidence::RingGaussianMixtureFit,
+    pub num_parameters: usize,
+    pub bic: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct RingOfClustersRungResult {
+    pub fits: Vec<RingOfClustersRungFit>,
+    pub winner_index: usize,
+}
+
+impl RingOfClustersRungResult {
+    pub fn winner(&self) -> &RingOfClustersRungFit {
+        &self.fits[self.winner_index]
+    }
+}
+
+/// Fit and locally refine the constrained ring-of-clusters order ladder.
+/// Orders below three are structurally incapable of identifying a circle and
+/// are rejected as outside the class. Ranking uses the same BIC-form criterion
+/// as the free Gaussian-mixture rung and the smooth parametric shape candidates.
+pub fn fit_ring_of_clusters_rung(
+    data: ArrayView2<'_, f64>,
+    ladder: &[usize],
+    config: GaussianMixtureConfig,
+) -> Result<RingOfClustersRungResult, AdaptiveRungError> {
+    let kind = AdaptiveRungKind::RingOfClusters;
+    let n = data.nrows();
+    let coarse_orders = eligible_adaptive_orders(kind, ladder, 3, n)?;
+    let mut fits = Vec::<RingOfClustersRungFit>::new();
+    let mut attempted = std::collections::BTreeSet::<usize>::new();
+    let try_order = |k: usize,
+                     fits: &mut Vec<RingOfClustersRungFit>,
+                     attempted: &mut std::collections::BTreeSet<usize>|
+     -> Option<AdaptiveRungOrderFailure> {
+        assert!(k >= 3 && k <= n && !attempted.contains(&k));
+        attempted.insert(k);
+        match crate::evidence::fit_ring_gaussian_mixture(data, k, config) {
+            Ok(fit) => {
+                let bic = fit.bic();
+                if bic.is_finite() {
+                    fits.push(RingOfClustersRungFit {
+                        k,
+                        num_parameters: fit.num_free_parameters(),
+                        bic,
+                        fit,
+                    });
+                    None
+                } else {
+                    Some(AdaptiveRungOrderFailure {
+                        k,
+                        stage: AdaptiveRungFailureStage::Evidence,
+                        message: "BIC is not finite".to_string(),
+                    })
+                }
+            }
+            Err(message) => Some(AdaptiveRungOrderFailure {
+                k,
+                stage: AdaptiveRungFailureStage::Fit,
+                message,
+            }),
+        }
+    };
+    let mut failures = Vec::new();
+    for k in coarse_orders {
+        if let Some(failure) = try_order(k, &mut fits, &mut attempted) {
+            failures.push(failure);
+        }
+    }
+    if !failures.is_empty() {
+        return Err(AdaptiveRungError::OrderFailures { kind, failures });
+    }
+    let mut probes = 0usize;
+    loop {
+        let Some(best_k) = fits
+            .iter()
+            .min_by(|left, right| left.bic.total_cmp(&right.bic).then(left.k.cmp(&right.k)))
+            .map(|fit| fit.k)
+        else {
+            return Err(AdaptiveRungError::InvalidInput {
+                kind,
+                message: "no eligible order produced a fit".to_string(),
+            });
+        };
+        let next = [best_k.checked_sub(1), best_k.checked_add(1)]
+            .into_iter()
+            .flatten()
+            .find(|&k| k >= 3 && k <= n && !attempted.contains(&k));
+        let Some(k) = next else {
+            break;
+        };
+        if probes == MIXTURE_REFINEMENT_MAX_PROBES {
+            return Err(AdaptiveRungError::RefinementBudgetExhausted {
+                kind,
+                best_k,
+                completed_probes: probes,
+            });
+        }
+        if let Some(failure) = try_order(k, &mut fits, &mut attempted) {
+            return Err(AdaptiveRungError::OrderFailures {
+                kind,
+                failures: vec![failure],
+            });
+        }
+        probes += 1;
+    }
+    let ranked = rank_priority_candidates(
+        fits.into_iter()
+            .enumerate()
+            .map(|(index, fit)| {
+                let score = fit.bic;
+                let tie = fit.k;
+                PriorityCandidate::new(fit, index, score, tie)
+            })
+            .collect(),
+    )
+    .into_iter()
+    .map(|candidate| candidate.item)
+    .collect();
+    Ok(RingOfClustersRungResult {
+        fits: ranked,
+        winner_index: 0,
+    })
+}
+
 // ===========================================================================
 // Structured-union rung (#907)
 // ===========================================================================
 
 /// One fitted entry of the structured-union rung: the composite structure, its
-/// summed rank-aware Laplace **negative** log evidence (the SUM `Σ_c V_c` of its
-/// components, each scored through the identical [`crate::evidence::laplace_evidence`]
-/// entry point used by the smooth rungs and the mixture rung), and the TOTAL
-/// free-parameter count across components (the complexity price). Lower
-/// negative-log-evidence wins.
+/// normalized soft-mixture BIC/2, and the complete free-parameter count. Lower
+/// is better.
 #[derive(Debug, Clone)]
 pub struct UnionRungFit {
     pub structure: UnionStructure,
     pub fit: UnionStructureFit,
-    /// `Σ_c P_c` — total free-parameter count across all components. This is the
-    /// complexity quantity that the summed `+ ½ Σ_c P_c log(2π)` normalizer
-    /// charges, so a union is strictly more expensive than either pure rung.
+    /// `Σ_c P_c + (m - 1)`, including free mixing weights.
     pub total_parameters: usize,
-    /// `Σ_c V_c` — summed rank-aware Laplace negative log evidence.
-    pub negative_log_evidence: f64,
+    /// BIC/2 of `Σ_c π_c p_c(y)` scored on all training rows.
+    pub bic: f64,
 }
 
 /// Result of fitting the whole fixed union ladder: every fitted composite plus
-/// the index of the in-class winner (lowest summed rank-aware Laplace
-/// negative-log-evidence).
+/// the index of the in-class winner (lowest normalized soft-mixture BIC).
 #[derive(Debug, Clone)]
 pub struct UnionRungResult {
     pub fits: Vec<UnionRungFit>,
@@ -1489,19 +1832,21 @@ impl UnionRungResult {
 
 /// Fit the structured-union rung over the FIXED ladder
 /// [`crate::evidence::UNION_STRUCTURE_LADDER`] and rank in-class by
-/// summed rank-aware Laplace evidence. Each composite is hard-split into one
+/// normalized soft-mixture BIC. Each composite is hard-split into one
 /// responsibility group per component (reusing the mixture rung's deterministic
-/// seeding + EM), each component is REML/Laplace-fit on its group, and the
-/// per-component evidences are SUMMED. Composites whose groups are too small to
-/// identify their structure are skipped (they never enter the race rather than
-/// scoring spuriously well). Deterministic: the split and the component fits are
+/// seeding + EM), and each component is fit on its group. Every fitted density
+/// is then scored on all rows as `Σ_c π_c p_c(y)`. Heterogeneous roles are
+/// assigned by finite minimum over all unique group-role permutations. The
+/// declared ladder fails closed if any structure cannot be identified, avoiding
+/// survivor-selection bias. Deterministic: all splits, assignments, and fits are
 /// pure functions of the data.
 pub fn fit_union_rung(
     data: ArrayView2<'_, f64>,
     config: GaussianMixtureConfig,
 ) -> Result<UnionRungResult, String> {
-    // `fit_union_ladder` already fits the fixed ladder and ranks best-first by
-    // summed rank-aware evidence (cheaper composite wins ties). Re-wrap each
+    // `fit_union_ladder` already fits the complete fixed ladder and ranks
+    // best-first by normalized soft-mixture BIC (cheaper composite wins ties).
+    // Re-wrap each
     // fit with its complexity price for the rung view.
     let ladder = fit_union_ladder(data, config)?;
     let fits: Vec<UnionRungFit> = ladder
@@ -1509,7 +1854,7 @@ pub fn fit_union_rung(
         .map(|fit| UnionRungFit {
             structure: fit.structure,
             total_parameters: fit.total_parameters,
-            negative_log_evidence: fit.negative_log_evidence,
+            bic: fit.bic,
             fit,
         })
         .collect();
@@ -1534,7 +1879,7 @@ pub fn fit_union_candidate(
     Ok(UnionRungFit {
         structure: fit.structure,
         total_parameters: fit.total_parameters,
-        negative_log_evidence: fit.negative_log_evidence,
+        bic: fit.bic,
         fit,
     })
 }
@@ -1561,12 +1906,43 @@ pub fn mixture_density_provider<'a>(
     let owned = data.to_owned();
     Box::new(
         move |train: &[usize], eval: &[usize]| -> Result<Vec<f64>, String> {
-            let train_mat = gather_rows(owned.view(), train);
-            let fit = fit_gaussian_mixture(train_mat.view(), k.min(train.len().max(1)), config)
+            if k == 0 || k > train.len() {
+                return Err(format!(
+                    "fixed-order mixture k={k} requires at least {k} training rows; fold has {}",
+                    train.len()
+                ));
+            }
+            let train_mat = gather_rows(owned.view(), train, "mixture training")?;
+            let fit = fit_gaussian_mixture(train_mat.view(), k, config)
                 .map_err(|error| error.to_string())?;
-            let eval_mat = gather_rows(owned.view(), eval);
+            let eval_mat = gather_rows(owned.view(), eval, "mixture evaluation")?;
             let dens = fit.per_point_log_density(eval_mat.view())?;
             Ok(dens.to_vec())
+        },
+    )
+}
+
+/// Held-out density provider for a fixed ring-of-clusters order. Every fold
+/// refits the circle-constrained mixture on training rows before scoring the
+/// evaluation rows.
+pub fn ring_of_clusters_density_provider<'a>(
+    data: ArrayView2<'a, f64>,
+    k: usize,
+    config: GaussianMixtureConfig,
+) -> HeldOutDensityProvider<'a> {
+    let owned = data.to_owned();
+    Box::new(
+        move |train: &[usize], eval: &[usize]| -> Result<Vec<f64>, String> {
+            if k < 3 || k > train.len() {
+                return Err(format!(
+                    "fixed-order ring-of-clusters k={k} requires k >= 3 and at least {k} training rows; fold has {}",
+                    train.len()
+                ));
+            }
+            let train_mat = gather_rows(owned.view(), train, "ring-of-clusters training")?;
+            let fit = crate::evidence::fit_ring_gaussian_mixture(train_mat.view(), k, config)?;
+            let eval_mat = gather_rows(owned.view(), eval, "ring-of-clusters evaluation")?;
+            Ok(fit.per_point_log_density(eval_mat.view())?.to_vec())
         },
     )
 }
@@ -1584,8 +1960,8 @@ pub fn union_density_provider<'a>(
     let owned = data.to_owned();
     Box::new(
         move |train: &[usize], eval: &[usize]| -> Result<Vec<f64>, String> {
-            let train_mat = gather_rows(owned.view(), train);
-            let eval_mat = gather_rows(owned.view(), eval);
+            let train_mat = gather_rows(owned.view(), train, "union training")?;
+            let eval_mat = gather_rows(owned.view(), eval, "union evaluation")?;
             let dens =
                 union_per_point_log_density(train_mat.view(), eval_mat.view(), structure, config)?;
             Ok(dens.to_vec())
@@ -1593,19 +1969,30 @@ pub fn union_density_provider<'a>(
     )
 }
 
-fn gather_rows(data: ArrayView2<'_, f64>, idx: &[usize]) -> Array2<f64> {
+fn gather_rows(
+    data: ArrayView2<'_, f64>,
+    idx: &[usize],
+    context: &str,
+) -> Result<Array2<f64>, String> {
     let d = data.ncols();
     let mut out = Array2::<f64>::zeros((idx.len(), d));
     for (r, &i) in idx.iter().enumerate() {
+        if i >= data.nrows() {
+            return Err(format!(
+                "{context} row index {i} is out of bounds for {} rows",
+                data.nrows()
+            ));
+        }
         for c in 0..d {
             out[[r, c]] = data[[i, c]];
         }
     }
-    out
+    Ok(out)
 }
 
-/// Deterministic contiguous `folds`-way CV partition of `0..n` (no clock
-/// randomness). Returns, for each fold, `(train_indices, eval_indices)`.
+/// Deterministic, seed-shuffled, exactly balanced `folds`-way CV partition of
+/// `0..n` (no clock randomness). Returns `(train_indices, eval_indices)` for
+/// each fold.
 ///
 /// Uses the default stacking seed ([`STACKING_CV_SEED`]); see
 /// [`deterministic_cv_folds_seeded`] for the seed-reproducible variant (#1386).
@@ -1625,30 +2012,31 @@ fn splitmix64(mut x: u64) -> u64 {
     z ^ (z >> 31)
 }
 
-/// Deterministic, seed-reproducible `folds`-way CV partition of `0..n` (no clock
-/// randomness). The eval fold of sample `i` is `hash(seed, i) % folds`, so:
+/// Deterministic, seed-reproducible, exactly balanced `folds`-way CV partition
+/// of `0..n` (no clock randomness). Rows are ordered by `hash(seed, i)` and
+/// assigned round-robin, so:
 ///   - the same `seed` always reproduces the identical folding (deterministic),
 ///   - different seeds give different (still-deterministic) foldings.
+///   - every requested fold is nonempty and fold sizes differ by at most one.
 ///
 /// This is the seam that makes the `adjudicate_atom_shape` `seed=` kwarg
 /// functional (#1386): it is mixed into the held-out CV partition rather than
-/// being a silent no-op. Returns, for each fold, `(train_indices, eval_indices)`,
-/// dropping any fold whose train or eval set is empty.
+/// being a silent no-op. Invalid requests (`n < 2`, `folds < 2`, or `folds > n`)
+/// return an empty partition; selection-time callers reject them explicitly.
 pub fn deterministic_cv_folds_seeded(
     n: usize,
     folds: usize,
     seed: u64,
 ) -> Vec<(Vec<usize>, Vec<usize>)> {
-    let folds = folds.clamp(2, n.max(2));
-    // Precompute the seed-mixed fold of every sample once.
-    let assign: Vec<usize> = (0..n)
-        .map(|i| {
-            // Mix the seed with the index through a full-avalanche hash so the
-            // partition genuinely depends on both. The modulo keeps fold sizes
-            // balanced in expectation while remaining deterministic.
-            (splitmix64(seed ^ splitmix64(i as u64)) % folds as u64) as usize
-        })
-        .collect();
+    if n < 2 || folds < 2 || folds > n {
+        return Vec::new();
+    }
+    let mut order = (0..n).collect::<Vec<_>>();
+    order.sort_unstable_by_key(|&row| (splitmix64(seed ^ splitmix64(row as u64)), row));
+    let mut assign = vec![0usize; n];
+    for (rank, row) in order.into_iter().enumerate() {
+        assign[row] = rank % folds;
+    }
     let mut out = Vec::with_capacity(folds);
     for f in 0..folds {
         let mut train = Vec::new();
@@ -1660,9 +2048,7 @@ pub fn deterministic_cv_folds_seeded(
                 train.push(i);
             }
         }
-        if !eval.is_empty() && !train.is_empty() {
-            out.push((train, eval));
-        }
+        out.push((train, eval));
     }
     out
 }
@@ -1681,6 +2067,11 @@ pub fn build_cv_log_density_table(
 ) -> Result<Array2<f64>, String> {
     if providers.is_empty() {
         return Err("stacking table requires at least one candidate provider".to_string());
+    }
+    if n < 2 || folds < 2 || folds > n {
+        return Err(format!(
+            "stacking CV requires 2 <= folds <= n with n >= 2; got folds={folds}, n={n}"
+        ));
     }
     let partition = deterministic_cv_folds_seeded(n, folds, seed);
     if partition.is_empty() {
@@ -1705,13 +2096,11 @@ pub fn build_cv_log_density_table(
     Ok(table)
 }
 
-/// Adjudicated outcome of a cross-class race. When the race mixes a smooth
-/// manifold candidate with the discrete-mixture rung, `headline` is the stacking
-/// verdict (held-out predictive log-density), and the rank-aware Laplace
-/// evidence is retained per-candidate as corroboration. Same-class races report
-/// `Headline::Evidence` (winner-take-all on rank-aware evidence).
+/// Adjudicated outcome of a predictive race. A mixed smooth/discrete race and
+/// any race containing an adaptive class use honest held-out stacking; only a
+/// race of fixed candidates from one side of that boundary uses evidence alone.
 #[derive(Debug, Clone)]
-pub struct CrossClassRaceVerdict {
+pub struct PredictiveRaceVerdict {
     /// Candidate display names, column-aligned with the stacking table / weights.
     pub candidate_names: Vec<String>,
     /// Whether the race actually mixed model classes (smooth vs discrete).
@@ -1719,10 +2108,11 @@ pub struct CrossClassRaceVerdict {
     /// Rank-aware Laplace negative-log-evidence per candidate (corroboration;
     /// lower is better).
     pub negative_log_evidence: Vec<f64>,
-    /// Stacking weights over the candidates (present iff `is_cross_class`).
+    /// Stacking weights over the candidates (present iff `headline` is
+    /// [`Headline::Stacking`]).
     pub stacking: Option<StackingWeights>,
-    /// Index of the headline winner. For cross-class races this is the max
-    /// stacking-weight candidate; for same-class it is the min-evidence one.
+    /// Index of the headline winner. For stacking races this is the max-weight
+    /// candidate; for evidence races it is the min-evidence one.
     pub winner_index: usize,
     /// Which statistic drove the headline.
     pub headline: Headline,
@@ -1739,7 +2129,8 @@ pub struct CrossClassRaceVerdict {
 pub enum Headline {
     /// Rank-aware Laplace evidence (same-class race, winner-take-all).
     Evidence,
-    /// Held-out predictive log-density / stacking weights (cross-class race).
+    /// Held-out predictive log-density / stacking weights (cross-class or
+    /// adaptive-class race).
     Stacking,
 }
 
@@ -1817,35 +2208,16 @@ impl EvidenceCertification {
     }
 }
 
-/// One candidate entering the cross-class adjudicator: its kind, its rank-aware
+/// One candidate entering the predictive adjudicator: its kind, its rank-aware
 /// Laplace negative-log-evidence (already computed on the common scale), how
 /// that evidence was certified (for the margin contract), and a selection-time
 /// held-out-density provider that refits per CV fold.
-pub struct CrossClassCandidate<'a> {
-    pub kind: AutoTopologyKind,
+pub struct PredictiveRaceCandidate<'a> {
+    pub kind: PredictiveCandidateKind,
     pub negative_log_evidence: f64,
-    /// Certification of `negative_log_evidence`. Defaults conceptually to
-    /// [`EvidenceCertification::Exact`]; construct with [`Self::exact`] for the
-    /// classic point-value path.
+    /// Certification of `negative_log_evidence`.
     pub certification: EvidenceCertification,
     pub density_provider: HeldOutDensityProvider<'a>,
-}
-
-impl<'a> CrossClassCandidate<'a> {
-    /// Construct a candidate whose evidence is an exact point value (the
-    /// classic full-corpus dense-logdet path — no margin floor).
-    pub fn exact(
-        kind: AutoTopologyKind,
-        negative_log_evidence: f64,
-        density_provider: HeldOutDensityProvider<'a>,
-    ) -> Self {
-        Self {
-            kind,
-            negative_log_evidence,
-            certification: EvidenceCertification::Exact,
-            density_provider,
-        }
-    }
 }
 
 /// Why a same-class race could not transfer its approximate-evidence verdict to
@@ -1866,28 +2238,54 @@ pub struct InsufficientRaceMargin {
     pub required_margin: f64,
 }
 
-/// Adjudicate a race that may mix smooth-manifold and discrete candidates
-/// (the discrete-mixture rung and/or a structured union, #907). Cross-class
-/// mixing is auto-detected from the candidate kinds (a race is cross-class iff
-/// it contains BOTH at least one smooth/Euclidean candidate AND at least one
-/// discrete candidate — [`AutoTopologyKind::Mixture`] or
-/// [`AutoTopologyKind::Union`]). When cross-class,
-/// the headline switches to stacking over a selection-time CV held-out
-/// log-density table; otherwise the headline is the rank-aware evidence winner.
+/// Adjudicate a race that may mix smooth-manifold and discrete candidates.
+/// Cross-class mixing is auto-detected (at least one fixed smooth candidate and
+/// at least one discrete candidate). Such races use stacking over a
+/// selection-time CV held-out log-density table. An adaptive model-selection
+/// class also forces stacking even in a discrete-only race, because its order
+/// must be selected independently within every outer training fold. Evidence
+/// alone adjudicates only same-class races made entirely of fixed candidates.
 /// `seed` is mixed into the deterministic CV fold assignment (#1386): the same
 /// seed reproduces the identical held-out folding, different seeds give
 /// different — but still deterministic — foldings. It only affects the
-/// cross-class (stacking) path; same-class races are winner-take-all on evidence
-/// and ignore it. Pass [`STACKING_CV_SEED`] for the default folding.
-pub fn adjudicate_cross_class_race(
+/// stacking path; fixed same-class races are winner-take-all on evidence and
+/// ignore it. Pass [`STACKING_CV_SEED`] for the default folding.
+pub fn adjudicate_predictive_race(
     n: usize,
-    candidates: Vec<CrossClassCandidate<'_>>,
+    candidates: Vec<PredictiveRaceCandidate<'_>>,
     folds: usize,
     seed: u64,
     stacking_config: StackingConfig,
-) -> Result<CrossClassRaceVerdict, String> {
+) -> Result<PredictiveRaceVerdict, String> {
     if candidates.is_empty() {
-        return Err("cross-class race requires at least one candidate".to_string());
+        return Err("predictive race requires at least one candidate".to_string());
+    }
+    for (index, candidate) in candidates.iter().enumerate() {
+        if !candidate.negative_log_evidence.is_finite() {
+            return Err(format!(
+                "predictive race candidate {index} ({}) has non-finite negative-log-evidence {:?}",
+                candidate.kind.display_name(),
+                candidate.negative_log_evidence
+            ));
+        }
+        let required_margin = candidate.certification.required_margin();
+        if !required_margin.is_finite() || required_margin < 0.0 {
+            return Err(format!(
+                "predictive race candidate {index} ({}) has invalid certification margin {required_margin:?}; margins must be finite and nonnegative",
+                candidate.kind.display_name()
+            ));
+        }
+    }
+    for index in 0..candidates.len() {
+        if let Some(first_index) = candidates[..index]
+            .iter()
+            .position(|candidate| candidate.kind == candidates[index].kind)
+        {
+            return Err(format!(
+                "predictive race contains duplicate candidate {:?} at indices {first_index} and {index}",
+                candidates[index].kind.display_name()
+            ));
+        }
     }
     let names: Vec<String> = candidates.iter().map(|c| c.kind.display_name()).collect();
     let evidence: Vec<f64> = candidates.iter().map(|c| c.negative_log_evidence).collect();
@@ -1900,19 +2298,24 @@ pub fn adjudicate_cross_class_race(
     let has_discrete = candidates.iter().any(|c| c.kind.is_discrete_class());
     let has_smooth = candidates.iter().any(|c| !c.kind.is_discrete_class());
     let is_cross_class = has_discrete && has_smooth;
+    let has_adaptive_class = candidates
+        .iter()
+        .any(|candidate| candidate.kind.requires_predictive_stacking());
+    let use_stacking = is_cross_class || has_adaptive_class;
 
-    if !is_cross_class {
+    if !use_stacking {
         // Same-class: winner-take-all on rank-aware evidence (lower wins).
         let certifications: Vec<EvidenceCertification> =
             candidates.iter().map(|c| c.certification).collect();
-        let mut winner_index = 0usize;
-        let mut best = f64::INFINITY;
-        for (idx, &nle) in evidence.iter().enumerate() {
-            if nle.is_finite() && nle < best {
-                best = nle;
-                winner_index = idx;
-            }
-        }
+        // Every value was validated above, so this reduction cannot silently
+        // retain index zero merely because no comparable value existed.
+        let winner_index = evidence
+            .iter()
+            .enumerate()
+            .min_by(|left, right| left.1.total_cmp(right.1))
+            .map(|(index, _)| index)
+            .ok_or_else(|| "predictive race has no evidence values".to_string())?;
+        let best = evidence[winner_index];
         // Decision-margin contract (#1011 enclosure / #1012 coreset, one seam):
         // the winner's lead over the closest contender must clear the larger of
         // the two candidates' required margins (an exact candidate floors at 0,
@@ -1923,7 +2326,7 @@ pub fn adjudicate_cross_class_race(
         // bounds cannot distinguish.
         let mut insufficient_margin: Option<InsufficientRaceMargin> = None;
         for (idx, &nle) in evidence.iter().enumerate() {
-            if idx == winner_index || !nle.is_finite() {
+            if idx == winner_index {
                 continue;
             }
             let lead = nle - best;
@@ -1942,7 +2345,7 @@ pub fn adjudicate_cross_class_race(
                 }
             }
         }
-        return Ok(CrossClassRaceVerdict {
+        return Ok(PredictiveRaceVerdict {
             candidate_names: names,
             is_cross_class: false,
             negative_log_evidence: evidence,
@@ -1953,7 +2356,7 @@ pub fn adjudicate_cross_class_race(
         });
     }
 
-    // Cross-class: build the selection-time held-out density table and stack.
+    // Predictive path: build the selection-time held-out density table and stack.
     let providers: Vec<HeldOutDensityProvider<'_>> =
         candidates.into_iter().map(|c| c.density_provider).collect();
     let table = build_cv_log_density_table(n, folds, seed, &providers)?;
@@ -1968,15 +2371,15 @@ pub fn adjudicate_cross_class_race(
             winner_index = idx;
         }
     }
-    Ok(CrossClassRaceVerdict {
+    Ok(PredictiveRaceVerdict {
         candidate_names: names,
-        is_cross_class: true,
+        is_cross_class,
         negative_log_evidence: evidence,
         stacking: Some(stacking),
         winner_index,
         headline: Headline::Stacking,
-        // Cross-class headlines adjudicate by held-out predictive stacking on
-        // the full corpus, not by the approximate-evidence scalar, so the
+        // Stacking headlines adjudicate by held-out predictive density on the
+        // full corpus, not by the approximate-evidence scalar, so the
         // enclosure/coreset margin contract does not gate the verdict here.
         insufficient_margin: None,
     })
@@ -2339,6 +2742,103 @@ mod tests {
     }
 
     #[test]
+    fn fixed_topology_parser_requires_canonical_ordered_density_names() {
+        let canonical = [
+            AutoTopologyKind::Euclidean,
+            AutoTopologyKind::Circle,
+            AutoTopologyKind::Sphere,
+            AutoTopologyKind::Torus,
+            AutoTopologyKind::Cylinder,
+            AutoTopologyKind::Mobius,
+            AutoTopologyKind::DuchonSheet,
+            AutoTopologyKind::ConstantCurvature,
+            AutoTopologyKind::Mixture { k: 7 },
+            AutoTopologyKind::RingOfClusters { k: 5 },
+            AutoTopologyKind::Union {
+                structure: UnionStructure::CircleCircle,
+            },
+            AutoTopologyKind::Union {
+                structure: UnionStructure::CirclePointCluster,
+            },
+            AutoTopologyKind::Union {
+                structure: UnionStructure::LineCluster,
+            },
+        ];
+        for kind in canonical {
+            let displayed = kind.display_name();
+            assert_eq!(
+                AutoTopologyKind::parse(&displayed),
+                Ok(kind),
+                "display/parse must be a bijection for {displayed:?}"
+            );
+        }
+
+        for malformed in [
+            " circle",
+            "circle ",
+            "Circle",
+            "MOBIUS",
+            "flat",
+            "euclideanpatch",
+            "euclidean_patch",
+            "periodic",
+            "s1",
+            "s2",
+            "duchon",
+            "duchonsheet",
+            "duchon-sheet",
+            "thin_plate",
+            "thinplate",
+            "curv",
+            "curvature",
+            "mkappa",
+            "m_kappa",
+            "constant-curvature",
+            "mixture",
+            "mixture7",
+            "mixture_7",
+            "mixture-k7",
+            "mixture_k",
+            "mixture_k7junk",
+            "mixture_k07",
+            "ring_clusters",
+            "ring_clusters7",
+            "ring_clusters-k7",
+            "ring_clusters_k",
+            "ring_clusters_k7junk",
+            "ring_clusters_k07",
+            "union-circle+circle",
+            "union_circle_circle",
+            "union__circle_circle",
+            "union_circle+point+cluster",
+            "union_circle+pointcluster",
+            "union_line+point+cluster",
+            "union_line+pointcluster",
+        ] {
+            assert!(
+                AutoTopologyKind::parse(malformed).is_err(),
+                "{malformed:?} must not alias a fixed candidate or adaptive class"
+            );
+        }
+    }
+
+    #[test]
+    fn predictive_candidate_names_distinguish_fixed_fits_from_adaptive_classes() {
+        assert_eq!(
+            PredictiveCandidateKind::Fixed(AutoTopologyKind::Mixture { k: 7 }).display_name(),
+            "mixture_k7"
+        );
+        assert_eq!(
+            PredictiveCandidateKind::MixtureClass.display_name(),
+            "mixture_class"
+        );
+        assert_eq!(
+            PredictiveCandidateKind::RingOfClustersClass.display_name(),
+            "ring_clusters_class"
+        );
+    }
+
+    #[test]
     fn topology_race_parallel_matches_sequential_synthetic_candidates() {
         let candidates = vec![
             SyntheticRaceCandidate { seed: 11, len: 64 },
@@ -2377,6 +2877,105 @@ mod tests {
         Box::new(|_train: &[usize], eval: &[usize]| Ok(vec![0.0; eval.len()]))
     }
 
+    #[test]
+    fn adaptive_rungs_reject_out_of_class_orders_before_fitting() {
+        let data = Array2::<f64>::zeros((4, 2));
+        let free_error =
+            fit_free_cluster_rung(data.view(), &[1, 2], GaussianMixtureConfig::default())
+                .expect_err("the free-cluster class must own k >= 2 inside the rung");
+        assert!(matches!(
+            &free_error,
+            AdaptiveRungError::InvalidInput {
+                kind: AdaptiveRungKind::GaussianMixture,
+                ..
+            }
+        ));
+        assert!(free_error.to_string().contains("require 2 <= k <= n"));
+
+        let ring_error =
+            fit_ring_of_clusters_rung(data.view(), &[2, 3], GaussianMixtureConfig::default())
+                .expect_err("the ring-cluster class must own k >= 3 inside the rung");
+        assert!(matches!(
+            &ring_error,
+            AdaptiveRungError::InvalidInput {
+                kind: AdaptiveRungKind::RingOfClusters,
+                ..
+            }
+        ));
+        assert!(ring_error.to_string().contains("require 3 <= k <= n"));
+
+        let oversized = fit_mixture_rung(data.view(), &[5], GaussianMixtureConfig::default())
+            .expect_err("orders above n must not disappear from the requested estimand");
+        assert!(oversized.to_string().contains("require 1 <= k <= n"));
+
+        let duplicate = fit_mixture_rung(data.view(), &[1, 1], GaussianMixtureConfig::default())
+            .expect_err("duplicate orders must not be silently deduplicated");
+        assert!(duplicate.to_string().contains("duplicate k=1"));
+    }
+
+    #[test]
+    fn adaptive_rungs_expose_every_eligible_coarse_fit_failure() {
+        let data = Array2::<f64>::zeros((4, 2));
+        let invalid_config = GaussianMixtureConfig {
+            max_iter: 0,
+            ..GaussianMixtureConfig::default()
+        };
+        let mixture_error = fit_mixture_rung(data.view(), &[1, 2], invalid_config)
+            .expect_err("one surviving order must not hide another order's failed fit");
+        match mixture_error {
+            AdaptiveRungError::OrderFailures { kind, failures } => {
+                assert_eq!(kind, AdaptiveRungKind::GaussianMixture);
+                assert_eq!(
+                    failures.iter().map(|failure| failure.k).collect::<Vec<_>>(),
+                    vec![1, 2]
+                );
+                assert!(
+                    failures
+                        .iter()
+                        .all(|failure| failure.stage == AdaptiveRungFailureStage::Fit)
+                );
+            }
+            other => panic!("expected typed per-order failures, got {other:?}"),
+        }
+
+        let ring_error = fit_ring_of_clusters_rung(data.view(), &[3, 4], invalid_config)
+            .expect_err("ring orders must also fail closed");
+        match ring_error {
+            AdaptiveRungError::OrderFailures { kind, failures } => {
+                assert_eq!(kind, AdaptiveRungKind::RingOfClusters);
+                assert_eq!(
+                    failures.iter().map(|failure| failure.k).collect::<Vec<_>>(),
+                    vec![3, 4]
+                );
+            }
+            other => panic!("expected typed per-order failures, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn held_out_mixture_candidates_never_change_their_declared_order() {
+        let data = Array2::<f64>::zeros((4, 2));
+        let mixture = mixture_density_provider(data.view(), 3, GaussianMixtureConfig::default());
+        let error = mixture(&[0, 1], &[2])
+            .expect_err("a k=3 candidate must not silently become k=2 on a short fold");
+        assert!(error.contains("fixed-order mixture k=3"), "{error}");
+
+        let ring =
+            ring_of_clusters_density_provider(data.view(), 3, GaussianMixtureConfig::default());
+        let error = ring(&[0, 1], &[2])
+            .expect_err("a k=3 ring candidate must not silently change order on a short fold");
+        assert!(
+            error.contains("fixed-order ring-of-clusters k=3"),
+            "{error}"
+        );
+
+        let invalid_index =
+            mixture_density_provider(data.view(), 1, GaussianMixtureConfig::default());
+        let error = invalid_index(&[0, 9], &[1])
+            .expect_err("public density providers must reject row indices instead of panicking");
+        assert!(error.contains("out of bounds"), "{error}");
+    }
+
     /// #1011/#1012 decision-margin contract on the same-class evidence race:
     /// when the winner's lead over the runner-up is inside the enclosure gap,
     /// the verdict is provisional (`insufficient_margin` set) so the caller must
@@ -2386,20 +2985,20 @@ mod tests {
         // Two smooth candidates (same class) whose evidence came from a logdet
         // enclosure with gap 1.0. Lead of 0.5 < gap ⇒ provisional.
         let near = vec![
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Circle,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
                 negative_log_evidence: 100.0,
                 certification: EvidenceCertification::Enclosure { gap: 1.0 },
                 density_provider: trivial_provider(),
             },
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Euclidean,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
                 negative_log_evidence: 100.5,
                 certification: EvidenceCertification::Enclosure { gap: 1.0 },
                 density_provider: trivial_provider(),
             },
         ];
-        let verdict = adjudicate_cross_class_race(
+        let verdict = adjudicate_predictive_race(
             8,
             near,
             STACKING_CV_FOLDS,
@@ -2419,20 +3018,20 @@ mod tests {
 
         // A lead that clears the gap transfers the verdict cleanly.
         let far = vec![
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Circle,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
                 negative_log_evidence: 100.0,
                 certification: EvidenceCertification::Enclosure { gap: 1.0 },
                 density_provider: trivial_provider(),
             },
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Euclidean,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
                 negative_log_evidence: 105.0,
                 certification: EvidenceCertification::Enclosure { gap: 1.0 },
                 density_provider: trivial_provider(),
             },
         ];
-        let verdict_far = adjudicate_cross_class_race(
+        let verdict_far = adjudicate_predictive_race(
             8,
             far,
             STACKING_CV_FOLDS,
@@ -2456,20 +3055,20 @@ mod tests {
         // Lead strictly inside the certified transfer margin.
         let lead = 0.5 * required;
         let candidates = vec![
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Circle,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
                 negative_log_evidence: 10.0,
                 certification: EvidenceCertification::Coreset { certificate: cert },
                 density_provider: trivial_provider(),
             },
-            CrossClassCandidate {
-                kind: AutoTopologyKind::Euclidean,
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
                 negative_log_evidence: 10.0 + lead,
                 certification: EvidenceCertification::Coreset { certificate: cert },
                 density_provider: trivial_provider(),
             },
         ];
-        let verdict = adjudicate_cross_class_race(
+        let verdict = adjudicate_predictive_race(
             8,
             candidates,
             STACKING_CV_FOLDS,
@@ -2481,6 +3080,136 @@ mod tests {
             .insufficient_margin
             .expect("lead inside the coreset transfer margin must be flagged");
         assert!((escalation.required_margin - required).abs() < 1e-9);
+    }
+
+    #[test]
+    fn adaptive_discrete_class_race_uses_honest_predictive_stacking() {
+        let candidates = vec![
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::MixtureClass,
+                // Deliberately make evidence prefer the other class: the test
+                // must fail if this adaptive race takes the evidence shortcut.
+                negative_log_evidence: 100.0,
+                certification: EvidenceCertification::Exact,
+                density_provider: Box::new(|_, eval| Ok(vec![0.0; eval.len()])),
+            },
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::RingOfClustersClass,
+                negative_log_evidence: 0.0,
+                certification: EvidenceCertification::Exact,
+                density_provider: Box::new(|_, eval| Ok(vec![-20.0; eval.len()])),
+            },
+        ];
+        let verdict = adjudicate_predictive_race(
+            10,
+            candidates,
+            5,
+            STACKING_CV_SEED,
+            StackingConfig::default(),
+        )
+        .expect("adaptive discrete-class race");
+
+        assert!(!verdict.is_cross_class);
+        assert_eq!(verdict.headline, Headline::Stacking);
+        assert!(verdict.stacking.is_some());
+        assert_eq!(verdict.winner_index, 0);
+        assert_eq!(
+            verdict.candidate_names,
+            vec![
+                "mixture_class".to_string(),
+                "ring_clusters_class".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn predictive_race_rejects_duplicate_columns() {
+        let duplicate = vec![
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
+                negative_log_evidence: 1.0,
+                certification: EvidenceCertification::Exact,
+                density_provider: trivial_provider(),
+            },
+            PredictiveRaceCandidate {
+                kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
+                negative_log_evidence: 2.0,
+                certification: EvidenceCertification::Exact,
+                density_provider: trivial_provider(),
+            },
+        ];
+        let error = adjudicate_predictive_race(
+            8,
+            duplicate,
+            4,
+            STACKING_CV_SEED,
+            StackingConfig::default(),
+        )
+        .expect_err("duplicate predictive columns make stacking non-identifiable");
+        assert!(error.contains("duplicate candidate \"circle\""), "{error}");
+    }
+
+    #[test]
+    fn predictive_race_rejects_nonfinite_evidence_before_adjudication() {
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let candidates = vec![
+                PredictiveRaceCandidate {
+                    kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
+                    negative_log_evidence: 1.0,
+                    certification: EvidenceCertification::Exact,
+                    density_provider: trivial_provider(),
+                },
+                PredictiveRaceCandidate {
+                    kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
+                    negative_log_evidence: invalid,
+                    certification: EvidenceCertification::Exact,
+                    density_provider: trivial_provider(),
+                },
+            ];
+            let error = adjudicate_predictive_race(
+                8,
+                candidates,
+                4,
+                STACKING_CV_SEED,
+                StackingConfig::default(),
+            )
+            .expect_err("a non-finite candidate must not be skipped in favor of index zero");
+            assert!(error.contains("candidate 1"), "{error}");
+            assert!(
+                error.contains("non-finite negative-log-evidence"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn predictive_race_rejects_invalid_certification_margins() {
+        for invalid in [f64::NAN, f64::INFINITY, -1.0] {
+            let candidates = vec![
+                PredictiveRaceCandidate {
+                    kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
+                    negative_log_evidence: 1.0,
+                    certification: EvidenceCertification::Enclosure { gap: invalid },
+                    density_provider: trivial_provider(),
+                },
+                PredictiveRaceCandidate {
+                    kind: PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
+                    negative_log_evidence: 2.0,
+                    certification: EvidenceCertification::Exact,
+                    density_provider: trivial_provider(),
+                },
+            ];
+            let error = adjudicate_predictive_race(
+                8,
+                candidates,
+                4,
+                STACKING_CV_SEED,
+                StackingConfig::default(),
+            )
+            .expect_err("invalid uncertainty cannot define a race margin");
+            assert!(error.contains("candidate 0"), "{error}");
+            assert!(error.contains("finite and nonnegative"), "{error}");
+        }
     }
 
     /// #1386: the `seed` mixed into the cross-class CV folding is functional, not
@@ -2536,6 +3265,23 @@ mod tests {
             ),
             "deterministic_cv_folds must equal the default-seeded folding"
         );
+
+        let balanced = deterministic_cv_folds_seeded(43, FOLDS, 17);
+        assert_eq!(balanced.len(), FOLDS);
+        let eval_sizes = balanced
+            .iter()
+            .map(|(_, eval)| eval.len())
+            .collect::<Vec<_>>();
+        assert_eq!(eval_sizes.iter().sum::<usize>(), 43);
+        assert_eq!(eval_sizes.iter().copied().min(), Some(8));
+        assert_eq!(eval_sizes.iter().copied().max(), Some(9));
+
+        assert!(deterministic_cv_folds_seeded(5, 1, 11).is_empty());
+        assert!(deterministic_cv_folds_seeded(5, 6, 11).is_empty());
+        let providers = vec![trivial_provider()];
+        let error = build_cv_log_density_table(5, 1, 11, &providers)
+            .expect_err("selection must reject rather than silently clamp invalid fold counts");
+        assert!(error.contains("2 <= folds <= n"), "{error}");
     }
 
     /// The unified certificate ladder (#16): `EvidenceCertification::race_verdict`
@@ -2711,13 +3457,13 @@ mod tests {
         let plan = TopologyRaceThreadPlan::for_budget(3, 8);
         assert_eq!(plan.concurrent_fits, 3);
         assert!(
-            plan.coordinator_threads + plan.concurrent_fits * plan.per_fit_threads <= 8,
-            "plan must bound coordinator plus per-fit Rayon workers"
+            plan.concurrent_fits + plan.concurrent_fits * plan.per_fit_threads <= 8,
+            "plan must bound the one-slot-per-candidate reservation plus per-fit Rayon workers"
         );
 
         let small = TopologyRaceThreadPlan::for_budget(3, 2);
         assert_eq!(small.concurrent_fits, 1);
-        assert!(small.coordinator_threads + small.per_fit_threads <= 2);
+        assert!(small.concurrent_fits + small.per_fit_threads <= 2);
     }
 
     #[test]

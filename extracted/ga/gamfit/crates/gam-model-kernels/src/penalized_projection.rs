@@ -35,6 +35,8 @@ pub fn solve_penalizedweighted_projection(
             log_lambdas.len()
         ));
     }
+    let lambdas = gam_problem::checked_exp_log_strengths(log_lambdas.iter().copied())
+        .map_err(|error| format!("solve_penalizedweighted_projection: {error}"))?;
 
     let y_star = target_eta - offset;
     let xtwy = design.compute_xtwy(weights, &y_star)?;
@@ -44,13 +46,7 @@ pub fn solve_penalizedweighted_projection(
         Some(Array2::<f64>::zeros((p, p)))
     };
     for (k, s) in penalties.iter().enumerate() {
-        let lambda = log_lambdas[k].exp();
-        if !lambda.is_finite() || lambda < 0.0 {
-            return Err(format!(
-                "solve_penalizedweighted_projection encountered invalid lambda at index {k}: {}",
-                log_lambdas[k]
-            ));
-        }
+        let lambda = lambdas[k];
         if s.nrows() != p || s.ncols() != p {
             return Err(format!(
                 "solve_penalizedweighted_projection penalty shape mismatch at index {k}: \
@@ -70,7 +66,7 @@ pub fn solve_penalizedweighted_projection(
         &xtwy,
         penalty_system.as_ref(),
         ridge_floor.max(1e-12),
-        RidgePolicy::explicit_stabilization_pospart(),
+        RidgePolicy::solver_only(),
     )?;
     if beta.iter().any(|v| !v.is_finite()) {
         return Err(

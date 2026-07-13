@@ -385,9 +385,9 @@ impl ParametricColumnConditioning {
     pub(crate) fn backtransform_external_result(
         &self,
         mut result: ExternalOptimResult,
-    ) -> ExternalOptimResult {
+    ) -> Result<ExternalOptimResult, EstimationError> {
         if !self.is_active() {
-            return result;
+            return Ok(result);
         }
         result.beta = self.backtransform_beta(&result.beta);
         if let Some(inf) = result.inference.as_mut() {
@@ -401,7 +401,13 @@ impl ParametricColumnConditioning {
             inf.beta_standard_errors = inf
                 .beta_covariance
                 .as_ref()
-                .map(|c| se_from_covariance(c.as_array()));
+                .map(|c| se_from_covariance(c.as_array()))
+                .transpose()
+                .map_err(|err| {
+                    EstimationError::InvalidInput(format!(
+                        "back-transformed conditional covariance is invalid: {err}"
+                    ))
+                })?;
             inf.beta_covariance_corrected = inf
                 .beta_covariance_corrected
                 .take()
@@ -409,7 +415,13 @@ impl ParametricColumnConditioning {
             inf.beta_standard_errors_corrected = inf
                 .beta_covariance_corrected
                 .as_ref()
-                .map(se_from_covariance);
+                .map(se_from_covariance)
+                .transpose()
+                .map_err(|err| {
+                    EstimationError::InvalidInput(format!(
+                        "back-transformed corrected covariance is invalid: {err}"
+                    ))
+                })?;
             inf.beta_covariance_frequentist = inf
                 .beta_covariance_frequentist
                 .take()
@@ -462,7 +474,7 @@ impl ParametricColumnConditioning {
         // invertible coefficient-space reparameterization that conditioning
         // introduces, so the bundle stays correct in its own coordinates and
         // we keep it instead of wiping `pirls: None`.
-        result
+        Ok(result)
     }
 }
 
@@ -514,10 +526,7 @@ mod weighted_gram_backtransform_tests {
     /// original-basis design `X_orig` by applying the same per-column
     /// centering/scaling that `ParametricColumnConditioning` derived from
     /// `X_orig`. `X_int = X_orig · M` (so `η = X_orig·β_orig = X_int·β_int`).
-    fn condition_design(
-        cond: &ParametricColumnConditioning,
-        x_orig: &Array2<f64>,
-    ) -> Array2<f64> {
+    fn condition_design(cond: &ParametricColumnConditioning, x_orig: &Array2<f64>) -> Array2<f64> {
         let mut x_int = x_orig.clone();
         let intercept = cond.intercept_idx.map(|idx| x_orig.column(idx).to_owned());
         for &(j, mean, scale) in &cond.columns {
@@ -564,7 +573,10 @@ mod weighted_gram_backtransform_tests {
 
         let design = DesignMatrix::from(x_orig.clone());
         let cond = ParametricColumnConditioning::from_column_indices(&design, &[0, 1, 2]);
-        assert!(cond.is_active(), "parametric columns must trigger conditioning");
+        assert!(
+            cond.is_active(),
+            "parametric columns must trigger conditioning"
+        );
         assert_eq!(cond.intercept_idx, Some(0));
         assert_eq!(cond.columns.len(), 2, "cols 1 and 2 are conditioned");
 
@@ -617,8 +629,7 @@ mod weighted_gram_backtransform_tests {
         sigma_int[[2, 1]] = 0.05;
 
         let gram_orig = cond.backtransform_penalized_hessian(&gram_int);
-        let sigma_orig =
-            cond.right_multiply_by_m_transpose(&cond.left_multiply_by_m(&sigma_int));
+        let sigma_orig = cond.right_multiply_by_m_transpose(&cond.left_multiply_by_m(&sigma_int));
 
         let trace = |a: &Array2<f64>, b: &Array2<f64>| -> f64 {
             let k = a.nrows();

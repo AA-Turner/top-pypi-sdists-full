@@ -5,6 +5,7 @@ import sys
 from typing import Any
 
 from . import trace
+from .hooks import load_suppressions
 from .html import html_traceback
 from .logging import logger
 from .tty import tty_traceback
@@ -25,12 +26,13 @@ def _can_display_html() -> bool:
 
 def load_ipython_extension(ipython: Any) -> None:
     trace.ipython = ipython
+    load_suppressions()
 
     # Hide IPython's internal frames from tracebacks
     try:
-        from IPython.core import interactiveshell  # type: ignore[import]
+        from IPython.core import interactiveshell
 
-        interactiveshell.__tracebackhide__ = True  # type: ignore[attr-defined]
+        object.__setattr__(interactiveshell, "__tracebackhide__", True)
     except ImportError:
         pass
 
@@ -39,7 +41,7 @@ def load_ipython_extension(ipython: Any) -> None:
     def showtraceback(*args: Any, **kwargs: Any) -> None:
         try:
             if _can_display_html():
-                from IPython.display import display  # type: ignore[import]
+                from IPython.display import display
 
                 display(
                     html_traceback(
@@ -58,7 +60,7 @@ def load_ipython_extension(ipython: Any) -> None:
     def showsyntaxerror(*args: Any, **kwargs: Any) -> None:
         try:
             if _can_display_html():
-                from IPython.display import display  # type: ignore[import]
+                from IPython.display import display
 
                 display(
                     html_traceback(
@@ -83,7 +85,7 @@ def load_ipython_extension(ipython: Any) -> None:
         raise
 
     # Register the %tracerite magic command
-    from IPython.core.magic import register_line_magic  # type: ignore[import]
+    from IPython.core.magic import register_line_magic
 
     @register_line_magic
     def tracerite(line: str) -> None:
@@ -100,16 +102,20 @@ def load_ipython_extension(ipython: Any) -> None:
 
 
 def unload_ipython_extension(ipython: Any) -> None:
+    from .hooks import unload_suppressions
+
+    unload_suppressions()
+
     with contextlib.suppress(AttributeError):
         del ipython.showtraceback
     with contextlib.suppress(AttributeError):
         del ipython.showsyntaxerror
     # Remove the __tracebackhide__ we injected
     try:
-        from IPython.core import interactiveshell  # type: ignore[import]
+        from IPython.core import interactiveshell
 
         with contextlib.suppress(AttributeError):
-            del interactiveshell.__tracebackhide__  # type: ignore[attr-defined]
+            object.__delattr__(interactiveshell, "__tracebackhide__")
     except ImportError:
         pass
     trace.ipython = None

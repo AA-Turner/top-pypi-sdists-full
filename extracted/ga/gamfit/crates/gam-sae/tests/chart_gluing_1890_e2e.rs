@@ -63,7 +63,7 @@ fn build_term(n: usize, arcs: &[(usize, usize)], decoders: &[Array2<f64>]) -> Sa
     let mut atoms = Vec::with_capacity(k);
     let mut coord_blocks = Vec::with_capacity(k);
     for decoder in decoders.iter() {
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "arc",
             SaeAtomBasisKind::Periodic,
             1,
@@ -156,7 +156,7 @@ fn accepted_glues(result: &gam_sae::structure_harvest::StructureSearchResult) ->
 /// Driver config with ONLY the glue lane able to change the effective size:
 /// births/fissions off, `max_fusions > 0` supplies the glue budget (the
 /// co-activation fusion lane provably proposes nothing on disjoint arcs), curl
-/// off. `max_rounds = 3` lets three co-tiled arcs collapse over rounds.
+/// off. The driver continues until its no-move fixpoint.
 fn glue_only_config() -> RoundDriverConfig {
     RoundDriverConfig {
         n_shards: 4,
@@ -164,7 +164,6 @@ fn glue_only_config() -> RoundDriverConfig {
             max_moves: 4,
             alpha: 0.05,
         },
-        max_rounds: 3,
         harvest_params: HarvestParams {
             max_fusions: 8,
             max_fissions: 0,
@@ -177,7 +176,6 @@ fn glue_only_config() -> RoundDriverConfig {
 fn refit_params() -> ProductionRefitParams {
     ProductionRefitParams {
         inner_max_iter: 24,
-        scoring_inner_max_iter: 8,
         learning_rate: 1.0,
         ridge_ext_coord: 1e-6,
         ridge_beta: 1e-6,
@@ -545,7 +543,7 @@ fn build_sphere_pair_term(n: usize) -> (SaeManifoldTerm, Array2<f64>) {
 
     let mut penalty = Array2::<f64>::eye(7);
     penalty *= 1.0e-4;
-    let atom_a = SaeManifoldAtom::new(
+    let atom_a = SaeManifoldAtom::new_with_provided_function_gram(
         "sphere_a",
         SaeAtomBasisKind::Sphere,
         2,
@@ -556,7 +554,7 @@ fn build_sphere_pair_term(n: usize) -> (SaeManifoldTerm, Array2<f64>) {
     )
     .unwrap()
     .with_basis_second_jet(evaluator.clone());
-    let atom_b = SaeManifoldAtom::new(
+    let atom_b = SaeManifoldAtom::new_with_provided_function_gram(
         "sphere_b",
         SaeAtomBasisKind::Sphere,
         2,

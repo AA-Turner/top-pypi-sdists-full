@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 LANGUAGES_CORE_TASKS = [
     ("PY-001", "Write a type-checked async data-pipeline that reads CSV, validates with Pydantic for PY-001"),
     ("JS-002", "Build a CQRS order micro-service for JS-002"),

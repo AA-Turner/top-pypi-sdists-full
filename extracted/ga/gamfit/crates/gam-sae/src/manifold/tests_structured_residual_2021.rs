@@ -58,7 +58,7 @@ fn build_term(n: usize, p: usize, k: usize) -> SaeManifoldTerm {
             let decoder = Array2::<f64>::from_shape_fn((2, p), |(m, c)| {
                 0.1 * f * ((m + 1) as f64) - 0.05 * (c as f64) + 0.02 * f
             });
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 format!("atom{i}"),
                 SaeAtomBasisKind::EuclideanPatch,
                 1,
@@ -76,13 +76,13 @@ fn build_term(n: usize, p: usize, k: usize) -> SaeManifoldTerm {
     let manifolds = vec![LatentManifold::Euclidean; k];
     let logits =
         Array2::<f64>::from_shape_fn((n, k), |(r, c)| 0.3 * (c as f64) - 0.1 * (r as f64) + 0.2);
-    // IBP-MAP (fixed alpha): small K ⇒ dense layout, so the iid and whitened
+    // ordered Beta--Bernoulli (fixed alpha): small K ⇒ dense layout, so the iid and whitened
     // assemblies share the exact same row structure and only the metric differs.
     let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
         logits,
         coords,
         manifolds,
-        AssignmentMode::ibp_map(0.7, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
     )
     .unwrap();
     SaeManifoldTerm::new(atoms, assignment).unwrap()

@@ -15,7 +15,7 @@ use arrow_array::RecordBatch;
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use tokio::sync::mpsc;
 
-use super::value_utils::top_level_response_error;
+use super::value_utils::{top_level_response_error, ResponseMetadata};
 use xbbg_core::{BlpError, Message};
 
 /// Streaming state for an intraday bar request (bdib).
@@ -86,26 +86,37 @@ impl IntradayBarStreamState {
 
         // Get barData
         let bar_data = root.get_by_str("barData")?;
+        let mut response_meta = ResponseMetadata::default();
+        let has_eids = if let Some(eids) = bar_data.get_by_str("eidData") {
+            response_meta.record_eid_data(&self.ticker, &eids);
+            true
+        } else {
+            false
+        };
 
         // Get barTickData array
-        let bar_tick_data = bar_data.get_by_str("barTickData")?;
-        let n = bar_tick_data.len();
-        if n == 0 {
+        let bar_tick_data = bar_data.get_by_str("barTickData");
+        let n = bar_tick_data.as_ref().map_or(0, |data| data.len());
+        if n == 0 && !has_eids {
             return None;
         }
 
         // Create builders
-        let mut ticker_builder = StringBuilder::new();
-        let mut time_builder = TimestampMicrosecondBuilder::new();
-        let mut open_builder = Float64Builder::new();
-        let mut high_builder = Float64Builder::new();
-        let mut low_builder = Float64Builder::new();
-        let mut close_builder = Float64Builder::new();
-        let mut volume_builder = Float64Builder::new();
-        let mut num_events_builder = Int32Builder::new();
-        let mut value_builder = Float64Builder::new();
+        let mut ticker_builder =
+            StringBuilder::with_capacity(n, self.ticker.len().saturating_mul(n));
+        let mut time_builder = TimestampMicrosecondBuilder::with_capacity(n);
+        let mut open_builder = Float64Builder::with_capacity(n);
+        let mut high_builder = Float64Builder::with_capacity(n);
+        let mut low_builder = Float64Builder::with_capacity(n);
+        let mut close_builder = Float64Builder::with_capacity(n);
+        let mut volume_builder = Float64Builder::with_capacity(n);
+        let mut num_events_builder = Int32Builder::with_capacity(n);
+        let mut value_builder = Float64Builder::with_capacity(n);
 
         for i in 0..n {
+            let bar_tick_data = bar_tick_data
+                .as_ref()
+                .expect("nonzero length requires barTickData");
             let Some(bar) = bar_tick_data.get_element(i) else {
                 continue;
             };
@@ -177,7 +188,8 @@ impl IntradayBarStreamState {
             Arc::new(value_builder.finish()),
         ];
 
-        RecordBatch::try_new(schema.clone(), columns).ok()
+        let batch = RecordBatch::try_new(schema.clone(), columns).ok()?;
+        Some(response_meta.attach(batch))
     }
 }
 

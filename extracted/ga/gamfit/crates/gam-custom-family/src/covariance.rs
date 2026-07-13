@@ -640,7 +640,7 @@ pub(crate) fn exact_newton_joint_stationarity_inf_norm<F: CustomFamily + ?Sized>
             _ => return Ok(None),
         };
         let mut residual = s_lambdas[b].dot(&states[b].beta) - gradient;
-        if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             residual += &states[b].beta.mapv(|v| ridge * v);
         }
         let block_active_hint = block_active_sets
@@ -826,7 +826,7 @@ pub(crate) fn exact_newton_joint_stationarity_inf_norm_from_gradient(
         let width = specs[b].design.ncols();
         let mut residual =
             s_lambdas[b].dot(&states[b].beta) - gradient.slice(ndarray::s![offset..offset + width]);
-        if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             residual += &states[b].beta.mapv(|v| ridge * v);
         }
         // gam#979 box-bound (simple lower bound) KKT residual. `residual` here is
@@ -903,7 +903,7 @@ pub(crate) fn exact_newton_joint_stationarity_vector_from_gradient(
         let start = offset;
         let end = offset + width;
         let mut block = s_lambdas[b].dot(&states[b].beta) - gradient.slice(ndarray::s![start..end]);
-        if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             block += &states[b].beta.mapv(|v| ridge * v);
         }
         residual.slice_mut(ndarray::s![start..end]).assign(&block);
@@ -1014,7 +1014,7 @@ pub(crate) fn exact_newton_joint_projected_stationarity_vector_from_gradient(
         if let Some(js) = joint_penalty_score {
             block += &js.slice(ndarray::s![start..end]);
         }
-        if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             block += &states[b].beta.mapv(|v| ridge * v);
         }
         if let Some(constraints) = block_constraints[b].as_ref() {
@@ -1201,7 +1201,10 @@ pub(crate) fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + '
     };
     for (b, spec) in specs.iter().enumerate() {
         let (start, end) = ranges[b];
-        let lambdas = per_block_log_lambdas[b].mapv(f64::exp);
+        let lambdas = exact_lambdas_from_log_strengths(
+            &per_block_log_lambdas[b],
+            &format!("joint covariance block {b} log strength"),
+        )?;
         let mut s_lambda = Array2::<f64>::zeros((end - start, end - start));
         for (k, s) in spec.penalties.iter().enumerate() {
             s.add_scaled_to(lambdas[k], &mut s_lambda);
@@ -1318,7 +1321,10 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
             return Ok(None);
         };
         let spec = &specs[0];
-        let lambdas = per_block_log_lambdas[0].mapv(f64::exp);
+        let lambdas = exact_lambdas_from_log_strengths(
+            &per_block_log_lambdas[0],
+            "single-block geometry log strength",
+        )?;
         // The penalized joint Hessian `H_pen = H_lik + Σ_k λ_k S_k` is the exact
         // mgcv quantity the trace edf `p − Σ_k λ_k·tr(H_pen⁻¹ S_k)` consumes. Two
         // single-block working-set shapes reach here:
@@ -1332,37 +1338,34 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
         //   and add the penalties, so these families report inference / total
         //   edf instead of dropping geometry (and therefore inference) for the
         //   whole fit (#720).
-        let (mut h, working_weights, working_response) = match eval.blockworking_sets.as_slice() {
-            [
-                BlockWorkingSet::Diagonal {
-                    working_response,
-                    working_weights,
-                },
-            ] => {
-                let Some(h) = spec
-                    .design
-                    .xt_diag_x_signed_op(SignedWeightsView::from_array(working_weights))
-                    .ok()
-                else {
-                    return Ok(None);
-                };
-                (h, working_weights.clone(), working_response.clone())
-            }
-            [BlockWorkingSet::ExactNewton { hessian, .. }] => {
-                let h = hessian.to_dense();
-                if h.nrows() != spec.design.ncols() || h.ncols() != spec.design.ncols() {
-                    return Ok(None);
+        let (mut h, working_weights, working_response) =
+            match eval.blockworking_sets.as_slice() {
+                [
+                    BlockWorkingSet::Diagonal {
+                        working_response,
+                        working_weights,
+                    },
+                ] => {
+                    let h = spec.design.xt_diag_x_signed_op(
+                        FiniteSignedWeightsView::try_from_array(working_weights)?,
+                    )?;
+                    (h, working_weights.clone(), working_response.clone())
                 }
-                // The exact-Newton block carries no IRLS pseudo-data; the
-                // trace edf reads only the penalized Hessian, and the
-                // downstream IRLS covariance path is unused for these
-                // families (they report dispersion = 1). Match the joint
-                // multi-block branch's zero-length convention.
-                let working_len = states.first().map(|state| state.eta.len()).unwrap_or(0);
-                (h, Array1::zeros(working_len), Array1::zeros(working_len))
-            }
-            _ => return Ok(None),
-        };
+                [BlockWorkingSet::ExactNewton { hessian, .. }] => {
+                    let h = hessian.to_dense();
+                    if h.nrows() != spec.design.ncols() || h.ncols() != spec.design.ncols() {
+                        return Ok(None);
+                    }
+                    // The exact-Newton block carries no IRLS pseudo-data; the
+                    // trace edf reads only the penalized Hessian, and the
+                    // downstream IRLS covariance path is unused for these
+                    // families (they report dispersion = 1). Match the joint
+                    // multi-block branch's zero-length convention.
+                    let working_len = states.first().map(|state| state.eta.len()).unwrap_or(0);
+                    (h, Array1::zeros(working_len), Array1::zeros(working_len))
+                }
+                _ => return Ok(None),
+            };
         for (k, s) in spec.penalties.iter().enumerate() {
             let s_dense = s.as_dense_cow();
             h.scaled_add(lambdas[k], &*s_dense);
@@ -1375,7 +1378,7 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
         // symmetry with the multi-block branch.)
         if let Some(bundle) = options.joint_penalties.as_deref()
             && !bundle.is_empty()
-            && h.nrows() == bundle.specs.first().map(|s| s.dim()).unwrap_or(h.nrows())
+            && h.nrows() == bundle.specs()[0].dim()
         {
             bundle.add_to_matrix(&mut h);
         }
@@ -1418,7 +1421,10 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
         let Some(block_log_lambdas) = per_block_log_lambdas.get(block_idx) else {
             return Ok(None);
         };
-        let lambdas = block_log_lambdas.mapv(f64::exp);
+        let lambdas = exact_lambdas_from_log_strengths(
+            block_log_lambdas,
+            &format!("joint geometry block {block_idx} log strength"),
+        )?;
         if lambdas.len() != spec.penalties.len() {
             return Ok(None);
         }

@@ -799,7 +799,7 @@ impl IsometryPenalty {
         rho: ArrayView1<'_, f64>,
         v: ArrayView1<'_, f64>,
     ) -> Array1<f64> {
-        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
+        let mu = validated_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let d = state.d;
         let n_obs = state.n_obs;
         let p = state.p;
@@ -1082,7 +1082,7 @@ impl IsometryPenalty {
         let Some(metric) = self.normalized_metric_state(g, n_obs, d) else {
             return grad;
         };
-        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
+        let mu = validated_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         for n in 0..n_obs {
             let Some(wj) = self.weighted_jacobian_row(n, d) else {
                 return Array2::<f64>::zeros((n_obs, p * d));
@@ -1106,6 +1106,20 @@ impl AnalyticPenalty for IsometryPenalty {
         PenaltyTier::Psi
     }
 
+    fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+        if rho.len() != 1 {
+            return Err(format!("isometry rho length {} != 1", rho.len()));
+        }
+        resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]).map(|_| ())
+    }
+
+    fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+        Ok(vec![
+            learnable_weight_coordinate_domain(self.scalar_weight)?
+                .ok_or_else(|| "isometry scalar weight must be positive".to_string())?,
+        ])
+    }
+
     fn value(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> f64 {
         let d = self
             .target
@@ -1121,7 +1135,7 @@ impl AnalyticPenalty for IsometryPenalty {
         let Some(metric) = self.normalized_metric_state(g, n_obs, d) else {
             return Self::DEFAULT_VALUE_ON_MISSING_CACHE;
         };
-        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
+        let mu = validated_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut acc = 0.0;
         for n in 0..n_obs {
             for k in 0..(d * d) {
@@ -1164,7 +1178,7 @@ impl AnalyticPenalty for IsometryPenalty {
             return Array1::<f64>::zeros(target.len());
         };
         let p = self.p_out;
-        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
+        let mu = validated_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut grad = Array1::<f64>::zeros(target.len());
         let Some(jac2) = self.jacobian_second(target, n_obs, d) else {
             return grad;
@@ -1252,7 +1266,7 @@ impl AnalyticPenalty for IsometryPenalty {
             return Array1::<f64>::zeros(v.len());
         };
         let p = self.p_out;
-        let mu = resolve_learnable_weight(self.scalar_weight, rho[self.rho_index]);
+        let mu = validated_learnable_weight(self.scalar_weight, rho[self.rho_index]);
         let mut out = Array1::<f64>::zeros(v.len());
         let mut wj_rows = Vec::with_capacity(n_obs);
         for n in 0..n_obs {

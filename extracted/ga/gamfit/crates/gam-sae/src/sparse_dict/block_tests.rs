@@ -88,9 +88,8 @@ fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
     // SELECTED — the historical selection-only gate committed it forever even
     // though it changed no objective value. The transaction must reject on the
     // strict RSS/evidence gate and restore every live field.
-    let x = Array2::<f32>::from_shape_fn((16, 2), |(_, column)| {
-        if column == 0 { 1.0 } else { 0.0 }
-    });
+    let x =
+        Array2::<f32>::from_shape_fn((16, 2), |(_, column)| if column == 0 { 1.0 } else { 0.0 });
     let config = BlockSparseConfig {
         n_blocks: 2,
         block_size: 1,
@@ -106,17 +105,8 @@ fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
     let mut decoder = Array2::<f32>::zeros((2, 2));
     decoder[[1, 0]] = 1.0;
     let mut gamma = 1.0_f32;
-    let mut codes = route_and_code_all(
-        x.view(),
-        decoder.view(),
-        gamma,
-        2,
-        1,
-        1,
-        16,
-        2,
-    )
-    .expect("baseline route");
+    let mut codes = route_and_code_all(x.view(), decoder.view(), gamma, 2, 1, 1, 16, 2)
+        .expect("baseline route");
     let mut rss = reconstruction_rss(x.view(), &codes, decoder.view(), 1);
     let tss = centered_total_sum_squares(x.view());
     let mut criterion = explained_variance_from_rss(rss, tss);
@@ -126,15 +116,12 @@ fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
     };
 
     let mut candidate_decoder = decoder.clone();
-    candidate_decoder.row_mut(0).assign(&proposal.proposed_frame.row(0));
-    let (_, candidate_codes) = route_and_close_gamma(
-        x.view(),
-        candidate_decoder.view(),
-        gamma,
-        &config,
-        1,
-    )
-    .expect("candidate route");
+    candidate_decoder
+        .row_mut(0)
+        .assign(&proposal.proposed_frame.row(0));
+    let (_, candidate_codes) =
+        route_and_close_gamma(x.view(), candidate_decoder.view(), gamma, &config, 1)
+            .expect("candidate route");
     assert!(
         proposal_is_selected(&candidate_codes, 0, 1),
         "fixture must defeat a selection-only birth gate"
@@ -159,7 +146,10 @@ fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
     )
     .expect("birth transaction");
 
-    assert!(!accepted, "a zero-improvement selected birth must be rejected");
+    assert!(
+        !accepted,
+        "a zero-improvement selected birth must be rejected"
+    );
     assert_eq!(decoder, decoder_before, "decoder frame was not restored");
     assert_eq!(gamma.to_bits(), gamma_before.to_bits());
     assert_eq!(rss.to_bits(), rss_before.to_bits());
@@ -175,19 +165,10 @@ fn selected_no_improvement_birth_restores_complete_one_shot_state_2023() {
 fn positive_rss_noise_birth_still_fails_rank_charge_2023() {
     let decoder = ndarray::array![[1.0_f32, 0.0_f32]];
     let gram = ndarray::array![[100.0_f64]];
-    let margin = block_birth_evidence_margin(
-        0,
-        1.0e-2,
-        100.0,
-        100,
-        &gram,
-        decoder.view(),
-        100,
-        2,
-        1,
-    )
-    .expect("birth evidence calculation")
-    .expect("fixture has positive realised rank");
+    let margin =
+        block_birth_evidence_margin(0, 1.0e-2, 100.0, 100, &gram, decoder.view(), 100, 2, 1)
+            .expect("birth evidence calculation")
+            .expect("fixture has positive realised rank");
     assert!(
         margin < 0.0,
         "a representable but sub-charge RSS gain must not birth a noise specialist: margin={margin}"
@@ -957,4 +938,117 @@ fn block_coordinate_chart_pair_screen_accepts_split_circle() {
             (result.reconstructed[[i, 0]].powi(2) + result.reconstructed[[i, 1]].powi(2)).sqrt();
         assert!((radius - 1.0).abs() < 5.0e-2);
     }
+}
+
+#[test]
+fn coordinate_partition_frames_are_orthonormal_and_data_independent() {
+    // The cheap large-K seed is a valid St(b,P) block dictionary that never reads
+    // the corpus: each block is `b` distinct signed unit coordinate axes, so the
+    // within-block rows are orthonormal, and the frames depend only on (G,b,P).
+    let (g, b, p) = (7usize, 3usize, 8usize);
+    let frames = coordinate_partition_frames(g, b, p);
+    assert_eq!(frames.dim(), (g * b, p));
+    // Determinism: same shape → identical frames (fixed splitmix64 stream).
+    let again = coordinate_partition_frames(g, b, p);
+    assert_eq!(frames, again);
+    for block in 0..g {
+        for left in 0..b {
+            for right in 0..b {
+                let mut dot = 0.0f64;
+                for c in 0..p {
+                    dot += frames[[block * b + left, c]] as f64
+                        * frames[[block * b + right, c]] as f64;
+                }
+                let want = if left == right { 1.0 } else { 0.0 };
+                assert!(
+                    (dot - want).abs() < 1e-6,
+                    "block {block} axes ({left},{right}) not orthonormal: {dot}"
+                );
+            }
+        }
+        // Every axis is a single signed coordinate (one non-zero entry of ±1).
+        for axis in 0..b {
+            let row = frames.row(block * b + axis);
+            let nonzero = row.iter().filter(|&&v| v != 0.0).count();
+            assert_eq!(nonzero, 1, "axis must be a single signed coordinate");
+            assert!(row.iter().all(|&v| v == 0.0 || v.abs() == 1.0));
+        }
+    }
+}
+
+#[test]
+fn farthest_point_seeded_entry_matches_default_byte_for_byte() {
+    // `fit_block_sparse_dictionary` must be exactly the FarthestPoint case of the
+    // seeded entry — same seed, same alternation, same fixed point.
+    let (p, b, n_blocks) = (8usize, 2usize, 3usize);
+    let planted = planted_frames(p, n_blocks, b);
+    let x = planted_data(&planted, n_blocks, b, p, 180);
+    let config = BlockSparseConfig {
+        n_blocks,
+        block_size: b,
+        block_topk: 1,
+        max_epochs: 40,
+        minibatch: 64,
+        block_tile: 8,
+        frame_ridge: 1.0e-9,
+        aux_k: 2,
+        matryoshka_prefix: false,
+        tolerance: 1.0e-10,
+    };
+    let default_fit = fit_block_sparse_dictionary(x.view(), &config).expect("default fit");
+    let seeded_fit =
+        fit_block_sparse_dictionary_with_seed(x.view(), &config, BlockSeedPolicy::FarthestPoint)
+            .expect("FarthestPoint seeded fit");
+    assert_eq!(
+        default_fit.decoder, seeded_fit.decoder,
+        "the default entry must be byte-identical to the FarthestPoint seeded entry"
+    );
+    assert_eq!(
+        default_fit.explained_variance,
+        seeded_fit.explained_variance
+    );
+    assert_eq!(default_fit.epochs, seeded_fit.epochs);
+}
+
+#[test]
+fn coordinate_partition_seed_fits_end_to_end() {
+    // The cheap large-K seed produces a valid, converged block fit on real
+    // structure: it must run end to end (no seeder corpus pass) and explain a
+    // non-trivial fraction of the variance. It is NOT claimed to match the
+    // data-aware farthest-point seed on this adversarial orthogonal fixture — the
+    // coordinate seed is the K≫intrinsic-rank front door where atoms are spurious
+    // and revival, not the seed, carries recovery.
+    let (p, b, n_blocks) = (8usize, 2usize, 3usize);
+    let planted = planted_frames(p, n_blocks, b);
+    let x = planted_data(&planted, n_blocks, b, p, 180);
+    let config = BlockSparseConfig {
+        n_blocks,
+        block_size: b,
+        block_topk: 1,
+        max_epochs: 120,
+        minibatch: 64,
+        block_tile: 8,
+        frame_ridge: 1.0e-9,
+        aux_k: 3,
+        matryoshka_prefix: false,
+        tolerance: 1.0e-10,
+    };
+    let fit = fit_block_sparse_dictionary_with_seed(
+        x.view(),
+        &config,
+        BlockSeedPolicy::CoordinatePartition,
+    )
+    .expect("coordinate-partition seeded fit must run end to end");
+    eprintln!(
+        "[#2023 coord-seed] EV={:.12} epochs={} convergence={:?}",
+        fit.explained_variance, fit.epochs, fit.convergence
+    );
+    assert!(
+        fit.explained_variance.is_finite() && fit.explained_variance > 0.5,
+        "coordinate-seeded fit must explain non-trivial variance: EV = {}",
+        fit.explained_variance
+    );
+    let recon = fit.reconstruct();
+    assert_eq!(recon.dim(), (x.nrows(), p));
+    assert!(recon.iter().map(|v| v * v).sum::<f32>() > 0.0);
 }

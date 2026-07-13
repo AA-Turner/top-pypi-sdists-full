@@ -258,16 +258,21 @@ _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
 
 
-def _log_or_raise(label: str, exc: BaseException) -> None:
+def _log_or_raise(
+    label: str, exc: BaseException, *, tolerate_not_authorized: bool = False
+) -> None:
     """
-    Log expected endpoint-unavailable errors; re-raise anything unexpected.
-
-    ``NvrError`` and ``BadRequest`` are treated as expected failures for
-    optional Public API endpoints (e.g., alarm-manager, sirens, relays) that
-    may not exist on all systems.  Any other exception type is re-raised
-    immediately — the caller must handle it (e.g. ``CancelledError``,
-    validation errors from an updated server payload).
+    Log ``BadRequest``/``NvrError`` (endpoint unavailable); re-raise anything
+    else. ``NotAuthorized`` (a ``BadRequest`` subclass) is re-raised unless
+    ``tolerate_not_authorized`` is set, in which case it is logged.
     """
+    if isinstance(exc, NotAuthorized):
+        if tolerate_not_authorized:
+            _LOGGER.debug(
+                "%s endpoint not authorized (feature disabled?): %s", label, exc
+            )
+            return
+        raise exc
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
     else:
@@ -438,6 +443,9 @@ class BaseApiClient:
             )
 
         self._auth_lock = asyncio.Lock()
+        # Serializes ``update_public()``: an overlapping prime could apply an
+        # older snapshot over a newer one (and over live WS merges in between).
+        self._public_update_lock = asyncio.Lock()
         self._host = host
         self._port = port
 
@@ -1416,6 +1424,14 @@ class ProtectApiClient(BaseApiClient):
     # rate-limited, so this counter keeps a sustained cache/server desync
     # observable even when individual lines are suppressed.
     _events_remove_unknown_count: int = 0
+    # Public events/devices WS frames that arrive while ``update_public`` is
+    # priming are captured here and replayed after the fresh snapshot is
+    # applied, so an update landing in the prime window is never lost to the
+    # snapshot replacing the cached objects. ``None`` outside a prime; primes
+    # are serialized by ``_public_update_lock``, so exactly one prime owns it.
+    _prime_ws_buffer: (
+        list[tuple[Callable[[aiohttp.WSMessage], None], aiohttp.WSMessage]] | None
+    ) = None
 
     ignore_unadopted: bool
 
@@ -1777,6 +1793,10 @@ class ProtectApiClient(BaseApiClient):
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
             return
 
+        if self._prime_ws_buffer is not None:
+            self._prime_ws_buffer.append((self._process_events_ws_message, msg))
+            return
+
         try:
             data = orjson.loads(msg.data)
             action_type = data.get("type")
@@ -1838,6 +1858,10 @@ class ProtectApiClient(BaseApiClient):
         """Process devices websocket message (Public API - JSON format)."""
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
+            return
+
+        if self._prime_ws_buffer is not None:
+            self._prime_ws_buffer.append((self._process_devices_ws_message, msg))
             return
 
         try:
@@ -2217,7 +2241,13 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_events() requires update_public() to have been called"
                 " at least once"
             )
+        return self._register_event_subscriber(callback)
 
+    def _register_event_subscriber(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """Wire a typed events subscriber and connect the WS on the first one."""
         # Local import to avoid circular import (events.dispatcher → api).
         from .events.dispatcher import EventDispatcher  # noqa: PLC0415
 
@@ -2235,6 +2265,32 @@ class ProtectApiClient(BaseApiClient):
             dispatcher.start_ttl_sweep()
 
         return partial(self._unsubscribe_events, callback)
+
+    async def subscribe_events_and_prime(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed event changes and prime the public bootstrap,
+        order-independent.
+
+        The events-side analog of :meth:`subscribe_devices_and_prime`: connects
+        the events websocket *before* priming, then awaits :meth:`update_public`.
+        Frames arriving during the prime are buffered and replayed onto the
+        fresh snapshot, so ordering is moot and the bootstrap need not be primed
+        beforehand.
+
+        Returns the same unsubscribe callable as :meth:`subscribe_events`. If
+        priming raises, the subscription is rolled back before the error
+        propagates.
+        """
+        unsub = self._register_event_subscriber(callback)
+        try:
+            await self.update_public()
+        except BaseException:
+            unsub()
+            raise
+        return unsub
 
     def _unsubscribe_events(
         self,
@@ -2360,7 +2416,13 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_devices() requires update_public() to have been called"
                 " at least once"
             )
+        return self._register_device_subscriber(callback)
 
+    def _register_device_subscriber(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> Callable[[], None]:
+        """Wire a typed devices subscriber and connect the WS on the first one."""
         # Local import to avoid circular import (devices.dispatcher → api).
         from .devices.dispatcher import DeviceDispatcher  # noqa: PLC0415
 
@@ -2377,6 +2439,33 @@ class ProtectApiClient(BaseApiClient):
             )
 
         return partial(self._unsubscribe_devices, callback)
+
+    async def subscribe_devices_and_prime(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed device changes and prime the public bootstrap,
+        order-independent.
+
+        Connects the devices websocket *before* priming, then awaits
+        :meth:`update_public`. Frames arriving during the prime are buffered and
+        replayed onto the fresh snapshot, so no update is lost regardless of
+        when the caller invokes this — it makes the prime/subscribe ordering
+        question moot. Unlike :meth:`subscribe_devices`, it does not require the
+        bootstrap to be primed beforehand.
+
+        Returns the same unsubscribe callable as :meth:`subscribe_devices`. If
+        priming raises (e.g. :class:`NotAuthorized`), the subscription is rolled
+        back before the error propagates.
+        """
+        unsub = self._register_device_subscriber(callback)
+        try:
+            await self.update_public()
+        except BaseException:
+            unsub()
+            raise
+        return unsub
 
     def _unsubscribe_devices(
         self,
@@ -2681,8 +2770,32 @@ class ProtectApiClient(BaseApiClient):
                 and camera.rtsps_streams is initial
             ):
                 camera.rtsps_streams = streams
+                # The write is otherwise silent: no wire frame announces a
+                # library-primed field. Emit a synthetic devices-WS ``update``
+                # so subscribers observe the streams becoming available through
+                # the existing channel. Suppress it when the re-fetch is equal to
+                # the cached value so a no-op refresh stays quiet.
+                if streams != initial:
+                    self.emit_devices_message(self._build_rtsps_update(camera, streams))
         finally:
             self._rtsps_refresh_tasks.pop(camera_id, None)
+
+    @staticmethod
+    def _build_rtsps_update(
+        camera: PublicCamera, streams: RTSPSStreams
+    ) -> WSSubscriptionMessage:
+        """Build a synthetic devices-WS ``update`` announcing a camera's streams."""
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=camera.id,
+            changed_data={
+                "modelKey": ModelType.CAMERA.value,
+                "id": camera.id,
+                "rtsps_streams": streams.unifi_dict(),
+            },
+            new_obj=camera,
+            old_obj=None,
+        )
 
     def _cancel_rtsps_refresh(self, camera_id: str) -> None:
         """Cancel a pending background RTSPS refresh for a camera, if any."""
@@ -3628,7 +3741,7 @@ class ProtectApiClient(BaseApiClient):
         ``/api/system`` is an **off-contract UniFi-OS endpoint** (not the
         public Protect API): unauthenticated, and it returns the mac of the
         device at the configured Protect host. Returns the mac string (e.g.
-        ``"E4388332C9B1"``, matching the private ``NVR.mac`` format) or
+        ``"AABBCCDDEEFF"``, matching the private ``NVR.mac`` format) or
         ``None`` when the endpoint is unreachable or carries no mac.
         """
         # Off-contract UniFi-OS endpoint, the fallback when the bootstraps
@@ -4509,15 +4622,24 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
-        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
-        profiles = [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
-        if self._public_bootstrap is not None:
-            # Update in place to preserve dict identity for consumers holding
-            # a reference to ``public_bootstrap.arm_profiles``.
-            arm_profiles = self._public_bootstrap.arm_profiles
-            arm_profiles.clear()
-            arm_profiles.update({p.id: p for p in profiles})
+        profiles = await self._fetch_arm_profiles()
+        self._apply_arm_profiles(profiles)
         return profiles
+
+    async def _fetch_arm_profiles(self) -> list[ArmProfile]:
+        """Fetch arm profiles without mutating the cached bootstrap."""
+        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
+        return [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    def _apply_arm_profiles(self, profiles: list[ArmProfile]) -> None:
+        """Merge fetched arm profiles into the cache in place, preserving identity."""
+        if self._public_bootstrap is None:
+            return
+        # Update in place to preserve dict identity for consumers holding
+        # a reference to ``public_bootstrap.arm_profiles``.
+        arm_profiles = self._public_bootstrap.arm_profiles
+        arm_profiles.clear()
+        arm_profiles.update({p.id: p for p in profiles})
 
     async def create_arm_profile_public(
         self,
@@ -4743,15 +4865,44 @@ class ProtectApiClient(BaseApiClient):
         doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
         ``DEBUG`` and ignored, and a partial public bootstrap is returned.
         If an endpoint fails, its previously cached data is left unchanged
-        (not cleared). Unexpected exceptions (e.g. validation errors from a
-        new server payload) propagate to the caller.
+        (not cleared). All results are classified before any are applied: an
+        unexpected exception (e.g. a validation error from a new server
+        payload) propagates to the caller with the snapshot left untouched,
+        never half-applied.
 
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
+
+        Public events/devices WS frames that arrive while this method is
+        priming are captured and replayed onto the fresh snapshot before it
+        returns, so a subscriber that is already connected does not lose an
+        update to the prime window — the subscribe-then-prime ordering is a
+        library guarantee, not a caller obligation. To also make the
+        prime-then-subscribe ordering moot for the typed callbacks, use
+        :meth:`subscribe_devices_and_prime` / :meth:`subscribe_events_and_prime`.
+
+        After priming, ``public_bootstrap.nvr.mac`` carries the NVR mac
+        whenever it is resolvable. On firmware that omits ``mac`` from the
+        public payload it is backfilled from the console fallback and stored
+        in the native UniFi format (uppercase, no separators) — the same
+        format newer firmware already provides — so consumers can read a
+        self-consistent mac regardless of firmware.
+
+        Concurrent calls are serialized: an overlapping prime could otherwise
+        apply an older snapshot over a newer one (and over live WS merges in
+        between). Each caller returns the then-current bootstrap.
         """
-        if self._public_bootstrap is None:
-            self._public_bootstrap = PublicBootstrap()
+        async with self._public_update_lock:
+            return await self._update_public_locked()
+
+    async def _update_public_locked(self) -> PublicBootstrap:
+        """Fetch and apply the public bootstrap; caller holds the prime lock."""
+        # Keep a candidate bootstrap local until Phase 1 classification
+        # succeeds; on a first refresh that fails, ``_public_bootstrap`` must
+        # stay ``None`` so the ``subscribe_events`` prime guard still fires.
         pb = self._public_bootstrap
+        if pb is None:
+            pb = PublicBootstrap()
 
         # Snapshot existing streams before the re-parse below replaces the
         # camera objects with freshly-built ones (whose ``rtsps_streams``
@@ -4765,8 +4916,8 @@ class ProtectApiClient(BaseApiClient):
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
-        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
-        # we gather it for concurrency and to swallow failures.
+        # ``_fetch_arm_profiles`` fetches without self-applying so
+        # arm-profiles can be applied atomically in the batch phase below.
         # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
             (self.get_nvr_public(), "nvr", "nvr"),
@@ -4783,29 +4934,93 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
-            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
+            (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
         ]
 
-        results = await asyncio.gather(
-            *[coro for coro, _, _ in endpoints], return_exceptions=True
-        )
+        # Capture any public-WS frame that lands while the snapshot is being
+        # fetched/applied so it can be replayed onto the fresh cache below,
+        # instead of being merged into (or dropped by) the about-to-be-replaced
+        # objects. The prime lock guarantees this prime is the only one.
+        self._prime_ws_buffer = []
+        try:
+            results = await asyncio.gather(
+                *[coro for coro, _, _ in endpoints], return_exceptions=True
+            )
 
-        # Process results with their corresponding labels and attributes.
-        for (_, label, attr), result in zip(endpoints, results, strict=True):
-            if isinstance(result, BaseException):
-                _log_or_raise(label, result)
-                continue
-            if attr == "arm_profiles":
-                # arm_profiles are already applied by get_arm_profiles_public;
-                # skip here to avoid overwriting the in-place dict.
-                continue
-            if attr == "nvr":
-                pb.nvr = result  # type: ignore[assignment]
-            else:
-                pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
+            # Phase 1 — classify every result before touching the snapshot.
+            # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
+            # logged; any other exception re-raises here, leaving the previous
+            # consistent bootstrap intact instead of half-applied.
+            for (_, label, _attr), result in zip(endpoints, results, strict=True):
+                if isinstance(result, BaseException):
+                    _log_or_raise(
+                        label, result, tolerate_not_authorized=label == "ulp-users"
+                    )
+
+            # Classification passed: publish the candidate.
+            # ``_apply_arm_profiles`` reads ``self._public_bootstrap``, so this
+            # must precede Phase 2.
+            self._public_bootstrap = pb
+
+            # Phase 2 — no unexpected error: apply the whole batch. No ``await``
+            # between writes, so a concurrent public-WS frame cannot interleave
+            # a torn state. Tolerated-missing endpoints keep their prior data.
+            self._apply_public_fetch_results(pb, endpoints, results)
+        finally:
+            # Stop buffering and drain on success and failure alike: replayed
+            # frames land on the fresh snapshot when the prime succeeded, and
+            # on the previous cache when it raised (the pre-buffering live
+            # behavior, merely delayed) — a failed prime must not swallow them.
+            # Clearing the buffer first means replayed (and any re-entrant)
+            # frames process live rather than re-queueing.
+            replay = self._prime_ws_buffer or []
+            self._prime_ws_buffer = None
+            for handler, msg in replay:
+                handler(msg)
 
         await self._prime_rtsps_streams(pb, previous_streams)
+        await self._backfill_public_nvr_mac(pb)
         return pb
+
+    def _apply_public_fetch_results(
+        self,
+        pb: PublicBootstrap,
+        endpoints: list[tuple[Any, str, str]],
+        results: list[Any],
+    ) -> None:
+        """Apply the classified ``update_public`` fetch results to ``pb``."""
+        for (_, _label, attr), result in zip(endpoints, results, strict=True):
+            if isinstance(result, BaseException):
+                continue
+            if attr == "arm_profiles":
+                self._apply_arm_profiles(cast("list[ArmProfile]", result))
+            elif attr == "nvr":
+                pb.nvr = result
+            else:
+                pb.apply_fetch_result(attr, result)
+
+    async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
+        """
+        Stamp the NVR mac onto ``pb`` when firmware omits it from the payload.
+
+        Protect newer than 7.1 already carries ``mac`` on ``GET /v1/nvrs`` in
+        native UniFi format (uppercase, no separators), so this is a no-op
+        there. On older firmware the field is ``None``; resolve it via the
+        console fallback and write it in that same native format so the value
+        does not drift across firmware versions.
+        """
+        if pb.nvr is None or pb.nvr.mac:
+            return
+        resolved = await self.resolve_nvr_mac()
+        if not resolved:
+            return
+        # ``pb.nvr`` may have been replaced by a websocket write-through while
+        # awaiting, so re-read it and skip if it now carries a mac.
+        if (nvr := pb.nvr) is not None and not nvr.mac:
+            # resolve_nvr_mac() returns the normalized (lowercase, separator-
+            # stripped) form; the public field natively holds uppercase-no-
+            # separator on newer firmware, so upper() matches that exactly.
+            nvr.mac = resolved.upper()
 
     async def _prime_rtsps_streams(
         self,

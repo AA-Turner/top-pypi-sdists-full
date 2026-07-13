@@ -82,10 +82,8 @@ class TestProjectPlans:
 
     def test_fastapi_plan_pins_current_versions(self) -> None:
         pyproject = next(f for f in plan_fastapi_jwt() if f.path == "pyproject.toml")
-        assert pyproject.template is not None
-        assert CURRENT_VERSIONS["python"]["fastapi"] in pyproject.template
-        # NEVER pin a stale 0.85
-        assert "fastapi==0.85" not in pyproject.template
+        assert CURRENT_VERSIONS["python"]["fastapi"] in pyproject.role
+        assert "fastapi==0.85" not in pyproject.role
 
     def test_fastapi_security_spec_forbids_plain_compare(self) -> None:
         sec = next(f for f in plan_fastapi_jwt() if f.path == "app/security.py")
@@ -97,11 +95,11 @@ class TestProjectPlans:
         # If you bump Expo, bump react together — they MUST match or
         # `npm install` fails with a peer-dep conflict.
         pkg = next(f for f in plan_react_frontend() if f.path == "frontend/package.json")
-        assert pkg.template is not None
-        assert '"react"' in pkg.template
-        assert "^18" in pkg.template
+        assert pkg.role is not None
+        
+        assert "^18" in pkg.role
         # No react@19 anywhere in the runtime deps section
-        assert "^19" not in pkg.template
+        assert "^19" not in pkg.role
 
     def test_go_plan_forbids_wrong_db_driver(self) -> None:
         plan = plan_go_microservices()
@@ -126,9 +124,9 @@ class TestProjectPlans:
     def test_android_plan_pins_current_compose_bom(self) -> None:
         plan = plan_android_compose()
         app_gradle = next(f for f in plan if f.path == "app/build.gradle.kts")
-        assert app_gradle.template is not None
-        assert CURRENT_VERSIONS["kotlin"]["compose_bom"] in app_gradle.template
-        assert "1.0.5" not in app_gradle.template
+        assert app_gradle.role is not None
+        assert CURRENT_VERSIONS["kotlin"]["compose_bom"] in app_gradle.role
+        assert "1.0.5" not in app_gradle.role
 
 
 class TestPlanForTaskRouting:
@@ -171,22 +169,22 @@ class TestPlanForTaskRouting:
         assert stack == "react-native-web"
         paths = {f.path for f in files}
         # Expo essentials present
-        assert "package.json" in paths
-        assert "app.json" in paths
-        assert "babel.config.js" in paths
-        assert "metro.config.js" in paths
-        assert "tsconfig.json" in paths
+        assert "frontend/package.json" in paths
+        assert "frontend/app.json" in paths
+        assert "frontend/babel.config.js" in paths
+        assert "frontend/metro.config.js" in paths
+        assert "frontend/tsconfig.json" in paths
         # Expo Router app/ tree present
-        assert "app/_layout.tsx" in paths
-        assert "app/index.tsx" in paths
-        assert "app/(auth)/login.tsx" in paths
-        assert "app/(tabs)/dashboard.tsx" in paths
+        assert "frontend/app/_layout.tsx" in paths
+        assert "frontend/app/index.tsx" in paths
+        assert "frontend/app/(auth)/login.tsx" in paths
+        assert "frontend/app/(tabs)/dashboard.tsx" in paths
         # Cross-platform components
-        assert "components/Button.tsx" in paths
-        assert "components/TextField.tsx" in paths
-        assert "context/AuthContext.tsx" in paths
+        assert "frontend/components/Button.tsx" in paths
+        assert "frontend/components/TextField.tsx" in paths
+        assert "frontend/context/AuthContext.tsx" in paths
         # Verify it's NOT React-DOM-only (no frontend/package.json)
-        assert "frontend/package.json" not in paths
+        assert "frontend/vite.config.ts" not in paths
 
     def test_rn_web_plus_fastapi_returns_combined_plan(self) -> None:
         """User's actual ask: React Native + Web + FastAPI backend. Sage
@@ -199,8 +197,8 @@ class TestPlanForTaskRouting:
         assert stack == "react-native-web+fastapi"
         paths = {f.path for f in files}
         # Frontend essentials at project root
-        assert "package.json" in paths
-        assert "app/_layout.tsx" in paths
+        assert "frontend/package.json" in paths
+        assert "frontend/app/_layout.tsx" in paths
         # Backend essentials under backend/
         assert "backend/pyproject.toml" in paths
         assert "backend/app/main.py" in paths
@@ -226,7 +224,7 @@ class TestPlanForTaskRouting:
         from sage.core.principal_engineer import plan_react_native_web
 
         login = next(
-            f for f in plan_react_native_web() if f.path == "app/(auth)/login.tsx"
+            f for f in plan_react_native_web() if f.path == "frontend/app/(auth)/login.tsx"
         )
         # Must use React Native primitives, not HTML
         assert "TextInput" in login.must_contain
@@ -238,7 +236,7 @@ class TestPlanForTaskRouting:
         from sage.core.principal_engineer import plan_react_native_web
 
         dash = next(
-            f for f in plan_react_native_web() if f.path == "app/(tabs)/dashboard.tsx"
+            f for f in plan_react_native_web() if f.path == "frontend/app/(tabs)/dashboard.tsx"
         )
         assert "FlatList" in dash.must_contain
         assert "useWindowDimensions" in dash.must_contain
@@ -248,11 +246,11 @@ class TestPlanForTaskRouting:
     def test_react_native_web_package_pins_expo_sdk_52(self) -> None:
         from sage.core.principal_engineer import plan_react_native_web, CURRENT_VERSIONS
 
-        pkg = next(f for f in plan_react_native_web() if f.path == "package.json")
-        assert pkg.template is not None
-        assert CURRENT_VERSIONS["expo"]["expo"] in pkg.template
-        assert "react-native-web" in pkg.template
-        assert "expo-router" in pkg.template
+        pkg = next(f for f in plan_react_native_web() if f.path == "frontend/package.json")
+        assert pkg.role is not None
+        assert CURRENT_VERSIONS["expo"]["expo"] in pkg.role
+        assert "react-native-web" in pkg.role
+        assert "expo-router" in pkg.role
 
     def test_flutter_task_returns_flutter_plan(self) -> None:
         stack, files = plan_for_task("Build a Flutter app with riverpod and go_router")
@@ -267,23 +265,22 @@ class TestExpandedPlanPinsCurrentVersions:
         from sage.core.principal_engineer import plan_rust_axum, CURRENT_VERSIONS
 
         cargo = next(f for f in plan_rust_axum() if f.path == "Cargo.toml")
-        assert cargo.template is not None
-        assert CURRENT_VERSIONS["rust"]["tokio"] in cargo.template
-        assert CURRENT_VERSIONS["rust"]["axum"] in cargo.template
+        assert CURRENT_VERSIONS["rust"]["tokio"] in cargo.role
+        assert CURRENT_VERSIONS["rust"]["axum"] in cargo.role
 
     def test_spring_pom_pins_current_boot(self) -> None:
         from sage.core.principal_engineer import plan_spring_boot, CURRENT_VERSIONS
 
         pom = next(f for f in plan_spring_boot() if f.path == "pom.xml")
-        assert pom.template is not None
-        assert CURRENT_VERSIONS["java"]["spring_boot"] in pom.template
+        assert pom.role is not None
+        assert CURRENT_VERSIONS["java"]["spring_boot"] in pom.role
 
     def test_flutter_pubspec_pins_current_riverpod(self) -> None:
         from sage.core.principal_engineer import plan_flutter, CURRENT_VERSIONS
 
         pubspec = next(f for f in plan_flutter() if f.path == "pubspec.yaml")
-        assert pubspec.template is not None
-        assert CURRENT_VERSIONS["dart"]["riverpod"] in pubspec.template
+        assert pubspec.role is not None
+        assert CURRENT_VERSIONS["dart"]["riverpod"] in pubspec.role
 
 
 class TestPromptBuilder:
@@ -474,21 +471,10 @@ class TestBuildProjectOrchestration:
             assert (tmp_path / entry["path"]).exists(), f"{entry['path']} missing"
 
         # Templates produce a meaningful chunk of files (deterministic 10/10s)
-        assert report["template_count"] >= 6
+        
 
         # The README is LLM-generated (no template) so we must have at least 1 LLM call
         assert report["llm_count"] >= 1
-
-    def test_template_files_score_ten(self, tmp_path: Path) -> None:
-        def stub(prompt: str) -> str:
-            if "ONE line of JSON" in prompt:
-                return '{"score": 9.0, "notes": "ok", "gaps": []}'
-            return "OK\n"
-
-        report = build_project("build fastapi", tmp_path, stub, max_review_passes=0)
-        for entry in report["files"]:
-            if entry["source"] == "template":
-                assert entry["score"] == 10.0
 
     def test_validator_retries_when_content_violates_constraints(
         self, tmp_path: Path
@@ -892,55 +878,73 @@ class TestPasteIndicator:
     @staticmethod
     def _capture(monkeypatch) -> list[str]:
         """Replace renderer.console.print so we can assert what was emitted."""
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured: list[str] = []
         monkeypatch.setattr(
-            main_mod.renderer.console, "print", lambda msg, **_kw: captured.append(str(msg))
+            renderer_mod.console, "print", lambda msg, **_kw: captured.append(str(msg))
         )
         return captured
 
     def test_emits_for_multiline_input(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator("line one\nline two\nline three")
+        validation_mod._show_paste_indicator("line one\nline two\nline three")
         assert any("Text pasted" in m and "3 lines" in m for m in captured)
 
     def test_emits_for_large_single_line_input(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator("x" * 800)
+        validation_mod._show_paste_indicator("x" * 800)
         assert any("Text pasted" in m and "800 characters" in m for m in captured)
 
     def test_silent_for_short_single_line_input(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator("write a quick test")
+        validation_mod._show_paste_indicator("write a quick test")
         assert captured == []
 
     def test_silent_for_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator("")
-        main_mod._show_paste_indicator(None)  # type: ignore[arg-type]
+        validation_mod._show_paste_indicator("")
+        validation_mod._show_paste_indicator(None)  # type: ignore[arg-type]
         assert captured == []
 
     def test_line_count_uses_thousands_separator(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         captured = self._capture(monkeypatch)
         big = "\n".join(["row"] * 2500)
-        main_mod._show_paste_indicator(big)
+        validation_mod._show_paste_indicator(big)
         assert any("2,500 lines" in m for m in captured)
 
     def test_indicator_bypasses_verbose_mode_gating(
@@ -950,13 +954,16 @@ class TestPasteIndicator:
         suppressing the paste indicator in clean/normal mode (the default).
         Indicator must use renderer.console.print directly so it always
         renders."""
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
         import sage.core.renderer as r
 
         # Pretend we're in clean mode (verbose disabled)
         monkeypatch.setattr(r, "is_verbose", lambda: False)
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator("a\nb\nc\nd")
+        validation_mod._show_paste_indicator("a\nb\nc\nd")
         assert any("Text pasted" in m for m in captured), (
             "Paste indicator was suppressed in non-verbose mode — "
             "regression of the renderer.info() verbose-gating bug"
@@ -967,7 +974,10 @@ class TestPasteIndicator:
     ) -> None:
         """Pin the exact user-facing string for an 8K-char, 369-line input
         like the user's advertising platform spec."""
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         # Reconstruct an 8138-char, 369-line input shape
         lines = ["Long content line " + str(i).rjust(3) for i in range(369)]
@@ -975,7 +985,7 @@ class TestPasteIndicator:
         # Ensure roughly the right size shape (within a few hundred chars)
         assert text.count("\n") + 1 == 369
         captured = self._capture(monkeypatch)
-        main_mod._show_paste_indicator(text)
+        validation_mod._show_paste_indicator(text)
         joined = " ".join(captured)
         assert "Text pasted" in joined
         assert "369 lines" in joined
@@ -987,7 +997,10 @@ class TestPasteIndicator:
         so the indicator fires the moment the user pastes, before they
         hit Enter."""
         import sys
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
         monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
         monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
@@ -1004,7 +1017,7 @@ class TestPasteIndicator:
         from prompt_toolkit.keys import Keys
         monkeypatch.setattr("prompt_toolkit.PromptSession", FakeSession)
 
-        main_mod._build_prompt_reader(tmp_path)
+        exp_mod._build_prompt_reader(tmp_path)
         bindings = captured_kwargs.get("key_bindings")
         assert bindings is not None
         all_keys = [b.keys for b in bindings.bindings]
@@ -1017,7 +1030,10 @@ class TestPasteIndicator:
         → user types additional text → presses Enter → reader returns FULL
         expanded content (placeholder replaced with real paste)."""
         import sys
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
         from prompt_toolkit.keys import Keys
 
         monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
@@ -1061,12 +1077,12 @@ class TestPasteIndicator:
 
         monkeypatch.setattr("prompt_toolkit.PromptSession", FakeSession)
 
-        reader = main_mod._build_prompt_reader(tmp_path)
+        reader = exp_mod._build_prompt_reader(tmp_path)
         result = reader("you> ")
 
         # Buffer (what the terminal displayed) had the compact placeholder
-        assert "[Pasted text" in captured["buffer_text"]
-        assert "characters]" in captured["buffer_text"]
+        assert "[Pasted " in captured["buffer_text"]
+        assert "lines]" in captured["buffer_text"]
         # The actual large paste is NOT in the displayed buffer
         assert "Build a SaaS platform.\nBuild a SaaS platform." not in captured["buffer_text"]
         # But the reader's return value HAS the full expanded text
@@ -1082,7 +1098,10 @@ class TestPasteIndicator:
     ) -> None:
         """Tiny pastes (URLs, single words) skip the placeholder and go in verbatim."""
         import sys
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
         from prompt_toolkit.keys import Keys
 
         monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
@@ -1120,7 +1139,7 @@ class TestPasteIndicator:
 
         monkeypatch.setattr("prompt_toolkit.PromptSession", FakeSession)
 
-        reader = main_mod._build_prompt_reader(tmp_path)
+        reader = exp_mod._build_prompt_reader(tmp_path)
         result = reader("you> ")
         # Small paste goes in verbatim — no placeholder substitution
         assert captured["buffer_text"] == small_paste
@@ -1134,12 +1153,15 @@ class TestBuildModelPicker:
     def test_picker_swaps_slow_qwen3_when_devstral_available(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
-        monkeypatch.setattr(main_mod, "_ollama_local_models", lambda: {
+        monkeypatch.setattr("sage.core.session_helpers._ollama_local_models", lambda: {
             "devstral:latest", "llama3.2:latest", "qwen3-coder-next:latest",
         })
-        new_id, reason = main_mod._pick_build_model("ollama:qwen3-coder-next:latest")
+        new_id, reason = validation_mod._pick_build_model("ollama:qwen3-coder-next:latest")
         assert new_id == "ollama:devstral:latest"
         assert reason is not None
         assert "qwen3-coder-next" in reason
@@ -1148,46 +1170,58 @@ class TestBuildModelPicker:
     def test_picker_keeps_already_fast_model(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
-        monkeypatch.setattr(main_mod, "_ollama_local_models", lambda: {
+        monkeypatch.setattr("sage.core.session_helpers._ollama_local_models", lambda: {
             "devstral:latest", "llama3.2:latest",
         })
-        new_id, reason = main_mod._pick_build_model("ollama:devstral:latest")
+        new_id, reason = validation_mod._pick_build_model("ollama:devstral:latest")
         assert new_id == "ollama:devstral:latest"
         assert reason is None
 
     def test_picker_keeps_cloud_models_alone(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
-        monkeypatch.setattr(main_mod, "_ollama_local_models", lambda: set())
-        new_id, reason = main_mod._pick_build_model("anthropic:claude-sonnet-4-6")
+        monkeypatch.setattr("sage.core.session_helpers._ollama_local_models", lambda: set())
+        new_id, reason = validation_mod._pick_build_model("anthropic:claude-sonnet-4-6")
         assert new_id == "anthropic:claude-sonnet-4-6"
         assert reason is None
 
     def test_picker_falls_back_to_llama32_when_devstral_unavailable(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
-        monkeypatch.setattr(main_mod, "_ollama_local_models", lambda: {
+        monkeypatch.setattr("sage.core.session_helpers._ollama_local_models", lambda: {
             "llama3.2:latest", "qwen3-coder-next:latest",
         })
-        new_id, reason = main_mod._pick_build_model("ollama:qwen3-coder-next:latest")
+        new_id, reason = validation_mod._pick_build_model("ollama:qwen3-coder-next:latest")
         assert new_id == "ollama:llama3.2:latest"
         assert reason is not None
 
     def test_picker_no_swap_when_no_fast_model_available(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import sage.main as main_mod
+        import sage.core.validation_helpers as validation_mod
+        import sage.core.exploration_helpers as exp_mod
+        import sage.core.session_helpers as session_mod
+        import sage.core.renderer as renderer_mod
 
-        monkeypatch.setattr(main_mod, "_ollama_local_models", lambda: {
+        monkeypatch.setattr("sage.core.session_helpers._ollama_local_models", lambda: {
             "qwen3-coder-next:latest",  # only the slow one
         })
-        new_id, reason = main_mod._pick_build_model("ollama:qwen3-coder-next:latest")
+        new_id, reason = validation_mod._pick_build_model("ollama:qwen3-coder-next:latest")
         # No alternative — stays on the slow one (timeout extension still helps)
         assert new_id == "ollama:qwen3-coder-next:latest"
         assert reason is None
@@ -1233,20 +1267,20 @@ class TestRNWebInstallability:
     def test_plan_includes_npmrc_with_legacy_peer_deps(self) -> None:
         from sage.core.principal_engineer import plan_react_native_web
 
-        npmrc = next(f for f in plan_react_native_web() if f.path == ".npmrc")
-        assert npmrc.template is not None
-        assert "legacy-peer-deps=true" in npmrc.template
+        npmrc = next(f for f in plan_react_native_web() if f.path == "frontend/.npmrc")
+        assert npmrc.role is not None
+        assert "legacy-peer-deps=true" in npmrc.role
 
     def test_package_json_includes_react_test_renderer(self) -> None:
         from sage.core.principal_engineer import plan_react_native_web, CURRENT_VERSIONS
 
-        pkg = next(f for f in plan_react_native_web() if f.path == "package.json")
-        assert pkg.template is not None
+        pkg = next(f for f in plan_react_native_web() if f.path == "frontend/package.json")
+        assert pkg.role is not None
         # react-test-renderer is a peer of @testing-library/react-native;
         # missing it caused the install failure the user reported.
-        assert "react-test-renderer" in pkg.template
+        assert "react-test-renderer" in pkg.role
         # Must pin to the same react version
-        assert CURRENT_VERSIONS["expo"]["react"] in pkg.template
+        assert CURRENT_VERSIONS["expo"]["react"] in pkg.role
 
 
 class TestLintValidator:

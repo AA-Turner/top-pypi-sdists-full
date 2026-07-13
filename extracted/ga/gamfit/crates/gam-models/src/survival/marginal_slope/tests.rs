@@ -1150,11 +1150,11 @@ fn rigid_row_kernel_propagates_nan_signed_margin_errors() {
 }
 
 /// The single-expression Taylor-jet tower (#932) of the rigid K=1
-/// survival marginal-slope row NLL, written ONCE over `Tower4<4>`
+/// survival marginal-slope row NLL, written ONCE over generic jet
 /// primaries `(q0, q1, qd1, g)`. It reuses the family's OWN hand-certified
 /// `[f64; 5]` special-function derivative stacks (`unary_derivatives_sqrt`
 /// / `_neglog_phi` / `_log_normal_pdf` / `_log`) through
-/// `Tower4::compose_unary`, so no probit/log primitive is re-derived here:
+/// `JetScalar::compose_unary`, so no probit/log primitive is re-derived here:
 /// the tower mechanizes only the Leibniz / Faà di Bruno composition that
 /// `row_primary_closed_form` previously coded by hand (where #736's
 /// cross-block sign flip lived). The value channel of the returned tower
@@ -1168,7 +1168,7 @@ struct SurvivalMarginalSlopeRigidNllProgram {
     probit_scale: f64,
 }
 
-impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProgram {
+impl gam_math::jet_tower::RowProgram<4> for SurvivalMarginalSlopeRigidNllProgram {
     fn n_rows(&self) -> usize {
         self.primaries.len()
     }
@@ -1180,12 +1180,11 @@ impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProg
             .ok_or_else(|| format!("rigid nll program: row {row} out of range"))
     }
 
-    fn row_nll(
+    fn eval<S: gam_math::jet_scalar::JetScalar<4>>(
         &self,
         row: usize,
-        p: &[gam_math::jet_tower::Tower4<4>; 4],
-    ) -> Result<gam_math::jet_tower::Tower4<4>, String> {
-        use gam_math::jet_tower::Tower4;
+        p: &[S; 4],
+    ) -> Result<S, String> {
         let z = *self
             .z
             .get(row)
@@ -1200,38 +1199,43 @@ impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProg
 
         // c(g) = sqrt(1 + (s_f g)^2)  — K=1 covariance_ones = 1, exactly the
         // shared MultiDirJet `one_plus_b2 -> sqrt` composition.
-        let observed_g = g * s_f;
-        let one_plus_b2 = observed_g * observed_g + 1.0;
-        let c = one_plus_b2.compose_unary(unary_derivatives_sqrt(one_plus_b2.v));
+        let observed_g = g.scale(s_f);
+        let one_plus_b2 = observed_g
+            .mul(&observed_g)
+            .add(&S::constant(1.0));
+        let c = one_plus_b2.compose_unary(unary_derivatives_sqrt(one_plus_b2.value()));
 
-        let eta0 = q0 * c + observed_g * z;
-        let eta1 = q1 * c + observed_g * z;
-        let ad1 = qd1 * c;
+        let eta0 = q0.mul(&c).add(&observed_g.scale(z));
+        let eta1 = q1.mul(&c).add(&observed_g.scale(z));
+        let ad1 = qd1.mul(&c);
 
         // Entry survival: +w logΦ(-η0) = -1 * (-w logΦ(-η0)).
-        let neg_eta0 = -eta0;
+        let neg_eta0 = eta0.neg();
         let entry = neg_eta0
-            .compose_unary(unary_derivatives_neglog_phi(neg_eta0.v, w))
+            .compose_unary(unary_derivatives_neglog_phi(neg_eta0.value(), w))
             .scale(-1.0);
         // Exit survival: (1-d) * (-w logΦ(-η1)) carried with weight w(1-d).
-        let neg_eta1 = -eta1;
-        let exit = neg_eta1.compose_unary(unary_derivatives_neglog_phi(neg_eta1.v, w * (1.0 - d)));
+        let neg_eta1 = eta1.neg();
+        let exit = neg_eta1.compose_unary(unary_derivatives_neglog_phi(
+            neg_eta1.value(),
+            w * (1.0 - d),
+        ));
         // Event density: -w d logφ(η1).
         let event_density = if d > 0.0 {
-            eta1.compose_unary(unary_derivatives_log_normal_pdf(eta1.v))
+            eta1.compose_unary(unary_derivatives_log_normal_pdf(eta1.value()))
                 .scale(-w * d)
         } else {
-            Tower4::<4>::zero()
+            S::constant(0.0)
         };
         // Time derivative: -w d log(ad1).
         let time_deriv = if d > 0.0 {
-            ad1.compose_unary(unary_derivatives_log(ad1.v))
+            ad1.compose_unary(unary_derivatives_log(ad1.value()))
                 .scale(-w * d)
         } else {
-            Tower4::<4>::zero()
+            S::constant(0.0)
         };
 
-        Ok(exit + entry + event_density + time_deriv)
+        Ok(exit.add(&entry).add(&event_density).add(&time_deriv))
     }
 }
 
@@ -1291,7 +1295,7 @@ fn oracle_rigid_family(
 /// Audits every channel the production `SurvivalMarginalSlopeRowKernel`
 /// emits — value / gradient / Hessian / `row_third_contracted(dir)` /
 /// `row_fourth_contracted(u, v)` — against the single-expression
-/// `RowNllProgram<4>`-derived tower truth, over several fixture rows
+/// `RowProgram<4>`-derived tower truth, over several fixture rows
 /// (mixed event/censored, with and without Gaussian frailty so the probit
 /// scale ≠ 1) and several random direction vectors. The cross blocks that
 /// #736's sign flip corrupted are contracted explicitly. Agreement here is
@@ -1300,7 +1304,7 @@ fn oracle_rigid_family(
 #[test]
 fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
     use crate::row_kernel::RowKernel;
-    use gam_math::jet_tower::{KernelChannels, evaluate_program, verify_kernel_channels};
+    use gam_math::jet_tower::{KernelChannels, program_full_tower, verify_kernel_channels};
 
     let n = 7;
     let z = [0.4, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
@@ -1366,7 +1370,7 @@ fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
         };
 
         for row in 0..n {
-            let tower = evaluate_program(&program, row).expect("tower evaluation");
+            let tower = program_full_tower(&program, row).expect("tower evaluation");
 
             let (value, gradient, hessian) =
                 RowKernel::row_kernel(&kernel, row).expect("production kernel value/grad/hess");
@@ -1605,7 +1609,7 @@ fn exact_flex_row_value_matches_rigid_with_zero_score_and_link_coefficients() {
 /// proving resolving power (the #736 genus the shared-input parity cannot catch).
 #[test]
 fn flex_contracted_tower_matches_independent_rigid_tower_and_catches_sign_flip() {
-    use gam_math::jet_tower::{derived_fourth_contracted, derived_third_contracted};
+    use gam_math::jet_tower::{program_fourth_contracted, program_third_contracted};
 
     let score_runtime = test_deviation_runtime();
     let link_runtime = test_deviation_runtime();
@@ -1740,7 +1744,7 @@ fn flex_contracted_tower_matches_independent_rigid_tower_and_catches_sign_flip()
             let flex_full = family
                 .row_flex_primary_third_contracted_exact(0, &block_states, &embed(d4))
                 .expect("flex third contracted at zero deviation");
-            let rigid = derived_third_contracted(&program, 0, d4).expect("rigid third");
+            let rigid = program_third_contracted(&program, 0, d4).expect("rigid third");
             let scale = rigid
                 .iter()
                 .flatten()
@@ -1766,7 +1770,7 @@ fn flex_contracted_tower_matches_independent_rigid_tower_and_catches_sign_flip()
             let flex_full = family
                 .row_flex_primary_third_contracted_exact(0, &block_states, &embed(d4))
                 .expect("flex third contracted (tripwire)");
-            let rigid = derived_third_contracted(&program, 0, d4).expect("rigid third (tripwire)");
+            let rigid = program_third_contracted(&program, 0, d4).expect("rigid third (tripwire)");
             // (q0, g) cross block — the marginal↔logslope coupling.
             let want = rigid[0][3];
             let scale = want.abs().max(1.0);
@@ -1787,7 +1791,7 @@ fn flex_contracted_tower_matches_independent_rigid_tower_and_catches_sign_flip()
             let flex_full = family
                 .row_flex_primary_fourth_contracted_exact(0, &block_states, &embed(du), &embed(dv))
                 .expect("flex fourth contracted at zero deviation");
-            let rigid = derived_fourth_contracted(&program, 0, du, dv).expect("rigid fourth");
+            let rigid = program_fourth_contracted(&program, 0, du, dv).expect("rigid fourth");
             let scale = rigid
                 .iter()
                 .flatten()
@@ -8537,7 +8541,7 @@ fn block_hessian_dense_operator_parity_all_five_blocks() {
 
 #[test]
 fn zz_diag_failure1_flex_vs_rigid_vs_fdhess() {
-    use gam_math::jet_tower::derived_third_contracted;
+    use gam_math::jet_tower::program_third_contracted;
     // FAILURE 1 fixture row.
     let event = 1.0_f64;
     let weight = 0.75_f64;
@@ -8663,7 +8667,7 @@ fn zz_diag_failure1_flex_vs_rigid_vs_fdhess() {
         d: vec![event],
         probit_scale: family.probit_frailty_scale(),
     };
-    let rigid = derived_third_contracted(&program, 0, &dir4).unwrap();
+    let rigid = program_third_contracted(&program, 0, &dir4).unwrap();
 
     const THIRD_CONTRACTED_TOL: f64 = 1e-5;
     for (u, &bu) in bidx.iter().enumerate() {
@@ -8839,4 +8843,464 @@ fn rigid_survival_all_axes_build_once_equals_per_axis_sweep_979() {
             );
         }
     }
+}
+
+/// gam#979 Jeffreys wide-p contracted-trace-Hessian FD verification (survival
+/// twin of the BMS gate `bernoulli_jeffreys_contracted_trace_hessian_matches_fd_of_trace`).
+///
+/// Builds the same kind of non-trivial rigid fixture as the build-once gate
+/// above (`oracle_rigid_family` + 2-column marginal/logslope designs, so the
+/// hook's `time` block genuinely shares 3 different design rows with the
+/// `q0/q1/qd1` primaries and `marginal_design` genuinely couples `q0` and
+/// `q1`), picks a fixed deterministic symmetric 5×5 trace weight `W`, and
+/// checks `family.joint_jeffreys_information_contracted_trace_hessian_with_specs`
+/// against central second differences of `tr(W · H(β))` (using the existing
+/// `exact_newton_joint_hessian` to get `H` at perturbed β) over several
+/// directions spanning all three blocks.
+#[test]
+fn survival_jeffreys_contracted_trace_hessian_matches_fd_of_trace() {
+    let n = 120usize;
+    let z: Vec<f64> = (0..n).map(|r| ((r as f64) * 0.29).sin() * 0.9).collect();
+    let weights: Vec<f64> = (0..n).map(|r| 0.6 + 0.4 * ((r % 5) as f64) / 5.0).collect();
+    let event: Vec<f64> = (0..n).map(|r| ((r % 3 == 0) as u8) as f64).collect();
+
+    let p_m = 2usize;
+    let p_g = 2usize;
+    let marginal_design = Array2::from_shape_fn((n, p_m), |(r, j)| {
+        0.2 + 0.05 * (r as f64).cos() + 0.11 * (j as f64) - 0.013 * (r as f64) / (n as f64)
+    });
+    let logslope_design = Array2::from_shape_fn((n, p_g), |(r, j)| {
+        0.1 + 0.07 * (r as f64).sin() - 0.09 * (j as f64) + 0.004 * (r as f64) / (n as f64)
+    });
+
+    let mut family = oracle_rigid_family(n, &z, &weights, &event, None);
+    family.marginal_design = DesignMatrix::from(marginal_design.clone());
+    family.logslope_design = DesignMatrix::from(logslope_design.clone());
+
+    let total = 1 + p_m + p_g;
+    let specs = vec![
+        dummy_blockspec(1),
+        dummy_blockspec(p_m),
+        dummy_blockspec(p_g),
+    ];
+
+    // beta_flat = [time(1), marginal(2), logslope(2)].
+    let states_at = |beta_flat: &Array1<f64>| -> Vec<ParameterBlockState> {
+        let beta_time = beta_flat.slice(ndarray::s![0..1]).to_owned();
+        let beta_marginal = beta_flat.slice(ndarray::s![1..1 + p_m]).to_owned();
+        let beta_logslope = beta_flat.slice(ndarray::s![1 + p_m..total]).to_owned();
+        let marginal_eta = marginal_design.dot(&beta_marginal);
+        let logslope_eta = logslope_design.dot(&beta_logslope);
+        vec![
+            ParameterBlockState {
+                beta: beta_time,
+                // Unused by the closed-form likelihood (recomputed from
+                // beta_time directly via the 3 time designs); zeros satisfy
+                // the CustomFamily interface shape contract only.
+                eta: Array1::zeros(n),
+            },
+            ParameterBlockState {
+                beta: beta_marginal,
+                eta: marginal_eta,
+            },
+            ParameterBlockState {
+                beta: beta_logslope,
+                eta: logslope_eta,
+            },
+        ]
+    };
+
+    let beta0 = array![0.6, 0.18, -0.12, -0.2, 0.13];
+
+    // Fixed asymmetric-then-symmetrized 5x5 trace weight `W` (deterministic
+    // pseudo-noise pattern, no RNG dependency).
+    let mut w_raw = Array2::<f64>::zeros((total, total));
+    for i in 0..total {
+        for j in 0..total {
+            w_raw[[i, j]] = ((i * 7 + j * 11 + 2) % 13) as f64 * 0.1 - 0.6;
+        }
+    }
+    let w_raw_t = w_raw.t().to_owned();
+    let w = (&w_raw + &w_raw_t).mapv(|v| v * 0.5);
+
+    let states0 = states_at(&beta0);
+    let analytic = family
+        .joint_jeffreys_information_contracted_trace_hessian_with_specs(&states0, &specs, &w)
+        .expect("contracted trace hessian call")
+        .expect("rigid path must supply the contracted completion");
+    assert_eq!(analytic.dim(), (total, total));
+
+    let trace_of_hessian_at = |beta_flat: &Array1<f64>| -> f64 {
+        let states = states_at(beta_flat);
+        let h = family
+            .exact_newton_joint_hessian(&states)
+            .expect("exact_newton_joint_hessian")
+            .expect("exact_newton_joint_hessian some");
+        // tr(W H) = Σ_ij W_ij H_ij for symmetric W, H (H_ji = H_ij).
+        (&w * &h).sum()
+    };
+
+    let directions = [
+        array![1.0, 0.0, 0.0, 0.0, 0.0],
+        array![0.0, 1.0, 0.0, 0.0, 0.0],
+        array![0.0, 0.0, 1.0, 0.0, 0.0],
+        array![0.0, 0.0, 0.0, 1.0, 0.0],
+        array![0.0, 0.0, 0.0, 0.0, 1.0],
+        array![0.5, -0.4, 0.3, 0.6, -0.2],
+        array![-0.3, 0.5, -0.6, 0.2, 0.4],
+    ];
+
+    // ── Truncation-free analytic cross-check: the AUTHORITATIVE assembly gate ──
+    // The finite-difference loop further below is discretization-limited (see
+    // its comment): `tr(W·H)` is already second-order in β, so its second
+    // difference probes the FOURTH derivative and the Richardson residual floors
+    // at `O(h⁴·f⁽⁸⁾)`, which the neglog-Φ Mills-ratio tails push to ~3e-4
+    // relative on the high-magnitude time direction — a pure truncation artifact
+    // that no achievable `h` removes. So the FD can only catch an O(1) formula
+    // blunder; it cannot pin the assembly.
+    //
+    // This block pins the hook's FULL assembly (`primary_trace_weight`
+    // W-projection + full-`t4` contraction + `add_pullback_hessian`) to machine
+    // precision with NO finite-difference truncation, using the identity
+    //     uᵀ · (∇²_β tr(W·H)) · u  ==  tr(W · ∂²H/∂β_u²).
+    // The right-hand side is built by
+    // `exact_newton_joint_hessiansecond_directional_derivative` — the rank-1
+    // `fourth_contracted` second-directional path that the outer-REML Jeffreys
+    // drift already relies on. It shares neither `primary_trace_weight` nor the
+    // direct full-`t4` read with the hook: it assembles the whole `∂²H` matrix
+    // first and contracts `W` in COEFFICIENT space, whereas the hook projects
+    // `W` into PRIMARY space per row before contracting `t4`. Their agreement
+    // therefore validates that the primary-space trace projection and the
+    // Jacobian pullback commute with the coefficient-space trace. Both sides are
+    // exact (no `h`), so the tolerance is tight (1e-9), and this — not the FD —
+    // is what guarantees the #979 completion is correct.
+    for (idx, dir) in directions.iter().enumerate() {
+        let huu = family
+            .exact_newton_joint_hessiansecond_directional_derivative(&states0, dir, dir)
+            .expect("second directional derivative call")
+            .expect("rigid path must supply the second directional derivative");
+        let trace_w_huu = (&w * &huu).sum();
+        let analytic_quad = dir.dot(&analytic.dot(dir));
+        let rel = (trace_w_huu - analytic_quad).abs() / trace_w_huu.abs().max(1.0);
+        assert!(
+            rel < 1e-9,
+            "direction {idx}: contracted trace-Hessian assembly vs independent \
+             tr(W·∂²H/∂β_u²) mismatch: analytic={analytic_quad:.12e} \
+             independent={trace_w_huu:.12e} rel={rel:.3e}"
+        );
+    }
+
+    // `tr(W·H(β))` is a second derivative of the row NLL, so its central
+    // second difference probes the FOURTH β-derivative and carries an
+    // `(h²/12)·(sixth-derivative-of-NLL)` truncation term. For the probit /
+    // log-φ composite that sixth derivative summed over rows is large enough
+    // that a single-`h` difference at `h=1e-3` sits right at the 1e-5 relative
+    // tolerance on the `g`-spanning directions. Richardson-extrapolate two
+    // central differences (`h`, `h/2`) to cancel the O(h²) term and validate
+    // the analytic to O(h⁴). This is a strictly stronger check than the raw
+    // difference: it cannot mask a genuine O(1) analytic error (both `D(h)`
+    // and `D(h/2)` would then be wrong by ≈the same O(1) amount and the
+    // combination stays wrong) — it only removes the discretization artifact.
+    let eps = 1e-3;
+    let center = trace_of_hessian_at(&beta0);
+    for (idx, dir) in directions.iter().enumerate() {
+        let central_second = |h: f64| -> f64 {
+            let step: Array1<f64> = dir.mapv(|v| v * h);
+            let plus = trace_of_hessian_at(&(&beta0 + &step));
+            let minus = trace_of_hessian_at(&(&beta0 - &step));
+            (plus - 2.0 * center + minus) / (h * h)
+        };
+        let d_h = central_second(eps);
+        let d_h2 = central_second(eps * 0.5);
+        let fd_second = (4.0 * d_h2 - d_h) / 3.0;
+        let analytic_quad = dir.dot(&analytic.dot(dir));
+        let rel = (fd_second - analytic_quad).abs() / fd_second.abs().max(1.0);
+        // Discretization-limited cross-check, NOT the authoritative correctness
+        // gate. The trace `tr(W·H)` is already second-order in β, so this second
+        // difference probes the FOURTH derivative; the residual after Richardson
+        // is `O(h⁴·f⁽⁸⁾)`, and survival's neglog-Φ Mills-ratio tails carry an
+        // `f⁽⁸⁾` large enough (≳1e11 on the fixture's high-magnitude directions,
+        // e.g. direction 0 at analytic≈1.06e3) that even the extrapolated FD
+        // floors near ~3e-4 relative — a pure truncation artifact, not an
+        // analytic error. The EXACT correctness of the contracted-trace tower is
+        // pinned to machine precision by `survival_sparse_tower4_full_t4_matches_
+        // dense_oracle_979` (dense-oracle agreement to 1e-9); this FD gate only
+        // guards against an O(1) formula blunder, for which 1e-3 is ample.
+        assert!(
+            rel < 1e-3,
+            "direction {idx}: survival contracted trace-Hessian FD mismatch: \
+             analytic={analytic_quad:.10e} fd={fd_second:.10e} rel={rel:.3e}"
+        );
+    }
+}
+
+/// gam#979 perf datapoint + large-`p` correctness cross-check: the O(n·p²)
+/// contracted-trace hook vs the `p(p+1)/2` pairwise second-directional
+/// completion it replaces, at the issue's repro scale (`matern(...,
+/// centers≈20)` ⇒ `p_marginal = p_logslope = 20`, total `p = 41`).
+///
+/// This is the mechanism behind the #979 rescope: the exact Firth/Jeffreys
+/// second-order completion is gated on
+/// `joint_jeffreys_information_contracted_trace_hessian_available()`. Before the
+/// hook that gate was `false` and the completion NEVER ran (the inner Newton
+/// under-modelled curvature near a Firth-active mode ⇒ the near-separation
+/// crawl / 2400 s large_scale timeouts). The completion could not simply be
+/// switched on with the generic pairwise fallback because that costs
+/// `p(p+1)/2` full-data row-streamed second-directional Hessian passes
+/// (`O(n·p⁴)`) — "hundreds of passes" at production p, far too slow to run every
+/// endgame cycle. The hook produces the identical completion in ONE `O(n·p²)`
+/// family pass, cheap enough to run every cycle.
+///
+/// The wall-clock speedup is REPORTED (the `[979 perf]` line) but not asserted:
+/// shared-node CI timing is non-deterministic, so the gate is the deterministic
+/// CORRECTNESS cross-check — the cheap `O(n·p²)` hook must reproduce the
+/// expensive `p(p+1)/2` pairwise assembly over the FULL `p×p` matrix
+/// (truncation-free, via `uᵀ∇²tr(W·H)v = tr(W·∂²H/∂β_u∂β_v)`), a strictly
+/// larger correctness surface than the 7-direction gate above. `n` is kept
+/// modest so the `p(p+1)/2`-pass reference stays CI-fast (the `#[ignore]`
+/// wall-clock-benchmark form is banned by the workspace hygiene scanner).
+#[test]
+fn survival_jeffreys_contracted_trace_hook_beats_pairwise_979() {
+    let n = 800usize;
+    let z: Vec<f64> = (0..n).map(|r| ((r as f64) * 0.29).sin() * 0.9).collect();
+    let weights: Vec<f64> = (0..n).map(|r| 0.6 + 0.4 * ((r % 5) as f64) / 5.0).collect();
+    let event: Vec<f64> = (0..n).map(|r| ((r % 3 == 0) as u8) as f64).collect();
+
+    let p_m = 20usize;
+    let p_g = 20usize;
+    let marginal_design = Array2::from_shape_fn((n, p_m), |(r, j)| {
+        0.2 + 0.05 * ((r + j) as f64).cos() + 0.011 * (j as f64) - 0.003 * (r as f64) / (n as f64)
+    });
+    let logslope_design = Array2::from_shape_fn((n, p_g), |(r, j)| {
+        0.1 + 0.07 * ((r + 2 * j) as f64).sin() - 0.009 * (j as f64) + 0.004 * (r as f64) / (n as f64)
+    });
+
+    let mut family = oracle_rigid_family(n, &z, &weights, &event, None);
+    family.marginal_design = DesignMatrix::from(marginal_design.clone());
+    family.logslope_design = DesignMatrix::from(logslope_design.clone());
+
+    let total = 1 + p_m + p_g;
+    let specs = vec![
+        dummy_blockspec(1),
+        dummy_blockspec(p_m),
+        dummy_blockspec(p_g),
+    ];
+
+    let beta0 = Array1::from_shape_fn(total, |i| 0.1 + 0.03 * ((i as f64) * 1.7).sin());
+    let beta_time = beta0.slice(ndarray::s![0..1]).to_owned();
+    let beta_marginal = beta0.slice(ndarray::s![1..1 + p_m]).to_owned();
+    let beta_logslope = beta0.slice(ndarray::s![1 + p_m..total]).to_owned();
+    let states0 = vec![
+        ParameterBlockState {
+            beta: beta_time,
+            eta: Array1::zeros(n),
+        },
+        ParameterBlockState {
+            beta: beta_marginal.clone(),
+            eta: marginal_design.dot(&beta_marginal),
+        },
+        ParameterBlockState {
+            beta: beta_logslope.clone(),
+            eta: logslope_design.dot(&beta_logslope),
+        },
+    ];
+
+    let mut w_raw = Array2::<f64>::zeros((total, total));
+    for i in 0..total {
+        for j in 0..total {
+            w_raw[[i, j]] = ((i * 7 + j * 11 + 2) % 13) as f64 * 0.1 - 0.6;
+        }
+    }
+    let w = (&w_raw + &w_raw.t()).mapv(|v| v * 0.5);
+
+    // ── Hook: ONE O(n·p²) family pass ────────────────────────────────────
+    let t_hook = std::time::Instant::now();
+    let hook = family
+        .joint_jeffreys_information_contracted_trace_hessian_with_specs(&states0, &specs, &w)
+        .expect("contracted trace hessian call")
+        .expect("rigid path must supply the contracted completion");
+    let hook_secs = t_hook.elapsed().as_secs_f64();
+    assert_eq!(hook.dim(), (total, total));
+
+    // ── Pairwise: p(p+1)/2 full second-directional passes (what the hook
+    // replaces), reconstructing the SAME ∇²_β tr(W·H) via the truncation-free
+    // identity uᵀ∇²tr(W·H)v = tr(W·∂²H/∂β_u∂β_v). ─────────────────────────
+    let unit = |a: usize| -> Array1<f64> {
+        let mut e = Array1::<f64>::zeros(total);
+        e[a] = 1.0;
+        e
+    };
+    let t_pair = std::time::Instant::now();
+    let mut pairwise = Array2::<f64>::zeros((total, total));
+    for a in 0..total {
+        let ea = unit(a);
+        for b in a..total {
+            let eb = unit(b);
+            let huv = family
+                .exact_newton_joint_hessiansecond_directional_derivative(&states0, &ea, &eb)
+                .expect("second directional derivative call")
+                .expect("rigid path must supply the second directional derivative");
+            let val = (&w * &huv).sum();
+            pairwise[[a, b]] = val;
+            pairwise[[b, a]] = val;
+        }
+    }
+    let pair_secs = t_pair.elapsed().as_secs_f64();
+
+    // Correctness: the cheap hook equals the expensive pairwise assembly over
+    // the full p×p matrix, truncation-free.
+    let mut max_rel = 0.0_f64;
+    for a in 0..total {
+        for b in 0..total {
+            let rel = (hook[[a, b]] - pairwise[[a, b]]).abs() / pairwise[[a, b]].abs().max(1.0);
+            max_rel = max_rel.max(rel);
+        }
+    }
+    let n_pairwise_passes = total * (total + 1) / 2;
+    eprintln!(
+        "[979 perf] n={n} p={total} (p_m={p_m} p_g={p_g}) | hook={hook_secs:.4}s (1 pass) | \
+         pairwise={pair_secs:.4}s ({n_pairwise_passes} passes) | speedup={:.1}× | \
+         hook-vs-pairwise max_rel={max_rel:.3e}",
+        pair_secs / hook_secs.max(1e-12)
+    );
+    assert!(
+        max_rel < 1e-9,
+        "hook completion disagrees with pairwise assembly at large p: max_rel={max_rel:.3e}"
+    );
+    // The hook must be at least as fast as the pairwise fallback it replaces.
+    // The theoretical ratio is ~p(p+1)/2; we only assert the hook is not SLOWER
+    // (a loose sanity bound robust to shared-node timing noise), and report the
+    // measured speedup above for the perf datapoint.
+    assert!(
+        hook_secs <= pair_secs,
+        "hook slower than the pairwise fallback it replaces: hook={hook_secs:.4}s pairwise={pair_secs:.4}s"
+    );
+}
+
+/// gam#979 isolation gate: does `SurvivalMarginalSlopeRowKernel`'s
+/// static-sparsity `SparseTower4<RIGID_LINEAR_MASK>` build the SAME full
+/// `t4` (all 256 entries, not just the 3 `fourth_contracted(u,v)` direction
+/// pairs `rigid_row_kernel_agrees_with_jet_tower_program_all_channels`
+/// checks) as the dense `Tower4<4>` oracle, on the EXACT fixture/row the
+/// contracted-trace-Hessian FD gate above exercises?
+///
+/// My `contracted_trace_hessian` hook is the FIRST production consumer to
+/// read `t4[a][b][c][d]` directly for every `(a,b)` pair (a genuine
+/// non-rank-1 bilinear contraction against a full 4×4 weight matrix,
+/// `Σ_ab w_row[a,b]·t4[a][b][c][d]`) rather than through a single
+/// `fourth_contracted(u, v)` rank-1 direction pair — every prior consumer
+/// only ever exercised the latter. This test empirically checks whether that
+/// previously-untested full-tensor read path agrees with the dense oracle,
+/// independent of whether the contracted-trace-Hessian FD gate above passes
+/// or fails.
+#[test]
+fn survival_sparse_tower4_full_t4_matches_dense_oracle_979() {
+    use super::row_kernel::{RIGID_LINEAR_MASK, SparseTower4, rigid_row_inputs, rigid_row_kernel_primaries, rigid_row_nll};
+    use gam_math::jet_scalar::JetScalar;
+    use gam_math::jet_tower::program_full_tower;
+
+    let n = 120usize;
+    let z: Vec<f64> = (0..n).map(|r| ((r as f64) * 0.29).sin() * 0.9).collect();
+    let weights: Vec<f64> = (0..n).map(|r| 0.6 + 0.4 * ((r % 5) as f64) / 5.0).collect();
+    let event: Vec<f64> = (0..n).map(|r| ((r % 3 == 0) as u8) as f64).collect();
+
+    let p_m = 2usize;
+    let p_g = 2usize;
+    let marginal_design = Array2::from_shape_fn((n, p_m), |(r, j)| {
+        0.2 + 0.05 * (r as f64).cos() + 0.11 * (j as f64) - 0.013 * (r as f64) / (n as f64)
+    });
+    let logslope_design = Array2::from_shape_fn((n, p_g), |(r, j)| {
+        0.1 + 0.07 * (r as f64).sin() - 0.09 * (j as f64) + 0.004 * (r as f64) / (n as f64)
+    });
+
+    let mut family = oracle_rigid_family(n, &z, &weights, &event, None);
+    family.marginal_design = DesignMatrix::from(marginal_design.clone());
+    family.logslope_design = DesignMatrix::from(logslope_design.clone());
+
+    let beta_time = array![0.6];
+    let beta_marginal = array![0.18, -0.12];
+    let beta_logslope = array![-0.2, 0.13];
+    let marginal_eta = marginal_design.dot(&beta_marginal);
+    let logslope_eta = logslope_design.dot(&beta_logslope);
+    let block_states = vec![
+        ParameterBlockState {
+            beta: beta_time.clone(),
+            eta: Array1::zeros(n),
+        },
+        ParameterBlockState {
+            beta: beta_marginal.clone(),
+            eta: marginal_eta.clone(),
+        },
+        ParameterBlockState {
+            beta: beta_logslope.clone(),
+            eta: logslope_eta.clone(),
+        },
+    ];
+    let probit_scale = family.probit_frailty_scale();
+
+    let mut primaries = Vec::with_capacity(n);
+    for row in 0..n {
+        let q0 = family.design_entry.dot_row(row, &beta_time)
+            + family.offset_entry[row]
+            + marginal_eta[row];
+        let q1 = family.design_exit.dot_row(row, &beta_time)
+            + family.offset_exit[row]
+            + marginal_eta[row];
+        let qd1 = family.design_derivative_exit.dot_row(row, &beta_time)
+            + family.derivative_offset_exit[row];
+        let g = logslope_eta[row];
+        primaries.push([q0, q1, qd1, g]);
+    }
+    let program = SurvivalMarginalSlopeRigidNllProgram {
+        primaries,
+        z: z.clone(),
+        w: weights.clone(),
+        d: event.clone(),
+        probit_scale,
+    };
+
+    let mut max_abs_gap = 0.0_f64;
+    let mut max_rel_gap = 0.0_f64;
+    for row in 0..n {
+        let dense = program_full_tower(&program, row).expect("dense tower4 oracle");
+
+        let p = rigid_row_kernel_primaries(&family, &block_states, row).expect("primaries");
+        let inputs = rigid_row_inputs(
+            &family,
+            &block_states,
+            row,
+            "sparse-vs-dense t4 isolation test",
+        )
+        .expect("rigid row inputs");
+        let vars: [SparseTower4<RIGID_LINEAR_MASK>; 4] =
+            std::array::from_fn(|a| SparseTower4::variable(p[a], a));
+        let sparse = rigid_row_nll(&vars, &inputs).expect("sparse tower4");
+
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        let dv = dense.t4[a][b][c][d];
+                        let sv = sparse.t4[a][b][c][d];
+                        let abs_gap = (dv - sv).abs();
+                        let rel_gap = abs_gap / dv.abs().max(1.0);
+                        if abs_gap > max_abs_gap {
+                            max_abs_gap = abs_gap;
+                        }
+                        if rel_gap > max_rel_gap {
+                            max_rel_gap = rel_gap;
+                        }
+                        assert!(
+                            rel_gap < 1e-9,
+                            "row {row} t4[{a}][{b}][{c}][{d}]: sparse={sv:.12e} dense={dv:.12e} \
+                             abs_gap={abs_gap:e} rel_gap={rel_gap:e}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    println!(
+        "[979 isolation] full t4 max_abs_gap={max_abs_gap:e} max_rel_gap={max_rel_gap:e} over {n} rows"
+    );
 }

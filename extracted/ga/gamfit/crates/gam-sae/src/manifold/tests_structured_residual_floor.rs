@@ -82,7 +82,6 @@ mod tests {
             tau: 1.0,
             threshold: 0.0,
             top_k: None,
-            ibp_alpha_override: None,
             random_state: 0,
             initial_logits: None,
             initial_coords: None,
@@ -154,14 +153,13 @@ mod tests {
             learning_rate: 1.0,
             ridge_ext_coord: 1.0e-6,
             ridge_beta: 1.0e-6,
-            assignment_kind,
             alpha: 1.0,
-            top_k: None,
             isometry_pin_active,
             metric_provenance,
             promote_from_residual: false,
             run_structure_search: false,
             run_outer_rho_search: false,
+            structured_residual_passes: None,
             cancel: None,
         })
         .expect("primary fit certifies (structured pass must degrade gracefully)")

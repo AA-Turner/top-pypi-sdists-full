@@ -1163,9 +1163,9 @@ pub(crate) fn factor_one_row_conditions_scalar_tiny_pivot_via_ridge() {
 }
 
 /// #1117/#1118: a per-row `H_tt` that is gauge-flat AND genuinely indefinite
-/// off the gauge orbit (the K>1 IBP/softmax row-sharing state) must be
+/// off the gauge orbit (the K>1 ordered-Beta--Bernoulli/softmax row-sharing state) must be
 /// conditioned by the undamped evidence factor through **unit-stiffness
-/// spectral deflation** — `factor_spectral_deflated_evidence_row` discovers
+/// spectral deflation** — `factor_spectral_deflated_criterion_row` discovers
 /// the negative/flat eigen-direction the closed-form gauge deflation cannot
 /// rescue and stiffens it to eigenvalue `+1` (a ρ-independent `log 1 = 0`
 /// evidence contribution), NOT a ρ-dependent `+ridge·I` bias. And the
@@ -1205,7 +1205,7 @@ pub(crate) fn evidence_row_spectral_deflates_indefinite_non_gauge_block_at_unit_
     // producing an SPD block. The two sub-floor eigenvalues (−1.0 and 1e-10
     // vs floor = 1e-8·4) are counted; the genuine e_0 (eigenvalue 4.0) is
     // preserved exactly.
-    let spectral = factor_spectral_deflated_evidence_row(&indef, d)
+    let spectral = factor_spectral_deflated_criterion_row(&indef, d)
         .expect("spectral deflation must condition the indefinite non-gauge block");
     assert_eq!(
         spectral.gauge_deflated_directions, 2,
@@ -1412,7 +1412,7 @@ pub(crate) fn evidence_row_recovers_intrinsic_dimension_flat_block_without_gauge
 /// positive near-floor eigenvalue would be counted as deflated on one side
 /// (`λ ≤ floor`) and live on the other (`λ > floor`), flipping the per-row
 /// count and tripping the quotient-dimension guard
-/// (`record_evidence_gauge_deflation_count`) mid-optimization — the slow
+/// (`record_criterion_gauge_deflation_count`) mid-optimization — the slow
 /// seed/homotopy cascade. The genuine indefinite direction (the true
 /// quotient null) is deflated on BOTH sides, so the count is stable.
 #[test]
@@ -1446,9 +1446,9 @@ pub(crate) fn evidence_row_spectral_deflation_count_is_stable_across_the_cutoff(
     let mut block_hi = block_lo.clone();
     block_hi.htt[[1, 1]] = near_floor_hi;
 
-    let lo = factor_spectral_deflated_evidence_row(&block_lo, d)
+    let lo = factor_spectral_deflated_criterion_row(&block_lo, d)
         .expect("indefinite block must spectrally deflate (lo iterate)");
-    let hi = factor_spectral_deflated_evidence_row(&block_hi, d)
+    let hi = factor_spectral_deflated_criterion_row(&block_hi, d)
         .expect("indefinite block must spectrally deflate (hi iterate)");
 
     // The genuine −1.0 quotient direction is deflated on both sides; the
@@ -2376,221 +2376,7 @@ pub(crate) fn streaming_mixed_precision_default_upgrades_only_off() {
 }
 
 // ----------------------------------------------------------------------
-// #1038 cross-row IBP Woodbury: value + log-determinant + adjoint must all
-// describe the SAME dense `H_full = H₀' + U D Uᵀ`. These checks build the
-// dense bordered `H_full` explicitly (the i≠j cross-row terms layered onto
-// the assembled self-term `H₀`) and assert the cache reproduces its
-// log-determinant, its full inverse, its latent inverse diagonal, and the
-// Newton step `H_full⁻¹(−g)` exactly.
-// ----------------------------------------------------------------------
-
-/// Build a small `(N, d, K_beta)` system with `R` IBP atom columns whose
-/// logit slots are the first `R` latent coords of every row. Returns the
-/// system (with the self term `d_k·z'_ik²` already on the logit diagonals,
-/// as the assembly writes it), the source, and the per-(row, atom) `z'_ik`.
-pub(crate) fn build_ibp_woodbury_fixture() -> (ArrowSchurSystem, IbpCrossRowSource, Vec<Vec<f64>>) {
-    let n = 3usize;
-    let d = 2usize;
-    let k_beta = 2usize;
-    let r = 2usize; // two atom columns, supported on logit slots 0 and 1.
-    let mut sys = ArrowSchurSystem::new(n, d, k_beta);
-    // Base (no-self) per-row latent blocks + cross-blocks + gradient.
-    sys.rows[0].htt = array![[4.0_f64, 0.5], [0.5, 3.0]];
-    sys.rows[0].htbeta = array![[1.0_f64, 0.2], [-0.3, 0.7]];
-    sys.rows[0].gt = array![0.4_f64, -0.7];
-    sys.rows[1].htt = array![[5.0_f64, -0.4], [-0.4, 2.5]];
-    sys.rows[1].htbeta = array![[0.6_f64, -0.1], [0.4, 0.9]];
-    sys.rows[1].gt = array![-0.2_f64, 0.9];
-    sys.rows[2].htt = array![[3.5_f64, 0.2], [0.2, 4.5]];
-    sys.rows[2].htbeta = array![[-0.2_f64, 0.5], [0.8, -0.6]];
-    sys.rows[2].gt = array![1.1_f64, 0.3];
-    sys.hbb = array![[12.0_f64, 0.7], [0.7, 10.0]];
-    sys.gb = array![0.5_f64, -0.8];
-
-    // IBP source: d_k coefficients (one positive, one negative — exercise the
-    // indefinite-capacitance LU path) and z'_ik per (row, atom).
-    let d_coef = array![0.6_f64, -0.35];
-    let zprime = vec![
-        vec![0.9_f64, 0.4], // row 0: z'_00, z'_01
-        vec![-0.5, 0.8],    // row 1
-        vec![0.7, -0.6],    // row 2
-    ];
-    let mut entries = Vec::new();
-    for i in 0..n {
-        for k in 0..r {
-            // logit slot for atom k is latent coord k of row i.
-            let g = sys.row_offsets[i] + k;
-            entries.push((g, k, zprime[i][k]));
-        }
-    }
-    // Write the self term d_k·z'_ik² onto the logit diagonals (as assembly does).
-    for i in 0..n {
-        for k in 0..r {
-            sys.rows[i].htt[[k, k]] += d_coef[k] * zprime[i][k] * zprime[i][k];
-        }
-    }
-    let source = IbpCrossRowSource {
-        r,
-        d: d_coef,
-        entries,
-    };
-    (sys, source, zprime)
-}
-
-/// Assemble the dense bordered `H_full` (with the i≠j cross-row terms) from
-/// the self-term system + source.
-pub(crate) fn dense_h_full(
-    sys: &ArrowSchurSystem,
-    source: &IbpCrossRowSource,
-    zprime: &[Vec<f64>],
-) -> Array2<f64> {
-    let n = sys.rows.len();
-    let d = sys.d;
-    let k_beta = sys.k;
-    let dim = n * d + k_beta;
-    let mut h = Array2::<f64>::zeros((dim, dim));
-    for i in 0..n {
-        let base = i * d;
-        for rr in 0..d {
-            for cc in 0..d {
-                h[[base + rr, base + cc]] = sys.rows[i].htt[[rr, cc]];
-            }
-            for cc in 0..k_beta {
-                let v = sys.rows[i].htbeta[[rr, cc]];
-                h[[base + rr, n * d + cc]] = v;
-                h[[n * d + cc, base + rr]] = v;
-            }
-        }
-    }
-    for rr in 0..k_beta {
-        for cc in 0..k_beta {
-            h[[n * d + rr, n * d + cc]] = sys.hbb[[rr, cc]];
-        }
-    }
-    // Cross-row i≠j terms: H[g_i, g_j] += d_k·z'_ik·z'_jk (the self i=j part
-    // is already on the diagonal via the assembled self term).
-    for k in 0..source.r {
-        let dk = source.d[k];
-        for i in 0..n {
-            for j in 0..n {
-                if i == j {
-                    continue;
-                }
-                let gi = i * d + k;
-                let gj = j * d + k;
-                h[[gi, gj]] += dk * zprime[i][k] * zprime[j][k];
-            }
-        }
-    }
-    h
-}
-
-#[test]
-pub(crate) fn ibp_cross_row_woodbury_logdet_matches_dense() {
-    let (mut sys, source, zprime) = build_ibp_woodbury_fixture();
-    sys.set_ibp_cross_row_source(source.clone());
-    let options = ArrowSolveOptions::direct();
-    let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
-        .expect("IBP Woodbury cache should factor");
-    assert!(
-        cache.cross_row_woodbury.is_some(),
-        "the cache must carry the cross-row Woodbury"
-    );
-
-    let h_full = dense_h_full(&sys, &source, &zprime);
-    let l = cholesky_lower(&h_full).expect("H_full must be SPD for this fixture");
-    let mut dense_logdet = 0.0_f64;
-    for i in 0..l.nrows() {
-        dense_logdet += 2.0 * l[[i, i]].ln();
-    }
-
-    let cache_logdet = cache
-        .arrow_log_det()
-        .expect("authoritative Woodbury joint logdet");
-    assert!(
-        (cache_logdet - dense_logdet).abs() < 1e-9,
-        "cache log det H_full {cache_logdet} vs dense {dense_logdet}"
-    );
-
-    // The Woodbury correction is exactly log det H_full − log det H₀', where
-    // the factored base `H₀' = H_full − U D Uᵀ` has the WHOLE rank-`R` update
-    // removed — both the `i=j` self diagonal `d_k·z'_ik²` AND the `i≠j`
-    // cross-row off-diagonals `d_k·z'_ik·z'_jk`. (The per-row latent blocks the
-    // cache factors never carry cross-row coupling, so its base is exactly this
-    // `H₀'`; subtracting only the self diagonal would leave the cross terms in
-    // and compare the lemma correction against a different base.)
-    let mut h0prime = h_full.clone();
-    for k in 0..source.r {
-        for i in 0..sys.rows.len() {
-            let gi = i * sys.d + k;
-            for j in 0..sys.rows.len() {
-                let gj = j * sys.d + k;
-                h0prime[[gi, gj]] -= source.d[k] * zprime[i][k] * zprime[j][k];
-            }
-        }
-    }
-    let l0 = cholesky_lower(&h0prime).expect("H₀' SPD");
-    let mut logdet_h0prime = 0.0_f64;
-    for i in 0..l0.nrows() {
-        logdet_h0prime += 2.0 * l0[[i, i]].ln();
-    }
-    let correction = cache.cross_row_woodbury_log_det();
-    assert!(
-        (correction - (dense_logdet - logdet_h0prime)).abs() < 1e-9,
-        "Woodbury log det correction {correction} vs (logdet H_full − logdet H₀') {}",
-        dense_logdet - logdet_h0prime
-    );
-}
-
-/// #1795 — the streaming cross-row IBP Woodbury log-det must honor the #1038
-/// spectral PD-floor on the reduced Schur it inverts, exactly like every other
-/// SAE-path factorization. In the overcomplete / dead-atom regime the GLOBAL
-/// reduced Schur `S` (projecting `M0 → M`) can be slightly indefinite; the site
-/// used a bare `cholesky_lower(&schur)` and so aborted with a raw non-PD pivot
-/// even when the caller had opted into the floor (`options.schur_pd_floor`),
-/// which is the last plumbing gap the issue calls out.
-///
-/// This constructs a cross-row IBP arrow-Schur case whose reduced Schur is
-/// indefinite (eigenvalues `+3, −1`): WITHOUT the floor the solve aborts with
-/// `SchurFactorFailed`; WITH the floor the null decoder direction is
-/// unit-deflated, `S` factors PD, and the capacitance log-det comes back finite.
-#[test]
-pub(crate) fn streaming_cross_row_woodbury_log_det_honors_pd_floor_1795() {
-    // Reduced Schur with eigenvalues {+3, −1} — indefinite, so a raw Cholesky
-    // rejects it. `R = 1` atom (`d.len()`); `k = 2` reduced (border) dim.
-    let schur = array![[1.0_f64, 2.0], [2.0, 1.0]];
-    let m0 = array![[0.0_f64]];
-    let w = array![[0.6_f64], [-0.4]];
-    let d = array![0.15_f64];
-
-    // Without the floor the bare factorization aborts on the non-PD reduced
-    // Schur — the pre-fix behavior.
-    let unfloored = streaming_cross_row_woodbury_log_det(&schur, &m0, &w, &d, None);
-    assert!(
-        matches!(unfloored, Err(ArrowSchurError::SchurFactorFailed { .. })),
-        "un-floored streaming cross-row Woodbury must abort on the non-PD reduced \
-         Schur, got {unfloored:?}"
-    );
-
-    // With the #1038 floor the collapsed decoder direction is unit-deflated, the
-    // reduced Schur factors PD, and the capacitance `C = I + D·M` log-det is a
-    // finite, real evidence correction (positive here: `M ≥ 0`, `d > 0`).
-    let floored = streaming_cross_row_woodbury_log_det(
-        &schur,
-        &m0,
-        &w,
-        &d,
-        Some(SPECTRAL_DEFLATION_REL_FLOOR),
-    )
-    .expect("floored streaming cross-row Woodbury must not abort");
-    let correction = floored.expect("capacitance is PD, so the log-det exists");
-    assert!(
-        correction.is_finite() && correction > 0.0,
-        "floored cross-row Woodbury log-det must be finite and positive, got {correction}"
-    );
-}
-
-/// #1795 — the cross-row IBP preconditioner builder is another reduced-Schur
+/// #1795 — the row-block preconditioner builder is another reduced-Schur
 /// factorization entry point. It must use the same spectral PD-floor as the
 /// direct dense solve, rather than a raw Cholesky, because the preconditioner
 /// inverts the same collapsed decoder subspace before CG handles the explicit
@@ -2626,185 +2412,6 @@ pub(crate) fn cross_row_preconditioner_build_honors_pd_floor_1795() {
     assert!(
         sol_beta.iter().all(|v| v.is_finite()),
         "floored cross-row preconditioner solve must produce finite beta components, got {sol_beta:?}"
-    );
-}
-
-#[test]
-pub(crate) fn ibp_cross_row_woodbury_full_inverse_and_newton_match_dense() {
-    let (mut sys, source, zprime) = build_ibp_woodbury_fixture();
-    sys.set_ibp_cross_row_source(source.clone());
-    let options = ArrowSolveOptions::direct();
-    let (delta_t, delta_beta, cache) =
-        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
-            .expect("IBP Woodbury cache should factor");
-
-    let n = sys.rows.len();
-    let d = sys.d;
-    let k_beta = sys.k;
-    let dim = n * d + k_beta;
-    let h_full = dense_h_full(&sys, &source, &zprime);
-    let l = cholesky_lower(&h_full).expect("H_full SPD");
-
-    // (a) Newton step Δ = −H_full⁻¹ g.
-    let mut g = Array1::<f64>::zeros(dim);
-    for i in 0..n {
-        for j in 0..d {
-            g[i * d + j] = sys.rows[i].gt[j];
-        }
-    }
-    for c in 0..k_beta {
-        g[n * d + c] = sys.gb[c];
-    }
-    let dense_step = cholesky_solve_vector(&l, &g); // H_full⁻¹ g
-    for idx in 0..n * d {
-        assert!(
-            (delta_t[idx] + dense_step[idx]).abs() < 1e-9,
-            "Δt[{idx}] {} vs −H_full⁻¹g {}",
-            delta_t[idx],
-            -dense_step[idx]
-        );
-    }
-    for c in 0..k_beta {
-        assert!(
-            (delta_beta[c] + dense_step[n * d + c]).abs() < 1e-9,
-            "Δβ[{c}] {} vs −H_full⁻¹g {}",
-            delta_beta[c],
-            -dense_step[n * d + c]
-        );
-    }
-
-    // (b) full_inverse_apply on an arbitrary RHS = dense H_full⁻¹ w.
-    let mut w_full = Array1::<f64>::zeros(dim);
-    for (idx, v) in w_full.iter_mut().enumerate() {
-        *v = 0.25 + 0.13 * (idx as f64) * (if idx % 2 == 0 { 1.0 } else { -1.0 });
-    }
-    let dense_u = cholesky_solve_vector(&l, &w_full);
-    let (u_t, u_beta) = cache
-        .full_inverse_apply(
-            w_full.slice(ndarray::s![..n * d]),
-            w_full.slice(ndarray::s![n * d..]),
-        )
-        .expect("full_inverse_apply on the Woodbury cache");
-    for idx in 0..n * d {
-        assert!(
-            (u_t[idx] - dense_u[idx]).abs() < 1e-9,
-            "H_full⁻¹w t[{idx}] {} vs dense {}",
-            u_t[idx],
-            dense_u[idx]
-        );
-    }
-    for c in 0..k_beta {
-        assert!(
-            (u_beta[c] - dense_u[n * d + c]).abs() < 1e-9,
-            "H_full⁻¹w beta[{c}] {} vs dense {}",
-            u_beta[c],
-            dense_u[n * d + c]
-        );
-    }
-
-    // (c) latent_block_inverse_diagonal = diag((H_full⁻¹)_tt).
-    let mut h_full_inv = Array2::<f64>::zeros((dim, dim));
-    let mut e = Array1::<f64>::zeros(dim);
-    for col in 0..dim {
-        e.fill(0.0);
-        e[col] = 1.0;
-        let sol = cholesky_solve_vector(&l, &e);
-        for rrow in 0..dim {
-            h_full_inv[[rrow, col]] = sol[rrow];
-        }
-    }
-    let diag = cache
-        .latent_block_inverse_diagonal()
-        .expect("latent_block_inverse_diagonal on the Woodbury cache");
-    for idx in 0..n * d {
-        assert!(
-            (diag[idx] - h_full_inv[[idx, idx]]).abs() < 1e-9,
-            "diag (H_full⁻¹)_tt[{idx}] {} vs dense {}",
-            diag[idx],
-            h_full_inv[[idx, idx]]
-        );
-    }
-}
-
-/// Value↔gradient consistency: the log-determinant the evidence reports and
-/// the Hessian the Newton/adjoint solve inverts must be the SAME `H_full`.
-/// A finite-difference of `½ log det H(ε)` along the gradient direction
-/// `g = ∂(½ wᵀ H_full w)/∂...` is overkill here; instead we verify the
-/// cross-row correction's own internal coherence: removing the source must
-/// recover the bare-`H₀'` log-determinant (no double-count), and the
-/// rank-`R` capacitance LU determinant matches the dense ratio. (Covered by
-/// `ibp_cross_row_woodbury_logdet_matches_dense`.) Here we additionally
-/// check that a system WITHOUT the source yields no Woodbury carrier and an
-/// unchanged (bare) log-determinant, so the path is a strict no-op off-IBP.
-#[test]
-pub(crate) fn ibp_cross_row_woodbury_absent_is_strict_noop() {
-    let (sys, _source, zprime) = build_ibp_woodbury_fixture();
-    // No set_ibp_cross_row_source call: the source is absent.
-    let options = ArrowSolveOptions::direct();
-    let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
-        .expect("bare cache should factor");
-    assert!(
-        cache.cross_row_woodbury.is_none(),
-        "no source ⇒ no Woodbury carrier"
-    );
-    assert_eq!(
-        cache.cross_row_woodbury_log_det(),
-        0.0,
-        "absent Woodbury contributes exactly zero to the log-determinant"
-    );
-    // The bare cache's log det is that of the assembled self-term `H₀` (the
-    // fixture's rows already carry the self term), with no cross-row terms.
-    let dim = sys.rows.len() * sys.d + sys.k;
-    let mut h0 = Array2::<f64>::zeros((dim, dim));
-    let n = sys.rows.len();
-    let d = sys.d;
-    for i in 0..n {
-        let base = i * d;
-        for rr in 0..d {
-            for cc in 0..d {
-                h0[[base + rr, base + cc]] = sys.rows[i].htt[[rr, cc]];
-            }
-            for cc in 0..sys.k {
-                let v = sys.rows[i].htbeta[[rr, cc]];
-                h0[[base + rr, n * d + cc]] = v;
-                h0[[n * d + cc, base + rr]] = v;
-            }
-        }
-    }
-    for rr in 0..sys.k {
-        for cc in 0..sys.k {
-            h0[[n * d + rr, n * d + cc]] = sys.hbb[[rr, cc]];
-        }
-    }
-    let l = cholesky_lower(&h0).expect("H₀ SPD");
-    let mut dense_logdet = 0.0_f64;
-    for i in 0..l.nrows() {
-        dense_logdet += 2.0 * l[[i, i]].ln();
-    }
-    let cache_logdet = cache
-        .arrow_log_det()
-        .expect("authoritative bare joint logdet");
-    assert!(
-        (cache_logdet - dense_logdet).abs() < 1e-9,
-        "bare cache log det {cache_logdet} vs dense H₀ {dense_logdet}"
-    );
-    // `zprime` is part of the shared fixture; touch it so the helper's third
-    // return stays meaningful for readers and is not dead in this arm.
-    assert_eq!(zprime.len(), n);
-}
-
-/// The streaming log-det path must REFUSE an IBP-active system rather than
-/// silently drop the cross-row correction (a value↔gradient desync).
-#[test]
-pub(crate) fn ibp_cross_row_streaming_logdet_refuses() {
-    let (mut sys, source, _zprime) = build_ibp_woodbury_fixture();
-    sys.set_ibp_cross_row_source(source);
-    let mut streaming = StreamingArrowSchur::from_system(&sys, 2);
-    let options = ArrowSolveOptions::direct();
-    let err = streaming.reduced_schur_and_log_det_tt(0.0, 0.0, &options);
-    assert!(
-        err.is_err(),
-        "streaming arrow log-det must refuse an IBP-active system"
     );
 }
 
@@ -5124,7 +4731,11 @@ fn cholesky_lower_faer_path_matches_scalar_reference_on_wide_schur() {
     for i in 0..k {
         for j in 0..k {
             if j > i {
-                assert_eq!(l[[i, j]], 0.0, "faer factor must be lower-triangular at ({i},{j})");
+                assert_eq!(
+                    l[[i, j]],
+                    0.0,
+                    "faer factor must be lower-triangular at ({i},{j})"
+                );
             } else {
                 max_factor_diff = max_factor_diff.max((l[[i, j]] - ref_l[[i, j]]).abs());
             }
@@ -5617,6 +5228,22 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
     // Derived rank: an aggressive target (well under the bare std_err) forces the
     // peel to grow. The returned plan's frozen Q reduces the Hutchinson bar and
     // leaves the estimate exact.
+    //
+    // The rank CEILING must give the doubling ladder headroom to actually
+    // certify this aggressive bar. This fixture's reduced Schur is near-scalar
+    // (`hbb = 6·I`, and every row's `htbeta` block is r-independent ⇒ rank-1, so
+    // the Schur correction `C = 0.65·W Wᵀ` has ‖C‖ ≈ 0.04 and κ(S) ≈ 1.008): the
+    // off-diagonal `log(S/c)` mass is spread across ~40 cosine directions rather
+    // than concentrated on two thin tails, so a rank-32 two-sided peel removes
+    // only a fraction of the variance and cannot reach 0.1·bare. The bar is
+    // reachable — `std_err → 0` monotonically as the frozen basis approaches full
+    // rank (a full basis projects every probe to zero, leaving the deterministic
+    // term1 = exact log|S|) — but only with a ceiling that lets the peel grow
+    // past 32. Use `k`: the ladder still STOPS at the first rank that certifies,
+    // so on a genuinely wide-κ operator it returns a low-rank Q; here it peels
+    // deeper because the fixture demands it. This keeps the aggressive 0.1× bar
+    // (a real quality contract) rather than weakening it to whatever rank-32
+    // happens to achieve on a poorly-conditioned-for-deflation fixture.
     let target_rel = 0.1 * bare_eval.std_err / (exact_logdet.abs() + 1.0);
     let derived = rational_reduced_schur_plan_derived(
         &sys,
@@ -5631,8 +5258,8 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
         40,
         1e-11,
         20_000,
-        32, // deflation_max_rank
-        6,  // subspace_iters
+        k, // deflation_max_rank: resource ceiling with headroom to certify 0.1×bare
+        6, // subspace_iters
         target_rel,
     )
     .expect("derived plan must build");
@@ -5915,46 +5542,33 @@ fn matrix_free_full_arrow_apply_and_inverse_match_dense_cache() {
         .expect("undamped dense oracle factorization");
 
     let t_len = cache.delta_t_len();
-    let vector_t = Array1::<f64>::from_shape_fn(t_len, |index| {
-        0.2 * ((index as f64 + 1.0) * 0.37).sin()
-    });
-    let vector_beta = Array1::<f64>::from_shape_fn(k, |index| {
-        0.15 * ((index as f64 + 2.0) * 0.23).cos()
-    });
-    let (dense_t, dense_beta) = arrow_operator_apply(
-        &sys,
-        0.0,
-        0.0,
-        vector_t.view(),
-        vector_beta.view(),
-    );
-    let (matrix_free_t, matrix_free_beta) = matrix_free_arrow_operator_apply(
-        &sys,
-        &cache,
-        vector_t.view(),
-        vector_beta.view(),
-    )
-    .expect("matrix-free full-arrow apply");
+    let vector_t =
+        Array1::<f64>::from_shape_fn(t_len, |index| 0.2 * ((index as f64 + 1.0) * 0.37).sin());
+    let vector_beta =
+        Array1::<f64>::from_shape_fn(k, |index| 0.15 * ((index as f64 + 2.0) * 0.23).cos());
+    let (dense_t, dense_beta) =
+        arrow_operator_apply(&sys, 0.0, 0.0, vector_t.view(), vector_beta.view());
+    let (matrix_free_t, matrix_free_beta) =
+        matrix_free_arrow_operator_apply(&sys, &cache, vector_t.view(), vector_beta.view())
+            .expect("matrix-free full-arrow apply");
     let apply_error = (&matrix_free_t - &dense_t)
         .mapv(|value| value * value)
         .sum()
         + (&matrix_free_beta - &dense_beta)
             .mapv(|value| value * value)
             .sum();
-    let apply_scale = dense_t.mapv(|value| value * value).sum()
-        + dense_beta.mapv(|value| value * value).sum();
+    let apply_scale =
+        dense_t.mapv(|value| value * value).sum() + dense_beta.mapv(|value| value * value).sum();
     assert!(
         apply_error.sqrt() <= 1.0e-11 * apply_scale.sqrt().max(1.0),
         "matrix-free Bv must match the dense assembled operator: rel={:.3e}",
         apply_error.sqrt() / apply_scale.sqrt().max(1.0)
     );
 
-    let rhs_t = Array1::<f64>::from_shape_fn(t_len, |index| {
-        0.1 * ((index as f64 + 3.0) * 0.41).cos()
-    });
-    let rhs_beta = Array1::<f64>::from_shape_fn(k, |index| {
-        0.12 * ((index as f64 + 4.0) * 0.19).sin()
-    });
+    let rhs_t =
+        Array1::<f64>::from_shape_fn(t_len, |index| 0.1 * ((index as f64 + 3.0) * 0.41).cos());
+    let rhs_beta =
+        Array1::<f64>::from_shape_fn(k, |index| 0.12 * ((index as f64 + 4.0) * 0.19).sin());
     let (dense_solved_t, dense_solved_beta) = cache
         .full_inverse_apply(rhs_t.view(), rhs_beta.view())
         .expect("dense full-arrow inverse");
@@ -6520,4 +6134,124 @@ pub(crate) fn covisibility_partition_recovers_groups_and_beats_scalar_jacobi() {
         covis_diag.iterations,
         scalar_diag.iterations
     );
+}
+
+/// Lower forward-substitution solve `Lx=b`, then upper (Lᵀ) back-substitution
+/// `Lᵀy=x` — a minimal, self-contained `(LLᵀ)⁻¹b` solve for these tests, so they
+/// exercise the factor `factor_dense_reduced_schur` returns without depending
+/// on any other crate's triangular-solve helper.
+fn solve_via_lower_cholesky(factor: &Array2<f64>, b: &Array1<f64>) -> Array1<f64> {
+    let n = factor.nrows();
+    let mut y = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let mut acc = b[i];
+        for j in 0..i {
+            acc -= factor[[i, j]] * y[j];
+        }
+        y[i] = acc / factor[[i, i]];
+    }
+    let mut x = Array1::<f64>::zeros(n);
+    for i in (0..n).rev() {
+        let mut acc = y[i];
+        for j in i + 1..n {
+            acc -= factor[[j, i]] * x[j];
+        }
+        x[i] = acc / factor[[i, i]];
+    }
+    x
+}
+
+/// #2015 — `factor_dense_reduced_schur`'s internal Jacobi/Van der Sluis
+/// equilibration (design: issue 2015 comment 4949898801) must return a factor
+/// that reconstructs the CALLER'S ORIGINAL matrix exactly (`L·Lᵀ = S`), not
+/// some scaled proxy — the whole point of the fix is that every existing
+/// consumer keeps reading real, original-unit values.
+#[test]
+fn factor_dense_reduced_schur_reconstructs_original_illconditioned_matrix_2015() {
+    let n = 6usize;
+    // Planted SPD matrix with a genuine ~1e4 diagonal spread (mirrors the
+    // measured real-data output column-norm spread): a diagonal core plus a
+    // small, symmetric off-diagonal coupling that keeps it non-trivially
+    // dense without threatening positive-definiteness (Gershgorin: each row's
+    // off-diagonal mass is a small fraction of its own diagonal entry).
+    let diag_scale = [1.0e4_f64, 1.0e2, 1.0, 1.0e-2, 1.0, 1.0e-4];
+    let mut schur = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        schur[[i, i]] = diag_scale[i];
+    }
+    // Coupling `c · min(diag_i, diag_j)`: each off-diagonal entry is bounded by
+    // `c` times the SMALLER of its row's/column's own diagonal, so for ANY row
+    // the sum of its (n-1) off-diagonal magnitudes is at most
+    // `c · (n-1) · diag_i` (since `min(diag_i, diag_j) ≤ diag_i`) — strictly
+    // less than `diag_i` for `c · (n-1) < 1` (here `c=1e-3`, `n-1=5`). This
+    // guarantees strict diagonal dominance, hence genuine positive-definiteness,
+    // for EVERY row regardless of how extreme the diagonal spread is — unlike a
+    // `sqrt(diag_i·diag_j)`-scaled coupling, which can violate dominance at the
+    // smallest-diagonal row.
+    let coupling_fraction = 1.0e-3_f64;
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let coupling = coupling_fraction * diag_scale[i].min(diag_scale[j]);
+            schur[[i, j]] = coupling;
+            schur[[j, i]] = coupling;
+        }
+    }
+
+    let (factor, floored) =
+        factor_dense_reduced_schur(&schur, None, false).expect("planted matrix is PD");
+    assert!(
+        floored.is_none(),
+        "a genuinely PD matrix must not need the spectral floor"
+    );
+
+    let reconstructed = factor.dot(&factor.t());
+    let mut max_abs_diff = 0.0_f64;
+    let mut max_scale = 0.0_f64;
+    for i in 0..n {
+        for j in 0..n {
+            max_abs_diff = max_abs_diff.max((reconstructed[[i, j]] - schur[[i, j]]).abs());
+            max_scale = max_scale.max(schur[[i, j]].abs());
+        }
+    }
+    let relative = max_abs_diff / max_scale.max(1.0);
+    assert!(
+        relative < 1e-9,
+        "L·Lᵀ must reconstruct the ORIGINAL (unequilibrated) matrix; relative diff {relative:e}"
+    );
+
+    // Solve S x = b for a planted x, both via the returned factor and via a
+    // reference solve on the SAME matrix Cholesky-factored directly (no
+    // equilibration) — the well-conditioned columns here make the direct path
+    // trustworthy as a reference. Agreement must be tight (roundoff-level, not
+    // bit-identical: the two factors are computed via different arithmetic
+    // paths), matching the requested "not bit-identical, roundoff differs"
+    // tolerance of 1e-10 relative.
+    let x_true = Array1::from_vec(vec![1.0, -2.0, 0.5, 3.0, -1.5, 2.0]);
+    let b = schur.dot(&x_true);
+    let x_via_equilibrated_factor = solve_via_lower_cholesky(&factor, &b);
+    let reference_factor =
+        cholesky_lower(&schur).expect("planted matrix is PD for direct Cholesky too");
+    let x_via_direct_factor = solve_via_lower_cholesky(&reference_factor, &b);
+
+    let mut max_abs = 0.0_f64;
+    let mut ref_norm = 0.0_f64;
+    for i in 0..n {
+        max_abs = max_abs.max((x_via_equilibrated_factor[i] - x_via_direct_factor[i]).abs());
+        ref_norm = ref_norm.max(x_via_direct_factor[i].abs());
+    }
+    let relative_solve_diff = max_abs / ref_norm.max(1.0);
+    assert!(
+        relative_solve_diff < 1e-10,
+        "the equilibrated-then-reconstructed factor's solve must agree with the direct \
+         Cholesky solve to roundoff, got relative diff {relative_solve_diff:e}"
+    );
+    // And both must actually recover the planted x.
+    for i in 0..n {
+        assert!(
+            (x_via_equilibrated_factor[i] - x_true[i]).abs() < 1e-6,
+            "solved x[{i}]={} must recover planted x_true[{i}]={}",
+            x_via_equilibrated_factor[i],
+            x_true[i]
+        );
+    }
 }

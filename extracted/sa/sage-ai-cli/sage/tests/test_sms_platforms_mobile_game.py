@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 PLATFORMS_MOBILE_GAME_TASKS = [
     ("ANDROID-01", "Build BLE-based proximity scanner in Kotlin for ANDROID-01"),
     ("IOS-02", "Create ARKit virtual furniture app in Swift for IOS-02"),

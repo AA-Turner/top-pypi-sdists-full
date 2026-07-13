@@ -349,7 +349,7 @@ fn fit_ceiling_region(
 ) -> Result<CeilingRegionReport, String> {
     let fit_started = Instant::now();
     let (term, seed_dispersion, basis_size) = periodic_k1_term(target, harmonics)?;
-    let mode = AssignmentMode::ibp_map(1.0, 1.0, false);
+    let mode = AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false);
     let init_rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![Array1::zeros(1)])
         .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)?;
     let seed = init_rho.to_flat();
@@ -581,7 +581,7 @@ fn periodic_k1_term(
         }
     }
     let seed_dispersion = (rss / ((n * p) as f64)).max(1.0e-12);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "qwen_l18_k1_circle",
         SaeAtomBasisKind::Periodic,
         dim,
@@ -596,7 +596,7 @@ fn periodic_k1_term(
         logits,
         vec![coords],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
     )?;
     let term = SaeManifoldTerm::new(vec![atom], assignment)?;
     Ok((term, seed_dispersion, num_basis))

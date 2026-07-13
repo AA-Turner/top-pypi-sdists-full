@@ -16,7 +16,16 @@ from djlint.helpers import (
 )
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from djlint.settings import Config
+
+
+_STYLE_BLOCK_PATTERN: Final = re.compile(
+    r"([ ]*?)(<(?:style)\b(?:\"[^\"]*\"|'[^']*'|{[^}]*}|[^'\">{}])*>)(.*?)(?=</style>)",
+    RE_FLAGS_IS,
+    cache_pattern=False,
+)
 
 
 def format_css(html: str, config: Config) -> str:
@@ -28,10 +37,10 @@ def format_css(html: str, config: Config) -> str:
         config: Config, html: str, match: re.Match[str]
     ) -> str:
         """Add break after if not in ignored block."""
-        if child_of_unformatted_block(config, html, match):
+        if not match.group(3).strip():
             return match.group()
 
-        if not match.group(3).strip():
+        if child_of_unformatted_block(config, html, match):
             return match.group()
 
         indent = len(match.group(1)) * " "
@@ -73,9 +82,4 @@ def format_css(html: str, config: Config) -> str:
 
     func = partial(launch_formatter, config, html)
 
-    return re.sub(
-        r"([ ]*?)(<(?:style)\b(?:\"[^\"]*\"|'[^']*'|{[^}]*}|[^'\">{}])*>)(.*?)(?=</style>)",
-        func,
-        html,
-        flags=RE_FLAGS_IS,
-    )
+    return _STYLE_BLOCK_PATTERN.sub(func, html)

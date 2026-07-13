@@ -21,12 +21,12 @@ use gam_problem::schedule::{GumbelTemperatureSchedule, ScheduleKind};
 use gam_terms::{
     ARDPenalty, AnalyticPenaltyKind, AnalyticPenaltyRegistry, BlockOrthogonalityPenalty,
     BlockSparsityPenalty, DecoderIncoherencePenalty, DifferenceOpKind, HarmonicRoughnessPenalty,
-    IBPAssignmentPenalty, IsometryPenalty, IvaeRidgeMeanGauge, JumpReLUPenalty,
-    MechanismSparsityPenalty, NestedPrefixPenalty, NuclearNormPenalty, OrthogonalityPenalty,
+    IsometryPenalty, IvaeRidgeMeanGauge, MechanismSparsityPenalty, NestedPrefixPenalty,
+    NuclearNormPenalty, OrderedBetaBernoulliPenalty, OrthogonalityPenalty,
     ParametricRowPrecisionPriorPenalty, PenaltyConcavity, PenaltyTier, PsiSlice,
     RowPrecisionPriorPenalty, ScadMcpPenalty, ScalarWeightSchedule, ShapeMonotonicityPenalty,
-    SoftmaxAssignmentSparsityPenalty, SparsityPenalty, TopKActivationPenalty,
-    TotalVariationPenalty,
+    SmoothThresholdPenalty, SoftmaxAssignmentSparsityPenalty, SparsityPenalty,
+    TopKActivationPenalty, TotalVariationPenalty,
 };
 
 /// A latent block a penalty descriptor can target, identified either by name or
@@ -584,7 +584,7 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                 };
                 registry.push(AnalyticPenaltyKind::TopKActivation(Arc::new(penalty)));
             }
-            "jumprelu" | "jump_relu" => {
+            "smooth_threshold" => {
                 descriptor_no_unknown_keys(
                     descriptor,
                     &context,
@@ -600,13 +600,13 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                 let thresholds = descriptor_array1_flat(descriptor, "thresholds", &context)?;
                 let weight = descriptor_f64(descriptor, "weight", 1.0)?;
                 let smoothing_eps = descriptor_f64(descriptor, "smoothing_eps", 1.0e-3)?;
-                let penalty = JumpReLUPenalty::new(slice, thresholds, weight, smoothing_eps)
+                let penalty = SmoothThresholdPenalty::new(slice, thresholds, weight, smoothing_eps)
                     .map_err(|err| format!("{context}: {err}"))?;
                 let penalty = match weight_schedule {
                     Some(schedule) => penalty.with_weight_schedule(schedule),
                     None => penalty,
                 };
-                registry.push(AnalyticPenaltyKind::JumpReLU(Arc::new(penalty)));
+                registry.push(AnalyticPenaltyKind::SmoothThreshold(Arc::new(penalty)));
             }
             "orthogonality" => {
                 descriptor_no_unknown_keys(
@@ -681,7 +681,7 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                             "{context}.eps_weight='auto' is not meaningful for Hoyer sparsity"
                         ));
                     }
-                    "auto" => penalty.with_eps_reml(1),
+                    "auto" => penalty.with_learnable_smoothing()?,
                     other => {
                         return Err(format!(
                             "{context}.eps_weight must be 'auto' or 'fixed'; got {other:?}"
@@ -853,7 +853,7 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                 };
                 registry.push(AnalyticPenaltyKind::DecoderIncoherence(Arc::new(penalty)));
             }
-            "ibp_assignment" | "ibp_assignment_penalty" => {
+            "ordered_beta_bernoulli" => {
                 descriptor_no_unknown_keys(
                     descriptor,
                     &context,
@@ -878,7 +878,7 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                     .or_else(|| descriptor.get("learnable_alpha"))
                     .and_then(JsonValue::as_bool)
                     .unwrap_or(false);
-                let penalty = IBPAssignmentPenalty::new(k_max, alpha, tau, learnable);
+                let penalty = OrderedBetaBernoulliPenalty::new(k_max, alpha, tau, learnable);
                 let penalty = match temperature_schedule {
                     Some(schedule) => penalty.with_temperature_schedule(schedule),
                     None => penalty,
@@ -887,7 +887,7 @@ pub fn build_analytic_penalty_registry_from_descriptors(
                     Some(schedule) => penalty.with_weight_schedule(schedule),
                     None => penalty,
                 };
-                registry.push(AnalyticPenaltyKind::IBPAssignment(Arc::new(penalty)));
+                registry.push(AnalyticPenaltyKind::OrderedBetaBernoulli(Arc::new(penalty)));
             }
             "softmax_assignment_sparsity" => {
                 descriptor_no_unknown_keys(

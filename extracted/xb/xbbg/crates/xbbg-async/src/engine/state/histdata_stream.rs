@@ -15,7 +15,7 @@ use arrow_schema::{DataType, Field, Schema};
 use tokio::sync::mpsc;
 use xbbg_log::trace;
 
-use super::value_utils::top_level_response_error;
+use super::value_utils::{top_level_response_error, ResponseMetadata};
 use xbbg_core::{BlpError, Message};
 
 /// Streaming state for a historical data request (bdh).
@@ -102,29 +102,39 @@ impl HistDataStreamState {
             .and_then(|e| e.get_str(0))
             .unwrap_or("");
 
-        // Check for security error
-        if security_data.get_by_str("securityError").is_some() {
+        let mut response_meta = ResponseMetadata::default();
+        let has_eids = if let Some(eids) = security_data.get_by_str("eidData") {
+            response_meta.record_eid_data(ticker, &eids);
+            true
+        } else {
+            false
+        };
+
+        // A metadata-only response must still surface its entitlement IDs.
+        if security_data.get_by_str("securityError").is_some() && !has_eids {
             trace!(ticker = ticker, "Security has error, skipping");
             return None;
         }
 
-        // Get fieldData array
-        let field_data = security_data.get_by_str("fieldData")?;
-        let n = field_data.len();
-        if n == 0 {
+        let field_data = security_data.get_by_str("fieldData");
+        let n = field_data.as_ref().map_or(0, |data| data.len());
+        if n == 0 && !has_eids {
             return None;
         }
 
         // Create builders for this chunk
-        let mut ticker_builder = StringBuilder::new();
-        let mut date_builder = Date32Builder::new();
+        let mut ticker_builder = StringBuilder::with_capacity(n, ticker.len().saturating_mul(n));
+        let mut date_builder = Date32Builder::with_capacity(n);
         let mut field_builders: Vec<Float64Builder> = self
             .field_names
             .iter()
-            .map(|_| Float64Builder::new())
+            .map(|_| Float64Builder::with_capacity(n))
             .collect();
 
         for i in 0..n {
+            let field_data = field_data
+                .as_ref()
+                .expect("nonzero length requires fieldData");
             let Some(row) = field_data.get_element(i) else {
                 continue;
             };
@@ -179,9 +189,12 @@ impl HistDataStreamState {
             .map(|b| Arc::new(b.finish()) as ArrayRef)
             .collect();
 
-        let mut columns: Vec<ArrayRef> = vec![Arc::new(ticker_array), Arc::new(date_array)];
+        let mut columns: Vec<ArrayRef> = Vec::with_capacity(2 + field_arrays.len());
+        columns.push(Arc::new(ticker_array));
+        columns.push(Arc::new(date_array));
         columns.extend(field_arrays);
 
-        RecordBatch::try_new(schema.clone(), columns).ok()
+        let batch = RecordBatch::try_new(schema.clone(), columns).ok()?;
+        Some(response_meta.attach(batch))
     }
 }

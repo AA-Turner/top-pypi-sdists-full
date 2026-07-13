@@ -1,6 +1,6 @@
-//! #1782 — `sae_manifold_fit` with `jumprelu`/`softmax` assignments and
+//! #1782 — `sae_manifold_fit` with `threshold_gate`/`softmax` assignments and
 //! `euclidean`/`linear` topologies failed at "no candidate seeds passed outer
-//! startup validation" on clean planted-circle data where `ibp_map`+`circle`
+//! startup validation" on clean planted-circle data where `ordered_beta_bernoulli`+`circle`
 //! converges. Root causes: (1) the Euclidean/Linear PCA seed read the SAME
 //! leading principal-component scores for EVERY atom, so a K-atom dictionary
 //! started as K identical atoms — a rank-deficient joint decoder whose undamped
@@ -79,7 +79,7 @@ pub(crate) fn build_term(
                 rss += r * r;
             }
         }
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             topo_name,
             basis_kind.clone(),
             dim,
@@ -98,15 +98,15 @@ pub(crate) fn build_term(
         });
     }
     let seed_dispersion = (rss / (k * n * z.ncols()) as f64).max(1.0e-12);
-    // Routing seed. IBP-MAP starts every gate on (the production cold seed). The
+    // Routing seed. ordered Beta--Bernoulli starts every gate on (the production cold seed). The
     // separable gates start from a round-robin row->atom assignment — a stand-in
-    // for the FFI's EM routing refine — so the routing is not degenerately
+    // for the deterministic alternating routing refine — so the routing is not degenerately
     // symmetric (every atom carries mass; no atom is a duplicate of another).
     let mut logits = Array2::<f64>::zeros((n, k));
     for row in 0..n {
         for atom in 0..k {
             logits[[row, atom]] = match mode {
-                AssignmentMode::IBPMap { .. } => 6.0,
+                AssignmentMode::OrderedBetaBernoulli { .. } => 6.0,
                 AssignmentMode::Softmax { .. } => {
                     if atom == row % k {
                         3.0
@@ -197,9 +197,9 @@ fn seed_passes_startup_validation(
 }
 
 /// The #1782 startup-validation matrix: on identical clean planted-circle data
-/// every assignment kind (ibp_map, softmax, threshold_gate/jumprelu) and every
+/// every assignment kind (ordered_beta_bernoulli, softmax, threshold_gate) and every
 /// atom topology (circle, euclidean, linear) must PASS outer startup validation.
-/// Before the fix only circle/ibp_map survived; the rest threw "no candidate
+/// Before the fix only circle/ordered_beta_bernoulli survived; the rest threw "no candidate
 /// seeds passed outer startup validation (SAE manifold)". Fast: one inner solve
 /// per config from the near-optimal LSQ seed.
 #[test]
@@ -208,9 +208,9 @@ fn all_assignment_topology_combinations_pass_startup_validation_1782() {
     let k = 4usize;
     let cases: Vec<(&str, Topo, AssignmentMode)> = vec![
         (
-            "circle/ibp_map",
+            "circle/ordered_beta_bernoulli",
             Topo::Circle,
-            AssignmentMode::ibp_map(1.0, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         ),
         ("circle/softmax", Topo::Circle, AssignmentMode::softmax(1.0)),
         (
@@ -219,14 +219,14 @@ fn all_assignment_topology_combinations_pass_startup_validation_1782() {
             AssignmentMode::threshold_gate(1.0, 0.0),
         ),
         (
-            "euclidean/ibp_map",
+            "euclidean/ordered_beta_bernoulli",
             Topo::Euclidean,
-            AssignmentMode::ibp_map(1.0, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         ),
         (
-            "linear/ibp_map",
+            "linear/ordered_beta_bernoulli",
             Topo::Linear,
-            AssignmentMode::ibp_map(1.0, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         ),
     ];
     for (label, topo, mode) in cases {
@@ -266,12 +266,12 @@ fn run_full_fit(
         })
         .run(&mut objective, "SAE manifold")
         .unwrap_or_else(|e| {
-            // The two #1782 failure surfaces both land here: the jumprelu / euclidean
+            // The two #1782 failure surfaces both land here: the threshold-gate / euclidean
             // "no candidate seeds passed outer startup validation" abort, and the
             // softmax "BFGS aborted: globally infeasible neighbourhood at seed
             // (probe-refusal guard)" abort — both are the emptied / globally-refused
             // seed cascade the fit must avoid by entering a basin with defined
-            // Laplace evidence; infeasible probes remain `+∞` and cannot certify.
+            // quasi-Laplace score; infeasible probes remain `+∞` and cannot certify.
             panic!("#1782 {label} fit must not abort at startup / in the outer solver, got: {e}")
         });
     objective
@@ -287,7 +287,7 @@ fn run_full_fit(
     ev
 }
 
-/// The assignment axis (the issue's headline: jumprelu/softmax) must not just
+/// The assignment axis (the issue's headline: threshold-gate/softmax) must not just
 /// pass validation but actually FIT: run the real outer `OuterProblem::run`
 /// ("SAE manifold") cascade — the exact FFI entry — on circle atoms for each
 /// assignment kind and require a finite reconstruction EV. Circle atoms are
@@ -300,15 +300,18 @@ fn run_full_fit(
 /// outer BFGS lane previously returned `+∞` for every probe, never accepted a
 /// step, and the bridge's non-termination guard escalated the globally-refused
 /// neighbourhood to a FATAL seed rejection ("BFGS aborted: globally infeasible
-/// neighbourhood at seed (probe-refusal guard)"). `ibp_map`+`circle` lands in
+/// neighbourhood at seed (probe-refusal guard)"). `ordered_beta_bernoulli`+`circle` lands in
 /// the PD region and never trips it — RED before the fix on `softmax`, GREEN
-/// after (the entry path now reaches a basin with defined Laplace evidence).
+/// after (the entry path now reaches a basin with defined quasi-Laplace score).
 #[test]
 fn assignment_kinds_fit_on_circle_1782() {
     let z = planted_circle_embedded(48, 6, 0.03);
     let k = 4usize;
     for (label, mode) in [
-        ("circle/ibp_map", AssignmentMode::ibp_map(1.0, 1.0, false)),
+        (
+            "circle/ordered_beta_bernoulli",
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
+        ),
         ("circle/softmax", AssignmentMode::softmax(1.0)),
         (
             "circle/threshold_gate",
@@ -331,14 +334,14 @@ fn topologies_fit_on_circle_data_1782() {
     let z = planted_circle_embedded(48, 6, 0.03);
     let k = 4usize;
     for (label, topo) in [
-        ("euclidean/ibp_map", Topo::Euclidean),
-        ("linear/ibp_map", Topo::Linear),
+        ("euclidean/ordered_beta_bernoulli", Topo::Euclidean),
+        ("linear/ordered_beta_bernoulli", Topo::Linear),
     ] {
         run_full_fit(
             z.view(),
             k,
             topo,
-            AssignmentMode::ibp_map(1.0, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
             label,
         );
     }
@@ -359,18 +362,20 @@ fn topologies_fit_on_circle_data_1782() {
 fn cocollapse_startup_frontier_1026() {
     let z = planted_circle_embedded(96, 10, 0.03);
     let ks = [4usize, 8];
-    // Compare the assignment modes: IBP-MAP couples all rows through a cross-row
+    // Compare the assignment modes: ordered Beta--Bernoulli couples all rows through a cross-row
     // Woodbury evidence with NO matrix-free log-det route (so large-K refuses on
-    // the dense reduced Schur), whereas the hard-sigmoid gate (threshold_gate /
-    // "jumprelu") is per-row independent and streams. This measures which mode
+    // the dense reduced Schur), whereas the smooth logistic threshold gate is
+    // per-row independent and streams. This measures which mode
     // extends the startup frontier, decoupling the routing wall from seed
     // co-collapse.
     let modes: [(&str, fn() -> AssignmentMode); 3] = [
-        ("ibp_map    ", || AssignmentMode::ibp_map(1.0, 1.0, false)),
+        ("ordered_beta_bernoulli    ", || {
+            AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false)
+        }),
         ("thresh_gate", || AssignmentMode::threshold_gate(1.0, 0.5)),
         ("softmax    ", || AssignmentMode::softmax(1.0)),
     ];
-    let mut ibp_frontier = 0usize;
+    let mut ordered_beta_bernoulli_frontier = 0usize;
     for (label, mk) in modes {
         let mut frontier = 0usize;
         for &k in &ks {
@@ -386,20 +391,20 @@ fn cocollapse_startup_frontier_1026() {
             }
         }
         eprintln!("FRONTIER1026 {label}: largest passing K = {frontier}");
-        if label.trim() == "ibp_map" {
-            ibp_frontier = frontier;
+        if label.trim() == "ordered_beta_bernoulli" {
+            ordered_beta_bernoulli_frontier = frontier;
         }
     }
     assert!(
-        ibp_frontier >= 4,
-        "startup validation must hold at least to K=4 (got frontier {ibp_frontier})"
+        ordered_beta_bernoulli_frontier >= 4,
+        "startup validation must hold at least to K=4 (got frontier {ordered_beta_bernoulli_frontier})"
     );
 }
 
 /// WIN artifact (#1026 / #1610). A PRINCIPLED joint manifold SAE — curved 1-D
-/// circle fibers, hard-sigmoid gate (`threshold_gate`/"jumprelu", the per-row
-/// streaming assignment whose evidence log-det takes the matrix-free SLQ route,
-/// unlike IBP's cross-row Woodbury) — fit end-to-end by the real outer REML
+/// circle fibers, smooth logistic gate (`threshold_gate`, the per-row
+/// streaming assignment whose criterion log-det takes the matrix-free SLQ route)
+/// — fit end-to-end by the real outer penalized quasi-Laplace
 /// cascade must MATCH-OR-BEAT a traditional linear SAE (`fit_sparse_dictionary`,
 /// the "large linear SAE" of #1026) at matched, OVERCOMPLETE dictionary size K on
 /// genuinely curved data. On a planted circle a linear dictionary is rank-capped
@@ -409,7 +414,7 @@ fn cocollapse_startup_frontier_1026() {
 /// diversification and the spectral Schur PD-floor that keep the overcomplete
 /// (K > true-rank) joint block PD instead of co-collapsing. K is kept box-safe
 /// here; the per-row work is `top_k`-bounded, so it is the same solve at larger
-/// K (the streaming matrix-free evidence log-det, exercised by the outer REML
+/// K (the streaming matrix-free criterion log-det, exercised by the outer penalized quasi-Laplace
 /// cascade, is what carries it to K=32,000).
 #[test]
 fn manifold_beats_linear_joint_streaming_1026() {
@@ -421,11 +426,11 @@ fn manifold_beats_linear_joint_streaming_1026() {
             .expect("linear SAE baseline fits");
         let ev_linear = lin.explained_variance;
 
-        // Principled joint manifold SAE: curved circle fibers, hard-sigmoid gate,
+        // Principled joint manifold SAE: curved circle fibers, smooth logistic threshold gate,
         // solved directly by the coupled inner arrow-Schur joint Newton over the
-        // (coords t, decoders β) block — the exact joint solve the outer REML
+        // (coords t, decoders β) block — the exact joint solve the outer penalized quasi-Laplace
         // cascade drives, run here at a fixed penalty seed so the comparison is a
-        // fast, deterministic reconstruction check (no per-step evidence log-det).
+        // fast, deterministic reconstruction check (no per-step criterion log-det).
         let mode = AssignmentMode::threshold_gate(1.0, 0.0);
         let (mut term, _disp) = build_term(z.view(), k, Topo::Circle, mode);
         let mut rho = SaeManifoldRho::new(

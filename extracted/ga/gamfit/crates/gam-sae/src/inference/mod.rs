@@ -20,3 +20,9 @@ pub mod probe_runner;
 pub mod riesz;
 pub mod steering;
 pub mod transport_class;
+
+#[cfg(test)]
+mod tests_dose_units_2249;
+
+#[cfg(test)]
+mod tests_dose_calibration_2249;

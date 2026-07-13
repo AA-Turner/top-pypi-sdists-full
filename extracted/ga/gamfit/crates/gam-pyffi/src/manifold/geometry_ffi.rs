@@ -28,22 +28,13 @@ fn poincare_distance_batch<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
-/// K-aware default IBP concentration `α` (#1784) from the Rust source of truth
-/// `assignment::default_ibp_concentration_for_k_atoms`. Exposed so the Python
+/// K-aware default ordered Beta--Bernoulli concentration `α` (#1784) from the Rust source of truth
+/// `assignment::default_ordered_beta_bernoulli_concentration_for_k_atoms`. Exposed so the Python
 /// facade calls the core formula (`α = max(1, 1/(exp(1/K) − 1))`) instead of
 /// mirroring it — the thin-wrapper SPEC: no numeric policy lives in Python.
 #[pyfunction]
-fn sae_default_ibp_concentration_for_k_atoms(k_atoms: usize) -> f64 {
-    gam::terms::sae::assignment::default_ibp_concentration_for_k_atoms(k_atoms)
-}
-
-/// Default large-K active cap from the data-per-atom ratio, from the Rust source
-/// of truth `assignment::default_top_k_for_large_dictionary`. Returns Python
-/// `None` when the dense softmax path is admitted (`N/K ≥ K`, or `K ≤ 1`), and
-/// otherwise the per-row cap `clamp(ceil(N/K), 1, K−1)`.
-#[pyfunction]
-fn sae_default_top_k_for_large_dictionary(n_obs: usize, k_atoms: usize) -> Option<usize> {
-    gam::terms::sae::assignment::default_top_k_for_large_dictionary(n_obs, k_atoms)
+fn sae_default_ordered_beta_bernoulli_concentration_for_k_atoms(k_atoms: usize) -> f64 {
+    gam::terms::sae::assignment::default_ordered_beta_bernoulli_concentration_for_k_atoms(k_atoms)
 }
 
 /// #2232 Inc 5b (Gap B) — MODELING-CHOICE admission for an EXPLICIT
@@ -233,6 +224,88 @@ fn coordinate_variance_spectrum(coords: ndarray::ArrayView2<'_, f64>) -> Vec<f64
     spectrum
 }
 
+pub(crate) fn manifold_description_length_from_arrays(
+    assignments: ndarray::ArrayView2<'_, f64>,
+    coords: &[ndarray::ArrayView2<'_, f64>],
+    ev: f64,
+    n_params: i64,
+    l_param_bits: Option<f64>,
+    active_threshold: f64,
+) -> Result<gam::terms::sae::description_length::ManifoldFitDl, String> {
+    let (n_obs, k_atoms) = assignments.dim();
+    if coords.len() != k_atoms {
+        return Err(format!(
+            "manifold description length expected {k_atoms} coordinate blocks, got {}",
+            coords.len()
+        ));
+    }
+    if !active_threshold.is_finite() || active_threshold < 0.0 {
+        return Err(format!(
+            "manifold description length active_threshold must be finite and non-negative; got {active_threshold}"
+        ));
+    }
+
+    let mut coord_variances = Vec::<f64>::new();
+    let mut atom_coord_dims = Vec::<f64>::with_capacity(k_atoms);
+    for (atom, block) in coords.iter().enumerate() {
+        if block.nrows() != n_obs {
+            return Err(format!(
+                "manifold description length coords[{atom}] has {} rows, expected {n_obs}",
+                block.nrows()
+            ));
+        }
+        atom_coord_dims.push(block.ncols() as f64);
+        coord_variances.extend(coordinate_variance_spectrum(*block));
+    }
+
+    let total_var: f64 = coord_variances.iter().sum();
+    let delta2 = (1.0 - ev).max(1.0e-12) * total_var;
+    let mut codes = gam::terms::sae::atom_codes::SparseAtomCodes::empty(n_obs, k_atoms);
+    for row in 0..n_obs {
+        for atom in 0..k_atoms {
+            let gate = assignments[[row, atom]];
+            if gate.is_finite() && gate.abs() > active_threshold {
+                codes.row_mut(row).assign(atom, gate);
+            }
+        }
+    }
+    Ok(
+        gam::terms::sae::description_length::manifold_fit_description_length(
+            &codes,
+            &coord_variances,
+            delta2,
+            &atom_coord_dims,
+            ev,
+            n_params,
+            l_param_bits,
+        ),
+    )
+}
+
+pub(crate) fn manifold_description_length_to_pydict<'py>(
+    py: Python<'py>,
+    dl: &gam::terms::sae::description_length::ManifoldFitDl,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("bits_per_token", dl.bits_per_token)?;
+    out.set_item("total_bits", dl.total_bits)?;
+    out.set_item("code_bits", dl.code_bits)?;
+    out.set_item("selection_bits", dl.selection_bits)?;
+    out.set_item("dict_bits", dl.dict_bits)?;
+    out.set_item("code_bits_per_token", dl.code_bits_per_token)?;
+    out.set_item("selection_bits_per_token", dl.selection_bits_per_token)?;
+    out.set_item("dict_bits_per_token", dl.dict_bits_per_token)?;
+    out.set_item("coordinate_rate_bits", dl.coordinate_rate_bits)?;
+    out.set_item("l_param_bits", dl.l_param_bits)?;
+    out.set_item("ev", dl.ev)?;
+    out.set_item("n_tokens", dl.n_tokens)?;
+    out.set_item("k_active", dl.k_active)?;
+    out.set_item("coord_dim", dl.coord_dim)?;
+    out.set_item("g_dict", dl.g_dict)?;
+    out.set_item("n_params", dl.n_params)?;
+    Ok(out.into())
+}
+
 /// Fit-level bits/token description length of a manifold-SAE reconstruction.
 ///
 /// The headline currency the results.md postmortem argues for: the whole fit's
@@ -258,77 +331,20 @@ fn sae_manifold_description_length<'py>(
     l_param_bits: Option<f64>,
     active_threshold: f64,
 ) -> PyResult<PyObject> {
-    let assignments = assignments.as_array();
-    let (n_obs, k_atoms) = assignments.dim();
-    if coords.len() != k_atoms {
-        return Err(py_value_error(format!(
-            "sae_manifold_description_length: expected {k_atoms} coordinate blocks \
-             (one per atom), got {}",
-            coords.len()
-        )));
-    }
-    // Per-coordinate signal-variance spectrum + coded dim per atom, from the
-    // fitted chart coordinates.
-    let mut coord_variances: Vec<f64> = Vec::new();
-    let mut atom_coord_dims: Vec<f64> = Vec::with_capacity(k_atoms);
-    for (k, block) in coords.iter().enumerate() {
-        let c = block.as_array();
-        if c.nrows() != n_obs {
-            return Err(py_value_error(format!(
-                "sae_manifold_description_length: coords[{k}] has {} rows but assignments \
-                 have {n_obs}",
-                c.nrows()
-            )));
-        }
-        atom_coord_dims.push(c.ncols() as f64);
-        coord_variances.extend(coordinate_variance_spectrum(c));
-    }
-    // Achieved coordinate coding distortion: the fit's residual fraction of the
-    // total coordinate signal variance `(1 − ev)·Σ var`, matching the
-    // per-featurizer `Featurizer::residual`. `1 − ev` is floored away from zero so
-    // a saturated fit reports a large finite rate, not +∞.
-    let total_var: f64 = coord_variances.iter().sum();
-    let delta2 = (1.0 - ev).max(1.0e-12) * total_var;
-    // Empirical binary support matrix: an atom is coded for a token when its gate
-    // magnitude clears the numerical-dust floor. Reads the TRUE recorded support
-    // per token (sparse gate families stay sparse; a maximally-spread softmax row
-    // is priced at its true high support cost) instead of a rounded-mean count.
-    let mut codes = gam::terms::sae::atom_codes::SparseAtomCodes::empty(n_obs, k_atoms);
-    for n in 0..n_obs {
-        for k in 0..k_atoms {
-            let gate = assignments[[n, k]];
-            if gate.is_finite() && gate.abs() > active_threshold {
-                codes.row_mut(n).assign(k, gate);
-            }
-        }
-    }
-    let dl = gam::terms::sae::description_length::manifold_fit_description_length(
-        &codes,
-        &coord_variances,
-        delta2,
-        &atom_coord_dims,
+    let coord_views = coords
+        .iter()
+        .map(|block| block.as_array())
+        .collect::<Vec<_>>();
+    let dl = manifold_description_length_from_arrays(
+        assignments.as_array(),
+        &coord_views,
         ev,
         n_params,
         l_param_bits,
-    );
-    let out = PyDict::new(py);
-    out.set_item("bits_per_token", dl.bits_per_token)?;
-    out.set_item("total_bits", dl.total_bits)?;
-    out.set_item("code_bits", dl.code_bits)?;
-    out.set_item("selection_bits", dl.selection_bits)?;
-    out.set_item("dict_bits", dl.dict_bits)?;
-    out.set_item("code_bits_per_token", dl.code_bits_per_token)?;
-    out.set_item("selection_bits_per_token", dl.selection_bits_per_token)?;
-    out.set_item("dict_bits_per_token", dl.dict_bits_per_token)?;
-    out.set_item("coordinate_rate_bits", dl.coordinate_rate_bits)?;
-    out.set_item("l_param_bits", dl.l_param_bits)?;
-    out.set_item("ev", dl.ev)?;
-    out.set_item("n_tokens", dl.n_tokens)?;
-    out.set_item("k_active", dl.k_active)?;
-    out.set_item("coord_dim", dl.coord_dim)?;
-    out.set_item("g_dict", dl.g_dict)?;
-    out.set_item("n_params", dl.n_params)?;
-    Ok(out.into())
+        active_threshold,
+    )
+    .map_err(py_value_error)?;
+    manifold_description_length_to_pydict(py, &dl)
 }
 
 /// Format a float the way Python's `f"{x:g}"` does (default precision 6), so the
@@ -1140,312 +1156,66 @@ fn response_geometry_fit_curvature<'py>(
     ))
 }
 
+/// Replicate latent-angle agreement modulo exactly the circle's `O(2)` gauge
+/// (#2260). Returns per-replicate embedding-rank certificates and every pair's
+/// rotation/reflection resultants; aggregate scores are `None` when any
+/// replicate is collapsed and the quotient alignment is ill-posed.
 #[pyfunction]
-fn sae_duchon_centers_nd<'py>(
+#[pyo3(signature = (coordinates, period=1.0))]
+fn sae_circular_concordance<'py>(
     py: Python<'py>,
-    centers_1d: PyReadonlyArray1<'py, f64>,
-    d: usize,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let centers_owned = centers_1d.as_array().to_owned();
-    let out = py.detach(move || sae_duchon_centers_nd_impl(centers_owned.view(), d));
-    Ok(out.into_pyarray(py).unbind())
-}
+    coordinates: PyReadonlyArray2<'py, f64>,
+    period: f64,
+) -> PyResult<Py<PyDict>> {
+    let coordinates_owned = coordinates.as_array().to_owned();
+    let report = py
+        .detach(move || {
+            gam::terms::sae::circular_concordance::circular_concordance(
+                coordinates_owned.view(),
+                period,
+            )
+        })
+        .map_err(PyValueError::new_err)?;
+    let out = PyDict::new(py);
+    out.set_item("n_replicates", report.n_replicates)?;
+    out.set_item("n_rows", report.n_rows)?;
+    out.set_item("period", report.period)?;
+    out.set_item("minimum_aligned_score", report.minimum_aligned_score)?;
+    out.set_item("mean_aligned_score", report.mean_aligned_score)?;
 
-/// Sinkhorn per-atom log-bias potentials that balance atom usage across the
-/// batch (torch-lane routing helper for `ManifoldSAE`). Given the row-wise
-/// log-responsibilities `log_scores[n, k]`, returns the additive potential
-/// `b_k`; the Python caller forms the balanced responsibilities as
-/// `log_scores + b`, keeping `log_scores` on the autograd tape while `b` is a
-/// detached constant. See `gam::geometry::sae_routing::sinkhorn_balance_bias`.
-#[pyfunction]
-fn sae_sinkhorn_balance_bias<'py>(
-    py: Python<'py>,
-    log_scores: PyReadonlyArray2<'py, f64>,
-    iters: usize,
-) -> PyResult<Py<PyArray1<f64>>> {
-    let scores_owned = log_scores.as_array().to_owned();
-    let out = py.detach(move || sae_sinkhorn_balance_bias_impl(scores_owned.view(), iters));
-    Ok(out.into_pyarray(py).unbind())
-}
-
-/// Exponential-moving-average blend of the per-row assignment accumulator for
-/// the torch `softmax_topk` routing lane (issue #1282). Given the current
-/// accumulator `prev (N, F)`, the freshly observed assignment signal
-/// `signal (N, F)`, and the decay `beta`, returns `beta*prev + (1-beta)*signal`.
-/// Both inputs are detached routing state; the Python `_update_assign_ema` keeps
-/// the stateful orchestration (lazy sizing, reset on a row-count change, the
-/// training-only guard) and delegates only this numeric recurrence so the EMA
-/// math is single-sourced. See `gam::geometry::sae_routing::assign_ema_update`.
-#[pyfunction]
-fn sae_assign_ema_update<'py>(
-    py: Python<'py>,
-    prev: PyReadonlyArray2<'py, f64>,
-    signal: PyReadonlyArray2<'py, f64>,
-    beta: f64,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let prev_owned = prev.as_array().to_owned();
-    let signal_owned = signal.as_array().to_owned();
-    let out =
-        py.detach(move || sae_assign_ema_update_impl(prev_owned.view(), signal_owned.view(), beta));
-    Ok(out.into_pyarray(py).unbind())
-}
-
-/// Residual-EM routing scores for the torch `softmax_topk` lane (issue #1282).
-/// Given the input rows `x (N, D)` and the per-atom decoded curves
-/// `per_atom_recon (N, F, D)`, solves the best scalar code against each atom's
-/// curve and scores the atom by the scale-free relative residual it leaves,
-/// returning `(code (N, F), relative_residual (N, F))`. `nonneg` selects the
-/// `target_k == 1` non-negative code convention vs. the `target_k > 1` signed
-/// one. This is the criterion math the Python gate used to compute inline; the
-/// paired VJP `sae_residual_em_score_vjp` keeps the autograd tape continuous.
-/// See `gam::terms::sae::criterion_atoms::residual_em_score`.
-#[pyfunction]
-fn sae_residual_em_score<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    per_atom_recon: PyReadonlyArray3<'py, f64>,
-    nonneg: bool,
-) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
-    let x_owned = x.as_array().to_owned();
-    let recon_owned = per_atom_recon.as_array().to_owned();
-    let (code, relres) = py.detach(move || {
-        gam::terms::sae::criterion_atoms::residual_em_score(
-            x_owned.view(),
-            recon_owned.view(),
-            nonneg,
-        )
-    });
-    Ok((
-        code.into_pyarray(py).unbind(),
-        relres.into_pyarray(py).unbind(),
-    ))
-}
-
-/// Analytic backward (VJP) for `sae_residual_em_score`, w.r.t. `per_atom_recon`.
-/// Given the upstream cotangents `g_code (N, F)` and `g_relative_residual
-/// (N, F)`, returns `grad_per_atom_recon (N, F, D)`. `x` is a tape constant (the
-/// activation batch never requires grad), so no `∂/∂x` channel is produced. See
-/// `gam::terms::sae::criterion_atoms::residual_em_score_vjp`.
-#[pyfunction]
-fn sae_residual_em_score_vjp<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    per_atom_recon: PyReadonlyArray3<'py, f64>,
-    nonneg: bool,
-    g_code: PyReadonlyArray2<'py, f64>,
-    g_relative_residual: PyReadonlyArray2<'py, f64>,
-) -> PyResult<Py<PyArray3<f64>>> {
-    let x_owned = x.as_array().to_owned();
-    let recon_owned = per_atom_recon.as_array().to_owned();
-    let gc_owned = g_code.as_array().to_owned();
-    let gq_owned = g_relative_residual.as_array().to_owned();
-    let grad = py.detach(move || {
-        gam::terms::sae::criterion_atoms::residual_em_score_vjp(
-            x_owned.view(),
-            recon_owned.view(),
-            nonneg,
-            gc_owned.view(),
-            gq_owned.view(),
-        )
-    });
-    Ok(grad.into_pyarray(py).unbind())
-}
-
-fn residual_em_cuda_dtype(
-    dtype: &str,
-) -> PyResult<gam::terms::sae::criterion_atoms_gpu::ResidualEmCudaDType> {
-    gam::terms::sae::criterion_atoms_gpu::ResidualEmCudaDType::parse(dtype)
-        .map_err(PyTypeError::new_err)
-}
-
-/// Raw-pointer CUDA forward for `sae_residual_em_score`.
-///
-/// `device_ptrs` is `(x, per_atom_recon, code, relative_residual)` and `shape`
-/// is `(N, F, D)`. All allocations must be contiguous, have the exact scalar
-/// type named by `dtype`, and belong to `ordinal`'s CUDA primary context. The
-/// torch bridge validates those invariants and synchronizes its producing
-/// stream before entering this ownership-free boundary.
-#[pyfunction]
-fn sae_residual_em_score_cuda(
-    py: Python<'_>,
-    ordinal: usize,
-    dtype: &str,
-    device_ptrs: (u64, u64, u64, u64),
-    shape: (usize, usize, usize),
-    nonneg: bool,
-) -> PyResult<()> {
-    let scalar_type = residual_em_cuda_dtype(dtype)?;
-    let (x_dev_ptr, recon_dev_ptr, code_dev_ptr, relative_residual_dev_ptr) = device_ptrs;
-    let (n, atoms, dim) = shape;
-    py.detach(move || {
-        gam::terms::sae::criterion_atoms_gpu::residual_em_score_device(
-            ordinal,
-            scalar_type,
-            x_dev_ptr,
-            recon_dev_ptr,
-            n,
-            atoms,
-            dim,
-            nonneg,
-            code_dev_ptr,
-            relative_residual_dev_ptr,
-        )
-    })
-    .map_err(PyValueError::new_err)
-}
-
-/// Raw-pointer analytic CUDA VJP for `sae_residual_em_score_vjp`.
-///
-/// `device_ptrs` is `(x, per_atom_recon, g_code, g_relative_residual,
-/// grad_per_atom_recon)` and `shape` is `(N, F, D)`, with the same strict
-/// device/dtype/layout contract as [`sae_residual_em_score_cuda`].
-#[pyfunction]
-fn sae_residual_em_score_vjp_cuda(
-    py: Python<'_>,
-    ordinal: usize,
-    dtype: &str,
-    device_ptrs: (u64, u64, u64, u64, u64),
-    shape: (usize, usize, usize),
-    nonneg: bool,
-) -> PyResult<()> {
-    let scalar_type = residual_em_cuda_dtype(dtype)?;
-    let (
-        x_dev_ptr,
-        recon_dev_ptr,
-        g_code_dev_ptr,
-        g_relative_residual_dev_ptr,
-        grad_recon_dev_ptr,
-    ) = device_ptrs;
-    let (n, atoms, dim) = shape;
-    py.detach(move || {
-        gam::terms::sae::criterion_atoms_gpu::residual_em_score_vjp_device(
-            ordinal,
-            scalar_type,
-            x_dev_ptr,
-            recon_dev_ptr,
-            n,
-            atoms,
-            dim,
-            nonneg,
-            g_code_dev_ptr,
-            g_relative_residual_dev_ptr,
-            grad_recon_dev_ptr,
-        )
-    })
-    .map_err(PyValueError::new_err)
-}
-
-/// Deterministic line-clustering routing anchor for the torch `softmax_topk`
-/// lane (issue #1282). Given the `(N, D)` input rows, returns
-/// `(onehot (N, atoms), valid, confident)`: `valid` is false (with an empty
-/// `onehot`) for the torch `(None, False)` cases (too few rows, `< 2` atoms, or
-/// an eigensolver failure); otherwise `onehot` is the per-row cluster one-hot
-/// and `confident` reports the balance/margin gate. See
-/// `gam::geometry::sae_routing::direction_cluster_anchor`.
-#[pyfunction]
-fn sae_direction_cluster_anchor<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    n_atoms: usize,
-    iters: usize,
-) -> PyResult<(Py<PyArray2<f64>>, bool, bool)> {
-    let x_owned = x.as_array().to_owned();
-    let result =
-        py.detach(move || sae_direction_cluster_anchor_impl(x_owned.view(), n_atoms, iters));
-    match result {
-        Some((onehot, confident)) => Ok((onehot.into_pyarray(py).unbind(), true, confident)),
-        None => Ok((
-            Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(),
-            false,
-            false,
-        )),
+    let coverage = PyList::empty(py);
+    for entry in report.coverage {
+        let item = PyDict::new(py);
+        item.set_item("replicate", entry.replicate)?;
+        item.set_item(
+            "minimum_embedding_eigenvalue",
+            entry.minimum_embedding_eigenvalue,
+        )?;
+        item.set_item(
+            "maximum_embedding_eigenvalue",
+            entry.maximum_embedding_eigenvalue,
+        )?;
+        item.set_item("isotropic_coverage", entry.isotropic_coverage)?;
+        item.set_item("rank_resolution", entry.rank_resolution)?;
+        item.set_item("well_posed", entry.well_posed)?;
+        coverage.append(item)?;
     }
-}
+    out.set_item("coverage", coverage)?;
 
-/// Balanced quadratic union-of-subspaces routing anchor for the torch
-/// `softmax_topk` lane (issue #1282). Returns
-/// `(onehot (N, 2), confident, i, j, threshold)`: when `confident` is true the
-/// `onehot` is the accepted two-cluster split and `(i, j, threshold)` is the
-/// transferable decision rule; otherwise `confident` is false with an empty
-/// `onehot` and zeroed rule. See
-/// `gam::geometry::sae_routing::quadratic_subspace_anchor`.
-#[pyfunction]
-fn sae_quadratic_subspace_anchor<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    subspace_dim: usize,
-) -> PyResult<(Py<PyArray2<f64>>, bool, usize, usize, f64)> {
-    let x_owned = x.as_array().to_owned();
-    let result =
-        py.detach(move || sae_quadratic_subspace_anchor_impl(x_owned.view(), subspace_dim));
-    match result {
-        Some((onehot, i, j, threshold)) => {
-            Ok((onehot.into_pyarray(py).unbind(), true, i, j, threshold))
-        }
-        None => Ok((
-            Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(),
-            false,
-            0,
-            0,
-            0.0,
-        )),
+    let pairs = PyList::empty(py);
+    for entry in report.pairs {
+        let item = PyDict::new(py);
+        item.set_item("left", entry.left)?;
+        item.set_item("right", entry.right)?;
+        item.set_item("rotation_score", entry.rotation_score)?;
+        item.set_item("reflection_score", entry.reflection_score)?;
+        item.set_item("aligned_score", entry.aligned_score)?;
+        item.set_item("reflected", entry.reflected)?;
+        item.set_item("phase_shift", entry.phase_shift)?;
+        pairs.append(item)?;
     }
-}
-
-/// Apply a cached quadratic-subspace decision rule to route an arbitrary batch
-/// (torch `softmax_topk` out-of-sample routing, issue #1282). Returns the
-/// `(N, 2)` one-hot from the `(i, j, threshold)` split of `x_i·x_j` on the
-/// L2-normalized rows. See `gam::geometry::sae_routing::apply_anchor_rule`.
-#[pyfunction]
-fn sae_apply_anchor_rule<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    i: usize,
-    j: usize,
-    threshold: f64,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let x_owned = x.as_array().to_owned();
-    let out = py.detach(move || sae_apply_anchor_rule_impl(x_owned.view(), i, j, threshold));
-    Ok(out.into_pyarray(py).unbind())
-}
-
-/// Residual-PC matching-pursuit commitment one-hot for the early training window
-/// of the torch `softmax_topk` lane (issue #1282). Given `x (N, D)`, the per-atom
-/// reconstructions `per_atom_recon (N, F, D)`, and the current non-negative codes
-/// `code (N, F)`, returns `(onehot (N, F), valid)`. `valid` is false (empty
-/// `onehot`) for the non-committing configuration (`step ≥ commit_steps`) or an
-/// eigensolver failure — the torch `None` cases. See
-/// `gam::geometry::sae_routing::matching_pursuit_commit`.
-#[pyfunction]
-fn sae_matching_pursuit_commit<'py>(
-    py: Python<'py>,
-    x: PyReadonlyArray2<'py, f64>,
-    per_atom_recon: PyReadonlyArray3<'py, f64>,
-    code: PyReadonlyArray2<'py, f64>,
-    step: usize,
-    commit_steps: usize,
-    n_atoms: usize,
-) -> PyResult<(Py<PyArray2<f64>>, bool)> {
-    let x_owned = x.as_array().to_owned();
-    let recon_owned = per_atom_recon.as_array().to_owned();
-    let code_owned = code.as_array().to_owned();
-    let result = py.detach(move || {
-        sae_matching_pursuit_commit_impl(
-            x_owned.view(),
-            recon_owned.view(),
-            code_owned.view(),
-            step,
-            commit_steps,
-            n_atoms,
-        )
-    });
-    match result {
-        Some(onehot) => Ok((onehot.into_pyarray(py).unbind(), true)),
-        None => Ok((
-            Array2::<f64>::zeros((0, 0)).into_pyarray(py).unbind(),
-            false,
-        )),
-    }
+    out.set_item("pairs", pairs)?;
+    Ok(out.unbind())
 }
 
 /// Per-row / per-atom SAE trust scores from an assignment matrix and the
@@ -1471,89 +1241,6 @@ fn sae_row_trust_scores<'py>(
         row.into_pyarray(py).unbind(),
         per_atom.into_pyarray(py).unbind(),
     ))
-}
-
-/// Device-resident periodic basis+jet for the torch manifold-SAE lane.
-///
-/// `t_dev_ptr`, `phi_dev_ptr`, `jet_dev_ptr` are RAW CUDA device addresses of
-/// caller-owned (torch) float64 tensors on device `ordinal`: `t` is `(n,)` (or
-/// any contiguous layout of `n` doubles), `phi` and `jet` are contiguous
-/// `(n, 2*n_harmonics + 1)` buffers the kernel fills in place. The caller must
-/// have synchronized the producing stream (`torch.cuda.synchronize()`); the
-/// kernel's stream is synchronized before this returns. Mirrors the CPU
-/// `basis_with_jet("periodic", ...)` exactly — the d = 1 jet `(n, m, 1)` is
-/// contiguous as `(n, m)`. See `gam_sae::basis_gpu`.
-#[pyfunction]
-fn sae_periodic_basis_with_jet_cuda(
-    py: Python<'_>,
-    ordinal: usize,
-    t_dev_ptr: u64,
-    n: usize,
-    n_harmonics: usize,
-    phi_dev_ptr: u64,
-    jet_dev_ptr: u64,
-) -> PyResult<()> {
-    py.detach(move || {
-        gam::terms::sae::basis_gpu::sae_periodic_basis_with_jet_device(
-            ordinal,
-            t_dev_ptr,
-            n,
-            n_harmonics,
-            phi_dev_ptr,
-            jet_dev_ptr,
-        )
-    })
-    .map_err(PyValueError::new_err)
-}
-
-/// Width `(n_kernel + n_poly)` of the device Duchon basis for these centers —
-/// the torch bridge allocates its output tensors with exactly this width
-/// before calling [`sae_duchon_basis_with_jet_cuda`]. Also warms the device
-/// cache (uploads centers/Z once).
-#[pyfunction]
-fn sae_duchon_device_basis_width(
-    py: Python<'_>,
-    ordinal: usize,
-    centers: PyReadonlyArray2<'_, f64>,
-    m: usize,
-) -> PyResult<usize> {
-    let centers_owned = centers.as_array().to_owned();
-    py.detach(move || {
-        gam::terms::sae::basis_gpu::sae_duchon_device_basis_width(ordinal, centers_owned.view(), m)
-    })
-    .map_err(PyValueError::new_err)
-}
-
-/// Device-resident Duchon basis+jet for the torch manifold-SAE lane — the
-/// multi-`d` sibling of [`sae_periodic_basis_with_jet_cuda`] with the same
-/// pointer and synchronization contract. `t` is `(n, dim)` doubles on device
-/// `ordinal`; `phi` is `(n, width)` and `jet` is `(n, width, dim)` with
-/// `width` from [`sae_duchon_device_basis_width`]. Center-derived state
-/// (`Z`, amplification, polyharmonic coefficient, monomial exponents) is
-/// cached on device per (centers, m). Returns the width actually written.
-#[pyfunction]
-fn sae_duchon_basis_with_jet_cuda(
-    py: Python<'_>,
-    ordinal: usize,
-    device_ptrs: (u64, u64, u64),
-    n: usize,
-    centers: PyReadonlyArray2<'_, f64>,
-    m: usize,
-) -> PyResult<usize> {
-    let (t_dev_ptr, phi_dev_ptr, jet_dev_ptr) = device_ptrs;
-    let centers_owned = centers.as_array().to_owned();
-    py.detach(move || {
-        gam::terms::sae::basis_gpu::sae_duchon_basis_with_jet_device(
-            ordinal,
-            t_dev_ptr,
-            n,
-            centers_owned.view(),
-            m,
-            phi_dev_ptr,
-            jet_dev_ptr,
-        )
-    })
-    .map_err(PyValueError::new_err)
 }
 
 #[pyfunction]
@@ -2105,8 +1792,8 @@ impl PyTopKActivationPenalty {
     }
 }
 
-#[pyclass(module = "gam_pyffi._rust", name = "JumpReLUPenalty")]
-struct JumpReLUPenalty {
+#[pyclass(module = "gam_pyffi._rust", name = "SmoothThresholdPenalty")]
+struct SmoothThresholdPenalty {
     #[pyo3(get, set)]
     target: PyObject,
     #[pyo3(get, set)]
@@ -2120,7 +1807,7 @@ struct JumpReLUPenalty {
 }
 
 #[pymethods]
-impl JumpReLUPenalty {
+impl SmoothThresholdPenalty {
     #[new]
     #[pyo3(signature = (thresholds, weight = 1.0, smoothing_eps = 1.0e-3, *, target = None, weight_schedule = None))]
     fn new(
@@ -2142,7 +1829,7 @@ impl JumpReLUPenalty {
             .extract::<Vec<f64>>()?;
         if thresholds.is_empty() {
             return Err(PyValueError::new_err(
-                "JumpReLUPenalty.thresholds must be non-empty",
+                "SmoothThresholdPenalty.thresholds must be non-empty",
             ));
         }
         if thresholds
@@ -2150,17 +1837,17 @@ impl JumpReLUPenalty {
             .any(|threshold| !threshold.is_finite() || *threshold <= 0.0)
         {
             return Err(PyValueError::new_err(
-                "JumpReLUPenalty.thresholds must be finite and > 0",
+                "SmoothThresholdPenalty.thresholds must be finite and > 0",
             ));
         }
         if !(weight > 0.0) {
             return Err(PyValueError::new_err(format!(
-                "JumpReLUPenalty.weight must be finite and > 0, got {weight}"
+                "SmoothThresholdPenalty.weight must be finite and > 0, got {weight}"
             )));
         }
         if !(smoothing_eps > 0.0) {
             return Err(PyValueError::new_err(format!(
-                "JumpReLUPenalty.smoothing_eps must be finite and > 0, got {smoothing_eps}"
+                "SmoothThresholdPenalty.smoothing_eps must be finite and > 0, got {smoothing_eps}"
             )));
         }
         Ok(Self {
@@ -2173,7 +1860,7 @@ impl JumpReLUPenalty {
     }
 
     #[classattr]
-    const KIND_TAG: &'static str = "jumprelu";
+    const KIND_TAG: &'static str = "smooth_threshold";
 
     fn to_rust_descriptor(&self, py: Python<'_>) -> PyResult<PyObject> {
         let payload = PyDict::new(py);
@@ -2198,7 +1885,7 @@ impl JumpReLUPenalty {
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         Ok(format!(
-            "JumpReLUPenalty(thresholds={:?}, weight={}, smoothing_eps={}, target={}, weight_schedule={})",
+            "SmoothThresholdPenalty(thresholds={:?}, weight={}, smoothing_eps={}, target={}, weight_schedule={})",
             self.thresholds,
             self.weight,
             self.smoothing_eps,
@@ -2626,8 +2313,8 @@ impl IsometryPenalty {
     }
 }
 
-#[pyclass(module = "gam_pyffi._rust", name = "IBPAssignmentPenalty")]
-struct PyIBPAssignmentPenalty {
+#[pyclass(module = "gam_pyffi._rust", name = "OrderedBetaBernoulliPenalty")]
+struct PyOrderedBetaBernoulliPenalty {
     #[pyo3(get, set)]
     target: PyObject,
     #[pyo3(get, set)]
@@ -2645,7 +2332,7 @@ struct PyIBPAssignmentPenalty {
 }
 
 #[pymethods]
-impl PyIBPAssignmentPenalty {
+impl PyOrderedBetaBernoulliPenalty {
     #[new]
     #[pyo3(signature = (k_max, alpha = 1.0, tau = 1.0, learnable = false, *, target = None, temperature_schedule = None, weight_schedule = None))]
     fn new(
@@ -2662,17 +2349,17 @@ impl PyIBPAssignmentPenalty {
         let k_max = builtins.getattr("int")?.call1((k_max,))?.extract::<i64>()?;
         if k_max <= 0 {
             return Err(PyValueError::new_err(format!(
-                "IBPAssignmentPenalty.k_max must be > 0, got {k_max}"
+                "OrderedBetaBernoulliPenalty.k_max must be > 0, got {k_max}"
             )));
         }
         if alpha <= 0.0 {
             return Err(PyValueError::new_err(format!(
-                "IBPAssignmentPenalty.alpha must be > 0, got {alpha}"
+                "OrderedBetaBernoulliPenalty.alpha must be > 0, got {alpha}"
             )));
         }
         if tau <= 0.0 {
             return Err(PyValueError::new_err(format!(
-                "IBPAssignmentPenalty.tau must be > 0, got {tau}"
+                "OrderedBetaBernoulliPenalty.tau must be > 0, got {tau}"
             )));
         }
         Ok(Self {
@@ -2687,7 +2374,7 @@ impl PyIBPAssignmentPenalty {
     }
 
     #[classattr]
-    const KIND_TAG: &'static str = "ibp_assignment";
+    const KIND_TAG: &'static str = "ordered_beta_bernoulli";
 
     fn to_rust_descriptor(&self, py: Python<'_>) -> PyResult<PyObject> {
         let payload = PyDict::new(py);
@@ -2720,7 +2407,7 @@ impl PyIBPAssignmentPenalty {
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         Ok(format!(
-            "IBPAssignmentPenalty(target={}, k_max={}, alpha={}, tau={}, learnable={}, temperature_schedule={}, weight_schedule={})",
+            "OrderedBetaBernoulliPenalty(target={}, k_max={}, alpha={}, tau={}, learnable={}, temperature_schedule={}, weight_schedule={})",
             py_repr(py, self.target.bind(py))?,
             self.k_max,
             self.alpha,
@@ -3256,6 +2943,7 @@ impl ParametricAuxConditionalPriorPenalty {
         .map_err(py_value_error)?;
         let flat: Array1<f64> = view.iter().copied().collect();
         let rho = Array1::<f64>::zeros(0);
+        penalty.validate_rho(rho.view()).map_err(py_value_error)?;
         let value = penalty.value(flat.view(), rho.view());
         let grad_flat = penalty.grad_target(flat.view(), rho.view());
         let grad = grad_flat
@@ -3634,6 +3322,7 @@ impl IvaeRidgeMeanGauge {
         .map_err(py_value_error)?;
         let flat: Array1<f64> = view.iter().copied().collect();
         let rho = Array1::<f64>::zeros(0);
+        penalty.validate_rho(rho.view()).map_err(py_value_error)?;
         let value = penalty.value(flat.view(), rho.view());
         let grad_flat = penalty.grad_target(flat.view(), rho.view());
         let grad = grad_flat
@@ -3836,6 +3525,7 @@ impl MechanismSparsityPenalty {
         .map_err(py_value_error)?;
         let flat: Array1<f64> = view.iter().copied().collect();
         let rho = Array1::<f64>::zeros(0);
+        penalty.validate_rho(rho.view()).map_err(py_value_error)?;
         let value = penalty.value(flat.view(), rho.view());
         let grad_flat = penalty.grad_target(flat.view(), rho.view());
         let grad = grad_flat
@@ -4537,6 +4227,7 @@ impl AuxConditionalPriorPenalty {
                 .map_err(py_value_error)?;
         let flat: Array1<f64> = view.iter().copied().collect();
         let rho = Array1::<f64>::zeros(0);
+        penalty.validate_rho(rho.view()).map_err(py_value_error)?;
         let value = penalty.value(flat.view(), rho.view());
         let grad_flat = penalty.grad_target(flat.view(), rho.view());
         let grad = grad_flat
@@ -4964,10 +4655,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(sklearn_fit_metadata, module)?)?;
     module.add_function(wrap_pyfunction!(build_info, module)?)?;
-    module.add_function(wrap_pyfunction!(fidelity_loss_recovered, module)?)?;
-    module.add_function(wrap_pyfunction!(fidelity_r2_score, module)?)?;
-    module.add_function(wrap_pyfunction!(fidelity_kl_categorical_rows, module)?)?;
-    module.add_function(wrap_pyfunction!(fidelity_distortion_floor_r2, module)?)?;
     module.add_function(wrap_pyfunction!(identifiability_check_json, module)?)?;
     module.add_function(wrap_pyfunction!(set_log_level, module)?)?;
     module.add_function(wrap_pyfunction!(interpolate_rows, module)?)?;
@@ -5058,51 +4745,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         build_difference_smooth_request_json,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(decoder_channel_cov_factors, module)?)?;
-    module.add_function(wrap_pyfunction!(decoder_cov_from_channel_factors, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_canonical_n_harmonics, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_atom_topologies, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_canonical_assignment_kind,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_canonical_basis_kind,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_basis_kind_for_topology,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_topology_for_basis,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_canonical_topology,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_coordinate_periods,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(
         crate::manifold::manifold_sae_coercion::sae_flat_block_assignment,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_activation_matrix_from_logits,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        crate::manifold::manifold_sae_coercion::sae_manifold_from_stagewise,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_training_mean, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_periodic_shape_band_reorder, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_coercion_json_roundtrip, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        sae_manifold_from_fit_payload,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_payload_roundtrip, module)?)?;
@@ -5197,19 +4841,10 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(register_analytic_penalties, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_hvp, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        harmonic_roughness_evidence_weight,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(gumbel_schedule_tau, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_ibp_map_value_grad, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_ibp_map_batch_value_grad, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_jumprelu_row_value_grad, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_jumprelu_batch_value_grad, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_topk_activation_value_grad, module)?)?;
-    module.add_function(wrap_pyfunction!(jumprelu_gate_value_grad, module)?)?;
+    module.add_function(wrap_pyfunction!(smooth_threshold_gate_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_penalty_value, module)?)?;
-    module.add_function(wrap_pyfunction!(riemannian_retract, module)?)?;
+    module.add_function(wrap_pyfunction!(riemannian_gradient_step, module)?)?;
     module.add_function(wrap_pyfunction!(manifold_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(manifold_exp_map_vjp, module)?)?;
     module.add_function(wrap_pyfunction!(manifold_log_map, module)?)?;
@@ -5281,21 +4916,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         response_geometry_sphere_normalize_base,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(sae_duchon_centers_nd, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_sinkhorn_balance_bias, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_assign_ema_update, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_residual_em_score, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_residual_em_score_vjp, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_residual_em_score_cuda, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_residual_em_score_vjp_cuda, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_direction_cluster_anchor, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_quadratic_subspace_anchor, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_apply_anchor_rule, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_matching_pursuit_commit, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_circular_concordance, module)?)?;
     module.add_function(wrap_pyfunction!(sae_row_trust_scores, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_periodic_basis_with_jet_cuda, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_duchon_device_basis_width, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_duchon_basis_with_jet_cuda, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_circular_cost, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_euclidean_cost, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_geodesic_sphere_cost, module)?)?;
@@ -5315,29 +4937,20 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(equivariant_rho_so3_jvp, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_gauge_companion_loss, module)?)?;
     module.add_function(wrap_pyfunction!(
-        sae_default_ibp_concentration_for_k_atoms,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        sae_default_top_k_for_large_dictionary,
+        sae_default_ordered_beta_bernoulli_concentration_for_k_atoms,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(sae_select_k, module)?)?;
     module.add_function(wrap_pyfunction!(sae_auto_k_recommendation, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_description_length, module)?)?;
     module.add_function(wrap_pyfunction!(sae_eq4_description_length, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_fit, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_fit_stagewise, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_fit_ibp, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_fit_minimal, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_manifold_fit_model, module)?)?;
     module.add_function(wrap_pyfunction!(sae_crosscoder_fit, module)?)?;
     module.add_class::<ManifoldCrosscoderCore>()?;
     module.add_function(wrap_pyfunction!(sae_behavior_fit, module)?)?;
     module.add_class::<ManifoldBehaviorCore>()?;
     module.add_function(wrap_pyfunction!(sae_manifold_predict_oos, module)?)?;
-    module.add_function(wrap_pyfunction!(build_sae_encode_atlas, module)?)?;
-    module.add_class::<PySaeEncodeAtlas>()?;
-    module.add_class::<PySaeAmortizedEncoder>()?;
+    module.add_function(wrap_pyfunction!(sae_manifold_certify_external, module)?)?;
     module.add_function(wrap_pyfunction!(sae_steer_delta, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruction_r2, module)?)?;
     module.add_function(wrap_pyfunction!(sae_streaming_plan, module)?)?;
@@ -5351,7 +4964,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyInterventionCalibrationPlan>()?;
     module.add_function(wrap_pyfunction!(intervention_calibration_plan, module)?)?;
     inference_instruments::register(module)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_assignment_summary, module)?)?;
     module.add_function(wrap_pyfunction!(gated_sae_decode, module)?)?;
     module.add_function(wrap_pyfunction!(interchange_decode_forward, module)?)?;
     module.add_function(wrap_pyfunction!(interchange_decode_backward, module)?)?;
@@ -5527,7 +5139,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<IsometryPenalty>()?;
     module.add_class::<SparsityPenalty>()?;
     module.add_class::<PyTopKActivationPenalty>()?;
-    module.add_class::<JumpReLUPenalty>()?;
+    module.add_class::<SmoothThresholdPenalty>()?;
     module.add_class::<ARDPenalty>()?;
     module.add_class::<AuxConditionalPriorPenalty>()?;
     module.add_class::<IvaeRidgeMeanGauge>()?;
@@ -5537,7 +5149,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<OrthogonalityPenalty>()?;
     module.add_class::<SheafConsistencyPenalty>()?;
     module.add_class::<SoftmaxAssignmentSparsityPenalty>()?;
-    module.add_class::<PyIBPAssignmentPenalty>()?;
+    module.add_class::<PyOrderedBetaBernoulliPenalty>()?;
     module.add_class::<ScadMcpPenalty>()?;
     module.add_class::<TotalVariationPenalty>()?;
     module.add_class::<NuclearNormPenalty>()?;
@@ -7866,7 +7478,9 @@ fn extend_model_with_random_effect_level(
             // dispersion for Gamma/Tweedie/NB. Omitting `φ̂` made the prior
             // (and any deployment interval built from it) wrong by `1/φ̂` and,
             // for an estimated scale, not response-scale equivariant. See #674.
-            let phi = fit.dispersion_phi();
+            let phi = fit
+                .dispersion_phi()
+                .map_err(|err| format!("cannot resolve unseen-level prior dispersion: {err}"))?;
             if !(phi.is_finite() && phi > 0.0) {
                 return Err(format!(
                     "extend_with_group term '{term_name}' has a non-finite or non-positive \
@@ -9326,7 +8940,8 @@ fn generative_replicates_encoded_impl(
         fit.likelihood_scale,
         fit.standard_deviation,
         &family,
-    );
+    )
+    .map_err(|err| format!("generative_replicates: unresolved fitted scale: {err}"))?;
     // Build the generative specification (mean + noise model).
     let spec =
         generativespec_from_predict(prediction, family, gaussian_scale, Some(&prior_weights))

@@ -30,13 +30,12 @@ use gam_linalg::matrix::DesignMatrix;
 use gam_linalg::triangular::back_substitution_lower_transpose_guarded_into;
 use gam_models::wiggle::monotone_wiggle_basis_with_derivative_order;
 use gam_problem::types::{
-    InverseLink, LikelihoodSpec, ResponseFamily, RhoPrior, StandardLink, is_valid_tweedie_power,
+    GlmLikelihoodSpec, InverseLink, LikelihoodScaleMetadata, LikelihoodSpec,
+    ResolvedLikelihoodScale, ResponseFamily, RhoPrior, StandardLink, is_valid_tweedie_power,
 };
 use gam_solve::estimate::reml::FirthDenseOperator;
 use gam_solve::estimate::reml::penalty_logdet::PenaltyPseudologdet;
-use gam_solve::estimate::{
-    EstimationError, UnifiedFitResult, validate_explicit_dense_hessian_for_whitening,
-};
+use gam_solve::estimate::{UnifiedFitResult, validate_explicit_dense_hessian_for_whitening};
 use gam_solve::mixture_link::{
     InverseLinkKernel, LinkParamPartials, inverse_link_jet_for_inverse_link, softmax_last_fixedzero,
 };
@@ -401,13 +400,20 @@ fn hessian_whitening_transform(
     cov_scale: f64,
     cholesky_error_prefix: &str,
 ) -> Result<WhiteningTransform, String> {
+    if !(cov_scale.is_finite() && cov_scale > 0.0) {
+        return Err(format!(
+            "whitening covariance scale must be finite and strictly positive, got {cov_scale}"
+        ));
+    }
     let hessian_owned = hessian.to_owned();
+    gam_linalg::utils::certified_spd_factorize(&hessian_owned, cholesky_error_prefix)
+        .map_err(|error| error.to_string())?;
     let chol_factor = hessian_owned
         .cholesky(Side::Lower)
         .map_err(|e| format!("{cholesky_error_prefix}: {:?}", e))?;
     let l_h = chol_factor.lower_triangular();
     let mut chol = solve_upper_triangular_transpose(&l_h, dim);
-    let sqrt_cov_scale = cov_scale.max(0.0).sqrt();
+    let sqrt_cov_scale = cov_scale.sqrt();
     if (sqrt_cov_scale - 1.0).abs() > 0.0 {
         chol.mapv_inplace(|v| v * sqrt_cov_scale);
     }
@@ -437,19 +443,11 @@ struct SharedData {
     /// behaviour) silently sampled the wrong posterior for any `--offset-column`
     /// fit (#882).
     offset: Option<Arc<Array1<f64>>>,
-    /// Auxiliary log-link family parameter: Gamma shape, Tweedie power, or NB theta.
-    gamma_shape: f64,
-    /// Dispersion parameter φ (Gaussian: σ²; Gamma: 1/shape; `Known(1.0)` for
-    /// fixed-scale families). Consumed **only** by the likelihood adapters that
-    /// carry the dispersion in the data term itself: the profiled-Gaussian
-    /// log-likelihood and its gradient multiply through by `1/φ`, and the
-    /// Tweedie quasi-likelihood folds `1/φ` into its weight. It does NOT drive
-    /// the whitening or penalty scaling — those use the `cov_scale` invariant
-    /// (`NutsFamily::coefficient_covariance_scale`), which is `1.0` for Gamma
-    /// even though `φ ≠ 1`, because Gamma's dispersion already lives inside the
-    /// working weight (the `shape` factor in `gamma_log_logp_and_grad`). See
-    /// `inference::dispersion_cov` for the ownership invariants.
-    dispersion: gam_solve::model_types::Dispersion,
+    /// Fully resolved family, link, and scale metadata consumed by the exact
+    /// shared PIRLS/HMC row oracle. Keeping one typed object prevents Gamma
+    /// shape, Tweedie power, NB theta, and response dispersion from sharing an
+    /// ambiguous scalar slot.
+    likelihood: GlmLikelihoodSpec,
     /// Number of samples
     n_samples: usize,
     /// Number of coefficients
@@ -460,101 +458,212 @@ thread_local! {
     static NUTS_RESIDUAL_SCRATCH: RefCell<Array1<f64>> = RefCell::new(Array1::zeros(0));
 }
 
-/// Whitened log-posterior target with analytical gradients.
+
+
+/// Resolve and certify the scale metadata consumed by an HMC target.
 ///
-/// Uses Arc for shared data to prevent memory explosion when cloned for chains.
-/// Uses faer for numerically stable Cholesky decomposition.
-/// Family mode for NUTS log-likelihood computation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NutsFamily {
-    Gaussian,
-    BinomialLogit,
-    BinomialProbit,
-    BinomialCLogLog,
-    PoissonLog,
-    TweedieLog,
-    NegativeBinomialLog,
-    GammaLog,
+/// The fitted likelihood remains the source of the covariance-scale contract,
+/// while the returned target likelihood makes the actual fixed data-term scale
+/// explicit. In particular, a profiled Gaussian target is evaluated at its
+/// fitted `phi` and a Gamma supplied as fixed dispersion is converted to its
+/// exact reciprocal shape. No family parameter is inferred from an unrelated
+/// slot and no unit default exists.
+fn resolve_hmc_likelihood(
+    likelihood: GlmLikelihoodSpec,
+    dispersion: gam_solve::model_types::Dispersion,
+) -> Result<(GlmLikelihoodSpec, f64), HmcError> {
+    let resolved_scale = likelihood
+        .resolved_scale()
+        .map_err(|error| HmcError::InvalidConfig {
+            reason: format!("HMC likelihood scale metadata is unresolved: {error}"),
+        })?;
+    let phi = dispersion.phi();
+    let inv_phi = dispersion
+        .reciprocal()
+        .map_err(|error| HmcError::InvalidConfig {
+            reason: format!("HMC likelihood requires a finite positive dispersion: {error}"),
+        })?;
+
+    if matches!(resolved_scale, ResolvedLikelihoodScale::ProfiledGaussian) {
+        if !dispersion.is_estimated() {
+            return Err(HmcError::InvalidConfig {
+                reason: "profiled-Gaussian HMC requires an estimated fitted dispersion".to_string(),
+            });
+        }
+    } else {
+        // The standard-deviation argument is consulted only by the profiled
+        // Gaussian branch handled above. Every resolved non-profiled family
+        // derives its response dispersion entirely from typed metadata.
+        let expected = gam_solve::estimate::dispersion_from_likelihood(&likelihood, None).map_err(
+            |error| HmcError::InvalidConfig {
+                reason: format!("HMC likelihood scale metadata is inconsistent: {error}"),
+            },
+        )?;
+        if expected.phi().to_bits() != phi.to_bits()
+            || expected.is_estimated() != dispersion.is_estimated()
+        {
+            return Err(HmcError::InvalidConfig {
+                reason: format!(
+                    "HMC dispersion {dispersion:?} disagrees with likelihood metadata dispersion {expected:?}"
+                ),
+            });
+        }
+    }
+
+    match (&likelihood.spec.response, &likelihood.spec.link) {
+        (ResponseFamily::Gaussian, InverseLink::Standard(StandardLink::Identity))
+        | (ResponseFamily::Gamma, InverseLink::Standard(StandardLink::Log))
+        | (ResponseFamily::Poisson, InverseLink::Standard(StandardLink::Log))
+        | (ResponseFamily::Tweedie { .. }, InverseLink::Standard(StandardLink::Log))
+        | (ResponseFamily::NegativeBinomial { .. }, InverseLink::Standard(StandardLink::Log))
+        | (ResponseFamily::Beta { .. }, InverseLink::Standard(StandardLink::Logit))
+        | (ResponseFamily::Binomial, _) => {}
+        (family, link) => {
+            return Err(HmcError::LinkMismatch {
+                reason: format!(
+                    "HMC response family {} is incompatible with inverse link {link:?}",
+                    family.name()
+                ),
+            });
+        }
+    }
+
+    let cov_scale = likelihood
+        .coefficient_covariance_scale(phi)
+        .map_err(|error| HmcError::InvalidConfig {
+            reason: format!("HMC coefficient-covariance scale is unresolved: {error}"),
+        })?;
+    if !(cov_scale.is_finite() && cov_scale > 0.0) {
+        return Err(HmcError::InvalidConfig {
+            reason: format!(
+                "HMC coefficient-covariance scale must be finite and positive, got {cov_scale}"
+            ),
+        });
+    }
+
+    let mut target = likelihood;
+    target.scale = match (&target.spec.response, target.scale) {
+        (ResponseFamily::Gaussian, _) => LikelihoodScaleMetadata::FixedDispersion { phi },
+        (ResponseFamily::Gamma, LikelihoodScaleMetadata::FixedDispersion { .. }) => {
+            LikelihoodScaleMetadata::FixedGammaShape { shape: inv_phi }
+        }
+        (_, scale) => scale,
+    };
+    Ok((target, cov_scale))
 }
 
-impl NutsFamily {
-    #[inline]
-    fn likelihood_spec(self) -> LikelihoodSpec {
-        match self {
-            Self::Gaussian => LikelihoodSpec {
-                response: ResponseFamily::Gaussian,
-                link: InverseLink::Standard(StandardLink::Identity),
-            },
-            Self::BinomialLogit => LikelihoodSpec {
-                response: ResponseFamily::Binomial,
-                link: InverseLink::Standard(StandardLink::Logit),
-            },
-            Self::BinomialProbit => LikelihoodSpec {
-                response: ResponseFamily::Binomial,
-                link: InverseLink::Standard(StandardLink::Probit),
-            },
-            Self::BinomialCLogLog => LikelihoodSpec {
-                response: ResponseFamily::Binomial,
-                link: InverseLink::Standard(StandardLink::CLogLog),
-            },
-            Self::PoissonLog => LikelihoodSpec {
-                response: ResponseFamily::Poisson,
-                link: InverseLink::Standard(StandardLink::Log),
-            },
-            Self::TweedieLog => LikelihoodSpec {
-                response: ResponseFamily::Tweedie { p: 1.5 },
-                link: InverseLink::Standard(StandardLink::Log),
-            },
-            Self::NegativeBinomialLog => LikelihoodSpec {
-                response: ResponseFamily::NegativeBinomial {
-                    theta: 1.0,
-                    theta_fixed: false,
-                },
-                link: InverseLink::Standard(StandardLink::Log),
-            },
-            Self::GammaLog => LikelihoodSpec {
-                response: ResponseFamily::Gamma,
-                link: InverseLink::Standard(StandardLink::Log),
-            },
+fn validate_hmc_arrays(
+    x: ArrayView2<f64>,
+    y: ArrayView1<f64>,
+    weights: ArrayView1<f64>,
+    penalty: ArrayView2<f64>,
+    mode: ArrayView1<f64>,
+    hessian: ArrayView2<f64>,
+    context: &str,
+) -> Result<(), HmcError> {
+    let n = x.nrows();
+    let p = x.ncols();
+    if y.len() != n || weights.len() != n {
+        return Err(HmcError::DimensionMismatch {
+            reason: format!(
+                "{context}: row mismatch X={n}, y={}, weights={}",
+                y.len(),
+                weights.len()
+            ),
+        });
+    }
+    if mode.len() != p
+        || penalty.nrows() != p
+        || penalty.ncols() != p
+        || hessian.nrows() != p
+        || hessian.ncols() != p
+    {
+        return Err(HmcError::DimensionMismatch {
+            reason: format!(
+                "{context}: coefficient geometry mismatch X columns={p}, mode={}, penalty={:?}, hessian={:?}",
+                mode.len(),
+                penalty.dim(),
+                hessian.dim(),
+            ),
+        });
+    }
+    for (name, values) in [
+        ("design", x.iter()),
+        ("penalty", penalty.iter()),
+        ("hessian", hessian.iter()),
+    ] {
+        if let Some((index, value)) = values.enumerate().find(|(_, value)| !value.is_finite()) {
+            return Err(HmcError::NonFiniteState {
+                reason: format!(
+                    "{context}: {name} has non-finite entry {value} at flat index {index}"
+                ),
+            });
         }
     }
+    if let Some((index, value)) = mode
+        .iter()
+        .enumerate()
+        .find(|(_, value)| !value.is_finite())
+    {
+        return Err(HmcError::NonFiniteState {
+            reason: format!("{context}: mode has non-finite entry {value} at index {index}"),
+        });
+    }
+    if let Some((index, weight)) = weights
+        .iter()
+        .enumerate()
+        .find(|(_, weight)| !(weight.is_finite() && **weight >= 0.0))
+    {
+        return Err(HmcError::InvalidConfig {
+            reason: format!(
+                "{context}: observation weight at row {index} must be finite and non-negative, got {weight}"
+            ),
+        });
+    }
+    for row in 0..p {
+        for col in (row + 1)..p {
+            if penalty[[row, col]] != penalty[[col, row]] {
+                return Err(HmcError::InvalidConfig {
+                    reason: format!(
+                        "{context}: penalty must be exactly symmetric; ({row},{col})={} but ({col},{row})={}",
+                        penalty[[row, col]],
+                        penalty[[col, row]],
+                    ),
+                });
+            }
+        }
+    }
+    Ok(())
+}
 
-    /// Coefficient-covariance scale for the whitened NUTS target — the
-    /// NUTS-family counterpart of
-    /// [`gam_problem::types::GlmLikelihoodSpec::coefficient_covariance_scale`] (#679).
-    ///
-    /// The sampler must reproduce the posterior `N(mode, Vb)` with
-    /// `Vb = scale · H⁻¹`, where `H = XᵀWX + S_λ` is the stored penalized
-    /// Hessian (penalty `S_λ` added **unscaled**). The returned `scale` is:
-    ///
-    /// * `profiled_gaussian_phi` (= σ̂²) for the **profiled Gaussian** identity
-    ///   model, whose working weight is scale-free (`W = priorweights`), so the
-    ///   stored `H` omits the dispersion and `Vb = σ̂²·H⁻¹`. The NUTS Gaussian
-    ///   log-likelihood is structurally this profiled form: scale-free
-    ///   residuals multiplied by `1/φ` (see `gaussian_logp_and_grad_into`).
-    /// * `1.0` for every **weight-carries-dispersion** family (Gamma, Tweedie,
-    ///   Negative-Binomial, and the fixed-scale Poisson/Binomial). Their
-    ///   working weight already folds in the reciprocal dispersion / full
-    ///   Fisher information — for Gamma-log the shape `ν = 1/φ` is baked into
-    ///   the likelihood score `∂ℓ/∂η = ν·(y/μ − 1)` — so the stored `H` is
-    ///   already the true penalized Hessian and `Vb = H⁻¹`. Multiplying by the
-    ///   dispersion again double-counts it and shrinks every posterior SD by
-    ///   `√dispersion` — exactly the Gamma-log defect addressed in #680.
-    ///
-    /// This single scalar governs BOTH the whitening preconditioner
-    /// (`L Lᵀ = scale·H⁻¹`, so `L` is scaled by `√scale`) and the target's
-    /// penalty weight (`penalty_scale = 1/scale`), keeping the sampled
-    /// posterior, its whitening metric, and the Wald `Vb` of #679 mutually
-    /// consistent. Crucially it does NOT key off the statistical dispersion
-    /// `φ`: Gamma carries `φ = 1/shape ≠ 1` yet still has `scale = 1`, because
-    /// that `φ` already lives inside `W`.
-    #[inline]
-    fn coefficient_covariance_scale(self, profiled_gaussian_phi: f64) -> f64 {
-        match self {
-            NutsFamily::Gaussian => profiled_gaussian_phi,
-            _ => 1.0,
+fn first_non_finite<'a>(values: impl IntoIterator<Item = &'a f64>) -> Option<(usize, f64)> {
+    values
+        .into_iter()
+        .copied()
+        .enumerate()
+        .find(|(_, value)| !value.is_finite())
+}
+
+fn validate_exact_symmetric(matrix: ArrayView2<f64>, context: &str) -> Result<(), HmcError> {
+    if matrix.nrows() != matrix.ncols() {
+        return Err(HmcError::DimensionMismatch {
+            reason: format!("{context}: matrix must be square, got {:?}", matrix.dim()),
+        });
+    }
+    for row in 0..matrix.nrows() {
+        for col in (row + 1)..matrix.ncols() {
+            if matrix[[row, col]] != matrix[[col, row]] {
+                return Err(HmcError::InvalidConfig {
+                    reason: format!(
+                        "{context}: matrix must be exactly symmetric; ({row},{col})={} but ({col},{row})={}",
+                        matrix[[row, col]],
+                        matrix[[col, row]],
+                    ),
+                });
+            }
         }
     }
+    Ok(())
 }
 
 /// Whitened-coordinate target for the No-U-Turn HMC sampler.
@@ -577,8 +686,6 @@ pub struct NutsPosterior {
     chol: Array2<f64>,
     /// L^T for gradient chain rule: ∇z = L^T @ ∇_β
     chol_t: Array2<f64>,
-    /// Family for log-likelihood computation
-    nuts_family: NutsFamily,
     /// Whether to add the identifiable-subspace Jeffreys/Firth term to the
     /// target
     firth_enabled: bool,
@@ -623,42 +730,64 @@ impl NutsPosterior {
         penalty_matrix: ArrayView2<f64>,
         mode: ArrayView1<f64>,
         hessian: ArrayView2<f64>,
-        nuts_family: NutsFamily,
-        gamma_shape: f64,
+        likelihood: GlmLikelihoodSpec,
         dispersion: gam_solve::model_types::Dispersion,
+        offset: Option<ArrayView1<f64>>,
         firth_enabled: bool,
     ) -> Result<Self, String> {
         let n_samples = x.nrows();
         let dim = x.ncols();
 
-        // Validate inputs are finite
-        if !penalty_matrix.iter().all(|x| x.is_finite()) {
-            return Err(HmcError::NonFiniteState {
-                reason: "Penalty matrix contains NaN or Inf values".to_string(),
+        validate_hmc_arrays(x, y, weights, penalty_matrix, mode, hessian, "NUTS")
+            .map_err(String::from)?;
+        let (likelihood, cov_scale) =
+            resolve_hmc_likelihood(likelihood, dispersion).map_err(String::from)?;
+        if let Some(offset) = offset.as_ref() {
+            if offset.len() != n_samples {
+                return Err(HmcError::DimensionMismatch {
+                    reason: format!(
+                        "NUTS offset length {} does not match {n_samples} observations",
+                        offset.len()
+                    ),
+                }
+                .into());
             }
-            .into());
-        }
-        if !hessian.iter().all(|x| x.is_finite()) {
-            return Err(HmcError::NonFiniteState {
-                reason: "Hessian matrix contains NaN or Inf values".to_string(),
+            if let Some((row, value)) = offset
+                .iter()
+                .enumerate()
+                .find(|(_, value)| !value.is_finite())
+            {
+                return Err(HmcError::NonFiniteState {
+                    reason: format!("NUTS offset has non-finite value {value} at row {row}"),
+                }
+                .into());
             }
-            .into());
         }
-        if !mode.iter().all(|x| x.is_finite()) {
-            return Err(HmcError::NonFiniteState {
-                reason: "Mode vector contains NaN or Inf values".to_string(),
-            }
-            .into());
-        }
-
-        validate_firth_support(nuts_family, firth_enabled).map_err(String::from)?;
-        if nuts_family.likelihood_spec().is_binomial() {
+        validate_firth_likelihood_support(&likelihood.spec, firth_enabled).map_err(String::from)?;
+        if likelihood.spec.is_binomial() {
             validate_binary_responses("binomial NUTS", &y, &weights).map_err(String::from)?;
         }
-        if matches!(nuts_family, NutsFamily::NegativeBinomialLog) {
+        if matches!(
+            likelihood.spec.response,
+            ResponseFamily::NegativeBinomial { .. }
+        ) {
             validate_count_responses("negative-binomial NUTS", &y, &weights)
                 .map_err(String::from)?;
         }
+        let mut eta_at_mode = x.dot(&mode);
+        if let Some(offset) = offset.as_ref() {
+            eta_at_mode += offset;
+        }
+        let mut score_at_mode = Array1::zeros(n_samples);
+        gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+            y,
+            &eta_at_mode,
+            &likelihood,
+            &likelihood.spec.link,
+            weights,
+            &mut score_at_mode,
+        )
+        .map_err(|error| format!("NUTS likelihood is invalid at the fitted mode: {error}"))?;
 
         // Whitening metric: `L Lᵀ` must equal the posterior covariance the
         // sampler reproduces, `Vb = cov_scale · H⁻¹` (#679/#680 invariant), so
@@ -668,7 +797,6 @@ impl NutsPosterior {
         // the stored `H`, so `cov_scale == 1` and this is a no-op. This replaces
         // a previous `sqrt_phi()` multiply that wrongly scaled Gamma (and any
         // φ-bearing family) by `√φ`, mis-preconditioning against `φ·H⁻¹`.
-        let cov_scale = nuts_family.coefficient_covariance_scale(dispersion.phi());
         let whitening = hessian_whitening_transform(
             hessian,
             dim,
@@ -700,9 +828,8 @@ impl NutsPosterior {
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
             mode: Arc::new(mode_owned),
-            offset: None,
-            gamma_shape,
-            dispersion,
+            offset: offset.map(|values| Arc::new(values.to_owned())),
+            likelihood,
             n_samples,
             dim,
         };
@@ -711,43 +838,12 @@ impl NutsPosterior {
             data,
             chol,
             chol_t,
-            nuts_family,
             firth_enabled,
             penalty_z_quad,
             penalty_z_lin,
             penalty_z_const,
             cov_scale,
         })
-    }
-
-    /// Attach a fixed additive offset to the linear predictor: η = Xβ + offset.
-    ///
-    /// The offset is constant in β, so the whitening geometry (`chol`), penalty
-    /// operators, and stored Hessian are all unchanged — only η (and hence the
-    /// per-observation working residual / mean) shifts. The fitted `mode` and
-    /// `hessian` handed to [`Self::new`] already correspond to the offset-trained
-    /// fit, so this only needs to restore the offset to the likelihood
-    /// evaluation. Returns an error if the offset length disagrees with the data
-    /// or carries non-finite entries.
-    fn with_offset(mut self, offset: ArrayView1<f64>) -> Result<Self, String> {
-        if offset.len() != self.data.n_samples {
-            return Err(HmcError::DimensionMismatch {
-                reason: format!(
-                    "NUTS offset length {} does not match {} observations",
-                    offset.len(),
-                    self.data.n_samples
-                ),
-            }
-            .into());
-        }
-        if !offset.iter().all(|v| v.is_finite()) {
-            return Err(HmcError::NonFiniteState {
-                reason: "NUTS offset contains NaN or Inf values".to_string(),
-            }
-            .into());
-        }
-        self.data.offset = Some(Arc::new(offset.to_owned()));
-        Ok(self)
     }
 
     fn compute_logp_and_grad_nd_into(
@@ -767,15 +863,18 @@ impl NutsPosterior {
         }
 
         // === Step 3: Compute log-likelihood and gradient ===
-        let (ll, mut grad_ll_beta) = self.family_logp_and_grad_into(&eta, residual);
+        let (ll, mut grad_ll_beta) = match self.family_logp_and_grad_into(&eta, residual) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("[NUTS] likelihood target is unrepresentable: {error}");
+                grad.fill(0.0);
+                return f64::NEG_INFINITY;
+            }
+        };
 
         let mut firth_logdet = 0.0;
         if self.firth_enabled {
-            match firth_jeffreys_logp_and_grad(
-                &self.nuts_family.likelihood_spec(),
-                &self.data,
-                &eta,
-            ) {
+            match firth_jeffreys_logp_and_grad(&self.data.likelihood.spec, &self.data, &eta) {
                 Ok((value, grad_beta_firth)) => {
                     firth_logdet = value;
                     grad_ll_beta += &grad_beta_firth;
@@ -805,16 +904,16 @@ impl NutsPosterior {
         // so the target curvature must equal `Vb⁻¹ = H/cov_scale`. The
         // likelihood already supplies `−∇²ℓ = (data Fisher info)/cov_scale`
         // (explicitly `/σ²` for profiled Gaussian, implicitly via the working
-        // weight / the `shape ≡ 1/φ` baked into `gamma_log_logp_and_grad` for
+        // weight / the `shape ≡ 1/φ` encoded by the resolved Gamma metadata for
         // the dispersion-carrying families), so the penalty must match it:
         //   penalty_scale = 1/cov_scale.
         // That is `1/σ²` for profiled Gaussian and exactly `1.0` for
         // Gamma/Tweedie/NB/Poisson/Binomial. The previous code used
-        // `dispersion.inv_phi()` for GammaLog (= shape = 1/φ ≠ 1), which
+        // the response-dispersion reciprocal for GammaLog (= shape = 1/φ ≠ 1), which
         // double-counted the dispersion in the sampled posterior (#680); the
         // statistical dispersion `φ` is NOT `1/cov_scale` for Gamma because it
         // already lives inside `W`. Mirrors `LinkWigglePosterior`.
-        let penalty_scale = 1.0 / self.cov_scale.max(1e-300);
+        let penalty_scale = 1.0 / self.cov_scale;
         let mz = self.penalty_z_quad.dot(z);
         let lin_term = self.penalty_z_lin.dot(z);
         let quad_term = 0.5 * z.dot(&mz);
@@ -839,8 +938,8 @@ impl NutsPosterior {
         &self,
         eta: &Array1<f64>,
         residual: &mut Array1<f64>,
-    ) -> (f64, Array1<f64>) {
-        nuts_family_logp_and_grad_into(self.nuts_family, &self.data, eta, residual)
+    ) -> Result<(f64, Array1<f64>), String> {
+        exact_glm_logp_and_grad_into(&self.data, eta, residual)
     }
 
     /// Get the Cholesky factor L for un-whitening samples
@@ -857,39 +956,6 @@ impl NutsPosterior {
     pub fn dim(&self) -> usize {
         self.data.dim
     }
-}
-
-const HALF_LOG_2PI: f64 = 0.918_938_533_204_672_7;
-
-#[inline]
-fn standard_normal_log_pdf(x: f64) -> f64 {
-    -0.5 * x * x - HALF_LOG_2PI
-}
-
-/// Stable log Φ(x) for the standard normal CDF.
-#[inline]
-fn log_ndtr(x: f64) -> f64 {
-    let arg = -x * std::f64::consts::FRAC_1_SQRT_2;
-    let erfc_val = statrs::function::erf::erfc(arg);
-    if erfc_val > 0.0 {
-        erfc_val.ln() - std::f64::consts::LN_2
-    } else {
-        -0.5 * x * x - (-x).ln() - HALF_LOG_2PI
-    }
-}
-
-#[inline]
-fn validate_firth_support(family: NutsFamily, firth_enabled: bool) -> Result<(), HmcError> {
-    let spec = family.likelihood_spec();
-    if firth_enabled && !likelihood_spec_supports_firth(&spec) {
-        return Err(HmcError::FirthUnsupported {
-            reason: format!(
-                "NUTS with Firth requires a Binomial inverse link with a Fisher-weight jet; {} does not support it",
-                spec.pretty_name()
-            ),
-        });
-    }
-    Ok::<(), _>(())
 }
 
 #[inline]
@@ -1012,36 +1078,36 @@ fn firth_jeffreys_logp_and_grad(
 // family. Used by both `NutsPosterior` (fixed-ρ β-only sampling) and
 // `JointBetaRhoPosterior` (joint β+ρ sampling).
 
-fn nuts_family_logp_and_grad_into(
-    family: NutsFamily,
+fn exact_glm_logp_and_grad_for_likelihood_into(
+    likelihood: &GlmLikelihoodSpec,
     data: &SharedData,
     eta: &Array1<f64>,
     residual: &mut Array1<f64>,
-) -> (f64, Array1<f64>) {
-    match family {
-        NutsFamily::BinomialLogit => logit_logp_and_grad_into(data, eta, residual),
-        NutsFamily::BinomialProbit => probit_logp_and_grad_into(data, eta, residual),
-        NutsFamily::BinomialCLogLog => cloglog_logp_and_grad_into(data, eta, residual),
-        NutsFamily::Gaussian => gaussian_logp_and_grad_into(data, eta, residual),
-        NutsFamily::PoissonLog => poisson_log_logp_and_grad(data, eta),
-        // Family mapping: TweedieLog stores variance power p in data.gamma_shape.
-        // Its dispersion phi stays in data.dispersion, matching REML scale ownership.
-        NutsFamily::TweedieLog => tweedie_log_quasilogp_and_grad(data, eta, data.gamma_shape),
-        NutsFamily::NegativeBinomialLog => {
-            // Family mapping: NegativeBinomialLog stores theta in data.gamma_shape.
-            // NB has unit REML scale; theta is never sourced from fixed_phi.
-            negative_binomial_log_logp_and_grad(data, eta, data.gamma_shape)
-        }
-        NutsFamily::GammaLog => gamma_log_logp_and_grad(data, eta),
-    }
+) -> Result<(f64, Array1<f64>), String> {
+    let value = gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+        data.y.view(),
+        eta,
+        likelihood,
+        &likelihood.spec.link,
+        data.weights.view(),
+        residual,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok((value, fast_atv(data.x.as_ref(), residual)))
+}
+
+fn exact_glm_logp_and_grad_into(
+    data: &SharedData,
+    eta: &Array1<f64>,
+    residual: &mut Array1<f64>,
+) -> Result<(f64, Array1<f64>), String> {
+    exact_glm_logp_and_grad_for_likelihood_into(&data.likelihood, data, eta, residual)
 }
 
 #[derive(Clone, Debug)]
 struct BinomialLinkTerms {
     log_mu: f64,
     log1m_mu: f64,
-    dlog_mu_deta: f64,
-    dlog1m_mu_deta: f64,
     dmu_dlink: Vec<f64>,
 }
 
@@ -1067,21 +1133,9 @@ fn log_terms_from_mu_and_dmu(
     } else {
         one_minus_mu.ln()
     };
-    let dlog_mu_deta = if mu == 0.0 {
-        f64::INFINITY.copysign(dmu_deta)
-    } else {
-        dmu_deta / mu
-    };
-    let dlog1m_mu_deta = if one_minus_mu == 0.0 {
-        f64::NEG_INFINITY.copysign(dmu_deta)
-    } else {
-        -dmu_deta / one_minus_mu
-    };
     Ok(BinomialLinkTerms {
         log_mu,
         log1m_mu,
-        dlog_mu_deta,
-        dlog1m_mu_deta,
         dmu_dlink,
     })
 }
@@ -1137,95 +1191,68 @@ fn joint_binomial_logp_grad_and_link_grad(
     n_link_params: usize,
 ) -> Result<(f64, Array1<f64>, Array1<f64>), String> {
     let n = data.n_samples;
-    // Per-row: compute stable log-tail terms and derivatives without endpoint
-    // clamping. Positive-weight responses were validated as Bernoulli before
-    // target construction, so each row selects exactly one log branch.
+    let mut likelihood = data.likelihood.clone();
+    likelihood.spec = LikelihoodSpec::new(ResponseFamily::Binomial, inverse_link.clone());
+    let mut residual = Array1::<f64>::zeros(n);
+    let (ll, grad_beta) =
+        exact_glm_logp_and_grad_for_likelihood_into(&likelihood, data, eta, &mut residual)?;
+
+    // Only the adaptive-link pullback remains local. The likelihood value and
+    // eta score above come from the shared exact row oracle; these partials use
+    // the same inverse-link jet and therefore cannot select a different mean.
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
-    let per_row: Result<Vec<(f64, f64, Vec<f64>)>, String> = (0..n)
+    let per_row: Result<Vec<Vec<f64>>, String> = (0..n)
         .into_par_iter()
         .map(|i| {
             let y_i = data.y[i];
             let w_i = data.weights[i];
-            if w_i <= 0.0 {
-                return Ok((0.0, 0.0, vec![0.0; n_link_params]));
+            if w_i == 0.0 {
+                return Ok(vec![0.0; n_link_params]);
             }
             let terms = binomial_link_terms(inverse_link, eta[i], n_link_params)?;
-            if y_i == 1.0 {
-                let inv_mu = terms.log_mu.exp().recip();
-                let log_mu = terms.log_mu;
-                let dlog_mu_deta = terms.dlog_mu_deta;
-                let grad_link = terms
-                    .dmu_dlink
-                    .into_iter()
-                    .map(|dmu| w_i * dmu * inv_mu)
-                    .collect();
-                Ok((w_i * log_mu, w_i * dlog_mu_deta, grad_link))
+            let (sign, log_probability) = if y_i == 1.0 {
+                (1.0, terms.log_mu)
             } else if y_i == 0.0 {
-                let inv_one_minus_mu = terms.log1m_mu.exp().recip();
-                let log1m_mu = terms.log1m_mu;
-                let dlog1m_mu_deta = terms.dlog1m_mu_deta;
-                let grad_link = terms
-                    .dmu_dlink
-                    .into_iter()
-                    .map(|dmu| -w_i * dmu * inv_one_minus_mu)
-                    .collect();
-                Ok((w_i * log1m_mu, w_i * dlog1m_mu_deta, grad_link))
+                (-1.0, terms.log1m_mu)
             } else {
-                Err(format!(
+                return Err(format!(
                     "binomial joint HMC response must be exactly 0 or 1 after validation; got {y_i}"
-                ))
-            }
+                ));
+            };
+            terms
+                .dmu_dlink
+                .into_iter()
+                .map(|dmu| {
+                    if dmu == 0.0 {
+                        return Ok(0.0);
+                    }
+                    if !dmu.is_finite() {
+                        return Err(format!(
+                            "binomial adaptive-link derivative is non-finite at row {i}: {dmu}"
+                        ));
+                    }
+                    let log_abs = w_i.ln() + dmu.abs().ln() - log_probability;
+                    let value = sign * dmu.signum() * log_abs.exp();
+                    if value.is_finite() {
+                        Ok(value)
+                    } else {
+                        Err(format!(
+                            "binomial adaptive-link score is unrepresentable at row {i}"
+                        ))
+                    }
+                })
+                .collect()
         })
         .collect();
     let per_row = per_row?;
-    let mut residual = Array1::<f64>::zeros(n);
     let mut grad_link = Array1::<f64>::zeros(n_link_params);
-    let mut ll = 0.0;
-    for (i, (ll_i, residual_i, grad_link_i)) in per_row.into_iter().enumerate() {
-        ll += ll_i;
-        residual[i] = residual_i;
+    for grad_link_i in per_row {
         for (slot, value) in grad_link.iter_mut().zip(grad_link_i.iter()) {
             *slot += *value;
         }
     }
 
-    Ok((ll, fast_atv(&data.x, &residual), grad_link))
-}
-
-fn joint_binomial_logp_and_grad(
-    likelihood: &LikelihoodSpec,
-    data: &SharedData,
-    eta: &Array1<f64>,
-) -> Result<(f64, Array1<f64>), String> {
-    if !matches!(likelihood.response, ResponseFamily::Binomial) {
-        return Err(HmcError::UnsupportedFamily {
-            reason: format!(
-                "{} is not a binomial joint-HMC family",
-                likelihood.pretty_name()
-            ),
-        }
-        .into());
-    }
-    match &likelihood.link {
-        InverseLink::Standard(StandardLink::Logit) => Ok(logit_logp_and_grad(data, eta)),
-        InverseLink::Standard(StandardLink::Probit) => Ok(probit_logp_and_grad(data, eta)),
-        InverseLink::Standard(StandardLink::CLogLog) => Ok(cloglog_logp_and_grad(data, eta)),
-        InverseLink::LatentCLogLog(_)
-        | InverseLink::Sas(_)
-        | InverseLink::BetaLogistic(_)
-        | InverseLink::Mixture(_) => {
-            let (ll, grad_beta, _) =
-                joint_binomial_logp_grad_and_link_grad(&likelihood.link, data, eta, 0)?;
-            Ok((ll, grad_beta))
-        }
-        InverseLink::Standard(_) => Err(HmcError::UnsupportedFamily {
-            reason: format!(
-                "{} is not a binomial joint-HMC family",
-                likelihood.pretty_name()
-            ),
-        }
-        .into()),
-    }
+    Ok((ll, grad_beta, grad_link))
 }
 
 fn joint_family_logp_grad_and_link_grad(
@@ -1235,16 +1262,8 @@ fn joint_family_logp_grad_and_link_grad(
     n_link_params: usize,
 ) -> Result<(f64, Array1<f64>, Array1<f64>), String> {
     match (&likelihood.response, &likelihood.link) {
-        (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Logit)) => {
-            let (ll, grad) = logit_logp_and_grad(data, eta);
-            Ok((ll, grad, Array1::zeros(n_link_params)))
-        }
-        (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Probit)) => {
-            let (ll, grad) = probit_logp_and_grad(data, eta);
-            Ok((ll, grad, Array1::zeros(n_link_params)))
-        }
-        (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::CLogLog)) => {
-            let (ll, grad) = cloglog_logp_and_grad(data, eta);
+        (ResponseFamily::Binomial, InverseLink::Standard(_)) => {
+            let (ll, grad) = joint_family_logp_and_grad(likelihood, data, eta)?;
             Ok((ll, grad, Array1::zeros(n_link_params)))
         }
         (
@@ -1266,418 +1285,88 @@ fn joint_family_logp_and_grad(
     data: &SharedData,
     eta: &Array1<f64>,
 ) -> Result<(f64, Array1<f64>), String> {
-    match &likelihood.response {
-        ResponseFamily::Binomial => joint_binomial_logp_and_grad(likelihood, data, eta),
-        ResponseFamily::Gaussian => Ok(gaussian_logp_and_grad(data, eta)),
-        ResponseFamily::Poisson => Ok(poisson_log_logp_and_grad(data, eta)),
-        ResponseFamily::Tweedie { p } => {
-            // Family mapping: Tweedie payload p is the variance power.
-            // Its dispersion phi stays in data.dispersion, matching REML.
-            let p = *p;
-            if !is_valid_tweedie_power(p) {
-                return Err(HmcError::InvalidConfig {
-                    reason: format!(
-                        "Tweedie variance power must be finite and strictly between 1 and 2; got {p}"
-                    ),
-                }
-                .into());
-            }
-            Ok(tweedie_log_quasilogp_and_grad(data, eta, p))
+    if likelihood.response != data.likelihood.spec.response {
+        return Err(HmcError::InvalidConfig {
+            reason: format!(
+                "joint HMC step response {:?} disagrees with resolved response {:?}",
+                likelihood.response, data.likelihood.spec.response
+            ),
         }
-        ResponseFamily::NegativeBinomial { theta, .. } => {
-            // Family mapping: NegativeBinomial payload theta is overdispersion.
-            // NB keeps unit REML scale and never reads fixed_phi for theta.
-            Ok(negative_binomial_log_logp_and_grad(data, eta, *theta))
-        }
-        ResponseFamily::Beta { .. } => Err(HmcError::UnsupportedFamily {
-            reason: "Joint HMC fallback is not implemented for BetaLogit".to_string(),
-        }
-        .into()),
-        ResponseFamily::Gamma => Ok(gamma_log_logp_and_grad(data, eta)),
-        ResponseFamily::RoystonParmar => Err(HmcError::UnsupportedFamily {
-            reason: "Joint HMC fallback is not implemented for RoystonParmar".to_string(),
-        }
-        .into()),
+        .into());
     }
-}
-
-/// Logistic regression log-likelihood and gradient.
-///
-/// log p(y|η) = y·η − log(1 + exp(η)), gradient = X'(w ⊙ (y − μ))
-fn logit_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    let mut residual = Array1::<f64>::zeros(data.n_samples);
-    logit_logp_and_grad_into(data, eta, &mut residual)
-}
-
-fn logit_logp_and_grad_into(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    residual: &mut Array1<f64>,
-) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    assert_eq!(residual.len(), n);
-    // Per-row independent: write residual entry into a pre-allocated buffer and
-    // reduce the ll contribution in parallel — avoids materialising a
-    // Vec<(f64, f64)> and the serial scatter that follows.
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            let mu = gam_linalg::utils::stable_logistic(eta_i);
-            *slot = w_i * (y_i - mu);
-            w_i * (y_i * eta_i - gam_linalg::utils::stable_softplus(eta_i))
-        })
-        .sum();
-
-    let grad_ll = fast_atv(data.x.as_ref(), &*residual);
-    (ll, grad_ll)
-}
-
-/// Probit regression log-likelihood and gradient.
-///
-/// log p(y|η) = Σ [y·log Φ(η) + (1-y)·log(1-Φ(η))],
-/// gradient_i = w_i · [y_i · φ(η_i)/Φ(η_i) − (1-y_i) · φ(η_i)/(1−Φ(η_i))]
-///
-/// Uses erfc-based log Φ for numerical stability.
-fn probit_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    let mut residual = Array1::<f64>::zeros(data.n_samples);
-    probit_logp_and_grad_into(data, eta, &mut residual)
-}
-
-fn probit_logp_and_grad_into(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    residual: &mut Array1<f64>,
-) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    assert_eq!(residual.len(), n);
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            let log_phi_pos = log_ndtr(eta_i);
-            let log_phi_neg = log_ndtr(-eta_i);
-            let log_phi_val = standard_normal_log_pdf(eta_i);
-            let ratio_pos = (log_phi_val - log_phi_pos).exp();
-            let ratio_neg = (log_phi_val - log_phi_neg).exp();
-            let grad_i = y_i * ratio_pos - (1.0 - y_i) * ratio_neg;
-            *slot = w_i * grad_i;
-            w_i * (y_i * log_phi_pos + (1.0 - y_i) * log_phi_neg)
-        })
-        .sum();
-
-    let grad_ll = fast_atv(data.x.as_ref(), &*residual);
-    (ll, grad_ll)
-}
-
-/// Complementary log-log regression log-likelihood and gradient.
-///
-/// CLogLog link: μ = 1 − exp(−exp(η))
-/// log p(y|η) = Σ [y·log(1−exp(−exp(η))) + (1−y)·(−exp(η))]
-/// gradient_i = w_i · [y_i · exp(η_i)·exp(−exp(η_i)) / (1−exp(−exp(η_i))) − (1−y_i)·exp(η_i)]
-#[inline]
-fn cloglog_bernoulli_logp_and_residual(eta: f64, y: f64) -> Result<(f64, f64), EstimationError> {
-    if !eta.is_finite() {
-        gam_problem::bail_invalid_estim!("cloglog eta must be finite; got {eta}");
-    }
-    let exp_eta = eta.exp();
-    // Deep left tail: exp(η) underflows to zero below η ≈ −745, but the exact
-    // limits are log μ = log(1 − exp(−e^η)) → η and d(log μ)/dη → 1, so the
-    // valid finite log-density is preserved instead of degenerating to
-    // log(0) = −∞. (Previously any η outside an arbitrary ±700 window was
-    // declared impossible, truncating the sampled posterior.)
-    if exp_eta == 0.0 {
-        let ll_i = y * eta; // (1 − y)·(−exp_eta) is exactly 0 here
-        let residual_i = y; // grad_log_mu → 1, (1 − y)·exp_eta → 0
-        return Ok((ll_i, residual_i));
-    }
-    // log_mu = log(1 - exp(-exp_eta)); exp_eta > 0 here, so this is exactly
-    // the canonical cancellation-free log1mexp (single source of truth).
-    let log_mu = crate::probability::log1mexp_positive(exp_eta);
-    let log_one_minus_mu = -exp_eta;
-    let grad_log_mu = (eta - exp_eta - log_mu).exp();
-    let ll_i = y * log_mu + (1.0 - y) * log_one_minus_mu;
-    let residual_i = y * grad_log_mu - (1.0 - y) * exp_eta;
-    Ok((ll_i, residual_i))
-}
-
-fn cloglog_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    let mut residual = Array1::<f64>::zeros(data.n_samples);
-    cloglog_logp_and_grad_into(data, eta, &mut residual)
-}
-
-fn cloglog_logp_and_grad_into(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    residual: &mut Array1<f64>,
-) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    assert_eq!(residual.len(), n);
-    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            let (ll_i, residual_i) =
-                cloglog_bernoulli_logp_and_residual(eta[i], y_i).expect("validated cloglog eta");
-            *slot = w_i * residual_i;
-            w_i * ll_i
-        })
-        .sum();
-
-    // A finite η can still exhaust binary64 (y = 0 with exp(η) overflowing):
-    // that is a genuine log-density underflow, rejected as −∞ with a zero
-    // gradient — not an a-priori support window.
-    if !ll.is_finite() {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let grad_ll = fast_atv(data.x.as_ref(), &*residual);
-    (ll, grad_ll)
-}
-
-/// Gaussian log-likelihood and gradient.
-///
-/// log p(y|η) = −½ (w/φ)·(y − η)²,  gradient = (1/φ)·X'(w ⊙ (y − η))
-///
-/// Both the log-likelihood and its β-gradient are scaled by `1/φ` so that
-/// the working likelihood matches the φ-scaled posterior covariance the
-/// HMC whitening transform targets. With `φ == 1` (the only value
-/// passed by the pre-refactor call sites) this collapses to the original
-/// `−½ w·(y − η)²` expression; with an estimated dispersion (the
-/// `Dispersion::Estimated(σ²)` branch) it removes the silent unit-σ
-/// approximation the Gaussian NUTS log-density used previously.
-fn gaussian_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    let mut weighted_residual = Array1::<f64>::zeros(data.n_samples);
-    gaussian_logp_and_grad_into(data, eta, &mut weighted_residual)
-}
-
-fn gaussian_logp_and_grad_into(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    weighted_residual: &mut Array1<f64>,
-) -> (f64, Array1<f64>) {
-    use gam_problem::dispersion_cov::DispersionExt as _;
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    let inv_phi = data.dispersion.inv_phi();
-    assert_eq!(weighted_residual.len(), n);
-    // Per-row: residual = y - η, weighted_residual = (w/φ)·residual,
-    // ll contribution = -0.5·(w/φ)·residual². All independent across rows.
-    let ll: f64 = weighted_residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let residual = data.y[i] - eta[i];
-            let w_i = data.weights[i];
-            let scaled = w_i * inv_phi;
-            *slot = scaled * residual;
-            -0.5 * scaled * residual * residual
-        })
-        .sum();
-
-    let grad_ll = fast_atv(data.x.as_ref(), &*weighted_residual);
-    (ll, grad_ll)
-}
-
-/// Poisson(log) log-likelihood and gradient.
-///
-/// log p(y|η) = y·η − exp(η), gradient = X'(w ⊙ (y − μ))
-fn poisson_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    // Only non-finite η invalidates the target. Any finite η has a valid
-    // log-density (e.g. y = 0, η = −701 gives ℓ = −exp(−701) ≈ 0); the old
-    // ±700 window declared such points impossible and truncated the
-    // posterior. Genuine binary64 exhaustion (exp(η) overflowing against a
-    // positive count) is caught after the sum below.
-    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let mut residual = Array1::<f64>::zeros(n);
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let mu_i = eta_i.exp();
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            *slot = w_i * (y_i - mu_i);
-            w_i * (y_i * eta_i - mu_i)
-        })
-        .sum();
-
-    if !ll.is_finite() {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let grad_ll = fast_atv(&data.x, &residual);
-    (ll, grad_ll)
-}
-
-fn tweedie_log_quasilogp_and_grad(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    p: f64,
-) -> (f64, Array1<f64>) {
-    use gam_problem::dispersion_cov::DispersionExt as _;
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    // Family mapping: Tweedie p is the variant payload; phi is data.dispersion.
-    // Invalid payloads invalidate the target instead of falling back to p=1.5.
-    if !is_valid_tweedie_power(p) {
-        return (f64::NAN, Array1::from_elem(data.dim, f64::NAN));
-    }
-    // Finite η is always in-support for the quasi-likelihood; the old ±700
-    // window artificially truncated the posterior. Binary64 exhaustion is
-    // caught after the sum.
-    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let inv_phi = data.dispersion.inv_phi();
-    let mut residual = Array1::<f64>::zeros(n);
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let mu_i = eta_i.exp().max(1e-300);
-            let y_i = data.y[i];
-            let w_i = data.weights[i] * inv_phi;
-            *slot = w_i * (y_i - mu_i) * mu_i.powf(1.0 - p);
-            let qll = y_i * mu_i.powf(1.0 - p) / (1.0 - p) - mu_i.powf(2.0 - p) / (2.0 - p);
-            w_i * qll
-        })
-        .sum();
-
-    if !ll.is_finite() {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let grad_ll = fast_atv(&data.x, &residual);
-    (ll, grad_ll)
-}
-
-fn negative_binomial_log_logp_and_grad(
-    data: &SharedData,
-    eta: &Array1<f64>,
-    theta: f64,
-) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    if !(theta.is_finite() && theta > 0.0)
-        || eta.iter().any(|&eta_i| !eta_i.is_finite())
-        || data
-            .y
-            .iter()
-            .zip(data.weights.iter())
-            .any(|(&y_i, &w_i)| w_i > 0.0 && !valid_count_response(y_i))
-    {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let mut residual = Array1::<f64>::zeros(n);
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let mu_i = eta_i.exp().max(1e-12);
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            if w_i <= 0.0 {
-                *slot = 0.0;
-                return 0.0;
-            }
-            let log_mu_term = if y_i > 0.0 { y_i * mu_i.ln() } else { 0.0 };
-            *slot = w_i * theta * (y_i - mu_i) / (theta + mu_i);
-            w_i * (statrs::function::gamma::ln_gamma(y_i + theta)
-                - statrs::function::gamma::ln_gamma(theta)
-                - statrs::function::gamma::ln_gamma(y_i + 1.0)
-                + theta * (theta.ln() - (theta + mu_i).ln())
-                + log_mu_term
-                - y_i * (theta + mu_i).ln())
-        })
-        .sum();
-
-    if !ll.is_finite() {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let grad_ll = fast_atv(&data.x, &residual);
-    (ll, grad_ll)
-}
-
-fn gamma_log_logp_and_grad(data: &SharedData, eta: &Array1<f64>) -> (f64, Array1<f64>) {
-    use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-    let n = data.n_samples;
-    if eta.iter().any(|&eta_i| !eta_i.is_finite()) {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let shape = data.gamma_shape.max(1e-10);
-    // Hoist shape-only constants out of the per-sample loop: ln Γ(shape) and
-    // shape · ln(shape) are independent of i, so previously each sample paid
-    // an extra `ln_gamma` and `ln` plus a multiply. n is typically large-scale-
-    // scale, so this collapses Θ(n) gamma-function evaluations to one.
-    let shape_ln_shape = shape * shape.ln();
-    let log_gamma_shape = statrs::function::gamma::ln_gamma(shape);
-    let shape_minus_one = shape - 1.0;
-    let mut residual = Array1::<f64>::zeros(n);
-    let ll: f64 = residual
-        .as_slice_mut()
-        .unwrap()
-        .par_iter_mut()
-        .enumerate()
-        .map(|(i, slot)| {
-            let eta_i = eta[i];
-            let mu_i = eta_i.exp();
-            let y_i = data.y[i];
-            let w_i = data.weights[i];
-            let ll_i = w_i
-                * (shape_ln_shape - log_gamma_shape - shape * eta_i
-                    + shape_minus_one * y_i.max(1e-12).ln()
-                    - shape * y_i / mu_i);
-            *slot = w_i * shape * (y_i / mu_i - 1.0);
-            ll_i
-        })
-        .sum();
-
-    if !ll.is_finite() {
-        return (f64::NEG_INFINITY, Array1::zeros(data.dim));
-    }
-    let grad_ll = fast_atv(&data.x, &residual);
-    (ll, grad_ll)
+    let mut resolved = data.likelihood.clone();
+    resolved.spec = likelihood.clone();
+    let mut residual = Array1::zeros(data.n_samples);
+    exact_glm_logp_and_grad_for_likelihood_into(&resolved, data, eta, &mut residual)
 }
 
 #[cfg(test)]
 mod tests {
+
+    /// Whitened log-posterior target with analytical gradients.
+    ///
+    /// Uses Arc for shared data to prevent memory explosion when cloned for chains.
+    /// Uses faer for numerically stable Cholesky decomposition.
+    /// Family mode for NUTS log-likelihood computation.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum NutsFamily {
+        Gaussian,
+        BinomialLogit,
+        BinomialProbit,
+        BinomialCLogLog,
+        PoissonLog,
+        TweedieLog,
+        NegativeBinomialLog,
+        GammaLog,
+    }
+
+    impl NutsFamily {
+        #[inline]
+        fn likelihood_spec(self) -> LikelihoodSpec {
+            match self {
+                Self::Gaussian => LikelihoodSpec {
+                    response: ResponseFamily::Gaussian,
+                    link: InverseLink::Standard(StandardLink::Identity),
+                },
+                Self::BinomialLogit => LikelihoodSpec {
+                    response: ResponseFamily::Binomial,
+                    link: InverseLink::Standard(StandardLink::Logit),
+                },
+                Self::BinomialProbit => LikelihoodSpec {
+                    response: ResponseFamily::Binomial,
+                    link: InverseLink::Standard(StandardLink::Probit),
+                },
+                Self::BinomialCLogLog => LikelihoodSpec {
+                    response: ResponseFamily::Binomial,
+                    link: InverseLink::Standard(StandardLink::CLogLog),
+                },
+                Self::PoissonLog => LikelihoodSpec {
+                    response: ResponseFamily::Poisson,
+                    link: InverseLink::Standard(StandardLink::Log),
+                },
+                Self::TweedieLog => LikelihoodSpec {
+                    response: ResponseFamily::Tweedie { p: 1.5 },
+                    link: InverseLink::Standard(StandardLink::Log),
+                },
+                Self::NegativeBinomialLog => LikelihoodSpec {
+                    response: ResponseFamily::NegativeBinomial {
+                        theta: 1.0,
+                        theta_fixed: false,
+                    },
+                    link: InverseLink::Standard(StandardLink::Log),
+                },
+                Self::GammaLog => LikelihoodSpec {
+                    response: ResponseFamily::Gamma,
+                    link: InverseLink::Standard(StandardLink::Log),
+                },
+            }
+        }
+    }
+
     use super::{
         FamilyNutsInputs, GlmFlatInputs, JointBetaRhoInputs, JointBetaRhoPosterior,
         LinkWiggleFamilyParams, LinkWigglePosterior, LinkWiggleSplineArtifacts, NutsConfig,
-        NutsFamily, NutsPosterior, NutsResult, SharedData, cloglog_bernoulli_logp_and_residual,
+        NutsPosterior, NutsResult, SharedData, exact_glm_logp_and_grad_into,
         firth_jeffreys_logp_and_grad, joint_family_logp_and_grad,
         laplace_directional_cubic_diagnostic, laplace_skewness_threshold,
         laplace_trustworthiness_from_skewness, run_joint_beta_rho_sampling,
@@ -1686,8 +1375,8 @@ mod tests {
     use gam_linalg::matrix::DesignMatrix;
     use gam_models::survival::{PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec};
     use gam_problem::types::{
-        InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, LogLikelihoodNormalization,
-        ResponseFamily, RhoPrior, StandardLink,
+        GlmLikelihoodSpec, InverseLink, LikelihoodScaleMetadata, LikelihoodSpec,
+        LogLikelihoodNormalization, ResponseFamily, RhoPrior, StandardLink,
     };
     use gam_solve::estimate::{
         BlockRole, FitGeometry, FitInference, FittedBlock, FittedLinkState, UnifiedFitResult,
@@ -1748,6 +1437,51 @@ mod tests {
         }
     }
 
+    fn nuts_test_likelihood(family: NutsFamily, parameter: f64) -> GlmLikelihoodSpec {
+        let mut spec = family.likelihood_spec();
+        let scale = match family {
+            NutsFamily::Gaussian => LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+            NutsFamily::GammaLog => {
+                LikelihoodScaleMetadata::EstimatedGammaShape { shape: parameter }
+            }
+            NutsFamily::TweedieLog => {
+                spec.response = ResponseFamily::Tweedie { p: parameter };
+                LikelihoodScaleMetadata::EstimatedTweediePhi { phi: 1.0 }
+            }
+            NutsFamily::NegativeBinomialLog => {
+                spec.response = ResponseFamily::NegativeBinomial {
+                    theta: parameter,
+                    theta_fixed: false,
+                };
+                LikelihoodScaleMetadata::EstimatedNegBinTheta { theta: parameter }
+            }
+            NutsFamily::BinomialLogit
+            | NutsFamily::BinomialProbit
+            | NutsFamily::BinomialCLogLog
+            | NutsFamily::PoissonLog => LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+        };
+        GlmLikelihoodSpec { spec, scale }
+    }
+
+    fn exact_eta_geometry(
+        likelihood: &GlmLikelihoodSpec,
+        y: &Array1<f64>,
+        weights: &Array1<f64>,
+        eta: &Array1<f64>,
+    ) -> Result<(f64, Array1<f64>), String> {
+        let mut score = Array1::zeros(eta.len());
+        let value = gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+            y.view(),
+            eta,
+            likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+            &mut score,
+        )
+        .map_err(|error| error.to_string())?;
+        Ok((value, score))
+    }
+
     fn hmc_test_fit(
         blocks: Vec<FittedBlock>,
         inference: Option<FitInference>,
@@ -1770,7 +1504,13 @@ mod tests {
             stable_penalty_term: 0.0,
             penalized_objective: 0.0,
             used_device: false,
-            outer_iterations: 1,
+            // Fixed-fit semantics (outer_iterations = 0): these hand-built
+            // fixtures carry no analytic stationarity certificate, and the
+            // #2255 assembly gate correctly refuses an
+            // iterations-ran-but-uncertified state. The fixtures never
+            // exercised an outer search; declaring them fixed-ρ fits states
+            // what they actually are.
+            outer_iterations: 0,
             outer_converged: true,
             outer_gradient_norm: None,
             standard_deviation: 1.0,
@@ -1804,11 +1544,12 @@ mod tests {
                 penalty_block_trace: vec![],
                 edf_total: 2.0,
                 smoothing_correction: None,
+                smoothing_correction_method: None,
                 penalized_hessian: hessian.clone().into(),
                 working_weights: array![1.0, 1.0, 1.0],
                 working_response: array![0.0, 0.1, -0.2],
                 reparam_qs: None,
-                dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+                dispersion: gam_solve::estimate::Dispersion::UNIT,
                 beta_covariance: None,
                 beta_standard_errors: None,
                 beta_covariance_corrected: None,
@@ -1837,9 +1578,9 @@ mod tests {
             penalty.view(),
             fit.beta.view(),
             explicit.view(),
-            NutsFamily::Gaussian,
-            1.0,
-            gam_solve::estimate::Dispersion::Known(1.0),
+            nuts_test_likelihood(NutsFamily::Gaussian, 1.0),
+            gam_solve::estimate::Dispersion::UNIT,
+            None,
             false,
         )
         .expect("HMC target whitens with upstream Hessian");
@@ -1899,7 +1640,13 @@ mod tests {
             stable_penalty_term: 0.0,
             penalized_objective: 0.0,
             used_device: false,
-            outer_iterations: 1,
+            // Fixed-fit semantics (outer_iterations = 0): these hand-built
+            // fixtures carry no analytic stationarity certificate, and the
+            // #2255 assembly gate correctly refuses an
+            // iterations-ran-but-uncertified state. The fixtures never
+            // exercised an outer search; declaring them fixed-ρ fits states
+            // what they actually are.
+            outer_iterations: 0,
             outer_converged: true,
             outer_gradient_norm: None,
             standard_deviation: 1.0,
@@ -1941,10 +1688,236 @@ mod tests {
     }
 
     #[test]
+    fn exact_hmc_family_surfaces_share_value_and_eta_score() {
+        let fixed = |spec: LikelihoodSpec, scale: LikelihoodScaleMetadata| GlmLikelihoodSpec {
+            spec,
+            scale,
+        };
+        let cases = vec![
+            (
+                fixed(
+                    LikelihoodSpec::gaussian_identity(),
+                    LikelihoodScaleMetadata::FixedDispersion { phi: 2.0 },
+                ),
+                array![f64::NAN, -0.4, 1.7],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::binomial_logit()),
+                array![f64::NAN, 1.0, 0.0],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::Probit),
+                )),
+                array![f64::NAN, 1.0, 0.0],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::CLogLog),
+                )),
+                array![f64::NAN, 1.0, 0.0],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::poisson_log()),
+                array![f64::NAN, 0.0, 3.0],
+            ),
+            (
+                fixed(
+                    LikelihoodSpec::new(
+                        ResponseFamily::Gamma,
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    LikelihoodScaleMetadata::FixedGammaShape { shape: 3.0 },
+                ),
+                array![f64::NAN, 0.4, 2.2],
+            ),
+            (
+                fixed(
+                    LikelihoodSpec::new(
+                        ResponseFamily::Tweedie { p: 1.4 },
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    LikelihoodScaleMetadata::FixedDispersion { phi: 0.7 },
+                ),
+                array![f64::NAN, 0.0, 2.2],
+            ),
+            (
+                fixed(
+                    LikelihoodSpec::new(
+                        ResponseFamily::NegativeBinomial {
+                            theta: 2.5,
+                            theta_fixed: true,
+                        },
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    LikelihoodScaleMetadata::FixedNegBinTheta { theta: 2.5 },
+                ),
+                array![f64::NAN, 0.0, 3.0],
+            ),
+            (
+                fixed(
+                    LikelihoodSpec::new(
+                        ResponseFamily::Beta { phi: 12.0 },
+                        InverseLink::Standard(StandardLink::Logit),
+                    ),
+                    LikelihoodScaleMetadata::EstimatedBetaPhi { phi: 12.0 },
+                ),
+                array![f64::NAN, 0.2, 0.8],
+            ),
+        ];
+        let weights = array![0.0, 1.0e-300, 1.25];
+        let eta = array![0.0, -0.35, 0.6];
+        for (likelihood, y) in cases {
+            let (value, score) = exact_eta_geometry(&likelihood, &y, &weights, &eta)
+                .unwrap_or_else(|error| panic!("{}: {error}", likelihood.spec.pretty_name()));
+            assert!(value.is_finite());
+            assert_eq!(score[0].to_bits(), 0.0_f64.to_bits());
+            assert!(
+                score[1] != 0.0 && score[1].is_finite(),
+                "{} erased a positive tiny weight",
+                likelihood.spec.pretty_name()
+            );
+            let eps = 1.0e-6;
+            let mut plus = eta.clone();
+            let mut minus = eta.clone();
+            plus[2] += eps;
+            minus[2] -= eps;
+            let (vp, _) = exact_eta_geometry(&likelihood, &y, &weights, &plus).unwrap();
+            let (vm, _) = exact_eta_geometry(&likelihood, &y, &weights, &minus).unwrap();
+            let fd = (vp - vm) / (2.0 * eps);
+            let tolerance = 2.0e-5 * (1.0 + fd.abs());
+            assert!(
+                (score[2] - fd).abs() <= tolerance,
+                "{} value/score mismatch: analytic={} fd={fd}",
+                likelihood.spec.pretty_name(),
+                score[2]
+            );
+        }
+    }
+
+    #[test]
+    fn exact_hmc_family_tails_are_finite_when_the_surface_is_representable() {
+        let tail_cases = [
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::poisson_log()),
+                array![0.0],
+                array![-1000.0],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::Probit),
+                )),
+                array![1.0],
+                array![-30.0],
+            ),
+            (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::CLogLog),
+                )),
+                array![1.0],
+                array![-1000.0],
+            ),
+            (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::Gamma,
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    scale: LikelihoodScaleMetadata::FixedGammaShape { shape: 1.0 },
+                },
+                array![1.0],
+                array![1.0e308],
+            ),
+            (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::NegativeBinomial {
+                            theta: 1.0,
+                            theta_fixed: true,
+                        },
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    scale: LikelihoodScaleMetadata::FixedNegBinTheta { theta: 1.0 },
+                },
+                array![2.0],
+                array![1.0e308],
+            ),
+            (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::Beta { phi: 8.0 },
+                        InverseLink::Standard(StandardLink::Logit),
+                    ),
+                    scale: LikelihoodScaleMetadata::EstimatedBetaPhi { phi: 8.0 },
+                },
+                array![0.2],
+                array![-1000.0],
+            ),
+        ];
+        for (likelihood, y, eta) in tail_cases {
+            let (value, score) = exact_eta_geometry(&likelihood, &y, &array![1.0], &eta)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} tail should be representable: {error}",
+                        likelihood.spec.pretty_name()
+                    )
+                });
+            assert!(value.is_finite());
+            assert!(score[0].is_finite());
+        }
+    }
+
+    #[test]
+    fn hmc_scale_resolution_rejects_inconsistent_metadata_without_defaults() {
+        let inconsistent_nb = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::NegativeBinomial {
+                    theta: 2.0,
+                    theta_fixed: true,
+                },
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            scale: LikelihoodScaleMetadata::FixedNegBinTheta { theta: 3.0 },
+        };
+        assert!(
+            super::resolve_hmc_likelihood(
+                inconsistent_nb,
+                gam_solve::model_types::Dispersion::UNIT,
+            )
+            .is_err()
+        );
+
+        let unresolved_gamma = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::Gamma,
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            scale: LikelihoodScaleMetadata::Unspecified,
+        };
+        assert!(
+            super::resolve_hmc_likelihood(
+                unresolved_gamma,
+                gam_solve::model_types::Dispersion::UNIT,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn cloglog_log_mu_uses_complementary_loglog_inverse_link() {
         let eta = -1.0_f64;
-        let (ll_y1, residual_y1) =
-            cloglog_bernoulli_logp_and_residual(eta, 1.0).expect("valid eta");
+        let likelihood = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+            ResponseFamily::Binomial,
+            InverseLink::Standard(StandardLink::CLogLog),
+        ));
+        let (ll_y1, score) =
+            exact_eta_geometry(&likelihood, &array![1.0], &array![1.0], &array![eta])
+                .expect("valid eta");
+        let residual_y1 = score[0];
         let expected = (1.0 - (-eta.exp()).exp()).ln();
         let wrong_log_one_minus_exp_eta = (1.0 - eta.exp()).ln();
 
@@ -1952,8 +1925,12 @@ mod tests {
         assert!((ll_y1 - wrong_log_one_minus_exp_eta).abs() > 0.5);
 
         let eps = 1e-6;
-        let (lp, _) = cloglog_bernoulli_logp_and_residual(eta + eps, 1.0).expect("valid eta");
-        let (lm, _) = cloglog_bernoulli_logp_and_residual(eta - eps, 1.0).expect("valid eta");
+        let (lp, _) =
+            exact_eta_geometry(&likelihood, &array![1.0], &array![1.0], &array![eta + eps])
+                .expect("valid eta");
+        let (lm, _) =
+            exact_eta_geometry(&likelihood, &array![1.0], &array![1.0], &array![eta - eps])
+                .expect("valid eta");
         let fd = (lp - lm) / (2.0 * eps);
         assert!(
             (residual_y1 - fd).abs() < 1e-9,
@@ -1973,13 +1950,14 @@ mod tests {
             weights: Arc::new(array![1.0]),
             mode: Arc::new(array![0.0]),
             offset: None,
-            gamma_shape: 1.0,
-            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            likelihood: nuts_test_likelihood(NutsFamily::PoissonLog, 1.0),
             n_samples: 1,
             dim: 1,
         };
         let eta = array![-701.0];
-        let (ll, grad) = super::poisson_log_logp_and_grad(&data, &eta);
+        let mut eta_score = Array1::zeros(1);
+        let (ll, grad) = exact_glm_logp_and_grad_into(&data, &eta, &mut eta_score)
+            .expect("representable Poisson tail");
         assert!(
             ll.is_finite() && ll.abs() < 1e-300,
             "Poisson y=0, eta=-701 must keep its ~0 log-density, got {ll}"
@@ -1988,8 +1966,14 @@ mod tests {
 
         // Deep cloglog left tail: exp(η) underflows below η ≈ −745, but the
         // exact limits are log μ → η and d(log μ)/dη → 1.
-        let (ll_tail, res_tail) =
-            cloglog_bernoulli_logp_and_residual(-750.0, 1.0).expect("finite eta is valid");
+        let cloglog = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+            ResponseFamily::Binomial,
+            InverseLink::Standard(StandardLink::CLogLog),
+        ));
+        let (ll_tail, score_tail) =
+            exact_eta_geometry(&cloglog, &array![1.0], &array![1.0], &array![-750.0])
+                .expect("finite eta is valid");
+        let res_tail = score_tail[0];
         assert!(
             (ll_tail - (-750.0)).abs() < 1e-9,
             "cloglog log-density must approach eta in the deep left tail, got {ll_tail}"
@@ -2002,9 +1986,11 @@ mod tests {
             y: Arc::new(array![3.0]),
             ..data
         };
-        let (ll_of, grad_of) = super::poisson_log_logp_and_grad(&data_pos, &array![710.0]);
-        assert_eq!(ll_of, f64::NEG_INFINITY);
-        assert_eq!(grad_of[0], 0.0);
+        let mut overflow_score = Array1::zeros(1);
+        assert!(
+            exact_glm_logp_and_grad_into(&data_pos, &array![710.0], &mut overflow_score).is_err(),
+            "unrepresentable Poisson tail must fail atomically"
+        );
     }
 
     /// #2245 finding 16: saved-model sampling must reconstruct the fitted
@@ -2024,14 +2010,16 @@ mod tests {
             weights: Arc::new(array![100.0, 1.0]),
             mode: Arc::new(array![0.0]),
             offset: None,
-            gamma_shape: 1.0,
-            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            likelihood: nuts_test_likelihood(NutsFamily::BinomialLogit, 1.0),
             n_samples: 2,
             dim: 1,
         };
         // At the weighted MLE η* = log 100 the score is (numerically) zero.
         let eta_star = 100.0_f64.ln();
-        let (_, grad_star) = super::logit_logp_and_grad(&data, &array![eta_star, eta_star]);
+        let mut score_star = Array1::zeros(2);
+        let (_, grad_star) =
+            exact_glm_logp_and_grad_into(&data, &array![eta_star, eta_star], &mut score_star)
+                .expect("weighted logit geometry");
         assert!(
             grad_star[0].abs() < 1e-9,
             "weighted Bernoulli score must vanish at log 100, got {}",
@@ -2039,7 +2027,10 @@ mod tests {
         );
         // At the *unweighted* mode η = 0 the weighted score is 100 − 101·0.5 =
         // 49.5 ≫ 0: the unit-weight reconstruction targets the wrong posterior.
-        let (_, grad_zero) = super::logit_logp_and_grad(&data, &array![0.0, 0.0]);
+        let mut score_zero = Array1::zeros(2);
+        let (_, grad_zero) =
+            exact_glm_logp_and_grad_into(&data, &array![0.0, 0.0], &mut score_zero)
+                .expect("weighted logit geometry");
         assert!(
             (grad_zero[0] - 49.5).abs() < 1e-9,
             "unit-weight point must carry a large positive weighted score, got {}",
@@ -2160,9 +2151,9 @@ mod tests {
             penalty.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::BinomialLogit,
-            1.0,
-            gam_solve::estimate::Dispersion::Known(1.0),
+            nuts_test_likelihood(NutsFamily::BinomialLogit, 1.0),
+            gam_solve::estimate::Dispersion::UNIT,
+            None,
             true,
         )
         .expect("posterior");
@@ -2210,22 +2201,21 @@ mod tests {
             weights: Arc::new(weights.clone()),
             mode: Arc::new(Array1::zeros(1)),
             offset: None,
-            gamma_shape: shape,
-            dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+            likelihood: nuts_test_likelihood(NutsFamily::GammaLog, shape),
             n_samples: x.nrows(),
             dim: x.ncols(),
         };
 
-        let (ll, grad) = super::gamma_log_logp_and_grad(&data, &eta);
+        let mut eta_score = Array1::zeros(eta.len());
+        let (ll, grad) =
+            exact_glm_logp_and_grad_into(&data, &eta, &mut eta_score).expect("Gamma geometry");
 
         let mut expected_ll = 0.0;
         let mut expected_score = 0.0;
         for i in 0..eta.len() {
             let mu = eta[i].exp();
-            expected_ll += weights[i]
-                * (shape * shape.ln() - statrs::function::gamma::ln_gamma(shape) - shape * eta[i]
-                    + (shape - 1.0) * y[i].ln()
-                    - shape * y[i] / mu);
+            let ratio = y[i] / mu;
+            expected_ll -= weights[i] * shape * (ratio - 1.0 - ratio.ln());
             expected_score += weights[i] * shape * (y[i] / mu - 1.0);
         }
 
@@ -2293,9 +2283,9 @@ mod tests {
             s.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::GammaLog,
-            shape,
-            gam_solve::estimate::Dispersion::Estimated(1.0 / shape),
+            nuts_test_likelihood(NutsFamily::GammaLog, shape),
+            gam_solve::estimate::Dispersion::estimated(1.0 / shape).unwrap(),
+            None,
             false,
         )
         .expect("GammaLog NUTS target builds");
@@ -2360,9 +2350,9 @@ mod tests {
             s.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::GammaLog,
-            shape,
-            gam_solve::estimate::Dispersion::Estimated(1.0 / shape),
+            nuts_test_likelihood(NutsFamily::GammaLog, shape),
+            gam_solve::estimate::Dispersion::estimated(1.0 / shape).unwrap(),
+            None,
             false,
         )
         .expect("GammaLog NUTS target builds");
@@ -2402,8 +2392,7 @@ mod tests {
             weights: Arc::new(weights.clone()),
             mode: Arc::new(Array1::zeros(x.ncols())),
             offset: None,
-            gamma_shape: 1.0,
-            dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+            likelihood: nuts_test_likelihood(NutsFamily::BinomialLogit, 1.0),
             n_samples: x.nrows(),
             dim: x.ncols(),
         };
@@ -2489,8 +2478,8 @@ mod tests {
                 penalty_matrix: penalty.view(),
                 mode: mode.view(),
                 hessian: non_spd_hessian.view(),
-                gamma_shape: None,
-                dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+                likelihood_scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+                dispersion: gam_solve::model_types::Dispersion::UNIT,
                 firth_bias_reduction: false,
                 offset: None,
             }),
@@ -2531,8 +2520,8 @@ mod tests {
                 penalty_matrix: penalty.view(),
                 mode: mode.view(),
                 hessian: non_spdhessian.view(),
-                gamma_shape: None,
-                dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+                likelihood_scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+                dispersion: gam_solve::estimate::Dispersion::UNIT,
                 firth_bias_reduction: false,
                 offset: None,
             }),
@@ -2571,8 +2560,8 @@ mod tests {
                 penalty_matrix: penalty.view(),
                 mode: mode.view(),
                 hessian: non_spdhessian.view(),
-                gamma_shape: None,
-                dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+                likelihood_scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+                dispersion: gam_solve::estimate::Dispersion::UNIT,
                 firth_bias_reduction: false,
                 offset: None,
             }),
@@ -2616,8 +2605,8 @@ mod tests {
                 penalty_matrix: penalty.view(),
                 mode: mode.view(),
                 hessian: hessian.view(),
-                gamma_shape: None,
-                dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+                likelihood_scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
+                dispersion: gam_solve::estimate::Dispersion::UNIT,
                 firth_bias_reduction: true,
                 offset: None,
             }),
@@ -2658,9 +2647,8 @@ mod tests {
             penalty.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::Gaussian,
-            1.0,
-            gam_solve::estimate::Dispersion::Known(1.0),
+            nuts_test_likelihood(NutsFamily::Gaussian, 1.0),
+            gam_solve::estimate::Dispersion::UNIT,
             false,
             None,
             &cfg,
@@ -2704,9 +2692,8 @@ mod tests {
                 penalty.view(),
                 mode.view(),
                 hessian.view(),
-                NutsFamily::Gaussian,
-                1.0,
-                gam_solve::estimate::Dispersion::Known(1.0),
+                nuts_test_likelihood(NutsFamily::Gaussian, 1.0),
+                gam_solve::estimate::Dispersion::UNIT,
                 false,
                 None,
                 &cfg,
@@ -2837,9 +2824,8 @@ mod tests {
             penalty.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::Gaussian,
-            1.0,
-            gam_solve::estimate::Dispersion::Known(1.0),
+            nuts_test_likelihood(NutsFamily::Gaussian, 1.0),
+            gam_solve::estimate::Dispersion::UNIT,
             false,
             None,
             &zero_chain_cfg,
@@ -2864,9 +2850,8 @@ mod tests {
             penalty.view(),
             mode.view(),
             hessian.view(),
-            NutsFamily::Gaussian,
-            1.0,
-            gam_solve::estimate::Dispersion::Known(1.0),
+            nuts_test_likelihood(NutsFamily::Gaussian, 1.0),
+            gam_solve::estimate::Dispersion::UNIT,
             false,
             None,
             &single_chain_cfg,
@@ -2900,12 +2885,14 @@ mod tests {
             x: x.view(),
             y: y.view(),
             weights: w.view(),
-            likelihood: LikelihoodSpec {
-                response: ResponseFamily::Poisson,
-                link: InverseLink::Standard(StandardLink::Log),
+            likelihood: GlmLikelihoodSpec {
+                spec: LikelihoodSpec {
+                    response: ResponseFamily::Poisson,
+                    link: InverseLink::Standard(StandardLink::Log),
+                },
+                scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             },
-            gamma_shape: None,
-            dispersion: gam_solve::model_types::Dispersion::Known(1.0),
+            dispersion: gam_solve::model_types::Dispersion::UNIT,
             offset: None,
             mode: mode.view(),
             hessian: hessian.view(),
@@ -2953,12 +2940,11 @@ mod tests {
                 CanonicalPenalty::from_dense_root(penalty_2, 2),
             ],
             rho_mode.view(),
-            LikelihoodSpec {
-                response: ResponseFamily::Gaussian,
-                link: InverseLink::Standard(StandardLink::Identity),
+            GlmLikelihoodSpec {
+                spec: LikelihoodSpec::gaussian_identity(),
+                scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             },
-            None,
-            gam_solve::model_types::Dispersion::Known(1.0),
+            gam_solve::model_types::Dispersion::UNIT,
             None,
             RhoPrior::Flat,
             false,
@@ -3000,12 +2986,11 @@ mod tests {
             hessian.view(),
             vec![penalty.clone()],
             array![0.0].view(),
-            LikelihoodSpec {
-                response: ResponseFamily::Gaussian,
-                link: InverseLink::Standard(StandardLink::Identity),
+            GlmLikelihoodSpec {
+                spec: LikelihoodSpec::gaussian_identity(),
+                scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             },
-            None,
-            gam_solve::model_types::Dispersion::Known(1.0),
+            gam_solve::model_types::Dispersion::UNIT,
             None,
             prior.clone(),
             false,
@@ -3019,12 +3004,11 @@ mod tests {
             hessian.view(),
             vec![penalty],
             array![2.5].view(),
-            LikelihoodSpec {
-                response: ResponseFamily::Gaussian,
-                link: InverseLink::Standard(StandardLink::Identity),
+            GlmLikelihoodSpec {
+                spec: LikelihoodSpec::gaussian_identity(),
+                scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             },
-            None,
-            gam_solve::model_types::Dispersion::Known(1.0),
+            gam_solve::model_types::Dispersion::UNIT,
             None,
             prior,
             false,
@@ -3067,12 +3051,11 @@ mod tests {
             hessian.view(),
             Vec::new(),
             Array1::<f64>::zeros(0).view(),
-            LikelihoodSpec {
+            GlmLikelihoodSpec::canonical(LikelihoodSpec {
                 response: ResponseFamily::Gaussian,
                 link: InverseLink::Standard(StandardLink::Identity),
-            },
-            None,
-            gam_solve::model_types::Dispersion::Estimated(4.0),
+            }),
+            gam_solve::model_types::Dispersion::estimated(4.0).unwrap(),
             Some(offset.view()),
             RhoPrior::Flat,
             false,
@@ -3106,8 +3089,7 @@ mod tests {
             weights: Arc::new(weights),
             mode: Arc::new(Array1::zeros(1)),
             offset: None,
-            gamma_shape: 1.0,
-            dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+            likelihood: nuts_test_likelihood(NutsFamily::BinomialLogit, 1.0),
             n_samples: 2,
             dim: 1,
         };
@@ -3217,12 +3199,11 @@ mod tests {
             hessian.view(),
             vec![cp1, cp2],
             rho.view(),
-            LikelihoodSpec {
-                response: ResponseFamily::Gaussian,
-                link: InverseLink::Standard(StandardLink::Identity),
+            GlmLikelihoodSpec {
+                spec: LikelihoodSpec::gaussian_identity(),
+                scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             },
-            None,
-            gam_solve::model_types::Dispersion::Known(1.0),
+            gam_solve::model_types::Dispersion::UNIT,
             None,
             RhoPrior::Flat,
             false,
@@ -3270,18 +3251,21 @@ mod tests {
     /// explicit error. No family is silently remapped to a different one.
     #[test]
     fn joint_hmc_family_gating_never_remaps() {
-        let data = SharedData {
+        let eta = array![0.1, -0.1];
+        let data_for = |spec: &LikelihoodSpec| SharedData {
             x: Arc::new(array![[1.0], [1.0]]),
-            y: Arc::new(array![1.0, 0.0]),
+            y: Arc::new(match &spec.response {
+                ResponseFamily::Binomial => array![1.0, 0.0],
+                ResponseFamily::Gamma | ResponseFamily::Beta { .. } => array![1.0, 0.5],
+                _ => array![1.0, 0.0],
+            }),
             weights: Arc::new(array![1.0, 1.0]),
             mode: Arc::new(Array1::zeros(1)),
             offset: None,
-            gamma_shape: 1.0,
-            dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+            likelihood: GlmLikelihoodSpec::canonical(spec.clone()),
             n_samples: 2,
             dim: 1,
         };
-        let eta = array![0.1, -0.1];
 
         // These families must succeed with their own inverse link.
         let accepted = [
@@ -3311,6 +3295,7 @@ mod tests {
             },
         ];
         for spec in &accepted {
+            let data = data_for(spec);
             let result = joint_family_logp_and_grad(spec, &data, &eta);
             assert!(
                 result.is_ok(),
@@ -3345,6 +3330,7 @@ mod tests {
             },
         ];
         for spec in &adaptive {
+            let data = data_for(spec);
             let result = joint_family_logp_and_grad(spec, &data, &eta);
             assert!(
                 result.is_ok(),
@@ -3354,14 +3340,12 @@ mod tests {
         }
 
         // RoystonParmar must be explicitly rejected (not silently remapped).
-        let rp_result = joint_family_logp_and_grad(
-            &LikelihoodSpec {
-                response: ResponseFamily::RoystonParmar,
-                link: InverseLink::Standard(StandardLink::Logit),
-            },
-            &data,
-            &eta,
-        );
+        let rp = LikelihoodSpec {
+            response: ResponseFamily::RoystonParmar,
+            link: InverseLink::Standard(StandardLink::Logit),
+        };
+        let rp_data = data_for(&rp);
+        let rp_result = joint_family_logp_and_grad(&rp, &rp_data, &eta);
         assert!(
             rp_result.is_err(),
             "RoystonParmar should be rejected, not silently accepted"
@@ -3467,15 +3451,15 @@ mod tests {
         fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64> {
             t.mapv(|x| self.a * x.powi(4))
         }
-        fn displaced_neg_score(&self, t: &Array1<f64>) -> Array1<f64> {
+        fn displaced_neg_score(&self, t: &Array1<f64>) -> Result<Array1<f64>, String> {
             // The synthetic oracle has no observation rows: its ΔF carries no
             // deviance channel, so the per-row score moment is empty and the
             // (b)–(d) channel assembly contracts against nothing.
             assert_eq!(t.len(), self.block_dim(), "displacement dim mismatch");
-            Array1::zeros(0)
+            Ok(Array1::zeros(0))
         }
-        fn base_neg_score(&self) -> Array1<f64> {
-            Array1::zeros(0)
+        fn base_neg_score(&self) -> Result<Array1<f64>, String> {
+            Ok(Array1::zeros(0))
         }
     }
 
@@ -3587,12 +3571,13 @@ mod tests {
         fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64> {
             t.mapv(|x| 0.01 * x)
         }
-        fn displaced_neg_score(&self, t: &Array1<f64>) -> Array1<f64> {
-            self.excess_and_ngs(&self.s_of(t)).1
+        fn displaced_neg_score(&self, t: &Array1<f64>) -> Result<Array1<f64>, String> {
+            Ok(self.excess_and_ngs(&self.s_of(t)).1)
         }
-        fn base_neg_score(&self) -> Array1<f64> {
-            self.excess_and_ngs(&self.s_of(&Array1::zeros(self.block_dim())))
-                .1
+        fn base_neg_score(&self) -> Result<Array1<f64>, String> {
+            Ok(self
+                .excess_and_ngs(&self.s_of(&Array1::zeros(self.block_dim())))
+                .1)
         }
         fn excess_with_displaced_neg_score_batch(
             &self,
@@ -4584,10 +4569,9 @@ impl NutsResult {
         if n == 0 {
             return 0.0;
         }
-        // Posterior mean of a sample-function: parallel reduction over rows.
+        // Posterior mean of a sample-function: deterministic parallel reduction over rows.
         // `f: Fn(ArrayView1) -> f64` is shared-access so safe across threads.
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
-        let sum: f64 = (0..n).into_par_iter().map(|i| f(self.samples.row(i))).sum();
+        let sum: f64 = gam_linalg::pairwise_reduce::par_pairwise_sum(n, |i| f(self.samples.row(i)));
         sum / n as f64
     }
 
@@ -4612,7 +4596,16 @@ impl NutsResult {
 
 #[inline]
 fn sample_standard_normal<R: rand::Rng + ?Sized>(rng: &mut R) -> f64 {
-    let u1 = rng.random::<f64>().max(1e-16);
+    // Box-Muller requires U1 in the open interval (0, 1). Reject the single
+    // exactly-zero lattice point instead of projecting an interval of valid
+    // uniforms onto an arbitrary floor, which creates an atom and truncates
+    // the normal tail.
+    let u1 = loop {
+        let draw = rng.random::<f64>();
+        if draw > 0.0 {
+            break draw;
+        }
+    };
     let u2 = rng.random::<f64>();
     (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
 }
@@ -4948,7 +4941,7 @@ pub fn estimate_logit_pg_rao_blackwell_terms(
 /// * `penalty_matrix` - Combined penalty S [dim, dim]
 /// * `mode` - MAP estimate μ [dim]
 /// * `hessian` - Penalized Hessian H [dim, dim] (NOT the inverse!)
-/// * `nuts_family` - Family for log-likelihood computation
+/// * `likelihood` - Exact family, inverse-link, and fitted scale metadata
 /// * `firth_bias_reduction` - Whether Firth bias reduction was used in training
 /// * `config` - NUTS configuration
 pub(crate) fn run_nuts_sampling(
@@ -4958,20 +4951,15 @@ pub(crate) fn run_nuts_sampling(
     penalty_matrix: ArrayView2<f64>,
     mode: ArrayView1<f64>,
     hessian: ArrayView2<f64>,
-    nuts_family: NutsFamily,
-    gamma_shape: f64,
+    likelihood: GlmLikelihoodSpec,
     dispersion: gam_solve::model_types::Dispersion,
     firth_bias_reduction: bool,
     offset: Option<ArrayView1<f64>>,
     config: &NutsConfig,
 ) -> Result<NutsResult, String> {
-    validate_firth_support(nuts_family, firth_bias_reduction).map_err(String::from)?;
+    validate_firth_likelihood_support(&likelihood.spec, firth_bias_reduction)
+        .map_err(String::from)?;
     validate_nuts_config(config).map_err(String::from)?;
-    if nuts_family == NutsFamily::TweedieLog && !is_valid_tweedie_power(gamma_shape) {
-        return Err(format!(
-            "Tweedie variance power must be finite and strictly between 1 and 2; got {gamma_shape}"
-        ));
-    }
     let dim = mode.len();
 
     // Create posterior target with analytical gradients. When Firth is enabled,
@@ -4983,15 +4971,11 @@ pub(crate) fn run_nuts_sampling(
         penalty_matrix,
         mode,
         hessian,
-        nuts_family,
-        gamma_shape,
+        likelihood,
         dispersion,
+        offset,
         firth_bias_reduction,
     )?;
-    let target = match offset {
-        Some(offset) => target.with_offset(offset)?,
-        None => target,
-    };
 
     // Get Cholesky factor for un-whitening samples later
     let chol = target.chol().clone();
@@ -5070,9 +5054,9 @@ impl HamiltonianTarget<Array1<f64>> for GaussianModeTarget {
 /// config) — never for "did not converge", which is precisely the dead-end this
 /// path exists to remove.
 ///
-/// `hessian` must be the SPD penalized joint Hessian at `mode` (e.g. from
-/// `compute_joint_geometry`). It is symmetrized defensively and Cholesky-
-/// factored to build the whitening `L` with `L Lᵀ = H⁻¹`.
+/// `hessian` must be the finite symmetric positive-definite penalized joint
+/// Hessian at `mode` (e.g. from `compute_joint_geometry`). It is factored
+/// exactly as supplied; asymmetry, singularity, or indefiniteness is an error.
 pub fn sample_gaussian_mode_posterior(
     mode: ArrayView1<f64>,
     hessian: ArrayView2<f64>,
@@ -5090,28 +5074,9 @@ pub fn sample_gaussian_mode_posterior(
         return Err("Gaussian-posterior fallback: zero-dimensional posterior".to_string());
     }
 
-    // Symmetrize defensively (the assembled joint Hessian may carry
-    // floating-point asymmetry from directional-callback construction) and add
-    // a tiny jitter on the diagonal so a Hessian that is SPD-up-to-roundoff at a
-    // boundary optimum still factors. The jitter only ever *widens* the
-    // posterior, consistent with the honest-interval guarantee.
-    let mut h = hessian.to_owned();
-    for i in 0..dim {
-        for j in (i + 1)..dim {
-            let avg = 0.5 * (h[[i, j]] + h[[j, i]]);
-            h[[i, j]] = avg;
-            h[[j, i]] = avg;
-        }
-    }
-    let diag_scale = (0..dim).map(|i| h[[i, i]].abs()).fold(0.0_f64, f64::max);
-    let jitter = (diag_scale * 1e-10).max(1e-12);
-    for i in 0..dim {
-        h[[i, i]] += jitter;
-    }
-
     let mode_owned = mode.to_owned();
     let whitening = hessian_whitening_transform(
-        h.view(),
+        hessian,
         dim,
         1.0,
         "Gaussian-posterior fallback Cholesky failed",
@@ -5227,8 +5192,8 @@ where
 /// and gradient (#938 Tier 2).
 ///
 /// * `rho_hat` — converged `ρ̂` (the whitening center and chain seed).
-/// * `outer_hessian` — exact outer Hessian `H_ρ` at `ρ̂` (symmetrized and
-///   jittered defensively, then Cholesky-factored for the whitening).
+/// * `outer_hessian` — exact finite symmetric positive-definite outer Hessian
+///   `H_ρ` at `ρ̂`, factored without perturbation for whitening.
 /// * `criterion_and_grad` — `ρ ↦ (LAML(ρ), ∇_ρ LAML(ρ))`, both exact; `None`
 ///   for infeasible `ρ`. Each call is one warm inner profile solve.
 /// * `config` — sampler configuration; determinism comes from `config.seed`
@@ -5258,25 +5223,9 @@ where
         ));
     }
 
-    // Symmetrize + jitter the exact outer Hessian so a boundary optimum that is
-    // SPD-up-to-roundoff still factors; jitter only widens the proposal metric.
-    let mut h = outer_hessian.to_owned();
-    for i in 0..dim {
-        for j in (i + 1)..dim {
-            let avg = 0.5 * (h[[i, j]] + h[[j, i]]);
-            h[[i, j]] = avg;
-            h[[j, i]] = avg;
-        }
-    }
-    let diag_scale = (0..dim).map(|i| h[[i, i]].abs()).fold(0.0_f64, f64::max);
-    let jitter = (diag_scale * 1e-10).max(1e-12);
-    for i in 0..dim {
-        h[[i, i]] += jitter;
-    }
-
     let mode = rho_hat.to_owned();
     let whitening = hessian_whitening_transform(
-        h.view(),
+        outer_hessian,
         dim,
         1.0,
         "rho-posterior NUTS: outer-Hessian Cholesky failed",
@@ -5333,10 +5282,13 @@ pub struct GlmFlatInputs<'a> {
     pub penalty_matrix: ArrayView2<'a, f64>,
     pub mode: ArrayView1<'a, f64>,
     pub hessian: ArrayView2<'a, f64>,
-    pub gamma_shape: Option<f64>,
+    /// Fitted scale metadata paired with the `LikelihoodSpec` passed to the
+    /// flattened entry point. Family parameters must agree exactly with their
+    /// metadata; construction never supplies a unit/shape default.
+    pub likelihood_scale: LikelihoodScaleMetadata,
     /// Dispersion parameter φ used to scale the likelihood and the
     /// whitening Cholesky. For fixed-scale families (Binomial, Poisson)
-    /// this is `Dispersion::Known(1.0)` and has no numerical effect;
+    /// this is exact unit dispersion and has no numerical effect;
     /// for Gaussian / Gamma it carries the estimated `phi` so that the
     /// sampler targets the φ-scaled posterior covariance `Vb = φ·H⁻¹`.
     /// See `inference::dispersion_cov` for the ownership invariants.
@@ -5415,6 +5367,20 @@ pub fn run_nuts_sampling_flattened_family(
     inputs: FamilyNutsInputs<'_>,
     config: &NutsConfig,
 ) -> Result<NutsResult, String> {
+    let resolved_glm_likelihood = match &inputs {
+        FamilyNutsInputs::Glm(glm) => Some(GlmLikelihoodSpec {
+            spec: likelihood.clone(),
+            scale: glm.likelihood_scale,
+        }),
+        FamilyNutsInputs::Survival(_) => None,
+    };
+    if let (Some(resolved), FamilyNutsInputs::Glm(glm)) =
+        (resolved_glm_likelihood.as_ref(), &inputs)
+    {
+        // Validate family/scale ownership before dispatch, including the PG
+        // branch that does not construct a NutsPosterior.
+        resolve_hmc_likelihood(resolved.clone(), glm.dispersion).map_err(String::from)?;
+    }
     if let FamilyNutsInputs::Glm(glm) = &inputs
         && glm.firth_bias_reduction
         && !likelihood_spec_supports_firth(&likelihood)
@@ -5440,8 +5406,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::Gaussian,
-            1.0,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5478,8 +5445,9 @@ pub fn run_nuts_sampling_flattened_family(
                     glm.penalty_matrix,
                     glm.mode,
                     glm.hessian,
-                    NutsFamily::BinomialLogit,
-                    1.0,
+                    resolved_glm_likelihood
+                        .clone()
+                        .expect("GLM match arm has resolved likelihood"),
                     glm.dispersion,
                     glm.firth_bias_reduction,
                     glm.offset,
@@ -5498,8 +5466,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::BinomialProbit,
-            1.0,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5516,8 +5485,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::BinomialCLogLog,
-            1.0,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5534,8 +5504,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::BinomialCLogLog,
-            1.0,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5593,8 +5564,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::PoissonLog,
-            1.0,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5615,15 +5587,16 @@ pub fn run_nuts_sampling_flattened_family(
                 glm.penalty_matrix,
                 glm.mode,
                 glm.hessian,
-                NutsFamily::TweedieLog,
-                p,
+                resolved_glm_likelihood
+                    .clone()
+                    .expect("GLM match arm has resolved likelihood"),
                 glm.dispersion,
                 glm.firth_bias_reduction,
                 glm.offset,
                 config,
             )
         }
-        (ResponseFamily::NegativeBinomial { theta, .. }, _, FamilyNutsInputs::Glm(glm)) => {
+        (ResponseFamily::NegativeBinomial { .. }, _, FamilyNutsInputs::Glm(glm)) => {
             // Family mapping: NegativeBinomial payload theta is passed through the family slot.
             // NB dispersion scale is unit; theta is not derived from fixed_phi.
             run_nuts_sampling(
@@ -5633,17 +5606,37 @@ pub fn run_nuts_sampling_flattened_family(
                 glm.penalty_matrix,
                 glm.mode,
                 glm.hessian,
-                NutsFamily::NegativeBinomialLog,
-                theta,
+                resolved_glm_likelihood
+                    .clone()
+                    .expect("GLM match arm has resolved likelihood"),
                 glm.dispersion,
                 glm.firth_bias_reduction,
                 glm.offset,
                 config,
             )
         }
-        (ResponseFamily::Beta { .. }, _, FamilyNutsInputs::Glm(_)) => Err(
-            "NUTS sampling is not implemented for beta-regression logit".to_string(),
+        (
+            ResponseFamily::Beta { .. },
+            InverseLink::Standard(StandardLink::Logit),
+            FamilyNutsInputs::Glm(glm),
+        ) => run_nuts_sampling(
+            glm.x,
+            glm.y,
+            glm.weights,
+            glm.penalty_matrix,
+            glm.mode,
+            glm.hessian,
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
+            glm.dispersion,
+            glm.firth_bias_reduction,
+            glm.offset,
+            config,
         ),
+        (ResponseFamily::Beta { .. }, _, FamilyNutsInputs::Glm(_)) => {
+            Err("beta-regression NUTS requires the logit inverse link".to_string())
+        }
         (ResponseFamily::Gamma, _, FamilyNutsInputs::Glm(glm)) => run_nuts_sampling(
             glm.x,
             glm.y,
@@ -5651,8 +5644,9 @@ pub fn run_nuts_sampling_flattened_family(
             glm.penalty_matrix,
             glm.mode,
             glm.hessian,
-            NutsFamily::GammaLog,
-            glm.gamma_shape.unwrap_or(1.0),
+            resolved_glm_likelihood
+                .clone()
+                .expect("GLM match arm has resolved likelihood"),
             glm.dispersion,
             glm.firth_bias_reduction,
             glm.offset,
@@ -5714,7 +5708,7 @@ pub enum LinkWiggleFamilyParams {
     PoissonLog,
     /// Tweedie quasi-likelihood: variance power `p ∈ (1, 2)` and dispersion
     /// `φ > 0` (the 1/φ factor scales both the log-likelihood and score,
-    /// matching the flat NUTS path's `data.dispersion` handling).
+    /// matching the flat NUTS path's reciprocal-dispersion handling).
     TweedieLog {
         power: f64,
         phi: f64,
@@ -5730,31 +5724,6 @@ pub enum LinkWiggleFamilyParams {
 }
 
 impl LinkWiggleFamilyParams {
-    /// The response-family tag this parameter set belongs to.
-    fn nuts_family(self) -> NutsFamily {
-        match self {
-            Self::Gaussian { .. } => NutsFamily::Gaussian,
-            Self::BinomialLogit => NutsFamily::BinomialLogit,
-            Self::BinomialProbit => NutsFamily::BinomialProbit,
-            Self::BinomialCLogLog => NutsFamily::BinomialCLogLog,
-            Self::PoissonLog => NutsFamily::PoissonLog,
-            Self::TweedieLog { .. } => NutsFamily::TweedieLog,
-            Self::NegativeBinomialLog { .. } => NutsFamily::NegativeBinomialLog,
-            Self::GammaLog { .. } => NutsFamily::GammaLog,
-        }
-    }
-
-    /// Coefficient-covariance scale `cov_scale` (#679/#680 invariant): `σ²`
-    /// for profiled Gaussian, `1.0` for every family whose working weight
-    /// already carries the dispersion (Gamma/Tweedie/NB) and for the
-    /// unit-scale families.
-    fn cov_scale(self) -> f64 {
-        match self {
-            Self::Gaussian { sigma } => sigma * sigma,
-            _ => 1.0,
-        }
-    }
-
     /// Validate the family parameters once at construction so an invalid
     /// payload is a hard error rather than a silent `-inf` target.
     fn validate(self) -> Result<(), HmcError> {
@@ -5805,6 +5774,97 @@ impl LinkWiggleFamilyParams {
         }
         Ok(())
     }
+
+    fn resolved_likelihood(self) -> Result<(GlmLikelihoodSpec, f64), HmcError> {
+        self.validate()?;
+        let (likelihood, dispersion) = match self {
+            Self::Gaussian { sigma } => {
+                let phi = sigma * sigma;
+                if !phi.is_finite() || (sigma > 0.0 && phi == 0.0) {
+                    return Err(HmcError::InvalidConfig {
+                        reason: format!(
+                            "Gaussian link-wiggle variance is not representable: {sigma}^2"
+                        ),
+                    });
+                }
+                (
+                    GlmLikelihoodSpec::canonical(LikelihoodSpec::gaussian_identity()),
+                    gam_solve::model_types::Dispersion::estimated(phi).map_err(|error| {
+                        HmcError::InvalidConfig {
+                            reason: format!("invalid Gaussian link-wiggle dispersion: {error}"),
+                        }
+                    })?,
+                )
+            }
+            Self::BinomialLogit => (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::Logit),
+                )),
+                gam_solve::model_types::Dispersion::UNIT,
+            ),
+            Self::BinomialProbit => (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::Probit),
+                )),
+                gam_solve::model_types::Dispersion::UNIT,
+            ),
+            Self::BinomialCLogLog => (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                    ResponseFamily::Binomial,
+                    InverseLink::Standard(StandardLink::CLogLog),
+                )),
+                gam_solve::model_types::Dispersion::UNIT,
+            ),
+            Self::PoissonLog => (
+                GlmLikelihoodSpec::canonical(LikelihoodSpec::poisson_log()),
+                gam_solve::model_types::Dispersion::UNIT,
+            ),
+            Self::TweedieLog { power, phi } => (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::Tweedie { p: power },
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    scale: LikelihoodScaleMetadata::FixedDispersion { phi },
+                },
+                gam_solve::model_types::Dispersion::known(phi).map_err(|error| {
+                    HmcError::InvalidConfig {
+                        reason: format!("invalid Tweedie link-wiggle dispersion: {error}"),
+                    }
+                })?,
+            ),
+            Self::NegativeBinomialLog { theta } => (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::NegativeBinomial {
+                            theta,
+                            theta_fixed: true,
+                        },
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    scale: LikelihoodScaleMetadata::FixedNegBinTheta { theta },
+                },
+                gam_solve::model_types::Dispersion::UNIT,
+            ),
+            Self::GammaLog { shape } => (
+                GlmLikelihoodSpec {
+                    spec: LikelihoodSpec::new(
+                        ResponseFamily::Gamma,
+                        InverseLink::Standard(StandardLink::Log),
+                    ),
+                    scale: LikelihoodScaleMetadata::FixedGammaShape { shape },
+                },
+                gam_solve::model_types::Dispersion::from_reciprocal(shape, false).map_err(
+                    |error| HmcError::InvalidConfig {
+                        reason: format!("invalid Gamma link-wiggle shape: {error}"),
+                    },
+                )?,
+            ),
+        };
+        resolve_hmc_likelihood(likelihood, dispersion)
+    }
 }
 
 /// Whitened log-posterior target for joint (β_eta, β_wiggle) with analytical gradients.
@@ -5832,7 +5892,7 @@ pub struct LinkWigglePosterior {
     p_link: usize,
     n_samples: usize,
     /// Typed per-family likelihood parameters (see [`LinkWiggleFamilyParams`]).
-    family: LinkWiggleFamilyParams,
+    likelihood: GlmLikelihoodSpec,
     /// Coefficient-covariance scale `cov_scale` (#679/#680 invariant): the
     /// `Vb = cov_scale·H⁻¹` multiplier driving both the whitening
     /// (`L Lᵀ = cov_scale·H⁻¹`) and the target penalty weight
@@ -5846,7 +5906,7 @@ impl LinkWigglePosterior {
     #[inline]
     fn standardized_z(&self, u: &Array1<f64>) -> (Array1<f64>, Array1<f64>, f64) {
         let (min_u, max_u) = self.spline.knot_range;
-        let rw = (max_u - min_u).max(1e-6);
+        let rw = max_u - min_u;
         let z_raw: Array1<f64> = u.mapv(|v| (v - min_u) / rw);
         let z_c: Array1<f64> = z_raw.mapv(|z| z.clamp(0.0, 1.0));
         (z_raw, z_c, rw)
@@ -5882,7 +5942,82 @@ impl LinkWigglePosterior {
             }
             .into());
         }
-        family.validate().map_err(String::from)?;
+        if y.len() != n_samples || weights.len() != n_samples || mode_beta.len() != p_base {
+            return Err(HmcError::DimensionMismatch {
+                reason: format!(
+                    "LinkWigglePosterior: X={}x{}, y={}, weights={}, mode_beta={}",
+                    n_samples,
+                    p_base,
+                    y.len(),
+                    weights.len(),
+                    mode_beta.len(),
+                ),
+            }
+            .into());
+        }
+        if penalty_base.dim() != (p_base, p_base) || penalty_link.dim() != (p_link, p_link) {
+            return Err(HmcError::DimensionMismatch {
+                reason: format!(
+                    "LinkWigglePosterior: penalty dimensions {:?} and {:?} disagree with blocks {p_base} and {p_link}",
+                    penalty_base.dim(),
+                    penalty_link.dim(),
+                ),
+            }
+            .into());
+        }
+        let (knot_min, knot_max) = spline.knot_range;
+        if !(knot_min.is_finite() && knot_max.is_finite() && knot_max > knot_min) {
+            return Err(HmcError::InvalidConfig {
+                reason: format!(
+                    "LinkWigglePosterior: knot range must be finite and strictly increasing, got ({knot_min}, {knot_max})"
+                ),
+            }
+            .into());
+        }
+        if let Some((index, value)) = spline
+            .knot_vector
+            .iter()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return Err(HmcError::InvalidConfig {
+                reason: format!(
+                    "LinkWigglePosterior: knot vector has non-finite value {value} at index {index}"
+                ),
+            }
+            .into());
+        }
+        for (row, weight) in weights.iter().enumerate() {
+            if !(weight.is_finite() && *weight >= 0.0) {
+                return Err(HmcError::InvalidConfig {
+                    reason: format!(
+                        "LinkWigglePosterior: weight at row {row} must be finite and non-negative, got {weight}"
+                    ),
+                }
+                .into());
+            }
+        }
+        for (label, invalid) in [
+            ("design", first_non_finite(x.iter())),
+            ("base penalty", first_non_finite(penalty_base.iter())),
+            ("link penalty", first_non_finite(penalty_link.iter())),
+            ("base mode", first_non_finite(mode_beta.iter())),
+            ("link mode", first_non_finite(mode_theta.iter())),
+        ] {
+            if let Some((index, value)) = invalid {
+                return Err(HmcError::NonFiniteState {
+                    reason: format!(
+                        "LinkWigglePosterior: {label} has non-finite value {value} at flat index {index}"
+                    ),
+                }
+                .into());
+            }
+        }
+        validate_exact_symmetric(penalty_base, "LinkWigglePosterior base penalty")
+            .map_err(String::from)?;
+        validate_exact_symmetric(penalty_link, "LinkWigglePosterior link penalty")
+            .map_err(String::from)?;
+        let (likelihood, cov_scale) = family.resolved_likelihood().map_err(String::from)?;
         if let Some(offset) = offset.as_ref() {
             if offset.len() != n_samples {
                 return Err(HmcError::DimensionMismatch {
@@ -5901,12 +6036,14 @@ impl LinkWigglePosterior {
                 .into());
             }
         }
-        let nuts_family = family.nuts_family();
-        if nuts_family.likelihood_spec().is_binomial() {
+        if likelihood.spec.is_binomial() {
             validate_binary_responses("binomial link-wiggle NUTS", &y, &weights)
                 .map_err(String::from)?;
         }
-        if matches!(nuts_family, NutsFamily::NegativeBinomialLog) {
+        if matches!(
+            likelihood.spec.response,
+            ResponseFamily::NegativeBinomial { .. }
+        ) {
             validate_count_responses("negative-binomial link-wiggle NUTS", &y, &weights)
                 .map_err(String::from)?;
         }
@@ -5916,7 +6053,6 @@ impl LinkWigglePosterior {
         // / the `shape`/`theta` already inside its log-likelihood. The
         // pre-#680 Gamma branch scaled `L` by `1/√shape = √φ`,
         // mis-preconditioning the sampler against `φ·H⁻¹` instead of `H⁻¹`.
-        let cov_scale = family.cov_scale();
         let whitening = hessian_whitening_transform(
             hessian,
             dim,
@@ -5925,7 +6061,7 @@ impl LinkWigglePosterior {
         )?;
         let chol = whitening.chol;
         let chol_t = whitening.chol_t;
-        Ok(Self {
+        let target = Self {
             x: Arc::new(x.to_owned()),
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
@@ -5940,89 +6076,130 @@ impl LinkWigglePosterior {
             p_base,
             p_link,
             n_samples,
-            family,
+            likelihood,
             cov_scale,
-        })
+        };
+        let mut u_at_mode =
+            gam_linalg::faer_ndarray::fast_av(target.x.as_ref(), target.mode_beta.as_ref());
+        if let Some(offset) = target.offset.as_ref() {
+            u_at_mode += offset.as_ref();
+        }
+        let (_, eta_at_mode) = target.evaluate_link(&u_at_mode, target.mode_theta.as_ref())?;
+        let mut score_at_mode = Array1::zeros(n_samples);
+        gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+            target.y.view(),
+            &eta_at_mode,
+            &target.likelihood,
+            &target.likelihood.spec.link,
+            target.weights.view(),
+            &mut score_at_mode,
+        )
+        .map_err(|error| {
+            format!("link-wiggle likelihood is invalid at the fitted mode: {error}")
+        })?;
+        Ok(target)
     }
 
     /// Evaluate the wiggle basis and compute η = q₀ + B(q₀)·θ with C^1 linear extension.
-    fn evaluate_link(&self, u: &Array1<f64>, theta: &Array1<f64>) -> (Array2<f64>, Array1<f64>) {
+    fn evaluate_link(
+        &self,
+        u: &Array1<f64>,
+        theta: &Array1<f64>,
+    ) -> Result<(Array2<f64>, Array1<f64>), String> {
         let n = u.len();
         if theta.is_empty() {
-            return (Array2::zeros((n, 0)), u.clone());
+            return Ok((Array2::zeros((n, 0)), u.clone()));
         }
 
         let (z_raw, z_c, _) = self.standardized_z(u);
-        let Ok(mut basis) = monotone_wiggle_basis_with_derivative_order(
+        let mut basis = monotone_wiggle_basis_with_derivative_order(
             z_c.view(),
             &self.spline.knot_vector,
             self.spline.degree,
             0,
-        ) else {
-            return (Array2::zeros((n, theta.len())), u.clone());
-        };
+        )
+        .map_err(|error| format!("link-wiggle basis evaluation failed: {error}"))?;
         if basis.ncols() != theta.len() {
-            return (Array2::zeros((n, theta.len())), u.clone());
+            return Err(format!(
+                "link-wiggle basis has {} columns but theta has {}",
+                basis.ncols(),
+                theta.len()
+            ));
         }
 
         // C^1 linear extension outside [0, 1]:
         // B_ext(z_raw) = B(z_c) + (z_raw - z_c) * B'(z_c)
         let mut needs_ext = false;
         for i in 0..n {
-            if (z_raw[i] - z_c[i]).abs() > 1e-12 {
+            if z_raw[i] != z_c[i] {
                 needs_ext = true;
                 break;
             }
         }
-        if needs_ext
-            && let Ok(b_prime) = monotone_wiggle_basis_with_derivative_order(
+        if needs_ext {
+            let b_prime = monotone_wiggle_basis_with_derivative_order(
                 z_c.view(),
                 &self.spline.knot_vector,
                 self.spline.degree,
                 1,
             )
-        {
+            .map_err(|error| format!("link-wiggle derivative basis failed: {error}"))?;
+            if b_prime.ncols() != basis.ncols() {
+                return Err(format!(
+                    "link-wiggle derivative basis has {} columns but value basis has {}",
+                    b_prime.ncols(),
+                    basis.ncols()
+                ));
+            }
             for i in 0..n {
                 let dz = z_raw[i] - z_c[i];
-                if dz.abs() <= 1e-12 {
+                if dz == 0.0 {
                     continue;
                 }
-                for j in 0..basis.ncols().min(b_prime.ncols()) {
+                for j in 0..basis.ncols() {
                     basis[[i, j]] += dz * b_prime[[i, j]];
                 }
             }
         }
-        (
+        Ok((
             basis.clone(),
             u + &gam_linalg::faer_ndarray::fast_av(&basis, theta),
-        )
+        ))
     }
 
     /// Compute dη/dq₀ = 1 + B'(q₀)·θ / range_width (chain-rule factor for β_eta gradient).
-    fn compute_g_prime(&self, u: &Array1<f64>, theta: &Array1<f64>) -> Array1<f64> {
+    fn compute_g_prime(&self, u: &Array1<f64>, theta: &Array1<f64>) -> Result<Array1<f64>, String> {
         let n = u.len();
         let mut g = Array1::<f64>::ones(n);
         let (_, z_c, rw) = self.standardized_z(u);
         if theta.is_empty() {
-            return g;
+            return Ok(g);
         }
 
-        let Ok(b_prime_constrained) = monotone_wiggle_basis_with_derivative_order(
+        let b_prime_constrained = monotone_wiggle_basis_with_derivative_order(
             z_c.view(),
             &self.spline.knot_vector,
             self.spline.degree,
             1,
-        ) else {
-            return g;
-        };
+        )
+        .map_err(|error| format!("link-wiggle chain-rule basis failed: {error}"))?;
         if b_prime_constrained.ncols() != theta.len() {
-            return g;
+            return Err(format!(
+                "link-wiggle chain-rule basis has {} columns but theta has {}",
+                b_prime_constrained.ncols(),
+                theta.len()
+            ));
         }
         let dwiggle_dz = gam_linalg::faer_ndarray::fast_av(&b_prime_constrained, theta);
         ndarray::Zip::from(&mut g)
             .and(&dwiggle_dz)
             .par_for_each(|gi, &dw| *gi = 1.0 + dw / rw);
-        g
+        if let Some((row, value)) = g.iter().enumerate().find(|(_, value)| !value.is_finite()) {
+            return Err(format!(
+                "link-wiggle chain-rule derivative is non-finite at row {row}: {value}"
+            ));
+        }
+        Ok(g)
     }
 
     fn compute_logp_and_grad_into(&self, z: &Array1<f64>, grad: &mut Array1<f64>) -> f64 {
@@ -6043,163 +6220,32 @@ impl LinkWigglePosterior {
         if let Some(offset) = self.offset.as_ref() {
             u += offset.as_ref();
         }
-        let (bwiggle, eta) = self.evaluate_link(&u, &theta);
+        let (bwiggle, eta) = match self.evaluate_link(&u, &theta) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("[link-wiggle NUTS] geometry is invalid: {error}");
+                grad.fill(0.0);
+                return f64::NEG_INFINITY;
+            }
+        };
 
-        // Log-likelihood and residuals via family dispatch
-        let ll;
+        // One exact row oracle owns both the likelihood value and eta score.
         let mut residual = Array1::<f64>::zeros(self.n_samples);
-        match self.family {
-            LinkWiggleFamilyParams::Gaussian { sigma } => {
-                let inv_scale_sq = 1.0 / (sigma * sigma).max(1e-10);
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let r = self.y[i] - eta[i];
-                    let w = self.weights[i];
-                    ll_acc -= 0.5 * w * r * r * inv_scale_sq;
-                    residual[i] = w * r * inv_scale_sq;
-                }
-                ll = ll_acc;
+        let ll = match gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+            self.y.view(),
+            &eta,
+            &self.likelihood,
+            &self.likelihood.spec.link,
+            self.weights.view(),
+            &mut residual,
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("[link-wiggle NUTS] likelihood target is unrepresentable: {error}");
+                grad.fill(0.0);
+                return f64::NEG_INFINITY;
             }
-            LinkWiggleFamilyParams::BinomialLogit => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    ll_acc += w_i * (y_i * eta_i - gam_linalg::utils::stable_softplus(eta_i));
-                    let mu = gam_linalg::utils::stable_logistic(eta_i);
-                    residual[i] = w_i * (y_i - mu);
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::BinomialProbit => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    let log_phi_pos = log_ndtr(eta_i);
-                    let log_phi_neg = log_ndtr(-eta_i);
-                    ll_acc += w_i * (y_i * log_phi_pos + (1.0 - y_i) * log_phi_neg);
-                    let log_phi = standard_normal_log_pdf(eta_i);
-                    let ratio_pos = (log_phi - log_phi_pos).exp();
-                    let ratio_neg = (log_phi - log_phi_neg).exp();
-                    residual[i] = w_i * (y_i * ratio_pos - (1.0 - y_i) * ratio_neg);
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::BinomialCLogLog => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    if !eta_i.is_finite() {
-                        grad.fill(0.0);
-                        return f64::NEG_INFINITY;
-                    }
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    let (ll_i, residual_i) = match cloglog_bernoulli_logp_and_residual(eta_i, y_i) {
-                        Ok(values) => values,
-                        Err(_) => {
-                            grad.fill(0.0);
-                            return f64::NEG_INFINITY;
-                        }
-                    };
-                    ll_acc += w_i * ll_i;
-                    residual[i] = w_i * residual_i;
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::PoissonLog => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    // Only non-finite η invalidates the target: any finite η
-                    // has a valid Poisson log-density (the old ±30 window
-                    // declared e.g. y = 0, η = −31 impossible, pinning the
-                    // sampled posterior to an arbitrary boundary). Genuine
-                    // binary64 exhaustion is caught after the family match.
-                    if !eta_i.is_finite() {
-                        grad.fill(0.0);
-                        return f64::NEG_INFINITY;
-                    }
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    let mu = eta_i.exp();
-                    ll_acc += w_i * (y_i * eta_i - mu);
-                    residual[i] = w_i * (y_i - mu);
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::TweedieLog { power: p, phi } => {
-                // Tweedie quasi-log-likelihood on the log link, per-row
-                // ℓᵢ = (wᵢ/φ)·(yᵢ·μ^{1−p}/(1−p) − μ^{2−p}/(2−p)); the 1/φ
-                // factor scales both the value and the score exactly as the
-                // flat NUTS path's `data.dispersion` does. `p` and `φ` are
-                // validated at construction (finding 15, #2245).
-                let inv_phi = 1.0 / phi;
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    if !eta_i.is_finite() {
-                        grad.fill(0.0);
-                        return f64::NEG_INFINITY;
-                    }
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    let mu = eta_i.exp().max(1e-300);
-                    ll_acc += w_i
-                        * inv_phi
-                        * (y_i * mu.powf(1.0 - p) / (1.0 - p) - mu.powf(2.0 - p) / (2.0 - p));
-                    residual[i] = w_i * inv_phi * (y_i - mu) * mu.powf(1.0 - p);
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::NegativeBinomialLog { theta } => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    if !eta_i.is_finite() {
-                        grad.fill(0.0);
-                        return f64::NEG_INFINITY;
-                    }
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    if w_i <= 0.0 {
-                        residual[i] = 0.0;
-                        continue;
-                    }
-                    let mu = eta_i.exp().max(1e-12);
-                    let log_mu_term = if y_i > 0.0 { y_i * mu.ln() } else { 0.0 };
-                    ll_acc += w_i
-                        * (statrs::function::gamma::ln_gamma(y_i + theta)
-                            - statrs::function::gamma::ln_gamma(theta)
-                            - statrs::function::gamma::ln_gamma(y_i + 1.0)
-                            + theta * (theta.ln() - (theta + mu).ln())
-                            + log_mu_term
-                            - y_i * (theta + mu).ln());
-                    residual[i] = w_i * theta * (y_i - mu) / (theta + mu);
-                }
-                ll = ll_acc;
-            }
-            LinkWiggleFamilyParams::GammaLog { shape } => {
-                let mut ll_acc = 0.0;
-                for i in 0..self.n_samples {
-                    let eta_i = eta[i];
-                    if !eta_i.is_finite() {
-                        grad.fill(0.0);
-                        return f64::NEG_INFINITY;
-                    }
-                    let (y_i, w_i) = (self.y[i], self.weights[i]);
-                    let mu = eta_i.exp();
-                    ll_acc += w_i * shape * (-y_i / mu - eta_i);
-                    residual[i] = w_i * shape * (y_i / mu - 1.0);
-                }
-                ll = ll_acc;
-            }
-        }
-
-        // A finite η can still exhaust binary64 (overflowing exp against a
-        // positive response): genuine log-density underflow is rejected as −∞
-        // with a zero gradient — never via an a-priori η support window.
-        if !ll.is_finite() {
-            grad.fill(0.0);
-            return f64::NEG_INFINITY;
-        }
+        };
 
         // Penalty weight = 1/cov_scale (#679/#680 invariant), matching the
         // factor the likelihood already carries so the prior and likelihood
@@ -6213,7 +6259,7 @@ impl LinkWigglePosterior {
         // for Gamma, double-counting the dispersion in the sampled posterior
         // and shrinking every posterior SD by `√φ` (#680). Tweedie/NB/Poisson/
         // Binomial are unit-scale and unchanged.
-        let penalty_scale = 1.0 / self.cov_scale.max(1e-300);
+        let penalty_scale = 1.0 / self.cov_scale;
 
         // Gradient w.r.t. θ (wiggle): ∂ℓ/∂θ = B(q₀)^T · residual − S_link · θ
         let s_link_theta = self.penalty_link.dot(&theta);
@@ -6221,7 +6267,14 @@ impl LinkWigglePosterior {
 
         // Gradient w.r.t. β_eta: ∂ℓ/∂β = X^T · (residual ⊙ g'(q₀)) − S_base · β
         // where g'(q₀) = dη/dq₀ is the chain-rule factor
-        let g_prime = self.compute_g_prime(&u, &theta);
+        let g_prime = match self.compute_g_prime(&u, &theta) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("[link-wiggle NUTS] chain rule is invalid: {error}");
+                grad.fill(0.0);
+                return f64::NEG_INFINITY;
+            }
+        };
         let r_scaled: Array1<f64> = residual
             .iter()
             .zip(g_prime.iter())
@@ -6858,7 +6911,7 @@ pub fn block_sampled_marginal_correction<T: BlockExcessTarget + ?Sized>(
     // `exp(max_old − max_new) ≤ 1`, so each per-draw relative weight is ≤ 1
     // and the sums never overflow. Infeasible / divergent draws contribute
     // zero weight rather than poisoning the estimate.
-    let n_obs = target.base_neg_score().len();
+    let n_obs = target.base_neg_score()?.len();
     let mut max_lw = f64::NEG_INFINITY;
     let mut sum_w = 0.0_f64;
     let mut sum_w2 = 0.0_f64;
@@ -7026,6 +7079,10 @@ struct JointBetaRhoPosterior {
     chol_t: Array2<f64>,
     /// Joint likelihood specification (response + parameterized link).
     likelihood: LikelihoodSpec,
+    /// Weight of every quadratic penalty relative to the fitted likelihood.
+    /// This is `1 / coefficient_covariance_scale`: non-unit only for the
+    /// profiled Gaussian convention whose stored Hessian is scale-free.
+    penalty_scale: f64,
     /// Dimension of β
     n_beta: usize,
     /// Dimension of ρ
@@ -7062,8 +7119,7 @@ impl JointBetaRhoPosterior {
         hessian: ArrayView2<f64>,
         penalty_canonical: Vec<gam_terms::construction::CanonicalPenalty>,
         rho_mode: ArrayView1<f64>,
-        likelihood: LikelihoodSpec,
-        gamma_shape: Option<f64>,
+        likelihood: GlmLikelihoodSpec,
         dispersion: gam_solve::model_types::Dispersion,
         offset: Option<ArrayView1<f64>>,
         rho_prior: RhoPrior,
@@ -7072,6 +7128,77 @@ impl JointBetaRhoPosterior {
         let n_samples = x.nrows();
         let n_beta = x.ncols();
         let n_rho = penalty_canonical.len();
+
+        if y.len() != n_samples
+            || weights.len() != n_samples
+            || mode.len() != n_beta
+            || hessian.dim() != (n_beta, n_beta)
+        {
+            return Err(HmcError::DimensionMismatch {
+                reason: format!(
+                    "Joint HMC geometry mismatch: X={}x{}, y={}, weights={}, mode={}, hessian={:?}",
+                    n_samples,
+                    n_beta,
+                    y.len(),
+                    weights.len(),
+                    mode.len(),
+                    hessian.dim(),
+                ),
+            }
+            .into());
+        }
+        for (label, invalid) in [
+            ("design", first_non_finite(x.iter())),
+            ("mode", first_non_finite(mode.iter())),
+            ("hessian", first_non_finite(hessian.iter())),
+        ] {
+            if let Some((index, value)) = invalid {
+                return Err(HmcError::NonFiniteState {
+                    reason: format!(
+                        "Joint HMC {label} has non-finite value {value} at flat index {index}"
+                    ),
+                }
+                .into());
+            }
+        }
+        if let Some((row, weight)) = weights
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, weight)| !(weight.is_finite() && *weight >= 0.0))
+        {
+            return Err(HmcError::InvalidConfig {
+                reason: format!(
+                    "Joint HMC weight at row {row} must be finite and non-negative, got {weight}"
+                ),
+            }
+            .into());
+        }
+        for (index, penalty) in penalty_canonical.iter().enumerate() {
+            if penalty.total_dim != n_beta
+                || penalty.col_range.end > n_beta
+                || penalty.col_range.start > penalty.col_range.end
+                || penalty.root.ncols() != penalty.col_range.len()
+            {
+                return Err(HmcError::DimensionMismatch {
+                    reason: format!(
+                        "Joint HMC penalty {index} has total_dim={}, range={:?}, root={:?}, expected total dimension {n_beta}",
+                        penalty.total_dim,
+                        penalty.col_range,
+                        penalty.root.dim(),
+                    ),
+                }
+                .into());
+            }
+            if let Some((flat_index, value)) = first_non_finite(penalty.root.iter()) {
+                return Err(HmcError::NonFiniteState {
+                    reason: format!(
+                        "Joint HMC penalty {index} root has non-finite value {value} at flat index {flat_index}"
+                    ),
+                }
+                .into());
+            }
+        }
 
         if let Some(offset) = offset.as_ref() {
             if offset.len() != n_samples {
@@ -7103,7 +7230,7 @@ impl JointBetaRhoPosterior {
             .into());
         }
 
-        match (&likelihood.response, &likelihood.link) {
+        match (&likelihood.spec.response, &likelihood.spec.link) {
             (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Logit)) => {}
             (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::Probit)) => {}
             (ResponseFamily::Binomial, InverseLink::Standard(StandardLink::CLogLog)) => {}
@@ -7161,19 +7288,38 @@ impl JointBetaRhoPosterior {
             }
         }
 
-        validate_firth_likelihood_support(&likelihood, firth_enabled).map_err(String::from)?;
-        if matches!(likelihood.response, ResponseFamily::NegativeBinomial { .. }) {
+        validate_firth_likelihood_support(&likelihood.spec, firth_enabled).map_err(String::from)?;
+        if matches!(
+            likelihood.spec.response,
+            ResponseFamily::NegativeBinomial { .. }
+        ) {
             validate_count_responses("negative-binomial joint HMC", &y, &weights)
                 .map_err(String::from)?;
         }
-        if likelihood.is_binomial() {
+        if likelihood.spec.is_binomial() {
             validate_binary_responses("binomial joint HMC", &y, &weights).map_err(String::from)?;
         }
+        let (likelihood, cov_scale) =
+            resolve_hmc_likelihood(likelihood, dispersion).map_err(String::from)?;
+        let mut eta_at_mode = x.dot(&mode);
+        if let Some(offset) = offset.as_ref() {
+            eta_at_mode += offset;
+        }
+        let mut score_at_mode = Array1::zeros(n_samples);
+        gam_solve::pirls::eta_log_likelihood_value_and_score_into(
+            y,
+            &eta_at_mode,
+            &likelihood,
+            &likelihood.spec.link,
+            weights,
+            &mut score_at_mode,
+        )
+        .map_err(|error| format!("joint HMC likelihood is invalid at the fitted mode: {error}"))?;
 
         let whitening = hessian_whitening_transform(
             hessian,
             n_beta,
-            1.0,
+            cov_scale,
             "Joint HMC: Hessian Cholesky failed",
         )?;
         let chol = whitening.chol;
@@ -7189,22 +7335,21 @@ impl JointBetaRhoPosterior {
             // hard-coding φ = 1 gave a Gaussian fit with σ² = 4 four times its
             // true likelihood curvature, and dropping the offset shifted every
             // offset model's posterior (finding 18, #2245). The family kernels
-            // read `data.dispersion` (Gaussian 1/φ scaling, Tweedie 1/φ
-            // quasi-weight); families whose working weight already carries the
-            // dispersion pass `Known(1.0)` from the caller.
+            // consume the exact resolved metadata below; no scalar default or
+            // family-parameter side channel exists.
             offset: offset.map(|o| Arc::new(o.to_owned())),
-            gamma_shape: gamma_shape.unwrap_or(1.0),
-            dispersion,
+            likelihood: likelihood.clone(),
             n_samples,
             dim: n_beta,
         };
-        let link_param_mode = Self::link_param_mode(&likelihood.link);
+        let link_param_mode = Self::link_param_mode(&likelihood.spec.link);
 
         Ok(Self {
             data,
             chol,
             chol_t,
-            likelihood,
+            likelihood: likelihood.spec,
+            penalty_scale: 1.0 / cov_scale,
             n_beta,
             n_rho,
             n_link_params: link_param_mode.len(),
@@ -7315,7 +7460,13 @@ impl JointBetaRhoPosterior {
         let z = params.slice(ndarray::s![..n_beta]);
         let rho = params.slice(ndarray::s![n_beta..n_beta + n_rho]);
         let link_params = params.slice(ndarray::s![n_beta + n_rho..]);
-        let lambdas: Array1<f64> = rho.mapv(f64::exp);
+        let lambdas = match gam_problem::checked_exp_log_strengths(rho.iter().copied()) {
+            Ok(values) => Array1::from_vec(values),
+            Err(_) => {
+                out_grad.fill(0.0);
+                return f64::NEG_INFINITY;
+            }
+        };
 
         let inverse_link = match self.inverse_link_with_params(link_params) {
             Ok(link) => link,
@@ -7413,16 +7564,16 @@ impl JointBetaRhoPosterior {
             );
             let r_beta = r_beta_scratch.slice(ndarray::s![..rank_k]);
             let quad_k = r_beta.dot(&r_beta);
-            penalty_val += 0.5 * lambdas[k] * quad_k;
+            penalty_val += 0.5 * self.penalty_scale * lambdas[k] * quad_k;
 
             // Accumulate S(ρ)β for β-gradient — block-local
             for a in 0..cp.block_dim() {
                 let val: f64 = (0..rank_k).map(|row| cp.root[[row, a]] * r_beta[row]).sum();
-                s_beta[r.start + a] += lambdas[k] * val;
+                s_beta[r.start + a] += self.penalty_scale * lambdas[k] * val;
             }
 
             // ρ_k gradient from penalty
-            grad_rho[k] = -0.5 * lambdas[k] * quad_k;
+            grad_rho[k] = -0.5 * self.penalty_scale * lambdas[k] * quad_k;
         }
 
         // ---- Structural penalty log-determinant: +0.5 log|S(ρ)|₊ and ρ-derivatives ----
@@ -7497,7 +7648,7 @@ impl JointBetaRhoPosterior {
             }
             RhoPrior::GammaPrecision { shape, rate } => {
                 for k in 0..n_rho {
-                    let lambda = rho[k].exp();
+                    let lambda = lambdas[k];
                     // Density over sampled rho includes the e^rho Jacobian (Gamma is on lambda = e^rho).
                     rho_prior += *shape * rho[k] - *rate * lambda;
                     grad_rho[k] += *shape - *rate * lambda;
@@ -7531,7 +7682,7 @@ impl JointBetaRhoPosterior {
                             grad_rho[k] -= inv_var * d;
                         }
                         RhoPrior::GammaPrecision { shape, rate } => {
-                            let lambda = rho[k].exp();
+                            let lambda = lambdas[k];
                             // Density over sampled rho includes the e^rho Jacobian (Gamma is on lambda = e^rho).
                             rho_prior += *shape * rho[k] - *rate * lambda;
                             grad_rho[k] += *shape - *rate * lambda;
@@ -7598,8 +7749,7 @@ pub struct JointBetaRhoInputs<'a> {
     pub x: ArrayView2<'a, f64>,
     pub y: ArrayView1<'a, f64>,
     pub weights: ArrayView1<'a, f64>,
-    pub likelihood: LikelihoodSpec,
-    pub gamma_shape: Option<f64>,
+    pub likelihood: GlmLikelihoodSpec,
     /// Fitted dispersion φ, exactly as the flat NUTS path carries it: the
     /// estimated σ² for a profiled Gaussian and the Tweedie φ; `Known(1.0)`
     /// for families whose working weight already folds the dispersion in.
@@ -7629,12 +7779,12 @@ pub fn run_joint_beta_rho_sampling(
     inputs: &JointBetaRhoInputs<'_>,
     config: &NutsConfig,
 ) -> Result<JointBetaRhoResult, String> {
-    validate_firth_likelihood_support(&inputs.likelihood, inputs.firth_bias_reduction)
+    validate_firth_likelihood_support(&inputs.likelihood.spec, inputs.firth_bias_reduction)
         .map_err(String::from)?;
     validate_nuts_config(config).map_err(String::from)?;
     let n_beta = inputs.mode.len();
     let n_rho = inputs.penalty_roots.len();
-    let n_link_params = JointBetaRhoPosterior::link_param_mode(&inputs.likelihood.link).len();
+    let n_link_params = JointBetaRhoPosterior::link_param_mode(&inputs.likelihood.spec.link).len();
     let total_dim = n_beta + n_rho + n_link_params;
 
     log::info!(
@@ -7655,7 +7805,6 @@ pub fn run_joint_beta_rho_sampling(
         inputs.penalty_roots.clone(),
         inputs.rho_mode,
         inputs.likelihood.clone(),
-        inputs.gamma_shape,
         inputs.dispersion,
         inputs.offset,
         inputs.rho_prior.clone(),

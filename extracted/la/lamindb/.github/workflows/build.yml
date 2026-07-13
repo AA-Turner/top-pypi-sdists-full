@@ -3,7 +3,11 @@ name: build
 on:
   push:
     branches: [release]
+    paths-ignore:
+      - "lamindb/.agents/**"
   pull_request:
+    paths-ignore:
+      - "lamindb/.agents/**"
 
 jobs:
   pre-filter:
@@ -31,7 +35,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core-sqlite", "unit-core-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance"]')
+          BASE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
           ADDITIONAL_GROUPS=[]
 
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
@@ -94,7 +98,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
         id: cache-postgres
         uses: actions/cache@v4
         with:
@@ -103,10 +107,10 @@ jobs:
           restore-keys: |
             cache-postgres-
       - name: cache postgres miss
-        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
 
       - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
@@ -148,31 +152,6 @@ jobs:
         with:
           name: docs-${{ matrix.group }}
           path: ./docs/${{ matrix.group }}
-
-  profile:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: actions/setup-python@v6
-        with:
-          python-version: |
-            ${{ github.ref == 'refs/heads/release' && '3.11' ||
-                '3.14'
-                }}
-      - run: pip install git+https://github.com/laminlabs/laminci
-      - run: nox -s "install_ci(group='unit-core-sqlite')"
-      - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
-      - run: lamin login
-      - run: laminprofiler check tests/profiling/import_lamindb_and_connect.py --threshold 3.5
-      - run: lamin connect laminlabs/lamindata
-      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.5
-      - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 1.5
 
   docs:
     needs: test

@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 FRAMEWORKS_BACKEND_TASKS = [
     ("PY-FLK-01", "Build SaaS with Flask, SQLAlchemy, Celery, and ReportLab PDF for PY-FLK-01"),
     ("PY-DJ-02", "Django channels real-time websocket chat with Graphene GraphQL for PY-DJ-02"),

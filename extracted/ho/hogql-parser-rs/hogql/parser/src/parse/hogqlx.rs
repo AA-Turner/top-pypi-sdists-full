@@ -71,13 +71,8 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
     ///
     /// `lt_end` is the byte offset just past the `<`. Tight requires `<`
     /// immediately followed by an identifier-start char, then — after the
-    /// `[A-Za-z0-9_-]*` tag name — one of: an immediate `>`; an immediate `/>`;
-    /// whitespace then `/>`; or whitespace then an identifier that is a real
-    /// attribute (followed by `=`). This is a pure heuristic, so when a `<` is
-    /// ambiguous between a tag and the `<` comparison operator it biases toward
-    /// the comparison: a bare identifier after the name (the `and` in
-    /// `a<b and c`) and a space-then-`>` (`x <col > y`) are comparisons, not
-    /// tags. Kept byte-for-byte in step with cpp's `isOpeningTag`.
+    /// `[A-Za-z0-9_-]*` tag name — either an immediate `>` / `/`, or whitespace
+    /// then `[A-Za-z0-9_]` / `>` / `/`.
     fn hogqlx_tag_is_tight(&self, lt_end: usize) -> bool {
         let bytes = self.src.as_bytes();
         let is_name_start = |c: u8| c.is_ascii_alphabetic() || c == b'_';
@@ -91,30 +86,10 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
             i += 1;
         }
         match bytes.get(i) {
-            // `<name>` — opening tag closed immediately.
-            Some(b'>') => true,
-            // `<name/>` — self-closing; require the `>` so a bare `/`
-            // (division, `a<b/c`) is not mistaken for a tag.
-            Some(b'/') => bytes.get(i + 1) == Some(&b'>'),
+            Some(b'>') | Some(b'/') => true,
             Some(&c) if c.is_ascii_whitespace() => {
                 let j = self.hogqlx_skip_ws_and_comments(i);
-                match bytes.get(j) {
-                    // `<name />` — self-closing with space before `/>`.
-                    Some(b'/') => bytes.get(j + 1) == Some(&b'>'),
-                    // `<name attr…` — a tag only if the identifier is a real
-                    // attribute (`name =`); a bare identifier is a comparison
-                    // continuation.
-                    Some(&c) if c.is_ascii_alphabetic() || c == b'_' => {
-                        let mut k = j + 1;
-                        while bytes.get(k).is_some_and(|&c| is_name_part(c)) {
-                            k += 1;
-                        }
-                        let k = self.hogqlx_skip_ws_and_comments(k);
-                        bytes.get(k) == Some(&b'=')
-                    }
-                    // `<name >` (space then `>`) and everything else → comparison.
-                    _ => false,
-                }
+                matches!(bytes.get(j), Some(&c) if c.is_ascii_alphanumeric() || c == b'_' || c == b'>' || c == b'/')
             }
             _ => false,
         }
@@ -325,7 +300,7 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
                 if self.text(t).starts_with("F'") {
                     return Err(self.err("mismatched input 'F''"));
                 }
-                parse_template_body(&self.emit, self.src, t.start + 2, t.end - 1)?
+                parse_template_body(&self.emit, self.src, t.start + 2, t.end - 1, false)?
             }
             _ => {
                 return Err(self.err(format!(

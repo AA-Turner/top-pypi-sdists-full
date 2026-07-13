@@ -65,7 +65,7 @@ def test_readonly_list_generation_uses_analysis_multistep_pipeline():
     assert "reference" in synthesis_prompt or "evidence" in synthesis_prompt
 
 
-def test_complex_local_implementation_can_still_use_multistep_pipeline():
+def test_complex_local_implementation_can_still_use_multistep_pipeline(tmp_path) -> None:
     """Local complex implementation requests should still benefit from decomposition."""
     classification = _make_classification(
         RequestType.IMPLEMENTATION,
@@ -82,7 +82,8 @@ def test_complex_local_implementation_can_still_use_multistep_pipeline():
         is True
     )
 
-    steps = _build_multistep_phase_prompts(classification.original_request, classification)
+    (tmp_path / "main.py").write_text("dummy")
+    steps = _build_multistep_phase_prompts(classification.original_request, classification, cwd=tmp_path)
 
     # The multistep pipeline always opens with planning and closes with
     # implementation. The middle stage was renamed from "testing" → "analysis"

@@ -42,6 +42,7 @@ def test_ask_command_with_flags(runner, monkeypatch):
     assert result.exit_code == 0
     assert "Mocked response" in result.output
 
+@pytest.mark.timeout(15)
 def test_repl_slash_exit_commands(runner, monkeypatch):
     """Test that REPL exit commands like /exit, /quit, /q work."""
     import prompt_toolkit
@@ -58,8 +59,13 @@ def test_repl_slash_exit_commands(runner, monkeypatch):
     monkeypatch.setattr(sage.cli_core, "_auto_upgrade_model_if_possible", lambda r, c, m, **kw: m)
     monkeypatch.setattr(sage.cli_core, "_prepare_model_for_use", lambda c, m: (c, m))
     monkeypatch.setattr(sage.cli_core, "_scan_project_context", lambda *args, **kwargs: "Dummy context")
+    import sage.core.ai_orchestration
+    from sage.core.plugin_system import PluginRegistry
+    monkeypatch.setattr(sage.core.ai_orchestration, "build_default_plugin_registry", lambda *args, **kwargs: PluginRegistry())
+    monkeypatch.setattr(sage.cli_core, "_build_session_protected_files", lambda *args: set())
     
     for cmd in ["/exit", "/quit", "/q"]:
+        call_count = 0
         class DummyPromptSession:
             def __init__(self, **kwargs):
                 class DummyLayout:
@@ -70,6 +76,10 @@ def test_repl_slash_exit_commands(runner, monkeypatch):
                         self.container = DummyLayout.DummyContainer()
                 self.layout = DummyLayout()
             async def prompt_async(self, *args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count > 1:
+                    raise EOFError()  # Safety: force exit if called more than once
                 return cmd
         monkeypatch.setattr(prompt_toolkit, "PromptSession", DummyPromptSession)
         import sage.core.repl

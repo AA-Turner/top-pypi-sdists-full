@@ -13,7 +13,7 @@
 /// solver scale. The floor is `√ε_machine`, the standard boundary below which
 /// a double-precision curvature ratio is not numerically identifiable; it is
 /// derived from the scalar type rather than tuned to a fixture. A direction
-/// below this floor (a saturated IBP gate logit has data
+/// below this floor (a saturated ordered Beta--Bernoulli gate logit has data
 /// curvature `∝ σ'(ℓ)² → 0`) is numerically curvature-free — the inner
 /// optimizer cannot resolve the iterate's position along it, so the IFT
 /// response `θ̂_ρ = −A⁻¹g_ρ` there is an unidentifiable `1/μ` amplification,
@@ -146,7 +146,7 @@ where
         // row` — which only stiffens non-PD PER-ROW blocks — never fired), so the
         // value genuinely depends on that direction and its `A⁻¹` IFT response is
         // a real part of the θ-adjoint. Only the singular direction handled below
-        // is one the evidence factor would stiffen to unit curvature, so only its
+        // is one the criterion factor would stiffen to unit curvature, so only its
         // response is spurious and must be projected out.
         // Sharpen the offending direction by inverse power iteration on
         // the pencil (`v ← A⁻¹(B v)`, B-normalized); the corrupted `x` is
@@ -181,21 +181,18 @@ where
             // μ(x) collapsed onto μ_min — is ALREADY aligned with the offending
             // direction. Keep the best `v` and let the alignment/μ checks below
             // decide, instead of aborting the whole outer gradient.
-            let refined = match solve_b_preconditioned_gmres_with(
-                &bv,
-                |w| apply_a(w),
-                |w| precondition(w),
-            ) {
-                Ok(mut refined) => {
-                    normalize_b(&mut refined)?;
-                    refined
-                }
-                Err(_) => {
-                    // Refinement stalled — the current `v` is our best isolate.
-                    direction_converged = true;
-                    break;
-                }
-            };
+            let refined =
+                match solve_b_preconditioned_gmres_with(&bv, |w| apply_a(w), |w| precondition(w)) {
+                    Ok(mut refined) => {
+                        normalize_b(&mut refined)?;
+                        refined
+                    }
+                    Err(_) => {
+                        // Refinement stalled — the current `v` is our best isolate.
+                        direction_converged = true;
+                        break;
+                    }
+                };
             let b_refined = apply_b(&refined)?;
             let alignment = sae_inner(&v, &b_refined).abs();
             if !alignment.is_finite() {
@@ -291,10 +288,11 @@ where
 
 impl SaeManifoldTerm {
     /// #1418: apply the EXACT stationarity-Jacobian correction `ΔC·v = (A − B)·v`
-    /// to a joint `(t, β)` vector, matrix-free and per row.
+    /// to a joint `(t, β)` vector, matrix-free via row-local work and ordered
+    /// prior column reductions.
     ///
     /// `A = ∇²_θθ L` is the true inner-fit Hessian; `B` is the assembled
-    /// evidence/Newton operator the solver factors. They differ ONLY by the three
+    /// evidence/Newton operator the solver factors. They differ only by the four
     /// curvature substitutions the assembly makes for stability:
     ///   1. data: `B` uses Gauss-Newton `J̃J̃ᵀ`, dropping the residual curvature
     ///      `R[a,b] = Σ_out r_out·∂²f_out/∂θ_a∂θ_b` (t–t via `jets.second`, t–β via
@@ -303,7 +301,10 @@ impl SaeManifoldTerm {
     ///      dropping `H_entropy − D` (#1419);
     ///   3. periodic ARD: `B` uses `max(V'',0)`, dropping the negative part
     ///      `min(V'',0)` (the indefinite tail past a quarter period).
-    /// `ΔC` is the sum of exactly these three deltas, each built from the SAME
+    ///   4. ordered Beta--Bernoulli: `B` uses the positive row-local diagonal
+    ///      majorizer and drops both the exact negative active-mass rank-one term
+    ///      and every nonpositive row-local diagonal contribution.
+    /// `ΔC` is the sum of exactly these four deltas, each built from the same
     /// jets / penalty curvatures the assembly and the θ-adjoint use, so
     /// `A = B + ΔC` is the one true Hessian. Exact on BOTH the isotropic and the
     /// whitened-metric paths: the data fit is `½ r_nᵀ M_n r_n`, so the residual
@@ -313,15 +314,17 @@ impl SaeManifoldTerm {
     /// `jets.second`/`jets.beta_deriv` (the same raw-jet convention the whole
     /// θ-adjoint and the Gauss-Newton `htt = J̃J̃ᵀ = J M Jᵀ` assembly use). On the
     /// isotropic path `M_n = I` so `error_metric = √w·r` and `J M Jᵀ = JJᵀ`,
-    /// recovering the plain case. The softmax / ARD deltas are logit/coord-space
-    /// prior curvatures and carry no output metric, so they are path-independent.
-    fn apply_exact_hessian_minus_b(
+    /// recovering the plain case. The softmax, ordered Beta--Bernoulli, and ARD
+    /// deltas are logit/coord-space prior curvatures and carry no output metric,
+    /// so they are path-independent.
+    pub(crate) fn apply_exact_hessian_minus_b(
         &self,
         rho: &SaeManifoldRho,
         target: ArrayView2<'_, f64>,
         cache: &ArrowFactorCache,
         v: &SaeArrowVector,
     ) -> Result<SaeArrowVector, String> {
+        self.assignment.validate_rho_domain(rho)?;
         let p = self.output_dim();
         let n = self.n_obs();
         let k_atoms = self.k_atoms();
@@ -335,6 +338,7 @@ impl SaeManifoldTerm {
             .iter()
             .map(|coord| coord.effective_axis_periods())
             .collect();
+        let ard_precisions = self.validated_ard_precisions(rho)?;
 
         // Optional softmax exact-entropy-minus-majorizer delta operator (#1419).
         let softmax_delta: Option<(
@@ -346,7 +350,7 @@ impl SaeManifoldTerm {
                 sparsity,
             } if k_atoms > 1 => {
                 let inv_tau = 1.0 / temperature;
-                let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
+                let scale = rho.lambda_sparse()? * sparsity * inv_tau * inv_tau;
                 Some((
                     gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
                         k_atoms,
@@ -371,6 +375,16 @@ impl SaeManifoldTerm {
         let mut error = Array1::<f64>::zeros(p);
         // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
         let mut assignments = Array1::<f64>::zeros(self.k_atoms());
+        // Ordered Beta--Bernoulli's exact prior Hessian couples all rows within
+        // each atom column. Gather the logit slice of `v` while visiting the
+        // row-local cache layout, then apply the analytic column reductions once
+        // after the row loop. This remains O(NK) memory/time and constructs no
+        // dense cross-row matrix or persistent carrier.
+        let mut ordered_logit_direction = matches!(
+            self.assignment.mode,
+            AssignmentMode::OrderedBetaBernoulli { .. }
+        )
+        .then(|| Array1::<f64>::zeros(n * k_atoms));
         // #932 SIMD: jets are built in aligned 4-row SIMD batches through a
         // bounded (≤4-row) look-ahead window; unaligned / non-softmax / remainder
         // rows fall back to the scalar per-row path (bit-identical either way).
@@ -426,12 +440,19 @@ impl SaeManifoldTerm {
 
             // Local t-slice of `v` for this row.
             let v_t: Vec<f64> = (0..q).map(|c| v.t[base + c]).collect();
+            if let Some(direction) = ordered_logit_direction.as_mut() {
+                for (local, var) in jets.vars.iter().enumerate() {
+                    if let SaeLocalRowVar::Logit { atom } = *var {
+                        direction[row * k_atoms + atom] = v_t[local];
+                    }
+                }
+            }
 
             // (1a) residual curvature, t–t: ΔC_tt[a,b] = ⟨r, ∂²f_ab⟩.
             for a in 0..q {
                 let mut acc = 0.0_f64;
                 for b in 0..q {
-                    let r_ab = sae_dot(&error_metric, &jets.second[a][b]);
+                    let r_ab = sae_dot(&error_metric, jets.second(a, b));
                     acc += r_ab * v_t[b];
                 }
                 out.t[base + a] += acc;
@@ -440,7 +461,7 @@ impl SaeManifoldTerm {
             //      `jets.beta_deriv[a][β]` = ∂(∂f/∂β_β)/∂θ_a (the mixed second jet).
             for a in 0..q {
                 for (beta_pos, channel) in border.iter().enumerate() {
-                    let r_ab = sae_dot(&error_metric, &jets.beta_deriv[a][beta_pos]);
+                    let r_ab = sae_dot(&error_metric, jets.beta_deriv(a, beta_pos));
                     // t row picks up β leg of v; β row picks up t leg of v.
                     out.t[base + a] += r_ab * v.beta[channel.index];
                     out.beta[channel.index] += r_ab * v_t[a];
@@ -519,12 +540,35 @@ impl SaeManifoldTerm {
                 if rho.log_ard[atom].is_empty() {
                     continue;
                 }
-                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
+                let alpha = ard_precisions[atom][axis];
                 let t_val = self.assignment.coords[atom].row(row)[axis];
                 let prior = ArdAxisPrior::eval(alpha, t_val, ard_axis_periods[atom][axis]);
-                let neg = prior.hess.min(0.0);
+                let neg = prior.negative_hessian_remainder();
                 if neg != 0.0 {
                     out.t[base + a] += w_row * neg * v_t[a];
+                }
+            }
+        }
+
+        // (4) ordered Beta--Bernoulli: exact integrated-marginal Hessian minus
+        // the diagonal PSD majorizer written into B. The helper evaluates the
+        // negative within-column rank-one action by column reductions and the
+        // row-local diagonal remainder directly, then we scatter its flat logit
+        // result back into the cache's row-local coordinates.
+        if let Some(direction) = ordered_logit_direction {
+            let delta = crate::assignment::ordered_beta_bernoulli_exact_hessian_minus_majorizer_hvp_weighted(
+                &self.assignment,
+                rho,
+                row_loss_w,
+                direction.view(),
+            )?;
+            for row in 0..n {
+                let base = cache.row_offsets[row];
+                let vars = self.row_vars_for_cache_row(row, cache)?;
+                for (local, var) in vars.iter().enumerate() {
+                    if let SaeLocalRowVar::Logit { atom } = *var {
+                        out.t[base + local] += delta[row * k_atoms + atom];
+                    }
                 }
             }
         }
@@ -551,7 +595,7 @@ impl SaeManifoldTerm {
     }
 
     /// #1418: solve `A x = rhs` for the EXACT stationarity Jacobian `A = ∇²_θθ L`
-    /// on the closed-form gauge quotient via left-`B_Q`-preconditioned GMRES
+    /// on the closed-form gauge quotient via right-`B_Q`-preconditioned GMRES
     /// ([`solve_b_preconditioned_gmres`]) with the matrix-free
     /// `A_Q v = B v + ΔC v + κ Q Qᵀv` apply owned by
     /// [`solve_exact_stationarity_on_gauge_quotient`]. The
@@ -573,7 +617,7 @@ impl SaeManifoldTerm {
         solve_exact_stationarity_on_gauge_quotient(solver, rhs, &apply_raw_a, &apply_raw_b)
     }
 
-    /// Matrix-free exact-stationarity sibling used by the wide-border REML
+    /// Matrix-free exact-stationarity sibling used by the wide-border penalized quasi-Laplace
     /// assignment-strength residual. `system` is the reassembled undamped
     /// bordered operator at the converged inner state; `cache` supplies the same
     /// row factors and H_tbeta operator whose rational log-determinant and shared
@@ -642,7 +686,8 @@ impl SaeManifoldTerm {
             &self.assignment,
             rho,
             self.row_loss_weights.as_deref(),
-        );
+        )
+        .map_err(OuterGradientError::internal)?;
         let correction = -0.5 * sae_inner(gamma, response);
         let gradient = explicit + logdet_trace + correction;
         if !gradient.is_finite() {
@@ -683,7 +728,7 @@ impl SaeManifoldTerm {
             .loss(target, rho)
             .map_err(OuterGradientError::internal)?;
         let rank_charge = self
-            .hard_rank_charge_derivative(target, rho, &loss, cache)
+            .production_rank_charge_derivative(target, rho, &loss, cache)
             .map_err(OuterGradientError::internal)?;
         let mut gamma = self
             .logdet_theta_adjoint(rho, cache, solver)
@@ -711,8 +756,8 @@ impl SaeManifoldTerm {
         self.combine_assignment_strength_gradient(rho, logdet_trace, &gamma, &response, "dense")
     }
 
-    /// Exact non-IBP assignment-strength REML gradient on the matrix-free
-    /// evidence path. This is the one coordinate softmax entropy and gated L1
+    /// Exact non-ordered Beta--Bernoulli assignment-strength penalized quasi-Laplace gradient on the matrix-free
+    /// criterion path. This is the one coordinate softmax entropy and gated L1
     /// cannot update through a Fellner-Schall equation:
     ///
     /// `dV/drho_sparse = explicit_prior + 0.5 tr(B^-1 dB/drho_sparse)
@@ -748,7 +793,7 @@ impl SaeManifoldTerm {
             .loss(target, rho)
             .map_err(OuterGradientError::internal)?;
         let rank_charge = self
-            .hard_rank_charge_derivative(target, rho, &loss, cache)
+            .production_rank_charge_derivative(target, rho, &loss, cache)
             .map_err(OuterGradientError::internal)?;
         let mut gamma = self
             .logdet_theta_adjoint_from_probes(rho, cache, probes, inverse_probes)
@@ -782,7 +827,7 @@ impl SaeManifoldTerm {
         )
     }
 
-    /// Analytic SAE REML outer-ρ gradient components at the already converged
+    /// Analytic SAE penalized quasi-Laplace outer-ρ gradient components at the already converged
     /// inner state represented by `loss` and `cache`.
     ///
     /// The returned gradient is the assembled analytic outer derivative:
@@ -834,13 +879,16 @@ impl SaeManifoldTerm {
         solver: &DeflatedArrowSolver<'_>,
         inverse_probe_bundle: Option<(&[Array1<f64>], &[Array1<f64>])>,
     ) -> Result<SaeOuterRhoGradientComponents, OuterGradientError> {
+        self.assignment
+            .validate_rho_domain(rho)
+            .map_err(OuterGradientError::internal)?;
         let n_params = rho.to_flat().len();
         let mut explicit = Array1::<f64>::zeros(n_params);
         let mut logdet_trace = Array1::<f64>::zeros(n_params);
         let mut occam = Array1::<f64>::zeros(n_params);
         let mut third_order_correction = Array1::<f64>::zeros(n_params);
         let rank_charge = self
-            .hard_rank_charge_derivative(target, rho, loss, cache)
+            .production_rank_charge_derivative(target, rho, loss, cache)
             .map_err(OuterGradientError::internal)?;
 
         if let Some(sparse_index) = rho.sparse_flat_index() {
@@ -849,9 +897,10 @@ impl SaeManifoldTerm {
                     &self.assignment,
                     rho,
                     self.row_loss_weights.as_deref(),
-                );
-            // IBP concentration controls only the Beta--Bernoulli prior. The
-            // final posterior-mean gate is `sigmoid(logit/tau)`, so the data
+                )
+                .map_err(OuterGradientError::internal)?;
+            // ordered Beta--Bernoulli concentration controls only the Beta--Bernoulli prior. The
+            // final reconstruction gate is `sigmoid(logit/tau)`, so the data
             // likelihood and its Gauss--Newton blocks have no direct alpha
             // derivative. Structurally fixed assignments have no sparse index
             // and skip this channel entirely.
@@ -874,7 +923,9 @@ impl SaeManifoldTerm {
         // `k` carries its own explicit penalty-energy derivative, log|H| trace,
         // and Occam-normalizer derivative.
         let k_smooth = rho.log_lambda_smooth.len();
-        let lambda_smooth_vec = rho.lambda_smooth_vec();
+        let lambda_smooth_vec = rho
+            .lambda_smooth_vec()
+            .map_err(OuterGradientError::internal)?;
         // Explicit `∂loss.smoothness/∂log λ_k = 0.5·λ_k·<B_k, S_k B_k>` (the
         // per-atom split). Its sum is the λ-scaled penalty energy; renormalize to
         // `loss.smoothness` so the total matches the criterion's reported energy
@@ -978,13 +1029,12 @@ impl SaeManifoldTerm {
         // #2080: the envelope Γ = tr(H⁻¹ ∂H/∂θ) off the SAME shared selected-inverse
         // bundle (the all-or-nothing cluster's third channel) when present; the dense
         // selected inverse otherwise. The border-only bundle reconstructs the NO-SELF
-        // base inverse `(H₀')⁻¹`, so `logdet_theta_adjoint_from_probes` HARD-REFUSES
-        // (routes to dense) any cache carrying a T-space rank-R correction the border
-        // cannot span — per-row gauge/rotation deflation OR an IBP cross-row Woodbury —
-        // and otherwise owns the softmax / euclidean / non-cross-row regimes exactly.
+        // base inverse `(H₀')⁻¹`, so `logdet_theta_adjoint_from_probes` hard-refuses
+        // (routes to dense) a cache carrying a T-space gauge/rotation deflation
+        // that the border probes cannot span. Ordered Beta--Bernoulli uses its
+        // row-local PSD majorizer and shared-mass derivative directly.
         // This completes the matrix-free selected-inverse cluster (smoothness EDF + ARD
-        // Hessian trace + θ-adjoint); the assignment/learnable-IBP log-strength traces
-        // (when that coordinate exists) plus the θ-adjoint's IBP-refused fits remain
+        // Hessian trace + θ-adjoint); assignment log-strength traces remain
         // solver-bound
         // — the last gaps before the routing flip (see the docstring).
         let mut gamma = match inverse_probe_bundle {
@@ -1009,9 +1059,11 @@ impl SaeManifoldTerm {
         // #1418: the implicit-function correction is `−½·Γᵀ·θ̂_ρ` with
         // `θ̂_ρ = −A⁻¹ g_ρ` (the code contracts `−½·⟨Γ, A⁻¹ g_ρ⟩` with rhs `= +∂g/∂ρ`, i.e. `+½·Γᵀθ̂_ρ` of the response — the sign lives in the −0.5 factor), where `A = ∇²_θθ L` is the EXACT stationarity
         // Jacobian of the inner fit — data residual curvature, exact softmax
-        // entropy Hessian, exact periodic ARD curvature. The matrix the `solver`
-        // factors is `B` (Gauss-Newton data curvature, softmax Fisher metric,
-        // `max(V'',0)` ARD majorizers): the `½log|B|` Laplace term is consistent
+        // entropy Hessian, exact ordered Beta--Bernoulli marginal curvature, and
+        // exact periodic ARD curvature. The matrix the `solver`
+        // factors is `B` (Gauss-Newton data curvature, the softmax Gershgorin
+        // majorizer, the ordered Beta--Bernoulli row-local PSD majorizer, and
+        // `max(V'',0)` ARD curvature): the `½log|B|` Laplace term is consistent
         // with `Γ = ½tr(B⁻¹ ∂B/∂θ)`, but the implicit step is governed by `A`.
         // `solve_exact_stationarity` applies the TRUE `A⁻¹` with left-`B`
         // preconditioned GMRES on `A = B + ΔC`, where
@@ -1032,6 +1084,27 @@ impl SaeManifoldTerm {
         // contraction below then completes the block gradient with the same
         // `−½·Γᵀθ̂_ρ` channel every other coordinate carries; the explicit data
         // + Jacobian parts stay with the eval lane's `block_log_lambda_gradient`.
+        // #2080(A): collapse the per-coordinate IFT solves into ONE adjoint solve.
+        // The implicit correction is `−½·⟨Γ, A⁺ g_ρ_l⟩` for every outer coordinate
+        // `l`. The exact θθ-Hessian `A = ∇²_θθ L` is symmetric and its near-null
+        // deflation is a symmetric `B`-orthogonal projection, so `A⁺` is
+        // self-adjoint and `⟨Γ, A⁺ g_ρ_l⟩ = ⟨A⁺Γ, g_ρ_l⟩ = ⟨a, g_ρ_l⟩` with the
+        // adjoint `a = A⁺Γ` solved ONCE. A near-null pencil direction contributes
+        // `g_i r_i / μ_i` only when BOTH Γ and `g_ρ_l` excite it, in which case the
+        // forward (per-coordinate) and this adjoint solve deflate it identically —
+        // so the collapse is EXACT, not an approximation, while dropping the outer
+        // IFT cost from `O(P_ρ)` solves to one. `solve_exact_stationarity_is_self_adjoint_2080`
+        // pins the self-adjointness this identity rests on.
+        let adjoint = self
+            .solve_exact_stationarity(rho, target, cache, solver, &gamma)
+            .map_err(|err| {
+                OuterGradientError::classify_arrow_solver_error(
+                    &err,
+                    OuterGradientError::NonIdentifiable {
+                        reason: err.clone(),
+                    },
+                )
+            })?;
         let block_tail_start = n_params - rho.log_lambda_block.len();
         for coord in 0..n_params {
             let rhs = if coord >= block_tail_start && !rho.log_lambda_block.is_empty() {
@@ -1051,22 +1124,12 @@ impl SaeManifoldTerm {
                 self.outer_rho_gradient_ift_rhs(rho, coord, cache)
                     .map_err(OuterGradientError::internal)?
             };
-            let solved = self
-                .solve_exact_stationarity(rho, target, cache, solver, &rhs)
-                .map_err(|err| {
-                    OuterGradientError::classify_arrow_solver_error(
-                        &err,
-                        OuterGradientError::NonIdentifiable {
-                            reason: err.clone(),
-                        },
-                    )
-                })?;
             let mut dot = 0.0_f64;
-            for idx in 0..gamma.t.len() {
-                dot += gamma.t[idx] * solved.t[idx];
+            for idx in 0..adjoint.t.len() {
+                dot += adjoint.t[idx] * rhs.t[idx];
             }
-            for idx in 0..gamma.beta.len() {
-                dot += gamma.beta[idx] * solved.beta[idx];
+            for idx in 0..adjoint.beta.len() {
+                dot += adjoint.beta[idx] * rhs.beta[idx];
             }
             third_order_correction[coord] = -0.5 * dot;
         }

@@ -2,11 +2,126 @@
 //! tail of `construction.rs` to keep that tracked file under the #780 10k-line
 //! gate. Holds the contiguous trailing `impl SaeManifoldTerm` block:
 //! `reconstruction_dispersion` (the Gaussian dispersion `φ̂` estimator),
-//! `assemble_shape_uncertainty`, `complete_born_atom_shape_bands`, and
-//! `shape_uncertainty_without_decoder_covariance`. All are reached bare by
+//! `assemble_shape_uncertainty`, `recompute_joint_shape_uncertainty`, and the
+//! explicit streaming-unavailable shape report. All are reached bare by
 //! callers through `use super::*`, so their visibility is unchanged.
 
 use super::*;
+
+/// Certify the ARD identity
+/// `edf = n_active - alpha * tr(H^-1)` against its exact `[0, n_active]`
+/// interval.  A tiny excursion at the forward-error scale of the accumulated
+/// trace is snapped to the boundary; a material excursion is a failed trace
+/// certificate, not an EDF that may be silently projected into another model.
+pub(super) fn certified_ard_axis_edf(
+    n_active: f64,
+    alpha: f64,
+    inverse_trace: f64,
+    atom: usize,
+    axis: usize,
+) -> Result<f64, String> {
+    if !(n_active.is_finite() && n_active >= 0.0) {
+        return Err(format!(
+            "reconstruction_dispersion: ARD active count at atom {atom}, axis {axis} \
+             must be finite and non-negative; got {n_active}"
+        ));
+    }
+    if !(alpha.is_finite() && alpha > 0.0 && inverse_trace.is_finite()) {
+        return Err(format!(
+            "reconstruction_dispersion: ARD precision/trace at atom {atom}, axis {axis} \
+             must be finite with positive precision; got alpha={alpha}, trace={inverse_trace}"
+        ));
+    }
+    let shrinkage = alpha * inverse_trace;
+    let raw = n_active - shrinkage;
+    if !shrinkage.is_finite() || !raw.is_finite() {
+        return Err(format!(
+            "reconstruction_dispersion: ARD EDF arithmetic is unrepresentable at atom \
+             {atom}, axis {axis} (n_active={n_active}, alpha={alpha}, trace={inverse_trace})"
+        ));
+    }
+    let tolerance = 64.0
+        * n_active.max(1.0)
+        * f64::EPSILON
+        * (n_active.abs() + shrinkage.abs()).max(f64::MIN_POSITIVE);
+    if raw < -tolerance || raw > n_active + tolerance {
+        return Err(format!(
+            "reconstruction_dispersion: ARD EDF at atom {atom}, axis {axis} is \
+             {raw:.6e}, outside certified [0, {n_active}] (roundoff tolerance \
+             {tolerance:.6e}; alpha={alpha:.6e}, trace={inverse_trace:.6e})"
+        ));
+    }
+    Ok(raw.clamp(0.0, n_active))
+}
+
+/// Project a Hutchinson ARD-EDF estimate onto its known parameter space.
+///
+/// Individual grouped diagonal estimates can leave `[0, n_active]` by sampling
+/// noise even when the exact trace is valid. Euclidean projection onto this
+/// closed interval is the constrained estimator: for every true EDF in the
+/// interval it cannot increase squared error. This is deliberately distinct
+/// from the exact-trace certificate above and is used only on the declared
+/// massive-K stochastic trace lane.
+fn projected_hutchinson_ard_axis_edf(
+    n_active: f64,
+    alpha: f64,
+    inverse_trace_estimate: f64,
+    atom: usize,
+    axis: usize,
+) -> Result<f64, String> {
+    if !(n_active.is_finite()
+        && n_active >= 0.0
+        && alpha.is_finite()
+        && alpha > 0.0
+        && inverse_trace_estimate.is_finite())
+    {
+        return Err(format!(
+            "reconstruction_dispersion: stochastic ARD EDF inputs at atom {atom}, axis \
+             {axis} must be finite with non-negative active count and positive precision; \
+             got n_active={n_active}, alpha={alpha}, trace={inverse_trace_estimate}"
+        ));
+    }
+    let estimate = n_active - alpha * inverse_trace_estimate;
+    if !estimate.is_finite() {
+        return Err(format!(
+            "reconstruction_dispersion: stochastic ARD EDF estimate is unrepresentable at \
+             atom {atom}, axis {axis}"
+        ));
+    }
+    Ok(estimate.clamp(0.0, n_active))
+}
+
+#[cfg(test)]
+mod ard_edf_certificate_tests {
+    use super::{certified_ard_axis_edf, projected_hutchinson_ard_axis_edf};
+
+    #[test]
+    fn snaps_only_trace_roundoff_at_the_ard_edf_faces() {
+        let n = 8.0;
+        let tiny = 8.0 * f64::EPSILON;
+        assert_eq!(certified_ard_axis_edf(n, 1.0, -tiny, 0, 0).unwrap(), n);
+        assert_eq!(certified_ard_axis_edf(n, 1.0, n + tiny, 0, 0).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn refuses_material_or_nonfinite_ard_edf_excursions() {
+        for trace in [-1.0e-8, 8.0 + 1.0e-8, f64::NAN, f64::INFINITY] {
+            assert!(certified_ard_axis_edf(8.0, 1.0, trace, 2, 3).is_err());
+        }
+    }
+
+    #[test]
+    fn stochastic_trace_lane_uses_the_declared_constrained_estimator() {
+        assert_eq!(
+            projected_hutchinson_ard_axis_edf(8.0, 1.0, -2.0, 0, 0).unwrap(),
+            8.0
+        );
+        assert_eq!(
+            projected_hutchinson_ard_axis_edf(8.0, 1.0, 10.0, 0, 0).unwrap(),
+            0.0
+        );
+    }
+}
 
 fn persisted_atom_basis_values(
     kind: &SaeAtomBasisKind,
@@ -269,13 +384,14 @@ impl SaeManifoldTerm {
     ///   * decoder β: `beta_dim − tr(λ_smooth · S_β⁻¹ · ⊕_k S_k⊗I_p)`, the
     ///     smoothness effective-dof already assembled for the Fellner-Schall
     ///     step (penalty-shrunk directions do not cost a full parameter);
-    ///   * latent coordinates: enabled ARD axes use the exact ARD-shrunk trace
+    ///   * latent coordinates: enabled ARD axes use the ARD-shrunk trace
     ///     `Σ_k Σ_j (n_active_k − α_{kj}·tr_{kj}(H⁻¹))`; atoms with disabled
     ///     native ARD charge the full active coordinate count because those
     ///     latent variables are estimated without an ARD precision.
     ///
-    /// The coordinate term is the **exact** ARD-shrunk effective dof of the
-    /// latent block: along axis `(k,j)` the MacKay/Fellner-Schall edf is
+    /// Below the declared massive-K threshold the coordinate term is the exact
+    /// ARD-shrunk effective dof of the latent block: along axis `(k,j)` the
+    /// MacKay/Fellner-Schall edf is
     /// `n_active_k − α_{kj}·tr_{kj}(H⁻¹)`, the well-determined-direction count
     /// after the ARD prior `α_{kj}` shrinks each coordinate. `tr_{kj}(H⁻¹)` is
     /// the same posterior-variance trace [`Self::ard_inverse_traces`] assembles
@@ -285,8 +401,10 @@ impl SaeManifoldTerm {
     /// over: `n` for the dense full-support layout, or the number of rows where
     /// atom `k` is active for the compact active-set layout (inactive
     /// prior-dominated coordinates contribute 0 to both the trace and the
-    /// count, hence 0 edf). The residual dof is floored at 1 so `φ̂` stays
-    /// finite and positive.
+    /// count, hence 0 edf). At massive K the selected-inverse diagonal is the
+    /// declared Hutchinson estimate; its grouped EDF is projected onto the exact
+    /// `[0,n_active_k]` parameter space, which cannot increase squared error.
+    /// The residual dof is floored at 1 so `φ̂` stays finite and positive.
     /// `residual` is the per-row reconstruction residual `f(θ̂) − y` (n×p) at the
     /// same state that produced `cache`. When supplied it engages the #2133 SURE
     /// within-basin second-order deflation correction
@@ -302,14 +420,38 @@ impl SaeManifoldTerm {
         rho: &SaeManifoldRho,
         residual: Option<ArrayView2<'_, f64>>,
     ) -> Result<f64, String> {
+        self.assignment.validate_rho_domain(rho)?;
         let n = self.n_obs();
         let p = self.output_dim();
         // Design-honesty weights are normalized to mean one, so they redistribute
         // residual mass without changing the scalar observation count.
         let n_scalar = (n * p) as f64;
-        let rss = 2.0 * loss.data_fit;
+        // FRAME CONSISTENCY (#2228/#2258 tier-0 root cause): under an active
+        // WHITENING row metric the likelihood's `loss.data_fit` is the
+        // WHITENED residual energy — ≈ n·p BY CONSTRUCTION (whitening
+        // normalizes residuals to unit scale) — so a φ̂ built from it prices
+        // the noise floor at ~n·p/resid_dof ≈ 2 REGARDLESS of the actual fit
+        // quality. Every consumer of this dispersion lives in the RAW output
+        // frame: the rank-charge MP edge compares against the unwhitened
+        // reconstruction Gram (measured veto: R=2.16 vs top signal 1.01 on a
+        // fitted EV=0.998 circle → rank_eff=0 → categorical +∞ → 'infeasible
+        // at the requested rho' for every structured pass), and the shape
+        // bands are φ-scaled output-frame covariances. Price φ from the RAW
+        // residual whenever the caller supplied it and the metric whitens.
+        let metric_whitens = self
+            .row_metric
+            .as_ref()
+            .is_some_and(|metric| metric.whitens_likelihood());
+        let rss = if metric_whitens && residual.is_some() {
+            residual
+                .as_ref()
+                .map(|res| res.iter().map(|value| value * value).sum::<f64>())
+                .unwrap_or(2.0 * loss.data_fit)
+        } else {
+            2.0 * loss.data_fit
+        };
         let smooth_edf: f64 = self
-            .decoder_smoothness_effective_dof_per_atom(cache, &rho.lambda_smooth_vec())
+            .decoder_smoothness_effective_dof_per_atom(cache, &rho.lambda_smooth_vec()?)
             .map_err(|e| format!("reconstruction_dispersion: smooth edf: {e}"))?
             .iter()
             .sum();
@@ -326,17 +468,12 @@ impl SaeManifoldTerm {
             self.beta_dim() as f64
         };
         let beta_edf = (raw_decoder_dof - smooth_edf).max(0.0);
-        // Exact ARD-shrunk latent-coordinate edf, reusing the EFS trace cache.
+        // ARD-shrunk latent-coordinate EDF, reusing the EFS trace cache.
+        let ard_precisions = self.validated_ard_precisions(rho)?;
+        let stochastic_ard_trace = self.k_atoms() >= Self::ARD_TRACE_HUTCHINSON_MIN_ATOMS;
         let traces = self
             .ard_inverse_traces(cache)
             .map_err(|e| format!("reconstruction_dispersion: ARD traces: {e}"))?;
-        if rho.log_ard.len() != self.atoms.len() {
-            return Err(format!(
-                "reconstruction_dispersion: ρ has {} ARD atoms but term has {}",
-                rho.log_ard.len(),
-                self.atoms.len()
-            ));
-        }
         let mut coord_edf = 0.0_f64;
         for (k, atom) in self.atoms.iter().enumerate() {
             let d_k = atom.latent_dim;
@@ -348,12 +485,6 @@ impl SaeManifoldTerm {
                 ));
             }
             let ard_len = rho.log_ard[k].len();
-            if ard_len != 0 && ard_len != d_k {
-                return Err(format!(
-                    "reconstruction_dispersion: ARD shape mismatch at atom {k} \
-                     (log_ard={ard_len}, d_k={d_k})"
-                ));
-            }
             // Scalar count matched to the trace support (see fn doc).
             let n_active_k = match self.last_row_layout {
                 Some(ref layout) => layout
@@ -368,9 +499,12 @@ impl SaeManifoldTerm {
                 continue;
             }
             for j in 0..d_k {
-                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][j]);
-                // edf_kj ∈ [0, n_active_k]; clamp against numerical drift.
-                let edf_kj = (n_active_k - alpha * traces[k][j]).clamp(0.0, n_active_k);
+                let alpha = ard_precisions[k][j];
+                let edf_kj = if stochastic_ard_trace {
+                    projected_hutchinson_ard_axis_edf(n_active_k, alpha, traces[k][j], k, j)?
+                } else {
+                    certified_ard_axis_edf(n_active_k, alpha, traces[k][j], k, j)?
+                };
                 coord_edf += edf_kj;
             }
         }
@@ -517,9 +651,9 @@ impl SaeManifoldTerm {
             };
             atoms.push(SaeAtomShapeUncertainty {
                 decoder_covariance: cov,
-                band_coords,
-                band_mean,
-                band_sd,
+                band_coords: Some(band_coords),
+                band_mean: Some(band_mean),
+                band_sd: Some(band_sd),
                 band_sd_robust: None,
             });
         }
@@ -540,23 +674,19 @@ impl SaeManifoldTerm {
     /// finalization fallback swaps the settled basin / canonicalizes charts, that
     /// factor no longer describes the returned model. This rebuilds the undamped
     /// Direct joint-Hessian factor from THIS (final) term at `rho` — the exact
-    /// factor the REML criterion forms at the inner optimum — and reads the
+    /// factor the penalized quasi-Laplace criterion forms at the inner optimum — and reads the
     /// per-atom covariance and bands off its Schur factor, scaling by the
     /// reconstruction dispersion `φ̂`. The result is the DOCUMENTED joint
     /// covariance: it carries the cross-atom covariance and the decoder-coordinate
-    /// Schur couplings, and its per-channel band varies across output channels —
-    /// unlike the per-atom inner-Hessian marginal
-    /// [`Self::complete_born_atom_shape_bands`] falls back to. Every atom is
-    /// covered, seed AND structure-search-born, because the factor is assembled at
-    /// the final dictionary's `k_atoms()`.
+    /// Schur couplings, and its per-channel band varies across output channels.
+    /// Every atom is covered because the factor is assembled at the final
+    /// dictionary's `k_atoms()`.
     ///
     /// The term is already at its optimum, so the inner re-solve converges
-    /// immediately. Mirrors `decoder_shape_uncertainty`'s admission fallback: when
-    /// the streaming plan cannot admit the dense Direct factor (LLM-scale fits
-    /// with no dense Schur), it returns
-    /// [`Self::shape_uncertainty_without_decoder_covariance`] — honest NaN bands,
-    /// never a fabricated number. Call before [`Self::into_fitted`] has run is not
-    /// required; it takes the fitted `term`/`rho` directly.
+    /// immediately. When the streaming plan cannot expose the exact Direct
+    /// factor, the returned atom entries carry explicit `None` bands. Call before
+    /// [`Self::into_fitted`] has run is not required; it takes the fitted
+    /// `term`/`rho` directly.
     pub fn recompute_joint_shape_uncertainty(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -573,15 +703,14 @@ impl SaeManifoldTerm {
             self.k_atoms(),
         )?;
         if !plan.direct_logdet_admitted() {
-            // No dense Direct Schur factor at this scale: the joint covariance
-            // cannot be materialized. Report the honest without-covariance bands
-            // (NaN sd) rather than a per-atom stand-in dressed up as joint.
+            // No exact Direct Schur factor at this scale: report explicit
+            // unavailability rather than substituting a different covariance.
             let loss = self.loss(target, rho)?;
             let n_scalar = (self.n_obs().saturating_mul(self.output_dim())).max(1) as f64;
             let dispersion = (2.0 * loss.data_fit / n_scalar).max(f64::MIN_POSITIVE);
-            return Ok(self.shape_uncertainty_without_decoder_covariance(dispersion));
+            return Ok(self.unavailable_shape_uncertainty(dispersion));
         }
-        let (_cost, loss, cache) = self.reml_criterion_with_cache(
+        let (_cost, loss, cache) = self.penalized_quasi_laplace_criterion_with_cache(
             target,
             rho,
             registry,
@@ -596,214 +725,20 @@ impl SaeManifoldTerm {
         self.assemble_shape_uncertainty(&cache, dispersion)
     }
 
-    /// #977 — complete the per-atom shape band for any atom the joint Schur
-    /// factor could not cover (a structure-search-BORN atom whose index is ≥ the
-    /// seed `K` a pre-search cache was assembled at, or an atom whose joint block
-    /// came back non-finite), from that atom's OWN fitted penalized inner Hessian.
-    ///
-    /// NOTE: the band this fills is a per-atom MARGINAL, NOT the joint covariance.
-    /// It is `Var_c(t) = φ · Φ_k(t)ᵀ H_k⁻¹ Φ_k(t)` from the atom's own inner
-    /// Hessian `H_k = Φ_kᵀ W_k Φ_k + S̃_k`, so it DROPS the cross-atom covariance
-    /// and the decoder-coordinate Schur couplings the joint factor carries, and is
-    /// identical across output channels (the inner Hessian is shared across
-    /// channels; the decoder differs only in the mean). The production fit
-    /// recomputes the JOINT bands via [`Self::recompute_joint_shape_uncertainty`]
-    /// after a structure / finalization change, so this completion runs only as a
-    /// backstop for atoms the joint factor genuinely left unidentified (all-NaN).
-    ///
-    /// The Schur path ([`Self::assemble_shape_uncertainty`]) reads the joint
-    /// inverse-Hessian β-block per atom, but that factor is assembled ONCE before
-    /// the structure search runs, so it is indexed by the SEED dictionary. A born
-    /// atom therefore has no Schur block and would otherwise be reported with NO
-    /// uncertainty band — a silent gap. This method closes it: every atom carries
-    /// a band, none is reported without one.
-    ///
-    /// The principled per-atom band is the Laplace posterior of the atom's inner
-    /// reconstruction smooth, which [`Self::set_atom_inner_fits`] already fits at
-    /// the settled state for EVERY atom (born included). With the Gaussian-identity
-    /// inner smooth, each output channel `c`'s decoder posterior is
-    /// `Cov(β_{k,c}) = φ · H_k⁻¹`, where `H_k = Φ_kᵀ W_k Φ_k + S̃_k` is the atom's
-    /// fitted penalized inner Hessian (`AtomInnerFit::penalized_hessian`). The
-    /// ambient point `m_k(t) = Φ_k(t)·B_k` is linear in `B_k`, so its per-channel
-    /// posterior variance is the closed form
-    ///   `Var_c(t) = φ · Φ_k(t)ᵀ H_k⁻¹ Φ_k(t)`,
-    /// which is the SAME for every channel `c` (the inner Hessian is shared across
-    /// channels; the decoder differs only in the mean). The band is evaluated at
-    /// the same evenly-strided on-atom coordinate subset the Schur path uses, so a
-    /// born atom's band is reported exactly where its data lives.
-    ///
-    /// This is a strict completion: an atom whose band the Schur path already
-    /// filled (a finite `band_sd`) is left untouched; only atoms with a missing
-    /// entry (index past the assembled set) or an all-NaN band are filled. An
-    /// all-NaN band arises either as the no-decoder-covariance fallback OR when
-    /// the caller deliberately invalidated a stale PRE-search band via
-    /// [`SaeShapeUncertainty::invalidate_bands_for_recompute`] after a structure
-    /// move re-converged the dictionary (#1230); in both cases the band is
-    /// recomputed here against the FINAL model. When a band is (re)filled the
-    /// whole slot — `band_coords`, `band_mean`, AND `band_sd` — is rebuilt from
-    /// the current fitted atom, so an atom whose coordinates / decoded mean / row
-    /// count shifted under a structure-search refit gets a fully consistent band
-    /// (never a stale-coordinate or shape-mismatched one). An atom whose inner fit
-    /// is degenerate (`None` — no active rows / non-SPD inner Hessian) is left
-    /// with its NaN band, faithfully reporting "unidentified" rather than
-    /// fabricating a number. Requires [`Self::set_atom_inner_fits`] to have run;
-    /// without it the completion is a no-op (the band stays as the Schur path left
-    /// it).
-    pub fn complete_born_atom_shape_bands(
-        &self,
-        unc: &mut SaeShapeUncertainty,
-    ) -> Result<(), String> {
-        let inner_fits = match &self.atom_inner_fits {
-            Some(fits) => fits,
-            // No inner fits harvested: nothing to complete from. Leave the bands
-            // as the Schur path produced them.
-            None => return Ok(()),
-        };
-        let p = self.output_dim();
-        let dispersion = unc.dispersion;
-        // Grow the per-atom band list to the post-search atom count so a born
-        // atom (index past the Schur-assembled set) has a slot. New slots start
-        // as NaN bands and are filled below from the inner fit.
-        while unc.atoms.len() < self.k_atoms() {
-            let k = unc.atoms.len();
-            let atom = &self.atoms[k];
-            let n_rows = atom.n_obs();
-            let d = atom.latent_dim;
-            let stride = n_rows.div_ceil(SHAPE_BAND_MAX_POINTS).max(1);
-            let eval_rows: Vec<usize> = (0..n_rows).step_by(stride).collect();
-            let g = eval_rows.len();
-            let coords_mat = self.assignment.coords[k].as_matrix();
-            let mut band_coords = Array2::<f64>::zeros((g, d));
-            let mut band_mean = Array2::<f64>::zeros((g, p));
-            let band_sd = Array2::<f64>::from_elem((g, p), f64::NAN);
-            let mut decoded = vec![0.0_f64; p];
-            for (gi, &row) in eval_rows.iter().enumerate() {
-                for axis in 0..d {
-                    band_coords[[gi, axis]] = coords_mat[[row, axis]];
-                }
-                atom.fill_decoded_row(row, &mut decoded);
-                for c in 0..p {
-                    band_mean[[gi, c]] = decoded[c];
-                }
-            }
-            unc.atoms.push(SaeAtomShapeUncertainty {
+    /// Explicitly unavailable joint shape uncertainty for a streaming fit whose
+    /// execution plan cannot expose the exact joint Schur factor.
+    pub(crate) fn unavailable_shape_uncertainty(&self, dispersion: f64) -> SaeShapeUncertainty {
+        let atoms = self
+            .atoms
+            .iter()
+            .map(|_| SaeAtomShapeUncertainty {
                 decoder_covariance: None,
-                band_coords,
-                band_mean,
-                band_sd,
+                band_coords: None,
+                band_mean: None,
+                band_sd: None,
                 band_sd_robust: None,
-            });
-        }
-
-        for (k, atom) in self.atoms.iter().enumerate() {
-            let band = &mut unc.atoms[k];
-            // Only complete a MISSING band: an atom the Schur path already filled
-            // (a finite sd anywhere) keeps its joint-Hessian band untouched.
-            let already_filled = band.band_sd.iter().any(|v| v.is_finite());
-            if already_filled {
-                continue;
-            }
-            let inner = match inner_fits.get(k).and_then(|f| f.as_ref()) {
-                Some(f) => f,
-                // Degenerate atom (no active rows / non-SPD inner Hessian): leave
-                // the NaN band — honestly "unidentified", never a fabricated band.
-                None => continue,
-            };
-            let m = atom.basis_size();
-            if inner.penalized_hessian.dim() != (m, m) {
-                return Err(format!(
-                    "complete_born_atom_shape_bands: atom {k} inner Hessian {:?} != ({m}, {m})",
-                    inner.penalized_hessian.dim()
-                ));
-            }
-            // Factor the atom's own penalized inner Hessian H_k = ΦᵀWΦ + S̃_k. It
-            // was checked SPD when the inner fit was built; re-factor here to solve
-            // H_k⁻¹ Φ(t). A factorization failure (numerical drift since the inner
-            // fit) leaves the NaN band rather than a fabricated number.
-            let chol = match inner.penalized_hessian.cholesky(Side::Lower) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-            // Evenly-strided on-atom rows, matched to the band the Schur path uses.
-            let n_rows = atom.n_obs();
-            let d = atom.latent_dim;
-            let stride = n_rows.div_ceil(SHAPE_BAND_MAX_POINTS).max(1);
-            let eval_rows: Vec<usize> = (0..n_rows).step_by(stride).collect();
-            let g = eval_rows.len();
-            // Rebuild the ENTIRE band slot (coords / mean / sd) from the CURRENT
-            // fitted atom rather than only overwriting `band_sd`. #1230 — a seed
-            // atom whose pre-search band was invalidated for recompute (because
-            // structure search re-converged the dictionary) may have changed its
-            // coordinates, decoded mean, AND on-atom row count, so reusing the old
-            // `band_coords` / `band_mean` (or indexing the old-shaped `band_sd`)
-            // would mismatch the final model. A born atom whose slot was just
-            // pushed with the right shape is rebuilt identically — same result.
-            let coords_mat = self.assignment.coords[k].as_matrix();
-            let mut band_coords = Array2::<f64>::zeros((g, d));
-            let mut band_mean = Array2::<f64>::zeros((g, p));
-            let mut band_sd = Array2::<f64>::from_elem((g, p), f64::NAN);
-            let mut decoded = vec![0.0_f64; p];
-            for (gi, &row) in eval_rows.iter().enumerate() {
-                for axis in 0..d {
-                    band_coords[[gi, axis]] = coords_mat[[row, axis]];
-                }
-                atom.fill_decoded_row(row, &mut decoded);
-                for c in 0..p {
-                    band_mean[[gi, c]] = decoded[c];
-                }
-                // Φ_k(t) at this on-atom row.
-                let phi_t = atom.basis_values.row(row).to_owned();
-                // H_k⁻¹ Φ(t), then the quadratic form Φ(t)ᵀ H_k⁻¹ Φ(t).
-                let solved = chol.solvevec(&phi_t);
-                let quad = phi_t.dot(&solved).max(0.0);
-                // Var_c(t) = φ · Φ(t)ᵀ H_k⁻¹ Φ(t) — identical across channels (the
-                // inner Hessian is shared; the decoder differs only in the mean).
-                let sd = (dispersion * quad).sqrt();
-                for c in 0..p {
-                    band_sd[[gi, c]] = sd;
-                }
-            }
-            band.band_coords = band_coords;
-            band.band_mean = band_mean;
-            band.band_sd = band_sd;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn shape_uncertainty_without_decoder_covariance(
-        &self,
-        dispersion: f64,
-    ) -> SaeShapeUncertainty {
-        let p = self.output_dim();
-        let mut atoms = Vec::with_capacity(self.k_atoms());
-        for (k, atom) in self.atoms.iter().enumerate() {
-            let n_rows = atom.n_obs();
-            let d = atom.latent_dim;
-            let stride = n_rows.div_ceil(SHAPE_BAND_MAX_POINTS).max(1);
-            let eval_rows: Vec<usize> = (0..n_rows).step_by(stride).collect();
-            let g = eval_rows.len();
-            let coords_mat = self.assignment.coords[k].as_matrix();
-            let mut band_coords = Array2::<f64>::zeros((g, d));
-            let mut band_mean = Array2::<f64>::zeros((g, p));
-            let band_sd = Array2::<f64>::from_elem((g, p), f64::NAN);
-            let mut decoded = vec![0.0_f64; p];
-            for (gi, &row) in eval_rows.iter().enumerate() {
-                for axis in 0..d {
-                    band_coords[[gi, axis]] = coords_mat[[row, axis]];
-                }
-                atom.fill_decoded_row(row, &mut decoded);
-                for c in 0..p {
-                    band_mean[[gi, c]] = decoded[c];
-                }
-            }
-            atoms.push(SaeAtomShapeUncertainty {
-                decoder_covariance: None,
-                band_coords,
-                band_mean,
-                band_sd,
-                band_sd_robust: None,
-            });
-        }
+            })
+            .collect();
         SaeShapeUncertainty { dispersion, atoms }
     }
 
@@ -826,6 +761,7 @@ impl SaeManifoldTerm {
         target: ArrayView2<'_, f64>,
         dispersion: f64,
     ) -> Result<(Array2<f64>, f64), String> {
+        self.assignment.validate_rho_domain(rho)?;
         let n = self.n_obs();
         let p = self.output_dim();
         if target.dim() != (n, p) {
@@ -843,7 +779,7 @@ impl SaeManifoldTerm {
         let beta_dim = cache.k;
         let second_jets = self.atom_second_jets()?;
         let border = self.border_channels_for_cache(cache)?;
-        let b_solver = self.outer_gradient_arrow_solver(cache, &rho.lambda_smooth_vec())?;
+        let b_solver = self.outer_gradient_arrow_solver(cache, &rho.lambda_smooth_vec()?)?;
         let fitted_full = self.try_fitted_with_rho(Some(rho), false)?;
         let whitens = self
             .row_metric
@@ -899,10 +835,10 @@ impl SaeManifoldTerm {
             rhs_beta.fill(0.0);
             let base = cache.row_offsets[row];
             for local in 0..jets.vars.len() {
-                rhs_t[base + local] = sae_dot(&jets.first[local], &error_metric);
+                rhs_t[base + local] = sae_dot(jets.first(local), &error_metric);
             }
             for (beta_pos, channel) in border.iter().enumerate() {
-                rhs_beta[channel.index] += sae_dot(&jets.beta[beta_pos], &error_metric);
+                rhs_beta[channel.index] += sae_dot(jets.beta(beta_pos), &error_metric);
             }
             let rhs = SaeArrowVector {
                 t: rhs_t.clone(),

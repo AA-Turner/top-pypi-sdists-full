@@ -9,14 +9,14 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp>=3.8.6",
-    "music_assistant_models==1.1.151",
+    "music_assistant_models==1.1.152",
     "orjson>=3.9",
 ]
 description = "Music Assistant Client"
 name = "music_assistant_client"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "v1.4.2"
+version = "v1.4.3"
 
 [project.license]
 text = "Apache-2.0"

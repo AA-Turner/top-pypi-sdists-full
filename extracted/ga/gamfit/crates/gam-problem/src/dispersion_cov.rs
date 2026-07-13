@@ -27,19 +27,74 @@
 //! explicit can wrap with `PhiScaledCovariance::wrap` /
 //! `UnscaledPrecision::wrap` at the boundary.
 //!
-//! `Dispersion` lives in `gam-problem` as the neutral scale contract. The
-//! helper methods on the local `DispersionExt` trait give terse
-//! `phi()` / `inv_phi()` / `sqrt_phi()` call-sites for sampling code.
+//! `Dispersion` lives in `gam-problem` as the neutral validated scale contract.
 
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
+use thiserror::Error;
 
 pub use crate::Dispersion;
 
-/// Compute standard errors from a covariance matrix (sqrt of diagonal).
-pub fn se_from_covariance(cov: &Array2<f64>) -> Array1<f64> {
-    Array1::from_iter(cov.diag().iter().map(|&v| v.max(0.0).sqrt()))
+#[derive(Clone, Copy, Debug, Error, PartialEq)]
+pub enum CovarianceStandardErrorError {
+    #[error("covariance must be square, got {rows}x{cols}")]
+    NotSquare { rows: usize, cols: usize },
+    #[error("covariance entry ({row}, {col}) is non-finite: {value}")]
+    NonFinite { row: usize, col: usize, value: f64 },
+    #[error("covariance dimension {dimension} is too large for a sub-unit rounding-error bound")]
+    DimensionTooLarge { dimension: usize },
+    #[error(
+        "covariance diagonal {index} is materially negative: {value} (backward-error tolerance {tolerance})"
+    )]
+    NegativeDiagonal {
+        index: usize,
+        value: f64,
+        tolerance: f64,
+    },
+}
+
+/// Compute standard errors from a finite square covariance matrix.
+///
+/// A negative diagonal is snapped to zero only when its magnitude is within a
+/// dimension-scaled floating-point backward-error bound relative to the matrix
+/// scale. Material negativity is rejected instead of being projected onto the
+/// PSD cone one diagonal entry at a time.
+pub fn se_from_covariance(cov: &Array2<f64>) -> Result<Array1<f64>, CovarianceStandardErrorError> {
+    let (rows, cols) = cov.dim();
+    if rows != cols {
+        return Err(CovarianceStandardErrorError::NotSquare { rows, cols });
+    }
+    let mut max_abs = 0.0_f64;
+    for ((row, col), &value) in cov.indexed_iter() {
+        if !value.is_finite() {
+            return Err(CovarianceStandardErrorError::NonFinite { row, col, value });
+        }
+        max_abs = max_abs.max(value.abs());
+    }
+    let relative_error = 16.0 * (rows.max(1) as f64) * f64::EPSILON;
+    let tolerance = if relative_error < 1.0 {
+        max_abs / relative_error.recip()
+    } else {
+        return Err(CovarianceStandardErrorError::DimensionTooLarge { dimension: rows });
+    };
+    let mut standard_errors = Array1::zeros(rows);
+    for (index, &value) in cov.diag().iter().enumerate() {
+        standard_errors[index] = if value == 0.0 {
+            0.0
+        } else if value > 0.0 {
+            value.sqrt()
+        } else if -value <= tolerance {
+            0.0
+        } else {
+            return Err(CovarianceStandardErrorError::NegativeDiagonal {
+                index,
+                value,
+                tolerance,
+            });
+        };
+    }
+    Ok(standard_errors)
 }
 
 /// Posterior coefficient covariance `Vb = phi * H^{-1}` — the matrix users
@@ -164,29 +219,6 @@ impl DerefMut for UnscaledPrecision {
     }
 }
 
-/// Extension methods on [`Dispersion`] used by the sampling code, kept here
-/// so we do not need to touch the canonical definition in
-/// `solver::estimate`. The conversions are all `phi`-aware: `inv_phi()`
-/// and `sqrt_phi()` are floored away from zero so that downstream
-/// arithmetic never produces `NaN` / `Inf` on a pathological zero
-/// dispersion.
-pub trait DispersionExt {
-    fn inv_phi(self) -> f64;
-    fn sqrt_phi(self) -> f64;
-}
-
-impl DispersionExt for Dispersion {
-    #[inline]
-    fn inv_phi(self) -> f64 {
-        1.0 / self.phi().max(1e-300)
-    }
-
-    #[inline]
-    fn sqrt_phi(self) -> f64 {
-        self.phi().max(0.0).sqrt()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,19 +230,22 @@ mod tests {
     fn se_from_diagonal_matrix_is_sqrt_of_diagonal() {
         // cov = diag(4, 9) → se = [2, 3]
         let cov = array![[4.0_f64, 0.0], [0.0, 9.0]];
-        let se = se_from_covariance(&cov);
+        let se = se_from_covariance(&cov).unwrap();
         assert_eq!(se.len(), 2);
         assert!((se[0] - 2.0).abs() < 1e-14);
         assert!((se[1] - 3.0).abs() < 1e-14);
     }
 
     #[test]
-    fn se_clamps_negative_diagonal_to_zero() {
-        // A numerically-negative diagonal entry should clamp to 0 rather than NaN.
-        let cov = array![[1.0_f64, 0.0], [0.0, -1e-15]];
-        let se = se_from_covariance(&cov);
-        assert!(se[1].is_finite());
+    fn se_snaps_only_backward_error_scale_negative_diagonal() {
+        let cov = array![[1.0_f64, 0.0], [0.0, -4.0 * f64::EPSILON]];
+        let se = se_from_covariance(&cov).unwrap();
         assert_eq!(se[1], 0.0);
+        let materially_indefinite = array![[1.0_f64, 0.0], [0.0, -1e-8]];
+        assert!(matches!(
+            se_from_covariance(&materially_indefinite),
+            Err(CovarianceStandardErrorError::NegativeDiagonal { index: 1, .. })
+        ));
     }
 
     // ── PhiScaledCovariance ───────────────────────────────────────────────────
@@ -244,30 +279,5 @@ mod tests {
         let h = array![[2.0_f64, 0.0], [0.0, 3.0]];
         let wrapped = UnscaledPrecision::wrap(h.clone());
         assert_eq!(*wrapped.as_array(), h);
-    }
-
-    // ── DispersionExt ─────────────────────────────────────────────────────────
-
-    #[test]
-    fn inv_phi_known_dispersion() {
-        assert!((Dispersion::Known(4.0).inv_phi() - 0.25).abs() < 1e-14);
-    }
-
-    #[test]
-    fn inv_phi_floors_at_one_over_1e_minus_300() {
-        // phi = 0 should return 1/1e-300, not infinity
-        let r = Dispersion::Known(0.0).inv_phi();
-        assert!(r.is_finite());
-        assert!((r - 1.0 / 1e-300).abs() < 1.0);
-    }
-
-    #[test]
-    fn sqrt_phi_returns_sqrt() {
-        assert!((Dispersion::Estimated(9.0).sqrt_phi() - 3.0).abs() < 1e-14);
-    }
-
-    #[test]
-    fn sqrt_phi_clamps_negative_to_zero() {
-        assert_eq!(Dispersion::Known(-1.0).sqrt_phi(), 0.0);
     }
 }

@@ -222,6 +222,29 @@ pub trait OuterObjective {
         false
     }
 
+    /// Optional objective-owned hard upper domain for the outer coordinates.
+    ///
+    /// The generic optimizer intersects this vector with its configured box
+    /// before projecting seeds, constructing a solver, or opening reactive
+    /// continuation. Consequently the exact same upper endpoint is both the
+    /// solver's legal box face and the continuation path's literal rho entry.
+    /// `None` means the objective has no domain narrower than the configured
+    /// generic box. An advertised vector must have `capability().n_params`
+    /// finite entries; malformed contracts are typed runner errors.
+    fn outer_domain_upper_bound(&self) -> Result<Option<Array1<f64>>, EstimationError> {
+        Ok(None)
+    }
+
+    /// Optional objective-owned hard lower domain for the outer coordinates.
+    ///
+    /// This is intersected with the caller's configured box at the same single
+    /// runner seam as [`Self::outer_domain_upper_bound`], before any seed,
+    /// continuation waypoint, solver evaluation, or stationarity certificate can
+    /// observe an out-of-domain coordinate.
+    fn outer_domain_lower_bound(&self) -> Result<Option<Array1<f64>>, EstimationError> {
+        Ok(None)
+    }
+
     /// Optional opt-in to the device-resident outer REML BFGS-over-ρ driver
     /// (`crate::gpu::reml_outer::run_reml_outer_on_device`). Returns
     /// `Some(adm)` when the objective is a REML evaluator whose
@@ -927,9 +950,7 @@ where
     }
 }
 
-impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed>
-    ClosureObjective<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed>
-{
+impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed> ClosureObjective<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed> {
     pub fn with_exact_polish<Fpolish>(mut self, transition: Fpolish) -> Self
     where
         Fpolish: FnMut(&mut S) -> bool + 'static,

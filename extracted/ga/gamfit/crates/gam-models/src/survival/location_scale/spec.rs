@@ -656,11 +656,12 @@ pub fn survival_fit_from_parts(
             penalty_block_trace: inference_penalty_block_trace.clone(),
             edf_total,
             smoothing_correction: None,
+            smoothing_correction_method: None,
             penalized_hessian: geom.penalized_hessian.clone(),
             working_weights: geom.working_weights.clone(),
             working_response: geom.working_response.clone(),
             reparam_qs: None,
-            dispersion: gam_solve::estimate::Dispersion::Known(1.0),
+            dispersion: gam_solve::estimate::Dispersion::UNIT,
             beta_covariance: covariance_conditional.clone().map(Into::into),
             beta_standard_errors: covariance_conditional
                 .as_ref()

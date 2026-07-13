@@ -52,12 +52,12 @@
 //! Term-level composition (concatenating a Tier-1 linear term with a Tier-2
 //! curved term into one solve) already lives in [`crate::manifold`]:
 //! `SaeManifoldTerm::merge_tiers` + `manifold::stagewise::terminal_joint_assembly`
-//! (exact additivity under independent JumpReLU/IBP gates). The Mode-A per-block
+//! (exact additivity under independent ThresholdGate/ordered Beta--Bernoulli gates). The Mode-A per-block
 //! scale-out (one K=1 curved chart per orthonormal Tier-1 block) consumes the
 //! block frames on the block-sparse fit directly; see `sparse_dict::block`.
 
 mod fit;
-pub use fit::{TieredFitConfig, TieredFitReport, fit_tiered};
+pub use fit::{TieredFitConfig, TieredFitReport, TieredSeedPolicy, fit_tiered};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -487,7 +487,7 @@ pub fn fit_tier05_sink_atom(
         }
     }
     let smooth_penalty = Array2::<f64>::zeros((anchors.len(), anchors.len()));
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "tier0_5_attention_sink",
         SaeAtomBasisKind::FiniteSet,
         1,

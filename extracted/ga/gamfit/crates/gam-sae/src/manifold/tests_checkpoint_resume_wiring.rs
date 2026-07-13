@@ -37,7 +37,7 @@ fn tiny_objective(salt: u64) -> (SaeManifoldOuterObjective, Array1<f64>) {
     let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let m = phi.ncols();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "ckpt-e2e",
         SaeAtomBasisKind::Periodic,
         1,
@@ -91,7 +91,9 @@ fn checkpoint_banks_resumes_and_discards_across_objectives() {
 
     // A fresh job on the identical data: resume must verify + install.
     let (mut second, _) = tiny_objective(salt);
-    let resumed_rho = second.try_resume_from_checkpoint(flat.len());
+    let resumed_rho = second
+        .try_resume_from_checkpoint(flat.len())
+        .expect("banked rho must satisfy the objective domain");
     assert!(
         resumed_rho.is_some(),
         "identical data + schema must resume the banked checkpoint"
@@ -115,9 +117,38 @@ fn checkpoint_banks_resumes_and_discards_across_objectives() {
     );
     let (mut third, _) = tiny_objective(salt);
     assert!(
-        third.try_resume_from_checkpoint(flat.len()).is_none(),
+        third
+            .try_resume_from_checkpoint(flat.len())
+            .expect("a missing checkpoint is not a domain error")
+            .is_none(),
         "after discard a fresh fit must start cold"
     );
+}
+
+#[test]
+fn checkpoint_refuses_shape_compatible_out_of_domain_rho() {
+    let salt = std::process::id() as u64 ^ 0xD0A1_0001;
+    let (writer, flat) = tiny_objective(salt);
+    writer.remove_checkpoint();
+    writer.bank_checkpoint(&flat);
+
+    let mut checkpoint = super::checkpoint::SaeFitCheckpoint::load(&writer.checkpoint_path)
+        .expect("load banked checkpoint");
+    let ard_index = writer.baseline_rho.ard_flat_index(0, 0);
+    checkpoint.rho_flat[ard_index] = LOG_STRENGTH_MAX + 1.0;
+    checkpoint
+        .save_atomic(&writer.checkpoint_path)
+        .expect("rewrite shape-compatible invalid checkpoint");
+
+    let (mut reader, _) = tiny_objective(salt);
+    let error = reader
+        .try_resume_from_checkpoint(flat.len())
+        .expect_err("invalid checkpoint rho must be a typed refusal, never a cold fallback");
+    assert!(
+        error.contains("refused invalid rho payload") && error.contains("ARD log precision"),
+        "unexpected checkpoint-domain error: {error}"
+    );
+    reader.remove_checkpoint();
 }
 
 /// Different DATA must never resume another problem's checkpoint (the
@@ -135,7 +166,9 @@ fn checkpoint_never_resumes_across_different_data() {
     // store path entirely; the other problem sees no file at its own path.
     let (mut b, _) = tiny_objective(salt ^ 0xFFFF);
     assert!(
-        b.try_resume_from_checkpoint(flat.len()).is_none(),
+        b.try_resume_from_checkpoint(flat.len())
+            .expect("a missing checkpoint is not a domain error")
+            .is_none(),
         "a different data fingerprint must not find (let alone resume) another \
          problem's checkpoint"
     );
@@ -187,7 +220,10 @@ fn checkpoint_paths_are_phase_scoped_and_structured_phase_resumes() {
     let (mut resumed, _) = tiny_objective(salt);
     scope_outer_checkpoint_to_stage(&mut resumed, structured_stage);
     assert!(
-        resumed.try_resume_from_checkpoint(flat.len()).is_some(),
+        resumed
+            .try_resume_from_checkpoint(flat.len())
+            .expect("banked rho must satisfy the objective domain")
+            .is_some(),
         "a fresh matching structured phase must resume its own checkpoint"
     );
     resumed.remove_checkpoint();

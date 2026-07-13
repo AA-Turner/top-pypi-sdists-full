@@ -1,4 +1,5 @@
 use super::*;
+use ndarray::s;
 
 // ---------------------------------------------------------------------------
 // Operator-form wrapper for the REML/PIRLS canonical pipeline
@@ -59,6 +60,18 @@ macro_rules! define_analytic_penalty_kind {
             pub fn name(&self) -> &str {
                 match self {
                     $(AnalyticPenaltyKind::$variant(p) => p.name(),)*
+                }
+            }
+
+            pub fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+                match self {
+                    $(AnalyticPenaltyKind::$variant(p) => <$ty as AnalyticPenalty>::validate_rho(p, rho),)*
+                }
+            }
+
+            pub fn rho_coordinate_domains(&self) -> Result<Vec<(f64, f64)>, String> {
+                match self {
+                    $(AnalyticPenaltyKind::$variant(p) => <$ty as AnalyticPenalty>::rho_coordinate_domains(p),)*
                 }
             }
 
@@ -250,6 +263,61 @@ impl AnalyticPenaltyRegistry {
         }
         out
     }
+
+    pub fn validate_rho(&self, rho: ArrayView1<'_, f64>) -> Result<(), String> {
+        if rho.len() != self.total_rho_count() {
+            return Err(format!(
+                "analytic-penalty rho length {} != registry dimension {}",
+                rho.len(),
+                self.total_rho_count()
+            ));
+        }
+        // Hot evaluation seam: walk the concatenated vector directly rather
+        // than allocating the diagnostic `rho_layout()` Vec on every value /
+        // gradient / Hessian call.
+        let mut offset = 0usize;
+        for penalty in &self.penalties {
+            let end = offset + penalty.rho_count();
+            penalty
+                .validate_rho(rho.slice(s![offset..end]))
+                .map_err(|error| format!("analytic penalty `{}`: {error}", penalty.name()))?;
+            offset = end;
+        }
+        Ok(())
+    }
+
+    pub fn rho_domain_bounds(&self) -> Result<(Array1<f64>, Array1<f64>), String> {
+        let mut lower = Array1::<f64>::zeros(self.total_rho_count());
+        let mut upper = Array1::<f64>::zeros(self.total_rho_count());
+        let mut offset = 0usize;
+        for penalty in &self.penalties {
+            let domains = penalty.rho_coordinate_domains()?;
+            if domains.len() != penalty.rho_count() {
+                return Err(format!(
+                    "analytic penalty `{}` returned {} rho domains for {} coordinates",
+                    penalty.name(),
+                    domains.len(),
+                    penalty.rho_count()
+                ));
+            }
+            for (local, &(lo, hi)) in domains.iter().enumerate() {
+                // Infinite faces deliberately represent ordinary unbounded
+                // real coordinates (for example parametric raw-beta and mu).
+                // The optimizer intersects these with its finite configured
+                // box; `validate_rho` separately refuses non-finite values.
+                if lo.is_nan() || hi.is_nan() || lo >= hi {
+                    return Err(format!(
+                        "analytic penalty `{}` has invalid rho domain[{local}] [{lo}, {hi}]",
+                        penalty.name()
+                    ));
+                }
+                lower[offset + local] = lo;
+                upper[offset + local] = hi;
+            }
+            offset += domains.len();
+        }
+        Ok((lower, upper))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -286,13 +354,18 @@ const ORTHOGONALITY_LOGDET_SLQ_PROBES: usize = 16;
 const ORTHOGONALITY_LOGDET_LANCZOS_STEPS: usize = 32;
 
 impl FrozenAnalyticPenaltyOp {
-    #[must_use]
-    pub fn new(penalty: AnalyticPenaltyKind, target: Array1<f64>, rho: Array1<f64>) -> Self {
-        Self {
+    #[must_use = "invalid analytic-penalty rho must be handled"]
+    pub fn new(
+        penalty: AnalyticPenaltyKind,
+        target: Array1<f64>,
+        rho: Array1<f64>,
+    ) -> Result<Self, String> {
+        penalty.validate_rho(rho.view())?;
+        Ok(Self {
             penalty,
             target,
             rho,
-        }
+        })
     }
 
     /// Underlying penalty (read-only). Useful for the outer driver that needs
@@ -332,9 +405,9 @@ impl PenaltyOp for FrozenAnalyticPenaltyOp {
             AnalyticPenaltyKind::TopKActivation(p) => p
                 .psd_majorizer_diag(self.target.view(), self.rho.view())
                 .expect("TopK activation diag"),
-            AnalyticPenaltyKind::JumpReLU(p) => p
+            AnalyticPenaltyKind::SmoothThreshold(p) => p
                 .psd_majorizer_diag(self.target.view(), self.rho.view())
-                .expect("JumpReLU majorizer diag"),
+                .expect("SmoothThreshold majorizer diag"),
             AnalyticPenaltyKind::TotalVariation(p) => {
                 p.diag_target(self.target.view(), self.rho.view())
             }
@@ -381,9 +454,9 @@ impl PenaltyOp for FrozenAnalyticPenaltyOp {
                 p.diag_target(self.target.view(), self.rho.view())
             }
             AnalyticPenaltyKind::ScadMcp(p) => p.diag_target(self.target.view(), self.rho.view()),
-            AnalyticPenaltyKind::IBPAssignment(p) => p
+            AnalyticPenaltyKind::OrderedBetaBernoulli(p) => p
                 .psd_majorizer_diag(self.target.view(), self.rho.view())
-                .expect("IBP assignment diag"),
+                .expect("ordered Beta--Bernoulli assignment diag"),
             AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_) => self.diag_via_matvec(),
             AnalyticPenaltyKind::Sparsity(p) => {
                 if let Some(d) = p.psd_majorizer_diag(self.target.view(), self.rho.view()) {
@@ -432,9 +505,9 @@ impl PenaltyOp for FrozenAnalyticPenaltyOp {
         match &self.penalty {
             AnalyticPenaltyKind::Ard(_)
             | AnalyticPenaltyKind::TopKActivation(_)
-            | AnalyticPenaltyKind::JumpReLU(_)
+            | AnalyticPenaltyKind::SmoothThreshold(_)
             | AnalyticPenaltyKind::Sparsity(_)
-            | AnalyticPenaltyKind::IBPAssignment(_)
+            | AnalyticPenaltyKind::OrderedBetaBernoulli(_)
             | AnalyticPenaltyKind::HarmonicRoughness(_)
             | AnalyticPenaltyKind::NestedPrefix(_) => {
                 let d = self.diag();
@@ -830,8 +903,16 @@ const fn splitmix64(state: &mut u64) -> u64 {
 impl AnalyticPenaltyKind {
     /// Freeze this kind at `(target, rho)` and return an `Arc<dyn PenaltyOp>`
     /// ready to slot into `BlockwisePenalty::with_op` or `PenaltyForm::Operator`.
-    #[must_use]
-    pub fn freeze(&self, target: Array1<f64>, rho: Array1<f64>) -> Arc<dyn PenaltyOp> {
-        Arc::new(FrozenAnalyticPenaltyOp::new(self.clone(), target, rho))
+    #[must_use = "invalid analytic-penalty rho must be handled"]
+    pub fn freeze(
+        &self,
+        target: Array1<f64>,
+        rho: Array1<f64>,
+    ) -> Result<Arc<dyn PenaltyOp>, String> {
+        Ok(Arc::new(FrozenAnalyticPenaltyOp::new(
+            self.clone(),
+            target,
+            rho,
+        )?))
     }
 }

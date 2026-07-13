@@ -150,11 +150,25 @@ class Window(
     def refresh(self) -> None:
         """Refresh window attributes from tmux.
 
+        Scoped to this window's own session (``list-windows -t @ID``), so tmux
+        -- not libtmux -- decides which session the window belongs to. See
+        :meth:`Window.from_window_id`.
+
         Raises
         ------
         ValueError
             When ``window_id`` is unset. Surfaces a clear error under
             ``python -O``, where an ``assert`` would be stripped.
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When the window no longer exists.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When tmux itself is unreachable.
+
+        Examples
+        --------
+        >>> window.refresh()
+        >>> window.window_id
+        '@1'
         """
         if self.window_id is None:
             msg = "Window must have a window_id to refresh"
@@ -163,20 +177,103 @@ class Window(
             obj_key="window_id",
             obj_id=self.window_id,
             list_cmd="list-windows",
-            list_extra_args=("-a",),
+            list_extra_args=("-t", self.window_id),
         )
 
     @classmethod
     def from_window_id(cls, server: Server, window_id: str) -> Window:
-        """Create Window from existing window_id."""
+        """Create Window from existing window_id.
+
+        tmux's ``cmd_find`` routes a ``-t`` target by *sigil*, so an ``@``-id
+        handed to ``list-windows`` resolves to that window's session and lists
+        it. The rows come back stamped with the session tmux considers
+        canonical for the window -- the most recently active one -- so a window
+        linked into several sessions reports the same parent tmux itself would.
+
+        Parameters
+        ----------
+        server : :class:`~libtmux.server.Server`
+            The tmux server holding the window.
+        window_id : str
+            Window id, e.g. ``"@3"``.
+
+        Returns
+        -------
+        :class:`Window`
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When no such window exists on a reachable server.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When tmux itself is unreachable.
+
+        Examples
+        --------
+        >>> Window.from_window_id(server=window.server, window_id=window.window_id)
+        Window(@1 1:..., Session($1 ...))
+        """
         window = fetch_obj(
             obj_key="window_id",
             obj_id=window_id,
             server=server,
             list_cmd="list-windows",
-            list_extra_args=("-a",),
+            list_extra_args=("-t", window_id),
         )
         return cls(server=server, **window)
+
+    @classmethod
+    def from_env(cls, env: t.Mapping[str, str] | None = None) -> Window:
+        """Return the window containing the pane this process runs inside of.
+
+        Resolves through :meth:`Pane.from_env`, so the answer is the window
+        that *contains* the caller -- not the session's currently active
+        window, which may be a different one entirely.
+
+        Parameters
+        ----------
+        env : :class:`typing.Mapping`, optional
+            Environment to read. Defaults to :data:`os.environ`.
+
+        Returns
+        -------
+        :class:`Window`
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.NotInsideTmux`
+            When ``$TMUX`` or ``$TMUX_PANE`` is unset or malformed.
+        :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+            When the pane named by ``$TMUX_PANE`` is gone.
+        :exc:`~libtmux.exc.LibTmuxException`
+            When the server named by ``$TMUX`` is unreachable.
+        ValueError
+            When the resolved pane carries no ``window_id``. Surfaces a clear
+            error under ``python -O``, where an ``assert`` would be stripped.
+
+        Examples
+        --------
+        >>> socket_path = server.cmd(
+        ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
+        ... ).stdout[0]
+        >>> env = {"TMUX": f"{socket_path},1,0", "TMUX_PANE": pane.pane_id}
+
+        >>> Window.from_env(env)
+        Window(@1 1:..., Session($1 ...))
+
+        The caller's window is reported even while another window is active:
+
+        >>> _ = session.new_window(window_name="foreground", attach=True)
+        >>> Window.from_env(env).window_id == window.window_id
+        True
+
+        .. versionadded:: 0.62
+        """
+        pane = Pane.from_env(env)
+        if pane.window_id is None:
+            msg = "Pane must have a window_id to resolve its window"
+            raise ValueError(msg)
+        return cls.from_window_id(server=pane.server, window_id=pane.window_id)
 
     @property
     def session(self) -> Session:
@@ -185,6 +282,82 @@ class Window(
         from libtmux.session import Session
 
         return Session.from_session_id(server=self.server, session_id=self.session_id)
+
+    @property
+    def linked_sessions(self) -> QueryList[Session]:
+        """Every session this window is reachable from.
+
+        Usually one, and then this is just :attr:`Window.session` in a list.
+        ``link-window`` and grouped sessions (``tmux new-session -t existing``)
+        make it more: the window is genuinely in each of them at once, and
+        :attr:`Window.session` returns the session recorded on this
+        :class:`Window` instance.
+
+        Each session is listed once, however many indexes it links the window
+        at, and they come back in the order tmux lists them. Fetching the
+        holders takes two list commands total, independent of how many there
+        are.
+        If either listing fails, the result is empty.
+
+        Returns
+        -------
+        :class:`~libtmux._internal.query_list.QueryList` of :class:`~libtmux.Session`
+
+        See Also
+        --------
+        :attr:`Window.session` : the session recorded on this window instance.
+
+        Examples
+        --------
+        A window you just made belongs to the session you made it in:
+
+        >>> window = session.new_window(window_name="solo", attach=False)
+        >>> [s.session_name for s in window.linked_sessions] == [session.session_name]
+        True
+
+        Link it into a second session and it belongs to both:
+
+        >>> guest = server.new_session(session_name="guest")
+        >>> target = f"{guest.session_id}:"
+        >>> _ = server.cmd("link-window", "-d", "-s", window.window_id, "-t", target)
+        >>> sorted(s.session_name for s in window.linked_sessions) == sorted(
+        ...     [session.session_name, "guest"]
+        ... )
+        True
+
+        .. versionadded:: 0.62
+        """
+        from libtmux.session import Session
+
+        try:
+            window_rows = fetch_objs(
+                server=self.server,
+                list_cmd="list-windows",
+                list_extra_args=("-a",),
+            )
+            session_ids = dict.fromkeys(
+                row["session_id"]
+                for row in window_rows
+                if row.get("window_id") == self.window_id and row.get("session_id")
+            )
+            session_rows = fetch_objs(
+                server=self.server,
+                list_cmd="list-sessions",
+            )
+        except exc.LibTmuxException:
+            return QueryList([])
+
+        sessions_by_id = {
+            row["session_id"]: row for row in session_rows if row.get("session_id")
+        }
+
+        return QueryList(
+            [
+                Session(server=self.server, **sessions_by_id[session_id])
+                for session_id in session_ids
+                if session_id in sessions_by_id
+            ],
+        )
 
     @property
     def panes(self) -> QueryList[Pane]:

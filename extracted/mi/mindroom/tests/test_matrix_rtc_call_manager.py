@@ -6,7 +6,7 @@ import asyncio
 import base64
 import time
 from typing import TYPE_CHECKING, cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import httpx
@@ -115,6 +115,35 @@ class FakeKeyTransport:
         self.sent.append(
             {"room_id": room_id, "key_base64": key_base64, "key_index": key_index, "targets": targets},
         )
+        return targets
+
+
+class RecoveringKeyTransport(FakeKeyTransport):
+    """Starts unable to send and becomes usable after inbound Olm traffic."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.available = False
+        self.delivered = asyncio.Event()
+
+    async def send_key(
+        self,
+        *,
+        room_id: str,
+        key_base64: str,
+        key_index: int,
+        targets: list[CallMember],
+    ) -> list[CallMember]:
+        """Deliver only after the test models an established Olm session."""
+        await super().send_key(
+            room_id=room_id,
+            key_base64=key_base64,
+            key_index=key_index,
+            targets=targets,
+        )
+        if not self.available:
+            return []
+        self.delivered.set()
         return targets
 
 
@@ -235,6 +264,7 @@ def _manager(
     config: Config | None = None,
     tool_support: object = object(),
     clock_ms: Callable[[], int] = lambda: int(time.time() * 1000),
+    invited_rooms_by_agent: dict[str, set[str]] | None = None,
 ) -> CallManager:
     return CallManager(
         agent_name="helper",
@@ -244,6 +274,7 @@ def _manager(
         ssl_verify=True,
         bridge_factory=lambda _identity, _e2ee: bridge,
         tool_support=tool_support,  # type: ignore[arg-type]
+        get_invited_rooms_by_agent=lambda: invited_rooms_by_agent or {},
         clock_ms=clock_ms,
     )
 
@@ -329,6 +360,144 @@ async def test_manager_joins_call_when_remote_member_appears(tmp_path: Path) -> 
     assert args[1] == CALL_MEMBER_EVENT_TYPE
     assert args[2]["device_id"] == BOT_DEVICE
     assert kwargs["state_key"] == membership_state_key(BOT_USER, BOT_DEVICE)
+
+
+@pytest.mark.asyncio
+async def test_manager_joins_call_in_authorized_ad_hoc_invited_room(tmp_path: Path) -> None:
+    """An accepted invite is sufficient room ownership for a calls-enabled agent."""
+    client = _client()
+    client.room_get_state.return_value = _state_response(_remote_member_event())
+    bridge = FakeBridge()
+    config = _config()
+    config.agents["helper"].rooms = []
+    manager = _manager(
+        client,
+        bridge,
+        tmp_path,
+        config,
+        invited_rooms_by_agent={"helper": {ROOM_ID}},
+    )
+
+    await manager.on_room_event(_room(), _member_unknown_event())
+
+    assert bridge.connected_grant == GRANT
+
+
+@pytest.mark.asyncio
+async def test_manager_stops_call_when_agent_is_kicked_from_ephemeral_room(tmp_path: Path) -> None:
+    """Own membership removal tears down media without waiting for another call event."""
+    client = _client()
+    client.room_get_state.return_value = _state_response(_remote_member_event())
+    bridge = FakeBridge()
+    manager = _manager(client, bridge, tmp_path)
+    room = _room()
+    await manager.on_room_event(room, _member_unknown_event())
+
+    await manager.on_sync_room_membership(joined_room_ids=set(), left_room_ids={ROOM_ID})
+
+    assert bridge.closed is True
+    assert manager._sessions == {}
+    assert manager._logical_calls == {}
+    assert ROOM_ID in manager._departed_rooms
+    assert ROOM_ID not in manager._observed_rooms
+    assert ROOM_ID not in manager._locks
+
+
+@pytest.mark.asyncio
+async def test_manager_ignores_own_departure_from_unmanaged_room(tmp_path: Path) -> None:
+    """Ordinary room churn cannot create call-manager departure or lock state."""
+    client = _client()
+    manager = _manager(client, FakeBridge(), tmp_path)
+    room = _room(room_id="!text:example.org")
+    event = nio.RoomMemberEvent.from_dict(
+        {
+            "event_id": "$leave",
+            "sender": "@alice:example.org",
+            "origin_server_ts": int(time.time() * 1000),
+            "type": "m.room.member",
+            "state_key": BOT_USER,
+            "content": {"membership": "leave"},
+        },
+    )
+    assert isinstance(event, nio.RoomMemberEvent)
+
+    await manager.on_room_membership_event(room, event)
+
+    assert manager._departed_rooms == set()
+    assert dict(manager._locks) == {}
+
+
+@pytest.mark.asyncio
+async def test_manager_does_not_retain_departed_ad_hoc_room(tmp_path: Path) -> None:
+    """Forgotten invite ownership permits teardown without retaining the room ID."""
+    client = _client()
+    config = _config()
+    config.agents["helper"].rooms = []
+    invited_rooms = {ROOM_ID}
+    manager = _manager(
+        client,
+        FakeBridge(),
+        tmp_path,
+        config,
+        invited_rooms_by_agent={"helper": invited_rooms},
+    )
+    room = _room()
+    manager._observed_rooms[ROOM_ID] = room
+    invited_rooms.clear()
+    event = nio.RoomMemberEvent.from_dict(
+        {
+            "event_id": "$leave",
+            "sender": "@alice:example.org",
+            "origin_server_ts": int(time.time() * 1000),
+            "type": "m.room.member",
+            "state_key": BOT_USER,
+            "content": {"membership": "leave"},
+        },
+    )
+    assert isinstance(event, nio.RoomMemberEvent)
+
+    await manager.on_room_membership_event(room, event)
+
+    assert manager._observed_rooms == {}
+    assert manager._departed_rooms == set()
+    assert dict(manager._locks) == {}
+
+
+@pytest.mark.asyncio
+async def test_manager_ignores_frame_keys_after_departing_configured_room(tmp_path: Path) -> None:
+    """Late to-device keys cannot repopulate state after the bot leaves."""
+    client = _client()
+    client.rooms = {ROOM_ID: _room(encrypted=True)}
+    manager = _manager(client, FakeBridge(), tmp_path)
+    event = nio.RoomMemberEvent.from_dict(
+        {
+            "event_id": "$leave",
+            "sender": "@alice:example.org",
+            "origin_server_ts": int(time.time() * 1000),
+            "type": "m.room.member",
+            "state_key": BOT_USER,
+            "content": {"membership": "leave"},
+        },
+    )
+    assert isinstance(event, nio.RoomMemberEvent)
+    await manager.on_room_membership_event(client.rooms[ROOM_ID], event)
+
+    await manager.on_to_device_event(_frame_key_event())
+
+    assert manager._pending_keys == {}
+    client.room_get_state.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_manager_clears_departure_guard_on_own_rejoin(tmp_path: Path) -> None:
+    """A forwarded own join makes a configured call room eligible again."""
+    client = _client()
+    manager = _manager(client, FakeBridge(), tmp_path)
+    manager._departed_rooms.add(ROOM_ID)
+
+    await manager.on_sync_room_membership(joined_room_ids={ROOM_ID}, left_room_ids=set())
+
+    assert ROOM_ID not in manager._departed_rooms
 
 
 @pytest.mark.asyncio
@@ -489,6 +658,7 @@ def test_default_bridge_factory_tracks_configured_backend(tmp_path: Path) -> Non
         runtime_paths=test_runtime_paths(tmp_path),
         ssl_verify=True,
         tool_support=object(),  # type: ignore[arg-type]
+        get_invited_rooms_by_agent=dict,
     )
 
     bridge = manager._bridge_factory("@helper:example.org:BOTDEV", False)
@@ -700,6 +870,7 @@ async def test_manager_restarts_when_sole_requester_changes(
         ssl_verify=True,
         bridge_factory=lambda _identity, _e2ee: next(bridges),
         tool_support=object(),  # type: ignore[arg-type]
+        get_invited_rooms_by_agent=dict,
     )
     client.room_get_state.return_value = _state_response(_remote_member_event())
     await manager.on_room_event(_room(), _member_unknown_event())
@@ -860,6 +1031,7 @@ def test_maybe_build_call_manager_respects_configuration(tmp_path: Path) -> None
         runtime_paths=runtime_paths,
         ssl_verify=True,
         tool_support=object(),
+        get_invited_rooms_by_agent=dict,
     )
     assert disabled is None
     not_listed = maybe_build_call_manager(
@@ -869,6 +1041,7 @@ def test_maybe_build_call_manager_respects_configuration(tmp_path: Path) -> None
         runtime_paths=runtime_paths,
         ssl_verify=True,
         tool_support=object(),
+        get_invited_rooms_by_agent=dict,
     )
     assert not_listed is None
     enabled = maybe_build_call_manager(
@@ -878,6 +1051,7 @@ def test_maybe_build_call_manager_respects_configuration(tmp_path: Path) -> None
         runtime_paths=runtime_paths,
         ssl_verify=True,
         tool_support=object(),
+        get_invited_rooms_by_agent=dict,
     )
     assert isinstance(enabled, CallManager)
 
@@ -900,8 +1074,32 @@ def test_maybe_build_call_manager_survives_missing_livekit_package(
         runtime_paths=test_runtime_paths(tmp_path),
         ssl_verify=True,
         tool_support=object(),
+        get_invited_rooms_by_agent=dict,
     )
     assert manager is None
+
+
+def test_voice_backend_availability_requires_runtime_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Presence readiness is false when the realtime backend cannot authenticate."""
+    monkeypatch.setattr(
+        "mindroom.matrix_rtc.call_manager.get_api_key_for_provider",
+        lambda _provider, _paths: None,
+    )
+    manager = _manager(_client(), FakeBridge(), tmp_path)
+
+    with patch("mindroom.matrix_rtc.call_manager.logger.warning") as warning:
+        assert manager.voice_backend_available is False
+        warning.assert_not_called()
+
+        assert manager._resolve_voice_backend(ROOM_ID) is None
+        warning.assert_called_once_with(
+            "call_join_skipped_no_openai_key",
+            room_id=ROOM_ID,
+            agent="helper",
+        )
 
 
 def test_build_call_instructions_appends_voice_guidance() -> None:
@@ -1063,6 +1261,36 @@ async def test_session_installs_inbound_keys_on_bridge() -> None:
 
     assert accepted is True
     assert bridge.frame_keys == [("@alice:example.org:ALICEDEV", b"A" * 16, 2)]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_inbound_key_immediately_retries_undelivered_outbound_key() -> None:
+    """Inbound Olm traffic wakes outbound sharing after its retry budget ended."""
+    transport = RecoveringKeyTransport()
+    session = _session(_client(), FakeBridge(), transport, [1_000])
+    alice = _member("@alice:example.org", "ALICEDEV")
+    # Model a call whose bounded retry budget was already exhausted before the
+    # peer's first Olm-encrypted key established the bidirectional session.
+    session._key_retry_attempt = 3
+    await session.start([alice])
+    assert len(transport.sent) == 1
+
+    transport.available = True
+    accepted = session.on_key_received(
+        ReceivedFrameKey(
+            user_id=alice.user_id,
+            claimed_device_id=alice.device_id,
+            key_base64="QUFBQUFBQUFBQUFBQUFBQQ==",
+            key_index=2,
+            received_at_ms=1_500,
+        ),
+    )
+    await asyncio.wait_for(transport.delivered.wait(), timeout=1)
+
+    assert accepted is True
+    assert len(transport.sent) == 2
+    assert transport.sent[1]["targets"] == [alice]
     await session.stop()
 
 

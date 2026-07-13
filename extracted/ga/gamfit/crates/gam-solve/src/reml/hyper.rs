@@ -35,15 +35,10 @@ fn empty_hyper_coords(
 #[inline]
 pub(crate) fn directional_curvature_weights(
     c_array: &Array1<f64>,
-    hessian_weights: &Array1<f64>,
     eta_direction: &Array1<f64>,
 ) -> Array1<f64> {
     let crate::pirls::DirectionalWorkingCurvature::Diagonal(weights) =
-        crate::pirls::directionalworking_curvature_from_c_array(
-            c_array,
-            hessian_weights,
-            eta_direction,
-        );
+        crate::pirls::directionalworking_curvature_from_c_array(c_array, eta_direction);
     weights
 }
 
@@ -52,8 +47,6 @@ pub(crate) fn directional_curvature_weights(
 // Mirrors the `BinomialAuxTerms` in estimate.rs but is local to the REML
 // module so that hyper.rs can compute per-observation likelihood derivatives
 // without depending on the estimate module's private helpers.
-
-pub(crate) const LINK_BINOMIAL_AUX_MU_EPS: f64 = 1e-12;
 
 #[derive(Clone, Copy)]
 pub(crate) struct LinkBinomialAux {
@@ -68,21 +61,47 @@ pub(crate) struct LinkBinomialAux {
 }
 
 #[inline]
-pub(crate) fn link_binomial_aux(yi: f64, wi: f64, mu: f64) -> LinkBinomialAux {
-    let mu = if mu.is_finite() {
-        mu.clamp(LINK_BINOMIAL_AUX_MU_EPS, 1.0 - LINK_BINOMIAL_AUX_MU_EPS)
-    } else {
-        0.5
-    };
+pub(crate) fn link_binomial_aux(
+    row: usize,
+    eta: f64,
+    yi: f64,
+    wi: f64,
+    mu: f64,
+) -> Result<LinkBinomialAux, EstimationError> {
+    if !(wi.is_finite() && wi >= 0.0) {
+        return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+            row,
+            quantity: "prior weight",
+            eta,
+            value: wi,
+        });
+    }
+    if !(mu.is_finite() && mu > 0.0 && mu < 1.0) {
+        return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+            row,
+            quantity: "outer binomial mean",
+            eta,
+            value: mu,
+        });
+    }
     let one_minusmu = 1.0 - mu;
     let a1 = wi * (yi / mu - (1.0 - yi) / one_minusmu);
     let a2 = wi * (-(yi / (mu * mu)) - (1.0 - yi) / (one_minusmu * one_minusmu));
-    LinkBinomialAux {
+    let out = LinkBinomialAux {
         a1,
         a2,
         variance: mu * one_minusmu,
         variancemu_scale: 1.0 - 2.0 * mu,
+    };
+    if !(out.a1.is_finite() && out.a2.is_finite() && out.variance.is_finite()) {
+        return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+            row,
+            quantity: "outer binomial likelihood jet",
+            eta,
+            value: out.a2,
+        });
     }
+    Ok(out)
 }
 
 #[derive(Clone)]
@@ -700,6 +719,7 @@ impl<'a> RemlState<'a> {
     {
         let psi_dim = hyper_dirs.len();
         let k_count = rho.len();
+        let lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())?;
 
         let s_tau_list: Vec<Array2<f64>> = penalty_components_per_dir
             .iter()
@@ -717,7 +737,7 @@ impl<'a> RemlState<'a> {
                         }
                         component
                             .matrix
-                            .scaled_add_to(&mut acc, rho[component.penalty_index].exp())?;
+                            .scaled_add_to(&mut acc, lambdas[component.penalty_index])?;
                         Ok(acc)
                     },
                 )
@@ -731,7 +751,7 @@ impl<'a> RemlState<'a> {
             for component in components {
                 let k = component.penalty_index;
                 if k < k_count {
-                    a_k_tau_j_mats[j][k] = Some(component.matrix.scaled_materialize(rho[k].exp()));
+                    a_k_tau_j_mats[j][k] = Some(component.matrix.scaled_materialize(lambdas[k]));
                     ds_k_dtau_j_mats[j][k] = Some(component.matrix.scaled_materialize(1.0));
                 }
             }
@@ -757,7 +777,7 @@ impl<'a> RemlState<'a> {
                         }
                         component
                             .matrix
-                            .scaled_add_to(&mut acc, rho[component.penalty_index].exp())?;
+                            .scaled_add_to(&mut acc, lambdas[component.penalty_index])?;
                         Ok(acc)
                     },
                 )?;
@@ -959,9 +979,9 @@ impl<'a> RemlState<'a> {
                         x_tau_tau: x_tau_tau[i][j].clone(),
                         x_design: std::sync::Arc::clone(&x_design),
                         basis: basis.clone(),
-                        w_diag: gam_linalg::matrix::SignedWeightsArc::from_arc(std::sync::Arc::clone(
-                            &w_diag,
-                        )),
+                        w_diag: gam_linalg::matrix::SignedWeightsArc::from_arc(
+                            std::sync::Arc::clone(&w_diag),
+                        ),
                         c_x_tau_i_beta: (!is_gaussian_identity).then_some(c_x_tau_i_beta.clone()),
                         c_x_tau_j_beta,
                         d_cross,
@@ -1302,6 +1322,8 @@ impl<'a> RemlState<'a> {
         for_hessian: bool,
     ) -> Result<Vec<super::reml_outer_engine::HyperCoord>, EstimationError> {
         let psi_dim = hyper_dirs.len();
+        let lambdas =
+            Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
 
         let pirls_result = bundle.pirls_result.as_ref();
         let reparam_result = &pirls_result.reparam_result;
@@ -1311,7 +1333,8 @@ impl<'a> RemlState<'a> {
         let mut beta_eval = pirls_result.beta_transformed.as_ref().clone();
 
         if let Some(z) = free_basis_opt.as_ref() {
-            beta_eval = gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
+            beta_eval =
+                gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
         }
         let p_dim = beta_eval.len();
         if p_dim == 0 {
@@ -1449,7 +1472,6 @@ impl<'a> RemlState<'a> {
             } else {
                 reparam_result.canonical_transformed.clone()
             };
-        let lambdas = rho.mapv(f64::exp);
         let penalty_logdet = super::penalty_logdet::PenaltyPseudologdet::from_penalties(
             &ct_eval,
             lambdas.as_slice().unwrap_or(&[]),
@@ -1578,7 +1600,7 @@ impl<'a> RemlState<'a> {
                     }
                     component
                         .matrix
-                        .scaled_add_to(&mut acc, rho[component.penalty_index].exp())?;
+                        .scaled_add_to(&mut acc, lambdas[component.penalty_index])?;
                     Ok(acc)
                 },
             )?;
@@ -1747,7 +1769,6 @@ impl<'a> RemlState<'a> {
                         let c_x_psi_beta = if !is_gaussian_identity {
                             Some(std::sync::Arc::new(directional_curvature_weights(
                                 c_array,
-                                w_diag,
                                 &x_tau_beta_j,
                             )))
                         } else {
@@ -1818,8 +1839,7 @@ impl<'a> RemlState<'a> {
 
                 if !is_gaussian_identity {
                     // Third-derivative correction: X^T diag(c ⊙ X_{τ_j} β̂) X.
-                    let c_x_tau_beta =
-                        directional_curvature_weights(c_array, w_diag, &x_tau_beta_j);
+                    let c_x_tau_beta = directional_curvature_weights(c_array, &x_tau_beta_j);
                     let mut weighted_scratch = Array2::<f64>::zeros((0, 0));
                     b_j +=
                         &Self::xt_diag_x_dense_into(x_dense, &c_x_tau_beta, &mut weighted_scratch);
@@ -1972,7 +1992,8 @@ impl<'a> RemlState<'a> {
 
         let mut beta_eval = pirls_result.beta_transformed.as_ref().clone();
         if let Some(z) = free_basis_opt.as_ref() {
-            beta_eval = gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
+            beta_eval =
+                gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
         }
 
         let x_design =
@@ -2078,7 +2099,8 @@ impl<'a> RemlState<'a> {
 
         let u = &pirls_result.solveweights
             * &(&pirls_result.solveworking_response - &pirls_result.final_eta);
-        let w_diag = gam_linalg::matrix::SignedWeightsArc::from_array(pirls_result.finalweights.to_owned());
+        let w_diag =
+            gam_linalg::matrix::SignedWeightsArc::from_array(pirls_result.finalweights.to_owned());
         let x_design = self.x().clone();
 
         let is_gaussian_identity = matches!(self.config.link_function(), LinkFunction::Identity);
@@ -2107,11 +2129,9 @@ impl<'a> RemlState<'a> {
         // the ρ-side criterion value/derivatives are projections of (#931):
         // one eigendecomposition per evaluation point, one ridge/threshold
         // convention for `log|Sλ|₊` across ρ and τ alike.
-        let pld = bundle.penalty_pseudologdet_original(
-            &self.canonical_penalties,
-            &rho.mapv(f64::exp).to_vec(),
-            p_dim,
-        )?;
+        let lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())?;
+        let pld =
+            bundle.penalty_pseudologdet_original(&self.canonical_penalties, &lambdas, p_dim)?;
 
         // #1033b: conditioned-frame exact ψ-derivatives `(∂G/∂ψ, ∂b/∂ψ)`. In
         // the original basis `self.x()` IS the conditioned design (the same
@@ -2245,7 +2265,6 @@ impl<'a> RemlState<'a> {
             } else {
                 Some(directional_curvature_weights(
                     &pirls_result.solve_c_array.to_owned(),
-                    w_diag.as_ref(),
                     &x_tau_beta_j,
                 ))
             };
@@ -2361,7 +2380,8 @@ impl<'a> RemlState<'a> {
         let pirls_result = bundle.pirls_result.as_ref();
         let beta_eval = self.sparse_exact_beta_original(pirls_result);
         let p_dim = beta_eval.len();
-        let lambdas = rho.mapv(f64::exp);
+        let lambdas =
+            Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
 
         if p_dim == 0 {
             let tau_tau_pair_fn =
@@ -2583,10 +2603,12 @@ impl<'a> RemlState<'a> {
 
         let mut beta_eval = pirls_result.beta_transformed.as_ref().clone();
         if let Some(z) = free_basis_opt.as_ref() {
-            beta_eval = gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
+            beta_eval =
+                gam_linalg::faer_ndarray::fast_atv(z, pirls_result.beta_transformed.as_ref());
         }
         let p_dim = beta_eval.len();
-        let lambdas = rho.mapv(f64::exp);
+        let lambdas =
+            Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
 
         let penalty_components_per_dir: Vec<Vec<PenaltyDerivativeComponent>> = hyper_dirs
             .iter()
@@ -2841,27 +2863,8 @@ impl<'a> RemlState<'a> {
         let mut dw_explicit_by_j = [Array1::<f64>::zeros(nobs), Array1::<f64>::zeros(nobs)];
 
         for i in 0..nobs {
-            // #1876: evaluate the jet on the SAME η surface the inner Hessian
-            // used (`eta_for_observed_hessian_jet`, ±20 for SAS/beta-logistic),
-            // not an ad-hoc ±30 clamp — otherwise ∂W_obs/∂θ differentiates a
-            // different operator than the H whose log-det the ½tr(H⁻¹∂H/∂θ)
-            // term inverts.
             let eta_raw = pirls_result.final_eta[i];
-            let eta_i =
-                crate::pirls::eta_for_observed_hessian_jet(&self.config.link_kind, eta_raw);
-            // #1876: PIRLS pins H to the floored weight `max(W_obs, floor(W_F))`
-            // and computes it at the clamped η. On floored or clamped rows the
-            // Hessian surface is CONSTANT in θ, so the explicit drift
-            // ∂W_obs/∂θ must be masked to zero there — exactly the
-            // reconciliation `outer_hessian_curvature_arrays` applies to the ρ
-            // coordinates' (c, d) arrays. Skipping it here fed the ε/log-δ
-            // gradient an unfloored ∂H/∂θ that disagrees with H at every
-            // saturated row, and tr(G_ε(H)·B) amplifies that by O(1/σ_min(H)):
-            // the #1876 wrong-ε-recovery driver.
-            let w_obs = pirls_result.finalweights[i];
-            let floor = crate::pirls::solver_hessian_weight_floor(pirls_result.solveweights[i]);
-            let drift_masked = !(w_obs.is_finite() && w_obs > floor)
-                || crate::pirls::eta_clamp_active(&self.config.link_kind, eta_raw);
+            let eta_i = eta_raw;
             let jets = if is_beta_logistic {
                 beta_logistic_inverse_link_jetwith_param_partials(
                     eta_i,
@@ -2873,13 +2876,13 @@ impl<'a> RemlState<'a> {
                     eta_i,
                     sas_state.epsilon,
                     sas_state.log_delta,
-                )
+                )?
             };
             let mu = jets.jet.mu;
             let d1 = jets.jet.d1;
             let yi = self.y[i];
-            let wi = self.weights[i].max(0.0);
-            let aux = link_binomial_aux(yi, wi, mu);
+            let wi = self.weights[i];
+            let aux = link_binomial_aux(i, eta_i, yi, wi, mu)?;
 
             for j in 0..aux_dim {
                 let dj = if j == 0 {
@@ -2929,12 +2932,7 @@ impl<'a> RemlState<'a> {
                 // OBSERVED weight derivative for the outer REML (see response.md Section 3):
                 //   dW_obs/dtheta = dW_Fisher/dtheta + (dmu/dtheta)*B - (y-mu)*dB/dtheta
                 // This is the exact Laplace derivative, not the PQL surrogate.
-                // #1876: zero on floored/clamped rows where H is pinned constant.
-                dw_explicit_by_j[j][i] = if drift_masked {
-                    0.0
-                } else {
-                    dw_fisher + wi * (dmu * b_val - resid * db_val)
-                };
+                dw_explicit_by_j[j][i] = dw_fisher + wi * (dmu * b_val - resid * db_val);
             }
         }
 
@@ -3052,27 +3050,15 @@ impl<'a> RemlState<'a> {
         ];
 
         for i in 0..nobs {
-            // #1876: same η-surface + floored/clamped-row reconciliation as the
-            // SAS builder above — the mixture-ρ drift must differentiate the
-            // exact H the log-det trace inverts (see
-            // `outer_hessian_curvature_arrays`).
             let eta_raw = pirls_result.final_eta[i];
-            let eta_i =
-                crate::pirls::eta_for_observed_hessian_jet(&self.config.link_kind, eta_raw);
-            let w_obs = pirls_result.finalweights[i];
-            let floor = crate::pirls::solver_hessian_weight_floor(pirls_result.solveweights[i]);
-            let drift_masked = !(w_obs.is_finite() && w_obs > floor)
-                || crate::pirls::eta_clamp_active(&self.config.link_kind, eta_raw);
-            let jet = mixture_inverse_link_jetwith_rho_partials_into(
-                mix_state,
-                eta_i,
-                &mut mix_partials,
-            );
+            let eta_i = eta_raw;
+            let jet =
+                mixture_inverse_link_jetwith_rho_partials_into(mix_state, eta_i, &mut mix_partials);
             let mu = jet.mu;
             let d1 = jet.d1;
             let yi = self.y[i];
-            let wi = self.weights[i].max(0.0);
-            let aux = link_binomial_aux(yi, wi, mu);
+            let wi = self.weights[i];
+            let aux = link_binomial_aux(i, eta_i, yi, wi, mu)?;
 
             for j in 0..aux_dim {
                 let dj = mix_partials[j];
@@ -3116,12 +3102,7 @@ impl<'a> RemlState<'a> {
                 // OBSERVED weight derivative for the outer REML (see response.md Section 3):
                 //   dW_obs/dtheta = dW_Fisher/dtheta + (dmu/dtheta)*B - (y-mu)*dB/dtheta
                 // This is the exact Laplace derivative, not the PQL surrogate.
-                // #1876: zero on floored/clamped rows where H is pinned constant.
-                dw_explicit_by_j[j][i] = if drift_masked {
-                    0.0
-                } else {
-                    dw_fisher + wi * (dmu * b_val - resid * db_val)
-                };
+                dw_explicit_by_j[j][i] = dw_fisher + wi * (dmu * b_val - resid * db_val);
             }
         }
 

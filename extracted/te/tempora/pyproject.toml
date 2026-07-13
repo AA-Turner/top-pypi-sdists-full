@@ -1,90 +1,25 @@
 [build-system]
-requires = [
-	"setuptools>=77",
-	"setuptools_scm[toml]>=3.4.1",
-	# jaraco/skeleton#174
-	"coherent.licensed",
-]
-build-backend = "setuptools.build_meta"
+requires = ["flit-core >=3.11, <4"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "tempora"
-authors = [
-	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
-]
-description = "Objects and routines pertaining to date and time (tempora)"
-readme = "README.rst"
-classifiers = [
-	"Development Status :: 5 - Production/Stable",
-	"Intended Audience :: Developers",
-	"Programming Language :: Python :: 3",
-	"Programming Language :: Python :: 3 :: Only",
-]
-requires-python = ">=3.10"
-license = "MIT"
-dependencies = [
-	"jaraco.functools>=4.2",
-	"python-dateutil",
-	"jaraco.context",
-	"more_itertools",
-	"jaraco.collections>=5.2.1",
-]
-dynamic = ["version"]
+version = "5.10.0"
+description = ""
+readme = "README.md"
+requires-python = ">= 3.10"
+dependencies = ["pytest-freezer; extra == \"test\"", "backports.zoneinfo; python_version < \"3.9\" and extra == \"test\"", "tzdata; platform_system == \"Windows\" and extra == \"test\"", "types-python-dateutil; extra == \"test\"", "python-dateutil", "jaraco.collections", "jaraco.context", "jaraco.functools", "typing_extensions", "freezegun; extra==\"test\"", "pytest; extra==\"test\""]
+classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
+license = "Apache-2.0"
+
+[[project.authors]]
+name = "Jason R. Coombs"
+email = "jaraco@jaraco.com"
 
 [project.urls]
 Source = "https://github.com/jaraco/tempora"
 
-[project.optional-dependencies]
-test = [
-	# upstream
-	"pytest >= 6, != 8.1.*",
-
-	# local
-	"pytest-freezer",
-	"backports.zoneinfo; python_version < '3.9'",
-	"tzdata; platform_system == 'Windows'",
-]
-
-doc = [
-	# upstream
-	"sphinx >= 3.5",
-	"jaraco.packaging >= 9.3",
-	"rst.linker >= 1.9",
-	"furo",
-	"sphinx-lint",
-
-	# tidelift
-	"jaraco.tidelift >= 1.4",
-
-	# local
-]
-
-check = [
-	"pytest-checkdocs >= 2.14",
-	"pytest-ruff >= 0.2.1; sys_platform != 'cygwin'",
-]
-
-cover = [
-	"pytest-cov",
-]
-
-enabler = [
-	"pytest-enabler >= 3.4",
-]
-
-type = [
-	# upstream
-	
-    # Exclude PyPy from type checks (python/mypy#20454 jaraco/skeleton#187)
-	"pytest-mypy >= 1.0.1; platform_python_implementation != 'PyPy'",
-
-	# local
-	"types-python-dateutil",
-]
-
+[project.entry-points]
 
 [project.scripts]
 calc-prorate = "tempora:calculate_prorated_values"
-
-
-[tool.setuptools_scm]

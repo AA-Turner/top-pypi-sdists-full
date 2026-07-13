@@ -592,11 +592,23 @@ pub(crate) fn estimation_error_to_pyerr(err: EstimationError) -> PyErr {
         }
         EstimationError::ModelIsIllConditioned { .. } => IllConditionedError::new_err(message),
         EstimationError::InvalidInput(_) => InvalidInputError::new_err(message),
+        EstimationError::InverseLinkDomainViolation { .. }
+        | EstimationError::PirlsRowGeometryUnrepresentable { .. }
+        | EstimationError::LogStrengthDomainViolation { .. } => InvalidInputError::new_err(message),
         EstimationError::MonotoneRoot(_) => MonotoneRootError::new_err(message),
         EstimationError::CalibratorTrainingFailed(_) => CalibratorError::new_err(message),
         EstimationError::InvalidSpecification(_) => InvalidSpecificationError::new_err(message),
         EstimationError::PredictionError => PredictionError::new_err(message),
         EstimationError::CustomFamily(_) => CustomFamilyError::new_err(message),
+        // Invalid stabilization metadata is a model/solver specification
+        // defect, not a data problem.
+        EstimationError::InvalidStabilization(_) => InvalidSpecificationError::new_err(message),
+        // The exact Tweedie series refusing its term budget is a typed
+        // convergence-class refusal of the fit's likelihood evaluation; users
+        // catch the same class as other did-not-converge outcomes.
+        EstimationError::ExactTweedieSeriesWorkLimit { .. } => {
+            RemlConvergenceError::new_err(message)
+        }
     }
 }
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sage-ai-cli"
-version = "1.20.148"
+version = "1.20.151"
 description = "Sage — a local-first AI coding CLI (like Claude Code, using free/open models)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -74,6 +74,14 @@ asyncio_mode = "auto"
 testpaths = ["sage/tests", "backend/tests"]
 pythonpath = ["."]
 python_files = "test_*.py"
+addopts = "-m 'not integration' --timeout=600 --ignore=sage/tests/e2e --ignore=sage/tests/e2e_exhaustive --ignore=sage/tests/exhaustive_tasks --ignore=sage/tests/functional --ignore=sage/tests/randomized"
+markers = [
+    "integration: slow tests that call real cloud APIs (deselected by default, run with -m integration)",
+    "smoke: quick smoke tests",
+    "cloud: tests requiring cloud model endpoints",
+    "ollama: tests requiring a local Ollama instance",
+    "slow: tests that take a long time to run",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",

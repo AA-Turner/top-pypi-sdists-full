@@ -81,7 +81,7 @@ class DataBC(Geocoder):
 
         :param str query: The address or query you wish to geocode.
 
-        :param int max_results: The maximum number of resutls to request.
+        :param int max_results: The maximum number of results to request.
 
         :param float set_back: The distance to move the accessPoint away
             from the curb (in meters) and towards the interior of the parcel.
@@ -113,8 +113,8 @@ class DataBC(Geocoder):
                                        'rooftopPoint',
                                        'routingPoint']:
             raise GeocoderQueryError(
-                "You did not provided a location_descriptor "
-                "the webservice can consume. It should be any, accessPoint, "
+                "You did not provide a location_descriptor "
+                "that the webservice can consume. It should be any, accessPoint, "
                 "frontDoorPoint, parcelPoint, rooftopPoint or routingPoint."
             )
         params['locationDescriptor'] = location_descriptor
@@ -129,7 +129,7 @@ class DataBC(Geocoder):
 
     def _parse_json(self, response, exactly_one):
         # Success; convert from GeoJSON
-        if not len(response['features']):
+        if not response['features']:
             return None
         geocoded = []
         for feature in response['features']:

@@ -42,6 +42,7 @@ use gam::inference::structure_evidence::{
     select_probe_by_expected_evidence as core_select_probe_by_expected_evidence,
     split_likelihood_log_e_value,
 };
+use gam::solver::CircularGaussianFit2d;
 
 use crate::py_value_error;
 
@@ -147,8 +148,9 @@ impl PyAtomBirthGate {
 pub(crate) fn split_likelihood_log_e(
     log_lik_alternative_on_eval: f64,
     log_lik_null_sup_on_eval: f64,
-) -> f64 {
+) -> PyResult<f64> {
     split_likelihood_log_e_value(log_lik_alternative_on_eval, log_lik_null_sup_on_eval)
+        .map_err(|error| py_value_error(error.to_string()))
 }
 
 /// e-BH dictionary certificate (Wang–Ramdas, issue #984): FDR control over the
@@ -157,8 +159,11 @@ pub(crate) fn split_likelihood_log_e(
 /// sharing every token violate PRDS). Returns the sorted indices of the
 /// CONFIRMED claims with FDR ≤ `alpha`.
 #[pyfunction]
-pub(crate) fn e_bh_dictionary_certificate(log_e_values: Vec<f64>, alpha: f64) -> Vec<usize> {
-    e_benjamini_hochberg(&log_e_values, alpha)
+pub(crate) fn e_bh_dictionary_certificate(
+    log_e_values: Vec<f64>,
+    alpha: f64,
+) -> PyResult<Vec<usize>> {
+    e_benjamini_hochberg(&log_e_values, alpha).map_err(|error| py_value_error(error.to_string()))
 }
 
 /// Calibrate a p-value into a (conservative, valid) log e-value via the
@@ -209,8 +214,10 @@ pub(crate) fn sae_structure_certificate_report(
     let entries = &cert.entries;
     let m = entries.len();
     let log_e: Vec<f64> = entries.iter().map(|entry| entry.log_e).collect();
-    let confirmed_idx: std::collections::HashSet<usize> =
-        e_benjamini_hochberg(&log_e, level).into_iter().collect();
+    let confirmed_idx: std::collections::HashSet<usize> = e_benjamini_hochberg(&log_e, level)
+        .map_err(|error| py_value_error(error.to_string()))?
+        .into_iter()
+        .collect();
     // rank_of[i] = 1-based rank of claim i in descending log_e order (stable on
     // ties, so equal log_e keep ascending index order — matching the facade's
     // `sorted(..., reverse=True)`).
@@ -1137,8 +1144,8 @@ mod tests {
     #[test]
     fn split_lr_log_e_is_the_likelihood_difference() {
         // log E = ℓ_alt − sup ℓ_null; a calibrated null (alt = null sup) is 0.
-        assert!((split_likelihood_log_e(-10.0, -10.0)).abs() < 1e-15);
-        assert!((split_likelihood_log_e(-8.0, -10.0) - 2.0).abs() < 1e-15);
+        assert!((split_likelihood_log_e(-10.0, -10.0).unwrap()).abs() < 1e-15);
+        assert!((split_likelihood_log_e(-8.0, -10.0).unwrap() - 2.0).abs() < 1e-15);
     }
 
     #[test]
@@ -1146,7 +1153,7 @@ mod tests {
         // One overwhelming claim (log e huge) clears the e-BH threshold; a
         // cluster of near-1 e-values (log e ≈ 0) does not.
         let logs = vec![20.0_f64.ln() * 5.0, 0.01, -0.2, 0.0];
-        let confirmed = e_bh_dictionary_certificate(logs, 0.05);
+        let confirmed = e_bh_dictionary_certificate(logs, 0.05).unwrap();
         assert_eq!(confirmed, vec![0]);
     }
 
@@ -1161,6 +1168,634 @@ mod tests {
         gate.absorb_shard(-8.0, -10.0); // cumulative 4.0
         assert!(gate.certified());
         assert!((gate.log_e_value() - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn atom_shape_race_rejects_invalid_folds_before_any_reporting_fit() {
+        // Coincident coordinates would fail the reporting gauge if fitting
+        // began. The fold-contract error must win, proving validation happens
+        // before any full-data or control fit is launched.
+        let coords = Array2::<f64>::zeros((4, 2));
+        for folds in [0usize, 1, 5] {
+            let error = run_atom_shape_race(coords.view(), folds, 11, &[3])
+                .expect_err("shape CV requires 2 <= folds <= n");
+            assert_eq!(
+                error,
+                format!("adjudicate_atom_shape: require 2 <= folds <= n; got folds={folds}, n=4")
+            );
+        }
+
+        let error = run_atom_shape_race(coords.view(), 2, 11, &[3])
+            .expect_err("every ring-cluster training fold needs at least three rows");
+        assert!(error.contains("minimum of 2 with n=4, folds=2"), "{error}");
+
+        for (ladder, expected) in [
+            (vec![0], "require 1 <= k <= n"),
+            (vec![5], "require 1 <= k <= n"),
+            (vec![2, 2], "duplicate k=2"),
+        ] {
+            let error = run_atom_shape_race(coords.view(), 4, 11, &ladder)
+                .expect_err("invalid order ladders must fail before fitting");
+            assert!(error.contains(expected), "{error}");
+        }
+    }
+
+    #[test]
+    fn ring_of_clusters_owns_discrete_cyclic_verdict_2262() {
+        let clusters = 7usize;
+        let per_cluster = 40usize;
+        let mut coords = Array2::<f64>::zeros((clusters * per_cluster, 2));
+        for cluster in 0..clusters {
+            let angle = std::f64::consts::TAU * cluster as f64 / clusters as f64;
+            let (sin_angle, cos_angle) = angle.sin_cos();
+            for sample in 0..per_cluster {
+                let phase = std::f64::consts::TAU * sample as f64 / per_cluster as f64;
+                // This is a cloud, not a constant-radius micro-circle, so the
+                // planted candidate is a genuine Gaussian cluster model.
+                let local_radius = 0.04 * (1.0 + 0.3 * (3.0 * phase).cos());
+                let radial_noise = local_radius * phase.cos();
+                let tangent_noise = local_radius * phase.sin();
+                let radius = 2.0 + radial_noise;
+                let row = cluster * per_cluster + sample;
+                coords[[row, 0]] = 0.5 + radius * cos_angle - tangent_noise * sin_angle;
+                coords[[row, 1]] = -0.25 + radius * sin_angle + tangent_noise * cos_angle;
+            }
+        }
+        let verdict = run_atom_shape_race(coords.view(), 5, 2262, &[5, 7, 9]).unwrap();
+        assert_eq!(verdict.ring_clusters_reporting_k, 7);
+        assert_eq!(verdict.winner_class, "ring_clusters");
+        assert!(
+            verdict.reporting_winner.starts_with("ring_clusters_k7"),
+            "reporting_winner={} names={:?} weights={:?} bic={:?}",
+            verdict.reporting_winner,
+            verdict.candidate_names,
+            verdict.stacking_weights,
+            verdict.bic,
+        );
+        assert!(verdict.circle_wins);
+        assert!(verdict.circular_margin > 0.0);
+        assert_eq!(verdict.candidate_names.len(), 4);
+    }
+
+    #[test]
+    fn circular_gaussian_density_is_normalized_and_finite_at_center() {
+        // Integrate 2 pi r p(r) dr with composite Simpson quadrature. The
+        // model is a density on Cartesian R^2, so this must be one without a
+        // truncated-radius correction or a singular center convention.
+        const INTERVALS: usize = 200_000;
+        for (radius, noise_variance) in [(0.0, 0.7), (2.0, 0.09), (20.0, 1.0e-4)] {
+            let fit = CircularGaussianFit2d::from_parameters([1.25, -0.75], radius, noise_variance)
+                .unwrap();
+            let center = fit.center();
+            assert!(fit.log_density(center[0], center[1]).is_finite());
+
+            let upper = radius + 12.0 * noise_variance.sqrt();
+            let step = upper / INTERVALS as f64;
+            let radial_mass = |r: f64| {
+                if r == 0.0 {
+                    0.0
+                } else {
+                    std::f64::consts::TAU * r * fit.log_density(center[0] + r, center[1]).exp()
+                }
+            };
+            let mut weighted_sum = radial_mass(0.0) + radial_mass(upper);
+            for index in 1..INTERVALS {
+                let weight = if index % 2 == 0 { 2.0 } else { 4.0 };
+                weighted_sum += weight * radial_mass(index as f64 * step);
+            }
+            let integral = step * weighted_sum / 3.0;
+            assert!(
+                (integral - 1.0).abs() < 3.0e-6,
+                "circular Gaussian failed to normalize: R={radius} s={noise_variance} integral={integral:.16e}"
+            );
+        }
+    }
+
+    #[test]
+    fn circular_gaussian_mle_satisfies_all_score_equations() {
+        let n = 360usize;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            let angle = std::f64::consts::TAU * row as f64 / n as f64;
+            coords[[row, 0]] = 0.2 + 1.7 * angle.cos() + 0.15 * (2.3 * angle).cos();
+            coords[[row, 1]] = -0.4 + 1.7 * angle.sin() + 0.12 * (4.7 * angle).sin();
+        }
+        let rows = (0..n).collect::<Vec<_>>();
+        let fit = CircularGaussianFit2d::fit(coords.view(), &rows).unwrap();
+        let center = fit.center();
+        let radius = fit.radius();
+        let noise_variance = fit.noise_variance();
+        let mut center_score = [0.0_f64; 2];
+        let mut radius_score = 0.0_f64;
+        let mut variance_score = 0.0_f64;
+        for row in 0..n {
+            let dx = coords[[row, 0]] - center[0];
+            let dy = coords[[row, 1]] - center[1];
+            let observed_radius = dx.hypot(dy);
+            let kappa = radius * observed_radius / noise_variance;
+            let (_, bessel_ratio) = gam_math::special::bessel_i0_log_minus_abs_and_ratio(kappa);
+            let center_multiplier =
+                (1.0 - radius * bessel_ratio / observed_radius) / noise_variance;
+            center_score[0] += center_multiplier * dx;
+            center_score[1] += center_multiplier * dy;
+            radius_score += (observed_radius * bessel_ratio - radius) / noise_variance;
+            let stable_expected_residual = (observed_radius - radius).powi(2)
+                + 2.0 * radius * observed_radius * (1.0 - bessel_ratio);
+            variance_score +=
+                -1.0 / noise_variance + 0.5 * stable_expected_residual / noise_variance.powi(2);
+        }
+        let nf = n as f64;
+        let score_scale = noise_variance.sqrt();
+        assert!(
+            (center_score[0] / nf * score_scale).abs() < 2.0e-8
+                && (center_score[1] / nf * score_scale).abs() < 2.0e-8,
+            "center score did not vanish: {:?}",
+            center_score
+        );
+        assert!(
+            (radius_score / nf * score_scale).abs() < 2.0e-8,
+            "radius score did not vanish: {radius_score}"
+        );
+        assert!(
+            (variance_score / nf * noise_variance).abs() < 2.0e-8,
+            "variance score did not vanish: {variance_score}"
+        );
+    }
+
+    #[test]
+    fn smooth_circle_density_and_evidence_are_translation_invariant() {
+        let n = 160usize;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            let angle = std::f64::consts::TAU * row as f64 / n as f64;
+            let radius = 2.0 + 0.08 * (3.0 * angle).cos() + 0.03 * (5.0 * angle).sin();
+            coords[[row, 0]] = radius * angle.cos();
+            coords[[row, 1]] = radius * angle.sin();
+        }
+        let mut translated = coords.clone();
+        for mut row in translated.rows_mut() {
+            row[0] += 137.25;
+            row[1] -= 91.75;
+        }
+        let train = (0..120).collect::<Vec<_>>();
+        let eval = (120..n).collect::<Vec<_>>();
+        let base_density = ring_provider_2d(coords.clone())(&train, &eval).unwrap();
+        let shifted_density = ring_provider_2d(translated.clone())(&train, &eval).unwrap();
+        for (base, shifted) in base_density.iter().zip(&shifted_density) {
+            assert!(
+                (base - shifted).abs() < 2.0e-11,
+                "translation changed held-out ring density: base={base:.16e}, shifted={shifted:.16e}"
+            );
+        }
+        let base_evidence = ring_bic_2d(coords.view()).unwrap();
+        let shifted_evidence = ring_bic_2d(translated.view()).unwrap();
+        assert!(
+            (base_evidence - shifted_evidence).abs() < 2.0e-9,
+            "translation changed ring evidence: base={base_evidence:.16e}, shifted={shifted_evidence:.16e}"
+        );
+    }
+
+    #[test]
+    fn smooth_circle_density_and_evidence_obey_the_2d_scale_law() {
+        let n = 160usize;
+        let scale = 7.25_f64;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            let angle = std::f64::consts::TAU * row as f64 / n as f64;
+            let radius = 2.0 + 0.08 * (3.0 * angle).cos() + 0.03 * (5.0 * angle).sin();
+            coords[[row, 0]] = radius * angle.cos();
+            coords[[row, 1]] = radius * angle.sin();
+        }
+        let scaled = coords.mapv(|value| scale * value);
+        let train = (0..120).collect::<Vec<_>>();
+        let eval = (120..n).collect::<Vec<_>>();
+        let base_density = ring_provider_2d(coords.clone())(&train, &eval).unwrap();
+        let scaled_density = ring_provider_2d(scaled.clone())(&train, &eval).unwrap();
+        for (base, transformed) in base_density.iter().zip(&scaled_density) {
+            let expected = base - 2.0 * scale.ln();
+            assert!(
+                (transformed - expected).abs() < 2.0e-10,
+                "ring density violated p_a(ax)=p(x)/a^2: expected={expected:.16e}, got={transformed:.16e}"
+            );
+        }
+
+        let base_evidence = ring_bic_2d(coords.view()).unwrap();
+        let scaled_evidence = ring_bic_2d(scaled.view()).unwrap();
+        let expected = base_evidence + 2.0 * n as f64 * scale.ln();
+        assert!(
+            (scaled_evidence - expected).abs() < 2.0e-8,
+            "ring evidence violated the 2-D scale law: expected={expected:.16e}, got={scaled_evidence:.16e}"
+        );
+    }
+
+    #[test]
+    fn held_out_values_do_not_choose_smooth_candidate_gauges() {
+        let train_rows = 120usize;
+        let eval_rows = 24usize;
+        let mut coords = Array2::<f64>::zeros((train_rows + eval_rows, 2));
+        for row in 0..coords.nrows() {
+            let angle = std::f64::consts::TAU * row as f64 / coords.nrows() as f64;
+            let radius = 1.8 + 0.06 * (5.0 * angle).cos();
+            coords[[row, 0]] = 0.4 + radius * angle.cos();
+            coords[[row, 1]] = -0.7 + radius * angle.sin();
+        }
+        let train = (0..train_rows).collect::<Vec<_>>();
+        let eval = (train_rows..train_rows + eval_rows).collect::<Vec<_>>();
+        let circle_baseline = ring_provider_2d(coords.clone())(&train, &eval).unwrap();
+        let gaussian_baseline = gaussian_provider_2d(coords.clone())(&train, &eval).unwrap();
+
+        let perturbed_slot = eval_rows - 1;
+        coords[[train_rows + perturbed_slot, 0]] = 1.0e12;
+        coords[[train_rows + perturbed_slot, 1]] = -1.0e12;
+        let circle_perturbed = ring_provider_2d(coords.clone())(&train, &eval).unwrap();
+        let gaussian_perturbed = gaussian_provider_2d(coords)(&train, &eval).unwrap();
+        assert_eq!(
+            &circle_perturbed[..perturbed_slot],
+            &circle_baseline[..perturbed_slot]
+        );
+        assert_eq!(
+            &gaussian_perturbed[..perturbed_slot],
+            &gaussian_baseline[..perturbed_slot]
+        );
+    }
+
+    #[test]
+    fn shape_coordinate_gauge_handles_antipodal_finite_range() {
+        let magnitude = 1.7e308_f64;
+        let coords = ndarray::array![
+            [magnitude, 0.0],
+            [-magnitude, 0.0],
+            [0.0, magnitude],
+            [0.0, -magnitude],
+        ];
+        let gauge = fit_shape_coordinate_gauge(coords.view(), "extreme shape").unwrap();
+        let canonical =
+            apply_shape_coordinate_gauge(coords.view(), gauge, "extreme shape").unwrap();
+        assert!(canonical.iter().all(|value| value.is_finite()));
+        assert!(gauge.log_scale.is_finite());
+        assert_eq!(canonical[[0, 0]], -canonical[[1, 0]]);
+        assert_eq!(canonical[[2, 1]], -canonical[[3, 1]]);
+    }
+
+    #[test]
+    fn euclidean_gaussian_is_similarity_equivariant_with_a_normalized_density() {
+        let n = 180usize;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            let phase = std::f64::consts::TAU * row as f64 / n as f64;
+            let x = 2.5 * phase.cos() + 0.35 * (3.0 * phase).sin();
+            let y = 0.4 * x + 0.7 * phase.sin() + 0.12 * (5.0 * phase).cos();
+            coords[[row, 0]] = x;
+            coords[[row, 1]] = y;
+        }
+        let train = (0..135).collect::<Vec<_>>();
+        let eval = (135..n).collect::<Vec<_>>();
+        let baseline = gaussian_provider_2d(coords.clone())(&train, &eval).unwrap();
+
+        // A 2-D similarity x' = a Q x + b changes every normalized Cartesian
+        // log density by exactly -log|det(aQ)| = -2 log(a).  In particular,
+        // the covariance regularizer must scale as a^2 rather than living in
+        // arbitrary absolute coordinate units.
+        let scale = 1.0e-4_f64;
+        let angle = 0.731_f64;
+        let (sin_angle, cos_angle) = angle.sin_cos();
+        let mut transformed = Array2::<f64>::zeros(coords.raw_dim());
+        for row in 0..n {
+            let x = coords[[row, 0]];
+            let y = coords[[row, 1]];
+            transformed[[row, 0]] = 0.25 + scale * (cos_angle * x - sin_angle * y);
+            transformed[[row, 1]] = -0.5 + scale * (sin_angle * x + cos_angle * y);
+        }
+        let canonical = canonical_shape_coordinates(coords.view()).unwrap();
+        let transformed_canonical = canonical_shape_coordinates(transformed.view()).unwrap();
+        for row in 0..n {
+            let expected_x = cos_angle * canonical[[row, 0]] - sin_angle * canonical[[row, 1]];
+            let expected_y = sin_angle * canonical[[row, 0]] + cos_angle * canonical[[row, 1]];
+            assert!((transformed_canonical[[row, 0]] - expected_x).abs() < 2.0e-11);
+            assert!((transformed_canonical[[row, 1]] - expected_y).abs() < 2.0e-11);
+        }
+        let changed = gaussian_provider_2d(transformed.clone())(&train, &eval).unwrap();
+        let jacobian_shift = -2.0 * scale.ln();
+        for (&base, &under_similarity) in baseline.iter().zip(&changed) {
+            assert!(
+                (under_similarity - (base + jacobian_shift)).abs() < 2.0e-7,
+                "Gaussian log density violated its similarity Jacobian: base={base:.16e}, transformed={under_similarity:.16e}"
+            );
+        }
+
+        let baseline_evidence = gaussian_bic_2d(coords.view()).unwrap();
+        let transformed_evidence = gaussian_bic_2d(transformed.view()).unwrap();
+        let expected_evidence = baseline_evidence + 2.0 * n as f64 * scale.ln();
+        assert!(
+            (transformed_evidence - expected_evidence).abs() < 2.0e-5,
+            "Gaussian evidence violated its similarity Jacobian: expected={expected_evidence:.16e}, actual={transformed_evidence:.16e}"
+        );
+
+        let mut translated = coords.clone();
+        for mut row in translated.rows_mut() {
+            row[0] += 1.0e6;
+            row[1] -= 2.0e6;
+        }
+        let translated_density = gaussian_provider_2d(translated.clone())(&train, &eval).unwrap();
+        for (&base, &shifted) in baseline.iter().zip(&translated_density) {
+            assert!(
+                (base - shifted).abs() < 2.0e-8,
+                "translation changed Euclidean Gaussian density: base={base:.16e}, shifted={shifted:.16e}"
+            );
+        }
+    }
+
+    #[test]
+    fn euclidean_gaussian_spectral_constraint_stays_positive_on_a_line() {
+        let mut line = Array2::<f64>::zeros((9, 2));
+        for row in 0..line.nrows() {
+            let x = row as f64 - 4.0;
+            line[[row, 0]] = x;
+            line[[row, 1]] = 2.0 * x;
+        }
+        let rows = (0..line.nrows()).collect::<Vec<_>>();
+        let fit = GaussianFit2d::fit(line.view(), &rows).unwrap();
+        let on_line = fit.log_density(0.0, 0.0);
+        let off_line = fit.log_density(-0.02, 0.01);
+        assert!(on_line.is_finite() && off_line.is_finite());
+        assert!(
+            off_line < on_line - 1.0e6,
+            "the constrained covariance must penalize its null direction: on={on_line}, off={off_line}"
+        );
+        assert!(gaussian_bic_2d(line.view()).unwrap().is_finite());
+
+        let coincident = Array2::<f64>::from_elem((5, 2), 3.0);
+        let error = GaussianFit2d::fit(coincident.view(), &[0, 1, 2, 3, 4])
+            .expect_err("a zero-dimensional point mass is not a 2-D Gaussian density");
+        assert!(error.contains("zero"), "{error}");
+    }
+
+    #[test]
+    fn circular_verdict_aggregates_within_class_stacking_mass() {
+        let kinds = [
+            gam::solver::PredictiveCandidateKind::Fixed(gam::solver::AutoTopologyKind::Circle),
+            gam::solver::PredictiveCandidateKind::Fixed(gam::solver::AutoTopologyKind::Euclidean),
+            gam::solver::PredictiveCandidateKind::MixtureClass,
+            gam::solver::PredictiveCandidateKind::RingOfClustersClass,
+        ];
+        // No individual circular candidate beats Euclidean (0.30 < 0.40), but
+        // the circular topology class owns 0.60 total mass. A max-vs-max rule
+        // would make the class verdict depend on how finely that class happened
+        // to be represented in the candidate list.
+        let (circular, noncircular, margin, circle_wins) =
+            circular_stacking_summary(&kinds, &[0.30, 0.40, 0.0, 0.30]).unwrap();
+        assert!((circular - 0.60).abs() < 1e-15);
+        assert!((noncircular - 0.40).abs() < 1e-15);
+        assert!((margin - 0.20).abs() < 1e-15);
+        assert!(circle_wins);
+    }
+
+    #[test]
+    fn discrete_rung_orders_are_selected_inside_each_outer_training_fold() {
+        use gam::solver::evidence::GaussianMixtureConfig;
+
+        let train_rows = 90usize;
+        let eval_rows = 18usize;
+        let mut free_coords = Array2::<f64>::zeros((train_rows + eval_rows, 2));
+        for row in 0..train_rows {
+            let cluster = row % 2;
+            let phase = std::f64::consts::TAU * (row / 2) as f64 / (train_rows / 2) as f64;
+            free_coords[[row, 0]] = if cluster == 0 { -2.0 } else { 2.0 } + 0.12 * phase.cos();
+            free_coords[[row, 1]] = 0.08 * phase.sin();
+        }
+        // These outer-held-out rows form a remote third cluster. If they leak
+        // into order selection or parameter fitting, the returned density
+        // cannot equal the independently fitted training-only prediction.
+        for slot in 0..eval_rows {
+            let row = train_rows + slot;
+            let phase = std::f64::consts::TAU * slot as f64 / eval_rows as f64;
+            free_coords[[row, 0]] = 40.0 + 0.2 * phase.cos();
+            free_coords[[row, 1]] = -30.0 + 0.2 * phase.sin();
+        }
+        let train = (0..train_rows).collect::<Vec<_>>();
+        let eval = (train_rows..train_rows + eval_rows).collect::<Vec<_>>();
+        let config = GaussianMixtureConfig::default();
+        let ladder = vec![2usize, 3];
+        let (train_coords, eval_coords, log_volume_scale) =
+            canonical_shape_fold(free_coords.view(), &train, &eval, "test mixture").unwrap();
+        let (train_selected_k, mut expected) = free_mixture_rung_predictive_density(
+            train_coords.view(),
+            eval_coords.view(),
+            &ladder,
+            config,
+        )
+        .unwrap();
+        for value in &mut expected {
+            *value -= log_volume_scale;
+        }
+        let free_trace = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let actual = free_mixture_rung_provider_2d(
+            free_coords.clone(),
+            ladder.clone(),
+            config,
+            std::rc::Rc::clone(&free_trace),
+        )(&train, &eval)
+        .expect("outer provider must fit and select only on training rows");
+        assert!(train_selected_k >= 2);
+        assert_eq!(actual, expected);
+        assert_eq!(&*free_trace.borrow(), &[train_selected_k]);
+
+        // A held-out outlier may change its own predictive density, but it must
+        // not change the training gauge, selected order, or any other held-out
+        // row. The former full-data canonicalization failed this contract when
+        // its absolute mixture covariance floor became active.
+        let mut perturbed_free_coords = free_coords;
+        let perturbed_slot = eval_rows - 1;
+        perturbed_free_coords[[train_rows + perturbed_slot, 0]] = 1.0e12;
+        perturbed_free_coords[[train_rows + perturbed_slot, 1]] = -1.0e12;
+        let perturbed_free_trace = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let perturbed_actual = free_mixture_rung_provider_2d(
+            perturbed_free_coords,
+            ladder,
+            config,
+            std::rc::Rc::clone(&perturbed_free_trace),
+        )(&train, &eval)
+        .expect("held-out values must not alter mixture training preprocessing");
+        assert_eq!(
+            &perturbed_actual[..perturbed_slot],
+            &actual[..perturbed_slot]
+        );
+        assert_eq!(&*perturbed_free_trace.borrow(), &[train_selected_k]);
+
+        let clusters = 3usize;
+        let per_cluster = 30usize;
+        let mut ring_coords = Array2::<f64>::zeros((clusters * per_cluster + eval_rows, 2));
+        for cluster in 0..clusters {
+            let angle = std::f64::consts::TAU * cluster as f64 / clusters as f64;
+            for sample in 0..per_cluster {
+                let phase = std::f64::consts::TAU * sample as f64 / per_cluster as f64;
+                let row = cluster * per_cluster + sample;
+                ring_coords[[row, 0]] =
+                    (2.0 + 0.08 * phase.cos()) * angle.cos() - 0.05 * phase.sin() * angle.sin();
+                ring_coords[[row, 1]] =
+                    (2.0 + 0.08 * phase.cos()) * angle.sin() + 0.05 * phase.sin() * angle.cos();
+            }
+        }
+        for slot in 0..eval_rows {
+            let row = clusters * per_cluster + slot;
+            ring_coords[[row, 0]] = 25.0 + slot as f64;
+            ring_coords[[row, 1]] = -20.0;
+        }
+        let ring_train = (0..clusters * per_cluster).collect::<Vec<_>>();
+        let ring_eval =
+            (clusters * per_cluster..clusters * per_cluster + eval_rows).collect::<Vec<_>>();
+        let ring_ladder = vec![3usize, 4];
+        let (ring_train_coords, ring_eval_coords, ring_log_volume_scale) = canonical_shape_fold(
+            ring_coords.view(),
+            &ring_train,
+            &ring_eval,
+            "test ring cluster",
+        )
+        .unwrap();
+        let (ring_selected_k, mut ring_expected) = ring_cluster_rung_predictive_density(
+            ring_train_coords.view(),
+            ring_eval_coords.view(),
+            &ring_ladder,
+            config,
+        )
+        .unwrap();
+        for value in &mut ring_expected {
+            *value -= ring_log_volume_scale;
+        }
+        let ring_trace = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let ring_actual = ring_cluster_rung_provider_2d(
+            ring_coords.clone(),
+            ring_ladder.clone(),
+            config,
+            std::rc::Rc::clone(&ring_trace),
+        )(&ring_train, &ring_eval)
+        .expect("ring provider must fit and select only on training rows");
+        assert!(ring_selected_k >= 3);
+        assert_eq!(ring_actual, ring_expected);
+        assert_eq!(&*ring_trace.borrow(), &[ring_selected_k]);
+
+        let mut perturbed_ring_coords = ring_coords;
+        let perturbed_ring_slot = eval_rows - 1;
+        perturbed_ring_coords[[clusters * per_cluster + perturbed_ring_slot, 0]] = -1.0e12;
+        perturbed_ring_coords[[clusters * per_cluster + perturbed_ring_slot, 1]] = 1.0e12;
+        let perturbed_ring_trace = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let perturbed_ring_actual = ring_cluster_rung_provider_2d(
+            perturbed_ring_coords,
+            ring_ladder,
+            config,
+            std::rc::Rc::clone(&perturbed_ring_trace),
+        )(&ring_train, &ring_eval)
+        .expect("held-out values must not alter ring-cluster training preprocessing");
+        assert_eq!(
+            &perturbed_ring_actual[..perturbed_ring_slot],
+            &ring_actual[..perturbed_ring_slot]
+        );
+        assert_eq!(&*perturbed_ring_trace.borrow(), &[ring_selected_k]);
+    }
+
+    /// #2262 structureless-null control: on pure isotropic Gaussian noise (no
+    /// ring, no cluster structure whatsoever) both matched controls must still
+    /// run cleanly end to end and produce a well-formed
+    /// `control_circular_win_fraction` in `{0.0, 0.5, 1.0}` — a descriptive
+    /// two-control result, not a false-positive-rate or floor estimate. This exercises the
+    /// SAME `matched_control_verdicts` path `adjudicate_atom_shape` calls, just
+    /// without the Python boundary.
+    #[test]
+    fn matched_controls_report_a_well_formed_circular_win_fraction_on_pure_noise_2262() {
+        use rand::SeedableRng;
+        use rand::rngs::StdRng;
+        use rand_distr::{Distribution, Normal};
+
+        let n = 300usize;
+        let mut rng = StdRng::seed_from_u64(2262);
+        let normal = Normal::new(0.0, 1.0).unwrap();
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for row in 0..n {
+            coords[[row, 0]] = normal.sample(&mut rng);
+            coords[[row, 1]] = normal.sample(&mut rng);
+        }
+
+        // Include k=1 deliberately: it is the Euclidean candidate, not a
+        // second free-mixture candidate. The race must remove that duplicate
+        // before fitting and stacking.
+        let ladder = [1usize, 5, 7, 9];
+        let (shuffle_verdict, gaussian_verdict, control_circular_win_fraction) =
+            matched_control_verdicts(
+                coords.view(),
+                5,
+                2262,
+                &ladder,
+                Some(80.0), // plausible healthy-dictionary mean L0
+            )
+            .expect("matched controls must run cleanly on pure noise, not error out");
+
+        assert!(
+            shuffle_verdict.mixture_reporting_k >= 2 && gaussian_verdict.mixture_reporting_k >= 2,
+            "the free-mixture candidate must not duplicate the k=1 Euclidean Gaussian"
+        );
+
+        assert!(
+            (0.0..=1.0).contains(&control_circular_win_fraction),
+            "two-control circular-win fraction must lie in [0, 1]: {control_circular_win_fraction}"
+        );
+        assert!(
+            (control_circular_win_fraction - 0.0).abs() < 1e-12
+                || (control_circular_win_fraction - 0.5).abs() < 1e-12
+                || (control_circular_win_fraction - 1.0).abs() < 1e-12,
+            "two-control circular-win fraction must be exactly {{0, 1/2, 1}}: got {control_circular_win_fraction}"
+        );
+        assert_eq!(
+            control_circular_win_fraction,
+            (usize::from(shuffle_verdict.circle_wins) + usize::from(gaussian_verdict.circle_wins))
+                as f64
+                / 2.0,
+            "reported fraction must equal the mean of the two controls' own circle_wins flags"
+        );
+
+        // mean_l0 is mandatory: omitting it must be a clean error, not a panic
+        // or a silent floor.
+        let err = matched_control_verdicts(coords.view(), 5, 2262, &ladder, None)
+            .expect_err("mean_l0 must be required for matched controls");
+        assert!(err.contains("mean_l0"), "error should name mean_l0: {err}");
+    }
+
+    /// #2262 rank-charge diagnostic: `reconstruction_rank_edge` surfaced by
+    /// `adjudicate_atom_shape` must be exactly the same closed-form MP edge
+    /// `mp_reconstruction_rank_edge` (and production reconstruction-Gram pricing)
+    /// compute — no independent reimplementation to drift out of sync.
+    #[test]
+    fn reconstruction_rank_edge_matches_closed_form_mp_edge_2262() {
+        use gam::terms::sae::null_battery::mp_reconstruction_rank_edge;
+
+        let n_eff = 84.0_f64;
+        let ambient_p = 64.0_f64;
+        let dispersion_r = 1.005_f64;
+        let expected = dispersion_r * (1.0 + (ambient_p / n_eff).sqrt()).powi(2);
+        let edge = mp_reconstruction_rank_edge(n_eff, ambient_p, dispersion_r)
+            .expect("valid inputs must succeed");
+        assert!(
+            (edge - expected).abs() < 1e-12,
+            "edge={edge} expected={expected}"
+        );
+        assert_eq!(
+            shape_reconstruction_rank_edge(Some(n_eff), Some(ambient_p), Some(dispersion_r))
+                .unwrap(),
+            Some(expected)
+        );
+        assert_eq!(
+            shape_reconstruction_rank_edge(None, None, None).unwrap(),
+            None
+        );
+        for partial in [
+            (Some(n_eff), None, None),
+            (None, Some(ambient_p), None),
+            (None, None, Some(dispersion_r)),
+            (Some(n_eff), Some(ambient_p), None),
+        ] {
+            let error = shape_reconstruction_rank_edge(partial.0, partial.1, partial.2)
+                .expect_err("a partial rank-charge diagnostic specification must be rejected");
+            assert!(error.contains("supplied together"), "{error}");
+        }
     }
 
     #[test]
@@ -1349,37 +1984,137 @@ mod tests {
 // intrinsic 2-D coordinates (the SAME Rust evidence code the in-tree
 // `quality_llm_weekday_circle` gate drives), exposed so the real-activation
 // driver computes the verdict with ONE evidence implementation, not a Python
-// re-implementation. Races a smooth S¹ ring against a Euclidean Gaussian and the
-// best k-cluster mixture rung; the held-out predictive-stacking headline picks
-// the winner.
+// re-implementation. Races a smooth S¹ ring, a Euclidean Gaussian, a free
+// k-cluster mixture, and a circle-constrained ring of clusters; the held-out
+// predictive-stacking headline picks the winner.
 // ───────────────────────────────────────────────────────────────────────────
 
 /// Held-out log-density of the smooth-circle (ring) candidate on 2-D coords:
-/// radius ~ N(μ, σ²) fit on the training rows, angle uniform, plus the
-/// Cartesian→polar `1/r` Jacobian. Byte-identical in form to the ring provider
-/// the in-tree weekday-circle gate uses.
+/// a uniform latent point on the fitted circle convolved with isotropic 2-D
+/// Gaussian noise. This is a normalized Cartesian density, including at the
+/// fitted center.
 fn ring_provider_2d(coords: Array2<f64>) -> gam::solver::HeldOutDensityProvider<'static> {
     Box::new(
         move |train: &[usize], eval: &[usize]| -> Result<Vec<f64>, String> {
-            if train.is_empty() {
-                return Err("ring provider got empty training set".to_string());
-            }
-            let r_of =
-                |i: usize| -> f64 { (coords[[i, 0]].powi(2) + coords[[i, 1]].powi(2)).sqrt() };
-            let n = train.len() as f64;
-            let mean: f64 = train.iter().map(|&i| r_of(i)).sum::<f64>() / n;
-            let var: f64 =
-                (train.iter().map(|&i| (r_of(i) - mean).powi(2)).sum::<f64>() / n).max(1e-9);
-            let log_norm = -0.5 * (std::f64::consts::TAU * var).ln();
-            let log_angle = -(std::f64::consts::TAU).ln();
-            let mut out = Vec::with_capacity(eval.len());
-            for &i in eval {
-                let r = r_of(i).max(1e-9);
-                out.push(log_norm - 0.5 * (r - mean).powi(2) / var + log_angle - r.ln());
+            let (train_coords, eval_coords, log_volume_scale) =
+                canonical_shape_fold(coords.view(), train, eval, "circle density")?;
+            let train_rows = (0..train_coords.nrows()).collect::<Vec<_>>();
+            let fit = CircularGaussianFit2d::fit(train_coords.view(), &train_rows)?;
+            let mut out = Vec::with_capacity(eval_coords.nrows());
+            for row in eval_coords.rows() {
+                out.push(fit.log_density(row[0], row[1]) - log_volume_scale);
             }
             Ok(out)
         },
     )
+}
+
+/// One full Euclidean Gaussian fit in two dimensions.
+///
+/// `origin + mean_offset` is the location, represented in two pieces so a
+/// translated intrinsic chart does not force us to subtract two large,
+/// nearly-equal absolute coordinates when accumulating or evaluating the fit.
+/// The covariance is constrained spectrally, and `precision` plus `log_norm`
+/// are constructed from those exact same constrained eigenvalues.  This is
+/// essential: independently flooring covariance entries and its determinant
+/// does not describe any normalized Gaussian density.
+#[derive(Debug, Clone, Copy)]
+struct GaussianFit2d {
+    origin: [f64; 2],
+    mean_offset: [f64; 2],
+    major_direction: [f64; 2],
+    inverse_eigenvalues: [f64; 2],
+    log_norm: f64,
+}
+
+impl GaussianFit2d {
+    fn fit(coords: ArrayView2<'_, f64>, rows: &[usize]) -> Result<Self, String> {
+        if coords.ncols() != 2 || rows.iter().any(|&row| row >= coords.nrows()) {
+            return Err("Gaussian density received invalid coordinates or row indices".to_string());
+        }
+        if rows.len() < 3 {
+            return Err("Gaussian density needs at least three training rows".to_string());
+        }
+        let origin = [coords[[rows[0], 0]], coords[[rows[0], 1]]];
+        if !origin.iter().all(|value| value.is_finite()) {
+            return Err("Gaussian density requires finite coordinates".to_string());
+        }
+
+        let mut mean_offset = [0.0_f64; 2];
+        for &row in rows {
+            for axis in 0..2 {
+                let relative = coords[[row, axis]] - origin[axis];
+                if !relative.is_finite() {
+                    return Err("Gaussian density requires finite coordinates".to_string());
+                }
+                mean_offset[axis] += relative;
+            }
+        }
+        let count = rows.len() as f64;
+        mean_offset[0] /= count;
+        mean_offset[1] /= count;
+
+        let (mut sxx, mut sxy, mut syy) = (0.0_f64, 0.0_f64, 0.0_f64);
+        for &row in rows {
+            let dx = (coords[[row, 0]] - origin[0]) - mean_offset[0];
+            let dy = (coords[[row, 1]] - origin[1]) - mean_offset[1];
+            sxx += dx * dx;
+            sxy += dx * dy;
+            syy += dy * dy;
+        }
+        sxx /= count;
+        sxy /= count;
+        syy /= count;
+        let trace = sxx + syy;
+        if !(trace.is_finite() && trace > 0.0) || !sxy.is_finite() {
+            return Err(
+                "Gaussian density is undefined for a point cloud with zero or non-finite variance"
+                    .to_string(),
+            );
+        }
+
+        // For [[sxx,sxy],[sxy,syy]], theta is the major-eigenvector angle.
+        // The relative spectral floor is homogeneous in the data units: under
+        // x -> a*x both eigenvalues and the floor multiply by a^2.  The old
+        // absolute entry/determinant floors changed the model under this
+        // harmless re-expression of an intrinsic coordinate chart.
+        let spectral_gap = (sxx - syy).hypot(2.0 * sxy);
+        let largest = (0.5 * (trace + spectral_gap)).max(f64::MIN_POSITIVE);
+        let floor = (64.0 * f64::EPSILON * largest).max(f64::MIN_POSITIVE);
+        let smallest = (0.5 * (trace - spectral_gap)).max(floor);
+        let largest = largest.max(floor);
+        if !smallest.is_finite() || !largest.is_finite() {
+            return Err("Gaussian covariance spectrum is non-finite".to_string());
+        }
+        let theta = 0.5 * (2.0 * sxy).atan2(sxx - syy);
+        let (sin_theta, cos_theta) = theta.sin_cos();
+        let inverse_largest = 1.0 / largest;
+        let inverse_smallest = 1.0 / smallest;
+        let log_norm = -std::f64::consts::TAU.ln() - 0.5 * (largest.ln() + smallest.ln());
+        if !inverse_largest.is_finite() || !inverse_smallest.is_finite() || !log_norm.is_finite() {
+            return Err("Gaussian covariance factorization is non-finite".to_string());
+        }
+        Ok(Self {
+            origin,
+            mean_offset,
+            major_direction: [cos_theta, sin_theta],
+            inverse_eigenvalues: [inverse_largest, inverse_smallest],
+            log_norm,
+        })
+    }
+
+    fn log_density(self, x: f64, y: f64) -> f64 {
+        let dx = (x - self.origin[0]) - self.mean_offset[0];
+        let dy = (y - self.origin[1]) - self.mean_offset[1];
+        // Evaluate in the covariance eigenbasis.  This sum of nonnegative
+        // squares avoids the cancellation of an expanded x' Sigma^-1 x for a
+        // nearly rank-one cloud.
+        let major = self.major_direction[0] * dx + self.major_direction[1] * dy;
+        let minor = -self.major_direction[1] * dx + self.major_direction[0] * dy;
+        let quad = major * major * self.inverse_eigenvalues[0]
+            + minor * minor * self.inverse_eigenvalues[1];
+        self.log_norm - 0.5 * quad
+    }
 }
 
 /// Held-out log-density of the Euclidean candidate: a full 2-D Gaussian (mean +
@@ -1387,118 +2122,362 @@ fn ring_provider_2d(coords: Array2<f64>) -> gam::solver::HeldOutDensityProvider<
 fn gaussian_provider_2d(coords: Array2<f64>) -> gam::solver::HeldOutDensityProvider<'static> {
     Box::new(
         move |train: &[usize], eval: &[usize]| -> Result<Vec<f64>, String> {
-            if train.len() < 3 {
-                return Err("gaussian provider needs >=3 training rows".to_string());
-            }
-            let n = train.len() as f64;
-            let (mut mx, mut my) = (0.0_f64, 0.0_f64);
-            for &i in train {
-                mx += coords[[i, 0]];
-                my += coords[[i, 1]];
-            }
-            mx /= n;
-            my /= n;
-            let (mut sxx, mut sxy, mut syy) = (0.0_f64, 0.0_f64, 0.0_f64);
-            for &i in train {
-                let dx = coords[[i, 0]] - mx;
-                let dy = coords[[i, 1]] - my;
-                sxx += dx * dx;
-                sxy += dx * dy;
-                syy += dy * dy;
-            }
-            sxx = (sxx / n).max(1e-9);
-            syy = (syy / n).max(1e-9);
-            sxy /= n;
-            let mut det = sxx * syy - sxy * sxy;
-            if det <= 1e-12 {
-                sxy *= 0.999;
-                det = (sxx * syy - sxy * sxy).max(1e-12);
-            }
-            let inv_xx = syy / det;
-            let inv_yy = sxx / det;
-            let inv_xy = -sxy / det;
-            let log_norm = -((std::f64::consts::TAU).ln()) - 0.5 * det.ln();
-            let mut out = Vec::with_capacity(eval.len());
-            for &i in eval {
-                let dx = coords[[i, 0]] - mx;
-                let dy = coords[[i, 1]] - my;
-                let quad = inv_xx * dx * dx + 2.0 * inv_xy * dx * dy + inv_yy * dy * dy;
-                out.push(log_norm - 0.5 * quad);
+            let (train_coords, eval_coords, log_volume_scale) =
+                canonical_shape_fold(coords.view(), train, eval, "Gaussian density")?;
+            let train_rows = (0..train_coords.nrows()).collect::<Vec<_>>();
+            let fit = GaussianFit2d::fit(train_coords.view(), &train_rows)?;
+            let mut out = Vec::with_capacity(eval_coords.nrows());
+            for row in eval_coords.rows() {
+                out.push(fit.log_density(row[0], row[1]) - log_volume_scale);
             }
             Ok(out)
         },
     )
 }
 
-/// Closed-form rank-aware (BIC-form Laplace) negative-log-evidence of the ring
-/// model (2 free params: radius mean + variance). Corroborates the held-out
-/// stacking headline; lower is better.
-fn ring_negative_log_evidence_2d(coords: ArrayView2<'_, f64>) -> f64 {
+/// BIC/2 of the circular Gaussian (4 parameters: center(2), circle radius, and
+/// isotropic noise variance). Corroborates the held-out stacking headline;
+/// lower is better.
+fn ring_bic_2d(coords: ArrayView2<'_, f64>) -> Result<f64, String> {
     let n = coords.nrows();
-    let r: Vec<f64> = (0..n)
-        .map(|i| (coords[[i, 0]].powi(2) + coords[[i, 1]].powi(2)).sqrt())
-        .collect();
-    let mean = r.iter().sum::<f64>() / n as f64;
-    let var = (r.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64).max(1e-9);
-    let log_norm = -0.5 * (std::f64::consts::TAU * var).ln();
-    let log_angle = -(std::f64::consts::TAU).ln();
-    let mut loglik = 0.0_f64;
-    for &ri in &r {
-        let ri = ri.max(1e-9);
-        loglik += log_norm - 0.5 * (ri - mean).powi(2) / var + log_angle - ri.ln();
-    }
-    -loglik + 0.5 * 2.0 * (n as f64).ln()
+    let rows = (0..n).collect::<Vec<_>>();
+    let (_, bic) = CircularGaussianFit2d::fit_with_bic(coords, &rows)?;
+    Ok(bic)
 }
 
-/// Closed-form rank-aware negative-log-evidence of the full 2-D Gaussian
-/// (5 free params: mean(2) + symmetric 2×2 cov(3)).
-fn gaussian_negative_log_evidence_2d(coords: ArrayView2<'_, f64>) -> f64 {
+/// BIC/2 of the full 2-D Gaussian (5 free params:
+/// mean(2) + symmetric 2×2 covariance(3)), evaluated under the exact same
+/// fitted density as the held-out provider.
+fn gaussian_bic_2d(coords: ArrayView2<'_, f64>) -> Result<f64, String> {
     let n = coords.nrows();
-    let nf = n as f64;
-    let (mut mx, mut my) = (0.0, 0.0);
-    for i in 0..n {
-        mx += coords[[i, 0]];
-        my += coords[[i, 1]];
-    }
-    mx /= nf;
-    my /= nf;
-    let (mut sxx, mut sxy, mut syy) = (0.0, 0.0, 0.0);
-    for i in 0..n {
-        let dx = coords[[i, 0]] - mx;
-        let dy = coords[[i, 1]] - my;
-        sxx += dx * dx;
-        sxy += dx * dy;
-        syy += dy * dy;
-    }
-    sxx = (sxx / nf).max(1e-9);
-    syy = (syy / nf).max(1e-9);
-    sxy /= nf;
-    let det = (sxx * syy - sxy * sxy).max(1e-12);
-    let inv_xx = syy / det;
-    let inv_yy = sxx / det;
-    let inv_xy = -sxy / det;
-    let log_norm = -((std::f64::consts::TAU).ln()) - 0.5 * det.ln();
+    let rows = (0..n).collect::<Vec<_>>();
+    let fit = GaussianFit2d::fit(coords, &rows)?;
     let mut loglik = 0.0_f64;
-    for i in 0..n {
-        let dx = coords[[i, 0]] - mx;
-        let dy = coords[[i, 1]] - my;
-        let quad = inv_xx * dx * dx + 2.0 * inv_xy * dx * dy + inv_yy * dy * dy;
-        loglik += log_norm - 0.5 * quad;
+    for row in 0..n {
+        loglik += fit.log_density(coords[[row, 0]], coords[[row, 1]]);
     }
-    -loglik + 0.5 * 5.0 * nf.ln()
+    Ok(-loglik + 0.5 * 5.0 * (n as f64).ln())
 }
 
 #[derive(Debug, Clone)]
 struct AtomShapeRaceVerdict {
-    winner: String,
+    winner_class: String,
+    reporting_winner: String,
     candidate_names: Vec<String>,
     stacking_weights: Vec<f64>,
-    negative_log_evidence: Vec<f64>,
-    mixture_k: usize,
-    circle_margin: f64,
+    bic: Vec<f64>,
+    mixture_reporting_k: usize,
+    ring_clusters_reporting_k: usize,
+    mixture_fold_selected_k: Vec<usize>,
+    ring_clusters_fold_selected_k: Vec<usize>,
+    mixture_fold_k_histogram: std::collections::BTreeMap<usize, usize>,
+    ring_clusters_fold_k_histogram: std::collections::BTreeMap<usize, usize>,
+    circular_stacking_weight: f64,
+    noncircular_stacking_weight: f64,
+    circular_margin: f64,
     circle_wins: bool,
     is_cross_class: bool,
     headline: &'static str,
+}
+
+fn circular_stacking_summary(
+    candidate_kinds: &[gam::solver::PredictiveCandidateKind],
+    stacking_weights: &[f64],
+) -> Result<(f64, f64, f64, bool), String> {
+    if candidate_kinds.len() != stacking_weights.len() || candidate_kinds.is_empty() {
+        return Err(format!(
+            "shape stacking result has {} candidate kinds but {} weights",
+            candidate_kinds.len(),
+            stacking_weights.len()
+        ));
+    }
+    let mut circular_weight = 0.0_f64;
+    let mut noncircular_weight = 0.0_f64;
+    for (&kind, &weight) in candidate_kinds.iter().zip(stacking_weights) {
+        if !weight.is_finite() || weight < 0.0 {
+            return Err(format!(
+                "shape stacking returned invalid weight {weight} for candidate {}",
+                kind.display_name()
+            ));
+        }
+        if kind.is_circular() {
+            circular_weight += weight;
+        } else {
+            noncircular_weight += weight;
+        }
+    }
+    let total = circular_weight + noncircular_weight;
+    if !total.is_finite() || (total - 1.0).abs() > 64.0 * f64::EPSILON.sqrt() {
+        return Err(format!(
+            "shape stacking weights must have unit mass; got {total}"
+        ));
+    }
+    let circular_margin = circular_weight - noncircular_weight;
+    Ok((
+        circular_weight,
+        noncircular_weight,
+        circular_margin,
+        circular_margin > 0.0,
+    ))
+}
+
+#[derive(Clone, Copy)]
+struct ShapeCoordinateGauge {
+    coordinate_scale: f64,
+    mean_scaled: [f64; 2],
+    rms_scaled: f64,
+    log_scale: f64,
+}
+
+/// Fit the translation and uniform-scale gauge from training rows only.
+///
+/// Coordinates are first divided by their largest absolute training value.
+/// Thus every subsequent subtraction lies in a bounded chart even for finite
+/// antipodal values whose raw difference exceeds float64. The mean is a
+/// sequence of convex combinations and the RMS uses the LAPACK `lassq`
+/// recurrence rather than summing raw squares. The physical scale is retained
+/// in log space, so its Jacobian remains representable even if the product of
+/// the two chart scales would overflow or underflow.
+fn fit_shape_coordinate_gauge(
+    training: ArrayView2<'_, f64>,
+    context: &str,
+) -> Result<ShapeCoordinateGauge, String> {
+    if training.ncols() != 2
+        || training.nrows() == 0
+        || !training.iter().all(|value| value.is_finite())
+    {
+        return Err(format!(
+            "{context} training coordinates must be a nonempty finite (n, 2) matrix"
+        ));
+    }
+    let coordinate_scale = training
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    if !(coordinate_scale.is_finite() && coordinate_scale > 0.0) {
+        return Err(format!(
+            "{context} training coordinates have zero or non-finite scale"
+        ));
+    }
+    let mut mean_scaled = [0.0_f64; 2];
+    for row in 0..training.nrows() {
+        let count = (row + 1) as f64;
+        let previous_weight = (count - 1.0) / count;
+        let new_weight = 1.0 / count;
+        for axis in 0..2 {
+            let scaled = training[[row, axis]] / coordinate_scale;
+            mean_scaled[axis] = previous_weight * mean_scaled[axis] + new_weight * scaled;
+        }
+    }
+
+    let mut norm_scale = 0.0_f64;
+    let mut scaled_sum_squares = 1.0_f64;
+    for row in training.rows() {
+        for axis in 0..2 {
+            let centered = row[axis] / coordinate_scale - mean_scaled[axis];
+            if !centered.is_finite() {
+                return Err(format!(
+                    "{context} centered training coordinate overflowed on axis {axis}"
+                ));
+            }
+            let magnitude = centered.abs();
+            if magnitude == 0.0 {
+                continue;
+            }
+            if norm_scale < magnitude {
+                scaled_sum_squares =
+                    1.0 + scaled_sum_squares * (norm_scale / magnitude) * (norm_scale / magnitude);
+                norm_scale = magnitude;
+            } else {
+                scaled_sum_squares += (magnitude / norm_scale) * (magnitude / norm_scale);
+            }
+        }
+    }
+    let rms_scaled = norm_scale * (scaled_sum_squares / training.nrows() as f64).sqrt();
+    let log_scale = coordinate_scale.ln() + rms_scaled.ln();
+    if !(rms_scaled.is_finite() && rms_scaled > 0.0 && log_scale.is_finite()) {
+        return Err(format!(
+            "{context} training coordinates have zero or non-finite centered scale"
+        ));
+    }
+    Ok(ShapeCoordinateGauge {
+        coordinate_scale,
+        mean_scaled,
+        rms_scaled,
+        log_scale,
+    })
+}
+
+fn apply_shape_coordinate_gauge(
+    coords: ArrayView2<'_, f64>,
+    gauge: ShapeCoordinateGauge,
+    context: &str,
+) -> Result<Array2<f64>, String> {
+    if coords.ncols() != 2 || !coords.iter().all(|value| value.is_finite()) {
+        return Err(format!(
+            "{context} coordinates must be a finite (n, 2) matrix"
+        ));
+    }
+    let mut canonical = Array2::<f64>::zeros(coords.raw_dim());
+    for row in 0..coords.nrows() {
+        for axis in 0..2 {
+            let value = (coords[[row, axis]] / gauge.coordinate_scale - gauge.mean_scaled[axis])
+                / gauge.rms_scaled;
+            if !value.is_finite() {
+                return Err(format!(
+                    "{context} canonical coordinate overflowed at row {row}, axis {axis}"
+                ));
+            }
+            canonical[[row, axis]] = value;
+        }
+    }
+    Ok(canonical)
+}
+
+/// Canonicalize one reporting fit from all of its rows. Outer-CV providers use
+/// [`canonical_shape_fold`] instead so held-out rows cannot choose their gauge.
+fn canonical_shape_coordinates(coords: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
+    let gauge = fit_shape_coordinate_gauge(coords, "shape")?;
+    apply_shape_coordinate_gauge(coords, gauge, "shape")
+}
+
+fn gather_shape_rows(
+    coords: ArrayView2<'_, f64>,
+    rows: &[usize],
+    context: &str,
+) -> Result<Array2<f64>, String> {
+    if rows.iter().any(|&row| row >= coords.nrows()) {
+        return Err(format!(
+            "{context} contains an out-of-bounds row for {} coordinates",
+            coords.nrows()
+        ));
+    }
+    let mut gathered = Array2::<f64>::zeros((rows.len(), coords.ncols()));
+    for (target, &source) in rows.iter().enumerate() {
+        gathered.row_mut(target).assign(&coords.row(source));
+    }
+    Ok(gathered)
+}
+
+/// Derive one candidate-common chart from an outer fold's training rows and
+/// apply it to both train and evaluation rows. Densities are fitted in this
+/// dimensionless chart; `log_volume_scale = log(scale²)` converts their scores
+/// back to proper densities in the caller's original coordinate units.
+fn canonical_shape_fold(
+    coords: ArrayView2<'_, f64>,
+    train: &[usize],
+    eval: &[usize],
+    context: &str,
+) -> Result<(Array2<f64>, Array2<f64>, f64), String> {
+    let training = gather_shape_rows(coords, train, &format!("{context} training fold"))?;
+    let evaluation = gather_shape_rows(coords, eval, &format!("{context} evaluation fold"))?;
+    let gauge = fit_shape_coordinate_gauge(training.view(), context)?;
+    let log_volume_scale = 2.0 * gauge.log_scale;
+    if !log_volume_scale.is_finite() {
+        return Err(format!("{context} coordinate Jacobian is non-finite"));
+    }
+    Ok((
+        apply_shape_coordinate_gauge(training.view(), gauge, context)?,
+        apply_shape_coordinate_gauge(evaluation.view(), gauge, context)?,
+        log_volume_scale,
+    ))
+}
+
+/// Select the free-cluster order using only an outer fold's training rows, then
+/// score that fold's untouched evaluation rows. The full-data order remains a
+/// useful final-fit/evidence summary, but it must never choose the model used to
+/// construct an outer-held-out predictive density.
+fn free_mixture_rung_predictive_density(
+    train: ArrayView2<'_, f64>,
+    eval: ArrayView2<'_, f64>,
+    ladder: &[usize],
+    config: gam::solver::evidence::GaussianMixtureConfig,
+) -> Result<(usize, Vec<f64>), String> {
+    let rung = gam::solver::fit_free_cluster_rung(train, ladder, config)
+        .map_err(|error| error.to_string())?;
+    let fit = rung.winner();
+    Ok((fit.k, fit.fit.per_point_log_density(eval)?.to_vec()))
+}
+
+fn ring_cluster_rung_predictive_density(
+    train: ArrayView2<'_, f64>,
+    eval: ArrayView2<'_, f64>,
+    ladder: &[usize],
+    config: gam::solver::evidence::GaussianMixtureConfig,
+) -> Result<(usize, Vec<f64>), String> {
+    let rung = gam::solver::fit_ring_of_clusters_rung(train, ladder, config)
+        .map_err(|error| error.to_string())?;
+    let fit = rung.winner();
+    Ok((fit.k, fit.fit.per_point_log_density(eval)?.to_vec()))
+}
+
+fn free_mixture_rung_provider_2d(
+    coords: Array2<f64>,
+    ladder: Vec<usize>,
+    config: gam::solver::evidence::GaussianMixtureConfig,
+    selected_orders: std::rc::Rc<std::cell::RefCell<Vec<usize>>>,
+) -> gam::solver::HeldOutDensityProvider<'static> {
+    Box::new(move |train: &[usize], eval: &[usize]| {
+        let (train_coords, eval_coords, log_volume_scale) =
+            canonical_shape_fold(coords.view(), train, eval, "mixture density")?;
+        let (selected_k, mut density) = free_mixture_rung_predictive_density(
+            train_coords.view(),
+            eval_coords.view(),
+            &ladder,
+            config,
+        )?;
+        for value in &mut density {
+            *value -= log_volume_scale;
+        }
+        selected_orders.borrow_mut().push(selected_k);
+        Ok(density)
+    })
+}
+
+fn ring_cluster_rung_provider_2d(
+    coords: Array2<f64>,
+    ladder: Vec<usize>,
+    config: gam::solver::evidence::GaussianMixtureConfig,
+    selected_orders: std::rc::Rc<std::cell::RefCell<Vec<usize>>>,
+) -> gam::solver::HeldOutDensityProvider<'static> {
+    Box::new(move |train: &[usize], eval: &[usize]| {
+        let (train_coords, eval_coords, log_volume_scale) =
+            canonical_shape_fold(coords.view(), train, eval, "ring-cluster density")?;
+        let (selected_k, mut density) = ring_cluster_rung_predictive_density(
+            train_coords.view(),
+            eval_coords.view(),
+            &ladder,
+            config,
+        )?;
+        for value in &mut density {
+            *value -= log_volume_scale;
+        }
+        selected_orders.borrow_mut().push(selected_k);
+        Ok(density)
+    })
+}
+
+fn finish_fold_order_trace(
+    selected_orders: &std::rc::Rc<std::cell::RefCell<Vec<usize>>>,
+    folds: usize,
+    class_name: &str,
+) -> Result<Vec<usize>, String> {
+    let orders = selected_orders.borrow().clone();
+    if orders.len() != folds {
+        return Err(format!(
+            "{class_name} recorded {} fold-local orders for {folds} folds",
+            orders.len()
+        ));
+    }
+    Ok(orders)
+}
+
+fn fold_order_histogram(orders: &[usize]) -> std::collections::BTreeMap<usize, usize> {
+    let mut histogram = std::collections::BTreeMap::new();
+    for &order in orders {
+        *histogram.entry(order).or_insert(0) += 1;
+    }
+    histogram
 }
 
 fn run_atom_shape_race(
@@ -1510,8 +2489,8 @@ fn run_atom_shape_race(
     use gam::solver::evidence::{GaussianMixtureConfig, StackingConfig};
     use gam::solver::topology_selector::EvidenceCertification;
     use gam::solver::{
-        AutoTopologyKind, CrossClassCandidate, Headline, adjudicate_cross_class_race,
-        fit_mixture_rung, mixture_density_provider,
+        AutoTopologyKind, Headline, PredictiveCandidateKind, PredictiveRaceCandidate,
+        adjudicate_predictive_race, fit_free_cluster_rung, fit_ring_of_clusters_rung,
     };
 
     if coords.ncols() != 2 {
@@ -1520,58 +2499,198 @@ fn run_atom_shape_race(
             coords.dim()
         ));
     }
-    if coords.nrows() < 4 {
+    let n = coords.nrows();
+    if n < 4 {
         return Err("adjudicate_atom_shape: need at least 4 rows to adjudicate".to_string());
+    }
+    if folds < 2 || folds > n {
+        return Err(format!(
+            "adjudicate_atom_shape: require 2 <= folds <= n; got folds={folds}, n={n}"
+        ));
+    }
+    let largest_evaluation_fold = n / folds + usize::from(n % folds != 0);
+    let minimum_training_rows = n - largest_evaluation_fold;
+    if minimum_training_rows < 3 {
+        return Err(format!(
+            "adjudicate_atom_shape: every outer training fold must contain at least 3 rows for the ring-cluster class; got a minimum of {minimum_training_rows} with n={n}, folds={folds}"
+        ));
     }
     if !coords.iter().all(|value| value.is_finite()) {
         return Err("adjudicate_atom_shape: coords must be finite".to_string());
     }
-    let owned = coords.to_owned();
-    let n = owned.nrows();
+    if k_ladder.is_empty() {
+        return Err("adjudicate_atom_shape: k_ladder must not be empty".to_string());
+    }
+    let mut seen_orders = std::collections::BTreeSet::new();
+    for &k in k_ladder {
+        if k == 0 || k > n {
+            return Err(format!(
+                "adjudicate_atom_shape: requested order k={k} is invalid for n={n}; require 1 <= k <= n"
+            ));
+        }
+        if !seen_orders.insert(k) {
+            return Err(format!(
+                "adjudicate_atom_shape: k_ladder contains duplicate k={k}"
+            ));
+        }
+    }
+    // Full-data coordinates are canonicalized only for reporting fits and
+    // corroborating BIC/2 scores. Every outer-CV provider below receives the raw
+    // chart and derives its gauge from that fold's training rows alone.
+    let reporting_coords = canonical_shape_coordinates(coords)?;
+    let raw_coords = coords.to_owned();
     let config = GaussianMixtureConfig::default();
-    let mixture = fit_mixture_rung(owned.view(), k_ladder, config)?;
-    let mixture_k = mixture.winner().k;
+    // `Euclidean` already is the one-component full Gaussian. Letting the
+    // mixture rung choose k=1 inserts the identical predictive density twice,
+    // so the stacking optimum is non-identifiable and the reported weights
+    // depend on candidate ordering. The free *cluster* contender begins at two
+    // components; the circular cluster model begins at three.
+    let mixture_reporting_ladder = k_ladder
+        .iter()
+        .copied()
+        .filter(|&k| k >= 2)
+        .collect::<Vec<_>>();
+    if mixture_reporting_ladder.is_empty() {
+        return Err(
+            "adjudicate_atom_shape: k_ladder must contain a free-mixture order k >= 2".to_string(),
+        );
+    }
+    let ring_cluster_reporting_ladder = mixture_reporting_ladder
+        .iter()
+        .copied()
+        .filter(|&k| k >= 3)
+        .collect::<Vec<_>>();
+    if ring_cluster_reporting_ladder.is_empty() {
+        return Err(
+            "adjudicate_atom_shape: k_ladder must contain a ring-cluster order k >= 3".to_string(),
+        );
+    }
+    // Every outer fold races the same, explicitly feasible order sets. Orders
+    // that require more rows than the smallest training fold remain eligible
+    // for the all-data reporting fit but cannot define a common CV class.
+    let mixture_fold_ladder = mixture_reporting_ladder
+        .iter()
+        .copied()
+        .filter(|&k| k <= minimum_training_rows)
+        .collect::<Vec<_>>();
+    if mixture_fold_ladder.is_empty() {
+        return Err(format!(
+            "adjudicate_atom_shape: k_ladder has no free-mixture order feasible in every outer training fold (minimum training rows {minimum_training_rows})"
+        ));
+    }
+    let ring_cluster_fold_ladder = ring_cluster_reporting_ladder
+        .iter()
+        .copied()
+        .filter(|&k| k <= minimum_training_rows)
+        .collect::<Vec<_>>();
+    if ring_cluster_fold_ladder.is_empty() {
+        return Err(format!(
+            "adjudicate_atom_shape: k_ladder has no ring-cluster order feasible in every outer training fold (minimum training rows {minimum_training_rows})"
+        ));
+    }
+    let mixture = fit_free_cluster_rung(reporting_coords.view(), &mixture_reporting_ladder, config)
+        .map_err(|error| error.to_string())?;
+    let mixture_winner = mixture.winner();
+    let mixture_reporting_k = mixture_winner.k;
+    let ring_clusters = fit_ring_of_clusters_rung(
+        reporting_coords.view(),
+        &ring_cluster_reporting_ladder,
+        config,
+    )
+    .map_err(|error| error.to_string())?;
+    let ring_clusters_reporting_k = ring_clusters.winner().k;
+    let mixture_fold_orders = std::rc::Rc::new(std::cell::RefCell::new(Vec::with_capacity(folds)));
+    let ring_cluster_fold_orders =
+        std::rc::Rc::new(std::cell::RefCell::new(Vec::with_capacity(folds)));
+    let candidate_kinds = [
+        PredictiveCandidateKind::Fixed(AutoTopologyKind::Circle),
+        PredictiveCandidateKind::Fixed(AutoTopologyKind::Euclidean),
+        PredictiveCandidateKind::MixtureClass,
+        PredictiveCandidateKind::RingOfClustersClass,
+    ];
     let candidates = vec![
-        CrossClassCandidate {
-            kind: AutoTopologyKind::Circle,
-            negative_log_evidence: ring_negative_log_evidence_2d(owned.view()),
+        PredictiveRaceCandidate {
+            kind: candidate_kinds[0],
+            negative_log_evidence: ring_bic_2d(reporting_coords.view())?,
             certification: EvidenceCertification::Exact,
-            density_provider: ring_provider_2d(owned.clone()),
+            density_provider: ring_provider_2d(raw_coords.clone()),
         },
-        CrossClassCandidate {
-            kind: AutoTopologyKind::Euclidean,
-            negative_log_evidence: gaussian_negative_log_evidence_2d(owned.view()),
+        PredictiveRaceCandidate {
+            kind: candidate_kinds[1],
+            negative_log_evidence: gaussian_bic_2d(reporting_coords.view())?,
             certification: EvidenceCertification::Exact,
-            density_provider: gaussian_provider_2d(owned.clone()),
+            density_provider: gaussian_provider_2d(raw_coords.clone()),
         },
-        CrossClassCandidate {
-            kind: AutoTopologyKind::Mixture { k: mixture_k },
-            negative_log_evidence: mixture.winner().negative_log_evidence,
+        PredictiveRaceCandidate {
+            kind: candidate_kinds[2],
+            negative_log_evidence: mixture_winner.bic,
             certification: EvidenceCertification::Exact,
-            density_provider: mixture_density_provider(owned.view(), mixture_k, config),
+            // The displayed/reported k is the full-data final fit. Its outer-CV
+            // predictive column independently selects k on each training fold,
+            // and derives its chart gauge from those same rows, so held-out
+            // rows cannot leak into either preprocessing or model selection.
+            density_provider: free_mixture_rung_provider_2d(
+                raw_coords.clone(),
+                mixture_fold_ladder,
+                config,
+                std::rc::Rc::clone(&mixture_fold_orders),
+            ),
+        },
+        PredictiveRaceCandidate {
+            kind: candidate_kinds[3],
+            negative_log_evidence: ring_clusters.winner().bic,
+            certification: EvidenceCertification::Exact,
+            density_provider: ring_cluster_rung_provider_2d(
+                raw_coords,
+                ring_cluster_fold_ladder,
+                config,
+                std::rc::Rc::clone(&ring_cluster_fold_orders),
+            ),
         },
     ];
     let verdict =
-        adjudicate_cross_class_race(n, candidates, folds, seed, StackingConfig::default())?;
+        adjudicate_predictive_race(n, candidates, folds, seed, StackingConfig::default())?;
     let stacking_weights = verdict
         .stacking
         .as_ref()
         .map(|stacking| stacking.weights.to_vec())
-        .unwrap_or_default();
-    let winner = verdict.candidate_names[verdict.winner_index].clone();
-    let circle_margin = if stacking_weights.len() == 3 {
-        stacking_weights[0] - stacking_weights[1].max(stacking_weights[2])
-    } else {
-        f64::NAN
+        .ok_or_else(|| {
+            "shape race mixed model classes but returned no stacking result".to_string()
+        })?;
+    let winner_class = candidate_kinds[verdict.winner_index]
+        .family_tag()
+        .to_string();
+    let reporting_winner = match candidate_kinds[verdict.winner_index] {
+        PredictiveCandidateKind::MixtureClass => format!("mixture_k{mixture_reporting_k}"),
+        PredictiveCandidateKind::RingOfClustersClass => {
+            format!("ring_clusters_k{ring_clusters_reporting_k}")
+        }
+        kind => kind.display_name(),
     };
+    let (circular_stacking_weight, noncircular_stacking_weight, circular_margin, circle_wins) =
+        circular_stacking_summary(&candidate_kinds, &stacking_weights)?;
+    let mixture_fold_selected_k =
+        finish_fold_order_trace(&mixture_fold_orders, folds, "mixture class")?;
+    let ring_clusters_fold_selected_k =
+        finish_fold_order_trace(&ring_cluster_fold_orders, folds, "ring-cluster class")?;
+    let mixture_fold_k_histogram = fold_order_histogram(&mixture_fold_selected_k);
+    let ring_clusters_fold_k_histogram = fold_order_histogram(&ring_clusters_fold_selected_k);
     Ok(AtomShapeRaceVerdict {
-        circle_wins: winner.starts_with("circle"),
-        winner,
+        circle_wins,
+        winner_class,
+        reporting_winner,
         candidate_names: verdict.candidate_names,
         stacking_weights,
-        negative_log_evidence: verdict.negative_log_evidence,
-        mixture_k,
-        circle_margin,
+        bic: verdict.negative_log_evidence,
+        mixture_reporting_k,
+        ring_clusters_reporting_k,
+        mixture_fold_selected_k,
+        ring_clusters_fold_selected_k,
+        mixture_fold_k_histogram,
+        ring_clusters_fold_k_histogram,
+        circular_stacking_weight,
+        noncircular_stacking_weight,
+        circular_margin,
         is_cross_class: verdict.is_cross_class,
         headline: match verdict.headline {
             Headline::Stacking => "stacking",
@@ -1580,42 +2699,229 @@ fn run_atom_shape_race(
     })
 }
 
+/// Run the two matched structureless controls (#2262) for one shape
+/// adjudication and return `(shuffle_verdict, gaussian_verdict,
+/// control_circular_win_fraction)`. The last value is descriptive across the
+/// two controls, not an estimated false-positive rate. Pulled out of the
+/// pyfunction body so it is directly unit-testable without Python.
+fn matched_control_verdicts(
+    coords_view: ArrayView2<'_, f64>,
+    folds: usize,
+    seed: u64,
+    ladder: &[usize],
+    mean_l0: Option<f64>,
+) -> Result<(AtomShapeRaceVerdict, AtomShapeRaceVerdict, f64), String> {
+    validate_control_mean_l0(mean_l0)?;
+    use gam::terms::sae::null_battery::{
+        covariance_matched_gaussian_null, per_dimension_shuffle_null,
+    };
+    let shuffled = per_dimension_shuffle_null(coords_view, seed ^ 0xD1AE_510F)?;
+    let gaussian = covariance_matched_gaussian_null(coords_view, seed ^ 0xC0A4_71A1)?;
+    let shuffle_verdict = run_atom_shape_race(shuffled.view(), folds, seed, ladder)?;
+    let gaussian_verdict = run_atom_shape_race(gaussian.view(), folds, seed, ladder)?;
+    let control_circular_win_fraction = (usize::from(shuffle_verdict.circle_wins)
+        + usize::from(gaussian_verdict.circle_wins)) as f64
+        / 2.0;
+    Ok((
+        shuffle_verdict,
+        gaussian_verdict,
+        control_circular_win_fraction,
+    ))
+}
+
+fn validate_control_mean_l0(mean_l0: Option<f64>) -> Result<f64, String> {
+    let mean_l0 = mean_l0.ok_or_else(|| {
+        "adjudicate_atom_shape: mean_l0 is required when matched_controls=True; a shape-verdict rate without dictionary sparsity is uninterpretable"
+            .to_string()
+    })?;
+    if !mean_l0.is_finite() || mean_l0 < 0.0 {
+        return Err(format!(
+            "adjudicate_atom_shape: mean_l0 must be finite and non-negative; got {mean_l0}"
+        ));
+    }
+    Ok(mean_l0)
+}
+
+fn shape_reconstruction_rank_edge(
+    n_eff: Option<f64>,
+    ambient_p: Option<f64>,
+    dispersion_r: Option<f64>,
+) -> Result<Option<f64>, String> {
+    match (n_eff, ambient_p, dispersion_r) {
+        (None, None, None) => Ok(None),
+        (Some(n_eff), Some(ambient_p), Some(dispersion_r)) => {
+            gam::terms::sae::null_battery::mp_reconstruction_rank_edge(
+                n_eff,
+                ambient_p,
+                dispersion_r,
+            )
+            .map(Some)
+        }
+        _ => Err(
+            "adjudicate_atom_shape: n_eff, ambient_p, and dispersion_r must be supplied together"
+                .to_string(),
+        ),
+    }
+}
+
 fn atom_shape_verdict_dict<'py>(
     py: Python<'py>,
     verdict: &AtomShapeRaceVerdict,
 ) -> PyResult<Bound<'py, PyDict>> {
     let out = PyDict::new(py);
-    out.set_item("winner", &verdict.winner)?;
+    out.set_item("winner_class", &verdict.winner_class)?;
+    out.set_item("reporting_winner", &verdict.reporting_winner)?;
     out.set_item("candidate_names", &verdict.candidate_names)?;
     out.set_item("stacking_weights", &verdict.stacking_weights)?;
-    out.set_item("negative_log_evidence", &verdict.negative_log_evidence)?;
-    out.set_item("mixture_k", verdict.mixture_k)?;
-    out.set_item("circle_margin", verdict.circle_margin)?;
+    out.set_item("bic", &verdict.bic)?;
+    out.set_item("mixture_reporting_k", verdict.mixture_reporting_k)?;
+    out.set_item(
+        "ring_clusters_reporting_k",
+        verdict.ring_clusters_reporting_k,
+    )?;
+    out.set_item("mixture_fold_selected_k", &verdict.mixture_fold_selected_k)?;
+    out.set_item(
+        "ring_clusters_fold_selected_k",
+        &verdict.ring_clusters_fold_selected_k,
+    )?;
+    out.set_item(
+        "mixture_fold_k_histogram",
+        &verdict.mixture_fold_k_histogram,
+    )?;
+    out.set_item(
+        "ring_clusters_fold_k_histogram",
+        &verdict.ring_clusters_fold_k_histogram,
+    )?;
+    out.set_item("circular_stacking_weight", verdict.circular_stacking_weight)?;
+    out.set_item(
+        "noncircular_stacking_weight",
+        verdict.noncircular_stacking_weight,
+    )?;
+    out.set_item("circular_margin", verdict.circular_margin)?;
     out.set_item("circle_wins", verdict.circle_wins)?;
     out.set_item("is_cross_class", verdict.is_cross_class)?;
     out.set_item("headline", verdict.headline)?;
     Ok(out)
 }
 
+/// Generate one seeded structureless control for a topology census (#2262).
+///
+/// Call this at the entry of the pipeline being audited, then rerun the same
+/// SAE training, co-activation grouping, projection, and adjudication steps.
+/// Returning one control per call lets callers release it before generating the
+/// other control instead of materializing two corpus-sized copies at once.
+#[pyfunction]
+#[pyo3(signature = (data, kind, seed = 11))]
+pub(crate) fn shape_matched_control<'py>(
+    py: Python<'py>,
+    data: numpy::PyReadonlyArray2<'py, f64>,
+    kind: &str,
+    seed: u64,
+) -> PyResult<Bound<'py, numpy::PyArray2<f64>>> {
+    use gam::terms::sae::null_battery::{
+        covariance_exact_hadamard_null, per_dimension_shuffle_null,
+    };
+    use numpy::IntoPyArray;
+
+    let data = data.as_array();
+    let control = match kind {
+        "per_dimension_shuffle" => per_dimension_shuffle_null(data, seed),
+        "covariance_exact_hadamard" => covariance_exact_hadamard_null(data, seed),
+        other => Err(format!(
+            "shape_matched_control: kind must be per_dimension_shuffle or covariance_exact_hadamard; got {other:?}"
+        )),
+    }
+    .map_err(py_value_error)?;
+    Ok(control.into_pyarray(py))
+}
+
+/// Float32-preserving structureless control for full-pipeline censuses.
+///
+/// Unlike [`shape_matched_control`], this entry point never widens the full
+/// `n × p` input or output matrix. The covariance-exact branch transforms
+/// independent power-of-two row-block/column-band tiles in at most
+/// `min(8, worker_threads)` bounded float64 workspaces. Their total size never
+/// exceeds that many `B × p` matrices, with `B <= 1024`, or the 128-MiB active
+/// budget. Column banding keeps each tile at most 32 MiB. It never forms a
+/// `p × p` covariance or eigendecomposition.
+#[pyfunction]
+#[pyo3(signature = (data, kind, seed = 11))]
+pub(crate) fn shape_matched_control_f32<'py>(
+    py: Python<'py>,
+    data: numpy::PyReadonlyArray2<'py, f32>,
+    kind: &str,
+    seed: u64,
+) -> PyResult<Bound<'py, numpy::PyArray2<f32>>> {
+    use gam::terms::sae::null_battery::{
+        covariance_exact_hadamard_null_f32, per_dimension_shuffle_null_f32,
+    };
+    use numpy::IntoPyArray;
+
+    let data = data.as_array();
+    let control = match kind {
+        "per_dimension_shuffle" => per_dimension_shuffle_null_f32(data, seed),
+        "covariance_exact_hadamard" => covariance_exact_hadamard_null_f32(data, seed),
+        other => Err(format!(
+            "shape_matched_control_f32: kind must be per_dimension_shuffle or covariance_exact_hadamard; got {other:?}"
+        )),
+    }
+    .map_err(py_value_error)?;
+    Ok(control.into_pyarray(py))
+}
+
 /// Adjudicate the representational SHAPE of a recovered atom's intrinsic 2-D
-/// coordinates (issue #977 / #907): race a smooth S¹ ring against a Euclidean
-/// Gaussian and the best k-cluster mixture rung, headlined by held-out
-/// predictive stacking — the EXACT `fit_mixture_rung` + `adjudicate_cross_class_
-/// race` machinery the in-tree gates and the production fit drive. Returns a dict
-/// with the winner name, per-candidate stacking weights, rank-aware evidences,
-/// the selected mixture order, and the circle's stacking margin over the best
-/// non-circle contender.
+/// coordinates (issue #977 / #907 / #2262): race a smooth S¹ ring against a
+/// Euclidean Gaussian, the best free k-cluster mixture, and a constrained
+/// ring-of-clusters mixture whose centers share one fitted circle. The headline
+/// is held-out predictive stacking through the exact production race machinery.
+/// `winner_class` is the fixed class whose outer-fold predictive column receives
+/// the largest stacking weight (`circle`, `euclidean`, `mixture`, or
+/// `ring_clusters`). `reporting_winner` attaches the all-data reporting order to
+/// a mixture-class winner (for example `ring_clusters_k7`); that reporting fit
+/// is never used to score an outer evaluation fold.
+///
+/// Every outer training fold selects its own free-mixture and ring-cluster order
+/// using only that fold's training rows before scoring its evaluation rows.
+/// `mixture_fold_selected_k` / `ring_clusters_fold_selected_k` expose those
+/// leakage-free choices in fold order, and the corresponding `*_fold_k_histogram`
+/// mappings summarize them. `mixture_reporting_k` and
+/// `ring_clusters_reporting_k` are separate all-data fits for interpretation and
+/// final deployment. The result also returns per-class stacking weights and
+/// full-data BIC/2 corroborating scores. Aggregating the smooth-circle and ring-cluster weights
+/// makes `circle_wins` invariant to an arbitrary split of predictive mass inside
+/// the circular class; `circular_margin` is circular minus non-circular mass.
 ///
 /// `coords` is the `(n, 2)` intrinsic-coordinate matrix (e.g. `fit.coords[0]`
 /// from `sae_manifold_fit`). `folds`/`seed` control the deterministic CV folding
-/// of the held-out density table. By default, the identical race also runs on
-/// an independent per-dimension shuffle and a covariance-matched Gaussian null;
-/// `mean_l0` is then required and is emitted beside the resulting control
-/// false-circle floor, because a verdict rate without dictionary sparsity is
-/// not interpretable (#2262). Non-dictionary callers can explicitly disable
-/// `matched_controls` and receive no control-rate claim.
+/// of the held-out density table and must satisfy `2 <= folds <= n`. Thus the
+/// default `folds = 5` requires `n >= 5`; with an explicit smaller fold count,
+/// the shape models require `n >= 4` and at least three rows in every outer
+/// training fold. An explicit `k_ladder` must contain unique orders in `1..=n`;
+/// the default ladder is truncated to that feasible range before the race. By
+/// default, the identical race also runs on an independent per-dimension
+/// shuffle and a covariance-matched Gaussian of these supplied coordinates;
+/// `mean_l0` is then required and is emitted beside this adjudicator-input
+/// two-control circular-win fraction. That `{0, 1/2, 1}` value is descriptive,
+/// not a false-positive-rate estimate. To audit artifacts introduced by earlier
+/// SAE/grouping/PCA stages, generate each control at the pipeline entry with
+/// [`shape_matched_control`] and rerun every stage. Non-dictionary callers can
+/// explicitly disable `matched_controls` and receive no control-rate claim.
+///
+/// #2262 reconstruction-rank diagnostic: when `n_eff`, `ambient_p`, and
+/// `dispersion_r` are all supplied (the atom's occupancy-weighted effective
+/// sample size, the ambient output width used by rank pricing, and the residual
+/// dispersion `R`), the returned dict also carries `reconstruction_rank_edge` — the
+/// Marchenko–Pastur edge `R·(1+√(ambient_p/n_eff))²` that the production rank
+/// charge uses for its hard reconstruction-rank count (see
+/// [`gam::terms::sae::null_battery::mp_reconstruction_rank_edge`]). This is a
+/// rank-charge diagnostic, not an information-theoretic limit: the predictive
+/// 2-D shape race does not consume it, and a below-edge direction does not
+/// negate or override the returned shape verdict. Omit all three to leave
+/// `reconstruction_rank_edge` as `None`; supplying only a subset is an error.
 #[pyfunction]
-#[pyo3(signature = (coords, folds = 5, seed = 11, k_ladder = None, mean_l0 = None, matched_controls = true))]
+#[pyo3(
+    signature = (coords, folds = 5, seed = 11, k_ladder = None, mean_l0 = None, matched_controls = true, n_eff = None, ambient_p = None, dispersion_r = None)
+)]
 pub(crate) fn adjudicate_atom_shape<'py>(
     py: Python<'py>,
     coords: numpy::PyReadonlyArray2<'py, f64>,
@@ -1624,37 +2930,37 @@ pub(crate) fn adjudicate_atom_shape<'py>(
     k_ladder: Option<Vec<usize>>,
     mean_l0: Option<f64>,
     matched_controls: bool,
+    n_eff: Option<f64>,
+    ambient_p: Option<f64>,
+    dispersion_r: Option<f64>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let coords_view = coords.as_array();
-    let ladder = k_ladder.unwrap_or_else(|| gam::solver::MIXTURE_K_LADDER.to_vec());
+    // Reject malformed optional contracts before any reporting fit or CV race.
+    // These diagnostics cannot alter the model fit, so spending a full race
+    // before discovering a missing field is both slow and misleading.
+    if matched_controls || mean_l0.is_some() {
+        validate_control_mean_l0(mean_l0).map_err(py_value_error)?;
+    }
+    let reconstruction_rank_edge =
+        shape_reconstruction_rank_edge(n_eff, ambient_p, dispersion_r).map_err(py_value_error)?;
+    let ladder = k_ladder.unwrap_or_else(|| {
+        gam::solver::MIXTURE_K_LADDER
+            .iter()
+            .copied()
+            .filter(|&k| k <= coords_view.nrows())
+            .collect()
+    });
     let observed =
         run_atom_shape_race(coords_view, folds, seed, &ladder).map_err(py_value_error)?;
     let out = atom_shape_verdict_dict(py, &observed)?;
     out.set_item("dictionary_mean_l0", mean_l0)?;
 
+    out.set_item("reconstruction_rank_edge", reconstruction_rank_edge)?;
+
     if matched_controls {
-        let mean_l0 = mean_l0.ok_or_else(|| {
-            py_value_error(
-                "adjudicate_atom_shape: mean_l0 is required when matched_controls=True; a shape-verdict rate without dictionary sparsity is uninterpretable"
-                    .to_string(),
-            )
-        })?;
-        if !mean_l0.is_finite() || mean_l0 < 0.0 {
-            return Err(py_value_error(format!(
-                "adjudicate_atom_shape: mean_l0 must be finite and non-negative; got {mean_l0}"
-            )));
-        }
-        use gam::terms::sae::null_battery::{
-            covariance_matched_gaussian_null, per_dimension_shuffle_null,
-        };
-        let shuffled =
-            per_dimension_shuffle_null(coords_view, seed ^ 0xD1AE_510F).map_err(py_value_error)?;
-        let gaussian = covariance_matched_gaussian_null(coords_view, seed ^ 0xC0A4_71A1)
-            .map_err(py_value_error)?;
-        let shuffle_verdict =
-            run_atom_shape_race(shuffled.view(), folds, seed, &ladder).map_err(py_value_error)?;
-        let gaussian_verdict =
-            run_atom_shape_race(gaussian.view(), folds, seed, &ladder).map_err(py_value_error)?;
+        let (shuffle_verdict, gaussian_verdict, control_circular_win_fraction) =
+            matched_control_verdicts(coords_view, folds, seed, &ladder, mean_l0)
+                .map_err(py_value_error)?;
         let controls = PyDict::new(py);
         controls.set_item(
             "per_dimension_shuffle",
@@ -1664,14 +2970,14 @@ pub(crate) fn adjudicate_atom_shape<'py>(
             "covariance_matched_gaussian",
             atom_shape_verdict_dict(py, &gaussian_verdict)?,
         )?;
-        let false_circle_floor = (usize::from(shuffle_verdict.circle_wins)
-            + usize::from(gaussian_verdict.circle_wins)) as f64
-            / 2.0;
         out.set_item("matched_controls", controls)?;
-        out.set_item("control_false_circle_floor", false_circle_floor)?;
+        out.set_item(
+            "control_circular_win_fraction",
+            control_circular_win_fraction,
+        )?;
     } else {
         out.set_item("matched_controls", py.None())?;
-        out.set_item("control_false_circle_floor", py.None())?;
+        out.set_item("control_circular_win_fraction", py.None())?;
     }
     Ok(out)
 }
@@ -1758,6 +3064,8 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(skovgaard_r_star, module)?)?;
     module.add_function(wrap_pyfunction!(debiased_functional, module)?)?;
     module.add_function(wrap_pyfunction!(glm_full_conformal, module)?)?;
+    module.add_function(wrap_pyfunction!(shape_matched_control, module)?)?;
+    module.add_function(wrap_pyfunction!(shape_matched_control_f32, module)?)?;
     module.add_function(wrap_pyfunction!(adjudicate_atom_shape, module)?)?;
     module.add_function(wrap_pyfunction!(sweep_color_arm_throughput, module)?)?;
     Ok(())

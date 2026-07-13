@@ -221,9 +221,7 @@ impl<'a> GamWorkingModel<'a> {
     /// memoized on the working model and reused across the inner Newton
     /// iterations of this solve, since the design and prior weights are constant
     /// for the model's lifetime.
-    fn ensure_firth_design_factor(
-        &mut self,
-    ) -> Result<Arc<FirthDesignFactor>, EstimationError> {
+    fn ensure_firth_design_factor(&mut self) -> Result<Arc<FirthDesignFactor>, EstimationError> {
         if let Some(factor) = &self.firth_design_factor {
             return Ok(factor.clone());
         }
@@ -416,10 +414,8 @@ impl<'a> GamWorkingModel<'a> {
                     );
                     if !cache_hit {
                         workspace.resident_design_gram =
-                            gam_gpu::linalg_dispatch::ResidentDesignGram::try_new(
-                                x_dense.view(),
-                            )
-                            .map(|g| (key.0, key.1, key.2, g));
+                            gam_gpu::linalg_dispatch::ResidentDesignGram::try_new(x_dense.view())
+                                .map(|g| (key.0, key.1, key.2, g));
                     }
                     if let Some((_, _, _, gram)) = workspace.resident_design_gram.as_ref() {
                         if let Some(h) = gram.gram(weights.view()) {
@@ -473,7 +469,8 @@ impl<'a> GamWorkingModel<'a> {
             // sign instead of silently clipping negative-curvature mass.
             _ => gam_linalg::matrix::xt_diag_x_signed(
                 design,
-                gam_linalg::matrix::SignedWeightsView::from_array(weights),
+                gam_linalg::matrix::FiniteSignedWeightsView::try_from_array(weights)
+                    .map_err(EstimationError::InvalidInput)?,
             )
             .map(|h| h.to_dense())
             .map_err(EstimationError::InvalidInput),
@@ -732,9 +729,12 @@ impl<'a> GamWorkingModel<'a> {
             }
         }
 
-        let deviance = self
-            .likelihood
-            .loglik_deviance(self.y, &self.lastmu, self.priorweights)?;
+        let deviance = self.likelihood.loglik_deviance(
+            self.y,
+            &self.workspace.eta_buf,
+            &self.link_kind,
+            self.priorweights,
+        )?;
         let penalty_term = self.penalty.shifted_quadratic(beta.as_ref());
         // Finiteness is a property of the (deviance, penalty) pair regardless of
         // the family dispersion scale `k` applied later in the gain ratio, so the
@@ -756,7 +756,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         self.update_with_curvature(beta, HessianCurvatureKind::Fisher)
     }
 
-    fn penalized_deviance_scale(&self) -> f64 {
+    fn penalized_deviance_scale(&self) -> Result<f64, EstimationError> {
         // Matches the constant dispersion factor `write_*_working_state` bakes
         // into `self.lastweights` (Gamma `·shape`, Tweedie/fixed-φ Gaussian
         // `/φ`), reading the SAME `self.likelihood` the weights are built from,
@@ -783,6 +783,10 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         self.workspace.eta_buf.assign(&self.offset);
         self.workspace.eta_buf += &matvec_tmp;
         self.workspace.matvec_buf = matvec_tmp;
+        let resolved_likelihood_scale = self
+            .likelihood
+            .resolved_scale()
+            .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
 
         // Estimate the Gamma dispersion shape once from the warm-start η and
         // freeze it for the remainder of this inner solve. Holding the shape
@@ -790,9 +794,16 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         // stationary target and the LM gain ratio stays consistent across trial
         // and accepted iterates. The shape refreshes across outer iterations
         // because a fresh model is built per inner solve. See issue #511.
-        if self.likelihood.scale.gamma_shape_is_estimated() && !self.gamma_shape_locked {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::Gamma {
+                estimated: true,
+                ..
+            }
+        ) && !self.gamma_shape_locked
+        {
             let shape =
-                estimate_gamma_shape_from_eta(self.y, &self.workspace.eta_buf, self.priorweights);
+                estimate_gamma_shape_from_eta(self.y, &self.workspace.eta_buf, self.priorweights)?;
             self.likelihood = self.likelihood.clone().with_gamma_shape(shape);
             self.gamma_shape_locked = true;
         }
@@ -804,9 +815,16 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         // shape lock above), and it refreshes across outer iterations as a fresh
         // working model is built per inner solve. With φ pinned at the seed of 1
         // the mean smooth was over-penalized / under-fit on precise data.
-        if self.likelihood.scale.beta_phi_is_estimated() && !self.beta_phi_locked {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::BetaPrecision {
+                estimated: true,
+                ..
+            }
+        ) && !self.beta_phi_locked
+        {
             let phi =
-                estimate_beta_phi_from_eta(self.y, &self.workspace.eta_buf, self.priorweights);
+                estimate_beta_phi_from_eta(self.y, &self.workspace.eta_buf, self.priorweights)?;
             self.likelihood = self.likelihood.clone().with_beta_phi(phi);
             self.beta_phi_locked = true;
         }
@@ -818,14 +836,21 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         // the penalized argmin β̂ — a stationary LM target (mirroring the Gamma
         // shape and Beta φ locks above), and it refreshes across outer iterations
         // as a fresh working model is built per inner solve.
-        if self.likelihood.scale.tweedie_phi_is_estimated() && !self.tweedie_phi_locked {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::Tweedie {
+                estimated: true,
+                ..
+            }
+        ) && !self.tweedie_phi_locked
+        {
             if let ResponseFamily::Tweedie { p } = self.likelihood.spec.response {
                 let phi = estimate_tweedie_phi_from_eta(
                     self.y,
                     &self.workspace.eta_buf,
                     self.priorweights,
                     p,
-                );
+                )?;
                 self.likelihood = self.likelihood.clone().with_tweedie_phi(phi);
                 self.tweedie_phi_locked = true;
             }
@@ -839,9 +864,16 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         // φ lock above); it refreshes across outer iterations as a fresh working
         // model is built per inner solve. With `theta` frozen at the seed every
         // coefficient/η SE ignored the data's overdispersion.
-        if self.likelihood.scale.negbin_theta_is_estimated() && !self.negbin_theta_locked {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+                estimated: true,
+                ..
+            }
+        ) && !self.negbin_theta_locked
+        {
             let theta =
-                estimate_negbin_theta_from_eta(self.y, &self.workspace.eta_buf, self.priorweights);
+                estimate_negbin_theta_from_eta(self.y, &self.workspace.eta_buf, self.priorweights)?;
             self.likelihood = self.likelihood.clone().with_negbin_theta(theta);
             self.negbin_theta_locked = true;
         }
@@ -1041,18 +1073,14 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         let hessian_curvature = self.update_hessian_curvature_arrays(requested_curvature)?;
         self.lasthessian_curvature = hessian_curvature;
 
-        // Build solver-side weights in the reusable n-buffer: apply a
-        // per-observation SPD floor so the Newton linear system is
-        // well-conditioned, without contaminating the model weights stored in
-        // `lasthessian_weights`.
+        // Assemble the exact signed statistical Hessian.  Positive-definiteness
+        // stabilization is applied only after X'WX + S has been assembled,
+        // through the explicit matrix ridge below; changing individual row
+        // weights would define a different likelihood surface.
         if self.workspace.matvec_buf.len() != n {
             self.workspace.matvec_buf = Array1::zeros(n);
         }
-        solver_hessian_weights_into(
-            &self.lasthessian_weights,
-            &self.lastweights,
-            &mut self.workspace.matvec_buf,
-        );
+        self.workspace.matvec_buf.assign(&self.lasthessian_weights);
         let solver_weights = std::mem::take(&mut self.workspace.matvec_buf);
 
         let (penalized_hessian, sparsehessian, ridge_used) = if matches!(
@@ -1086,15 +1114,19 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         //
         // This keeps the PIRLS fixed point aligned with the stabilized Hessian
         // that drives log|H| and the implicit-gradient correction.
-        let deviance = self
-            .likelihood
-            .loglik_deviance(self.y, &self.lastmu, self.priorweights)?;
-        let log_likelihood = calculate_loglikelihood_omitting_constants(
+        let deviance = self.likelihood.loglik_deviance(
             self.y,
-            &self.lastmu,
-            &self.likelihood,
+            &self.workspace.eta_buf,
+            &self.link_kind,
             self.priorweights,
-        );
+        )?;
+        let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+            self.y,
+            &self.workspace.eta_buf,
+            &self.likelihood,
+            &self.link_kind,
+            self.priorweights,
+        )?;
 
         let mut penalty_term = self.penalty.shifted_quadratic(beta.as_ref());
         let mut ridge_grad_norm = 0.0;

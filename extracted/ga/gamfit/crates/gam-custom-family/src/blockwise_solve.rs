@@ -7,6 +7,33 @@
 use super::*;
 use opt::{RidgeSchedule, escalate_ridge};
 
+/// Convert one already-semantic log-smoothing vector to physical strengths.
+/// This is the only custom-family conversion seam: it rejects the first bad
+/// coordinate and never clamps or floors either representation.
+pub(crate) fn exact_lambdas_from_log_strengths(
+    log_strengths: &Array1<f64>,
+    label: &str,
+) -> Result<Array1<f64>, CustomFamilyError> {
+    gam_problem::checked_exp_log_strengths(log_strengths.iter().copied())
+        .map(Array1::from_vec)
+        .map_err(|error| CustomFamilyError::ConstraintViolation {
+            reason: format!("{label}: {error}"),
+        })
+}
+
+pub(crate) fn exact_lambdas_by_block(
+    block_log_strengths: &[Array1<f64>],
+    label: &str,
+) -> Result<Vec<Array1<f64>>, CustomFamilyError> {
+    block_log_strengths
+        .iter()
+        .enumerate()
+        .map(|(block, values)| {
+            exact_lambdas_from_log_strengths(values, &format!("{label} block {block}"))
+        })
+        .collect()
+}
+
 pub(crate) fn aggregate_labeled_hessian(
     hessian: &Array2<f64>,
     layout: &PenaltyLabelLayout,
@@ -288,6 +315,14 @@ pub(crate) fn split_log_lambdas(
         }
         .into());
     }
+    // Certify the complete vector before producing any partial block output.
+    // Every downstream physical conversion is therefore dominated by the
+    // shared exact-domain contract even when it operates block-by-block.
+    gam_problem::validate_log_strengths(flat.iter().copied()).map_err(|error| {
+        CustomFamilyError::ConstraintViolation {
+            reason: format!("log-smoothing vector: {error}"),
+        }
+    })?;
     let mut out = Vec::with_capacity(penalty_counts.len());
     let mut at = 0usize;
     for &k in penalty_counts {
@@ -437,7 +472,7 @@ pub(crate) fn weighted_normal_equations(
         .into());
     }
 
-    let xtwx = x.xt_diag_x_signed_op(SignedWeightsView::from_array(w))?;
+    let xtwx = x.xt_diag_x_signed_op(FiniteSignedWeightsView::try_from_array(w)?)?;
     let xtwy = if let Some(y) = y_star {
         Some(x.compute_xtwy(w, y)?)
     } else {
@@ -1125,36 +1160,25 @@ pub(crate) struct BlockUpdateResult {
     pub(crate) active_set: Option<Vec<usize>>,
 }
 
-/// Floor strictly positive working weights at `minweight`, preserving exact
-/// zeros (semantically excluded rows stay excluded).
+/// Certify a diagonal working-curvature vector without changing it.
 ///
-/// The diagonal working-curvature contract requires nonnegative finite
-/// entries: a negative weight is indefinite diagonal curvature and a
-/// non-finite weight is a broken linearization. Coercing either (negatives to
-/// zero, or NaN to `minweight` through the NaN-ignoring `f64::max`) would
-/// silently substitute a different information matrix — the objective,
-/// gradient, and log|H| would then describe a model the family never
-/// evaluated — so both are rejected.
-pub(crate) fn floor_positiveworking_weights(
+/// Signed finite rows are valid for observed Hessians. Conditioning and local
+/// indefiniteness are handled after assembly by the shared matrix-level
+/// ridge/continuation policy; a row-wise floor or sign projection would alter
+/// the score, Hessian, and Laplace determinant into different models.
+pub(crate) fn certify_finite_working_weights(
     working_weights: &Array1<f64>,
-    minweight: f64,
-) -> Result<Array1<f64>, String> {
+) -> Result<&Array1<f64>, String> {
     if let Some((i, &wi)) = working_weights
         .iter()
         .enumerate()
-        .find(|&(_, &wi)| !wi.is_finite() || wi < 0.0)
+        .find(|&(_, &wi)| !wi.is_finite())
     {
         return Err(format!(
-            "invalid diagonal working weight at row {i}: {wi} (the working-curvature \
-             contract requires nonnegative finite entries; negative or non-finite \
-             curvature cannot be coerced without changing the information matrix)"
+            "invalid diagonal working weight at row {i}: {wi} (working curvature must be finite)"
         ));
     }
-    let mut out = Array1::<f64>::zeros(working_weights.len());
-    ndarray::Zip::from(&mut out)
-        .and(working_weights)
-        .par_for_each(|o, &wi| *o = if wi == 0.0 { 0.0 } else { wi.max(minweight) });
-    Ok(out)
+    Ok(working_weights)
 }
 
 pub(crate) trait ParameterBlockUpdater {
@@ -1186,9 +1210,8 @@ impl ParameterBlockUpdater for DiagonalBlockUpdater<'_> {
             .into());
         }
 
-        // Zero-weight observations are semantically excluded and must stay inactive.
-        let w_clamped = floor_positiveworking_weights(self.working_weights, ctx.options.minweight)
-            .map_err(|e| {
+        let working_weights =
+            certify_finite_working_weights(self.working_weights).map_err(|e| {
                 format!(
                     "block {} ({}) diagonal solve: {e}",
                     ctx.block_idx, ctx.spec.name
@@ -1207,7 +1230,8 @@ impl ParameterBlockUpdater for DiagonalBlockUpdater<'_> {
             with_block_geometry(ctx.family, ctx.states, ctx.spec, ctx.block_idx, |x, off| {
                 let mut y_star = self.working_response.clone();
                 y_star -= off;
-                let (mut lhs, rhs_opt) = weighted_normal_equations(x, &w_clamped, Some(&y_star))?;
+                let (mut lhs, rhs_opt) =
+                    weighted_normal_equations(x, working_weights, Some(&y_star))?;
                 let rhs = rhs_opt.ok_or_else(|| {
                     "missing weighted RHS in constrained diagonal solve".to_string()
                 })?;
@@ -1251,12 +1275,12 @@ impl ParameterBlockUpdater for DiagonalBlockUpdater<'_> {
                 // This avoids an O(n) working_response clone.
                 let n = self.working_response.len();
                 let wy = Array1::from_shape_fn(n, |i| {
-                    (self.working_response[i] - off[i]) * w_clamped[i].max(0.0)
+                    (self.working_response[i] - off[i]) * working_weights[i]
                 });
                 let xtwy = x.transpose_vector_multiply(&wy);
                 let beta = x
                     .solve_systemwith_policy(
-                        &w_clamped,
+                        working_weights,
                         &xtwy,
                         Some(ctx.s_lambda),
                         ctx.options.ridge_floor,
@@ -1607,7 +1631,7 @@ pub(crate) fn block_quadratic_penalty(
     ridge_policy: RidgePolicy,
 ) -> f64 {
     let mut value = 0.5 * beta.dot(&s_lambda.dot(beta));
-    if ridge_policy.include_quadratic_penalty {
+    if ridge_policy.accounts_for_objective() {
         value += 0.5 * ridge * beta.dot(beta);
     }
     value
@@ -1633,7 +1657,7 @@ pub(crate) fn block_penalized_hessian_vector(
         }
     };
     hpen += &s_lambda.dot(direction);
-    if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+    if ridge_policy.accounts_for_objective() && ridge > 0.0 {
         hpen.scaled_add(ridge, direction);
     }
     hpen
@@ -1682,7 +1706,7 @@ pub(crate) fn block_penalized_metric_diagonal(
     }
     for j in 0..diagonal.len() {
         diagonal[j] += s_lambda[[j, j]];
-        if ridge_policy.include_quadratic_penalty && ridge > 0.0 {
+        if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             diagonal[j] += ridge;
         }
         diagonal[j] = positive_joint_diagonal_entry(diagonal[j]);
@@ -1874,7 +1898,7 @@ pub(crate) fn stable_logdet_with_ridge_policy(
     let mut a = matrix.clone();
     symmetrize_dense_in_place(&mut a);
     let p = a.nrows();
-    let ridge = if ridge_policy.include_penalty_logdet {
+    let ridge = if ridge_policy.accounts_for_objective() {
         effective_solverridge(ridge_floor)
     } else {
         0.0
@@ -1883,18 +1907,14 @@ pub(crate) fn stable_logdet_with_ridge_policy(
         a[[i, i]] += ridge;
     }
 
-    match resolved_ridge_determinant_mode(ridge_policy, p) {
+    match ridge_policy.determinant_mode() {
         RidgeDeterminantMode::Full => {
             let chol = a.cholesky(Side::Lower).map_err(|_| {
                 "cholesky failed while computing full ridge-aware logdet".to_string()
             })?;
             Ok(2.0 * chol.diag().mapv(f64::ln).sum())
         }
-        RidgeDeterminantMode::Auto => Err(
-            "internal: resolved_ridge_determinant_mode must resolve Auto to a concrete mode"
-                .to_string(),
-        ),
-        RidgeDeterminantMode::PositivePart => {
+        RidgeDeterminantMode::PositivePartApproximation => {
             smooth_regularized_logdet_hessian_finite_check(&a, None)?;
             // Smooth-regularized logdet objective, aligned with the gradient
             // operator (`DenseSpectralOperator` in `Smooth` mode):
@@ -1949,131 +1969,6 @@ pub(crate) fn stable_logdet_with_ridge_policy(
     }
 }
 
-/// Try Cholesky with an escalating diagonal ridge.
-///
-/// On attempt `k` (zero-indexed) the diagonal of `matrix` is boosted by
-/// `initial_boost * growth^k`. The first successful Cholesky for which
-/// `on_success` returns `Some(r)` short-circuits and yields `Some((r, boost,
-/// attempt))`; otherwise (Cholesky failure or `on_success` rejection) the
-/// ridge is grown and retried up to `max_attempts` times. Returns `None`
-/// when every attempt is exhausted.
-///
-/// Callers that need a no-ridge probe should perform it explicitly before
-/// invoking this helper; the helper itself always adds `initial_boost` on
-/// the first attempt (which may itself be zero if the caller passes 0.0).
-pub(crate) fn try_cholesky_with_escalating_ridge<R>(
-    matrix: &Array2<f64>,
-    initial_boost: f64,
-    max_attempts: usize,
-    growth: f64,
-    mut on_success: impl FnMut(&gam_linalg::faer_ndarray::FaerCholeskyFactor, usize, f64) -> Option<R>,
-) -> Option<(R, f64, usize)> {
-    let p = matrix.nrows();
-    // The shared primitive reports 1-based escalation counts; this helper's
-    // contract hands `on_success` the 0-based attempt index, so the counter
-    // lives here.
-    let mut attempt = 0_usize;
-    escalate_ridge(
-        RidgeSchedule {
-            initial: initial_boost,
-            growth,
-            max_escalations: max_attempts,
-        },
-        |boost| {
-            let this_attempt = attempt;
-            attempt += 1;
-            let mut candidate = matrix.clone();
-            if boost != 0.0 {
-                for i in 0..p {
-                    candidate[[i, i]] += boost;
-                }
-            }
-            let chol = candidate.cholesky(Side::Lower).ok()?;
-            on_success(&chol, this_attempt, boost).map(|r| (r, boost, this_attempt))
-        },
-    )
-    .ok()
-    .map(|success| success.value)
-}
-
-/// Fallback for penalty pseudo-logdet when eigendecomposition fails.
-///
-/// Penalty matrices are PSD by construction (weighted sum of PSD penalties),
-/// so the ridged matrix should be SPD.  Uses escalating-ridge Cholesky via
-/// the shared `try_cholesky_with_escalating_ridge` helper.
-pub(crate) fn penalty_logdet_cholesky_fallback(
-    s_ridged: &Array2<f64>,
-    existing_ridge: f64,
-    block: usize,
-    p: usize,
-    eigh_err: &str,
-) -> Result<f64, String> {
-    let diag_scale = s_ridged
-        .diag()
-        .iter()
-        .copied()
-        .map(f64::abs)
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
-
-    const MAX_ATTEMPTS: usize = 6;
-    let initial_boost = diag_scale * 1e-8;
-
-    let outcome = try_cholesky_with_escalating_ridge(
-        s_ridged,
-        initial_boost,
-        MAX_ATTEMPTS,
-        10.0,
-        |chol, attempt, boost| {
-            let logdet = 2.0 * chol.diag().mapv(f64::ln).sum();
-            if logdet.is_finite() {
-                log::warn!(
-                    "[PenaltyLogdetFallback] eigendecomposition failed for block {block} \
-                     ({eigh_err}); using Cholesky with boosted ridge={:.2e} \
-                     (attempt {}/{MAX_ATTEMPTS}, existing_ridge={:.2e}, p={p})",
-                    boost + existing_ridge,
-                    attempt + 1,
-                    existing_ridge,
-                );
-                Some(logdet)
-            } else {
-                None
-            }
-        },
-    );
-
-    if let Some((logdet, _, _)) = outcome {
-        return Ok(logdet);
-    }
-
-    // Mirror the original message: report the ridge that *would* have been
-    // applied on the (MAX_ATTEMPTS+1)-th attempt, i.e. initial_boost * 10^MAX_ATTEMPTS.
-    let final_boost = initial_boost * 10.0_f64.powi(MAX_ATTEMPTS as i32);
-    Err(CustomFamilyError::BasisDecompositionFailed {
-        reason: format!(
-            "penalty logdet eigendecomposition failed for block {block} ({eigh_err}) and \
-         Cholesky fallback also failed after {MAX_ATTEMPTS} attempts \
-         (final ridge={:.2e}, p={p})",
-            final_boost + existing_ridge,
-        ),
-    }
-    .into())
-}
-
-pub(crate) fn resolved_ridge_determinant_mode(
-    ridge_policy: RidgePolicy,
-    dim: usize,
-) -> RidgeDeterminantMode {
-    assert!(
-        dim.checked_add(1).is_some(),
-        "ridge determinant dimension overflow"
-    );
-    match ridge_policy.determinant_mode {
-        RidgeDeterminantMode::Auto => RidgeDeterminantMode::Full,
-        mode => mode,
-    }
-}
-
 pub(crate) fn symmetrize_dense_in_place(matrix: &mut Array2<f64>) {
     gam_linalg::matrix::symmetrize_in_place(matrix);
 }
@@ -2125,9 +2020,7 @@ pub(crate) const STRICT_SPD_LM_RIDGE_GROWTH: f64 = 10.0;
 // `CUSTOM_FAMILY_RIDGE_FLOOR` (the initial Cholesky-escalation ridge δ) is
 // single-sourced in `gam-problem` (`custom_family_blockwise`). Re-exported here
 // so existing crate-local paths keep resolving after the #1521 carve instead of
-// holding a second definition. (`CUSTOM_FAMILY_WEIGHT_FLOOR`, the IRLS
-// working-weight floor, is referenced only by the unit tests, which reach it
-// through the canonical `gam_problem::` path directly.)
+// holding a second definition.
 pub(crate) use gam_problem::CUSTOM_FAMILY_RIDGE_FLOOR;
 
 /// Relative eigenvalue floor used wherever an eigendecomposition needs to
@@ -2499,4 +2392,59 @@ pub(crate) fn symmetric_penalized_hessian_nullity_and_condition(
         f64::INFINITY
     };
     Some((nullity, condition))
+}
+
+#[cfg(test)]
+mod penalty_logdet_unify_tests {
+    use super::*;
+    use gam_solve::estimate::reml::penalty_logdet::PenaltyPseudologdet;
+    use ndarray::array;
+
+    /// The penalty-logdet fallback was collapsed onto `strict_exact_pseudo_logdet`
+    /// (deleting the ridge-escalating `penalty_logdet_cholesky_fallback`). This
+    /// pins that the strict path computes the SAME quantity as the canonical
+    /// `PenaltyPseudologdet::value()` the analytic REML gradient differentiates:
+    /// the exact positive-eigenspace pseudo-logdet `Σ_{σ>tol} log σ`, so the
+    /// fallback can never re-introduce a ridge-biased, gradient-inconsistent
+    /// value. Covers both the rank-deficient (null space present) and the
+    /// full-rank SPD case.
+    #[test]
+    fn strict_pseudo_logdet_matches_canonical_penalty_value() {
+        // Rank-deficient PSD penalty: 2×2 active block + a structural null dim.
+        // Active eigenvalues 1.5 and 2.5 ⇒ pseudo-logdet = ln 1.5 + ln 2.5.
+        let s_rank_deficient = array![
+            [2.0, 0.5, 0.0],
+            [0.5, 2.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ];
+        let expected_deficient = 1.5_f64.ln() + 2.5_f64.ln();
+        let strict = strict_exact_pseudo_logdet(&s_rank_deficient, 3).expect("strict logdet");
+        let canonical = PenaltyPseudologdet::from_components(&[s_rank_deficient.clone()], &[1.0], 0.0)
+            .expect("canonical pseudo-logdet")
+            .value();
+        assert!(
+            (strict - expected_deficient).abs() < 1e-10,
+            "strict pseudo-logdet {strict} != analytic {expected_deficient}"
+        );
+        assert!(
+            (strict - canonical).abs() < 1e-10,
+            "strict pseudo-logdet {strict} != canonical PenaltyPseudologdet value {canonical}"
+        );
+
+        // Full-rank SPD penalty: pseudo-logdet = log|S| = ln(det).
+        let s_spd = array![[2.0, 0.5], [0.5, 3.0]];
+        let expected_spd = (2.0_f64 * 3.0 - 0.5 * 0.5).ln();
+        let strict_spd = strict_exact_pseudo_logdet(&s_spd, 2).expect("strict spd logdet");
+        let canonical_spd = PenaltyPseudologdet::from_components(&[s_spd.clone()], &[1.0], 0.0)
+            .expect("canonical spd pseudo-logdet")
+            .value();
+        assert!(
+            (strict_spd - expected_spd).abs() < 1e-10,
+            "strict SPD logdet {strict_spd} != ln(det) {expected_spd}"
+        );
+        assert!(
+            (strict_spd - canonical_spd).abs() < 1e-10,
+            "strict SPD logdet {strict_spd} != canonical value {canonical_spd}"
+        );
+    }
 }

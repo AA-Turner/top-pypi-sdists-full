@@ -294,8 +294,8 @@ fn softmax_row_fisher_metric_is_psd_gauge_null_and_derivative_matches_fd() {
 }
 
 #[test]
-fn ibp_assignment_grad_target_matches_value_finite_difference() {
-    let pen = IBPAssignmentPenalty::new(4, 6.0, 0.8, false);
+fn ordered_beta_bernoulli_assignment_grad_target_matches_value_finite_difference() {
+    let pen = OrderedBetaBernoulliPenalty::new(4, 6.0, 0.8, false);
     let t = array![
         0.2_f64, -0.3, 0.7, -0.5, 0.9, 0.4, -0.2, 0.1, -0.4, 0.8, 0.3, -0.1
     ];
@@ -317,192 +317,68 @@ fn ibp_assignment_grad_target_matches_value_finite_difference() {
     }
     assert!(
         max_err < 1.0e-7,
-        "IBP grad-FD max abs error = {max_err:.3e}"
+        "ordered Beta--Bernoulli grad-FD max abs error = {max_err:.3e}"
     );
 }
 
 #[test]
-fn ibp_cross_row_woodbury_d_matches_full_off_diagonal_hessian() {
-    // #1038: the exact IBP Hessian couples DIFFERENT rows within a column
-    // through the plug-in empirical mass `M_k = Σ_i z_ik`:
-    //   ∂²(value)/∂ℓ_ik ∂ℓ_jk = w · s'_k · z'_ik · z'_jk   (the cross-row
-    // rank-one block, including i=j). `cross_row_d[k] = w·s'_k` and
-    // `z_jac[i*K+k] = z'_ik`, so the analytic product must reproduce the
-    // central-difference second derivative of `value` for every (i≠j) pair.
-    let pen = IBPAssignmentPenalty::new(3, 5.0, 0.85, false);
-    // 4 rows × 3 columns; row-major (N, K).
-    let t = array![
-        0.3_f64, -0.2, 0.6, 0.5, 0.1, -0.4, -0.1, 0.7, 0.2, 0.4, -0.3, 0.8
-    ];
+fn ordered_beta_bernoulli_value_is_exact_integrated_marginal() {
+    let k = 2usize;
+    let alpha = 1.7_f64;
+    let tau = 0.8_f64;
+    let pen = OrderedBetaBernoulliPenalty::new(k, alpha, tau, false);
+    let target = array![0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5];
     let rho = Array1::<f64>::zeros(0);
-    let k = pen.k_max;
-    let n = t.len() / k;
-    let ch = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
-    let eps = 1.0e-5;
-    let mut max_err = 0.0_f64;
-    // Mixed second derivative via 4-point central difference on `value`.
-    let mixed_fd = |a: usize, b: usize| -> f64 {
-        let bump = |sa: f64, sb: f64| -> Array1<f64> {
-            let mut tt = t.clone();
-            tt[a] += sa * eps;
-            tt[b] += sb * eps;
-            tt
-        };
-        (pen.value(bump(1.0, 1.0).view(), rho.view())
-            - pen.value(bump(1.0, -1.0).view(), rho.view())
-            - pen.value(bump(-1.0, 1.0).view(), rho.view())
-            + pen.value(bump(-1.0, -1.0).view(), rho.view()))
-            / (4.0 * eps * eps)
-    };
-    for col in 0..k {
-        for i in 0..n {
-            for j in 0..n {
-                if i == j {
-                    continue;
-                }
-                let analytic = ch.cross_row_d[col] * ch.z_jac[i * k + col] * ch.z_jac[j * k + col];
-                let fd = mixed_fd(i * k + col, j * k + col);
-                let err = (analytic - fd).abs();
-                if err > max_err {
-                    max_err = err;
-                }
-                assert_abs_diff_eq!(analytic, fd, epsilon = 5.0e-5);
-            }
-        }
-    }
-    // Distinct columns do NOT couple cross-row (independent stick-breaking
-    // masses): the analytic model predicts zero, and the FD must agree.
-    // Pick row 0, col 0 vs row 1, col 1 (flat indices 0 and k + 1).
-    let mixed_distinct = mixed_fd(0, k + 1);
-    assert!(
-        mixed_distinct.abs() < 5.0e-5,
-        "distinct-column cross-row coupling must vanish; got {mixed_distinct:.3e}"
-    );
-    assert!(
-        max_err < 5.0e-5,
-        "IBP cross-row Woodbury d·z'·z' vs FD max abs error = {max_err:.3e}"
-    );
-}
-
-#[test]
-fn ibp_cross_row_woodbury_dd_and_logit_curvature_match_finite_difference() {
-    // #1416: the θ-adjoint differentiates the cross-row Woodbury block
-    //   W_k = d_k·u_k u_kᵀ,  u_k[i] = J_ik,  d_k = w·s'_k(M_k).
-    // Its θ-derivative needs two new exact channels:
-    //   cross_row_dd[k] = ∂d_k/∂M_k = w·s''_k  (since ∂M_k/∂ℓ_mk = J_mk),
-    //   logit_curvature[i*K+k] = ∂J_ik/∂ℓ_ik = c_ik.
-    // Verify both against central differences of the base channels.
-    let pen = IBPAssignmentPenalty::new(3, 5.0, 0.85, false);
-    let t = array![
-        0.3_f64, -0.2, 0.6, 0.5, 0.1, -0.4, -0.1, 0.7, 0.2, 0.4, -0.3, 0.8
-    ];
-    let rho = Array1::<f64>::zeros(0);
-    let k = pen.k_max;
-    let n = t.len() / k;
-    let ch = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
-    let eps = 1.0e-6;
-    let bumped = |idx: usize, s: f64| {
-        let mut tt = t.clone();
-        tt[idx] += s * eps;
-        pen.hessian_diag_logit_third_channels(tt.view(), rho.view(), false)
-    };
-
-    // logit_curvature[i*K+k] = d(z_jac[i*K+k])/dℓ_ik (only the same logit moves it).
-    let mut max_c = 0.0_f64;
-    for i in 0..n {
+    let n = target.len() / k;
+    let mut mass = [0.0_f64; 2];
+    for row in 0..n {
         for col in 0..k {
-            let plus = bumped(i * k + col, 1.0);
-            let minus = bumped(i * k + col, -1.0);
-            let fd = (plus.z_jac[i * k + col] - minus.z_jac[i * k + col]) / (2.0 * eps);
-            let err = (ch.logit_curvature[i * k + col] - fd).abs();
-            max_c = max_c.max(err);
-            assert_abs_diff_eq!(ch.logit_curvature[i * k + col], fd, epsilon = 1.0e-5);
+            mass[col] += 1.0 / (1.0 + (-target[row * k + col] / tau).exp());
         }
     }
-    assert!(max_c < 1.0e-5, "logit_curvature FD max err = {max_c:.3e}");
-
-    // cross_row_dd[k]·J_mk = d(cross_row_d[k])/dℓ_mk for any row m in column k.
-    let mut max_dd = 0.0_f64;
+    let ratio = alpha / (alpha + 1.0);
+    let mut expected = 0.0;
     for col in 0..k {
-        for m in 0..n {
-            let plus = bumped(m * k + col, 1.0);
-            let minus = bumped(m * k + col, -1.0);
-            let fd = (plus.cross_row_d[col] - minus.cross_row_d[col]) / (2.0 * eps);
-            let analytic = ch.cross_row_dd[col] * ch.z_jac[m * k + col];
-            let err = (analytic - fd).abs();
-            max_dd = max_dd.max(err);
-            assert_abs_diff_eq!(analytic, fd, epsilon = 1.0e-5);
-        }
+        let mu = ratio.powi(col as i32 + 1);
+        let a = mu / (1.0 - mu);
+        expected += -a.ln()
+            - statrs::function::gamma::ln_gamma(mass[col] + a)
+            - statrs::function::gamma::ln_gamma(n as f64 - mass[col] + 1.0)
+            + statrs::function::gamma::ln_gamma(n as f64 + a + 1.0);
     }
-    assert!(
-        max_dd < 1.0e-5,
-        "cross_row_dd·J vs FD max err = {max_dd:.3e}"
+    assert_abs_diff_eq!(
+        pen.value(target.view(), rho.view()),
+        expected,
+        epsilon = 1.0e-12
     );
 }
 
 #[test]
-fn ibp_majorized_channels_match_fd_of_psd_majorized_operator() {
-    // gam#2144 consistency: with `majorize = true` every third channel must be the
-    // exact derivative of the PSD Loewner-majorized column block
-    //   D_ik = max(w·s'_k, 0)·J_ik² + max(w·s_k·c_ik, 0),   d_k = max(w·s'_k, 0),
-    // NOT the raw indefinite IBP Hessian — so the low-rank-whitened θ-adjoint/ρ-trace
-    // differentiate the SAME operator the majorized evidence log-det factors. Verify
-    // (a) the clamps actually fire on this fixture (non-vacuous), (b) cross_row_d/dd
-    // are the clamped coefficient and its gated mass-derivative, and (c)
-    // m_channel/local_logit_third reproduce the TOTAL logit-derivative of `D_ik`
-    // (`δ_iw·local_logit_third + m_channel·J_wk`) against a central difference.
-    let pen = IBPAssignmentPenalty::new(3, 5.0, 0.85, false);
+fn ordered_beta_bernoulli_majorized_channels_match_fd_of_psd_majorized_operator() {
+    // The exact mass rank-one coefficient is strictly negative, so its zero
+    // matrix is a PSD Loewner majorizer. Verify that the retained row-local
+    // diagonal `max(weight·score·w_i·z_i'', 0)` and its same-row/shared-mass
+    // derivative channels are one operator.
+    let pen = OrderedBetaBernoulliPenalty::new(3, 5.0, 0.85, false);
     let t = array![
         0.3_f64, -0.2, 0.6, 0.5, 0.1, -0.4, -0.1, 0.7, 0.2, 0.4, -0.3, 0.8
     ];
     let rho = Array1::<f64>::zeros(0);
     let k = pen.k_max;
     let n = t.len() / k;
-    // Majorized column-block diagonal as a function of the logits, reconstructed
-    // from the raw diagonal (`w·(s'·J² + s·c)`) + raw `cross_row_d` (`w·s'`) + `J`.
     let maj_diag = |tv: ArrayView1<'_, f64>| -> Array1<f64> {
-        let raw = pen.hessian_diag_logit_third_channels(tv, rho.view(), false);
-        let hdiag = pen.hessian_diag(tv, rho.view()).unwrap();
-        let mut d = Array1::<f64>::zeros(tv.len());
-        for i in 0..n {
-            for col in 0..k {
-                let idx = i * k + col;
-                let jj = raw.z_jac[idx] * raw.z_jac[idx];
-                let self_term = raw.cross_row_d[col] * jj; // w·s'·J²
-                let sc = hdiag[idx] - self_term; // w·s·c
-                d[idx] = raw.cross_row_d[col].max(0.0) * jj + sc.max(0.0);
-            }
-        }
-        d
+        pen.psd_majorizer_logit_third_channels(tv, rho.view())
+            .diagonal_term
+            .mapv(|value| value.max(0.0))
     };
-    let ch = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), true);
-    let raw = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
+    let ch = pen.psd_majorizer_logit_third_channels(t.view(), rho.view());
 
-    // (a) non-vacuity: at least one column's rank-one coefficient is clamped off.
-    let clamped_col = (0..k).any(|c| raw.cross_row_d[c] < -1.0e-9 && ch.cross_row_d[c] == 0.0);
     assert!(
-        clamped_col,
-        "fixture must clamp at least one rank-one column (else the majorizer is vacuous)"
+        ch.mass_hessian_coefficient.iter().all(|value| *value < 0.0),
+        "every exact integrated-marginal mass-Hessian coefficient must be negative"
     );
 
-    // (b) cross_row_d = max(w·s',0); cross_row_dd gated by the same clamp.
-    for c in 0..k {
-        assert_abs_diff_eq!(
-            ch.cross_row_d[c],
-            raw.cross_row_d[c].max(0.0),
-            epsilon = 1.0e-12
-        );
-        if raw.cross_row_d[c] <= 0.0 {
-            assert_eq!(
-                ch.cross_row_dd[c], 0.0,
-                "clamped column must gate cross_row_dd to 0"
-            );
-        } else {
-            assert_abs_diff_eq!(ch.cross_row_dd[c], raw.cross_row_dd[c], epsilon = 1.0e-12);
-        }
-    }
-
-    // (c) m_channel/local_logit_third reproduce the total logit-FD of `D_ik`.
+    // `m_channel` plus the local channel reproduces the total logit derivative.
     let eps = 1.0e-6;
     let mut max_err = 0.0_f64;
     for w in 0..n {
@@ -534,105 +410,8 @@ fn ibp_majorized_channels_match_fd_of_psd_majorized_operator() {
 }
 
 #[test]
-fn ibp_cross_row_d_logalpha_matches_finite_difference() {
-    // #1417 fix: the cross-row rank-one coefficient's logα-derivative used by the
-    // LEARNABLE-α log-det ρ-gradient. For learnable α, `α(ρ₀)=α_base·e^{ρ₀}` so
-    // `∂logα/∂ρ₀=1`, hence `∂(cross_row_d[k])/∂ρ₀ = ∂d_k/∂logα = cross_row_d_logalpha[k]`.
-    // Central-difference the VALUE channel `cross_row_d` w.r.t. ρ₀ and compare.
-    // (The pre-fix bug used the value `cross_row_d` itself in the off-diagonal of
-    // the logα trace — inconsistent with the α-differentiated diagonal channel.)
-    let pen = IBPAssignmentPenalty::new(3, 6.0, 0.8, true);
-    let t = array![
-        0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5, 0.6, -0.2, 0.3, 0.1, 0.8, -0.4
-    ];
-    let rho = array![0.15_f64];
-    let k = pen.k_max;
-    let ch = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
-    let eps = 1.0e-6;
-    let mut rp = rho.clone();
-    let mut rm = rho.clone();
-    rp[0] += eps;
-    rm[0] -= eps;
-    let plus = pen.hessian_diag_logit_third_channels(t.view(), rp.view(), false);
-    let minus = pen.hessian_diag_logit_third_channels(t.view(), rm.view(), false);
-    let mut max_err = 0.0_f64;
-    let mut saw_nonzero = false;
-    for col in 0..k {
-        let fd = (plus.cross_row_d[col] - minus.cross_row_d[col]) / (2.0 * eps);
-        let err = (ch.cross_row_d_logalpha[col] - fd).abs();
-        max_err = max_err.max(err);
-        if ch.cross_row_d_logalpha[col].abs() > 1.0e-9 {
-            saw_nonzero = true;
-        }
-        assert_abs_diff_eq!(ch.cross_row_d_logalpha[col], fd, epsilon = 1.0e-6);
-    }
-    assert!(
-        saw_nonzero,
-        "fixture must exercise a nonzero logα cross-row coefficient (else vacuous)"
-    );
-    assert!(
-        max_err < 1.0e-6,
-        "cross_row_d_logalpha vs FD max abs err = {max_err:.3e}"
-    );
-    // Fixed-α leaves the channel at zero (the value `cross_row_d` is used there).
-    let fixed = IBPAssignmentPenalty::new(3, 6.0, 0.8, false);
-    let chf =
-        fixed.hessian_diag_logit_third_channels(t.view(), Array1::<f64>::zeros(0).view(), false);
-    assert!(
-        chf.cross_row_d_logalpha.iter().all(|&v| v == 0.0),
-        "fixed-α must leave cross_row_d_logalpha zero"
-    );
-}
-
-#[test]
-fn ibp_cross_row_dd_matches_mass_derivative_of_cross_row_d_2087() {
-    // #2087/#1416 root cause guard: the IBP log-det θ-adjoint differentiates the
-    // same cross-row rank-one coefficient `d_k = w·score'_k` that the Hessian
-    // assembly puts into the Woodbury block. Its mass channel must therefore be
-    // `∂d_k/∂M_k = w·score''_k`, not a hand-expanded surrogate with a missing
-    // posterior-π Jacobian factor. Perturbing every row in one column by the same
-    // concrete-probability amount gives a direct central difference of `d_k` with
-    // respect to the empirical mass `M_k`.
-    let pen = IBPAssignmentPenalty::new(3, 6.0, 0.8, false);
-    let t = array![
-        0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5, 0.6, -0.2, 0.3, 0.1, 0.8, -0.4
-    ];
-    let rho = Array1::<f64>::zeros(0);
-    let raw = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
-    let eps = 1.0e-6_f64;
-    let tau = 0.8_f64;
-    let z = t.mapv(|logit| 1.0 / (1.0 + (-logit / tau).exp()));
-    let n = t.len() / pen.k_max;
-    for col in 0..pen.k_max {
-        let mut plus = t.clone();
-        let mut minus = t.clone();
-        for row in 0..n {
-            let idx = row * pen.k_max + col;
-            // Convert a probability-space perturbation `±eps` to the logit-space
-            // perturbation that realizes it to first order: dz = J dℓ. The
-            // fixture is comfortably interior, so every Jacobian is nonzero.
-            let jac = z[idx] * (1.0 - z[idx]) / tau;
-            plus[idx] += eps / jac;
-            minus[idx] -= eps / jac;
-        }
-        let d_plus = pen
-            .hessian_diag_logit_third_channels(plus.view(), rho.view(), false)
-            .cross_row_d[col];
-        let d_minus = pen
-            .hessian_diag_logit_third_channels(minus.view(), rho.view(), false)
-            .cross_row_d[col];
-        let fd = (d_plus - d_minus) / (2.0 * eps * n as f64);
-        assert!(
-            (raw.cross_row_dd[col] - fd).abs() <= 2.0e-6,
-            "column {col}: cross_row_dd={} must match ∂cross_row_d/∂M={fd}",
-            raw.cross_row_dd[col]
-        );
-    }
-}
-
-#[test]
-fn ibp_assignment_learnable_alpha_grad_rho_matches_value_finite_difference() {
-    let pen = IBPAssignmentPenalty::new(3, 6.0, 0.8, true);
+fn ordered_beta_bernoulli_assignment_learnable_alpha_grad_rho_matches_value_finite_difference() {
+    let pen = OrderedBetaBernoulliPenalty::new(3, 6.0, 0.8, true);
     let t = array![
         0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5, 0.6, -0.2, 0.3, 0.1, 0.8, -0.4
     ];
@@ -648,8 +427,8 @@ fn ibp_assignment_learnable_alpha_grad_rho_matches_value_finite_difference() {
 }
 
 #[test]
-fn ibp_assignment_learnable_alpha_mixed_log_alpha_target_matches_fd() {
-    let pen = IBPAssignmentPenalty::new(2, 2.0, 0.9, true);
+fn ordered_beta_bernoulli_assignment_learnable_alpha_mixed_log_alpha_target_matches_fd() {
+    let pen = OrderedBetaBernoulliPenalty::new(2, 2.0, 0.9, true);
     let t = array![0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5];
     let rho = array![0.15_f64];
     let analytic = pen.log_alpha_target_mixed_derivative(t.view(), rho.view());
@@ -667,8 +446,8 @@ fn ibp_assignment_learnable_alpha_mixed_log_alpha_target_matches_fd() {
 }
 
 #[test]
-fn ibp_assignment_learnable_alpha_hdiag_log_alpha_derivative_matches_fd() {
-    let pen = IBPAssignmentPenalty::new(2, 2.0, 0.9, true);
+fn ordered_beta_bernoulli_assignment_learnable_alpha_hdiag_log_alpha_derivative_matches_fd() {
+    let pen = OrderedBetaBernoulliPenalty::new(2, 2.0, 0.9, true);
     let t = array![0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5];
     let rho = array![0.15_f64];
     let analytic = pen.hessian_diag_log_alpha_derivative(t.view(), rho.view());
@@ -677,10 +456,10 @@ fn ibp_assignment_learnable_alpha_hdiag_log_alpha_derivative_matches_fd() {
     let rho_minus = array![rho[0] - step];
     let hp = pen
         .hessian_diag(t.view(), rho_plus.view())
-        .expect("IBP hessian diag exists");
+        .expect("ordered Beta--Bernoulli hessian diag exists");
     let hm = pen
         .hessian_diag(t.view(), rho_minus.view())
-        .expect("IBP hessian diag exists");
+        .expect("ordered Beta--Bernoulli hessian diag exists");
     for i in 0..t.len() {
         let fd = (hp[i] - hm[i]) / (2.0 * step);
         assert_abs_diff_eq!(analytic[i], fd, epsilon = 2.0e-7);
@@ -688,8 +467,36 @@ fn ibp_assignment_learnable_alpha_hdiag_log_alpha_derivative_matches_fd() {
 }
 
 #[test]
-fn ibp_assignment_extreme_logits_remain_finite() {
-    let pen = IBPAssignmentPenalty::new(3, 1.5, 1.0e-3, false);
+fn ordered_beta_bernoulli_majorizer_log_alpha_derivative_matches_fd() {
+    let pen = OrderedBetaBernoulliPenalty::new(2, 2.0, 0.9, true);
+    let target = array![0.2_f64, -0.3, 0.7, -0.1, 0.4, 0.5];
+    let rho = array![0.15_f64];
+    let channels = pen.psd_majorizer_logit_third_channels(target.view(), rho.view());
+    let raw_derivative = pen.hessian_diag_log_alpha_derivative(target.view(), rho.view());
+    let mut analytic = Array1::<f64>::zeros(target.len());
+    for index in 0..target.len() {
+        if channels.diagonal_term[index] > 0.0 {
+            let column = index % pen.k_max;
+            analytic[index] = raw_derivative[index]
+                - channels.mass_hessian_log_alpha_derivative[column]
+                    * channels.z_jac[index]
+                    * channels.z_jac[index];
+        }
+    }
+
+    let step = 1.0e-6_f64;
+    let plus = pen.psd_majorizer_logit_third_channels(target.view(), array![rho[0] + step].view());
+    let minus = pen.psd_majorizer_logit_third_channels(target.view(), array![rho[0] - step].view());
+    for index in 0..target.len() {
+        let fd = (plus.diagonal_term[index].max(0.0) - minus.diagonal_term[index].max(0.0))
+            / (2.0 * step);
+        assert_abs_diff_eq!(analytic[index], fd, epsilon = 2.0e-6);
+    }
+}
+
+#[test]
+fn ordered_beta_bernoulli_assignment_extreme_logits_remain_finite() {
+    let pen = OrderedBetaBernoulliPenalty::new(3, 1.5, 1.0e-3, false);
     let t = array![
         1000.0_f64, -1000.0, 500.0, -500.0, 750.0, -750.0, 250.0, -250.0, 0.0
     ];
@@ -698,36 +505,39 @@ fn ibp_assignment_extreme_logits_remain_finite() {
     let value = pen.value(t.view(), rho.view());
     assert!(
         value.is_finite(),
-        "IBP value must remain finite for saturated concrete logits"
+        "ordered Beta--Bernoulli value must remain finite for saturated concrete logits"
     );
     let grad = pen.grad_target(t.view(), rho.view());
     assert!(
         grad.iter().all(|entry| entry.is_finite()),
-        "IBP gradient must remain finite for saturated concrete logits: {grad:?}"
+        "ordered Beta--Bernoulli gradient must remain finite for saturated concrete logits: {grad:?}"
     );
     let diag = pen
         .hessian_diag(t.view(), rho.view())
-        .expect("IBP assignment exposes a diagonal Hessian");
+        .expect("ordered Beta--Bernoulli assignment exposes a diagonal Hessian");
     assert!(
         diag.iter().all(|entry| entry.is_finite()),
-        "IBP Hessian diagonal must remain finite for saturated concrete logits: {diag:?}"
+        "ordered Beta--Bernoulli Hessian diagonal must remain finite for saturated concrete logits: {diag:?}"
     );
 }
 
 #[test]
-fn ibp_assignment_high_k_prior_keeps_positive_gradient_path() {
+fn ordered_beta_bernoulli_assignment_high_k_prior_keeps_positive_gradient_path() {
     let k = 400usize;
-    let pen = IBPAssignmentPenalty::new(k, 0.1, 1.0, false);
+    let pen = OrderedBetaBernoulliPenalty::new(k, 0.1, 1.0, false);
     let t = Array1::<f64>::zeros(k);
     let rho = Array1::<f64>::zeros(0);
 
     let value = pen.value(t.view(), rho.view());
-    assert!(value.is_finite(), "high-K IBP value must stay finite");
+    assert!(
+        value.is_finite(),
+        "high-K ordered Beta--Bernoulli value must stay finite"
+    );
     let grad = pen.grad_target(t.view(), rho.view());
     assert_eq!(grad.len(), k);
     assert!(
         grad.iter().all(|entry| entry.is_finite()),
-        "high-K IBP gradient must stay finite: {grad:?}"
+        "high-K ordered Beta--Bernoulli gradient must stay finite: {grad:?}"
     );
     assert!(
         grad.slice(s![320..]).iter().any(|entry| entry.abs() > 0.0),
@@ -735,21 +545,21 @@ fn ibp_assignment_high_k_prior_keeps_positive_gradient_path() {
     );
 }
 
-/// #991 design-honesty weighting of the IBP prior: every channel must be the
-/// exact derivative of the ONE weighted energy
-/// `F_w = w·[Σ_i w_i·bce(z_i; π̂) + beta_terms(π̂)]` with the weighted plug-in
-/// `π̂_k = (Σ_i w_i z_ik + a_k)/(Σ_i w_i + a_k + 1)`. This is the CI gate for
+/// #991 design-honesty weighting of the ordered Beta--Bernoulli prior: every channel must be the
+/// exact derivative of the ONE weighted integrated energy
+/// `F_w = w·Σ_k[-log(a_k) - log B(M_k+a_k, N_eff-M_k+1)]`, where
+/// `M_k=Σ_i w_i z_ik` and `N_eff=Σ_i w_i`. This is the CI gate for
 /// value↔gradient↔Hessian↔ρ-channel consistency under nontrivial weights (the
 /// repo's banned desync class), plus the `None ⇒ bit-for-bit` contract.
 #[test]
-fn ibp_row_weighted_channels_are_one_operator_991() {
+fn ordered_beta_bernoulli_row_weighted_channels_are_one_operator_991() {
     let k = 3usize;
     // 4 rows, nontrivial mean-1 design weights.
     let w = [1.6_f64, 0.4, 1.2, 0.8];
     let t = array![
         0.3_f64, -0.2, 0.6, 0.5, 0.1, -0.4, -0.1, 0.7, 0.2, 0.4, -0.3, 0.8
     ];
-    let pen = IBPAssignmentPenalty::new(k, 1.7, 0.8, true).with_row_weights(Some(&w));
+    let pen = OrderedBetaBernoulliPenalty::new(k, 1.7, 0.8, true).with_row_weights(Some(&w));
     let rho = array![0.15_f64];
     let step = 1.0e-6_f64;
 
@@ -779,11 +589,26 @@ fn ibp_row_weighted_channels_are_one_operator_991() {
         let fd = (gp[i] - gm[i]) / (2.0 * step);
         assert_abs_diff_eq!(hv[i], fd, epsilon = 1.0e-5);
     }
+    // Isolate one row/column direction: the exact integrated marginal couples
+    // it into every other row of the same column through M_k, while leaving
+    // other columns exactly untouched.
+    let mut one_site = Array1::<f64>::zeros(t.len());
+    one_site[0] = 1.0;
+    let cross_row = pen.hvp(t.view(), rho.view(), one_site.view());
+    assert!(
+        cross_row[k].abs() > 1.0e-6 && cross_row[2 * k].abs() > 1.0e-6,
+        "same-column cross-row Hessian action must be nonzero: {cross_row:?}"
+    );
+    for row in 0..w.len() {
+        for col in 1..k {
+            assert_abs_diff_eq!(cross_row[row * k + col], 0.0, epsilon = 0.0);
+        }
+    }
 
     // (c) hessian_diag == the diagonal of the weighted operator (FD of grad).
     let hd = pen
         .hessian_diag(t.view(), rho.view())
-        .expect("IBP hessian diag exists");
+        .expect("ordered Beta--Bernoulli hessian diag exists");
     for i in 0..t.len() {
         let mut tp = t.clone();
         let mut tm = t.clone();
@@ -822,35 +647,11 @@ fn ibp_row_weighted_channels_are_one_operator_991() {
         assert_abs_diff_eq!(mixed[i], fd, epsilon = 2.0e-6);
     }
 
-    // (f) third channels: the full weighted Hessian entry
-    // ∂²F/∂ℓ_ik∂ℓ_jk (i≠j) == cross_row_d[k]·u_ik·u_jk with the folded carrier
-    // u = w·J living in the z_jac slot.
-    let ch = pen.hessian_diag_logit_third_channels(t.view(), rho.view(), false);
-    let n = t.len() / k;
-    for col in 0..k {
-        for i in 0..n {
-            for j in 0..n {
-                if i == j {
-                    continue;
-                }
-                let (ii, jj) = (i * k + col, j * k + col);
-                let mut tp = t.clone();
-                let mut tm = t.clone();
-                tp[jj] += step;
-                tm[jj] -= step;
-                let fd = (pen.grad_target(tp.view(), rho.view())[ii]
-                    - pen.grad_target(tm.view(), rho.view())[ii])
-                    / (2.0 * step);
-                let analytic = ch.cross_row_d[col] * ch.z_jac[ii] * ch.z_jac[jj];
-                assert_abs_diff_eq!(analytic, fd, epsilon = 1.0e-5);
-            }
-        }
-    }
-
-    // (g) None ⇒ bit-for-bit the unit-weight operator.
+    // (f) None ⇒ bit-for-bit the unit-weight operator.
     let unit = [1.0_f64; 4];
-    let pen_none = IBPAssignmentPenalty::new(k, 1.7, 0.8, true);
-    let pen_unit = IBPAssignmentPenalty::new(k, 1.7, 0.8, true).with_row_weights(Some(&unit));
+    let pen_none = OrderedBetaBernoulliPenalty::new(k, 1.7, 0.8, true);
+    let pen_unit =
+        OrderedBetaBernoulliPenalty::new(k, 1.7, 0.8, true).with_row_weights(Some(&unit));
     assert_eq!(
         pen_none.value(t.view(), rho.view()),
         pen_unit.value(t.view(), rho.view())
@@ -863,64 +664,161 @@ fn ibp_row_weighted_channels_are_one_operator_991() {
 }
 
 #[test]
-fn learnable_weights_stay_finite_at_extreme_rho() {
-    for rho in [1000.0_f64, -1000.0] {
-        let resolved = resolve_learnable_weight(0.7, rho);
-        assert!(
-            resolved.is_finite() && resolved > 0.0,
-            "resolved learnable weight must be finite-positive at rho={rho}: {resolved}"
-        );
+fn learnable_weight_effective_log_domain_is_exact_and_unsaturated() {
+    assert!(
+        resolve_learnable_weight(0.0, 0.0).is_err(),
+        "a zero base would make a multiplicative rho coordinate dead"
+    );
+    let base = 1.7_f64;
+    let (lower, upper) = learnable_weight_coordinate_domain(base)
+        .unwrap()
+        .expect("positive base has a coordinate domain");
+    for (coordinate, expected_log_strength) in
+        [(lower, LOG_STRENGTH_MIN), (upper, LOG_STRENGTH_MAX)]
+    {
+        let resolved = resolve_learnable_weight(base, coordinate).unwrap();
+        assert!((resolved.ln() - expected_log_strength).abs() < 1.0e-12);
+    }
+    assert!(resolve_learnable_weight(base, lower - 1.0).is_err());
+    assert!(resolve_learnable_weight(base, upper + 1.0).is_err());
+
+    // `base > 1` is the subtle old plateau: raw rho=700 was accepted, while
+    // ln(base)+rho was clipped. The legal upper face is shifted inward exactly.
+    assert!(upper < LOG_STRENGTH_MAX);
+    let penalty = OrderedBetaBernoulliPenalty::new(3, base, 0.8, true);
+    penalty
+        .validate_rho(array![upper].view())
+        .expect("exact effective-strength endpoint is valid");
+    assert!(penalty.validate_rho(array![upper + 1.0e-6].view()).is_err());
+}
+
+#[test]
+fn registry_propagates_effective_strength_domain_and_freeze_refuses_invalid_rho() {
+    let alpha = 1.7_f64;
+    let penalty = OrderedBetaBernoulliPenalty::new(3, alpha, 0.8, true);
+    let kind = AnalyticPenaltyKind::OrderedBetaBernoulli(Arc::new(penalty));
+    let mut registry = AnalyticPenaltyRegistry::new();
+    registry.push(kind.clone());
+
+    let (expected_lower, expected_upper) = learnable_weight_coordinate_domain(alpha)
+        .unwrap()
+        .expect("positive alpha has a coordinate domain");
+    let (lower, upper) = registry.rho_domain_bounds().unwrap();
+    assert_eq!(lower.as_slice(), Some(&[expected_lower][..]));
+    assert_eq!(upper.as_slice(), Some(&[expected_upper][..]));
+    registry
+        .validate_rho(array![expected_upper].view())
+        .expect("closed upper face is legal");
+    assert!(
+        registry
+            .validate_rho(array![expected_upper + 1.0e-6].view())
+            .is_err()
+    );
+
+    let target = Array1::<f64>::zeros(3);
+    assert!(FrozenAnalyticPenaltyOp::new(kind, target, array![expected_upper + 1.0e-6],).is_err());
+}
+
+#[test]
+fn parametric_row_precision_domains_distinguish_log_strengths_from_raw_coordinates() {
+    let target = PsiSlice::full(4, Some(2));
+    let penalty = ParametricRowPrecisionPriorPenalty::new(
+        target.clone(),
+        array![[0.0_f64], [1.0]],
+        array![0.0_f64, 2.0_f64.ln()],
+        array![0.0_f64, -0.5],
+        array![[0.0_f64], [0.5]],
+        1.7,
+        2,
+        true,
+    )
+    .unwrap();
+
+    let domains = penalty.rho_coordinate_domains().unwrap();
+    assert_eq!(domains.len(), 7);
+    assert_eq!(domains[0], (LOG_STRENGTH_MIN, LOG_STRENGTH_MAX));
+    assert_eq!(
+        domains[1],
+        (
+            LOG_STRENGTH_MIN - 2.0_f64.ln(),
+            LOG_STRENGTH_MAX - 2.0_f64.ln(),
+        )
+    );
+    for &(lower, upper) in &domains[2..6] {
+        assert_eq!(lower, f64::NEG_INFINITY);
+        assert_eq!(upper, f64::INFINITY);
+    }
+    assert_eq!(
+        domains[6],
+        learnable_weight_coordinate_domain(1.7)
+            .unwrap()
+            .expect("positive weight has a coordinate domain")
+    );
+    let mut registry = AnalyticPenaltyRegistry::new();
+    registry.push(AnalyticPenaltyKind::ParametricRowPrecisionPrior(Arc::new(
+        penalty.clone(),
+    )));
+    let (registry_lower, registry_upper) = registry.rho_domain_bounds().unwrap();
+    for index in 2..6 {
+        assert_eq!(registry_lower[index], f64::NEG_INFINITY);
+        assert_eq!(registry_upper[index], f64::INFINITY);
     }
 
-    let softmax = SoftmaxAssignmentSparsityPenalty::new(3, 0.8);
-    let logits = array![0.2_f64, -0.1, 0.4];
-    for rho in [array![1000.0_f64], array![-1000.0_f64]] {
-        let value = softmax.value(logits.view(), rho.view());
-        let grad = softmax.grad_target(logits.view(), rho.view());
-        let diag = softmax
-            .hessian_diag(logits.view(), rho.view())
-            .expect("softmax entropy exposes a diagonal Hessian");
-        assert!(value.is_finite(), "softmax value non-finite at rho={rho:?}");
-        assert!(grad.iter().all(|entry| entry.is_finite()));
-        assert!(diag.iter().all(|entry| entry.is_finite()));
-    }
+    // Raw beta and mu are finite additive coordinates, not log-strengths:
+    // values beyond ±700 remain valid while a log-alpha beyond its effective
+    // face is refused.
+    let mut rho = Array1::<f64>::zeros(7);
+    rho[2] = 701.0;
+    rho[4] = -701.0;
+    penalty
+        .validate_rho(rho.view())
+        .expect("finite raw-beta and mu coordinates are unbounded");
+    registry
+        .validate_rho(rho.view())
+        .expect("registry preserves ordinary unbounded raw coordinates");
+    rho[0] = LOG_STRENGTH_MAX + 1.0e-6;
+    assert!(penalty.validate_rho(rho.view()).is_err());
 
-    let jump = JumpReLUPenalty::new(PsiSlice::full(2, Some(1)), array![1.0_f64], 0.5, 0.1).unwrap();
-    let jump_target = array![0.0_f64, 0.2];
-    for rho in [array![1000.0_f64], array![-1000.0_f64]] {
-        let value = jump.value(jump_target.view(), rho.view());
-        let grad = jump.grad_target(jump_target.view(), rho.view());
-        let diag = jump
-            .hessian_diag(jump_target.view(), rho.view())
-            .expect("JumpReLU exposes a diagonal Hessian");
-        assert!(
-            value.is_finite(),
-            "JumpReLU value non-finite at rho={rho:?}"
-        );
-        assert!(grad.iter().all(|entry| entry.is_finite()));
-        assert!(diag.iter().all(|entry| entry.is_finite()));
-    }
+    assert!(
+        ParametricRowPrecisionPriorPenalty::new(
+            target,
+            array![[0.0_f64], [1.0]],
+            array![LOG_STRENGTH_MAX + 1.0, 0.0],
+            array![0.0_f64, -0.5],
+            array![[0.0_f64], [0.5]],
+            1.7,
+            2,
+            true,
+        )
+        .is_err()
+    );
+}
 
-    let target = PsiSlice {
-        range: 0..4,
-        latent_dim: Some(2),
-    };
-    let block_sizes = vec![1usize, 1usize];
-    let p = 2usize;
-    let coact = Array2::<f64>::ones((2, 2));
-    let decoder = DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 0.7, true).unwrap();
-    let beta = Array1::<f64>::zeros(4);
-    for rho in [array![1000.0_f64], array![-1000.0_f64]] {
-        let value = decoder.value(beta.view(), rho.view());
-        let grad = decoder.grad_target(beta.view(), rho.view());
-        let hv = decoder.hvp(beta.view(), rho.view(), beta.view());
-        assert!(
-            value.is_finite(),
-            "DecoderIncoherence value non-finite at rho={rho:?}"
-        );
-        assert!(grad.iter().all(|entry| entry.is_finite()));
-        assert!(hv.iter().all(|entry| entry.is_finite()));
-    }
+#[test]
+fn sparsity_learnable_smoothing_has_one_structural_coordinate() {
+    assert!(
+        SparsityPenalty::hoyer(PenaltyTier::Psi)
+            .with_learnable_smoothing()
+            .is_err(),
+        "Hoyer has no smoothing scale and must not acquire a dead rho axis"
+    );
+
+    let penalty = SparsityPenalty::smoothed_l1(PenaltyTier::Psi, 1.0e-3)
+        .unwrap()
+        .with_learnable_smoothing()
+        .unwrap();
+    assert_eq!(penalty.rho_count(), 2);
+    let domains = penalty.rho_coordinate_domains().unwrap();
+    assert_eq!(domains.len(), 2);
+    assert_eq!(domains[1], (LOG_STRENGTH_MIN, LOG_STRENGTH_MAX));
+    penalty
+        .validate_rho(array![0.0, LOG_STRENGTH_MAX].view())
+        .expect("closed smoothing face is valid");
+    assert!(
+        penalty
+            .validate_rho(array![0.0, LOG_STRENGTH_MAX + 1.0e-6].view())
+            .is_err()
+    );
 }
 
 #[test]
@@ -1093,12 +991,12 @@ fn isometry_gn_majorizer_matches_exact_hvp_at_zero_residual() {
     }
 }
 
-/// Build the canonical JumpReLU sweep fixture: a logit grid that straddles
+/// Build the canonical smooth-threshold sweep fixture: a logit grid that straddles
 /// each per-axis scaled threshold so the gate `g = σ((z − τ)/ε)` sweeps both
 /// sides of its inflection `g = ½`, where the true Hessian
 /// `wτ·g(1−g)(1−2g)/ε²` changes sign.
-fn jumprelu_sweep_fixture() -> (
-    JumpReLUPenalty,
+fn smooth_threshold_sweep_fixture() -> (
+    SmoothThresholdPenalty,
     Array1<f64>,
     Array1<f64>,
     [f64; 2],
@@ -1119,13 +1017,15 @@ fn jumprelu_sweep_fixture() -> (
     }
     let target_values = Array1::from_vec(values);
     let slice = PsiSlice::full(target_values.len(), Some(latent_dim));
-    let pen = JumpReLUPenalty::new(slice, thresholds, weight, eps).expect("valid JumpReLU penalty");
+    let pen = SmoothThresholdPenalty::new(slice, thresholds, weight, eps)
+        .expect("valid smooth-threshold penalty");
     (pen, target_values, rho, scaled_thresholds, eps, weight)
 }
 
 #[test]
-fn jumprelu_hessian_diag_is_exact_true_second_derivative() {
-    let (pen, target_values, rho, scaled_thresholds, eps, weight) = jumprelu_sweep_fixture();
+fn smooth_threshold_hessian_diag_is_exact_true_second_derivative() {
+    let (pen, target_values, rho, scaled_thresholds, eps, weight) =
+        smooth_threshold_sweep_fixture();
     let latent_dim = scaled_thresholds.len();
     // `hessian_diag` must be the EXACT diagonal second derivative of the
     // smoothed jump penalty `P(z) = wτ·σ((z − τ)/ε)`:
@@ -1133,7 +1033,7 @@ fn jumprelu_hessian_diag_is_exact_true_second_derivative() {
     // This is the true (indefinite) Hessian, not the PSD majorizer.
     let diag = pen
         .hessian_diag(target_values.view(), rho.view())
-        .expect("JumpReLU exposes an analytic diagonal Hessian");
+        .expect("smooth threshold exposes an analytic diagonal Hessian");
 
     let mut saw_negative = false;
     for (idx, &entry) in diag.iter().enumerate() {
@@ -1143,7 +1043,7 @@ fn jumprelu_hessian_diag_is_exact_true_second_derivative() {
             / (eps * eps);
         assert!(
             entry.is_finite(),
-            "JumpReLU hessian_diag must be finite at index {idx}; entry={entry}"
+            "smooth-threshold hessian_diag must be finite at index {idx}; entry={entry}"
         );
         assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
         if entry < 0.0 {
@@ -1155,18 +1055,19 @@ fn jumprelu_hessian_diag_is_exact_true_second_derivative() {
     // catch any regression back to the always-nonnegative PSD surrogate.
     assert!(
         saw_negative,
-        "true JumpReLU hessian_diag must go negative once the gate passes g = ½"
+        "true smooth-threshold hessian_diag must go negative once the gate passes g = ½"
     );
 }
 
 #[test]
-fn jumprelu_hvp_diagonal_matches_hessian_diag() {
-    let (pen, target_values, rho, _scaled_thresholds, _eps, _weight) = jumprelu_sweep_fixture();
+fn smooth_threshold_hvp_diagonal_matches_hessian_diag() {
+    let (pen, target_values, rho, _scaled_thresholds, _eps, _weight) =
+        smooth_threshold_sweep_fixture();
     // `hvp` and `hessian_diag` are the SAME true operator; probing `hvp`
     // with unit vectors must reproduce `hessian_diag` exactly.
     let diag = pen
         .hessian_diag(target_values.view(), rho.view())
-        .expect("JumpReLU exposes an analytic diagonal Hessian");
+        .expect("smooth threshold exposes an analytic diagonal Hessian");
     for i in 0..target_values.len() {
         let mut e_i = Array1::<f64>::zeros(target_values.len());
         e_i[i] = 1.0;
@@ -1176,8 +1077,9 @@ fn jumprelu_hvp_diagonal_matches_hessian_diag() {
 }
 
 #[test]
-fn jumprelu_psd_majorizer_diag_is_psd_over_logit_sweep() {
-    let (pen, target_values, rho, scaled_thresholds, eps, weight) = jumprelu_sweep_fixture();
+fn smooth_threshold_psd_majorizer_diag_is_psd_over_logit_sweep() {
+    let (pen, target_values, rho, scaled_thresholds, eps, weight) =
+        smooth_threshold_sweep_fixture();
     let latent_dim = scaled_thresholds.len();
     // The PSD majorizer is a DISTINCT operator from the true Hessian. The
     // bare re-weighted-ℓ₂ surrogate wτ·[g(1−g)]²/ε² is ≥ 0 but does NOT
@@ -1189,10 +1091,10 @@ fn jumprelu_psd_majorizer_diag_is_psd_over_logit_sweep() {
     // block consumes this, not `hessian_diag`.
     let diag = pen
         .psd_majorizer_diag(target_values.view(), rho.view())
-        .expect("JumpReLU exposes a PSD diagonal majorizer");
+        .expect("smooth threshold exposes a PSD diagonal majorizer");
     let exact = pen
         .hessian_diag(target_values.view(), rho.view())
-        .expect("JumpReLU exposes a closed-form diagonal Hessian");
+        .expect("smooth threshold exposes a closed-form diagonal Hessian");
 
     for (idx, &entry) in diag.iter().enumerate() {
         let axis = idx % latent_dim;
@@ -1204,7 +1106,7 @@ fn jumprelu_psd_majorizer_diag_is_psd_over_logit_sweep() {
             weight * scaled_thresholds[axis] * reweighted_l2.max(abs_exact) / (eps * eps);
         assert!(
             entry.is_finite() && entry >= 0.0,
-            "JumpReLU psd_majorizer_diag must be finite and PSD at index {idx}; entry={entry}"
+            "smooth-threshold psd_majorizer_diag must be finite and PSD at index {idx}; entry={entry}"
         );
         assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
         // The defining contract: the majorizer dominates the exact Hessian.
@@ -1374,7 +1276,7 @@ fn block_ortho_test_target() -> Array1<f64> {
 }
 
 #[test]
-fn block_orthogonality_value_matches_offdiag_gram_frobenius() {
+fn block_orthogonality_value_is_half_weight_per_unordered_pair() {
     let t = block_ortho_test_target();
     let target = PsiSlice::full(t.len(), Some(4));
     let pen =
@@ -1382,7 +1284,8 @@ fn block_orthogonality_value_matches_offdiag_gram_frobenius() {
             .expect("valid block orthogonality penalty");
     let rho = array![0.0_f64];
     let v = pen.value(t.view(), rho.view());
-    // value = 0.5 · w · 3.0 = 0.5 · 2.5 · 3.0 = 3.75
+    // Public normalization: 0.5 · w · Σ_{g<h} ||T_g^T T_h||²_F.
+    // There is one unordered pair here, with squared Frobenius norm 3.
     assert!(v.is_finite(), "block-orthogonality value must be finite");
     assert_abs_diff_eq!(v, 3.75, epsilon = 1e-12);
 }
@@ -2423,7 +2326,7 @@ fn nested_prefix_rejects_non_monotone_prefixes() {
 }
 
 /// The harmonic-roughness penalty is the graduated diagonal periodic-Gram form:
-/// `weight · Σ_r S[r mod K] · Σ_j target[r,j]²`, only on the harmonic rows.
+/// `½·weight · Σ_r S[r mod K] · Σ_j target[r,j]²`, only on the harmonic rows.
 /// Value, gradient, and Hessian diagonal must be mutually consistent (grad is
 /// the exact derivative of value; the diagonal is the exact second derivative,
 /// which is constant for a quadratic).
@@ -2448,7 +2351,7 @@ fn harmonic_roughness_value_grad_hessian_are_consistent() {
             expected += w * target[r * d + j] * target[r * d + j];
         }
     }
-    expected *= weight;
+    expected *= 0.5 * weight;
     assert_abs_diff_eq!(
         penalty.value(target.view(), rho.view()),
         expected,
@@ -2468,43 +2371,12 @@ fn harmonic_roughness_value_grad_hessian_are_consistent() {
         assert_abs_diff_eq!(grad[i], fd, epsilon = 1e-5);
     }
 
-    // Hessian diagonal is the constant 2·weight·S[r mod K] on every column.
+    // Hessian diagonal is the constant weight·S[r mod K] on every column.
     let diag = penalty.hessian_diag(target.view(), rho.view()).unwrap();
     for r in 0..n_eff {
         let w = row_weights[r % row_weights.len()];
         for j in 0..d {
-            assert_abs_diff_eq!(diag[r * d + j], 2.0 * weight * w, epsilon = 1e-12);
+            assert_abs_diff_eq!(diag[r * d + j], weight * w, epsilon = 1e-12);
         }
     }
-}
-
-/// The evidence-optimal precision is the marginal-likelihood stationary point
-/// `λ⋆ = N_pen / Σ_i S_ii b_i²` over the penalized coefficients only.
-#[test]
-fn harmonic_roughness_evidence_weight_matches_closed_form() {
-    let row_weights = array![0.0, 0.0, 0.0, 16.0, 16.0];
-    let n_eff = 10;
-    let d = 3;
-    let target: Array1<f64> = (0..n_eff * d).map(|i| 0.05 * (i as f64) + 0.3).collect();
-
-    let mut energy = 0.0;
-    let mut n_pen = 0.0;
-    for r in 0..n_eff {
-        let w = row_weights[r % row_weights.len()];
-        if w > 0.0 {
-            for j in 0..d {
-                energy += w * target[r * d + j] * target[r * d + j];
-                n_pen += 1.0;
-            }
-        }
-    }
-    let expected = n_pen / energy;
-    let got = harmonic_roughness_evidence_weight(target.view(), n_eff, row_weights.view());
-    assert_abs_diff_eq!(got, expected, epsilon = 1e-10);
-
-    // An all-zero harmonic block has nothing to penalize → finite (floored) λ,
-    // never a division by zero.
-    let zeros = Array1::<f64>::zeros(n_eff * d);
-    let floored = harmonic_roughness_evidence_weight(zeros.view(), n_eff, row_weights.view());
-    assert!(floored.is_finite() && floored > 0.0, "got {floored}");
 }

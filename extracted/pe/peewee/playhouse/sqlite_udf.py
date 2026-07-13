@@ -1,19 +1,13 @@
 import collections
-import datetime
 import heapq
 import json
 import math
 import os
 import random
-import re
 import struct
-import sys
 import threading
 import zlib
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from urllib.parse import urlparse
 
 
 SQLITE_DATETIME_FORMATS = (
@@ -177,7 +171,7 @@ def file_read(filename):
 @udf(HELPER)
 def gzip(data, compression=9):
     if isinstance(data, str):
-        data = bytes(data.encode('raw_unicode_escape'))
+        data = data.encode('utf8')
     return zlib.compress(data, compression)
 
 @udf(HELPER)

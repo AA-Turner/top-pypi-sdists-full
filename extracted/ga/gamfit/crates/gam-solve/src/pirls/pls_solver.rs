@@ -16,13 +16,15 @@ use super::{
     calculate_edfwithworkspace_from_factor, ensure_sparse_positive_definitewithridge,
     solve_sparse_spd,
 };
-use super::{calculate_loglikelihood, computeworkingweight_derivatives_from_eta};
+use super::{
+    calculate_loglikelihood_omitting_constants_from_eta, computeworkingweight_derivatives_from_eta,
+};
 use crate::estimate::EstimationError;
-use gam_linalg::faer_ndarray::{FaerLinalgError, array1_to_col_matmut};
-use gam_linalg::utils::{StableSolver, array_is_finite, inf_norm};
-use gam_linalg::matrix::{DesignMatrix, LinearOperator, SymmetricMatrix};
-use gam_problem::{Coefficients, GlmLikelihoodSpec, InverseLink, LinkFunction};
 use faer::sparse::SparseColMat;
+use gam_linalg::faer_ndarray::{FaerLinalgError, array1_to_col_matmut};
+use gam_linalg::matrix::{DesignMatrix, LinearOperator, SymmetricMatrix};
+use gam_linalg::utils::{StableSolver, array_is_finite, inf_norm};
+use gam_problem::{Coefficients, GlmLikelihoodSpec, InverseLink, LinkFunction};
 use ndarray::{ArcArray1, Array1, Array2, ArrayView1, ShapeBuilder};
 use std::sync::Arc;
 
@@ -98,7 +100,13 @@ impl GaussianFrozenRows {
                 &eta_owned,
                 weights,
             )?;
-        let log_likelihood = calculate_loglikelihood(y, &eta_owned, likelihood, weights);
+        let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+            y,
+            &eta_owned,
+            likelihood,
+            inverse_link,
+            weights,
+        )?;
         let max_abs_eta = inf_norm(eta_owned.iter().copied());
         Ok(Self {
             eta: eta_owned.into_shared(),
@@ -382,7 +390,8 @@ pub(super) fn solve_penalized_least_squares_implicit(
                 // XᵀWX operator.
                 gam_linalg::matrix::xt_diag_x_signed(
                     x_original,
-                    gam_linalg::matrix::SignedWeightsView::from_array(&weights_owned),
+                    gam_linalg::matrix::FiniteSignedWeightsView::try_from_array(&weights_owned)
+                        .map_err(EstimationError::InvalidInput)?,
                 )
                 .map(|h| h.to_dense())
                 .map_err(EstimationError::InvalidInput)?
@@ -462,7 +471,7 @@ pub(super) fn solve_penalized_least_squares_implicit(
     // exactly; fall back to the Tikhonov nugget only when the bare factorization
     // actually fails. The augmented RHS `r + δμ` keeps the fallback a Tikhonov
     // regularization centered at the prior-mean target.
-    let bare_factor = StableSolver::new("pirls implicit pls")
+    let bare_factor = StableSolver::new()
         .factorize(&penalized_hessian)
         .ok();
     let (factor, ridge_used) = if let Some(factor) = bare_factor {
@@ -475,7 +484,7 @@ pub(super) fn solve_penalized_least_squares_implicit(
                 regularizedhessian[[i, i]] += nugget;
             }
         }
-        let factor = StableSolver::new("pirls implicit pls")
+        let factor = StableSolver::new()
             .factorize(&regularizedhessian)
             .map_err(EstimationError::LinearSystemSolveFailed)?;
         (factor, nugget)

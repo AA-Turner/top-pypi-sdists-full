@@ -107,14 +107,6 @@ pub(crate) use gam_predict::input::{
     build_predict_input_for_model, build_transformation_normal_observed_scores,
 };
 
-pub(crate) use gam::geometry::sae_routing::apply_anchor_rule as sae_apply_anchor_rule_impl;
-pub(crate) use gam::geometry::sae_routing::assign_ema_update as sae_assign_ema_update_impl;
-pub(crate) use gam::geometry::sae_routing::direction_cluster_anchor as sae_direction_cluster_anchor_impl;
-pub(crate) use gam::geometry::sae_routing::duchon_centers_nd as sae_duchon_centers_nd_impl;
-pub(crate) use gam::geometry::sae_routing::matching_pursuit_commit as sae_matching_pursuit_commit_impl;
-pub(crate) use gam::geometry::sae_routing::quadratic_subspace_anchor as sae_quadratic_subspace_anchor_impl;
-pub(crate) use gam::geometry::sae_routing::sinkhorn_balance_bias as sae_sinkhorn_balance_bias_impl;
-
 pub(crate) use gam::geometry::sinkhorn_barycenter::{
     circular_cost as sinkhorn_circular_cost_impl, euclidean_cost as sinkhorn_euclidean_cost_impl,
     geodesic_sphere_cost as sinkhorn_geodesic_sphere_cost_impl,
@@ -191,11 +183,9 @@ pub(crate) use gam::terms::sae::sparse_dict::{
 pub(crate) use gam::terms::sae::manifold::{
     GumbelTemperatureSchedule, SPHERE_CHART_PENALTY_DIAGONAL, SaeAtomBasisKind,
     SaeFisherRowMetricRequest, SaeFitAssignmentKind, SaeFitSeedReport, SaeFitSeedRequest,
-    SaeManifoldRho, SaeMinimalSeedReport, SaeMinimalSeedRequest, SaeStagewiseSeedReport,
-    SaeStagewiseSeedRequest, ScheduleKind, build_sae_basis_evaluators, build_sae_fisher_row_metric,
-    build_sae_fit_seed, build_sae_minimal_seed, build_sae_stagewise_seed,
-    sae_atom_basis_kind_from_str, sae_atom_basis_kind_name, sae_pick_duchon_center_indices,
-    sae_torus_axis_basis_size, sphere_chart_basis_jet,
+    SaeMinimalSeedReport, SaeMinimalSeedRequest, ScheduleKind, build_sae_fisher_row_metric,
+    build_sae_fit_seed, build_sae_minimal_seed, sae_atom_basis_kind_from_str,
+    sae_atom_basis_kind_name, sae_fitted_atom_plans, sphere_chart_basis_jet,
 };
 
 pub(crate) use gam::terms::decoders::skip_transcoder::{

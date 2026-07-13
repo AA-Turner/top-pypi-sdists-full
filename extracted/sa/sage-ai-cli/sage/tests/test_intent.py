@@ -145,11 +145,11 @@ def test_cloud_deployment_context_requires_user_choice_when_missing():
 
 
 def test_resolve_cloud_provider_preference_prompts_and_persists(monkeypatch):
-    import sage.main as main
+    import sage.core.prompt_helpers as prompt_helpers
     from sage.config import SageConfig
 
     saved_preferences: list[str] = []
-    monkeypatch.setattr(main, "save_config", lambda cfg: saved_preferences.append(cfg.preferred_cloud))
+    monkeypatch.setattr(prompt_helpers, "save_config", lambda cfg: saved_preferences.append(cfg.preferred_cloud))
 
     cfg = SageConfig()
     provider = _resolve_cloud_provider_preference(

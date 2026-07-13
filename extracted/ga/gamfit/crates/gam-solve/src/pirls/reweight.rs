@@ -18,17 +18,17 @@ use super::{
     effective_kkt_tolerance, linear_constraints_from_lower_bounds, pirls_soft_acceptance,
     project_coefficients_to_lower_bounds, restore_pending_arrow_latent_if_needed,
     solve_direction_with_dense_factor, solve_newton_direction_dense,
-    solve_newton_directionwith_linear_constraints,
-    solve_newton_directionwith_lower_bounds, update_scaled_diagonal_in_place,
+    solve_newton_directionwith_linear_constraints, solve_newton_directionwith_lower_bounds,
+    update_scaled_diagonal_in_place,
 };
 use crate::estimate::EstimationError;
+use crate::loop_guard::{FlatStreak, IterationBound, LoopVerdict, RejectEscalator};
+use faer::sparse::SparseColMat;
 use gam_linalg::sparse_exact::{
     factorize_sparse_spd, solve_sparse_spd_into, sparse_symmetric_upper_matvec_public,
 };
 use gam_linalg::utils::{StableSolver, array_is_finite, inf_norm};
-use crate::loop_guard::{FlatStreak, IterationBound, LoopVerdict, RejectEscalator};
 use gam_problem::Coefficients;
-use faer::sparse::SparseColMat;
 use ndarray::{Array1, Zip};
 
 /// Madsen-Nielsen-Tingleff smooth Marquardt trust-region update (eq 3.17 in
@@ -178,8 +178,7 @@ pub(crate) fn constraint_kkt_admits_progress_exhausted_stall(
         Some(kkt) => {
             let cleanliness_band = kkt_tolerance * 10.0;
             !kkt.working_set_rank_deficient
-                && kkt.primal_feasibility
-                    <= crate::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                && kkt.primal_feasibility <= crate::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
                 && kkt.dual_feasibility <= cleanliness_band
                 && kkt.complementarity <= cleanliness_band
         }
@@ -356,6 +355,12 @@ where
         match err {
             EstimationError::LinearSystemSolveFailed(_)
             | EstimationError::HessianNotPositiveDefinite { .. } => true,
+            // The shared log-link jet is an exact function on a declared eta
+            // domain. A trial step outside that domain is infeasible, so LM must
+            // reject and damp the step rather than either projecting the link or
+            // terminating the entire fit.
+            EstimationError::InverseLinkDomainViolation { .. }
+            | EstimationError::PirlsRowGeometryUnrepresentable { .. } => true,
             EstimationError::InvalidInput(message) => {
                 let message = message.to_ascii_lowercase();
                 message.contains("nan")
@@ -599,6 +604,10 @@ where
         } else {
             match model.update_with_curvature(&beta, preferred_curvature) {
                 Ok(state) => state,
+                Err(
+                    err @ (EstimationError::InverseLinkDomainViolation { .. }
+                    | EstimationError::PirlsRowGeometryUnrepresentable { .. }),
+                ) => return Err(err),
                 Err(_) if preferred_curvature == HessianCurvatureKind::Observed => {
                     used_fisher_fallback_this_iter = true;
                     consecutive_fisher_fallbacks += 1;
@@ -653,7 +662,7 @@ where
         // Tweedie/fixed-φ Gaussian 1/φ, else 1). Read AFTER the iter-start
         // `update_with_curvature` above so the once-per-solve Gamma-shape lock is
         // in place; it is constant for the rest of this inner solve.
-        let penalized_dev_scale = model.penalized_deviance_scale();
+        let penalized_dev_scale = model.penalized_deviance_scale()?;
         let current_penalized = penalizedobjective(&state, penalized_dev_scale);
         if current_penalized.is_finite() && current_penalized < min_penalized_deviance {
             min_penalized_deviance = current_penalized;
@@ -889,14 +898,11 @@ where
                                 arrow_system.set_block_offsets(offsets.clone());
                             }
                             let mut solve_options =
-                                crate::arrow_schur::ArrowSolveOptions::automatic(
-                                    arrow_system.k,
-                                );
+                                crate::arrow_schur::ArrowSolveOptions::automatic(arrow_system.k);
                             if let Some(mode) = arrow_cfg.solver_mode {
                                 solve_options.mode = mode;
                             } else if arrow_cfg.streaming_chunk_size.is_some() {
-                                solve_options.mode =
-                                    crate::arrow_schur::ArrowSolverMode::Direct;
+                                solve_options.mode = crate::arrow_schur::ArrowSolverMode::Direct;
                             }
                             solve_options.streaming_chunk_size = arrow_cfg.streaming_chunk_size;
                             solve_options.trust_region.radius = arrow_cfg.trust_region_radius;
@@ -955,11 +961,7 @@ where
                         }
                     }
                 } else {
-                    solve_newton_direction_dense(
-                        dense_reg,
-                        &state.gradient,
-                        &mut newton_direction,
-                    )
+                    solve_newton_direction_dense(dense_reg, &state.gradient, &mut newton_direction)
                 }
             } {
                 Ok(()) => &newton_direction,
@@ -1008,9 +1010,11 @@ where
                                 &newton_direction
                             }
                             None => {
-                                return Err(EstimationError::ParameterConstraintViolation(format!(
-                                    "constrained PIRLS step solve failed at iteration {iter} with damping λ={loop_lambda:.3e} and no feasible projection onto the constraint cone was available: {e}"
-                                )));
+                                return Err(EstimationError::ParameterConstraintViolation(
+                                    format!(
+                                        "constrained PIRLS step solve failed at iteration {iter} with damping λ={loop_lambda:.3e} and no feasible projection onto the constraint cone was available: {e}"
+                                    ),
+                                ));
                             }
                         }
                     } else {
@@ -2014,12 +2018,8 @@ where
         && options.arrow_schur.is_none();
     if polish_allowed {
         if let Some(bare_h) = state.hessian.as_dense() {
-            let g_norm_before = constrained_stationarity_norm(
-                &state.gradient,
-                beta.as_ref(),
-                None,
-                None,
-            );
+            let g_norm_before =
+                constrained_stationarity_norm(&state.gradient, beta.as_ref(), None, None);
             // Only bother when there is a residual worth removing and the
             // gradient/Hessian are finite — skip the work for already-exact fits.
             let bare_finite = state.gradient.iter().all(|v| v.is_finite())
@@ -2030,7 +2030,7 @@ where
                 // iterate is β̂ + d. Factorize the BARE (undamped) penalized
                 // Hessian — `state.hessian` carries no LM ridge (the damping
                 // lived only on the throwaway `regularized` clone in the loop).
-                let direction = StableSolver::new("pirls undamped newton polish")
+                let direction = StableSolver::new()
                     .factorize(bare_h)
                     .ok()
                     .map(|factor| {
@@ -2046,14 +2046,14 @@ where
                     // load-bearing) — decline rather than risk a worse point.
                     let beta_norm_sq = beta.as_ref().dot(beta.as_ref());
                     let step_norm_sq = direction.dot(&direction);
-                    let step_reasonable = step_finite
-                        && (step_norm_sq <= 0.25 * beta_norm_sq.max(1.0));
+                    let step_reasonable =
+                        step_finite && (step_norm_sq <= 0.25 * beta_norm_sq.max(1.0));
                     if step_reasonable {
                         let polished: Array1<f64> = beta.as_ref() + &direction;
                         if polished.iter().all(|v| v.is_finite()) {
                             let polished_beta = Coefficients::new(polished);
-                            if let Ok(polished_state) = model
-                                .update_with_curvature(&polished_beta, state.hessian_curvature)
+                            if let Ok(polished_state) =
+                                model.update_with_curvature(&polished_beta, state.hessian_curvature)
                             {
                                 let g_norm_after = constrained_stationarity_norm(
                                     &polished_state.gradient,
@@ -2070,14 +2070,13 @@ where
                                 // across this inner solve); read locally since
                                 // this polish branch sits outside the iter-start
                                 // binding's scope.
-                                let polish_dev_scale = model.penalized_deviance_scale();
+                                let polish_dev_scale = model.penalized_deviance_scale()?;
                                 let obj_before = penalizedobjective(&state, polish_dev_scale);
                                 let obj_after =
                                     penalizedobjective(&polished_state, polish_dev_scale);
                                 let objective_ok = !obj_after.is_finite()
                                     || !obj_before.is_finite()
-                                    || obj_after <= obj_before
-                                        + obj_before.abs().max(1.0) * 1e-12;
+                                    || obj_after <= obj_before + obj_before.abs().max(1.0) * 1e-12;
                                 if g_norm_after.is_finite()
                                     && g_norm_after < g_norm_before
                                     && objective_ok
@@ -2187,15 +2186,13 @@ where
             compute_constraint_kkt_diagnostics(beta.as_ref(), &state.gradient, lin)
                 .primal_feasibility;
         if primal_feasibility > crate::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
-            let projected = crate::active_set::project_point_strictly_into_feasible_cone(
-                beta.as_ref(),
-                lin,
-            )
-            .filter(|candidate| {
-                compute_constraint_kkt_diagnostics(candidate, &state.gradient, lin)
-                    .primal_feasibility
-                    <= crate::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
-            });
+            let projected =
+                crate::active_set::project_point_strictly_into_feasible_cone(beta.as_ref(), lin)
+                    .filter(|candidate| {
+                        compute_constraint_kkt_diagnostics(candidate, &state.gradient, lin)
+                            .primal_feasibility
+                            <= crate::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                    });
             match projected {
                 Some(feasible_beta) => {
                     log::warn!(

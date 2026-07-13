@@ -4193,6 +4193,24 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             all_models,
         )
 
+    # Optional lightweight per-country PDF report (independent of the full
+    # report above). One PDF per country: cover + TOC + one section per crop
+    # with the best-model predicted-yield map, outlook-index map, and rRMSEp
+    # scorecard.
+    report_lite = parser.getboolean("ML", "report_lite", fallback=False)
+    if report_lite and all_outlook_frames:
+        try:
+            from geocif.report_lite import generate_report_lite
+            all_models = sorted({row[4] for row in inputs}) if inputs else models
+            generate_report_lite(
+                dir_outlook, parser, current_year,
+                countries, sorted({row[2] for row in inputs}) if inputs else crops,
+                all_models,
+                outlook_db=db_path,
+            )
+        except ImportError as exc:
+            logger.warning(f"report_lite unavailable (skipping lite PDF): {exc}")
+
     # Post-run fallback diagnostic: merge per-PID fallbacks/*.csv files
     # into fallbacks_summary.csv + a bar chart per (model, category).
     # Best-effort; never blocks the rest of the post-run steps.

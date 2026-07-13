@@ -103,7 +103,7 @@ fn kterm_periodic(target: &Array2<f64>, k: usize, m: usize) -> SaeManifoldTerm {
         &basis_sizes,
         target.view(),
         logits.view(),
-        "ibp_map",
+        "ordered_beta_bernoulli",
         1.0,
         1.0,
         0.0,
@@ -126,7 +126,7 @@ fn kterm_periodic(target: &Array2<f64>, k: usize, m: usize) -> SaeManifoldTerm {
         penalties.view(),
         logits.view(),
         &coords_vec,
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         &evaluators,
     )
     .unwrap()
@@ -239,7 +239,7 @@ fn existence_and_intensity_are_separately_identified_1939() {
     let (strong, weak, dead) = (order[0], order[1], order[2]);
 
     // (b) INTENSITY RECOVERY — the two live atoms carry the planted amplitude
-    // ratio. The gate weight is common (uniform-ish ibp gate), so the ratio of
+    // ratio. The gate weight is common (uniform-ish ordered_beta_bernoulli gate), so the ratio of
     // decoded contribution RMS tracks amp_a/amp_b; allow a generous factor since
     // fit noise and the shared gate perturb the absolute scale but not the order.
     let planted_ratio = amp_a / amp_b;

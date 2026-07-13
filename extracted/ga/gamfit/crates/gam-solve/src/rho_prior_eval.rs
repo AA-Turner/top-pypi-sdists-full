@@ -177,7 +177,9 @@ pub(crate) fn scalar_terms(
                     "{context} Gamma precision prior requires shape > 0 and rate >= 0"
                 )));
             }
-            let lambda = r.exp();
+            let lambda = gam_problem::checked_exp_log_strength(r).map_err(|error| {
+                RhoPriorError::constraint_violation(format!("{context}: {error}"))
+            })?;
             // Deterministic REML/LAML uses the MAP-in-lambda convention; rho samplers add the Jacobian.
             Ok((
                 *rate * lambda - (*shape - 1.0) * r,
@@ -238,10 +240,7 @@ pub fn evaluate(
 
 /// Strict evaluation: always errors on a malformed prior. Policy mapping lives
 /// in [`evaluate`].
-pub fn evaluate_strict(
-    prior: &RhoPrior,
-    rho: &Array1<f64>,
-) -> Result<RhoPriorEval, RhoPriorError> {
+pub fn evaluate_strict(prior: &RhoPrior, rho: &Array1<f64>) -> Result<RhoPriorEval, RhoPriorError> {
     let len = rho.len();
     match prior {
         RhoPrior::Flat => Ok(RhoPriorEval {

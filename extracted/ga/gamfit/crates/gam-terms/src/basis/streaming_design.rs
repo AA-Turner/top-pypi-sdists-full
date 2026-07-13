@@ -134,8 +134,7 @@ impl RadialScalarKind {
                     }
                     return Ok((phi, 0.0, 0.0));
                 }
-                let (q, t, _, _) =
-                    duchon_polyharmonic_operator_block_jets(r, *block_order as f64, *dim)?;
+                let (q, t, _, _) = duchon_polyharmonic_operator_block_jets(r, *block_order, *dim)?;
                 Ok((phi, q, t))
             }
             RadialScalarKind::ThinPlate { length_scale, dim } => {
@@ -318,14 +317,24 @@ trait ChunkedDesign {
                 nrows
             ));
         }
+        gam_linalg::matrix::FiniteSignedWeightsView::try_from_array(weights)
+            .map_err(|reason| format!("{} diag_xtw_x: {reason}", Self::NAME))?;
         let p = self.op_ncols();
         let chunk_rows = self.chunk_rows();
         let starts = (0..nrows).step_by(chunk_rows).collect::<Vec<_>>();
-        Ok(starts
-            .into_par_iter()
-            .fold(
-                || Array2::<f64>::zeros((p, p)),
-                |mut acc, start| {
+        // #2228 reduction doctrine: `into_par_iter().fold(..).reduce(..)` groups
+        // its per-worker partials by rayon's demand-driven work-stealing, so the
+        // `p×p` float accumulation reassociates run-to-run with the thread
+        // schedule. Reduce the fixed row-chunk Grams through the length-only
+        // pairwise tree instead, whose association is a pure function of the
+        // chunk count — bit-reproducible across thread count and scheduling.
+        let n_chunks = starts.len();
+        Ok(gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+            n_chunks,
+            |range: core::ops::Range<usize>| {
+                let mut acc = Array2::<f64>::zeros((p, p));
+                for ci in range {
+                    let start = starts[ci];
                     let end = (start + chunk_rows).min(nrows);
                     let chunk = self.for_row_chunk(start, end);
                     let mut weighted = chunk.clone();
@@ -334,16 +343,15 @@ trait ChunkedDesign {
                         weighted.row_mut(local).mapv_inplace(|v| v * w);
                     }
                     acc += &chunk.t().dot(&weighted);
-                    acc
-                },
-            )
-            .reduce(
-                || Array2::<f64>::zeros((p, p)),
-                |mut a, b| {
-                    a += &b;
-                    a
-                },
-            ))
+                }
+                acc
+            },
+            |mut a: Array2<f64>, b: Array2<f64>| {
+                a += &b;
+                a
+            },
+        )
+        .unwrap_or_else(|| Array2::<f64>::zeros((p, p))))
     }
 
     /// Chunked dense row fill (`DenseDesignOperator::row_chunk_into`).

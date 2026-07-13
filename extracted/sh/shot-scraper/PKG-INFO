@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shot-scraper
-Version: 1.10
+Version: 1.11
 Summary: A CLI utility for taking screenshots of websites, recording video demos and scraping sites using JavaScript
 Author: Simon Willison
 License-Expression: Apache-2.0

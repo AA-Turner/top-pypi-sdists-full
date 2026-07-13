@@ -1,8 +1,8 @@
 use crate::estimate::EstimationError;
-use gam_linalg::faer_ndarray::{FaerArrayView, FaerLinalgError, FaerSvd, array1_to_col_matmut};
-use gam_linalg::utils::{StableSolver, array_is_finite, boundary_hit_step_fraction};
 use faer::linalg::solvers::{Lblt as FaerLblt, Solve as FaerSolve};
 use faer::{Side, Unbind};
+use gam_linalg::faer_ndarray::{FaerArrayView, FaerLinalgError, FaerSvd, array1_to_col_matmut};
+use gam_linalg::utils::{StableSolver, array_is_finite, boundary_hit_step_fraction};
 use gam_problem::LinearInequalityConstraints;
 use ndarray::{Array1, Array2, s};
 use serde::{Deserialize, Serialize};
@@ -149,7 +149,7 @@ fn solve_newton_direction_dense(
         *direction_out = Array1::zeros(gradient.len());
     }
 
-    let factor = StableSolver::new("active-set newton direction")
+    let factor = StableSolver::new()
         .factorize(hessian)
         .map_err(EstimationError::LinearSystemSolveFailed)?;
     direction_out.assign(gradient);

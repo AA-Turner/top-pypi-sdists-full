@@ -18,31 +18,74 @@
 //!   `SignedWeightsView::as_psd` (consolidating the few scan sites that
 //!   still need to ask the question at runtime — e.g. PIRLS step
 //!   acceptance).
-//! * `SignedWeightsView<'_>` is the universal sign-honest view, freely
-//!   constructable from any `&Array1<f64>` / `ArrayView1<'_, f64>` / `&[f64]`.
-//!   The diagonal-Gram kernels and the shared per-row accumulator
-//!   `weighted_crossprod_dense_rows` consume it — they are linear in `w` and
-//!   sign-correct without a PSD precondition (and are reused by the
-//!   asymmetric `X_iᵀ W X_j` path inside `BlockDesignOperator::cross_block`,
-//!   where `c · X v` is genuinely signed).
+//! * `FiniteSignedWeightsView<'_>` is the universal weighted-operator view:
+//!   negative entries are retained, while one deterministic scan rejects the
+//!   first nonfinite row before a Gram/Hessian kernel can mutate output.
+//! * `SignedWeightsView<'_>` is an unvalidated row-geometry borrow for APIs
+//!   that perform their own joint certificate over weights and companion
+//!   arrays. It is deliberately not accepted by weighted matrix operators.
 //!
-//! The two newtypes are zero-cost: `repr(transparent)` over `ArrayView1<'_,
-//! f64>`, with `into_view()` / `as_slice()` / `len()` projections so kernel
-//! bodies still see the underlying array view.
+//! The view newtypes are zero-cost: `repr(transparent)` over `ArrayView1<'_,
+//! f64>`, with narrow projections so kernel bodies still see the underlying
+//! array view.
 
 use ndarray::{Array1, ArrayView1};
 use std::ops::Deref;
 use std::sync::Arc;
+
+/// A sign-honest weight diagonal whose entries have all been certified finite.
+///
+/// The distinction from [`SignedWeightsView`] is operational rather than
+/// algebraic: matrix-free normal products are evaluated many times inside PCG,
+/// so they must certify the row diagonal once at the solve boundary instead of
+/// rescanning it on every matvec.  Negative and signed-zero values are retained
+/// exactly; only `NaN` and infinities are rejected.
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct FiniteSignedWeightsView<'a>(ArrayView1<'a, f64>);
+
+impl<'a> FiniteSignedWeightsView<'a> {
+    /// Certify a signed weight vector.  Failure names the smallest offending
+    /// row, so the result is deterministic and independent of parallelism.
+    #[inline]
+    pub fn try_new(view: ArrayView1<'a, f64>) -> Result<Self, String> {
+        if let Some((row, value)) = view
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, w)| !w.is_finite())
+        {
+            return Err(format!(
+                "non-finite weight at row {row}: {value:?}; every weight must be finite"
+            ));
+        }
+        Ok(Self(view))
+    }
+
+    #[inline]
+    pub fn try_from_array(array: &'a Array1<f64>) -> Result<Self, String> {
+        Self::try_new(array.view())
+    }
+
+    #[inline]
+    pub fn view(&self) -> ArrayView1<'a, f64> {
+        self.0
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct SignedWeightsView<'a>(ArrayView1<'a, f64>);
 
 impl<'a> SignedWeightsView<'a> {
-    /// Borrow any `ArrayView1<'_, f64>` as a sign-honest weight view. This is
-    /// free of obligation: signed weights are the most general case, and the
-    /// consumers (`weighted_crossprod_dense_rows`, observed-Hessian Gram
-    /// kernels, `BlockDesignOperator::cross_block`) all do sign-correct math.
+    /// Borrow any `ArrayView1<'_, f64>` for row-geometry APIs that perform
+    /// their own full certificate. Weighted matrix operators require
+    /// [`FiniteSignedWeightsView`] instead.
     #[inline]
     pub fn new(view: ArrayView1<'a, f64>) -> Self {
         Self(view)
@@ -90,11 +133,7 @@ impl<'a> SignedWeightsView<'a> {
     /// scan was previously inlined as `weights.iter().any(|&w| w < 0.0)`).
     #[inline]
     pub fn as_psd(self) -> Option<PsdWeightsView<'a>> {
-        if self.0.iter().all(|&w| w >= 0.0) {
-            Some(PsdWeightsView(self.0))
-        } else {
-            None
-        }
+        PsdWeightsView::try_new(self.0).ok()
     }
 }
 
@@ -110,11 +149,19 @@ impl<'a> PsdWeightsView<'a> {
     /// recheck.
     #[inline]
     pub fn try_new(view: ArrayView1<'a, f64>) -> Result<Self, String> {
-        if view.iter().all(|&w| w >= 0.0) {
-            Ok(Self(view))
-        } else {
-            Err("PsdWeights::try_new: weights must be nonneg (use SignedWeightsView for observed-Hessian assembly)".to_string())
+        for (row, &weight) in view.iter().enumerate() {
+            if !weight.is_finite() {
+                return Err(format!(
+                    "PsdWeightsView::try_new: non-finite weight at row {row}: {weight:?}"
+                ));
+            }
+            if weight < 0.0 {
+                return Err(format!(
+                    "PsdWeightsView::try_new: negative weight at row {row}: {weight:?}; use SignedWeightsView for observed-Hessian assembly"
+                ));
+            }
         }
+        Ok(Self(view))
     }
 
     /// As `try_new`, taking an owned `&Array1<f64>`.
@@ -174,10 +221,9 @@ impl<'a> PsdWeightsView<'a> {
 /// `ImplicitHyperOperator`, `SparseDirectionalHyperOperator`) cache the
 /// observed-Hessian working weight diagonal as `Arc<Array1<f64>>` and consume
 /// it via several distinct signed kernels inside their `mul_vec` bodies
-/// (`Wᵀ X v`, `Wᵀ X_τ v`, `Xᵀ diag(c ⊙ X_τ β̂) X v`, ...). Encoding the
-/// sign character at the struct boundary closes the residual implicit-sign
-/// gap that the function-boundary [`SignedWeightsView`] / [`PsdWeightsView`]
-/// could not reach: those views are constructed at the kernel call site, so
+/// (`Wᵀ X v`, `Wᵀ X_τ v`, ...). Encoding the sign character at the struct
+/// boundary closes the residual implicit-sign gap that a function-boundary
+/// borrowed view could not reach: those views are constructed at the call site, so
 /// the cached struct field is the only place the sign character could
 /// otherwise leak as untyped `Arc<Array1<f64>>`.
 ///
@@ -202,9 +248,8 @@ impl SignedWeightsArc {
         Self(Arc::new(array))
     }
 
-    /// Borrow as a function-boundary [`SignedWeightsView`] for crossing into
-    /// a signed kernel (`weighted_crossprod_dense_rows`, `xt_diag_x_signed_op`,
-    /// `BlockDesignOperator::cross_block`).
+    /// Borrow as an unvalidated function-boundary [`SignedWeightsView`] for
+    /// row-geometry consumers that perform their own joint certificate.
     #[inline]
     pub fn view_signed(&self) -> SignedWeightsView<'_> {
         SignedWeightsView::from_array(self.0.as_ref())
@@ -304,6 +349,15 @@ mod tests {
     }
 
     #[test]
+    fn psd_try_new_rejects_positive_infinity() {
+        let a = array![1.0_f64, f64::INFINITY];
+        let err = PsdWeightsView::try_new(a.view())
+            .err()
+            .expect("infinite PSD weight must be rejected");
+        assert!(err.contains("row 1"), "unexpected diagnostic: {err}");
+    }
+
+    #[test]
     fn psd_try_from_array_round_trips() {
         let a = array![3.0_f64, 4.0];
         let psd = PsdWeightsView::try_from_array(&a).unwrap();
@@ -333,5 +387,22 @@ mod tests {
         let w = SignedWeightsArc::from_array(array![10.0_f64, 20.0]);
         assert_eq!((*w)[0], 10.0);
         assert_eq!((*w)[1], 20.0);
+    }
+
+    #[test]
+    fn finite_signed_view_preserves_negative_and_signed_zero() {
+        let a = array![-3.5_f64, -0.0, 2.0];
+        let weights = FiniteSignedWeightsView::try_from_array(&a).unwrap();
+        assert_eq!(weights.view()[0].to_bits(), (-3.5_f64).to_bits());
+        assert_eq!(weights.view()[1].to_bits(), (-0.0_f64).to_bits());
+    }
+
+    #[test]
+    fn finite_signed_view_reports_smallest_nonfinite_row() {
+        let a = array![1.0_f64, f64::NAN, f64::INFINITY];
+        let err = FiniteSignedWeightsView::try_from_array(&a)
+            .err()
+            .expect("non-finite weights must fail certification");
+        assert!(err.contains("row 1"), "unexpected diagnostic: {err}");
     }
 }

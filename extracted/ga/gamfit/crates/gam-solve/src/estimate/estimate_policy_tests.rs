@@ -13,7 +13,7 @@ use super::prefit::{
 use super::reml::hyper::link_binomial_aux;
 use super::*;
 use crate::mixture_link::{sas_inverse_link_jet, sas_inverse_link_jetwith_param_partials};
-use gam_linalg::utils::{StableSolver, max_abs_diag};
+use gam_linalg::utils::StableSolver;
 use gam_problem::{
     InverseLink, LikelihoodSpec, LinkFunction, ResponseFamily, SeedRiskProfile, StandardLink,
 };
@@ -649,15 +649,18 @@ fn sas_log_delta_barrier_hessian_matches_gradient_slope() {
 }
 
 fn decode_invariant_test_parts() -> UnifiedFitResultParts {
+    let log_lambdas = array![0.2_f64.ln(), 0.8_f64.ln()];
+    let lambdas = log_lambdas
+        .mapv(|value| gam_problem::checked_exp_log_strength(value).expect("fixture log strength"));
     UnifiedFitResultParts {
         blocks: vec![FittedBlock {
             beta: array![0.25, -0.5],
             role: BlockRole::Mean,
             edf: 1.5,
-            lambdas: array![0.2, 0.8],
+            lambdas: lambdas.clone(),
         }],
-        log_lambdas: array![0.2_f64.max(1e-300).ln(), 0.8_f64.max(1e-300).ln()],
-        lambdas: array![0.2, 0.8],
+        log_lambdas,
+        lambdas,
         likelihood_family: Some(LikelihoodSpec::new(
             ResponseFamily::Gaussian,
             InverseLink::Standard(StandardLink::Identity),
@@ -681,11 +684,17 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
             penalty_block_trace: vec![],
             edf_total: 1.5,
             smoothing_correction: Some(array![[0.2, 0.0], [0.0, 0.2]]),
+            smoothing_correction_method: Some(
+                crate::model_types::SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace {
+                    active_rank: 1,
+                    rho_dimension: 1,
+                },
+            ),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),
             working_weights: array![1.0, 0.5, 0.75],
             working_response: array![0.1, 0.2, 0.3],
             reparam_qs: Some(array![[1.0, 0.0], [0.0, 1.0]]),
-            dispersion: Dispersion::Known(1.0),
+            dispersion: Dispersion::UNIT,
             beta_covariance: Some(array![[1.0, 0.1], [0.1, 2.0]].into()),
             beta_standard_errors: Some(array![1.0, 2.0_f64.sqrt()]),
             beta_covariance_corrected: Some(array![[1.2, 0.1], [0.1, 2.2]]),
@@ -772,8 +781,8 @@ fn dispersion_phi_prefers_inference_then_falls_back_to_standard_deviation() {
     // the stored dispersion verbatim so it can never diverge from the φ̂
     // that scaled the covariances at fit time.
     let fit = decode_invariant_test_fit();
-    assert_eq!(fit.dispersion(), Some(Dispersion::Known(1.0)));
-    assert_eq!(fit.dispersion_phi(), 1.0);
+    assert_eq!(fit.dispersion(), Some(Dispersion::UNIT));
+    assert_eq!(fit.dispersion_phi().unwrap(), 1.0);
 
     // Deployment-saved models drop `inference` (see `core_saved_fit_result`,
     // which stores `inference: None`). `dispersion()` is then `None`, but
@@ -785,9 +794,9 @@ fn dispersion_phi_prefers_inference_then_falls_back_to_standard_deviation() {
     assert!(stripped.dispersion().is_none());
     let expected_phi = stripped.standard_deviation * stripped.standard_deviation;
     assert!(
-        (stripped.dispersion_phi() - expected_phi).abs() < 1e-12,
+        (stripped.dispersion_phi().unwrap() - expected_phi).abs() < 1e-12,
         "fallback φ̂ should equal σ̂² = {expected_phi}, got {}",
-        stripped.dispersion_phi()
+        stripped.dispersion_phi().unwrap()
     );
 
     // A fixed-scale family (Poisson) keeps φ̂ = 1 on the fallback path even
@@ -799,7 +808,7 @@ fn dispersion_phi_prefers_inference_then_falls_back_to_standard_deviation() {
         InverseLink::Standard(StandardLink::Log),
     ));
     poisson.standard_deviation = 2.7;
-    assert_eq!(poisson.dispersion_phi(), 1.0);
+    assert_eq!(poisson.dispersion_phi().unwrap(), 1.0);
 }
 
 #[test]
@@ -897,13 +906,13 @@ fn unified_fit_validation_rejects_edf_smoothing_parameter_drift() {
 }
 
 #[test]
-fn unified_fit_validation_accepts_persisted_log_lambda_roundoff() {
+fn unified_fit_validation_rejects_any_log_lambda_drift() {
     let mut fit = decode_invariant_test_fit();
     fit.log_lambdas[0] += 5e-14;
-    assert!(
-        fit.validate_numeric_finiteness().is_ok(),
-        "sub-ulp persisted log-lambda roundoff should remain valid"
-    );
+    let err = fit
+        .validate_numeric_finiteness()
+        .expect_err("canonical log strengths must not drift from physical strengths");
+    assert!(err.to_string().contains("log_lambdas must equal"));
 }
 
 #[test]
@@ -996,7 +1005,11 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
     let eta_true = x.dot(&true_beta);
     let eps_true = 0.25;
     let ld_true = -0.20;
-    let p = eta_true.mapv(|e| sas_inverse_link_jet(e, eps_true, ld_true).mu);
+    let p = eta_true.mapv(|e| {
+        sas_inverse_link_jet(e, eps_true, ld_true)
+            .expect("finite SAS eta")
+            .mu
+    });
     let mut rng = StdRng::seed_from_u64(seed);
     let y = p.mapv(|pi| if rng.random::<f64>() < pi { 1.0 } else { 0.0 });
 
@@ -1084,7 +1097,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
                 eta[i],
                 sas_state.epsilon,
                 sas_state.log_delta,
-            );
+            )
+            .expect("finite SAS eta");
             let mu = jets.jet.mu;
             let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
             let d1 = jets.jet.d1;
@@ -1108,7 +1122,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
                     eta[i],
                     sas_state.epsilon,
                     sas_state.log_delta,
-                );
+                )
+                .expect("finite SAS eta");
                 let mu = jets.jet.mu;
                 let d1 = jets.jet.d1;
                 let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
@@ -1140,7 +1155,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
                 eta[i].clamp(-30.0, 30.0),
                 sas_state.epsilon,
                 sas_state.log_delta,
-            );
+            )
+            .expect("finite SAS eta");
             let mu = jets.jet.mu;
             let d1 = jets.jet.d1;
             let d2 = jets.jet.d2;
@@ -1156,21 +1172,20 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
         for ((r, c), v) in pirls_result.reparam_result.s_transformed.indexed_iter() {
             j[[r, c]] += v;
         }
-        if pirls_result.ridge_used > 0.0 {
+        if pirls_result.ridge_passport.delta() > 0.0 {
             for d in 0..j.nrows() {
-                j[[d, d]] += pirls_result.ridge_used;
+                j[[d, d]] += pirls_result.ridge_passport.delta();
             }
         }
         j
     };
-    let stable_solver = StableSolver::new("sas dbeta exact test");
-    let mut dbeta_exact = stable_solver
-        .solvevectorwithridge_retries(
-            &score_beta_jacobian,
-            &rhs,
-            max_abs_diag(&score_beta_jacobian) * 1e-12,
-        )
-        .expect("observed-jacobian solve for dbeta");
+    let factor = StableSolver::new()
+        .factorize(&score_beta_jacobian)
+        .expect("observed-jacobian factorization for dbeta");
+    let mut dbeta_exact = rhs.clone();
+    let mut dbeta_matrix = gam_linalg::faer_ndarray::array1_to_col_matmut(&mut dbeta_exact);
+    factor.solve_in_place(dbeta_matrix.as_mut());
+    assert!(dbeta_exact.iter().all(|value| value.is_finite()));
     dbeta_exact *= d_eps_d_raw;
 
     let fd_h = 1e-4 * (1.0 + theta[1].abs());
@@ -1219,7 +1234,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
     // genuine guard: ~1e4× the observed residual yet ~370× tighter than the
     // original miss, and robust to cross-platform PIRLS-convergence jitter.
     assert_eq!(
-        pirls_result.ridge_used, 0.0,
+        pirls_result.ridge_passport.delta(),
+        0.0,
         "well-conditioned n=20 SAS fit must take no stabilization ridge; \
          a nonzero ridge would mean the IFT Jacobian and the FD re-solve no \
          longer linearize the same system (gam#855)"
@@ -1245,7 +1261,11 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
     let eta_true = x.dot(&true_beta);
     let eps_true = 0.25;
     let ld_true = -0.20;
-    let p = eta_true.mapv(|e| sas_inverse_link_jet(e, eps_true, ld_true).mu);
+    let p = eta_true.mapv(|e| {
+        sas_inverse_link_jet(e, eps_true, ld_true)
+            .expect("finite SAS eta")
+            .mu
+    });
     let mut rng = StdRng::seed_from_u64(seed);
     let y = p.mapv(|pi| if rng.random::<f64>() < pi { 1.0 } else { 0.0 });
 
@@ -1325,7 +1345,7 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
         .expect("pirls_result");
     let beta0 = pirls_result.beta_transformed.as_ref().clone();
     let s_transformed = pirls_result.reparam_result.s_transformed.clone();
-    let ridge = pirls_result.ridge_used;
+    let ridge = pirls_result.ridge_passport.delta();
     let x_dense = match &pirls_result.x_transformed {
         DesignMatrix::Dense(x_dense) => x_dense.to_dense(),
         DesignMatrix::Sparse(_) => {
@@ -1342,7 +1362,8 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
                 eta[i].clamp(-30.0, 30.0),
                 sas_state.epsilon,
                 sas_state.log_delta,
-            );
+            )
+            .expect("finite SAS eta");
             let mu = jets.jet.mu;
             let d1 = jets.jet.d1;
             let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
@@ -1365,7 +1386,8 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
             eta0[i].clamp(-30.0, 30.0),
             sas_state.epsilon,
             sas_state.log_delta,
-        );
+        )
+        .expect("finite SAS eta");
         let mu = jets.jet.mu;
         let d1 = jets.jet.d1;
         let d2 = jets.jet.d2;
@@ -1415,7 +1437,11 @@ fn sas_pirlshessian_matches_true_score_jacobian_at_seed19() {
     let eta_true = x.dot(&true_beta);
     let eps_true = 0.25;
     let ld_true = -0.20;
-    let p = eta_true.mapv(|e| sas_inverse_link_jet(e, eps_true, ld_true).mu);
+    let p = eta_true.mapv(|e| {
+        sas_inverse_link_jet(e, eps_true, ld_true)
+            .expect("finite SAS eta")
+            .mu
+    });
     let mut rng = StdRng::seed_from_u64(seed);
     let y = p.mapv(|pi| if rng.random::<f64>() < pi { 1.0 } else { 0.0 });
 
@@ -1495,7 +1521,7 @@ fn sas_pirlshessian_matches_true_score_jacobian_at_seed19() {
         .expect("pirls_result");
     let beta0 = pirls_result.beta_transformed.as_ref().clone();
     let s_transformed = pirls_result.reparam_result.s_transformed.clone();
-    let ridge = pirls_result.ridge_used;
+    let ridge = pirls_result.ridge_passport.delta();
     let x_dense = match &pirls_result.x_transformed {
         DesignMatrix::Dense(x_dense) => x_dense.to_dense(),
         DesignMatrix::Sparse(_) => {
@@ -1511,7 +1537,8 @@ fn sas_pirlshessian_matches_true_score_jacobian_at_seed19() {
             eta0[i].clamp(-30.0, 30.0),
             sas_state.epsilon,
             sas_state.log_delta,
-        );
+        )
+        .expect("finite SAS eta");
         let mu = jets.jet.mu;
         let d1 = jets.jet.d1;
         let d2 = jets.jet.d2;
@@ -1545,12 +1572,14 @@ fn link_binomial_aux_stay_finite_for_saturated_sas_probabilities() {
         (
             0.0,
             sas_inverse_link_jetwith_param_partials(-30.0, 0.0, 12.0)
+                .expect("finite SAS eta")
                 .jet
                 .mu,
         ),
         (
             1.0,
             sas_inverse_link_jetwith_param_partials(30.0, 0.0, 12.0)
+                .expect("finite SAS eta")
                 .jet
                 .mu,
         ),

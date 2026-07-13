@@ -195,12 +195,6 @@ pub struct ArrowSchurSystem {
     /// joint `(delta B, delta log-amplitude)` trajectory projection is owned by
     /// the SAE step application.
     pub beta_gauge_quotient: Option<ArrowBetaGaugeQuotient>,
-    /// Optional exact cross-row IBP low-rank source (#1038). When set, the
-    /// factorization downdates the per-row logit-slot self term and layers the
-    /// exact rank-`R` Woodbury correction onto the evidence cache (value,
-    /// log-determinant, and θ/ρ-adjoint together). `None` for all non-IBP
-    /// systems — the row-block-diagonal arrow path is then unchanged.
-    pub ibp_cross_row: Option<IbpCrossRowSource>,
 }
 
 impl Clone for ArrowSchurSystem {
@@ -227,7 +221,6 @@ impl Clone for ArrowSchurSystem {
             cross_row_penalties: self.cross_row_penalties.clone(),
             row_gauge_deflation: self.row_gauge_deflation.clone(),
             beta_gauge_quotient: self.beta_gauge_quotient.clone(),
-            ibp_cross_row: self.ibp_cross_row.clone(),
         }
     }
 }
@@ -254,67 +247,6 @@ pub struct CrossRowLatentPenalty {
     /// against it for the Newton operator to be the true Hessian at the
     /// current iterate.
     pub target_t: Array1<f64>,
-}
-
-/// Exact cross-row low-rank IBP source (#1038): the per-column rank-one Hessian
-/// terms `H_(i,k),(j,k) = d_k·z'_ik·z'_jk` (for ALL `i,j`, including the `i=j`
-/// self term) that couple DISTINCT latent rows through a shared atom column `k`.
-///
-/// Stacking over rows, this is `H_full = H₀' + U D Uᵀ`, where:
-/// * `U` is `delta_t_len × R` with `U[g, k] = z'_ik` at the global latent index
-///   `g` of row `i`'s logit slot for atom `k` (zero elsewhere) — i.e. column `k`
-///   is supported on the atom-`k` logit slot of every row;
-/// * `D = diag(d_k)`, `d_k = w·s'_k` ([`gam_terms::analytic_penalties::IbpHessianDiagThirdChannels::cross_row_d`]);
-/// * `H₀'` is the assembled latent block-diagonal `H₀` with the per-row self
-///   term `d_k·z'_ik²` REMOVED from each logit-slot diagonal (the assembled
-///   `H₀` already carries it, so the FULL rank-one outer product `U D Uᵀ` —
-///   which re-adds the `i=j` diagonal — would double-count without this
-///   downdate). The determinant lemma `log det(I_R + D UᵀH₀'⁻¹U)` is only the
-///   exact rank-`R` correction against this no-self base.
-///
-/// The arrow elimination assumes each row's `H_tt^(i)` is independent of every
-/// other row, so it structurally cannot hold this coupling block-locally. The
-/// factorization owner (`solver::arrow_schur`) consumes this source to (a)
-/// downdate the per-row logit diagonal before factoring, (b) build `U`/`D` onto
-/// the resulting [`ArrowFactorCache`] as a [`CrossRowWoodbury`], and (c) apply
-/// the exact Woodbury correction to the value/curvature solve, the evidence
-/// log-determinant, and the θ/ρ-adjoint TOGETHER (they all describe the SAME
-/// `H_full`).
-#[derive(Clone, Debug, Default)]
-pub struct IbpCrossRowSource {
-    /// Number of atom columns `R` (the rank of the cross-row update).
-    pub r: usize,
-    /// `d_k = w·s'_k`, the scalar `D`-coefficient of column `k`. Length `R`.
-    pub d: Array1<f64>,
-    /// Per-row column entries `(global_t_index, atom_k, z'_ik)`: each tuple
-    /// places `z'_ik` at `U[global_t_index, atom_k]`. The `global_t_index` is
-    /// `row_offsets[i] + local_slot` for the row's logit slot of atom `k`. Only
-    /// nonzero entries are listed (one per active (row, atom) pair).
-    pub entries: Vec<(usize, usize, f64)>,
-}
-
-impl IbpCrossRowSource {
-    /// Build the dense `delta_t_len × R` factor `U` (each column supported on
-    /// its atom's per-row logit slots) from the sparse entry list.
-    pub(crate) fn dense_u(&self, delta_t_len: usize) -> Array2<f64> {
-        let mut u = Array2::<f64>::zeros((delta_t_len, self.r));
-        for &(g, k, z) in &self.entries {
-            u[[g, k]] += z;
-        }
-        u
-    }
-
-    /// Per-row-slot self-term downdate: returns, for each global latent index,
-    /// the scalar `Σ_k d_k·z'_ik²` to subtract from that logit slot's diagonal
-    /// so the factored base is `H₀'` (self term removed). Indexed by global
-    /// `delta_t` position.
-    pub(crate) fn self_term_downdate(&self, delta_t_len: usize) -> Array1<f64> {
-        let mut down = Array1::<f64>::zeros(delta_t_len);
-        for &(g, k, z) in &self.entries {
-            down[g] += self.d[k] * z * z;
-        }
-        down
-    }
 }
 
 impl ArrowSchurSystem {
@@ -359,7 +291,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -409,7 +340,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -465,7 +395,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -511,7 +440,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -562,7 +490,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -641,7 +568,6 @@ impl ArrowSchurSystem {
             cross_row_penalties: Vec::new(),
             row_gauge_deflation: None,
             beta_gauge_quotient: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -663,20 +589,6 @@ impl ArrowSchurSystem {
         }
         self.beta_gauge_quotient = Some(quotient);
         Ok(())
-    }
-
-    /// Register the exact cross-row IBP low-rank source (#1038). The assembly
-    /// passes the per-column `D`-coefficients (`cross_row_d`) and the `(global
-    /// latent index, atom, z'_ik)` entries built from `z_jac`; the factorization
-    /// then carries the exact rank-`R` Woodbury (value + log-determinant +
-    /// θ/ρ-adjoint) on the evidence cache. An empty source (`r == 0` or no
-    /// entries) is treated as absent so the row-block-diagonal path is unchanged.
-    pub fn set_ibp_cross_row_source(&mut self, source: IbpCrossRowSource) {
-        if source.r == 0 || source.entries.is_empty() {
-            self.ibp_cross_row = None;
-        } else {
-            self.ibp_cross_row = Some(source);
-        }
     }
 
     /// Number of BA point/latent rows `N`.
@@ -1023,7 +935,7 @@ impl ArrowSchurSystem {
     /// `hessian_diag` first. Diagonal penalties (ARD and the shipped
     /// sparsity kernels) are injected directly. The row-block-only Psi-tier
     /// penalties are `ARDPenalty`, `SparsityPenalty`,
-    /// `SoftmaxAssignmentSparsity`, `IBPAssignment`,
+    /// `SoftmaxAssignmentSparsity`, `OrderedBetaBernoulli`,
     /// `RowPrecisionPrior`, `ParametricRowPrecisionPrior`, and
     /// `ScadMcpPenalty`. Their `d × d` per-row Hessian folds into
     /// `rows[i].htt`, so the exact arrow Schur elimination (`N` independent
@@ -1060,6 +972,9 @@ impl ArrowSchurSystem {
         target_beta: ArrayView1<'_, f64>,
         rho_global: ArrayView1<'_, f64>,
     ) -> Result<(), ArrowSchurError> {
+        registry
+            .validate_rho(rho_global)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let layout = registry.rho_layout();
         let mut penalty_fingerprints = Vec::new();
         self.cross_row_penalties.clear();
@@ -1402,18 +1317,6 @@ pub struct StreamingArrowSchur {
     /// from the options; defaults to `false` so direct callers of
     /// [`Self::accumulate_chunk`] keep the full guard.
     pub(crate) tolerate_ill_conditioning: bool,
-    /// Set when the source system carried an exact cross-row IBP source
-    /// ([`IbpCrossRowSource`], #1038). The streaming chunked accumulator cannot
-    /// hold the rank-`R` Woodbury correction chunk-locally — `U`'s columns span
-    /// ALL rows, so the capacitance `I_R + D Uᵀ H₀'⁻¹ U` needs the per-row
-    /// factors retained for a global `H₀'⁻¹U` back-solve, which is exactly the
-    /// `(N·K)`-scale residency the streaming path exists to avoid. Rather than
-    /// silently DROP the cross-row term (an inexact logdet that would desync
-    /// from the dense-resident gradient), the streaming log-determinant errors
-    /// loudly when this is set, forcing IBP-active fits onto the dense resident
-    /// [`ArrowFactorCache::arrow_log_det`] path (which carries the exact
-    /// Woodbury). See the #1038 streaming note.
-    pub(crate) ibp_cross_row_active: bool,
     /// SAE manifold evidence-path per-row gauge deflation, copied from the
     /// source [`ArrowSchurSystem::row_gauge_deflation`] (#1273/#1377). When
     /// present, the streaming per-row factor MUST apply the SAME spectral
@@ -1425,34 +1328,6 @@ pub struct StreamingArrowSchur {
     /// regression: #1273 wired the deflation into the dense path only). `None`
     /// for every non-evidence caller, which keeps the strict non-PD refusal.
     pub(crate) row_gauge_deflation: Option<ArrowRowGaugeDeflation>,
-    /// The exact cross-row IBP source ([`IbpCrossRowSource`], #1038), cloned from
-    /// the assembled [`ArrowSchurSystem`]. The bare streaming paths
-    /// ([`Self::solve`] / [`Self::reduced_schur_and_log_det_tt`]) still REFUSE
-    /// when this is present (they cannot carry the rank-`R` Woodbury), but the
-    /// evidence-only [`Self::reduced_schur_log_det_tt_woodbury`] consumes it to
-    /// accumulate the chunk-additive Woodbury building blocks `M0 = Uᵀ A⁻¹ U`
-    /// and `W = Bᵀ A⁻¹ U` against the NO-SELF base `H₀'` (self term downdated),
-    /// which the caller closes into the exact `log det(I_R + D Uᵀ H₀'⁻¹ U)` via
-    /// [`streaming_cross_row_woodbury_log_det`].
-    pub(crate) ibp_cross_row: Option<IbpCrossRowSource>,
-}
-
-/// One chunk's contribution to the streaming cross-row IBP Woodbury (#1038).
-///
-/// The capacitance `C = I_R + D·M` with `M = Uᵀ H₀'⁻¹ U` is chunk-additive in
-/// its two ingredients (`A = H₀'` is block-diagonal over rows, `U` is supported
-/// per-row): `M = M0 + Wᵀ S⁻¹ W` where `M0 = Σ_i Uᵢᵀ Aᵢ⁻¹ Uᵢ` (`R×R`) and
-/// `W = Σ_i Bᵢᵀ Aᵢ⁻¹ Uᵢ` (`k×R`) accumulate row-by-row, and `S` is the final
-/// GLOBAL reduced Schur. This carries one chunk's `M0`/`W` plus the per-atom
-/// `D`; the caller sums them and closes the capacitance after the chunk loop.
-#[derive(Debug, Clone)]
-pub struct StreamingWoodburyChunk {
-    /// `Σ_{i∈chunk} Uᵢᵀ Aᵢ⁻¹ Uᵢ`, `R×R`.
-    pub m0: Array2<f64>,
-    /// `Σ_{i∈chunk} Bᵢᵀ Aᵢ⁻¹ Uᵢ`, `k×R` (`k` = reduced β border).
-    pub w: Array2<f64>,
-    /// Per-atom `D`-coefficients `d_k = w·s'_k`, length `R`.
-    pub d: Array1<f64>,
 }
 
 impl std::fmt::Debug for StreamingArrowSchur {
@@ -1496,9 +1371,7 @@ impl StreamingArrowSchur {
             htbeta_matvec: None,
             htbeta_transpose_matvec: None,
             tolerate_ill_conditioning: false,
-            ibp_cross_row_active: false,
             row_gauge_deflation: None,
-            ibp_cross_row: None,
         }
     }
 
@@ -1550,8 +1423,6 @@ impl StreamingArrowSchur {
         );
         streaming.htbeta_matvec = htbeta_matvec;
         streaming.htbeta_transpose_matvec = sys.htbeta_transpose_matvec.clone();
-        streaming.ibp_cross_row_active = sys.ibp_cross_row.is_some();
-        streaming.ibp_cross_row = sys.ibp_cross_row.clone();
         // Carry the SAE evidence-path per-row gauge deflation so the streaming
         // per-row factor matches the dense `factor_blocks_for_system` exactly
         // (#1377): without it, a row with an intrinsic-dimension-flat `H_tt`
@@ -1695,120 +1566,86 @@ impl StreamingArrowSchur {
         let k = self.k;
         // Per-row factor + two block solves + a `k×k` GEMM subtract is the whole
         // assembly cost at the SAE LLM shape (#1017); the rows are independent so
-        // the chunk fans across cores. Stay sequential for the handful-of-rows
-        // non-SAE callers, or when already inside a rayon worker (the topology
-        // race fans candidates with `run_topology_race_parallel`) to avoid
-        // nested-rayon oversubscription — the same gate `schur_matvec` uses.
-        let parallel = (end - start) >= SCHUR_MATVEC_PARALLEL_ROW_MIN
-            && rayon::current_thread_index().is_none();
-        if parallel {
-            use rayon::prelude::*;
-            const CHUNK: usize = 64;
-            // Bind `&self` so the per-row body borrows only the immutable
-            // streaming state. Each row contributes `+H_βt^(i)(H_tt^(i))⁻¹ g_t^(i)`
-            // (length `k`) to the reduced RHS and `−H_βt^(i)(H_tt^(i))⁻¹ H_tβ^(i)`
-            // (`k×k`) to the reduced Schur complement; both are written INTO a
-            // worker-private `(rhs_part, s_part)` pair so the chunk partials fold
-            // back in chunk order — bit-identical run-to-run regardless of thread
-            // scheduling (the #1017 verification gate). The chunk fold reassociates
-            // the row sum relative to serial, so the criterion ranking is stable
-            // only up to that f64 margin; a near-tie winner inside the margin can
-            // flip — not an exact no-move guarantee (#1211).
-            let this: &Self = self;
-            let row_into = |row_idx: usize,
-                            rhs_part: &mut Array1<f64>,
-                            s_part: &mut Array2<f64>,
-                            stack: &mut ChunkSchurStack|
-             -> Result<(), ArrowSchurError> {
-                let row = (this.row_builder)(row_idx)?;
-                let di = row.htt.nrows();
-                this.validate_row(row_idx, &row)?;
-                let htbeta = this.row_htbeta(row_idx, &row, di);
-                let factor = this.factor_row(&row, ridge_t, di, row_idx)?;
-                let v = backend.solve_block_vector(factor.view(), row.gt.view());
-                for c in 0..di {
-                    let vc = v[c];
-                    if vc == 0.0 {
-                        continue;
-                    }
-                    for a in 0..k {
-                        rhs_part[a] += htbeta[[c, a]] * vc;
-                    }
+        // the reduction fans across cores.
+        // #2228 determinism: reduce the per-row contributions —
+        // `+H_βt^(i)(H_tt^(i))⁻¹ g_t^(i)` (length `k`, into the reduced RHS) and
+        // `−H_βt^(i)(H_tt^(i))⁻¹ H_tβ^(i)` (`k×k`, into the reduced Schur
+        // complement) — through the length-only pairwise tree. The within-chunk
+        // association is then bit-identical across thread count AND to the
+        // sequential fold, removing the #1017/#1211 chunk-reassociation margin
+        // that let the criterion ranking depend on the driver. The tree
+        // self-serializes below `BASE_CHUNK` rows (a base block is folded directly
+        // with no `rayon::join`), so the handful-of-rows callers and nested
+        // topology-race calls stay single-threaded without a separate branch.
+        // Each streaming chunk's tree result folds into the seeded running
+        // `self.{rhs,s}_acc` (which carry `H_ββ + ridge·I`) in chunk order.
+        let this: &Self = self;
+        let row_into = |row_idx: usize,
+                        rhs_part: &mut Array1<f64>,
+                        s_part: &mut Array2<f64>,
+                        stack: &mut ChunkSchurStack|
+         -> Result<(), ArrowSchurError> {
+            let row = (this.row_builder)(row_idx)?;
+            let di = row.htt.nrows();
+            this.validate_row(row_idx, &row)?;
+            let htbeta = this.row_htbeta(row_idx, &row, di);
+            let factor = this.factor_row(&row, ridge_t, di, row_idx)?;
+            let v = backend.solve_block_vector(factor.view(), row.gt.view());
+            for c in 0..di {
+                let vc = v[c];
+                if vc == 0.0 {
+                    continue;
                 }
-                match mode {
-                    // InexactPCG differs from Direct only in how the *reduced*
-                    // system is solved, not in how it is assembled, so it shares
-                    // the dense Schur subtraction here (see the serial branch).
-                    ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
-                        let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
-                        stack.subtract_or_stack(&backend, s_part, &htbeta, &solved);
-                    }
-                    ArrowSolverMode::SqrtBA => {
-                        let whitened =
-                            backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
-                        stack.subtract_or_stack(&backend, s_part, &whitened, &whitened);
-                    }
-                }
-                Ok(())
-            };
-            let partials: Vec<(Array1<f64>, Array2<f64>)> = (start..end)
-                .into_par_iter()
-                .chunks(CHUNK)
-                .map(|idxs| {
-                    let mut rhs_part = Array1::<f64>::zeros(k);
-                    let mut s_part = Array2::<f64>::zeros((k, k));
-                    // Dense-support rows accumulate into ONE stacked GEMM per
-                    // chunk instead of a per-row scalar scatter; sparse rows
-                    // keep the nnz-scaled scatter (see `ChunkSchurStack`).
-                    let mut stack = ChunkSchurStack::new(k);
-                    for i in idxs {
-                        row_into(i, &mut rhs_part, &mut s_part, &mut stack)?;
-                    }
-                    stack.flush(&mut s_part);
-                    Ok::<_, ArrowSchurError>((rhs_part, s_part))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            // Deterministic ordered reduction: fold chunk partials left-to-right.
-            // `block_gemm_subtract` already subtracted into each `s_part`, so the
-            // partials carry the negative Schur contribution; add them in.
-            for (rhs_part, s_part) in &partials {
                 for a in 0..k {
-                    self.rhs_acc[a] += rhs_part[a];
-                }
-                self.s_acc += s_part;
-            }
-        } else {
-            // Serial path accumulates DIRECTLY into the running `self.{rhs,s}_acc`
-            // (which carry the `reset_accumulator` seed `H_ββ + ridge·I`), exactly
-            // as before — bit-for-bit unchanged for the handful-of-rows callers.
-            for row_idx in start..end {
-                let row = (self.row_builder)(row_idx)?;
-                let di = row.htt.nrows();
-                self.validate_row(row_idx, &row)?;
-                let htbeta = self.row_htbeta(row_idx, &row, di);
-                let factor = self.factor_row(&row, ridge_t, di, row_idx)?;
-                let v = backend.solve_block_vector(factor.view(), row.gt.view());
-                for c in 0..di {
-                    let vc = v[c];
-                    if vc == 0.0 {
-                        continue;
-                    }
-                    for a in 0..k {
-                        self.rhs_acc[a] += htbeta[[c, a]] * vc;
-                    }
-                }
-                match mode {
-                    ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
-                        let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(&mut self.s_acc, &htbeta, &solved);
-                    }
-                    ArrowSolverMode::SqrtBA => {
-                        let whitened =
-                            backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(&mut self.s_acc, &whitened, &whitened);
-                    }
+                    rhs_part[a] += htbeta[[c, a]] * vc;
                 }
             }
+            match mode {
+                // InexactPCG differs from Direct only in how the *reduced* system
+                // is solved, not how it is assembled, so it shares this Schur
+                // subtraction.
+                ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
+                    let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
+                    stack.subtract_or_stack(&backend, s_part, &htbeta, &solved);
+                }
+                ArrowSolverMode::SqrtBA => {
+                    let whitened = backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
+                    stack.subtract_or_stack(&backend, s_part, &whitened, &whitened);
+                }
+            }
+            Ok(())
+        };
+        let contribution = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            end - start,
+            |range: core::ops::Range<usize>| -> Result<(Array1<f64>, Array2<f64>), ArrowSchurError> {
+                let mut rhs_part = Array1::<f64>::zeros(k);
+                let mut s_part = Array2::<f64>::zeros((k, k));
+                // Dense-support rows accumulate into ONE stacked GEMM per base
+                // block instead of a per-row scalar scatter; sparse rows keep the
+                // nnz-scaled scatter (see `ChunkSchurStack`).
+                let mut stack = ChunkSchurStack::new(k);
+                for local in range {
+                    row_into(start + local, &mut rhs_part, &mut s_part, &mut stack)?;
+                }
+                stack.flush(&mut s_part);
+                Ok((rhs_part, s_part))
+            },
+            |(mut ra, mut sa): (Array1<f64>, Array2<f64>),
+             (rb, sb): (Array1<f64>, Array2<f64>)|
+             -> Result<(Array1<f64>, Array2<f64>), ArrowSchurError> {
+                ra += &rb;
+                sa += &sb;
+                Ok((ra, sa))
+            },
+        )?;
+        // `subtract_or_stack`/`flush` already subtracted into each `s_part`, so the
+        // partials carry the NEGATIVE Schur contribution; add them into the seeded
+        // running accumulators.
+        if let Some((rhs_part, s_part)) = contribution {
+            for a in 0..k {
+                self.rhs_acc[a] += rhs_part[a];
+            }
+            self.s_acc += &s_part;
         }
         Ok(())
     }
@@ -1833,16 +1670,6 @@ impl StreamingArrowSchur {
         ridge_beta: f64,
         options: &ArrowSolveOptions,
     ) -> Result<(f64, Array2<f64>), ArrowSchurError> {
-        if self.ibp_cross_row_active {
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: "streaming arrow log-det cannot carry the exact cross-row IBP \
-                         Woodbury correction (#1038): U's columns span all rows, so the \
-                         rank-R capacitance needs the per-row factors retained — the very \
-                         (N·K) residency the streaming path avoids. Route IBP-active fits \
-                         through the dense resident ArrowFactorCache::arrow_log_det instead."
-                    .to_string(),
-            });
-        }
         self.tolerate_ill_conditioning = options.tolerate_ill_conditioning;
         self.reset_accumulator(ridge_beta)?;
         let backend = CpuBatchedBlockSolver;
@@ -1874,123 +1701,6 @@ impl StreamingArrowSchur {
         symmetrize_upper_from_lower(&mut self.s_acc);
         let schur = std::mem::replace(&mut self.s_acc, Array2::<f64>::zeros((self.k, self.k)));
         Ok((log_det_tt, schur))
-    }
-
-    /// As [`Self::reduced_schur_and_log_det_tt`], but ALSO accumulates the exact
-    /// cross-row IBP Woodbury building blocks (#1038) when this streaming system
-    /// carried an [`IbpCrossRowSource`].
-    ///
-    /// Mirrors the dense `factor_blocks_for_system` + [`CrossRowWoodbury::build`]
-    /// path exactly:
-    ///
-    /// * the per-row logit self term `Σ_k d_k·z'_ik²`
-    ///   ([`IbpCrossRowSource::self_term_downdate`]) is subtracted from each
-    ///   `H_tt^(i)` BEFORE factoring, so the factored base — and therefore the
-    ///   returned `log_det_tt`/Schur — is the NO-SELF `H₀'` (the dense path
-    ///   factors `H₀'` too, then layers the rank-`R` Woodbury);
-    /// * for each row it forms `Aᵢ⁻¹ Uᵢ` (one block solve against the row's
-    ///   `H₀'` factor, `Uᵢ` the J-weighted atom-column indicator) and adds the
-    ///   row's contributions to `M0 = Σ Uᵢᵀ Aᵢ⁻¹ Uᵢ` (`R×R`) and
-    ///   `W = Σ Bᵢᵀ Aᵢ⁻¹ Uᵢ` (`k×R`, `Bᵢ = H_tβ^(i)`).
-    ///
-    /// The caller sums `M0`/`W`/`log_det_tt`/Schur over chunks and closes the
-    /// capacitance `M = M0 + Wᵀ S⁻¹ W`, `log det(I_R + D·M)` against the GLOBAL
-    /// reduced Schur `S` via [`streaming_cross_row_woodbury_log_det`]. This is
-    /// the exact `log det H_full = log det H₀' + log det(I_R + D Uᵀ H₀'⁻¹ U)`
-    /// the dense [`ArrowFactorCache::arrow_log_det`] returns — the streaming and
-    /// dense evidence then optimize the SAME REML objective (#1225).
-    ///
-    /// When no IBP source is present this delegates to
-    /// [`Self::reduced_schur_and_log_det_tt`] and returns `None` woodbury, so
-    /// every non-IBP (softmax / JumpReLU) caller is bit-for-bit unchanged.
-    pub fn reduced_schur_log_det_tt_woodbury(
-        &mut self,
-        ridge_t: f64,
-        ridge_beta: f64,
-        options: &ArrowSolveOptions,
-    ) -> Result<(f64, Array2<f64>, Option<StreamingWoodburyChunk>), ArrowSchurError> {
-        let Some(source) = self.ibp_cross_row.clone() else {
-            // Temporarily clear the refusal flag so the shared bare path runs;
-            // it is `false` whenever the source is absent, so this is a no-op.
-            let (log_det_tt, schur) =
-                self.reduced_schur_and_log_det_tt(ridge_t, ridge_beta, options)?;
-            return Ok((log_det_tt, schur, None));
-        };
-        let r = source.r;
-        let total_len = self.row_offsets[self.n_rows];
-        let down = source.self_term_downdate(total_len);
-        // Group the sparse `U` entries `(global_t_index, atom, z'_ik)` by row as
-        // `(local_slot, atom, z)`. `row_offsets` is strictly ascending, so the
-        // owning row of a global index is located by binary search.
-        let mut row_entries: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); self.n_rows];
-        for &(g, atom, z) in &source.entries {
-            let i = match self.row_offsets.binary_search(&g) {
-                Ok(idx) => idx,
-                Err(idx) => idx - 1,
-            };
-            let slot = g - self.row_offsets[i];
-            row_entries[i].push((slot, atom, z));
-        }
-        self.tolerate_ill_conditioning = options.tolerate_ill_conditioning;
-        self.reset_accumulator(ridge_beta)?;
-        let backend = CpuBatchedBlockSolver;
-        let mut log_det_tt = 0.0_f64;
-        let mut m0 = Array2::<f64>::zeros((r, r));
-        let mut w = Array2::<f64>::zeros((self.k, r));
-        for start in (0..self.n_rows).step_by(self.chunk_size) {
-            let end = (start + self.chunk_size).min(self.n_rows);
-            for row_idx in start..end {
-                let mut row = (self.row_builder)(row_idx)?;
-                let di = row.htt.nrows();
-                self.validate_row(row_idx, &row)?;
-                // Downdate the per-row logit self term so the factored base is
-                // `H₀'` (the dense path downdates the SAME `down[base + j]`).
-                let base = self.row_offsets[row_idx];
-                for j in 0..di {
-                    row.htt[[j, j]] -= down[base + j];
-                }
-                let htbeta = self.row_htbeta(row_idx, &row, di);
-                let factor = self.factor_row(&row, ridge_t, di, row_idx)?;
-                for axis in 0..di {
-                    log_det_tt += 2.0 * factor[[axis, axis]].ln();
-                }
-                match options.mode {
-                    ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
-                        let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(&mut self.s_acc, &htbeta, &solved);
-                    }
-                    ArrowSolverMode::SqrtBA => {
-                        let whitened =
-                            backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
-                        backend.block_gemm_subtract(&mut self.s_acc, &whitened, &whitened);
-                    }
-                }
-                let entries = &row_entries[row_idx];
-                if !entries.is_empty() {
-                    // `Uᵢ`: `di × R`, column `atom` carries `z'_ik` at its logit
-                    // slot. `Aᵢ⁻¹ Uᵢ` via the row's `H₀'` Cholesky.
-                    let mut u_local = Array2::<f64>::zeros((di, r));
-                    for &(slot, atom, z) in entries {
-                        u_local[[slot, atom]] += z;
-                    }
-                    let ainv_u = backend.solve_block_matrix(factor.view(), u_local.view());
-                    // `M0 += Uᵢᵀ Aᵢ⁻¹ Uᵢ` (`R×R`); `W += Bᵢᵀ Aᵢ⁻¹ Uᵢ` (`k×R`).
-                    m0 += &u_local.t().dot(&ainv_u);
-                    w += &htbeta.t().dot(&ainv_u);
-                }
-            }
-        }
-        symmetrize_upper_from_lower(&mut self.s_acc);
-        let schur = std::mem::replace(&mut self.s_acc, Array2::<f64>::zeros((self.k, self.k)));
-        Ok((
-            log_det_tt,
-            schur,
-            Some(StreamingWoodburyChunk {
-                m0,
-                w,
-                d: source.d.clone(),
-            }),
-        ))
     }
 
     pub fn reduced_schur_log_det(
@@ -2034,14 +1744,6 @@ impl StreamingArrowSchur {
         ridge_beta: f64,
         options: &ArrowSolveOptions,
     ) -> Result<(Array1<f64>, Array1<f64>, Option<Array2<f64>>), ArrowSchurError> {
-        if self.ibp_cross_row_active {
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: "streaming arrow solve cannot carry the exact cross-row IBP \
-                         Woodbury correction (#1038); route IBP-active fits through the \
-                         dense resident solve_arrow_newton_step_with_options instead."
-                    .to_string(),
-            });
-        }
         // Propagate the evidence/log-det ill-conditioning tolerance to the
         // per-row factor calls inside `accumulate_chunk` / `back_substitute`,
         // which take their stable public signatures. Direct callers of
@@ -2750,504 +2452,6 @@ pub struct ArrowFactorCache {
     /// unit-pinned orbit contributes zero to `arrow_log_det` and zero to every
     /// analytic trace, so value and gradient live on the same quotient.
     pub beta_gauge_quotient: Option<ArrowBetaGaugeQuotient>,
-    /// Exact cross-row IBP rank-`R` Woodbury correction (#1038), present iff the
-    /// source system carried an [`IbpCrossRowSource`]. When set, the per-row
-    /// factors above are of the NO-SELF base `H₀'` (self term `d_k·z'_ik²`
-    /// downdated from each logit diagonal), and this carrier supplies the exact
-    /// rank-`R` correction so the value/curvature solve
-    /// ([`Self::full_inverse_apply`]), the evidence log-determinant
-    /// ([`Self::arrow_log_det`]), and the θ/ρ-adjoint all describe the same
-    /// `H_full = H₀' + U D Uᵀ`.
-    pub cross_row_woodbury: Option<CrossRowWoodbury>,
-}
-
-/// Materialized exact cross-row IBP Woodbury correction (#1038), built against
-/// an [`ArrowFactorCache`] whose per-row factors are the NO-SELF base `H₀'`.
-///
-/// Holds `U` (the `delta_t_len × R` arrow-`t` factor, β-part implicitly zero),
-/// `D = diag(d_k)`, the projected `M = UᵀH₀'⁻¹U`, the columns `H₀'⁻¹U`, and the
-/// **LU factorization of the (generally non-symmetric, possibly indefinite)
-/// capacitance** `C = I_R + D·M`. `d_k = w·s'_k` is not sign-definite, so the
-/// capacitance is factored by a partial-pivot LU (exact for any sign); the same
-/// factorization serves the log-determinant `log det C`, the inverse correction
-/// `H_full⁻¹w = H₀'⁻¹w − H₀'⁻¹U·C⁻¹·(D Uᵀ H₀'⁻¹w)`, and the adjoint's
-/// selected-inverse (`C⁻¹` and `M`). The full inverse, value/curvature solve,
-/// log-determinant, and adjoint therefore all describe the SAME
-/// `H_full = H₀' + U D Uᵀ`.
-#[derive(Debug, Clone)]
-pub struct CrossRowWoodbury {
-    /// `U`: `delta_t_len × R`, column `k` supported on atom-`k` logit slots.
-    pub u: Array2<f64>,
-    /// `d_k`, length `R`.
-    pub d: Array1<f64>,
-    /// `H₀'⁻¹ U` (the `t`-block), `delta_t_len × R`.
-    pub h0inv_u: Array2<f64>,
-    /// `(H₀'⁻¹ U)` β-block, `K × R`. `U` has no β support, but the bordered
-    /// solve couples the latent columns to `β` through the Schur complement, so
-    /// this block is generally nonzero and the inverse correction must apply it
-    /// to the `β` output too.
-    pub h0inv_u_beta: Array2<f64>,
-    /// `M = Uᵀ H₀'⁻¹ U`, `R × R` (symmetric). Retained for the θ/ρ-adjoint.
-    pub m: Array2<f64>,
-    /// Partial-pivot LU of the capacitance `C = I_R + D·M` (`lu` packs `L`/`U`,
-    /// `piv` the row swaps), built by [`small_lu_factor`].
-    pub capacitance_lu: SmallLu,
-    /// The sparse `U` entries `(global_t_index, atom_k, z'_ik)` — retained so
-    /// `Uᵀ·v` can be formed over the atom slots without re-deriving them.
-    pub entries: Vec<(usize, usize, f64)>,
-}
-
-/// Dense partial-pivot LU of a small square matrix. Used for the cross-row IBP
-/// capacitance `C = I_R + D·M`, which is generally non-symmetric and possibly
-/// indefinite (`d_k = w·s'_k` is not sign-definite), so a Cholesky/LDLᵀ is
-/// unavailable. `R` is the atom count, so this is a cheap dense factorization.
-#[derive(Debug, Clone)]
-pub struct SmallLu {
-    /// Packed `L` (unit lower, below diagonal) and `U` (upper, on/above
-    /// diagonal), `R × R`, in the row-permuted order encoded by `piv`.
-    pub(crate) lu: Array2<f64>,
-    /// Row permutation: `piv[i]` is the original row now in position `i`.
-    pub(crate) piv: Vec<usize>,
-    /// Sign of the permutation (`±1`), folded into the determinant.
-    pub(crate) perm_sign: f64,
-}
-
-/// Partial-pivot LU factorization of a small dense square matrix `a` (`R × R`).
-/// Returns `None` only when a pivot is exactly zero (singular `C`).
-pub(crate) fn small_lu_factor(a: &Array2<f64>) -> Option<SmallLu> {
-    let r = a.nrows();
-    assert_eq!(a.ncols(), r, "small_lu_factor: non-square input");
-    let mut lu = a.clone();
-    let mut piv: Vec<usize> = (0..r).collect();
-    let mut perm_sign = 1.0_f64;
-    for col in 0..r {
-        // Partial pivot: pick the largest-magnitude entry on/below the diagonal.
-        let mut pivot_row = col;
-        let mut pivot_mag = lu[[col, col]].abs();
-        for row in (col + 1)..r {
-            let mag = lu[[row, col]].abs();
-            if mag > pivot_mag {
-                pivot_mag = mag;
-                pivot_row = row;
-            }
-        }
-        // Reject not just an exactly-zero pivot, but any non-finite or
-        // subnormal magnitude: dividing by a subnormal in the elimination /
-        // back-solve produces `Inf`/`NaN` that would otherwise flow silently
-        // into the Woodbury inverse and the evidence log-det (#1038). A
-        // capacitance this degenerate is a desync the caller must surface
-        // (→ `Ok(None)` cross-row-absent / `SchurFactorFailed`), not consume.
-        if !pivot_mag.is_finite() || pivot_mag < f64::MIN_POSITIVE {
-            return None;
-        }
-        if pivot_row != col {
-            for c in 0..r {
-                lu.swap((col, c), (pivot_row, c));
-            }
-            piv.swap(col, pivot_row);
-            perm_sign = -perm_sign;
-        }
-        let pivot = lu[[col, col]];
-        for row in (col + 1)..r {
-            let factor = lu[[row, col]] / pivot;
-            lu[[row, col]] = factor;
-            for c in (col + 1)..r {
-                let v = lu[[col, c]];
-                lu[[row, c]] -= factor * v;
-            }
-        }
-    }
-    // Post-elimination invariant: every U diagonal is finite and not subnormal.
-    // The per-column pivot guard above validates each diagonal as it is chosen,
-    // but assert it explicitly so `SmallLu::solve` can divide by `lu[[i, i]]`
-    // without a per-entry guard and so a `SmallLu` value can never carry a
-    // factor that would silently emit `Inf`/`NaN` into the capacitance solve.
-    for i in 0..r {
-        let u = lu[[i, i]];
-        if !u.is_finite() || u.abs() < f64::MIN_POSITIVE {
-            return None;
-        }
-    }
-    Some(SmallLu { lu, piv, perm_sign })
-}
-
-impl SmallLu {
-    pub(crate) fn dim(&self) -> usize {
-        self.lu.nrows()
-    }
-
-    /// `log|det|` and the determinant sign (`±1`).
-    pub(crate) fn log_abs_det_and_sign(&self) -> (f64, f64) {
-        let mut log_abs = 0.0_f64;
-        let mut sign = self.perm_sign;
-        for i in 0..self.dim() {
-            let u = self.lu[[i, i]];
-            log_abs += u.abs().ln();
-            if u < 0.0 {
-                sign = -sign;
-            }
-        }
-        (log_abs, sign)
-    }
-
-    /// Solve `C x = b` reusing the factorization (in place into a fresh vector).
-    ///
-    /// Returns `None` when the solve cannot produce a finite result — either a
-    /// `U` diagonal is non-finite/subnormal (defensive: `small_lu_factor`
-    /// already rejects such factors, but a future construction path might not)
-    /// or the back-substitution overflows to `Inf`/`NaN` for an extreme RHS on
-    /// an ill-conditioned (yet validly factored) capacitance. Surfacing `None`
-    /// lets the Woodbury / evidence consumers fail loudly (#1038) instead of
-    /// flowing a silent `NaN` into the log-det and outer gradient.
-    pub(crate) fn solve(&self, b: &Array1<f64>) -> Option<Array1<f64>> {
-        let r = self.dim();
-        // Apply the row permutation: y = P b.
-        let mut y = Array1::<f64>::zeros(r);
-        for i in 0..r {
-            y[i] = b[self.piv[i]];
-        }
-        // Forward solve L y' = P b (L unit-lower).
-        for i in 0..r {
-            let mut sum = y[i];
-            for j in 0..i {
-                sum -= self.lu[[i, j]] * y[j];
-            }
-            y[i] = sum;
-        }
-        // Back solve U x = y' (U upper, explicit diagonal).
-        let mut x = Array1::<f64>::zeros(r);
-        for i in (0..r).rev() {
-            let mut sum = y[i];
-            for j in (i + 1)..r {
-                sum -= self.lu[[i, j]] * x[j];
-            }
-            let pivot = self.lu[[i, i]];
-            if !pivot.is_finite() || pivot.abs() < f64::MIN_POSITIVE {
-                return None;
-            }
-            x[i] = sum / pivot;
-        }
-        if x.iter().all(|v| v.is_finite()) {
-            Some(x)
-        } else {
-            None
-        }
-    }
-}
-
-/// Close the streaming cross-row IBP Woodbury (#1038) into its exact evidence
-/// log-determinant correction.
-///
-/// Given the chunk-summed `M0 = Uᵀ A⁻¹ U` (`R×R`), `W = Bᵀ A⁻¹ U` (`k×R`), the
-/// GLOBAL reduced Schur `schur` (`S`, `k×k`, PD), and the per-atom `D`, this
-/// forms the EXACT projected `M = Uᵀ H₀'⁻¹ U = M0 + Wᵀ S⁻¹ W` (the bordered
-/// inverse `t`-block `(H₀'⁻¹)_tt = A⁻¹ + A⁻¹ B S⁻¹ Bᵀ A⁻¹` contracted by `U`),
-/// then the capacitance `C = I_R + D·M` and returns `log det C`.
-///
-/// This is byte-for-byte the same quantity, and the same sign convention, that
-/// the dense [`CrossRowWoodbury::log_det`] returns (symmetrize `M`, scale rows
-/// by `D`, partial-pivot LU, reject a non-positive determinant). Returns
-/// `Ok(None)` when the capacitance is non-PD / singular — the recoverable
-/// "cross-row IBP joint Hessian is non-PD at this ρ" infeasible-probe refusal,
-/// NOT a silent wrong value.
-///
-/// `schur_pd_floor` is the #1038 spectral floor (`options.schur_pd_floor`). The
-/// GLOBAL reduced Schur `S` inverted here to project `M0 → M` is the SAME dense
-/// reduced Schur that every other SAE-path factorization honors the floor on
-/// (`factor_dense_reduced_schur`): in the overcomplete / dead-atom regime its
-/// collapsed decoder subspace can make `S` slightly indefinite. This site used
-/// a bare `cholesky_lower(&schur)` and so aborted with a raw non-PD pivot even
-/// when the caller had opted into the floor — the last plumbing gap #1795 calls
-/// out. Threading the floor through `factor_dense_reduced_schur` (unit-deflating
-/// the null decoder directions, the evidence/log-det convention) keeps this
-/// cross-row IBP arrow-Schur solve consistent with the direct path and
-/// byte-identical on well-conditioned `S`.
-pub fn streaming_cross_row_woodbury_log_det(
-    schur: &Array2<f64>,
-    m0: &Array2<f64>,
-    w: &Array2<f64>,
-    d: &Array1<f64>,
-    schur_pd_floor: Option<f64>,
-) -> Result<Option<f64>, ArrowSchurError> {
-    let r = d.len();
-    let (factor, _) = factor_dense_reduced_schur(schur, schur_pd_floor, true)?;
-    // M = M0 + Wᵀ S⁻¹ W. With S⁻¹ symmetric, `(Wᵀ S⁻¹ W)[a, b] = (S⁻¹ w_a)·w_b`.
-    let mut m = m0.clone();
-    for a in 0..r {
-        let w_a = w.column(a).to_owned();
-        let sinv_w_a = cholesky_solve_vector(&factor, &w_a);
-        for b in 0..r {
-            m[[a, b]] += sinv_w_a.dot(&w.column(b));
-        }
-    }
-    // Symmetrize to clear back-substitution rounding asymmetry (matches
-    // `CrossRowWoodbury::build`).
-    for a in 0..r {
-        for b in (a + 1)..r {
-            let avg = 0.5 * (m[[a, b]] + m[[b, a]]);
-            m[[a, b]] = avg;
-            m[[b, a]] = avg;
-        }
-    }
-    // Capacitance C = I_R + D·M (row k scaled by d_k), factored by partial-pivot
-    // LU (`d_k = w·s'_k` is not sign-definite, so C is generally non-symmetric /
-    // indefinite — exactly the dense carrier's factorization).
-    let mut c = Array2::<f64>::zeros((r, r));
-    for a in 0..r {
-        for b in 0..r {
-            c[[a, b]] = d[a] * m[[a, b]];
-        }
-        c[[a, a]] += 1.0;
-    }
-    match small_lu_factor(&c) {
-        Some(lu) => {
-            let (log_abs, sign) = lu.log_abs_det_and_sign();
-            Ok((sign > 0.0).then_some(log_abs))
-        }
-        // Exactly-singular capacitance: `H_full` det is 0, the Laplace log-det is
-        // undefined — surface as the recoverable non-PD probe refusal.
-        None => Ok(None),
-    }
-}
-
-impl CrossRowWoodbury {
-    /// Build the exact rank-`R` cross-row Woodbury carrier from the IBP source
-    /// and a cache whose per-row factors are the NO-SELF base `H₀'`.
-    ///
-    /// Computes `H₀'⁻¹U` (one [`ArrowFactorCache::full_inverse_apply`] back-solve
-    /// per column, β-RHS zero — the `t`-block of the result is `H₀'⁻¹U`'s
-    /// column), `M = UᵀH₀'⁻¹U`, and the LU of `C = I_R + D·M`. Returns `None`
-    /// when the capacitance is exactly singular (the only un-representable case;
-    /// the caller then proceeds with the bare `H₀'` cache and the cross-row term
-    /// is absent — never silently inconsistent, since logdet/inverse/adjoint all
-    /// key off the presence of this carrier).
-    pub(crate) fn build(
-        cache: &ArrowFactorCache,
-        source: &IbpCrossRowSource,
-    ) -> Result<Option<Self>, ArrowSchurError> {
-        let r = source.r;
-        let total_len = cache.delta_t_len();
-        let u = source.dense_u(total_len);
-        let d = source.d.clone();
-        let zero_beta = Array1::<f64>::zeros(cache.k);
-        // h0inv_u[:, k] = (H₀'⁻¹ U)_t for column k; h0inv_u_beta[:, k] its β-block.
-        let mut h0inv_u = Array2::<f64>::zeros((total_len, r));
-        let mut h0inv_u_beta = Array2::<f64>::zeros((cache.k, r));
-        for k in 0..r {
-            let col = u.column(k).to_owned();
-            let (sol_t, sol_beta) = cache.full_inverse_apply(col.view(), zero_beta.view())?;
-            for g in 0..total_len {
-                h0inv_u[[g, k]] = sol_t[g];
-            }
-            for c in 0..cache.k {
-                h0inv_u_beta[[c, k]] = sol_beta[c];
-            }
-        }
-        // M = Uᵀ (H₀'⁻¹ U), symmetric R×R. U is sparse (atom-slot supported), so
-        // contract over the listed entries.
-        let mut m = Array2::<f64>::zeros((r, r));
-        for a in 0..r {
-            for b in 0..r {
-                let mut acc = 0.0_f64;
-                for &(g, k, z) in &source.entries {
-                    if k == a {
-                        acc += z * h0inv_u[[g, b]];
-                    }
-                }
-                m[[a, b]] = acc;
-            }
-        }
-        // Symmetrize M to clear back-substitution rounding asymmetry.
-        for a in 0..r {
-            for b in (a + 1)..r {
-                let avg = 0.5 * (m[[a, b]] + m[[b, a]]);
-                m[[a, b]] = avg;
-                m[[b, a]] = avg;
-            }
-        }
-        // Capacitance C = I_R + D·M (row k scaled by d_k).
-        let mut c = Array2::<f64>::zeros((r, r));
-        for a in 0..r {
-            for b in 0..r {
-                c[[a, b]] = d[a] * m[[a, b]];
-            }
-            c[[a, a]] += 1.0;
-        }
-        let Some(capacitance_lu) = small_lu_factor(&c) else {
-            return Ok(None);
-        };
-        Ok(Some(Self {
-            u,
-            d,
-            h0inv_u,
-            h0inv_u_beta,
-            m,
-            capacitance_lu,
-            entries: source.entries.clone(),
-        }))
-    }
-
-    /// The sparse `U` entry list `(global_t_index, atom_k, z'_ik)`.
-    pub(crate) fn source_entries(&self) -> &[(usize, usize, f64)] {
-        &self.entries
-    }
-
-    /// `C⁻¹ D` as a dense `R × R` matrix (`R` capacitance solves; column `l` is
-    /// `d_l · C⁻¹ e_l`). Shared by the inverse-diagonal correction and any
-    /// adjoint trace that needs the selected inverse of the capacitance.
-    ///
-    /// Returns `None` when any capacitance solve fails to produce a finite
-    /// result (#1038); the consumer must surface this as a loud failure rather
-    /// than propagate a `NaN` into the evidence/gradient.
-    pub fn capacitance_inv_times_d(&self) -> Option<Array2<f64>> {
-        let r = self.d.len();
-        let mut out = Array2::<f64>::zeros((r, r));
-        let mut e_l = Array1::<f64>::zeros(r);
-        for l in 0..r {
-            e_l.fill(0.0);
-            e_l[l] = 1.0;
-            let col = self.capacitance_lu.solve(&e_l)?;
-            for k in 0..r {
-                out[[k, l]] = col[k] * self.d[l];
-            }
-        }
-        Some(out)
-    }
-
-    /// Subtract the rank-`R` Woodbury term from the latent inverse diagonal:
-    /// `diag ← diag − diag(H₀'⁻¹U C⁻¹ D Uᵀ H₀'⁻¹)`. With `G = h0inv_u` and
-    /// `(C⁻¹D) = capacitance_inv_times_d()`, the entry at global index `g` is
-    /// `Σ_{k,l} G[g,k] (C⁻¹D)[k,l] G[g,l]`.
-    pub(crate) fn subtract_inverse_diagonal(
-        &self,
-        diag: &mut Array1<f64>,
-    ) -> Result<(), ArrowSchurError> {
-        let r = self.d.len();
-        let cinv_d =
-            self.capacitance_inv_times_d()
-                .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
-                    reason: "cross-row Woodbury capacitance solve produced a non-finite \
-                         C⁻¹D for the inverse-diagonal correction (#1038): \
-                         singular/ill-conditioned cross-row capacitance"
-                        .to_string(),
-                })?;
-        let total_len = self.h0inv_u.nrows();
-        for g in 0..total_len {
-            let mut acc = 0.0_f64;
-            for k in 0..r {
-                let gk = self.h0inv_u[[g, k]];
-                if gk == 0.0 {
-                    continue;
-                }
-                for l in 0..r {
-                    acc += gk * cinv_d[[k, l]] * self.h0inv_u[[g, l]];
-                }
-            }
-            diag[g] -= acc;
-        }
-        Ok(())
-    }
-
-    /// `log det(I_R + D·M)` (the matrix-determinant-lemma correction). Returns
-    /// `None` when the capacitance LU has a negative determinant — i.e. the
-    /// implied `H_full` is non-PD, which is a desync the evidence must reject
-    /// loudly rather than return a complex/`NaN` log-det.
-    pub fn log_det(&self) -> Option<f64> {
-        let (log_abs, sign) = self.log_det_correction();
-        if sign > 0.0 { Some(log_abs) } else { None }
-    }
-
-    /// `log det(I_R + D·M)`: the exact additive correction
-    /// `log det H_full − log det H₀'` (matrix-determinant lemma). For a genuine
-    /// PD `H_full` this is real; the LU sign is returned for the caller to
-    /// surface a non-PD capacitance as an error rather than a silent `NaN`.
-    pub(crate) fn log_det_correction(&self) -> (f64, f64) {
-        self.capacitance_lu.log_abs_det_and_sign()
-    }
-
-    /// Apply the rank-`R` inverse correction in place on BOTH arrow blocks:
-    /// `u ← u − (H₀'⁻¹U) · C⁻¹ · (D Uᵀ (H₀'⁻¹ rhs)_t)`, where `h0inv_rhs_t` is
-    /// the `t`-block of `H₀'⁻¹ rhs` already computed by the base
-    /// [`ArrowFactorCache::full_inverse_apply`]. Implements the Woodbury
-    /// identity `H_full⁻¹ = H₀'⁻¹ − H₀'⁻¹U C⁻¹ D Uᵀ H₀'⁻¹`. `U` has no `β`
-    /// support so `Uᵀ·v` reads only the `t`-block, but `H₀'⁻¹U` couples to `β`
-    /// through the Schur complement, so the correction touches `u_beta` too.
-    ///
-    /// `entries` lets `Uᵀ·v` be formed over the sparse atom slots.
-    pub(crate) fn apply_inverse_correction(
-        &self,
-        h0inv_rhs_t: ArrayView1<'_, f64>,
-        entries: &[(usize, usize, f64)],
-        u_t: &mut Array1<f64>,
-        u_beta: &mut Array1<f64>,
-    ) -> Result<(), ArrowSchurError> {
-        let r = self.d.len();
-        // p = D Uᵀ (H₀'⁻¹ rhs)_t.
-        let mut p = Array1::<f64>::zeros(r);
-        for &(g, k, z) in entries {
-            p[k] += z * h0inv_rhs_t[g];
-        }
-        for k in 0..r {
-            p[k] *= self.d[k];
-        }
-        // q = C⁻¹ p. A non-finite solve is a singular/ill-conditioned cross-row
-        // capacitance (#1038): fail loudly rather than write `NaN` into the
-        // Newton step / adjoint solve.
-        let q =
-            self.capacitance_lu
-                .solve(&p)
-                .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
-                    reason: "cross-row Woodbury capacitance solve produced a non-finite \
-                         C⁻¹p for the inverse correction (#1038): \
-                         singular/ill-conditioned cross-row capacitance"
-                        .to_string(),
-                })?;
-        // u_t -= (H₀'⁻¹U)_t · q.
-        for g in 0..u_t.len() {
-            let mut acc = 0.0_f64;
-            for k in 0..r {
-                acc += self.h0inv_u[[g, k]] * q[k];
-            }
-            u_t[g] -= acc;
-        }
-        // u_beta -= (H₀'⁻¹U)_β · q.
-        for c in 0..u_beta.len() {
-            let mut acc = 0.0_f64;
-            for k in 0..r {
-                acc += self.h0inv_u_beta[[c, k]] * q[k];
-            }
-            u_beta[c] -= acc;
-        }
-        Ok(())
-    }
-
-    /// Forward apply of the rank-`R` cross-row curvature on the latent (`t`)
-    /// block: `out_t += U D Uᵀ v_t`. This is the EXACT forward of the same
-    /// `H_full = H₀' + U D Uᵀ` whose inverse [`Self::apply_inverse_correction`]
-    /// applies and whose log-determinant [`Self::log_det_correction`] reports, so
-    /// a forward Hessian apply that adds this term stays consistent (operator and
-    /// preconditioner describe the SAME operator). `U` has no `β` support, so the
-    /// forward term touches only the `t` block; the `β` coupling is purely an
-    /// inverse-side Schur artifact (`h0inv_u_beta`) and must NOT appear here.
-    ///
-    /// Formed over the sparse `entries` `(global_t_index, atom_k, z'_ik)` so it
-    /// matches `Uᵀ·v` in `apply_inverse_correction` bit-for-bit:
-    /// `p_k = d_k · Σ_{(g,k,z)} z·v_t[g]`, then `out_t[g] += Σ_{(g,k,z)} z·p_k`.
-    pub fn apply_forward_t(&self, v_t: ArrayView1<'_, f64>, out_t: &mut Array1<f64>) {
-        let r = self.d.len();
-        // p = D Uᵀ v_t.
-        let mut p = Array1::<f64>::zeros(r);
-        for &(g, k, z) in &self.entries {
-            p[k] += z * v_t[g];
-        }
-        for k in 0..r {
-            p[k] *= self.d[k];
-        }
-        // out_t += U p.
-        for &(g, k, z) in &self.entries {
-            out_t[g] += z * p[k];
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -3428,24 +2632,19 @@ impl ArrowFactorCache {
                 acc += 2.0 * d.ln();
             }
         }
-        let woodbury_correction = self.cross_row_woodbury_log_det();
-        if !woodbury_correction.is_finite() {
-            return None;
-        }
-        Some(acc + woodbury_correction)
+        Some(acc)
     }
 
-    /// Undamped joint log-determinant `log|H| = Σ_i log|H_tt^(i)| + log|S| +
-    /// log det(I_R + D·M)` using an EXTERNALLY-supplied reduced-Schur term
+    /// Undamped joint log-determinant `log|H| = Σ_i log|H_tt^(i)| + log|S|`
+    /// using an EXTERNALLY-supplied reduced-Schur term
     /// `schur_log_det = log|S|` instead of a dense `schur_factor` diagonal sum.
     ///
     /// This is the matrix-free large-`k` SAE evidence path: the reduced Schur is
     /// never Cholesky-factored, so `schur_factor` is `None` and `log|S|` comes
     /// from Stochastic Lanczos Quadrature ([`crate::arrow_schur::slq_logdet`]).
-    /// The per-row latent-block term and the cross-row IBP Woodbury correction
-    /// are computed exactly as in [`Self::compute_undamped_arrow_log_det`], with
-    /// the same ridge / positivity / finiteness guards, so a non-PD per-row
-    /// factor or a non-finite estimate yields `None` rather than a silent NaN.
+    /// The per-row latent-block term is computed exactly as in
+    /// [`Self::compute_undamped_arrow_log_det`], with the same ridge,
+    /// positivity, and finiteness guards.
     pub fn undamped_arrow_log_det_with_schur(&self, schur_log_det: f64) -> Option<f64> {
         if self.ridge_t != 0.0 || self.ridge_beta != 0.0 {
             return None;
@@ -3464,11 +2663,7 @@ impl ArrowFactorCache {
             }
         }
         acc += schur_log_det;
-        let woodbury_correction = self.cross_row_woodbury_log_det();
-        if !woodbury_correction.is_finite() {
-            return None;
-        }
-        Some(acc + woodbury_correction)
+        Some(acc)
     }
 
     /// The total length of `delta_t` / IFT output vectors for this cache.
@@ -3534,23 +2729,6 @@ impl ArrowFactorCache {
         }
         self.joint_hessian_log_det
             .filter(|log_det| log_det.is_finite())
-    }
-
-    /// The exact cross-row IBP correction `log det(I_R + D·M)` to add to the
-    /// base `log det H₀'` (#1038). Zero when no [`CrossRowWoodbury`] is present,
-    /// so non-IBP caches are unaffected. The determinant lemma gives
-    /// `log det H_full = log det H₀' + log det(I_R + D Uᵀ H₀'⁻¹ U)`; this is the
-    /// second term, the only piece beyond the bare arrow log-determinant.
-    ///
-    /// Panics-free: a negative capacitance determinant (non-PD `H_full`) yields
-    /// `NaN` here so the evidence surfaces the desync rather than silently
-    /// dropping the imaginary part. Callers that must reject it should check
-    /// [`CrossRowWoodbury::log_det`] directly.
-    pub fn cross_row_woodbury_log_det(&self) -> f64 {
-        match self.cross_row_woodbury.as_ref() {
-            Some(w) => w.log_det().unwrap_or(f64::NAN),
-            None => 0.0,
-        }
     }
 
     /// Diagonal of the latent (`t`-block) of the *full* bordered-arrow
@@ -3653,15 +2831,6 @@ impl ArrowFactorCache {
                 out[row_base + j] = a[j] + corr;
             }
         }
-        if let Some(woodbury) = self.cross_row_woodbury.as_ref() {
-            // #1038: the factors above are `H₀'`, so `out` is diag((H₀'⁻¹)_tt).
-            // The full inverse diagonal subtracts the rank-`R` Woodbury term
-            // diag(H₀'⁻¹U C⁻¹ D Uᵀ H₀'⁻¹). With `G = h0inv_u = (H₀'⁻¹U)_t` and
-            // (by symmetry of `H₀'⁻¹`) `(Uᵀ H₀'⁻¹)_t = Gᵀ`, the diagonal entry at
-            // global index `g` is `Σ_{k,l} G[g,k] (C⁻¹D)[k,l] G[g,l]`. Form the
-            // `R×R` matrix `C⁻¹D` once (R solves), then contract per row index.
-            woodbury.subtract_inverse_diagonal(&mut out)?;
-        }
         Ok(out)
     }
 
@@ -3686,37 +2855,7 @@ impl ArrowFactorCache {
     /// criterion's own `H` — never a damped surrogate (that would desync the
     /// gradient from the reported evidence).
     ///
-    /// When the cache carries an exact cross-row IBP
-    /// [`CrossRowWoodbury`] (#1038), the per-row factors are the NO-SELF base
-    /// `H₀'` and this method layers the rank-`R` Woodbury correction so the
-    /// returned solve is against the FULL `H_full = H₀' + U D Uᵀ` — the same
-    /// operator whose log-determinant [`Self::arrow_log_det`] reports. The
-    /// θ/ρ-adjoint that consumes this therefore sees the cross-row curvature.
     pub fn full_inverse_apply(
-        &self,
-        w_t: ArrayView1<'_, f64>,
-        w_beta: ArrayView1<'_, f64>,
-    ) -> Result<(Array1<f64>, Array1<f64>), ArrowSchurError> {
-        let (mut u_t, mut u_beta) = self.full_inverse_apply_base(w_t, w_beta)?;
-        if let Some(woodbury) = self.cross_row_woodbury.as_ref() {
-            // u ← u − H₀'⁻¹U C⁻¹ D Uᵀ u. `u_t` is the `t`-block of `H₀'⁻¹ w`.
-            let h0inv_w_t = u_t.clone();
-            woodbury.apply_inverse_correction(
-                h0inv_w_t.view(),
-                woodbury.source_entries(),
-                &mut u_t,
-                &mut u_beta,
-            )?;
-        }
-        Ok((u_t, u_beta))
-    }
-
-    /// Bare bordered-arrow inverse solve against the cached per-row factors and
-    /// Schur factor (the NO-SELF base `H₀'` when a cross-row Woodbury is
-    /// present). [`Self::full_inverse_apply`] wraps this with the rank-`R`
-    /// correction; [`CrossRowWoodbury::build`] calls this directly (before the
-    /// carrier exists) to form `H₀'⁻¹U`.
-    pub(crate) fn full_inverse_apply_base(
         &self,
         w_t: ArrayView1<'_, f64>,
         w_beta: ArrayView1<'_, f64>,
@@ -3825,14 +2964,6 @@ impl ArrowFactorCache {
     /// same not-yet-supported branch as [`Self::latent_block_inverse_diagonal`]
     /// — or when `rhs.len() != k`.
     ///
-    /// Cross-row IBP (#1038) note: this is the β-block primitive of the
-    /// factored base `S_β` (`H₀'` when a [`CrossRowWoodbury`] is present), used
-    /// internally by [`Self::full_inverse_apply_base`]; it is deliberately NOT
-    /// Woodbury-corrected so the base solve stays bare. The cross-row term has
-    /// no `β` support, so `(H_full⁻¹)_ββ = S_β⁻¹` exactly on the directions any
-    /// IBP ρ-trace contracts. A consumer needing the full `(H_full⁻¹)_ββ` for a
-    /// β-supported direction should call [`Self::full_inverse_apply`] with a
-    /// unit `β`-RHS (which applies the rank-`R` correction).
     pub fn schur_inverse_apply(
         &self,
         rhs: ArrayView1<'_, f64>,
@@ -4030,11 +3161,8 @@ impl ChunkSchurStack {
             .expect("ChunkSchurStack left buffer matches its recorded shape");
         let right = ndarray::ArrayView2::from_shape(shape, self.right.as_slice())
             .expect("ChunkSchurStack right buffer matches its recorded shape");
-        let product = gam_linalg::faer_ndarray::fast_atb_with_parallelism(
-            &left,
-            &right,
-            faer::Par::Seq,
-        );
+        let product =
+            gam_linalg::faer_ndarray::fast_atb_with_parallelism(&left, &right, faer::Par::Seq);
         *s_part -= &product;
         self.left.clear();
         self.right.clear();

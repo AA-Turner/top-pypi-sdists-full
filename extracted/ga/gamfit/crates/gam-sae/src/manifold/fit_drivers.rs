@@ -274,7 +274,6 @@ impl SaeManifoldTerm {
         let row_layout_matches = match (&self.last_row_layout, &snapshot.last_row_layout) {
             (Some(current), Some(expected)) => {
                 current.active_atoms == expected.active_atoms
-                    && current.logit_atoms == expected.logit_atoms
                     && current.coord_starts == expected.coord_starts
                     && current.coord_offsets_full == expected.coord_offsets_full
                     && current.coord_dims == expected.coord_dims
@@ -677,10 +676,10 @@ impl SaeManifoldTerm {
     ///
     /// The whole pass is additionally gated on the penalized objective: the
     /// canonical state is kept only when the same scalar the line search
-    /// minimized does not increase beyond the image-invariance tolerance
-    /// (the intrinsic smoothness penalty is reparameterization-invariant by
-    /// design, so a genuine increase means the transport went numerically
-    /// wrong and the fitted state is restored verbatim).
+    /// minimized does not increase beyond the image-invariance tolerance. The
+    /// structural basis change transports `S_ref` by congruence, so the declared
+    /// function seminorm is preserved; a genuine increase means that transport
+    /// went numerically wrong and the fitted state is restored verbatim.
     ///
     /// Runs automatically from `into_fitted` after the joint fit converges,
     /// before the payload / residual-gauge certificate is assembled — never
@@ -692,6 +691,8 @@ impl SaeManifoldTerm {
         analytic_penalties: Option<&AnalyticPenaltyRegistry>,
     ) -> Result<(), String> {
         use crate::chart_canonicalization::{CHART_RECOMPOSITION_REL_TOL, CanonicalChartTopology};
+
+        self.assignment.validate_rho_domain(rho)?;
 
         // #F3 — capture the PRE-canonicalization coordinate spread per atom/axis.
         // The ARD precisions are stamped AFTER the reparameterization below (see the
@@ -924,7 +925,7 @@ impl SaeManifoldTerm {
         // #1026 — make the curved-vs-linear split LOAD-BEARING. The Θ log above
         // is the read-only diagnostic; here we adjudicate, per eligible d = 1
         // atom, the fitted curved image against its straight (linear
-        // special-case) sub-model on the common rank-aware Laplace evidence
+        // special-case) sub-model on the common rank-aware quasi-Laplace score
         // scale and record the verdict. This is closed-form per atom (the
         // collapsed linear lane — exact penalized LS through the fitted decoded
         // points), so it does NOT re-enter the broken euclidean outer fit path
@@ -955,44 +956,42 @@ impl SaeManifoldTerm {
         // `α_a = exp(log_ard[k][a])` is the REML precision in the FIT chart;
         // `α'_a = α_a · spread_pre / spread_post` re-expresses it against the
         // canonical chart's realized coordinate spread. Uses the identical
-        // `stable_exp_strength` map as the fit's `ArdAxisPrior`; an atom with no
+        // exact exponential map as the fit's `ArdAxisPrior`; an atom with no
         // fitted coordinate prior (`rho.log_ard[k]` empty) is left `None`
         // (prior-free encode, unchanged). A degenerate/non-finite spread on either
-        // side leaves that axis' `α` untransformed. Guarded on the rho/atom-count
-        // invariant so a malformed rho leaves the priors untouched rather than
-        // panicking during finalization.
-        if rho.log_ard.len() == self.k_atoms() {
-            for atom_idx in 0..self.k_atoms() {
-                let log_ard = &rho.log_ard[atom_idx];
-                self.atoms[atom_idx].ard_precisions = if log_ard.is_empty() {
-                    None
-                } else {
-                    let coords = self.assignment.coords[atom_idx].as_matrix();
-                    let periods = self.assignment.coords[atom_idx].effective_axis_periods();
-                    let pre = &ard_pre_spread[atom_idx];
-                    let stamped: Array1<f64> = (0..log_ard.len())
-                        .map(|axis| {
-                            let alpha = SaeManifoldRho::stable_exp_strength(log_ard[axis]);
-                            let sp_pre = pre.get(axis).copied().unwrap_or(f64::NAN);
-                            let sp_post = axis_coordinate_spread(
-                                coords.view(),
-                                axis,
-                                periods.get(axis).copied().flatten(),
-                            );
-                            if sp_pre.is_finite()
-                                && sp_post.is_finite()
-                                && sp_pre > ARD_SPREAD_FLOOR
-                                && sp_post > ARD_SPREAD_FLOOR
-                            {
-                                alpha * sp_pre / sp_post
-                            } else {
-                                alpha
-                            }
-                        })
-                        .collect();
-                    Some(stamped)
-                };
-            }
+        // side leaves that axis' `α` untransformed. A malformed rho is rejected
+        // by the structural precision-table certificate before finalization.
+        let ard_precisions = self.validated_ard_precisions(rho)?;
+        for atom_idx in 0..self.k_atoms() {
+            let log_ard = &rho.log_ard[atom_idx];
+            self.atoms[atom_idx].ard_precisions = if log_ard.is_empty() {
+                None
+            } else {
+                let coords = self.assignment.coords[atom_idx].as_matrix();
+                let periods = self.assignment.coords[atom_idx].effective_axis_periods();
+                let pre = &ard_pre_spread[atom_idx];
+                let stamped: Array1<f64> = (0..log_ard.len())
+                    .map(|axis| {
+                        let alpha = ard_precisions[atom_idx][axis];
+                        let sp_pre = pre.get(axis).copied().unwrap_or(f64::NAN);
+                        let sp_post = axis_coordinate_spread(
+                            coords.view(),
+                            axis,
+                            periods.get(axis).copied().flatten(),
+                        );
+                        if sp_pre.is_finite()
+                            && sp_post.is_finite()
+                            && sp_pre > ARD_SPREAD_FLOOR
+                            && sp_post > ARD_SPREAD_FLOOR
+                        {
+                            alpha * sp_pre / sp_post
+                        } else {
+                            alpha
+                        }
+                    })
+                    .collect();
+                Some(stamped)
+            };
         }
 
         Ok(())
@@ -1405,7 +1404,7 @@ impl SaeManifoldTerm {
 
     /// The iterate scale `1 + ‖(logits, coords, decoder)‖` used to make the
     /// inner KKT gradient and Newton-step tolerances relative. This is the
-    /// SINGLE source of truth for that scale: `reml_criterion`'s convergence
+    /// SINGLE source of truth for that scale: `penalized_quasi_laplace_criterion`'s convergence
     /// gate and `run_joint_fit_arrow_schur`'s non-descent stationarity gate
     /// must agree on it, or a point one of them calls converged is mid-flight
     /// to the other (the objective↔gradient desync class).
@@ -2561,7 +2560,7 @@ impl SaeManifoldTerm {
     /// with `∂Φ^η/∂η` the raw curved-column basis (zero on base columns) and
     /// `∂r_i/∂η = Σ_{k'} a_ik' (∂Φ^η_{k'}[i,:]/∂η) · B_{k'}`. The smoothness and
     /// ARD penalties do not depend on `η`, so they contribute nothing. The
-    /// predictor solves `Δβ = −H⁻¹ · ∂g_β/∂η · Δη` on the cached evidence factor.
+    /// predictor solves `Δβ = −H⁻¹ · ∂g_β/∂η · Δη` on the cached criterion factor.
     pub(crate) fn curvature_beta_gradient_eta_derivative(
         &self,
         target: ArrayView2<'_, f64>,
@@ -2840,8 +2839,8 @@ impl SaeManifoldTerm {
                 }
                 canonicalize_softmax_logits(&mut self.assignment.logits);
             }
-            AssignmentMode::IBPMap { .. } => {
-                // σ(0/τ) = ½ — the Bernoulli posterior mean's neutral point.
+            AssignmentMode::OrderedBetaBernoulli { .. } => {
+                // σ(0/τ) = ½ — the sigmoid gate's neutral point.
                 for row in 0..n {
                     self.assignment.logits[[row, atom]] = 0.0;
                 }
@@ -2850,7 +2849,7 @@ impl SaeManifoldTerm {
                 temperature,
                 threshold,
             } => {
-                // One temperature unit above the hard gate threshold:
+                // One temperature unit above the smooth gate center:
                 // just-active, inside the smooth transition band.
                 for row in 0..n {
                     self.assignment.logits[[row, atom]] = threshold + temperature;
@@ -2877,6 +2876,96 @@ impl SaeManifoldTerm {
         }
     }
 
+    /// #2015 decoder-scaling-gauge fix (the inner-solve stability keystone).
+    ///
+    /// The joint `(t, β)` reconstruction is invariant under the per-atom amplitude
+    /// gauge `a_k·B_k` (assignment mass × decoder): a DYING atom whose mass
+    /// `a_{ik} → 0` can send its decoder `B_k → ∞` with the product `a_k·B_k` —
+    /// hence the reconstruction and the whole penalized objective — UNCHANGED, so
+    /// the Armijo line search happily accepts it (the objective is flat along the
+    /// gauge). But the KKT stationarity gradient with respect to the assignment
+    /// logit / coordinate is proportional to `Φᵀ B_k`, so an unbounded decoder
+    /// makes `‖g‖` EXPLODE while the fit stays objective-good — measured in the
+    /// #2015 probe as `‖g‖ = 2.887e8` at a decoder norm of `1.6e11` (objective
+    /// flat at ~40, coordinates modest, no reseed), a spurious non-stationarity the
+    /// inner solve then has to grind back down over many iterations (the real
+    /// 600-row `qwen_real_activation_behavior_fit` stall). The coordinate-gauge
+    /// quotient `‖Π⊥gauge g‖` does NOT capture this DECODER-amplitude gauge (a
+    /// different flat direction), which is why raw ≈ quotient at the stall.
+    ///
+    /// This re-gauges any atom whose decoder norm has run past the dictionary's
+    /// robust scale back ONTO that scale, moving the reciprocal factor into the
+    /// softmax logits so the physical contribution `a_k·B_k` is preserved. In the
+    /// dying-atom limit `a_{ik} ≪ 1` — exactly where the runaway lives — the
+    /// softmax normalizer is unchanged by a shift in one column, so `z_{·k} +=
+    /// ln s` reproduces `a_k → s·a_k` and the compensation is EXACT. The caller
+    /// applies this inside the objective-guarded retraction hook, which reverts it
+    /// if it perturbs the objective, so it is safe for any atom. Bounding the
+    /// decoder norm bounds the gradient.
+    ///
+    /// Reuses the collapse guard's robust MEDIAN scale and its single ratio
+    /// constant: an atom fires when its norm exceeds `median /
+    /// SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO` — the exact MIRROR of the collapse
+    /// floor `SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO · median` — and is re-gauged
+    /// back to the median (the same robust scale the collapse arm reseeds onto). No
+    /// new tuning knob. Softmax-only: other assignment modes have no free
+    /// multiplicative amplitude to absorb the scale, so `z += ln s` would not
+    /// reproduce `a → s·a` there. Skipped when decoder frames are active (a
+    /// factored-frame decoder must not be rescaled out from under its frame — the
+    /// same conservative choice `refit_decoder_least_squares` makes). K=1 is a
+    /// strict no-op: mass ≡ 1 (data-fit-pins the scale) and there is no peer
+    /// median.
+    pub(crate) fn fix_decoder_scale_gauge(&mut self) -> Result<(), String> {
+        let k = self.k_atoms();
+        if k < 2 || self.frames_active() {
+            return Ok(());
+        }
+        if !matches!(self.assignment.mode, AssignmentMode::Softmax { .. }) {
+            return Ok(());
+        }
+        let norms: Vec<f64> = self
+            .atoms
+            .iter()
+            .map(|atom| atom.contribution_frobenius_scale())
+            .collect();
+        let mut sorted = norms.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let median = if k % 2 == 1 {
+            sorted[k / 2]
+        } else {
+            0.5 * (sorted[k / 2 - 1] + sorted[k / 2])
+        };
+        if !(median > 0.0) {
+            return Ok(());
+        }
+        let ceiling = median / SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO;
+        let n = self.n_obs();
+        let mut any_regauged = false;
+        for atom in 0..k {
+            if !(norms[atom] > ceiling) {
+                continue;
+            }
+            // Re-gauge the runaway decoder back to the robust median scale and put
+            // the reciprocal into the logits so `a_k·B_k` is preserved.
+            let s = norms[atom] / median;
+            if !(s.is_finite() && s > 1.0) {
+                continue;
+            }
+            self.atoms[atom]
+                .decoder_coefficients
+                .mapv_inplace(|v| v / s);
+            let ln_s = s.ln();
+            for row in 0..n {
+                self.assignment.logits[[row, atom]] += ln_s;
+            }
+            any_regauged = true;
+        }
+        if any_regauged {
+            canonicalize_softmax_logits(&mut self.assignment.logits);
+        }
+        Ok(())
+    }
+
     /// #976 Layer-1 guard (decoder arm): the per-atom **decoder-norm** floor,
     /// checked once per accepted outer iteration of the joint K>1 fit.
     ///
@@ -2887,7 +2976,7 @@ impl SaeManifoldTerm {
     /// decodes nothing, so the dictionary explains nothing (EV≈0) and every
     /// per-row coordinate Hessian `H_tt` — whose curvature is carried by `Φ·B`
     /// — goes rank-deficient at once, surfacing as the `0 → K·n` evidence
-    /// gauge-deflation jump that aborts `reml_criterion`. The decoder-norm guard
+    /// gauge-deflation jump that aborts `penalized_quasi_laplace_criterion`. The decoder-norm guard
     /// closes that blind spot.
     ///
     /// The collapse statistic is each atom's decoder Frobenius norm as a RATIO
@@ -3043,7 +3132,7 @@ impl SaeManifoldTerm {
             // Wachter null bar false-positives on HEALTHY correlated K≥2 fits — atoms
             // that legitimately share some output span but each carry real structure —
             // and reseeding them mid-fit regressed `manifold_beats_linear_joint_
-            // streaming_1026` and `planted_circle_multi_atom_jumprelu_clears_startup_
+            // streaming_1026` and `planted_circle_multi_atom_threshold_gate_clears_startup_
             // validation_1782`. Distinguishing "merged" from "merely correlated" needs
             // more than coherence (it depends on what the DATA needs), so the detector
             // is left as a callable diagnostic for the evidence-gated structure search
@@ -3238,7 +3327,7 @@ impl SaeManifoldTerm {
             // grows geometrically and the "residual ≈ target" invariant every reseed
             // relies on (see the reseed rationale above) is violated — the bounded
             // multi-start degenerates into a runaway whose blown-up decoders also
-            // corrupt the outer REML evidence, and the host process is SIGKILLed
+            // corrupt the outer penalized quasi-Laplace score, and the host process is SIGKILLed
             // (OOM / watchdog, exit 137) before any model or error is returned.
             //
             // A reseed is therefore RETAINED only when it is the new best basin under
@@ -3565,6 +3654,145 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
+    /// #2132 — is there residual structure ABOVE the measured noise floor for a
+    /// co-collapse reseed to land on? The residual `target − current
+    /// reconstruction` is what the WHOLE dictionary leaves uncovered; a collapsed
+    /// (duplicate) atom should be reseeded onto it only when it carries real,
+    /// distinct signal. If the residual is at the noise floor the collapsed atoms
+    /// are genuinely REDUNDANT — nothing distinct is left to represent — so
+    /// reseeding would only re-plant a duplicate onto noise (the reseed-duplication
+    /// spiral). They are demoted (terminal) instead. This is the decidable,
+    /// measured counterpart to the post-hoc disjoint-support detector that
+    /// provably cannot separate duplication from benign tiling.
+    ///
+    /// The floor is MEASURED, not tuned. The residual output-Gram
+    /// (`residualᵀ·residual`, `p×p`) eigenvalues are the per-direction residual
+    /// energies; the leading direction carries signal iff it clears
+    /// [`leading_direction_above_noise_floor`] — `lower-quartile · log2(#dirs)`, a
+    /// robust-quantile Bonferroni floor whose noise estimate survives signal
+    /// spanning up to ~3/4 of the (few) output directions.
+    pub(crate) fn residual_has_uncovered_signal(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<bool, String> {
+        let residual = self.reconstruction_residual(target, rho)?;
+        self.residual_view_has_uncovered_signal(residual.view())
+    }
+
+    /// [`Self::residual_has_uncovered_signal`] on an EXPLICIT residual matrix.
+    /// The whole-guard gate recomputes the residual from `rho`; the sequential
+    /// co-collapse reseed instead peels the residual atom-by-atom and needs the
+    /// SAME measured-noise-floor test on each intermediate remainder, so the
+    /// floor logic lives here and both callers share it.
+    fn residual_view_has_uncovered_signal(
+        &self,
+        residual: ArrayView2<'_, f64>,
+    ) -> Result<bool, String> {
+        if residual.nrows() == 0 || residual.ncols() == 0 {
+            return Ok(false);
+        }
+        // `residualᵀ·residual` (p×p, PSD symmetric): its singular values ARE its
+        // eigenvalues, i.e. the residual's per-direction energies (squared singular
+        // values). p×p keeps the cost off `n` for the wide-output regime.
+        let gram = fast_atb(&residual, &residual);
+        let (_u, energies, _vt) = gram.svd(false, false).map_err(|e| {
+            format!("residual_has_uncovered_signal: residual-Gram SVD failed: {e}")
+        })?;
+        let energies: Vec<f64> = energies
+            .iter()
+            .copied()
+            .filter(|v| v.is_finite() && *v >= 0.0)
+            .collect();
+        Ok(leading_direction_above_noise_floor(&energies))
+    }
+
+    /// #2132 — SEQUENTIAL-DEFLATION birth reseed for CURVED co-collapsed atoms.
+    ///
+    /// The co-collapse guard reseeds SEVERAL duplicate atoms in one call. Seeding
+    /// them all from the SAME residual re-reads its one leading structure for
+    /// every atom, so they re-collide immediately — the disjoint-PC offset only
+    /// helps when the uncovered residual is high rank, but a co-collapsed
+    /// dictionary typically leaves ONE low-rank structure uncovered (`pc_pairs = 1`
+    /// ⇒ every atom draws PC-pair 0). Peel instead: seed atom 0's chart from the
+    /// current residual via the shared chart-aware curved seed
+    /// ([`Self::seed_atom_chart_coords`]), fit its provisional gated decoder,
+    /// SUBTRACT its fit, and seed atom 1 from what atom 0 left behind — the
+    /// block-nursery sequential-composition principle, so each reborn atom charts
+    /// a DISJOINT chunk of the uncovered residual. The measured noise-floor
+    /// terminator ([`Self::residual_view_has_uncovered_signal`]) breaks the
+    /// sequence the moment the peeled remainder hits the floor: the remaining
+    /// duplicates carry nothing distinct, so reseeding them would only re-plant a
+    /// duplicate onto noise. The provisional decoders exist only to deflate; the
+    /// guard's subsequent [`Self::refit_decoder_sequential_deflation`] fits the
+    /// final decoders on these freshly-separated charts. Returns the atoms
+    /// actually reseeded (the prefix before the terminator fired).
+    ///
+    /// Seeds through the SHARED seed entrypoint, so when the curved seed's backend
+    /// gains an intrinsic-metric embedding the reseed inherits it unchanged; the
+    /// disjointness MECHANISM (sequential deflation) is independent of the seed
+    /// SOURCE (PC read or geodesic embedding).
+    pub(crate) fn reseed_curved_atoms_sequential_deflation(
+        &mut self,
+        atoms: &[usize],
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<Vec<usize>, String> {
+        if atoms.is_empty() {
+            return Ok(Vec::new());
+        }
+        let n = self.n_obs();
+        let p = self.output_dim();
+        if n == 0 || p == 0 {
+            return Ok(Vec::new());
+        }
+        // Peel from the WHOLE-dictionary residual: the KEPT atoms' structure is
+        // already subtracted, so each reborn atom charts a disjoint chunk of what
+        // the dictionary as a whole leaves uncovered.
+        let mut residual = self.reconstruction_residual(target, rho)?;
+        let mut reseeded = Vec::new();
+        for &atom in atoms {
+            // Terminator: once the peeled remainder is at the measured noise floor
+            // there is no distinct structure left for the remaining duplicates to
+            // chart — stop rather than re-plant a duplicate onto noise.
+            if !self.residual_view_has_uncovered_signal(residual.view())? {
+                break;
+            }
+            // 1. Seed THIS atom's chart from the current (peeled) residual via the
+            //    shared chart-aware seed, then refresh its basis at the new chart.
+            self.seed_atom_chart_coords(atom, n, residual.view(), None)?;
+            // 2. Fit a provisional gated decoder (`diag(a_·atom)·Φ_atom`) on the
+            //    fresh chart and deflate the residual by its fit, so the NEXT atom
+            //    reads a disjoint remainder.
+            let m = self.atoms[atom].basis_size();
+            let mut design = Array2::<f64>::zeros((n, m));
+            for row in 0..n {
+                let assignments = self.assignment.try_assignments_row(row)?;
+                let gate = assignments[atom];
+                for col in 0..m {
+                    design[[row, col]] = gate * self.atoms[atom].basis_values[[row, col]];
+                }
+            }
+            let beta = solve_design_least_squares(design.view(), residual.view())?;
+            if beta.dim() != (m, p) {
+                return Err(format!(
+                    "SaeManifoldTerm::reseed_curved_atoms_sequential_deflation: atom {atom} \
+                     beta shape {:?} != ({m}, {p})",
+                    beta.dim()
+                ));
+            }
+            let fit = design.dot(&beta);
+            residual = &residual - &fit;
+            for col in 0..m {
+                for out in 0..p {
+                    self.atoms[atom].decoder_coefficients[[col, out]] = beta[[col, out]];
+                }
+            }
+            reseeded.push(atom);
+        }
+        Ok(reseeded)
+    }
+
     /// #2027 co-collapse fix, Part A — GREEDY DISJOINT-SUBSPACE decoder refit.
     ///
     /// The joint decoder least-squares
@@ -3637,10 +3865,10 @@ impl SaeManifoldTerm {
                 // A gated design `D_k = diag(a_·k)·Φ_k` that is all-zero means atom
                 // `k` is gated OFF at every row: its reconstruction is identically
                 // zero for ANY decoder, so the reduced joint problem this seed ρ
-                // presents is rank-deficient and its closed-form Laplace evidence is
+                // presents is rank-deficient and its closed-form quasi-Laplace score is
                 // undefined — the SAME infeasible-ρ class as the non-PD Schur /
                 // per-row Hessian refusals (#1782). It arises for a legitimate seed
-                // state (a jumprelu / threshold gate that zeroes every row at an
+                // state (a threshold gate that numerically underflows on every row at an
                 // off-optimum seed ρ), NOT a coding defect, and fitting the resulting
                 // all-off (zero) dictionary just makes the outer optimizer grind on a
                 // gradient-free landscape. Surface a DISTINCT, classifiable refusal so
@@ -3684,7 +3912,6 @@ impl SaeManifoldTerm {
                     self.atoms[best_atom].decoder_coefficients[[col, out]] = beta[[col, out]];
                 }
             }
-            self.atoms[best_atom].refresh_intrinsic_smooth_penalty();
             remaining.retain(|&a| a != best_atom);
         }
         Ok(())
@@ -3789,40 +4016,46 @@ impl SaeManifoldTerm {
         let frames = (0..k)
             .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
             .collect::<Result<Vec<_>, String>>()?;
-        // OVERCOMPLETE GATE (ibp_default_alpha false-positive root cause). A shared
-        // output subspace is evidence of a REDUNDANT atom only when the dictionary is
-        // NOT overcomplete relative to the output space it actually occupies. Let
-        // `R = dim(⋃_k col Q_k)` be the effective output rank — the dimension spanned
-        // by the atoms' orthonormal decoder output frames. When `K > R`, pigeonhole
-        // FORCES output-frame sharing: `K` curved atoms cannot each claim a private
-        // output direction inside an `R < K`-dim space, so every co-firing pair MUST
-        // overlap while encoding DISTINCT charts/phases — benign over-completeness, not
-        // duplication (measured on `ibp_default_alpha`: 8 curved atoms in a ~6-dim
-        // output, every frame-coherent pair reconstructs EV≈0.99 with contribution
-        // cosine at the independence null; firing the reseed here burns the iteration
-        // budget — guards-on 12-iter EV 0.697 vs guards-off 0.990). Restrict the whole
-        // detector to `K ≤ R`, where a shared output frame is genuine evidence of a
-        // redundant atom and the PASS-2 contribution-cosine verdict then separates a
-        // true duplicate from a merely-correlated pair. `R` is READ from the frames at
-        // hand (numeric rank of the stacked orthonormal frames), never a config knob.
+        // OVERCOMPLETE GATE (#2132 #2b — the union-frame-rank gate). Let
+        // `R = dim(⋃_k col Q_k)` be the effective output rank spanned by the atoms'
+        // orthonormal decoder output frames. When `K > R`, pigeonhole FORCES
+        // output-frame sharing: `K` curved atoms cannot each claim a private output
+        // direction inside an `R < K`-dim space, so every co-firing pair MUST overlap
+        // in output subspace even when encoding DISTINCT charts/phases — the PASS-1
+        // frame-coherence prune is therefore UNINFORMATIVE overcomplete (it admits
+        // everything) and false-fired the old frame-only detector (`ordered_beta_bernoulli_default_alpha`:
+        // 8 curved atoms in a ~6-dim output, every frame-coherent pair EV≈0.99 with
+        // contribution cosine at the independence null).
+        //
+        // The old code turned that off by returning NO collapsed pairs whenever
+        // `K > R` — but that also DISABLED the PASS-2 contribution-cosine verdict, the
+        // one measure that stays valid overcomplete and is exactly what separates a
+        // true duplicate (same gated rows ⇒ collinear contributions) from benign
+        // pigeonhole sharing (distinct phases ⇒ contribution cosine at the null). So a
+        // genuine overcomplete duplicate — the regime where duplicates are MOST likely
+        // — went undetected. The gate now only DROPS THE FRAME PRUNE (admitting every
+        // pair as a candidate so PASS 2 can adjudicate it), never the verdict. `R` is
+        // READ from the frames at hand (numeric rank of the stacked orthonormal
+        // frames), never a config knob.
         let effective_output_rank = union_output_frame_rank(&frames, p);
-        if k > effective_output_rank {
-            return Ok(Vec::new());
-        }
+        let overcomplete = k > effective_output_rank;
         // PASS 1 — output-SUBSPACE overlap CANDIDATES. A pair enters the guard only
         // when its decoder output frames overlap beyond the random-frame null
-        // `½(μ_null+1)`. This is a cheap prune, NOT the verdict: sharing an output
-        // subspace is FORCED for an over-complete (`K > rank`) manifold dictionary
-        // (several curved atoms cannot avoid the ≤`p`-dim output space) and is not
-        // itself co-collapse. Orthogonal-output atoms have coherence≈0 and never
-        // become candidates (their contributions are also uncorrelated), so nothing
-        // functionally-redundant is pruned here.
+        // `½(μ_null+1)` — a cheap prune, NOT the verdict. Orthogonal-output atoms have
+        // coherence≈0 and never become candidates (their contributions are also
+        // uncorrelated), so nothing functionally-redundant is pruned here. Overcomplete
+        // (`K > R`), frame overlap is pigeonhole-forced and thus useless as a prune, so
+        // every pair is admitted and PASS 2 decides.
         let mut candidates: Vec<(usize, usize)> = Vec::new();
         for j in 0..k {
             for kk in (j + 1)..k {
                 let rj = frames[j].ncols();
                 let rk = frames[kk].ncols();
                 if rj == 0 || rk == 0 {
+                    continue;
+                }
+                if overcomplete {
+                    candidates.push((j, kk));
                     continue;
                 }
                 let overlap = fast_atb(&frames[j], &frames[kk]);
@@ -3848,7 +4081,7 @@ impl SaeManifoldTerm {
         // (n×p) are collinear over the rows — NOT merely when they share an output
         // subspace. Two curved atoms sharing a decoder frame at DIFFERENT charts
         // (phases) reconstruct DIFFERENT rows, so `Y_j ≠ Y_k`: benign, healthy,
-        // must not be reseeded (measured on `ibp_default_alpha`: every frame-coherent
+        // must not be reseeded (measured on `ordered_beta_bernoulli_default_alpha`: every frame-coherent
         // pair reconstructs EV≈0.99 with contribution cosine ≤0.27, right at the
         // independence null, while the frame coherence reads ≈1). Confirm each
         // candidate on the Frobenius cosine of its contributions against a bar
@@ -3918,8 +4151,18 @@ impl SaeManifoldTerm {
                     }
                 }
                 // Contribution unavailable (decoder-only detector call before any
-                // gated design): keep the subspace verdict rather than lose it.
-                _ => 1.0,
+                // gated design). For a `K ≤ R` candidate the frame-coherence prune
+                // already established output-subspace overlap, so keep that verdict
+                // (1.0); an OVERCOMPLETE candidate was admitted WITHOUT any frame
+                // check, so with no contribution there is no evidence at all — do not
+                // flag it (0.0).
+                _ => {
+                    if overcomplete {
+                        0.0
+                    } else {
+                        1.0
+                    }
+                }
             };
             if contribution_cos > contribution_bar {
                 collapsed.push((j, kk, contribution_cos, contribution_bar));
@@ -3980,6 +4223,14 @@ impl SaeManifoldTerm {
             floor_by_atom[atom] = bar;
             coherence_by_atom[atom] = coherence;
         }
+        // #2132 — reseed only onto UNCOVERED structure. The residual is what the
+        // whole dictionary leaves unexplained; if it is at the measured noise floor
+        // the collapsed atoms are genuinely REDUNDANT and reseeding would just
+        // re-plant a duplicate onto noise (the reseed-duplication spiral). In that
+        // case demote them (terminal) instead — killing the duplicate before it is
+        // re-created rather than detecting it after (where duplication is
+        // indistinguishable from benign tiling). Measured once per guard call.
+        let residual_uncovered = self.residual_has_uncovered_signal(target, rho)?;
         let mut to_reseed = Vec::new();
         for atom in 0..k {
             if !selected[atom] {
@@ -3990,7 +4241,8 @@ impl SaeManifoldTerm {
                 .iter()
                 .filter(|event| event.atom == atom && event.action == CollapseAction::Reseeded)
                 .count();
-            if reseeds_used < SAE_ATOM_COLLAPSE_RESEED_BUDGET
+            if residual_uncovered
+                && reseeds_used < SAE_ATOM_COLLAPSE_RESEED_BUDGET
                 && self.structural_cocollapse_reseeds < SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET
             {
                 to_reseed.push(atom);
@@ -4029,7 +4281,25 @@ impl SaeManifoldTerm {
             self.structural_cocollapse_reseeds
         );
         let pc_pair_offset = self.structural_cocollapse_reseeds.saturating_sub(1);
-        self.reseed_atoms_onto_distinct_residual_pcs(&to_reseed, target, rho, pc_pair_offset)?;
+        // #2132 — CURVED reborn atoms take DISJOINT chunks of the uncovered
+        // residual by SEQUENTIAL deflation (peel between atoms): a co-collapsed
+        // dictionary leaves one low-rank structure, so a simultaneous seed re-reads
+        // it for every atom and they re-collide. FLAT atoms keep the simultaneous
+        // PC-offset / data-row seed — their euclidean score-projection charts no
+        // manifold and needs no residual deflation to stay disjoint.
+        let (curved, flat): (Vec<usize>, Vec<usize>) =
+            to_reseed.iter().copied().partition(|&atom| {
+                !matches!(
+                    self.atoms[atom].basis_kind,
+                    SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Linear
+                )
+            });
+        if !curved.is_empty() {
+            self.reseed_curved_atoms_sequential_deflation(&curved, target, rho)?;
+        }
+        if !flat.is_empty() {
+            self.reseed_atoms_onto_distinct_residual_pcs(&flat, target, rho, pc_pair_offset)?;
+        }
         for &atom in &to_reseed {
             self.reseed_collapsed_atom_logits(atom);
         }
@@ -4064,6 +4334,25 @@ impl SaeManifoldTerm {
         &mut self,
         target: ArrayView2<'_, f64>,
     ) -> Result<(), String> {
+        self.seed_disjoint_charts(target)
+    }
+
+    /// #2080 reactive-domain chart placement.
+    ///
+    /// The chart/decoder separation is identical to
+    /// [`Self::seed_cold_start_disjoint_charts`], but this is a move inside the
+    /// objective whose rho upper face was already derived from each atom's
+    /// native `smooth_penalty`. Preserve that operator instead of refreshing it
+    /// from the placed decoder, so the later fixed-face decoder solve and joint
+    /// corrector optimize exactly the advertised objective.
+    pub(crate) fn place_reactive_entry_disjoint_charts(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+    ) -> Result<(), String> {
+        self.seed_disjoint_charts(target)
+    }
+
+    fn seed_disjoint_charts(&mut self, target: ArrayView2<'_, f64>) -> Result<(), String> {
         let n = self.n_obs();
         let p = self.output_dim();
         let k = self.k_atoms();
@@ -4136,7 +4425,135 @@ impl SaeManifoldTerm {
                     self.atoms[atom].decoder_coefficients[[col, out]] = beta[[col, out]];
                 }
             }
-            self.atoms[atom].refresh_intrinsic_smooth_penalty();
+        }
+        Ok(())
+    }
+
+    /// Refit the already-separated reactive-entry decoders against the exact
+    /// per-atom smoothness strengths on the advertised rho face.
+    ///
+    /// Chart placement deliberately uses an unpenalized residual peel because
+    /// that is what identifies distinct factors. Carrying those coefficients
+    /// directly into a heavy-smoothing waypoint, however, leaves a large
+    /// `lambda_k S_k B_k` score that the bounded joint corrector must first
+    /// unwind. This second peel keeps the placed charts fixed and solves
+    ///
+    /// `(D_k' W D_k + lambda_k sym(S_k)) B_k = D_k' W R_k`
+    ///
+    /// before deflating `R_k`, where `D_k = diag(a_k) Phi_k` and `W` is the
+    /// objective's design-honesty row weight. The native `S_k` is the preserved
+    /// reactive-objective operator; it is not refreshed from the new decoder.
+    /// This is an entry placement, not an evidence certificate: the subsequent
+    /// joint corrector still owns cross-atom, chart, routing, row-metric, and
+    /// analytic-registry terms and must pass the unchanged strict KKT gate.
+    pub(crate) fn refit_reactive_entry_decoders_at_smooth_face(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<(), String> {
+        self.assignment.validate_rho_domain(rho)?;
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let k = self.k_atoms();
+        if target.dim() != (n, p) {
+            return Err(format!(
+                "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: target shape {:?} != ({n}, {p})",
+                target.dim()
+            ));
+        }
+        if rho.log_lambda_smooth.len() != k {
+            return Err(format!(
+                "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: rho smoothness length {} != K {k}",
+                rho.log_lambda_smooth.len()
+            ));
+        }
+        if n == 0 || k == 0 {
+            return Ok(());
+        }
+
+        let mut residual = target.to_owned();
+        for atom in 0..k {
+            let m = self.atoms[atom].basis_size();
+            if self.atoms[atom].smooth_penalty.dim() != (m, m) {
+                return Err(format!(
+                    "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: atom {atom} smooth penalty shape {:?} != ({m}, {m})",
+                    self.atoms[atom].smooth_penalty.dim()
+                ));
+            }
+
+            let mut weighted_design = Array2::<f64>::zeros((n, m));
+            let mut weighted_residual = residual.clone();
+            for row in 0..n {
+                let assignments = self.assignment.try_assignments_row(row)?;
+                let honesty_weight = self
+                    .row_loss_weights
+                    .as_ref()
+                    .map_or(1.0, |weights| weights[row]);
+                if !(honesty_weight.is_finite() && honesty_weight >= 0.0) {
+                    return Err(format!(
+                        "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: row {row} has invalid design-honesty weight {honesty_weight}"
+                    ));
+                }
+                let root_weight = honesty_weight.sqrt();
+                let gate = assignments[atom];
+                for basis_col in 0..m {
+                    weighted_design[[row, basis_col]] =
+                        root_weight * gate * self.atoms[atom].basis_values[[row, basis_col]];
+                }
+                for output in 0..p {
+                    weighted_residual[[row, output]] *= root_weight;
+                }
+            }
+
+            let mut normal = fast_atb(&weighted_design, &weighted_design);
+            let lambda = rho.lambda_smooth_for(atom)?;
+            for left in 0..m {
+                for right in 0..m {
+                    let smooth = 0.5
+                        * (self.atoms[atom].smooth_penalty[[left, right]]
+                            + self.atoms[atom].smooth_penalty[[right, left]]);
+                    normal[[left, right]] += lambda * smooth;
+                }
+            }
+            let rhs = fast_atb(&weighted_design, &weighted_residual);
+            let factor = normal.cholesky(Side::Lower).map_err(|error| {
+                format!(
+                    "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: atom {atom} penalized normal equation is not positive definite at lambda={lambda:.6e}: {error}"
+                )
+            })?;
+            let beta = factor.solve_mat(&rhs);
+            if beta.dim() != (m, p) || !beta.iter().all(|value| value.is_finite()) {
+                return Err(format!(
+                    "SaeManifoldTerm::refit_reactive_entry_decoders_at_smooth_face: atom {atom} solve produced invalid beta shape {:?}",
+                    beta.dim()
+                ));
+            }
+
+            // Deflate in the physical reconstruction geometry. The honesty
+            // weights choose the coefficients but do not rescale the model's
+            // emitted contribution.
+            let mut design = weighted_design;
+            for row in 0..n {
+                let honesty_weight = self
+                    .row_loss_weights
+                    .as_ref()
+                    .map_or(1.0, |weights| weights[row]);
+                let root_weight = honesty_weight.sqrt();
+                if root_weight > 0.0 {
+                    for basis_col in 0..m {
+                        design[[row, basis_col]] /= root_weight;
+                    }
+                } else {
+                    let assignments = self.assignment.try_assignments_row(row)?;
+                    for basis_col in 0..m {
+                        design[[row, basis_col]] =
+                            assignments[atom] * self.atoms[atom].basis_values[[row, basis_col]];
+                    }
+                }
+            }
+            let fit = design.dot(&beta);
+            residual = &residual - &fit;
+            self.atoms[atom].decoder_coefficients.assign(&beta);
         }
         Ok(())
     }
@@ -4278,7 +4695,6 @@ impl SaeManifoldTerm {
                     self.atoms[atom].decoder_coefficients[[col, out]] = beta[[col, out]];
                 }
             }
-            self.atoms[atom].refresh_intrinsic_smooth_penalty();
         }
         Ok(())
     }
@@ -4367,8 +4783,7 @@ impl SaeManifoldTerm {
             ));
         }
 
-        // When last_row_layout is set (compact active-set mode — JumpReLU
-        // gate or large-K IBP truncation), delta_ext_coord uses a
+        // When last_row_layout is set (compact hard-TopK support), delta_ext_coord uses a
         // variable-stride layout where row i occupies
         // [compact_offset_i .. compact_offset_i + q_active_i].
         // We expand each row back to full-q before applying.
@@ -4782,6 +5197,8 @@ impl SaeManifoldTerm {
         step_size: f64,
         ridge_ext_coord: f64,
     ) -> Result<SaeManifoldLoss, String> {
+        *rho = rho.clone().for_assignment(self.assignment.mode);
+        self.assignment.validate_rho_domain(rho)?;
         if !(step_size.is_finite() && step_size > 0.0) {
             return Err(format!(
                 "SaeManifoldTerm::run_fixed_decoder_arrow_schur: step_size must be finite and positive; got {step_size}"
@@ -4948,7 +5365,7 @@ impl SaeManifoldTerm {
     /// becomes full-rank by construction, the decoder is the rank-`r_k` oracle
     /// `B̃ = Q_kᵀ B`, the roughness Gram is `Q_kᵀ S Q_k`, and the evaluator is
     /// wrapped so the reduction survives every basis refresh. The inner solve no
-    /// longer descends a flat valley and the outer REML log-det is well-posed —
+    /// longer descends a flat valley and the outer penalized quasi-Laplace log-det is well-posed —
     /// no step-time deflation, ridge floor, or post-fit projection needed for
     /// the deficiency. The depth decision is made ONCE here, before the outer
     /// loop, so it is held fixed across the inner Newton walk.
@@ -5098,7 +5515,7 @@ impl SaeManifoldTerm {
     /// by an implicit evidence derivative. Evidence therefore retains only the
     /// actual no-descent / proximal-no-strict-decrease termination routes before
     /// the undamped cache is formed (#2253).
-    pub(crate) fn run_joint_fit_arrow_schur_for_evidence(
+    pub(crate) fn run_joint_fit_arrow_schur_for_quasi_laplace(
         &mut self,
         target: ArrayView2<'_, f64>,
         rho: &mut SaeManifoldRho,
@@ -5129,7 +5546,7 @@ impl SaeManifoldTerm {
         )?;
         if matches!(outcome.termination, JointFitTermination::Heuristic) {
             return Err(
-                "SaeManifoldTerm::run_joint_fit_arrow_schur_for_evidence: heuristic \
+                "SaeManifoldTerm::run_joint_fit_arrow_schur_for_quasi_laplace: heuristic \
                  termination escaped the evidence policy"
                     .to_string(),
             );
@@ -5169,6 +5586,8 @@ impl SaeManifoldTerm {
         ridge_beta: f64,
         allow_heuristic_termination: bool,
     ) -> Result<JointFitOutcome, String> {
+        *rho = rho.clone().for_assignment(self.assignment.mode);
+        self.assignment.validate_rho_domain(rho)?;
         if !(step_size.is_finite() && step_size > 0.0) {
             return Err(format!(
                 "SaeManifoldTerm::run_joint_fit_arrow_schur: step_size must be finite and positive; got {step_size}"
@@ -5205,8 +5624,8 @@ impl SaeManifoldTerm {
             .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
         // #850 / gam#577 / gam#579 — `max_iter == 0` is a genuine FREEZE of the
         // warm-started inner `(t, β)` state, a verbatim reuse and NOT a
-        // convergence request. The caller (`reml_criterion_with_cache_refine_policy`
-        // / `reml_criterion_streaming_exact`) runs this with `max_iter == 0`
+        // convergence request. The caller (`penalized_quasi_laplace_criterion_with_cache_refine_policy`
+        // / `penalized_quasi_laplace_criterion_streaming_exact`) runs this with `max_iter == 0`
         // precisely to hold β at the seed, then factors once at that frozen
         // iterate (`converge_inner_for_undamped_logdet`'s `inner_max_iter == 0`
         // branch). Everything below — the rank-reduction reparametrization, the
@@ -5240,19 +5659,19 @@ impl SaeManifoldTerm {
         // not the fitted `t`/assignment excite them; on a near-degenerate
         // checkpoint (OLMo `stage1-step0` PCA-32: data Gram rank `3/5`) the
         // unexcited columns make the decoder design rank-deficient BY
-        // CONSTRUCTION, flattening the outer REML surface so BFGS stalls. We
+        // CONSTRUCTION, flattening the outer penalized quasi-Laplace surface so BFGS stalls. We
         // discover the data-supported subspace `Q_k = range(G_k)` ONCE here from
         // the bare data Gram and, for any rank-deficient atom, REPARAMETRIZE its
         // basis onto that subspace (`Φ̃ = Φ Q_k`, `B̃ = Q_kᵀ B`, `S̃ = Q_kᵀ S Q_k`,
         // and a `SubspaceReducedEvaluator` so the reduction survives every
         // refresh). The reduced design is full-rank, so the identifiability audit
         // passes, the frame profiles the reduced block, the inner solve needs no
-        // step-time deflation, and the outer REML log-det is well-conditioned —
+        // step-time deflation, and the outer penalized quasi-Laplace log-det is well-conditioned —
         // this SUPERSEDES the prior data-null projector deflation + post-fit
         // range projection for the rank-deficiency case. The depth decision is
         // made once here and held FIXED across the inner Newton walk. A full-rank
         // atom (`base`/`step_2300`, `r_k == M_k`) is left untouched, so its
-        // design, decoder, and REML criterion are byte-for-byte the historical
+        // design, decoder, and penalized quasi-Laplace criterion are byte-for-byte the historical
         // full-`B` path.
         self.reduce_atoms_to_data_supported_rank()?;
         // #972 / #977 T1 — magic-by-default decoder-frame activation. Before the
@@ -5265,9 +5684,25 @@ impl SaeManifoldTerm {
         // joint solve runs in the factored coordinate space.
         self.ensure_decoder_frames_active_for_current_decoder()
             .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
-        // #976 Layer-1 guard ledger is per joint fit: each inner solve gets a
-        // fresh re-seed budget and reports only its own breaches.
-        self.collapse_events.clear();
+        // #976 Layer-1 guard ledger is per joint fit for ORDINARY fits: each
+        // standalone inner solve gets a fresh re-seed budget and reports only
+        // its own breaches. EVIDENCE lanes (`allow_heuristic_termination ==
+        // false`) are different: `converge_inner_for_undamped_logdet` re-enters
+        // this driver once per refine round (16–64 rounds per criterion
+        // evaluation), and clearing here handed every round a fresh per-atom
+        // reseed budget — so an atom sitting near its collapse threshold was
+        // reseeded roughly once per round, each reseed an unguarded state jump
+        // that spikes ‖g‖ at an objective-good iterate (the measured 2.887e8
+        // gradient spike in `tests_inner_budget_trajectory_2015`), breaking
+        // `refine_round_made_progress`'s monotone-decrease requirement and
+        // collapsing the 64× progress budget back to base. The evidence ledger
+        // is therefore PER CRITERION EVALUATION: cleared once at the
+        // `penalized_quasi_laplace_criterion*` entry, persistent across refine re-entries, so the
+        // per-atom budget (`SAE_ATOM_COLLAPSE_RESEED_BUDGET`) genuinely bounds
+        // reseeds over the whole converge-to-KKT drive.
+        if allow_heuristic_termination {
+            self.collapse_events.clear();
+        }
         // #1003 — run the active-mass guard at ENTRY (iteration 0), before the
         // pre-fit identifiability audit. A cold seed can hand the fit an atom
         // whose gates are vacuous on every row (the outer seed cascade sweeps
@@ -5350,7 +5785,7 @@ impl SaeManifoldTerm {
         }
         // #1026/#2230 — keep the best state found inside this bounded inner
         // solve, keyed on the PENALIZED OBJECTIVE (`prefer_candidate_state`):
-        // the same scalar the Armijo lane descends and the outer REML evidence
+        // the same scalar the Armijo lane descends and the outer penalized quasi-Laplace score
         // consumes. The incumbent exists to undo damage from the NON-monotone
         // boundary hooks (collapse reseeds, gauge retraction/pin, frame
         // refresh) — the Armijo walk itself is objective-monotone, so under
@@ -5386,6 +5821,32 @@ impl SaeManifoldTerm {
         } else {
             best_reconstruction_ev = f64::NEG_INFINITY;
             best_reconstruction_obj = f64::INFINITY;
+            None
+        };
+        // EXIT-BOUNDARY OBJECTIVE WARRANTY bank (#2228 divergence class). The
+        // EV-keyed incumbent above is deliberately CONDITIONAL (structural-
+        // coherence/EV-gated basin preference), which leaves a gap: on a
+        // trajectory where the coherence gate fires from the start, NOTHING is
+        // ever banked, the end-of-loop restore has nothing to restore, and a
+        // non-monotone boundary mover (a collapse reseed thrown at the budget
+        // edge, a gauge hook, a post-loop sweep whose exact block solves
+        // themselves fail on the blown state) leaks an amplified iterate to
+        // the caller. Chaotic ulp-level trajectory sensitivity made that leak
+        // intermittent (fd_2015: the same binary/host/thread-count returned
+        // ‖g‖ ≈ 2e-3 or ≈ 3.8e30 run to run before the deterministic-reduction
+        // stack pinned the trajectory). This bank is UNCONDITIONAL and keyed
+        // on the penalized objective alone — the one scalar the walk descends
+        // — so the engine can always honor the contract "never return a state
+        // materially worse than the best state it held". Basin preference
+        // (EV/uniformity/coherence) is untouched: it still owns WHICH
+        // near-equal-objective state is kept; the warranty only forbids
+        // returning an objectively degraded one.
+        let mut warranty_obj = self
+            .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+            .unwrap_or(f64::INFINITY);
+        let mut warranty_state = if warranty_obj.is_finite() {
+            Some(self.snapshot_mutable_state())
+        } else {
             None
         };
         // #2100/#1117 — objective-stagnation convergence for the JOINT outer loop,
@@ -5461,6 +5922,39 @@ impl SaeManifoldTerm {
         let mut lm_ridge_b = ridge_beta;
         let mut termination = JointFitTermination::IterationGrantExhausted;
         let mut state_moved = false;
+        // FIRST-PRINCIPLES ENGINE ORDER (#2228 stage 4, increment 1) — run the
+        // deterministic alternating block sweeps BEFORE the joint Newton walk,
+        // not only as a post-loop rescue. At fixed gates the problem is
+        // structurally easy in blocks: the decoder given coordinates is an
+        // EXACTLY solvable penalized linear LS, and the coordinates given the
+        // decoder decouple per row with globally enumerable solutions (the
+        // companion-matrix projector). Each sweep is objective-monotone by
+        // construction (same strict-decrease gate as the historical post-loop
+        // polish), deterministic given the seed, and does in O(1) exact block
+        // solves what the majorized joint Newton does in O(10²–10³) linear-rate
+        // iterations. The Newton walk below then starts inside the sweep fixed
+        // point's basin and serves as the joint certifier (logits + cross-block
+        // coupling + KKT gate) instead of as the bulk workhorse. The
+        // max_iter == 0 freeze already returned above.
+        //
+        // BOTH LANES sweep at entry, with LANE-DEPENDENT commit floors (see
+        // `sweep_blocks_to_objective_fixed_point`): the measured A/B pair
+        // proved the entry sweep is BOTH the wide-p divergence kill (a blown
+        // or cold entry state's decoder-LSQ decrease is O(objective); removing
+        // the entry sweep restored the ‖g‖≈3e27 baseline blow-up bit-for-bit)
+        // AND, at the fine floor, the #2253 idempotence breaker on evidence
+        // re-entries (per-assembly gate-freeze drift lets each re-entry
+        // harvest a fresh ε-decrease ⇒ refused as non-idempotent at 512). The
+        // evidence lane therefore commits only MATERIAL decreases
+        // (STALL_FRACTION of scale): the rescue passes, the harvest cannot.
+        if self.sweep_blocks_to_objective_fixed_point(
+            target,
+            rho,
+            analytic_penalties,
+            allow_heuristic_termination,
+        )? {
+            state_moved = true;
+        }
         for outer_iteration in 0..max_iter {
             let temperature_before = self.assignment.mode.temperature();
             if self
@@ -5473,9 +5967,9 @@ impl SaeManifoldTerm {
             // (`SaeManifoldOuterObjective`) and held FIXED across this inner
             // (t, β) Newton solve. The inner loop solves the joint manifold +
             // decoder system at the engine's current ρ; the engine alone
-            // moves ρ by minimising the penalised quasi-Laplace evidence
-            // score (see `SaeManifoldTerm::reml_criterion`; #1421: NOT a
-            // true normalized-prior REML — the improper softmax/JumpReLU
+            // moves ρ by minimising the penalised quasi-Laplace score
+            // score (see `SaeManifoldTerm::penalized_quasi_laplace_criterion`; #1421: NOT a
+            // true normalized-prior REML — the improper softmax/ThresholdGate
             // assignment priors have no finite normalizer). The former in-loop
             // `update_ard_reml` rule (α = n / ‖t‖²) dropped the logdet /
             // effective-dof term and collapsed α on near-degenerate axes; it
@@ -5520,9 +6014,9 @@ impl SaeManifoldTerm {
             // radial null whose direction ROTATES per row (the null is the radial
             // unit vector `(cosθ_i, sinθ_i)`, distinct for every row — NOT a chart
             // axis, so no global/per-atom axis reduction can capture it). The
-            // undamped acceptance factorizations in `reml_criterion` already deflate
+            // undamped acceptance factorizations in `penalized_quasi_laplace_criterion` already deflate
             // that null to UNIT stiffness (`log 1 = 0`, ρ-independent) so the
-            // evidence log-det is finite — but the coordinate SOLVE here does not:
+            // criterion log-det is finite — but the coordinate SOLVE here does not:
             // `solve_with_lm_escalation_inner` LM-ridge-damps the near-null block,
             // leaving a small-but-nonzero step along the radial null (the data is
             // radially FLAT, not absent, so `g_null ≠ 0` at finite noise). Those
@@ -5535,7 +6029,7 @@ impl SaeManifoldTerm {
             // direction from that row's coordinate step so there is ZERO motion along
             // a deflated direction, period, while the identifiable (angular)
             // complement keeps the exact LM/Newton step. `row_sub_floor_null_directions`
-            // uses the IDENTICAL spectral floor + hysteresis the evidence deflation
+            // uses the IDENTICAL spectral floor + hysteresis the criterion deflation
             // uses, so the step freezes exactly what the log-det deflated. It returns
             // EMPTY for a genuinely full-rank row (a well-conditioned block, or a
             // merely-ill-conditioned NON-null K>1 block whose weak but data-supported
@@ -5652,7 +6146,7 @@ impl SaeManifoldTerm {
             let iterate_scale = self.inner_iterate_scale();
             let grad_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * iterate_scale;
             let step_tolerance = SAE_MANIFOLD_INNER_STEP_REL_TOL * iterate_scale;
-            let lambda_smooth = rho.lambda_smooth_vec();
+            let lambda_smooth = rho.lambda_smooth_vec()?;
             let quotient_grad_norm =
                 self.quotient_gradient_norm_from_system(&sys, grad_norm_sq, &lambda_smooth);
             // Stop only on stationarity in the raw chart or on the identified
@@ -5787,10 +6281,10 @@ impl SaeManifoldTerm {
             // with a near-zero pivot, the step is dominated by that near-null
             // direction, and `gᵀΔ/(‖g‖·‖Δ‖)` collapses while ‖g‖ is HUGE —
             // breaking there silently froze the iterate and let the
-            // `reml_criterion` refine loop re-measure the same point until its
+            // `penalized_quasi_laplace_criterion` refine loop re-measure the same point until its
             // budget died (the constant-‖g‖=1e12 signature). Gate the break on
             // genuine KKT stationarity — the SAME iterate-scaled tolerance
-            // `reml_criterion` uses — and otherwise fall through to the
+            // `penalized_quasi_laplace_criterion` uses — and otherwise fall through to the
             // proximal-correction ridge escalation below: heavier LM damping
             // bends the step toward steepest descent, which is always a
             // descent direction for a consistent gradient.
@@ -5839,7 +6333,27 @@ impl SaeManifoldTerm {
                     |trial_step_size, post_step_total| {
                         let armijo_bound = pre_step_total
                             - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
-                        post_step_total.is_finite() && post_step_total <= armijo_bound
+                        // #2253 idempotence — EVIDENCE lanes additionally require
+                        // the decrease to clear the stall detector's own
+                        // resolution: a sub-resolution "strict" decrease (the
+                        // ε-harvest of per-assembly gate-freeze drift at a
+                        // KKT-band iterate) is not measurable progress, but each
+                        // such accept was a fresh state move that kept the inner
+                        // map non-idempotent forever (tier-0 K=2 fixtures:
+                        // refused at 512 granted iterations with ‖g‖ 300× inside
+                        // the band). Rejecting it routes to the proximal path
+                        // and then to the NoStrictDecrease termination — exactly
+                        // the recurrence the certificate needs. Discovery lanes
+                        // (floor 0) are byte-identical to the historical gate.
+                        let material_floor = if allow_heuristic_termination {
+                            0.0
+                        } else {
+                            SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                                * (1.0 + pre_step_total.abs())
+                        };
+                        post_step_total.is_finite()
+                            && post_step_total <= armijo_bound
+                            && pre_step_total - post_step_total >= material_floor
                     },
                 )?
             } else {
@@ -5958,8 +6472,18 @@ impl SaeManifoldTerm {
                         break;
                     }
                 };
+                // Same #2253 evidence-lane material floor as the Armijo gate
+                // above: a sub-stall-resolution proximal decrease is the same
+                // ε-harvest, and accepting it here would just move the
+                // non-idempotence from the line search to the fallback.
+                let proximal_material_floor = if allow_heuristic_termination {
+                    0.0
+                } else {
+                    SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL * (1.0 + pre_step_total.abs())
+                };
                 if !(accepted_step.trial_objective_value.is_finite()
-                    && accepted_step.trial_objective_value < pre_step_total)
+                    && pre_step_total - accepted_step.trial_objective_value
+                        > proximal_material_floor)
                 {
                     log::debug!(
                         "run_joint_fit_arrow_schur: proximal correction made no decrease at \
@@ -5976,34 +6500,58 @@ impl SaeManifoldTerm {
                 state_moved = true;
             }
             // Affine gauge canonicalization is a representation change, but the
-            // decoder smoothness term is part of the optimized objective. Keep the
-            // canonicalized state only when the same scalar used by the line search
-            // does not increase; otherwise REML would inspect an off-contract
-            // post-accept state whose gradient was never accepted.
-            let accepted_snapshot = self.snapshot_mutable_state();
-            let accepted_total =
-                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
-            self.canonicalize_affine_gauge_after_accept(Some(rho))?;
-            let canonical_total =
-                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
-            if !(canonical_total.is_finite() && canonical_total <= accepted_total) {
-                self.restore_mutable_state(&accepted_snapshot)?;
-            }
+            // decoder smoothness term is part of the optimized objective — a
+            // class-(c) objective-guarded transaction (kept move discarded: a
+            // pure representation change is not an evidence-map transition).
+            self.run_objective_guarded_hook(target, rho, analytic_penalties, 0.0, |term| {
+                term.canonicalize_affine_gauge_after_accept(Some(rho))
+            })?;
             // #976 Layer-1 guard 3: after an accepted step (Armijo or proximal
             // — the rejection paths `break` above), check every atom's support
             // and answer breaches with a bounded re-seed or a terminal
             // CollapseEvent. Runs post-acceptance so it never perturbs a
             // line-search trial, and any re-seed is simply the next
             // iteration's starting state.
-            self.enforce_active_mass_guard(outer_iteration, Some(rho))?;
+            //
+            // QUIESCENCE near stationarity — for the BASIN-SELECTION guards
+            // only. The hook taxonomy has three kinds:
+            //   (a) basin-selection escapes (active-mass reseed, structural-
+            //       coherence reseed): escaping a degenerate basin is OPTIONAL;
+            //       near a KKT root a reseed is never a rescue — it is a state
+            //       jump that spikes ‖g‖ at an objective-good iterate (the
+            //       measured 2.887e8 event), invalidates the #2253 idempotence
+            //       certificate, and breaks the refine loop's monotone-‖g‖
+            //       accounting. Basin choice at stationarity belongs to the
+            //       outer / structure search, so these stand down inside the
+            //       band.
+            //   (b) divergence CONTAINMENT (the decoder-norm guard here, the
+            //       #2015 scale re-gauge below): interruption is MANDATORY and
+            //       must NEVER be quiesced — the amplitude-gauge runaway
+            //       (a→0, B→∞ at fixed a·B) is gradient-invisible, i.e. it
+            //       lives exactly INSIDE the KKT band, and the iterate-scaled
+            //       yardstick is self-reinforcing under a norm blow-up (the
+            //       band widens with ‖B‖). Containment keyed on norms, not on
+            //       ‖g‖, is the only sound trigger there.
+            //   (c) representation re-gauges (unit-speed, polar, affine
+            //       canonicalization): objective-guarded transactions below,
+            //       unaffected here.
+            let kkt_quiescent = grad_norm_sq.is_finite()
+                && grad_norm_sq.sqrt()
+                    <= 10.0 * SAE_MANIFOLD_INNER_GRAD_REL_TOL * self.inner_iterate_scale();
+            if !kkt_quiescent {
+                self.enforce_active_mass_guard(outer_iteration, Some(rho))?;
+            }
             // #976 Layer-1 guard 3b (decoder arm): the gate-mass guard above is
             // blind to a dictionary whose gates stay spread but whose decoders
             // have all collapsed to ≈0 (the real-data K>1 failure that drives
             // EV→0 and the `0 → K·n` evidence-deflation abort). Catch a decoder
             // that has fallen far behind its peers and reseed it onto the
-            // residual; a strict no-op for K=1.
+            // residual; a strict no-op for K=1. CONTAINMENT class (b): always
+            // live, never quiesced.
             self.enforce_decoder_norm_guard(target, outer_iteration, rho, Some(&target_col_stats))?;
-            self.enforce_structural_coherence_guard(target, outer_iteration, rho)?;
+            if !kkt_quiescent {
+                self.enforce_structural_coherence_guard(target, outer_iteration, rho)?;
+            }
             // #2089 defense-in-depth: never grind a hopeless fit (and never let a
             // CPU watchdog SIGKILL the host while it does). When the co-collapse
             // multi-start budget is fully spent yet the dictionary is STILL at or
@@ -6011,7 +6559,7 @@ impl SaeManifoldTerm {
             // co-collapse for this input — every atom's decoder co-vanished and no
             // residual structure could anchor `K` distinct charts. The guard has
             // already restored the best basin it banked, so continuing the outer
-            // loop (and the outer-REML ρ-search that drives it) only re-derives the
+            // loop (and the outer-penalized quasi-Laplace ρ-search that drives it) only re-derives the
             // same degenerate basin at cost. Return a typed error so the FFI raises
             // a diagnosable Python exception PROMPTLY instead of thrashing toward a
             // useless model. Gated to genuine, budget-exhausted TOTAL co-collapse:
@@ -6071,8 +6619,9 @@ impl SaeManifoldTerm {
             }
             // #2022 — enforce unit-speed (arc-length) charts IN-LOOP at this
             // accepted-outer-iteration boundary (post-acceptance, OUTSIDE the line
-            // search, same cadence as the guards above). Image-frozen ⇒ data-fit +
-            // intrinsic smoothness untouched; re-gauges t so the ARD coordinate
+            // search, same cadence as the guards above). Image-frozen and paired
+            // with an exact reference-Gram congruence ⇒ data fit and the declared
+            // function seminorm are untouched; re-gauges t so the ARD coordinate
             // prior (which pins t→±t+c) is enforced throughout the fit, not merely
             // post-fit. SEAM: this boundary overlaps seed-audit STEP2's reseed/refit
             // hooks — reconcile ordering there (retraction after guards/reseed).
@@ -6090,35 +6639,38 @@ impl SaeManifoldTerm {
             // singular-value gauge, so rejection restores the complete
             // profiled state and evidence recurrence can observe a kept polar
             // update (#2253).
-            let pre_hook_obj =
-                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
-            let pre_hook_state = self.snapshot_mutable_state();
-            self.retract_unit_speed_charts_in_loop()?;
-            // #972 / #977 T1 — U-block of the alternating block-coordinate ascent.
-            // After the decoder `B` has been updated by the accepted (t, ΔC) step
-            // (lifted through the OLD frames in `apply_newton_step`), re-polar each
-            // ACTIVE atom's frame from the refreshed data evidence and re-project
-            // the decoder onto it, so the next assembly's C-block solve runs in an
-            // up-to-date frame. The refresh is a closed-form `O(p r²)` thin SVD per
-            // atom run OUTSIDE the border; the C-coordinates are held fixed during
-            // it (the block-coordinate split). Skipped entirely when no frame is
-            // active (the full-`B` path never touches this). One refresh per
-            // accepted outer iteration is a sensible cadence (the issue's
-            // streaming-polar fixed point).
-            if self.frames_active() {
-                self.refresh_active_frames_from_data(target)
-                    .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
+            // One class-(c) transaction for the whole re-gauge triple: the
+            // unit-speed retraction, the #2015 decoder-scale re-gauge (kept
+            // only when it is the true flat-gauge move it is designed for),
+            // and the #972/#977 frame re-polar (closed-form O(p r²) thin SVD
+            // per active atom, C-coordinates held fixed — skipped on the
+            // full-`B` path). A kept move is a real transition of the evidence
+            // map; without the bit the wrapper could report
+            // `fixed_point=true` after U moved invisibly (#2253).
+            if self.run_objective_guarded_hook(target, rho, analytic_penalties, 0.0, |term| {
+                term.retract_unit_speed_charts_in_loop()?;
+                term.fix_decoder_scale_gauge()?;
+                if term.frames_active() {
+                    term.refresh_active_frames_from_data(target)
+                        .map(drop)
+                        .map_err(|err| {
+                            format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
+                        })?;
+                }
+                Ok(())
+            })? {
+                state_moved = true;
             }
-            let post_hook_obj = self
+            // Unconditional warranty-bank update (see the bank's declaration):
+            // strictly-better penalized objective ⇒ this accepted boundary is
+            // the new exit-warranty fallback, independent of any EV/coherence
+            // basin preference below.
+            let boundary_obj = self
                 .penalized_objective_total(target, rho, analytic_penalties, 1.0)
                 .unwrap_or(f64::INFINITY);
-            if !(post_hook_obj.is_finite() && post_hook_obj <= pre_hook_obj) {
-                self.restore_mutable_state(&pre_hook_state)?;
-            } else if !self.matches_mutable_state(&pre_hook_state) {
-                // A kept unit-speed or polar-frame block update is a real
-                // transition of the evidence map. Without this bit the wrapper
-                // could report `fixed_point=true` after U moved invisibly.
-                state_moved = true;
+            if boundary_obj.is_finite() && boundary_obj < warranty_obj {
+                warranty_obj = boundary_obj;
+                warranty_state = Some(self.snapshot_mutable_state());
             }
             if let Ok(ev) = self.dictionary_reconstruction_ev(target, rho) {
                 // #2230 — keep the best state on the PENALIZED OBJECTIVE first
@@ -6126,9 +6678,7 @@ impl SaeManifoldTerm {
                 // #2081 EV-then-uniformity certificate ([`prefer_candidate_state`]).
                 if self.structural_coherence_collapse_detected()?.is_none() {
                     let candidate_uniformity = self.coordinate_uniformity_aggregate();
-                    let candidate_obj = self
-                        .penalized_objective_total(target, rho, analytic_penalties, 1.0)
-                        .unwrap_or(f64::INFINITY);
+                    let candidate_obj = boundary_obj;
                     if prefer_candidate_state(
                         candidate_obj,
                         ev,
@@ -6188,10 +6738,24 @@ impl SaeManifoldTerm {
                 inner_incumbent_restored = true;
                 state_moved = true;
                 if self.frames_active() {
-                    self.refresh_active_frames_from_data(target)
-                        .map_err(|err| {
-                            format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
-                        })?;
+                    // #2230 — the post-restore frame re-polar is a class-(c)
+                    // transaction like the in-loop triple; unguarded it
+                    // perturbed the very incumbent just restored for being the
+                    // best objective. Same tolerance band as the restore
+                    // decision.
+                    self.run_objective_guarded_hook(
+                        target,
+                        rho,
+                        analytic_penalties,
+                        obj_scale,
+                        |term| {
+                            term.refresh_active_frames_from_data(target)
+                                .map(drop)
+                                .map_err(|err| {
+                                    format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
+                                })
+                        },
+                    )?;
                 }
             }
         }
@@ -6214,7 +6778,7 @@ impl SaeManifoldTerm {
         // entry_at_rho`, outer_objective.rs): a closed-form least-squares decoder
         // refit at the current coordinates/gates (the exact data-optimal decoder for
         // the fixed chart), then a per-row coordinate re-projection onto that
-        // refreshed decoder (a Lloyd/EM step that globally projects each rank-1
+        // refreshed decoder (an objective-guarded block-coordinate sweep that globally projects each rank-1
         // Fourier coordinate through all companion roots), then one more decoder
         // refit at the re-projected coordinates. Coupled compact charts fail this
         // optional round transactionally instead of using a lattice.
@@ -6225,7 +6789,7 @@ impl SaeManifoldTerm {
         // never reached this polish before.
         //
         // CRITICAL: the gate is the PENALIZED objective total — the exact same
-        // scalar the inner Armijo line search and the outer REML evidence engine
+        // scalar the inner Armijo line search and the outer penalized quasi-Laplace score engine
         // consume (`penalized_objective_total(target, rho, analytic_penalties, 1.0)`)
         // — NOT raw reconstruction EV. The decoder refit is an UNPENALIZED data-fit
         // least squares (and the coordinate re-projection is pure data-fit too), so a
@@ -6258,43 +6822,43 @@ impl SaeManifoldTerm {
         // hint would always equal the cold LSQ decoder, never the seed). A freeze
         // is by definition not a convergence request, so there is no
         // under-converged decoder to rescue here.
-        if max_iter > 0 && !self.frames_active() {
-            let mut best_objective =
-                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
-            if best_objective.is_finite() {
-                // Alternate decoder-LSQ / coordinate reprojection to its
-                // objective fixed point. The strict decrease gate is the
-                // termination certificate; a workload-tuned round cap would
-                // return an under-converged fit on harder data.
-                loop {
-                    let snapshot = self.snapshot_mutable_state();
-                    let round = self
-                        .refit_decoder_least_squares_at_current_state(target, Some(rho))
-                        .and_then(|()| self.seed_coords_by_decoder_projection(target))
-                        .and_then(|()| {
-                            self.refit_decoder_least_squares_at_current_state(target, Some(rho))
-                        })
-                        .and_then(|()| {
-                            self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
-                        });
-                    // Commit only on a STRICT decrease of the penalized objective,
-                    // scaled by the objective magnitude so the test is meaningful at
-                    // any loss scale. Anything else (already-converged decoder, a
-                    // round that traded data-fit for penalty, or a refit/projection
-                    // failure) restores the pre-round state and stops.
-                    let accept_floor =
-                        SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL * (1.0 + best_objective.abs());
-                    match round {
-                        Ok(value) if value.is_finite() && value < best_objective - accept_floor => {
-                            best_objective = value;
-                            state_moved = true;
-                        }
-                        _ => {
-                            self.restore_mutable_state(&snapshot)?;
-                            break;
-                        }
-                    }
-                }
+        if max_iter > 0
+            && self.sweep_blocks_to_objective_fixed_point(
+                target,
+                rho,
+                analytic_penalties,
+                allow_heuristic_termination,
+            )?
+        {
+            state_moved = true;
+        }
+        // EXIT-BOUNDARY OBJECTIVE WARRANTY enforcement (#2228): the LAST gate
+        // before the loss is priced. Whatever combination of non-monotone
+        // movers ran above — a reseed thrown at the budget edge, a gauge hook,
+        // an incumbent restore that had nothing banked, a rescue sweep whose
+        // exact block solves failed transactionally on a blown state — the
+        // returned state's penalized objective may not be materially worse
+        // than the best state this call held at any accepted boundary (entry
+        // included). A warranty restore is idempotence-safe: a settled
+        // re-entry never improves on its own entry objective, so the bank
+        // equals the entry state and the comparison is a no-op there.
+        if let Some(bank) = warranty_state.as_ref() {
+            let final_obj = self
+                .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                .unwrap_or(f64::INFINITY);
+            let warranty_tol = SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                * (1.0 + final_obj.abs().max(warranty_obj.abs()));
+            if !(final_obj <= warranty_obj + warranty_tol) {
+                log::warn!(
+                    "[#2228] exit warranty: final penalized objective {final_obj:.6e} degraded \
+                     past the best accepted boundary {warranty_obj:.6e}; restoring the banked \
+                     state (non-monotone boundary-mover damage leaked to the exit)"
+                );
+                self.restore_mutable_state(bank)?;
+                state_moved = true;
+                // A warranty restore means the walk was NOT settled; any
+                // cross-call incumbent streak is void.
+                self.best_fit_incumbent = None;
             }
         }
         // Track an exact recurrence of the OBJECTIVE-keyed in-call restore.
@@ -6332,6 +6896,199 @@ impl SaeManifoldTerm {
             termination,
             state_moved,
         })
+    }
+
+    /// Class-(c) hook primitive — the OBJECTIVE-GUARDED TRANSACTION.
+    ///
+    /// Every representation re-gauge at an accepted-iterate boundary (affine
+    /// canonicalization, unit-speed retraction, scale re-gauge, frame
+    /// re-polar) must obey one contract: run the hook, and keep its result
+    /// ONLY when the penalized objective — the single scalar the line search
+    /// descends and the evidence ranks — does not increase past
+    /// `allowed_increase`; otherwise restore the pre-hook state bit-for-bit.
+    /// This was hand-rolled inline at three sites with drift between copies;
+    /// it is now one primitive. Returns whether a KEPT hook actually moved the
+    /// state (`false` when reverted or a no-op) so callers can maintain the
+    /// #2253 idempotence bookkeeping.
+    pub(crate) fn run_objective_guarded_hook<F>(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        allowed_increase: f64,
+        hook: F,
+    ) -> Result<bool, String>
+    where
+        F: FnOnce(&mut Self) -> Result<(), String>,
+    {
+        let pre_obj = self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
+        let pre_state = self.snapshot_mutable_state();
+        hook(self)?;
+        let post_obj = self
+            .penalized_objective_total(target, rho, analytic_penalties, 1.0)
+            .unwrap_or(f64::INFINITY);
+        if !(post_obj.is_finite() && post_obj <= pre_obj + allowed_increase) {
+            self.restore_mutable_state(&pre_state)?;
+            return Ok(false);
+        }
+        Ok(!self.matches_mutable_state(&pre_state))
+    }
+
+    /// Deterministic alternating block-sweep engine: decoder-LSQ →
+    /// per-row coordinate reprojection (global companion-matrix solves) →
+    /// decoder-LSQ, repeated to its penalized-objective fixed point.
+    ///
+    /// Each round is committed ONLY on a strict decrease of
+    /// `penalized_objective_total` (the one scalar the whole inner stack
+    /// prices), else the pre-round state is restored bit-for-bit and the loop
+    /// stops — so the sweep map is monotone, deterministic given the seed, and
+    /// can never worsen the state. FRAMES-AWARE: on a frames-active fit each
+    /// decoder-LSQ is followed by the closed-form frame re-polar
+    /// (`refresh_active_frames_from_data` — thin SVD + `B ← (BU)Uᵀ`
+    /// re-projection, the same primitives frame activation itself uses), so
+    /// the factored border stays consistent with the refreshed decoder; the
+    /// whole round is one transaction, so a re-projection that loses the LSQ
+    /// optimality reverts and the sweep degrades to a no-op, never worse.
+    /// This closed the wide-p coverage hole: frames auto-activate at p ≥ 12,
+    /// so the historical frames skip silently excluded the sweep engine from
+    /// most REAL fits — including the wide-p K=4 fixture whose 640-iteration
+    /// walk diverges to ‖g‖ ≈ 3e27 with no LSQ reset on the path. Callers
+    /// must not invoke this under the `max_iter == 0` freeze contract (a
+    /// decoder refit would overwrite the warm-started β).
+    ///
+    /// This is the stage-4 primary engine (#2228): at fixed gates the decoder
+    /// block is an exactly solvable penalized linear LS and the coordinate
+    /// block decouples per row with globally enumerable solutions, so sweeps
+    /// do in O(1) exact block solves what the majorized joint Newton needs
+    /// O(10²–10³) linear-rate iterations for. Returns whether any round was
+    /// committed.
+    /// `discovery_lane` — two lane-dependent behaviors, both consequences of
+    /// the #2253 idempotence certificate (a re-entry at the converged state
+    /// must recur EXACTLY on evidence lanes):
+    ///
+    /// 1. The logit-block ownership rounds run on discovery lanes only. The
+    ///    #2082 anchor is a CONSTANT nudge, not a fixed-point iteration —
+    ///    non-idempotent by design.
+    /// 2. The commit floor is MATERIAL on evidence lanes
+    ///    (`SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION` = 1e-4 of scale)
+    ///    versus fine on discovery lanes (`…_STALL_REL_TOL` = 1e-8). Measured
+    ///    A/B pair behind this: a cold or blown entry state's decoder-LSQ
+    ///    clears the material floor by orders of magnitude (the wide-p
+    ///    ‖g‖≈3e27 divergence kill NEEDS the entry sweep — removing it
+    ///    restored the baseline blow-up bit-for-bit), while the ε-level
+    ///    objective drift injected per evidence re-entry by the entry hooks'
+    ///    per-assembly gate freezes harvests only ~1e-8·scale decreases —
+    ///    each a fresh state move that made the inner map non-idempotent
+    ///    (tier-0 K=2 fixtures refused at 512 granted iterations). The
+    ///    material floor admits the rescue and rejects the harvest.
+    pub(crate) fn sweep_blocks_to_objective_fixed_point(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        discovery_lane: bool,
+    ) -> Result<bool, String> {
+        let mut best_objective =
+            self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
+        if !best_objective.is_finite() {
+            return Ok(false);
+        }
+        let floor_rel = if discovery_lane {
+            SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+        } else {
+            SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION
+        };
+        let frames = self.frames_active();
+        let mut moved = false;
+        loop {
+            let snapshot = self.snapshot_mutable_state();
+            let round = self
+                .refit_decoder_least_squares_at_current_state(target, Some(rho))
+                .and_then(|()| {
+                    if frames {
+                        self.refresh_active_frames_from_data(target)
+                            .map(drop)
+                            .map_err(|err| format!("sweep frame re-polar: {err}"))
+                    } else {
+                        Ok(())
+                    }
+                })
+                .and_then(|()| self.seed_coords_by_decoder_projection(target))
+                .and_then(|()| self.refit_decoder_least_squares_at_current_state(target, Some(rho)))
+                .and_then(|()| {
+                    if frames {
+                        self.refresh_active_frames_from_data(target)
+                            .map(drop)
+                            .map_err(|err| format!("sweep frame re-polar: {err}"))
+                    } else {
+                        Ok(())
+                    }
+                })
+                .and_then(|()| {
+                    self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                });
+            // Commit only on a STRICT decrease of the penalized objective,
+            // scaled by the objective magnitude so the test is meaningful at
+            // any loss scale. Anything else (already-converged decoder, a
+            // round that traded data-fit for penalty, or a refit/projection
+            // failure) restores the pre-round state and stops.
+            let accept_floor = floor_rel * (1.0 + best_objective.abs());
+            match round {
+                Ok(value) if value.is_finite() && value < best_objective - accept_floor => {
+                    best_objective = value;
+                    moved = true;
+                }
+                _ => {
+                    self.restore_mutable_state(&snapshot)?;
+                    break;
+                }
+            }
+        }
+        // LOGIT-BLOCK stage (the third block of the engine, #2082 primitive):
+        // once the (t, B) rounds reach their fixed point, attempt a bounded
+        // number of gate-ownership rounds — the soft row-ownership anchor
+        // (no-op at K=1) followed by the decoder refit the anchor contract
+        // requires, then a fresh (t, B) chain — each as its OWN
+        // strict-decrease transaction, so a rejected gate move can never claw
+        // back committed (t, B) progress. The routing update moves gates toward
+        // the decoder that best explains each row, then the decoder and
+        // coordinate blocks are refit. The shared-objective gate makes the
+        // sweep monotone, and the bound (2) exists only because each committed
+        // anchor changes the ownership pattern it would recompute — two dry
+        // rounds prove the pattern is stable. Discovery lanes only (see the
+        // `discovery_lane` doc): evidence re-entries must be idempotent.
+        for _ in 0..(if discovery_lane { 2 } else { 0 }) {
+            let snapshot = self.snapshot_mutable_state();
+            let round = self
+                .anchor_logits_to_residual_ownership(target)
+                .and_then(|()| self.refit_decoder_least_squares_at_current_state(target, Some(rho)))
+                .and_then(|()| {
+                    if frames {
+                        self.refresh_active_frames_from_data(target)
+                            .map(drop)
+                            .map_err(|err| format!("sweep frame re-polar: {err}"))
+                    } else {
+                        Ok(())
+                    }
+                })
+                .and_then(|()| self.seed_coords_by_decoder_projection(target))
+                .and_then(|()| self.refit_decoder_least_squares_at_current_state(target, Some(rho)))
+                .and_then(|()| {
+                    self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                });
+            let accept_floor = floor_rel * (1.0 + best_objective.abs());
+            match round {
+                Ok(value) if value.is_finite() && value < best_objective - accept_floor => {
+                    best_objective = value;
+                    moved = true;
+                }
+                _ => {
+                    self.restore_mutable_state(&snapshot)?;
+                    break;
+                }
+            }
+        }
+        Ok(moved)
     }
 
     /// Allocate one zero `(M_k × M_k)` Gram accumulator per atom for the
@@ -6697,20 +7454,17 @@ impl SaeManifoldTerm {
                     atom.latent_dim
                 ));
             }
-            // Seed the chunk atom from the *raw* roughness Gram (not the
-            // already arc-length-reweighted `smooth_penalty`), so its
-            // constructor recovers the true operator order and its own
-            // `refresh_intrinsic_smooth_penalty` reweights from the canonical
-            // penalty on the chunk's coordinates rather than double-applying
-            // the metric (issue #673).
-            let mut chunk_atom = SaeManifoldAtom::new(
+            // Every chunk uses the identical frozen reference-function Gram as
+            // the full objective. Re-estimating a chunk-specific metric would
+            // change both the quadratic and its Laplace normalizer.
+            let mut chunk_atom = SaeManifoldAtom::new_with_provided_function_gram(
                 atom.name.clone(),
                 atom.basis_kind.clone(),
                 atom.latent_dim,
                 phi,
                 jet,
                 atom.decoder_coefficients.clone(),
-                atom.smooth_penalty_raw.clone(),
+                atom.smooth_penalty.clone(),
             )?;
             // Carry the atom's own evaluator when it has one; otherwise seed the
             // chunk with the synthesized monomial-patch evaluator (#1801) so the
@@ -6751,14 +7505,15 @@ impl SaeManifoldTerm {
         // Without this the streaming/chunked path silently diverges from the dense
         // path: ungated atoms revert to their raw-logit gate instead of the fixed
         // unit gate (#1026), frozen routing thaws back to the free logits (#1033),
-        // and the per-fit truncated-IBP α override is dropped (#1777). All three
+        // and the per-fit truncated-ordered Beta--Bernoulli α override is dropped (#1777). All three
         // change the forward gate map, hence the loss, gradient, and log-det.
         //   * `ungated` is per-atom (length K) — row-independent.
-        //   * `ibp_alpha_override` is scalar — row-independent.
+        //   * `ordered_beta_bernoulli_alpha_override` is scalar — row-independent.
         //   * frozen routing is per-row (n×K) — the caller slices it to the chunk's
         //     rows and passes it as `chunk_frozen_logits`.
         assignment.ungated = self.assignment.ungated.clone();
-        assignment.ibp_alpha_override = self.assignment.ibp_alpha_override;
+        assignment.ordered_beta_bernoulli_alpha_override =
+            self.assignment.ordered_beta_bernoulli_alpha_override;
         if let Some(frozen) = chunk_frozen_logits {
             if frozen.dim() != (n_chunk, k_atoms) {
                 return Err(format!(
@@ -6893,7 +7648,7 @@ impl SaeManifoldTerm {
             assignment_sparsity: 0.0,
             smoothness: 0.0,
             ard: 0.0,
-            evidence_gauge_deflated_directions: 0,
+            criterion_gauge_deflated_directions: 0,
         };
         for _ in 0..max_iter {
             self.advance_temperature_schedule()?;
@@ -7081,7 +7836,7 @@ impl SaeManifoldTerm {
     /// In-memory driver for [`Self::run_joint_fit_arrow_schur_streaming`]: build
     /// the `chunk_init` seeder by slicing the resident `target`, `self.assignment`
     /// logits and `self.assignment` coords per row-range — the identical chunking
-    /// [`Self::streaming_exact_arrow_log_det`] already uses for the evidence pass.
+    /// [`Self::streaming_exact_arrow_log_det`] already uses for the criterion pass.
     ///
     /// This is the streaming fit's wiring for data that is already resident: it
     /// bounds the Newton solve's peak memory to one chunk (no `(N × M)` /
@@ -7297,7 +8052,7 @@ impl SaeManifoldTerm {
             assignment_sparsity,
             smoothness,
             ard,
-            evidence_gauge_deflated_directions: 0,
+            criterion_gauge_deflated_directions: 0,
         })
     }
 
@@ -7346,7 +8101,7 @@ impl SaeManifoldTerm {
                 assignment_sparsity,
                 smoothness,
                 ard,
-                evidence_gauge_deflated_directions: 0,
+                criterion_gauge_deflated_directions: 0,
             },
             total,
         ))
@@ -7362,6 +8117,47 @@ impl SaeManifoldTerm {
 /// rather than evidence of a redundant atom. `p` is the output dimension (every frame
 /// is `p × r_k`); an SVD failure degrades to `p` (the maximal meaningful rank) so a
 /// numerical hiccup never spuriously DISABLES the guard.
+/// #2132 — does the LEADING residual direction carry signal above the measured
+/// noise floor? `energies` are the residual output-Gram eigenvalues (per-direction
+/// residual energies, unordered). The robust noise level is their MEDIAN (real
+/// uncovered directions are sparse spikes that do not move it); the leading
+/// direction carries signal when its energy exceeds `median · log2(#dirs)` — the
+/// Bonferroni expected-one-false-alarm bound over the `#dirs` directions (the
+/// energy of the largest of `#dirs` noise directions in units of the median grows
+/// only logarithmically), guarded below by a numerical-zero fraction of the peak.
+/// This is the same measured-floor shape as the #2243 spectral bandwidth. The test
+/// errs toward RESEED (a false "signal present" only wastes a budget-bounded
+/// reseed; a false "noise" would wrongly demote a real atom), so the log2 factor is
+/// deliberately conservative rather than an MP-exact edge.
+fn leading_direction_above_noise_floor(energies: &[f64]) -> bool {
+    if energies.is_empty() {
+        return false;
+    }
+    let mut sorted: Vec<f64> = energies.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let peak = *sorted.last().unwrap();
+    if !(peak > 0.0) {
+        return false;
+    }
+    let m = sorted.len();
+    // Robust noise-scale estimate for the Bonferroni floor. The MEDIAN reads the
+    // noise level only while FEWER than half the directions carry signal (its 50%
+    // breakdown point); a co-collapsed dictionary leaves a residual whose real
+    // structure can span up to HALF the — often very few — output directions. Two
+    // unequal circles uncovered in p=4 channels give a residual Gram spectrum
+    // ≈[7.7, 7.7, 48, 48]: the median (27.8) is pulled onto circle A's own energy
+    // and `median·log2(4)=55.7` swallows the peak (48), so the gate reads genuine
+    // two-circle signal as pure noise and NOTHING reseeds (#2132). Estimate the
+    // noise subspace from the LOWER QUARTILE instead: it tolerates signal in up to
+    // ~3/4 of the directions, yet — unlike the raw minimum — stays robust to a lone
+    // spuriously-small (rank-deficient) eigenvalue. Under pure noise the quartile
+    // still tracks the flat bulk, so the `·log2(#dirs)` Bonferroni multiple keeps a
+    // spike-free spectrum below the floor exactly as before.
+    let noise_scale = sorted[(((m - 1) as f64) * 0.25).round() as usize];
+    let floor = (peak * 1e-12).max(noise_scale * (m as f64).max(2.0).log2());
+    peak > floor
+}
+
 fn union_output_frame_rank(frames: &[Array2<f64>], p: usize) -> usize {
     let total_cols: usize = frames.iter().map(|q| q.ncols()).sum();
     if p == 0 || total_cols == 0 {
@@ -7407,7 +8203,7 @@ mod projection_policy_tests {
     #[test]
     fn multivariate_compact_projection_skips_without_mutation() {
         // A compact multivariate chart (sphere) has no complete rank-1 Fourier
-        // stationary enumeration, so the decoder-projection E-step must SKIP it
+        // stationary enumeration, so the decoder-projection coordinate update must SKIP it
         // — leaving its incoming natural-chart coordinates untouched — and
         // return Ok, rather than aborting the whole fit. (A fixed-lattice
         // projection is still never performed: honesty is preserved by not
@@ -7415,7 +8211,7 @@ mod projection_policy_tests {
         let coordinates = array![[0.2, 0.3]];
         let evaluator = Arc::new(SphereChartEvaluator);
         let (phi, jet) = evaluator.evaluate(coordinates.view()).unwrap();
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "sphere",
             SaeAtomBasisKind::Sphere,
             2,
@@ -7439,5 +8235,48 @@ mod projection_policy_tests {
         term.seed_coords_by_decoder_projection(Array2::<f64>::zeros((1, 2)).view())
             .expect("compact multivariate chart is skipped, not an error");
         assert_eq!(term.assignment.coords[0].as_matrix(), before);
+    }
+
+    /// #2132 — the measured-noise-floor "uncovered signal" test that gates a
+    /// co-collapse reseed against re-planting a duplicate onto noise: a flat
+    /// (pure-noise) residual spectrum reads as NO uncovered signal (demote the
+    /// redundant atom), while a spectrum with a dominant direction reads as signal
+    /// (reseed onto it is legitimate).
+    #[test]
+    fn leading_direction_above_noise_floor_separates_signal_from_noise_2132() {
+        // Pure noise: comparable per-direction energies, no spike ⇒ the leading
+        // direction does NOT clear the lower-quartile·log2 floor.
+        let noise: Vec<f64> = (0..20).map(|i| 1.0 + 0.15 * ((i % 5) as f64 - 2.0)).collect();
+        assert!(
+            !leading_direction_above_noise_floor(&noise),
+            "a flat (pure-noise) residual spectrum must read as NO uncovered signal"
+        );
+        // One dominant uncovered direction rises far above the noise quantile ⇒ signal.
+        let mut signal = noise.clone();
+        signal[7] = 100.0;
+        assert!(
+            leading_direction_above_noise_floor(&signal),
+            "a residual spectrum with a dominant direction must read as uncovered signal"
+        );
+        // #2132 root-cause pin — signal spanning HALF the (few) directions must NOT
+        // be swallowed. Two unequal circles uncovered in p=4 output channels give a
+        // residual Gram spectrum ≈[7.7, 7.7, 48, 48]; a median noise estimate (27.8)
+        // is pulled onto circle A's own energy and `median·log2(4)=55.7` buries the
+        // peak (48), so a median floor reads real two-circle signal as pure noise
+        // and reseeds NOTHING. The lower-quartile floor must read it as signal.
+        assert!(
+            leading_direction_above_noise_floor(&[7.68, 7.68, 48.0, 48.0]),
+            "two circles filling all p=4 directions must read as uncovered signal, not noise"
+        );
+        // And the peeled remainder (circle A subtracted) — circle B alone, a rank-2
+        // structure in p=4 with two near-zero directions — must still read as signal
+        // so the sequential-deflation reseed lands the second atom.
+        assert!(
+            leading_direction_above_noise_floor(&[1.0e-9, 1.0e-9, 7.68, 7.68]),
+            "the weaker uncovered circle must still clear the floor after the dominant peel"
+        );
+        // Degenerate inputs carry no signal to reseed onto.
+        assert!(!leading_direction_above_noise_floor(&[]));
+        assert!(!leading_direction_above_noise_floor(&[0.0, 0.0, 0.0]));
     }
 }

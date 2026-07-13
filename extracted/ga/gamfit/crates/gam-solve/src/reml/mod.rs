@@ -1,11 +1,11 @@
 use self::inner_strategy::GeometryBackendKind;
 use super::*;
-use gam_linalg::sparse_exact::SparseExactFactor;
 use crate::pirls::PIRLS_CACHE_BYTE_BUDGET;
 use crate::pirls::assemble_and_factor_sparse_penalized_system;
-use gam_terms::basis::LocalDesignJacobianProvider;
-use gam_problem::SasLinkState;
+use gam_linalg::sparse_exact::SparseExactFactor;
 use gam_problem::OuterEval;
+use gam_problem::SasLinkState;
+use gam_terms::basis::LocalDesignJacobianProvider;
 use ndarray::{Array1, Array2, s};
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
@@ -330,21 +330,21 @@ pub(crate) fn firth_problem_scale_allows(n_obs: usize, p_coeff: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::atoms::CriterionAtom;
     use super::{
         DirectionalHyperParam, EvalCacheManager, EvalShared, HyperDesignDerivative,
         HyperPenaltyDerivative, ImplicitDerivLevel, RemlConfig, RemlState,
     };
-    use super::atoms::CriterionAtom;
     use crate::estimate::EstimationError;
+    use crate::pirls::PirlsCoordinateFrame;
+    use faer::Side;
     use gam_linalg::faer_ndarray::FaerCholesky;
     use gam_linalg::matrix::symmetrize_in_place;
-    use crate::pirls::PirlsCoordinateFrame;
-    use gam_terms::basis::{ImplicitDesignPsiDerivative, RadialScalarKind};
     use gam_problem::{
         GlmLikelihoodSpec, InverseLink, LikelihoodSpec, ResponseFamily, StandardLink,
     };
-    use faer::Side;
     use gam_problem::{HessianValue, OuterEval};
+    use gam_terms::basis::{ImplicitDesignPsiDerivative, RadialScalarKind};
     use ndarray::{Array1, Array2, array, s};
     use std::sync::Arc;
 
@@ -603,9 +603,10 @@ mod tests {
         let p = x.ncols();
         let offset = Array1::<f64>::zeros(y.len());
         let spec = PenaltySpec::Dense(s.clone());
-        let canonical = gam_terms::construction::canonicalize_penalty_specs(&[spec], &[1], p, "test")
-            .map(|(canonical, _)| canonical)
-            .expect("canonicalize");
+        let canonical =
+            gam_terms::construction::canonicalize_penalty_specs(&[spec], &[1], p, "test")
+                .map(|(canonical, _)| canonical)
+                .expect("canonicalize");
         RemlState::newwith_offset(
             y.view(),
             x.clone(),
@@ -742,7 +743,9 @@ mod tests {
                 "{link:?} should use BFGS curvature until exact f_obs is available"
             );
 
-            let bundle = state.obtain_eval_bundle(&rho).expect("non-logit Firth bundle");
+            let bundle = state
+                .obtain_eval_bundle(&rho)
+                .expect("non-logit Firth bundle");
             let atom = state
                 .tierney_kadane_terms(
                     &rho,
@@ -1135,7 +1138,9 @@ mod tests {
         );
         assert!(
             bits_eq(
-                &cache.cached_outer_eval(&key_a).expect("rho_a must still hit"),
+                &cache
+                    .cached_outer_eval(&key_a)
+                    .expect("rho_a must still hit"),
                 &eval_a
             ),
             "rho_a must be unaffected by the rho_b insert"
@@ -1437,7 +1442,6 @@ mod tests {
         let eta_dot = &x_tau_beta + &gam_linalg::faer_ndarray::fast_av(&x, &b_analytic);
         let w_direction = crate::pirls::directionalworking_curvature_from_c_array(
             &pr.solve_c_array.to_owned(),
-            &pr.finalweights.to_owned(),
             &eta_dot,
         );
         let wx = RemlState::row_scale(&x, &pr.finalweights.to_owned());
@@ -1579,9 +1583,10 @@ mod tests {
         let p = x.ncols();
         use crate::estimate::PenaltySpec;
         let specs = vec![PenaltySpec::Dense(s0), PenaltySpec::Dense(s1)];
-        let canonical = gam_terms::construction::canonicalize_penalty_specs(&specs, &[1, 1], p, "test")
-            .map(|(canonical, _)| canonical)
-            .expect("canonicalize");
+        let canonical =
+            gam_terms::construction::canonicalize_penalty_specs(&specs, &[1, 1], p, "test")
+                .map(|(canonical, _)| canonical)
+                .expect("canonicalize");
         let state = RemlState::newwith_offset(
             y.view(),
             x.clone(),
@@ -4153,11 +4158,7 @@ pub struct HyperPenaltyDerivative {
 }
 
 impl HyperPenaltyDerivative {
-    pub fn from_embedded(
-        local: Array2<f64>,
-        global_range: Range<usize>,
-        total_dim: usize,
-    ) -> Self {
+    pub fn from_embedded(local: Array2<f64>, global_range: Range<usize>, total_dim: usize) -> Self {
         Self {
             storage: DerivativeMatrixStorage::Embedded(EmbeddedDerivativeMatrix::new(
                 local,
@@ -4417,9 +4418,9 @@ impl DirectionalHyperParam {
                     rho.len()
                 );
             }
-            component
-                .matrix
-                .scaled_add_to(&mut out, rho[component.penalty_index].exp())?;
+            let lambda = gam_problem::checked_exp_log_strength(rho[component.penalty_index])
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+            component.matrix.scaled_add_to(&mut out, lambda)?;
         }
         Ok(out)
     }
@@ -4966,16 +4967,9 @@ impl PenaltySubspaceCacheKey {
         }
         let penalty_matrix_fingerprint = hasher.finish();
         let mut ridge_hasher = DefaultHasher::new();
-        ridge_passport.delta.to_bits().hash(&mut ridge_hasher);
-        (ridge_passport.matrix_form as u8).hash(&mut ridge_hasher);
-        ridge_passport
-            .policy
-            .include_penalty_logdet
-            .hash(&mut ridge_hasher);
-        ridge_passport
-            .policy
-            .include_laplacehessian
-            .hash(&mut ridge_hasher);
+        ridge_passport.delta().to_bits().hash(&mut ridge_hasher);
+        ridge_passport.matrix_form().hash(&mut ridge_hasher);
+        ridge_passport.policy().hash(&mut ridge_hasher);
         let ridge_passport_signature = ridge_hasher.finish();
         Self {
             penalty_matrix_fingerprint,
@@ -5071,10 +5065,7 @@ impl OuterEvalLru {
     /// to most-recently-used. A miss returns `None` so the caller recomputes —
     /// never a stale value from a different key.
     pub(crate) fn get(&mut self, key: &[u64]) -> Option<OuterEval> {
-        let pos = self
-            .entries
-            .iter()
-            .position(|(k, _)| k.as_slice() == key)?;
+        let pos = self.entries.iter().position(|(k, _)| k.as_slice() == key)?;
         let entry = self.entries.remove(pos)?;
         let eval = entry.1.clone();
         self.entries.push_back(entry);
@@ -5204,7 +5195,10 @@ impl EvalCacheManager {
             // whose "immediately previous distinct eval" contract reads it
             // directly and must stay byte-for-byte unchanged.
             *self.current_outer_eval.write().unwrap() = Some((key.clone(), eval.clone()));
-            self.outer_eval_lru.write().unwrap().insert(key, eval.clone());
+            self.outer_eval_lru
+                .write()
+                .unwrap()
+                .insert(key, eval.clone());
         }
     }
 

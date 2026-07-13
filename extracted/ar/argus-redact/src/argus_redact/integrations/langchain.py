@@ -34,11 +34,10 @@ from __future__ import annotations
 
 import threading
 
-from argus_redact import redact, restore
+from argus_redact import redact
 from argus_redact.compose import make_anchor, prompt_anchor
 from argus_redact.exceptions import SessionStateError
-from argus_redact.pure.restore import check_restore_safety
-from argus_redact.pure.security_events import INJECTION_SUSPECTED, security_event
+from argus_redact.glue.guarded_restore import guarded_restore
 
 
 class RedactRunnable:
@@ -117,10 +116,13 @@ class RestoreRunnable:
     the nonce will be absent from the response and restore fail-closes —
     returning pseudonyms unchanged and emitting a UserWarning, not raising.
     Wire make_prompt_addendum() into the system prompt to enable guarded restore.
+    Pass strict=True to the constructor to raise RestoreGuardError instead of
+    warning on either the deterministic guard or a suspected injection.
     """
 
-    def __init__(self, redact_runnable: RedactRunnable):
+    def __init__(self, redact_runnable: RedactRunnable, *, strict: bool = False):
         self._redact = redact_runnable
+        self._strict = strict
 
     def invoke(self, text: str) -> str:
         key = self._redact.last_key
@@ -130,32 +132,15 @@ class RestoreRunnable:
                 "produced a key. Call redact_r.invoke(...) first, or check that "
                 ".reset() was not called between them."
             )
-        anchor = self._redact.last_anchor
-        redacted = self._redact._last_redacted
 
-        # (H) supplementary heuristic check — runs when we have the redacted prompt
-        security_events: list[dict] = []
-        if redacted is not None:
-            hints = check_restore_safety(redacted, text, key)
-            if hints:
-                security_events.append(
-                    security_event(
-                        INJECTION_SUSPECTED,
-                        count=len(hints),
-                        detail="; ".join(hints),
-                    )
-                )
-
-        result, details = restore(text, key, guard=True, anchor=anchor, detailed=True)
-        all_events = security_events + details.get("security_events", [])
-        if all_events:
-            import warnings as _warnings
-
-            _warnings.warn(
-                f"restore security events: {[e['reason_code'] for e in all_events]}",
-                stacklevel=2,
-            )
-        return result
+        return guarded_restore(
+            text,
+            key,
+            redacted=self._redact._last_redacted,
+            anchor=self._redact.last_anchor,
+            guard=True,
+            strict=self._strict,
+        )
 
     async def ainvoke(self, text: str) -> str:
         """Async version of invoke for LangChain async chains."""

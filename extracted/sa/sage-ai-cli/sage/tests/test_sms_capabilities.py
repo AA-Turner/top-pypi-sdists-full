@@ -4,6 +4,13 @@ import pytest
 from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
 from pathlib import Path
 
+# These tests spawn real subprocess calls to cloud models — they need
+# a generous timeout and should only run during integration sweeps.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 
 def verify_sms_capability(domain, prompt, tmp_path):
     # Set up SMS Configuration pointing to our isolated temp path

@@ -4,6 +4,12 @@ from fastapi.testclient import TestClient
 from backend.app import app as backend_app
 from backend.prompt_engine import clear_cache
 
+# These tests hit real cloud model endpoints — generous timeout needed.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 @pytest.fixture(autouse=True)
 def reload_prompts():
     clear_cache()

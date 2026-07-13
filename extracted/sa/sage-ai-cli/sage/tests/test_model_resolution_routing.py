@@ -15,6 +15,10 @@ import pytest
 from sage.config import SageConfig
 from sage.cli_core import _resolve_model_prefix, _providers_with_keys
 
+@pytest.fixture(autouse=True)
+def clear_sage_testing(monkeypatch):
+    monkeypatch.delenv("SAGE_TESTING", raising=False)
+
 
 @pytest.fixture
 def openrouter_only_config(monkeypatch):

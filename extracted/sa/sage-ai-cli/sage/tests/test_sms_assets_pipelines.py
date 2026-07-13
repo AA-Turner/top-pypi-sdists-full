@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 ASSETS_PIPELINE_TASKS = [
     ("IMG-01", "Generate geometric shapes sprite sheet using Python Pillow atlas for IMG-01"),
     ("IMG-02", "Write Node.js script to create vector SVG logo with gradient for IMG-02"),

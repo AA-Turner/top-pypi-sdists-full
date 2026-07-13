@@ -2464,6 +2464,11 @@ class SAGEMessageBridge:
         if len(cleaned) <= 280:
             return cleaned
 
+        # Do not summarize errors using LLM, as it loses traceback context.
+        # Just grab the last 260 chars of the traceback.
+        if cleaned.startswith("❌ Error:"):
+            return f"❌ Error: ...{cleaned[-260:]}"
+
         # Fast-path: short-but-over-limit outputs → take the last paragraph
         # (typically the agent's final answer; everything before is the work log)
         # and hard-truncate. Cheap, no LLM call, no timeout risk.

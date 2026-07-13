@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Type, overload
+from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
-import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models, transaction
@@ -306,7 +305,14 @@ KNOWN_SCHEMAS = {  # by hash
 
 
 class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Schemas of datasets such as column sets of dataframes.
+    """Schemas to impose structure on artifacts and records.
+
+    The simplest example for a schema is the set of columns of a `DataFrame`.
+    LaminDB's schemas generalize those of pyarrow, pydantic, and pandera in two important ways:
+
+    1. They can be used to validate arbitrary array-like data structures, not just tabular data.
+    2. They're anchored in a database, not just in code, so that you can leverage them in queries.
+    3. They can be used to curate external data structures and define sheets via LaminDB's records.
 
     To create a schema, at least one of the following parameters must be passed:
 
@@ -979,6 +985,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             dtype = NUMBER_TYPE
             logger.debug("setting feature set to 'number'")
         validated = registry.validate(values, field=field, mute=mute, organism=organism)
+        import numpy as np
+
         values_array = np.array(values)
         validated_values = values_array[validated]
         if validated.sum() != len(values):
@@ -1436,10 +1444,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self.save(print_hash_mutation_warning=False)
 
     @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
+    def describe(
+        cls_or_self,
+        return_str: bool = False,
+        include: None | Literal["comments"] = None,
+    ) -> None | str:
         """Describe schema."""
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+            return type(cls_or_self).describe(
+                cls_or_self, return_str=return_str, include=include
+            )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")
         tree = describe_schema(cls_or_self)
@@ -1485,7 +1499,7 @@ class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = (("artifact", "schema"), ("artifact", "slot"))
+        unique_together = (("artifact", "slot", "schema"), ("artifact", "slot"))
 
 
 class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
@@ -1500,136 +1514,3 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
 
 
 Schema._get_related_name = _get_related_name
-
-
-# PostgreSQL migration helpers for auxiliary fields
-# These are used by migrations to efficiently migrate data from _aux to Django fields
-
-
-def migrate_auxiliary_fields_postgres(schema_editor) -> None:
-    """Migrate _aux['af'] fields to Django fields using PostgreSQL raw SQL.
-
-    This efficiently migrates auxiliary fields for all affected models:
-
-    **Artifact:**
-    - _save_completed from _aux['af']['0']
-
-    **Run:**
-    - cli_args from _aux['af']['0']
-
-    **Feature:**
-    - default_value from _aux['af']['0']
-    - nullable from _aux['af']['1'] (default: True)
-    - coerce from _aux['af']['2'] (default: False)
-    - For type features (is_type=True), all values are set to NULL
-
-    **Schema:**
-    - coerce from _aux['af']['0']
-    - flexible from _aux['af']['2'] (or computed from n_members)
-    - n_members (converted from negative to NULL)
-    - For type schemas (is_type=True), all values are set to NULL
-    - Keys '1' (optionals) and '3' (index_feature_uid) are preserved in _aux
-    """
-    # Artifact: migrate _save_completed from _aux->'af'->'0'
-    schema_editor.execute("""
-        UPDATE lamindb_artifact
-        SET _save_completed = (_aux->'af'->>'0')::boolean,
-            _aux = CASE
-                WHEN _aux->'af' IS NOT NULL THEN
-                    CASE
-                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                        ELSE _aux - 'af'
-                    END
-                ELSE _aux
-            END
-        WHERE _aux IS NOT NULL AND _aux->'af' IS NOT NULL
-    """)
-
-    # Run: migrate cli_args from _aux->'af'->'0'
-    schema_editor.execute("""
-        UPDATE lamindb_run
-        SET cli_args = _aux->'af'->>'0',
-            _aux = CASE
-                WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                ELSE _aux - 'af'
-            END
-        WHERE _aux IS NOT NULL AND _aux ? 'af'
-    """)
-
-    # Feature: migrate default_value, nullable, coerce
-    # For type features: set all to NULL
-    schema_editor.execute("""
-        UPDATE lamindb_feature
-        SET default_value = NULL,
-            nullable = NULL,
-            coerce = NULL,
-            _aux = CASE
-                WHEN _aux->'af' IS NOT NULL THEN
-                    CASE
-                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                        ELSE _aux - 'af'
-                    END
-                ELSE _aux
-            END
-        WHERE is_type = TRUE
-    """)
-    # For regular features: migrate values with defaults
-    schema_editor.execute("""
-        UPDATE lamindb_feature
-        SET default_value = _aux->'af'->'0',
-            nullable = COALESCE((_aux->'af'->>'1')::boolean, TRUE),
-            coerce = COALESCE((_aux->'af'->>'2')::boolean, FALSE),
-            _aux = CASE
-                WHEN _aux->'af' IS NOT NULL THEN
-                    CASE
-                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                        ELSE _aux - 'af'
-                    END
-                ELSE _aux
-            END
-        WHERE is_type = FALSE OR is_type IS NULL
-    """)
-
-    # Schema: migrate coerce, flexible, n_members
-    # For type schemas: set all to NULL
-    schema_editor.execute("""
-        UPDATE lamindb_schema
-        SET coerce = NULL,
-            flexible = NULL,
-            n_members = NULL,
-            _aux = CASE
-                WHEN _aux->'af' IS NOT NULL THEN
-                    CASE
-                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
-                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
-                        ELSE jsonb_set(_aux #- ARRAY['af'], '{af}', (_aux->'af') #- ARRAY['0'] #- ARRAY['2'])
-                    END
-                ELSE _aux
-            END
-        WHERE is_type = TRUE
-    """)
-    # For regular schemas: migrate values
-    # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
-    schema_editor.execute("""
-        UPDATE lamindb_schema
-        SET coerce = (_aux->'af'->>'0')::boolean,
-            flexible = COALESCE(
-                (_aux->'af'->>'2')::boolean,
-                n_members IS NULL OR n_members < 0
-            ),
-            n_members = CASE WHEN n_members < 0 THEN NULL ELSE n_members END,
-            _aux = CASE
-                WHEN _aux->'af' IS NOT NULL THEN
-                    CASE
-                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
-                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
-                        ELSE jsonb_set(
-                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN '{}'::jsonb ELSE _aux #- ARRAY['af'] END,
-                            '{af}',
-                            (_aux->'af') #- ARRAY['0'] #- ARRAY['2']
-                        )
-                    END
-                ELSE _aux
-            END
-        WHERE is_type = FALSE OR is_type IS NULL
-    """)

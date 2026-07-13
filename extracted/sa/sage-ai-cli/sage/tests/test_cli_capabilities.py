@@ -6,6 +6,12 @@ from sage.cli_core import app as sage_app
 from pathlib import Path
 from sage.core.content_validator import validate_content
 
+# These tests invoke the real CLI with cloud models — generous timeout needed.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 
 def verify_cli_capability(domain, prompt):
     runner = CliRunner()

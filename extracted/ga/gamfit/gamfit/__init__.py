@@ -9,7 +9,7 @@ predictor spaces that wrap or close first-class.
 
 The public surface also includes latent-coordinate and SAE-manifold tools:
 analytic penalties such as ``ScadMcpPenalty`` and ``NuclearNormPenalty``;
-assignment-family descriptors for softmax / finite-IBP / top-k / JumpReLU
+assignment-family descriptors for softmax / ordered Beta--Bernoulli / top-k / smooth threshold
 SAE gates; topology selection helpers; and manifold-SAE result objects with
 per-row ``assignments`` plus per-atom decoder covariance / posterior shape
 bands when produced by the Rust fit.
@@ -30,17 +30,6 @@ API ``gamfit.fit(df, 'y ~ s(x1) + s(x2)')``.
 
 See https://github.com/SauersML/gam for the full guide.
 """
-
-# Source-vs-wheel skew note:
-# This Python source expects the Rust extension from gam-pyffi >= 0.1.124.
-# Wheels published before that extension version may lack these pyfunctions:
-# - sae_manifold_reconstruction_r2
-# - sae_manifold_assignment_summary
-# - topology_dispatch_key
-# - assemble_candidate_formula
-# - select_topology_candidate_lifecycle
-# Rebuild or reinstall the local extension if importing from a source tree with
-# an older compiled .so.
 
 from importlib import metadata as _metadata
 from pathlib import Path
@@ -96,7 +85,12 @@ from ._api import (
 )
 from ._binding import RustExtensionUnavailableError
 from ._warnings import GamInferenceWarning, emit_inference_warnings
-from ._rust import adjudicate_atom_shape  # cross-class atom-shape adjudicator (Rust)
+from ._rust import (  # native topology-census instruments
+    adjudicate_atom_shape,
+    shape_matched_control,
+    shape_matched_control_f32,
+)
+from ._shape_census import ShapeControlledCensus, run_shape_controlled_census
 from ._compare import compare_models
 from ._linear_dictionary import LinearDictionaryFit, linear_dictionary_fit
 from ._sparse_dictionary import (
@@ -162,10 +156,10 @@ from ._penalties import (
     BlockOrthogonalityPenalty,
     BlockSparsityPenalty,
     GatedSAEDecoder,
-    IBPAssignmentPenalty,
+    OrderedBetaBernoulliPenalty,
     IsometryPenalty,
     IvaeRidgeMeanGauge,
-    JumpReLUPenalty,
+    SmoothThresholdPenalty,
     MechanismSparsityPenalty,
     NuclearNormPenalty,
     OrthogonalityPenalty,
@@ -245,12 +239,12 @@ from ._smooth import Smooth, SmoothSum  # compositional Smooth(latent=..., basis
 from ._penalty_descriptors import (
     ARDPenalty as _ARDPenaltyDescriptor,
     BlockOrthogonalityDescriptor,
-    IBPPenalty,
+    OrderedBetaBernoulliPenalty,
     MechanismSparsityDescriptor,
 )
 
 # Promote the torch-aware descriptor classes to the top-level penalty names so
-# `gamfit.ARDPenalty(0.1) + gamfit.IBPPenalty(1.0)` works uniformly through
+# `gamfit.ARDPenalty(0.1) + gamfit.OrderedBetaBernoulliPenalty(1.0)` works uniformly through
 # the new BasisDescriptor/PenaltyDescriptor protocol. The original
 # Rust-pyclass descriptors used by the formula pipeline remain reachable as
 # `gamfit._penalties.ARDPenalty`, `gamfit._penalties.BlockOrthogonalityPenalty`,
@@ -354,20 +348,16 @@ from ._tables import PredictionResult
 from ._sae_manifold import (
     GumbelTemperatureSchedule,
     ManifoldSAE,
-    StagewiseAtom,
-    StagewiseSAE,
-    fit as sae_fit,
     flat_block_assignment,
     gumbel_geometric_schedule,
     gumbel_linear_schedule,
     gumbel_reciprocal_iter_schedule,
     plot,
+    sae_manifold_certify_external,
     sae_manifold_fit,
-    sae_manifold_fit_stagewise,
 )
 from ._sae_viz import plot_atom, plot_fit
 from ._sae_trust import atom_trust_scores, sae_trust_diagnostics
-from .distill import DistilledEncoder, EncoderFallbackStats
 from ._schema import SchemaCheck, SchemaIssue
 from ._summary import Summary
 from ._validation import FormulaValidation
@@ -409,12 +399,9 @@ try:
 except _metadata.PackageNotFoundError:
     __version__ = "0.0.0+unknown"
 
-# Names whose implementation lives behind the optional ``torch`` extra. They are
-# advertised at the top level so users can write ``gamfit.AdaptiveTopK(...)``
-# without an explicit ``gamfit.torch`` import, while keeping the cold-start
-# import path torch-free.
+# Names whose implementation lives behind the optional ``torch`` extra. They
+# are loaded lazily while keeping the cold-start import path torch-free.
 _LAZY_TORCH_ATTRS: dict[str, tuple[str, str]] = {
-    "AdaptiveTopK":          ("gamfit.torch.modules",     "AdaptiveTopK"),
     "Crosscoder":            ("gamfit.crosscoder",        "Crosscoder"),
     "PoincareAtoms":         ("gamfit.torch.hyperbolic",  "PoincareAtoms"),
     "InterchangeSwapDecoder":("gamfit.torch.interchange", "InterchangeSwapDecoder"),
@@ -431,8 +418,7 @@ def __getattr__(name: str):
     ``AttributeError`` chained from the underlying ``ModuleNotFoundError``.
     This preserves the Python contract that ``hasattr`` only ever returns a
     bool and that ``from gamfit import *`` does not blow up on torch-less
-    installs, while ``gamfit.AdaptiveTopK`` (direct access) still produces a
-    clear actionable message pointing at ``pip install torch``.
+    installs while torch-specific modules remain under ``gamfit.torch``.
     """
     target = _LAZY_TORCH_ATTRS.get(name)
     if target is not None:

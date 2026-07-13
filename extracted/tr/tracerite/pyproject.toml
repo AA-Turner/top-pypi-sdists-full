@@ -11,7 +11,7 @@ authors = [
     { name = "Sanic Community", email = "tronic@noreply.users.github.com" }
 ]
 license = { text = "Public Domain" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: Public Domain",
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Debuggers",
 ]
 dependencies = [
-    "html5tagger>=1.2.1",
+    "html5tagger>=2.0.0",
 ]
 
 [project.urls]
@@ -59,6 +59,14 @@ test = [
     "ty>=0.0.7",
 ]
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
 [tool.hatch.version]
 source = "vcs"
 
@@ -74,8 +82,7 @@ packages = ["tracerite"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
-extend-exclude = ["*.ipynb", "demo"]
+extend-exclude = ["*.ipynb", "demo", "demo/helpers/broken_syntax.py"]
 
 [tool.ty.src]
 exclude = ["*.ipynb", "demo"]

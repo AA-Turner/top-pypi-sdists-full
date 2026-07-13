@@ -18,10 +18,7 @@ def _check_query(query):
     """
     Check query validity with regex
     """
-    if not _MULTIPLE_WORD_RE.match(query):
-        return False
-    else:
-        return True
+    return bool(_MULTIPLE_WORD_RE.match(query))
 
 
 class What3Words(Geocoder):
@@ -185,7 +182,7 @@ class What3Words(Geocoder):
             timeout=DEFAULT_SENTINEL
     ):
         """
-        Return a `3 words` address by location point. Each point on surface has
+        Return a `3 words` address by location point. Each point on the surface has
         a `3 words` address, so there's always a non-empty response.
 
         :param query: The coordinates for which you wish to obtain the 3 word
@@ -385,7 +382,7 @@ class What3WordsV3(Geocoder):
             timeout=DEFAULT_SENTINEL
     ):
         """
-        Return a `3 words` address by location point. Each point on surface has
+        Return a `3 words` address by location point. Each point on the surface has
         a `3 words` address, so there's always a non-empty response.
 
         :param query: The coordinates for which you wish to obtain the 3 word

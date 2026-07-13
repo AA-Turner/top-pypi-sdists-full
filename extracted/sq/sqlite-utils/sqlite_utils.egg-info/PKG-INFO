@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlite-utils
-Version: 4.1
+Version: 4.1.1
 Summary: CLI tool and Python library for manipulating SQLite databases
 Author: Simon Willison
 License-Expression: Apache-2.0

@@ -45,6 +45,7 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    import builtins
     from datetime import datetime
 
     import pandas as pd
@@ -471,6 +472,9 @@ class RecordBatch:
         index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
+        # columns where every cell is NaN would be silently dropped by the
+        # per-cell skip below; preserve them as None so they reach validation
+        all_null_cols = {col for col in work_df.columns if work_df[col].isna().all()}
         row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
             row = dict(row)
@@ -494,6 +498,10 @@ class RecordBatch:
                 if pd.api.types.is_scalar(value) and pd.isna(value):
                     continue
                 features[key] = value
+            for col in all_null_cols:
+                features[col] = (
+                    None  # None is skipped by _collect_record_feature_writes, not stored
+                )
 
             if index_feature is not None and self._resolved_type.schema is not None:
                 name_from_features, features = pop_index_from_feature_dictionary(
@@ -502,7 +510,10 @@ class RecordBatch:
                 if name is None:
                     name = name_from_features
 
-            record_kwargs: dict[str, Any] = {"type": self._resolved_type, "_search_names": False}
+            record_kwargs: dict[str, Any] = {
+                "type": self._resolved_type,
+                "_search_names": False,
+            }
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
@@ -520,19 +531,17 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records with markdown notes, dynamic registries, and sheets.
+    """Records that support sheets and markdown notes.
 
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
-    and other custom entities with their features.
+    and other custom entities.
 
     Args:
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         type: `Record | None = None` The type of this record.
-        is_type: `bool = False` Whether this record is a type (a record that
-            classifies other records).
-        features: `dict[str | Feature, Any] | None = None` Lazy feature values
-            to persist on `.save()` or `ln.save([...])`.
+        is_type: `bool = False` Whether this record is a type.
+        features: `dict[str | Feature, Any] | None = None` Feature annotations.
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
@@ -562,16 +571,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group records in a dynamic registry by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # create an experiments registry
+        # use a record type to create an experiments registry
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
         # create a feature to link experiments
         experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-        # constrain a samples registry with a schema, turning it into a sheet
+        # create a samples sheet by constraining a record type with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
@@ -629,30 +638,30 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Notes
     -----
 
-    **Schema index.** When a sheet schema defines :attr:`~lamindb.Schema.index`, the
-    index feature acts as the row key — analogous to `df.index` for tabular data.
-    The index feature must have `dtype=str` because values are stored on
-    :attr:`~lamindb.Record.name`:
-
-    - **Write**: `Record(features=...)`, `features.add_values()`, and
-      :meth:`~lamindb.Record.from_dataframe` route the index feature to
-      :attr:`~lamindb.Record.name` and do not write it to link tables.
-    - **Read**: `features.get_values()` injects the index from `Record.name`.
-    - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
-      (named after the index feature) and omits encoded metadata columns
-      (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
-      Sheets without `index` keep the previous export behavior.
-    - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
-      matches the schema index feature (or the index feature as a column).
-    - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
-      is configured.
-
-    You can edit records like spreadsheets on the hub:
+    You can edit records like spreadsheets in the UI:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
         :width: 800px
 
-    Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
+    .. dropdown:: An index feature maps onto the name field of a record.
+
+        When a sheet schema defines :attr:`~lamindb.Schema.index`, the
+        index feature acts as the row key and maps to the `index` in a `DataFrame` and to the
+        :attr:`~lamindb.Record.name` field of a `Record`:
+
+        - **Write**: `Record(features=...)`, `features.add_values()`, and
+          :meth:`~lamindb.Record.from_dataframe` route the index feature to
+          :attr:`~lamindb.Record.name` and do not write it to link tables.
+        - **Read**: `features.get_values()` injects the index from `Record.name`.
+        - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
+          (named after the index feature) and omits encoded metadata columns
+          (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
+          Sheets without `index` keep the previous export behavior.
+        - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
+          matches the schema index feature (or the index feature as a column).
+        - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
+          is configured.
+
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
@@ -940,7 +949,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     @strict_classmethod
     def from_dataframe(
-        cls,
+        cls: builtins.type[Record],
         df: pd.DataFrame,
         *,
         type: Record | str,
@@ -1069,56 +1078,64 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "records")  # type: ignore
 
-    def _set_export_run(self, is_run_input: bool | Run | None = None) -> None:
+    def _set_export_run(
+        self,
+        is_run_input: bool | Run | None = None,
+        *,
+        use_export_run: bool = True,
+    ) -> None:
         from lamindb.core._context import context
         from lamindb.models import Run, Transform
 
         if isinstance(is_run_input, Run):
             run = is_run_input
         elif is_run_input in {True, None}:
-            # If there is an active run context, link it as initiator of the
-            # internal record export run.
-            initiated_by_run = context.run
-            # Compatibility path for older instances:
-            # historically, "__lamindb_record_export__" transforms could have
-            # arbitrary UIDs. We now standardize on a fixed UID to make creation
-            # idempotent under concurrency and to avoid duplicate internal
-            # transforms. This follows the fixed-UID pattern already used by
-            # "save_vitessce_config" (integrations/_vitessce.py) and
-            # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
-            # After a few lamindb release cycles (once legacy UIDs are no
-            # longer expected), this normalization branch can be removed.
-            export_transform_uid = "v6KpQx9mRt2B0000"
-            transform = Transform.objects.filter(uid=export_transform_uid).first()
-            if transform is None:
-                transform = (
-                    Transform.objects.filter(
-                        key="__lamindb_record_export__", kind="function"
+            if use_export_run:
+                # If there is an active run context, link it as initiator of the
+                # internal record export run.
+                initiated_by_run = context.run
+                # Compatibility path for older instances:
+                # historically, "__lamindb_record_export__" transforms could have
+                # arbitrary UIDs. We now standardize on a fixed UID to make creation
+                # idempotent under concurrency and to avoid duplicate internal
+                # transforms. This follows the fixed-UID pattern already used by
+                # "save_vitessce_config" (integrations/_vitessce.py) and
+                # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
+                # After a few lamindb release cycles (once legacy UIDs are no
+                # longer expected), this normalization branch can be removed.
+                export_transform_uid = "v6KpQx9mRt2B0000"
+                transform = Transform.objects.filter(uid=export_transform_uid).first()
+                if transform is None:
+                    transform = (
+                        Transform.objects.filter(
+                            key="__lamindb_record_export__", kind="function"
+                        )
+                        .order_by("created_at")
+                        .first()
                     )
-                    .order_by("created_at")
-                    .first()
+                if transform is None:
+                    transform, _ = Transform.objects.get_or_create(
+                        uid=export_transform_uid,
+                        defaults={
+                            "key": "__lamindb_record_export__",
+                            "kind": "function",
+                        },
+                    )
+                elif transform.uid != export_transform_uid:
+                    transform.uid = export_transform_uid
+                    transform.save()
+                # Export is treated as a discrete user action, so always create a new
+                # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+                run = Run(
+                    transform=transform,
+                    initiated_by_run=initiated_by_run,
+                    status="started",
                 )
-            if transform is None:
-                transform, _ = Transform.objects.get_or_create(
-                    uid=export_transform_uid,
-                    defaults={
-                        "key": "__lamindb_record_export__",
-                        "kind": "function",
-                    },
-                )
-            elif transform.uid != export_transform_uid:
-                transform.uid = export_transform_uid
-                transform.save()
-            # Export is treated as a discrete user action, so always create a new
-            # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
-            run = Run(
-                transform=transform,
-                initiated_by_run=initiated_by_run,
-                status="started",
-            )
-            run.space = self.space
-            run.save()  # type: ignore
-            run.initiated_by_run = initiated_by_run  # available in memory
+                run.space = self.space
+                run.save()  # type: ignore
+                run.initiated_by_run = initiated_by_run  # available in memory
+            else:
+                run = context.run
         else:
             run = None
         self._export_run = run
@@ -1129,6 +1146,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         recurse: bool = False,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
+        use_export_run: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -1144,8 +1162,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
         are omitted. Sheets without `index` keep the previous export behavior.
 
-        It will also track the record as an input to the current run.
-
         Example:
 
             Export all records on a sheet::
@@ -1156,7 +1172,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             recurse: Whether to include records of sub-types recursively.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
-                inputs of the export run. If `False`, only links the record type.
+                inputs of the run. If `False`, only links the record type.
+            use_export_run: Whether to create and use a mediating
+                `__lamindb_record_export__` run for lineage.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         if isinstance(cls_or_self, type):
@@ -1179,6 +1197,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
             _record_type=self,
+            use_export_run=use_export_run,
             **kwargs,
         )
         self._export_run = getattr(qs, "_record_export_run", None)
@@ -1194,7 +1213,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
 
-        The format defaults to `.csv` unless the key specifies another format or suffix is passed.
+        The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
 
@@ -1208,8 +1227,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 sample_sheet.to_artifact()
 
         Args:
-            key: `str | None = None` The artifact key.
-            suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            key: The artifact key.
+            suffix: The suffix to append to the default key if no key is passed.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -1225,6 +1244,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self.to_dataframe(
                 is_run_input=is_run_input,
                 link_individual_inputs=link_individual_inputs,
+                use_export_run=True,
                 **kwargs,
             ),
             key=key,

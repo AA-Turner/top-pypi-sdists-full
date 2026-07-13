@@ -53,13 +53,14 @@
 //!                + a_u · tau_v + r_uv
 //! ```
 //!
-//! Probit Mills (stable; uses `log_ndtr_and_mills` from `numerics_device::PROBIT_NUMERICS_CU`):
+//! Probit Mills (stable; uses the shared curvature primitive from
+//! `numerics_device::PROBIT_NUMERICS_CU`):
 //!
 //! ```text
 //!     s = 2y − 1 ;  m = s · e_obs
-//!     [log_cdf, λ] = log_ndtr_and_mills(m)
+//!     [log_cdf, λ, C] = log_ndtr_mills_curvature(m),  C = −d²logΦ(m)/dm²
 //!     A = −w · s · λ
-//!     B =  w · λ · (m + λ)
+//!     B =  w · C
 //! ```
 //!
 //! Final outputs:
@@ -703,10 +704,10 @@ extern "C" __global__ void bms_flex_row_kernel(
     // which forms `signed_margin = s_y · eta_val`. #415 parity lock.
     double e_obs = row_e_obs[row];
     double m_arg = s * e_obs;
-    double log_cdf, lambda;
-    log_ndtr_and_mills(m_arg, &log_cdf, &lambda);
+    double log_cdf, lambda, probit_curvature;
+    log_ndtr_mills_curvature(m_arg, &log_cdf, &lambda, &probit_curvature);
     double A_i = -w * s * lambda;
-    double B_i =  w * lambda * (m_arg + lambda);
+    double B_i =  w * probit_curvature;
 
     out_neglog[row] = -w * log_cdf;
     for (int u = 0; u < r; ++u) {
@@ -2943,74 +2944,13 @@ mod oracle_parity_tests {
     // macOS lib build can still type-check it.
 
     pub(crate) const ORACLE_INV_TWO_PI: f64 = 1.0 / std::f64::consts::TAU;
-    pub(crate) const ORACLE_SQRT_2: f64 = std::f64::consts::SQRT_2;
-    pub(crate) const ORACLE_INV_SQRT_2PI: f64 = 0.398_942_280_401_432_7;
-
-    pub(crate) fn oracle_erfcx_nonnegative(x: f64) -> f64 {
-        if !x.is_finite() {
-            return if x > 0.0 { 0.0 } else { f64::INFINITY };
-        }
-        if x <= 0.0 {
-            return 1.0;
-        }
-        if x < 26.0 {
-            let mut xx = x * x;
-            if xx > 700.0 {
-                xx = 700.0;
-            }
-            return xx.exp() * gam_gpu::numerics_host::erfc(x);
-        }
-        let inv = 1.0 / x;
-        let inv2 = inv * inv;
-        let poly = 1.0 - 0.5 * inv2 + 0.75 * inv2 * inv2 - 1.875 * inv2 * inv2 * inv2
-            + 6.5625 * inv2 * inv2 * inv2 * inv2;
-        let inv_sqrt_pi: f64 = 0.564_189_583_547_756_3;
-        inv * poly * inv_sqrt_pi
-    }
 
     pub(crate) fn oracle_log_ndtr_and_mills(x: f64) -> (f64, f64) {
-        if x == f64::INFINITY {
-            return (0.0, 0.0);
-        }
-        if x == f64::NEG_INFINITY {
-            return (f64::NEG_INFINITY, f64::INFINITY);
-        }
-        if x.is_nan() {
-            return (x, x);
-        }
-        // Single-algorithm region around and above 0. Both `log Φ(x)` and the
-        // Mills ratio `φ/Φ` are computed from the SAME `erfc(-x/√2)` call, so
-        // the oracle is C¹ across the x=0 seam (the prior split — erfcx-based
-        // `-u²+ln(0.5·e^{u²}·erfc u)` for x<0 vs direct `ln(0.5·erfc(-x))` for
-        // x≥0 — used two distinct float algorithms whose ~1e-7 disagreement at
-        // x=0 corrupted a finite-difference reference straddling the seam, #838).
-        //
-        // The erfcx form is mathematically identical (e^{u²}·erfc(u)=erfcx(u),
-        // so −u²+ln(0.5·erfcx u)=ln(0.5·erfc(−x/√2))); it is only needed deep in
-        // the left tail (x ≲ −38), where `erfc(-x/√2)` underflows to 0 and the
-        // exp/ln cancellation is the *only* way to keep `log Φ` finite. We move
-        // the branch there, far from any region the kernel or its FD lock visits.
-        const ORACLE_LEFT_TAIL_X: f64 = -37.0;
-        if x >= ORACLE_LEFT_TAIL_X {
-            let mut cdf = 0.5 * gam_gpu::numerics_host::erfc(-x / ORACLE_SQRT_2);
-            if cdf < 1e-300 {
-                cdf = 1e-300;
-            }
-            if cdf > 1.0 {
-                cdf = 1.0;
-            }
-            let pdf = ORACLE_INV_SQRT_2PI * (-0.5 * x * x).exp();
-            (cdf.ln(), pdf / cdf)
-        } else {
-            let u = -x / ORACLE_SQRT_2;
-            let mut ex = oracle_erfcx_nonnegative(u);
-            if ex < 1e-300 {
-                ex = 1e-300;
-            }
-            let log_cdf = -u * u + (0.5 * ex).ln();
-            let sqrt_2_over_pi: f64 = 0.797_884_560_802_865_4;
-            (log_cdf, sqrt_2_over_pi / ex)
-        }
+        gam_gpu::numerics_host::log_ndtr_and_mills(x)
+    }
+
+    pub(crate) fn oracle_log_ndtr_mills_curvature(x: f64) -> (f64, f64, f64) {
+        gam_gpu::numerics_host::log_ndtr_mills_curvature(x)
     }
 
     /// Same outputs the device kernel writes: `(neglog, grad, hess)` per row.
@@ -3207,9 +3147,9 @@ mod oracle_parity_tests {
             // is used only for the gradient/Hessian, never as the Mills margin.
             let e_obs = inputs.e_obs[row];
             let m_arg = s * e_obs;
-            let (log_cdf, lambda) = oracle_log_ndtr_and_mills(m_arg);
+            let (log_cdf, lambda, probit_curvature) = oracle_log_ndtr_mills_curvature(m_arg);
             let a_i = -w * s * lambda;
-            let b_i = w * lambda * (m_arg + lambda);
+            let b_i = w * probit_curvature;
             neglog[row] = -w * log_cdf;
             for u in 0..r {
                 grad[row * r + u] = a_i * bar_e_u[u];
@@ -3976,9 +3916,9 @@ mod tests {
         let ab_of = |e: f64, y: f64, w: f64| -> (f64, f64) {
             let s = 2.0 * y - 1.0;
             let m_arg = s * e;
-            let (_, lambda) = oracle_log_ndtr_and_mills(m_arg);
+            let (_, lambda, probit_curvature) = oracle_log_ndtr_mills_curvature(m_arg);
             let a_i = -w * s * lambda;
-            let b_i = w * lambda * (m_arg + lambda);
+            let b_i = w * probit_curvature;
             (a_i, b_i)
         };
 
@@ -5243,8 +5183,6 @@ mod tests {
         }
         #[cfg(target_os = "linux")]
         {
-            use rayon::prelude::*;
-
             let Some(_runtime) = gam_gpu::device_runtime::GpuRuntime::global() else {
                 eprintln!(
                     "[bms_flex_row hvp hill-climb] no CUDA runtime — skipping V100 perf gate"
@@ -5380,11 +5318,11 @@ mod tests {
             const CHUNK_ROWS: usize = 4096;
             let cpu_hvp_parallel = || -> Vec<f64> {
                 let nchunks = n.div_ceil(CHUNK_ROWS);
-                (0..nchunks)
-                    .into_par_iter()
-                    .fold(
-                        || vec![0.0_f64; p_total],
-                        |mut acc, ci| {
+                gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+                    nchunks,
+                    |ci_range| {
+                        let mut acc = vec![0.0_f64; p_total];
+                        for ci in ci_range {
                             let lo = ci * CHUNK_ROWS;
                             let hi = (lo + CHUNK_ROWS).min(n);
                             let m = hi - lo;
@@ -5400,18 +5338,17 @@ mod tests {
                             for (a, &p) in acc.iter_mut().zip(partial.iter()) {
                                 *a += p;
                             }
-                            acc
-                        },
-                    )
-                    .reduce(
-                        || vec![0.0_f64; p_total],
-                        |mut a, b| {
-                            for (ax, bx) in a.iter_mut().zip(b.iter()) {
-                                *ax += *bx;
-                            }
-                            a
-                        },
-                    )
+                        }
+                        acc
+                    },
+                    |mut a, b| {
+                        for (ax, bx) in a.iter_mut().zip(b.iter()) {
+                            *ax += *bx;
+                        }
+                        a
+                    },
+                )
+                .unwrap_or_else(|| vec![0.0_f64; p_total])
             };
             // Warmup once to populate L3 / steady-state Rayon thread pool.
             let warm = cpu_hvp_parallel();
@@ -5456,8 +5393,6 @@ mod tests {
         }
         #[cfg(target_os = "linux")]
         {
-            use rayon::prelude::*;
-
             let Some(_runtime) = gam_gpu::device_runtime::GpuRuntime::global() else {
                 eprintln!(
                     "[bms_flex_row dense_block hill-climb] no CUDA runtime — skipping V100 perf gate"
@@ -5601,14 +5536,14 @@ mod tests {
             let w_primary_start = primary.w.as_ref().map(|r| r.start).unwrap_or(0);
             let cpu_build_parallel = || -> Vec<f64> {
                 let nchunks = n.div_ceil(CHUNK_ROWS);
-                (0..nchunks)
-                    .into_par_iter()
-                    .fold(
-                        || vec![0.0_f64; p_total * p_total],
-                        |mut acc, ci| {
+                gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+                    nchunks,
+                    |ci_range| {
+                        let mut acc = vec![0.0_f64; p_total * p_total];
+                        let mut phi: Vec<Vec<f64>> = vec![vec![0.0_f64; p_total]; r];
+                        for ci in ci_range {
                             let lo = ci * CHUNK_ROWS;
                             let hi = (lo + CHUNK_ROWS).min(n);
-                            let mut phi: Vec<Vec<f64>> = vec![vec![0.0_f64; p_total]; r];
                             for row in lo..hi {
                                 for col in phi.iter_mut() {
                                     col.iter_mut().for_each(|v| *v = 0.0);
@@ -5647,18 +5582,17 @@ mod tests {
                                     }
                                 }
                             }
-                            acc
-                        },
-                    )
-                    .reduce(
-                        || vec![0.0_f64; p_total * p_total],
-                        |mut a, b| {
-                            for (ax, bx) in a.iter_mut().zip(b.iter()) {
-                                *ax += *bx;
-                            }
-                            a
-                        },
-                    )
+                        }
+                        acc
+                    },
+                    |mut a, b| {
+                        for (ax, bx) in a.iter_mut().zip(b.iter()) {
+                            *ax += *bx;
+                        }
+                        a
+                    },
+                )
+                .unwrap_or_else(|| vec![0.0_f64; p_total * p_total])
             };
             let warm_cpu = cpu_build_parallel();
             assert_eq!(warm_cpu.len(), p_total * p_total);

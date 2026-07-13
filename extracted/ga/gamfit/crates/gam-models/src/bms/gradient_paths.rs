@@ -1,7 +1,8 @@
 use super::family::clamp_bernoulli_link_probability;
 use super::*;
-use gam_linalg::matrix::{LinearOperator, SignedWeightsView};
+use gam_linalg::matrix::{FiniteSignedWeightsView, LinearOperator};
 use gam_math::jet_tower::Tower4;
+use gam_math::probability::normal_logcdf_derivatives;
 use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, escalate_ridge};
 
 pub(crate) fn standardize_latent_z_with_policy(
@@ -251,9 +252,11 @@ pub(super) fn pooled_probit_baseline(
                 let eta = intercept + slope * zi;
                 let s = 2.0 * yi - 1.0;
                 let margin = s * eta;
-                let (logcdf, lambda) = signed_probit_logcdf_and_mills_ratio(margin);
+                let probit = normal_logcdf_derivatives(margin);
+                let logcdf = probit[0];
+                let lambda = probit[1];
                 let g_eta = -wi * s * lambda;
-                let h_eta = wi * lambda * (margin + lambda);
+                let h_eta = -wi * probit[2];
                 obj -= wi * logcdf;
                 g0 += g_eta;
                 g1 += g_eta * zi;
@@ -484,7 +487,8 @@ pub(super) fn pilot_eta_for_link_dev_orthogonalisation(
         return Ok(working_eta);
     }
     let xtwr = marginal_design.compute_xtwy(&w_irls, &residual)?;
-    let mut xtwx = marginal_design.xt_diag_x_signed_op(SignedWeightsView::from_array(&w_irls))?;
+    let mut xtwx =
+        marginal_design.xt_diag_x_signed_op(FiniteSignedWeightsView::try_from_array(&w_irls)?)?;
     let trace_diag: f64 = (0..p_marg).map(|i| xtwx[[i, i]]).sum();
     let ridge =
         (trace_diag / p_marg as f64).max(PILOT_RIDGE_DIAG_FLOOR) * PILOT_RIDGE_DIAG_FRACTION;
@@ -604,26 +608,16 @@ pub(crate) fn signed_probit_neglog_derivatives_up_to_fourth_numeric(
     if weight == 0.0 || signed_margin == f64::INFINITY {
         return (0.0, 0.0, 0.0, 0.0);
     }
-    if signed_margin == f64::NEG_INFINITY {
-        return (f64::NEG_INFINITY, weight, 0.0, 0.0);
-    }
     if signed_margin.is_nan() {
         return (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
     }
-    let (_, lambda) = signed_probit_logcdf_and_mills_ratio(signed_margin);
-    let k1 = -lambda;
-    let k2 = lambda * (signed_margin + lambda);
-    let k3 = lambda
-        * (1.0
-            - signed_margin * signed_margin
-            - 3.0 * signed_margin * lambda
-            - 2.0 * lambda * lambda);
-    let k4 = lambda
-        * ((signed_margin.powi(3) - 3.0 * signed_margin)
-            + (7.0 * signed_margin * signed_margin - 4.0) * lambda
-            + 12.0 * signed_margin * lambda * lambda
-            + 6.0 * lambda.powi(3));
-    (weight * k1, weight * k2, weight * k3, weight * k4)
+    let d = normal_logcdf_derivatives(signed_margin);
+    (
+        -weight * d[1],
+        -weight * d[2],
+        -weight * d[3],
+        -weight * d[4],
+    )
 }
 
 /// Exact probit derivative helper used by analytic jet code paths.
@@ -663,50 +657,30 @@ pub(crate) fn signed_probit_neglog_derivatives_up_to_fourth(
 /// // → [-w*logcdf, k1, k2, k3, k4]
 /// ```
 ///
-/// which evaluated `signed_probit_logcdf_and_mills_ratio` TWICE on the same
-/// `m` (once for `logΦ`, once again — discarding `logΦ` — for the Mills ratio
-/// `λ` that drives `k1..k4`). On the rigid standard-normal BMS path that pair
-/// of `erfcx`/`erfc` transcendentals is the dominant per-row arithmetic across
-/// all `n ≈ 356k` rows, so collapsing it to ONE call halves the transcendental
-/// budget of the jet build. The result is bit-identical: `logΦ` and `λ` are the
-/// exact same values the two-call form produced (same branch, same `ex`), and
-/// `k1..k4` are the same polynomials in `(m, λ)`.
+/// which evaluated the tail kernel twice on the same `m`. The centralized
+/// derivative stack evaluates it once and owns the cancellation-free left-tail
+/// continued fraction and right-tail log-magnitude recurrence shared by every
+/// probit consumer.
 ///
-/// Boundary semantics match [`unary_derivatives_neglog_phi`] (the prior
-/// two-call form): `+∞` is the saturated zero tail (all zero); `−∞` returns the
-/// `[+∞, −w, w·0, 0, 0]` limit (value `−w·logΦ(−∞)=+∞`, `k1=−λ→−∞` scaled by the
-/// `w` already folded by the numeric derivative helper); `NaN` propagates.
+/// `+∞` is the saturated zero tail. At `−∞`, a positive weight has the exact
+/// limit `[+∞, −∞, +w, −0, −0]`; a negative signed contribution reverses the
+/// infinite and zero signs through ordinary scalar multiplication. `NaN`
+/// propagates unless the row is inactive (`weight == 0`).
 #[inline]
 pub(crate) fn signed_probit_neglog_unary_stack(signed_margin: f64, weight: f64) -> [f64; 5] {
     if weight == 0.0 || signed_margin == f64::INFINITY {
         return [0.0; 5];
     }
-    if signed_margin == f64::NEG_INFINITY {
-        // logΦ(−∞) = −∞ ⇒ value −w·(−∞) = +∞; the derivative helper's −∞ limit
-        // is (−∞, w, 0, 0) for (k1, k2, k3, k4) before the weight fold below.
-        return [f64::INFINITY, f64::NEG_INFINITY, weight, 0.0, 0.0];
-    }
     if signed_margin.is_nan() {
         return [f64::NAN; 5];
     }
-    // ONE transcendental evaluation feeds both the value (logΦ) and every
-    // derivative (through the Mills ratio λ).
-    let (logcdf, lambda) = signed_probit_logcdf_and_mills_ratio(signed_margin);
-    let m = signed_margin;
-    let k1 = -lambda;
-    let k2 = lambda * (m + lambda);
-    let k3 = lambda * (1.0 - m * m - 3.0 * m * lambda - 2.0 * lambda * lambda);
-    let k4 = lambda
-        * ((m * m * m - 3.0 * m)
-            + (7.0 * m * m - 4.0) * lambda
-            + 12.0 * m * lambda * lambda
-            + 6.0 * lambda * lambda * lambda);
+    let d = normal_logcdf_derivatives(signed_margin);
     [
-        -weight * logcdf,
-        weight * k1,
-        weight * k2,
-        weight * k3,
-        weight * k4,
+        -weight * d[0],
+        -weight * d[1],
+        -weight * d[2],
+        -weight * d[3],
+        -weight * d[4],
     ]
 }
 
@@ -1522,13 +1496,13 @@ pub(crate) fn rigid_standard_normal_signed_margin<S: gam_math::jet_scalar::JetSc
 }
 
 /// One row of rigid standard-normal Bernoulli data as a generic
-/// [`RowNllProgramGeneric<2>`] (#932 production wiring).
+/// [`RowProgram<2>`] (#932 production wiring).
 ///
 /// This is the genuine production consumer of the generic program seam: the row
 /// NLL is written ONCE in [`rigid_standard_normal_row_nll_generic`] over
 /// `S: JetScalar<2>`, and this single-row program routes it through the
 /// [`gam_math::jet_tower`] `generic_*` evaluators
-/// ([`generic_full_tower`](gam_math::jet_tower::generic_full_tower) for
+/// ([`program_full_tower`](gam_math::jet_tower::program_full_tower) for
 /// the uncontracted tensors, and the cheap order-2 / contracted scalars for the
 /// value/grad/Hessian and directional channels). Primaries are
 /// `[marginal η, slope g]`; the marginal link map and per-row data
@@ -1542,7 +1516,7 @@ pub(crate) struct RigidStandardNormalRow {
     pub(crate) probit_scale: f64,
 }
 
-impl gam_math::jet_tower::RowNllProgramGeneric<2> for RigidStandardNormalRow {
+impl gam_math::jet_tower::RowProgram<2> for RigidStandardNormalRow {
     fn n_rows(&self) -> usize {
         1
     }
@@ -1554,7 +1528,7 @@ impl gam_math::jet_tower::RowNllProgramGeneric<2> for RigidStandardNormalRow {
         Ok([self.marginal.eta_value(), self.g])
     }
 
-    fn row_nll_generic<S: gam_math::jet_scalar::JetScalar<2>>(
+    fn eval<S: gam_math::jet_scalar::JetScalar<2>>(
         &self,
         row: usize,
         p: &[S; 2],
@@ -1585,9 +1559,9 @@ pub(crate) fn rigid_standard_normal_tower(
     // #932 cutover: the full uncontracted tower comes from the SAME single
     // generic row-NLL expression every other channel consumer derives from,
     // routed through the generic program seam evaluated at the all-channels
-    // `Tower4` scalar. `generic_full_tower` seeds `[marginal η, g]` exactly as
+    // `Tower4` scalar. `program_full_tower` seeds `[marginal η, g]` exactly as
     // the previous inline `Tower4::variable` form did, so this is bit-identical
-    // while giving `RowNllProgramGeneric` a genuine production consumer.
+    // while giving `RowProgram` a genuine production consumer.
     let program = RigidStandardNormalRow {
         marginal,
         g,
@@ -1596,7 +1570,7 @@ pub(crate) fn rigid_standard_normal_tower(
         w,
         probit_scale,
     };
-    gam_math::jet_tower::generic_full_tower(&program, 0)
+    gam_math::jet_tower::program_full_tower(&program, 0)
 }
 
 /// Branch-free `signed`-margin jet for the rigid standard-normal row kernel.
@@ -1727,7 +1701,7 @@ pub(super) fn rigid_standard_normal_row_kernel(
 ) -> Result<(f64, [f64; 2], [[f64; 2]; 2]), String> {
     // #932 cutover: value/gradient/Hessian derive from the SAME single generic
     // row-NLL expression (`rigid_standard_normal_row_nll_generic`) every other
-    // channel consumer uses, routed through the `RowNllProgramGeneric` seam at the
+    // channel consumer uses, routed through the `RowProgram` seam at the
     // packed `Order2<2>` scalar — there is no longer a hand-assembled `Tower2<2>`
     // here. Seeds `[marginal η, g]` exactly as the deleted inline form did, so it
     // is bit-identical (the `rigid_bernoulli_*_agrees_with_jet_tower_program_all_channels`
@@ -1741,7 +1715,7 @@ pub(super) fn rigid_standard_normal_row_kernel(
         w,
         probit_scale,
     };
-    gam_math::jet_tower::generic_row_kernel(&program, 0)
+    gam_math::jet_tower::program_row_kernel(&program, 0)
 }
 
 /// Mixed `(primary, z)` second derivative of the rigid standard-normal row
@@ -2130,9 +2104,9 @@ mod jet_tower_oracle_tests {
     //! already carry `verify_kernel_channels` oracles) is an INDEPENDENT
     //! cross-check that this production tower is correct. This module adds it:
     //!
-    //! * an independent [`RowNllProgram<2>`] that writes the row NLL
+    //! * an independent [`RowProgram<2>`] that writes the row NLL
     //!   `ℓ = −w·logΦ((2y−1)·η)`, `η = q·√(1+(s·g)²) + s·g·z` ONCE over generic
-    //!   `Tower4` arithmetic (a different composition order than the fused
+    //!   generic jet arithmetic (a different composition order than the fused
     //!   production `signed` jet → exercises the Leibniz/Faà-di-Bruno layer
     //!   where the #736 cross-block sign-flip bug genus lives), and
     //! * a special-function-independent central-FD witness of the value channel
@@ -2141,6 +2115,29 @@ mod jet_tower_oracle_tests {
     //!   transcendental).
 
     use super::*;
+
+    #[test]
+    fn signed_probit_stack_preserves_extreme_tail_derivatives_and_weight_sign() {
+        let positive = signed_probit_neglog_unary_stack(f64::NEG_INFINITY, 2.0);
+        assert_eq!(
+            positive,
+            [f64::INFINITY, f64::NEG_INFINITY, 2.0, -0.0, -0.0]
+        );
+        let negative = signed_probit_neglog_unary_stack(f64::NEG_INFINITY, -2.0);
+        assert_eq!(negative, [f64::NEG_INFINITY, f64::INFINITY, -2.0, 0.0, 0.0]);
+
+        let right = signed_probit_neglog_unary_stack(38.6, 1.0);
+        assert_eq!(right[1], -0.0);
+        assert!(right[2] > 0.0 && right[2].is_subnormal());
+        assert!(right[3] < 0.0 && right[3].is_subnormal());
+        assert!(right[4] > 0.0 && right[4].is_subnormal());
+
+        let left = signed_probit_neglog_unary_stack(-1.0e100, 1.0);
+        assert_eq!(left[1], -1.0e100);
+        assert_eq!(left[2], 1.0);
+        assert!(left[3] < 0.0 && left[3].is_finite());
+        assert_eq!(left[4], -0.0);
+    }
 
     /// #932 combined third+fourth primary tensors read off ONE shared
     /// `rigid_standard_normal_tower` jet (the redundancy-free form of the
@@ -2161,7 +2158,7 @@ mod jet_tower_oracle_tests {
         Ok((tower.t3, tower.t4))
     }
     use gam_math::jet_tower::{
-        KernelChannels, RowNllProgram, evaluate_program, verify_kernel_channels,
+        KernelChannels, RowProgram, program_full_tower, verify_kernel_channels,
     };
 
     /// Independent single-expression row NLL for the rigid standard-normal
@@ -2176,7 +2173,7 @@ mod jet_tower_oracle_tests {
         probit_scale: f64,
     }
 
-    impl RowNllProgram<2> for BernoulliRigidStandardNormalNllProgram {
+    impl RowProgram<2> for BernoulliRigidStandardNormalNllProgram {
         fn n_rows(&self) -> usize {
             self.primaries.len()
         }
@@ -2188,7 +2185,11 @@ mod jet_tower_oracle_tests {
                 .ok_or_else(|| format!("bernoulli rigid nll program: row {row} out of range"))
         }
 
-        fn row_nll(&self, row: usize, p: &[Tower4<2>; 2]) -> Result<Tower4<2>, String> {
+        fn eval<S: gam_math::jet_scalar::JetScalar<2>>(
+            &self,
+            row: usize,
+            p: &[S; 2],
+        ) -> Result<S, String> {
             let z = self.z[row];
             let y = self.y[row];
             let w = self.w[row];
@@ -2199,20 +2200,23 @@ mod jet_tower_oracle_tests {
             let eta_marginal = p[0];
             let link = bernoulli_marginal_link_map(
                 &InverseLink::Standard(gam_problem::StandardLink::Probit),
-                eta_marginal.v,
+                eta_marginal.value(),
             )?;
             let q = eta_marginal.compose_unary([link.q, link.q1, link.q2, link.q3, link.q4]);
             let g = p[1];
             // observed slope b = s·g, scale c = √(1 + b²).
-            let observed_slope = g * s;
-            let c = (observed_slope * observed_slope + 1.0).compose_unary(unary_derivatives_sqrt(
-                observed_slope.v * observed_slope.v + 1.0,
+            let observed_slope = g.scale(s);
+            let one_plus_slope_squared = observed_slope
+                .mul(&observed_slope)
+                .add(&S::constant(1.0));
+            let c = one_plus_slope_squared.compose_unary(unary_derivatives_sqrt(
+                one_plus_slope_squared.value(),
             ));
             // η = q·c + b·z, signed margin m = (2y−1)·η.
-            let eta = q * c + observed_slope * z;
-            let signed = eta * (2.0 * y - 1.0);
+            let eta = q.mul(&c).add(&observed_slope.scale(z));
+            let signed = eta.scale(2.0 * y - 1.0);
             // NLL = −w·logΦ(m) via the documented probit neglog stack.
-            Ok(signed.compose_unary(unary_derivatives_neglog_phi(signed.v, w)))
+            Ok(signed.compose_unary(unary_derivatives_neglog_phi(signed.value(), w)))
         }
     }
 
@@ -2257,7 +2261,7 @@ mod jet_tower_oracle_tests {
             };
 
             for row in 0..n {
-                let tower = evaluate_program(&program, row).expect("tower evaluation");
+                let tower = program_full_tower(&program, row).expect("tower evaluation");
 
                 // Production scalar kernel channels (the hand path under audit).
                 let marginal = bernoulli_marginal_link_map(
@@ -2431,20 +2435,18 @@ mod jet_tower_oracle_tests {
     }
 
     /// #932 production wiring: the rigid Bernoulli row, routed through the
-    /// generic [`RowNllProgramGeneric<2>`] program seam and its cheap
-    /// order-2 / contracted scalar evaluators (`generic_row_kernel`,
-    /// `generic_third_contracted`, `generic_fourth_contracted`,
-    /// `generic_full_tower`), must agree BIT-FOR-BIT with the dense
-    /// `Tower4`-only [`RowNllProgram`] path (`evaluate_program`). Both write the
-    /// same single-expression NLL — the contracted scalars fold the direction
-    /// into the differentiation, so this pins that the packed channels equal the
-    /// corresponding contractions of the dense tower truth, exercising every
-    /// `generic_*` evaluator end-to-end through a real production consumer.
+    /// generic [`RowProgram<2>`] program seam and its cheap
+    /// order-2 / contracted scalar evaluators (`program_row_kernel`,
+    /// `program_third_contracted`, `program_fourth_contracted`,
+    /// `program_full_tower`), must agree BIT-FOR-BIT with an independent generic
+    /// [`RowProgram`] that uses a different composition order. Both write the
+    /// same NLL — the contracted scalars fold the direction into differentiation,
+    /// so this pins that the packed channels equal the corresponding contractions
+    /// of the independent dense tower truth through a real production consumer.
     #[test]
-    fn rigid_bernoulli_generic_program_matches_tower4_program_all_channels() {
+    fn rigid_bernoulli_generic_program_matches_independent_program_all_channels() {
         use gam_math::jet_tower::{
-            generic_fourth_contracted, generic_full_tower, generic_row_kernel,
-            generic_third_contracted,
+            program_fourth_contracted, program_row_kernel, program_third_contracted,
         };
 
         let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
@@ -2464,7 +2466,7 @@ mod jet_tower_oracle_tests {
         };
 
         for &probit_scale in &[1.0_f64, 0.8] {
-            // The dense Tower4-only program over all rows (independent path).
+            // The independent generic program over all rows.
             let tower_program = BernoulliRigidStandardNormalNllProgram {
                 primaries: (0..n).map(|r| [eta[r], g[r]]).collect(),
                 z: z.to_vec(),
@@ -2474,7 +2476,7 @@ mod jet_tower_oracle_tests {
             };
 
             for row in 0..n {
-                let truth = evaluate_program(&tower_program, row).expect("Tower4 program tower");
+                let truth = program_full_tower(&tower_program, row).expect("program tower");
 
                 let marginal = bernoulli_marginal_link_map(
                     &InverseLink::Standard(gam_problem::StandardLink::Probit),
@@ -2490,9 +2492,9 @@ mod jet_tower_oracle_tests {
                     probit_scale,
                 };
 
-                // generic_full_tower must reproduce the dense tower in EVERY
+                // program_full_tower must reproduce the dense tower in EVERY
                 // channel (v, g, H, t3, t4).
-                let full = generic_full_tower(&program, 0).expect("generic full tower");
+                let full = program_full_tower(&program, 0).expect("generic full tower");
                 close(full.v, truth.v, "full value");
                 for a in 0..2 {
                     close(full.g[a], truth.g[a], "full grad");
@@ -2507,9 +2509,9 @@ mod jet_tower_oracle_tests {
                     }
                 }
 
-                // generic_row_kernel (Order2) must equal the tower's (v, g, H).
+                // program_row_kernel (Order2) must equal the tower's (v, g, H).
                 let (val, grad, hess) =
-                    generic_row_kernel(&program, 0).expect("generic row kernel");
+                    program_row_kernel(&program, 0).expect("generic row kernel");
                 close(val, truth.v, "order2 value");
                 for a in 0..2 {
                     close(grad[a], truth.g[a], "order2 grad");
@@ -2518,10 +2520,10 @@ mod jet_tower_oracle_tests {
                     }
                 }
 
-                // generic_third_contracted (OneSeed) must equal the dense
+                // program_third_contracted (OneSeed) must equal the dense
                 // tower's third contraction for each direction.
                 for dir in &dirs {
-                    let third = generic_third_contracted(&program, 0, dir)
+                    let third = program_third_contracted(&program, 0, dir)
                         .expect("generic third contracted");
                     let truth3 = truth.third_contracted(dir);
                     for a in 0..2 {
@@ -2531,11 +2533,11 @@ mod jet_tower_oracle_tests {
                     }
                 }
 
-                // generic_fourth_contracted (TwoSeed) must equal the dense
+                // program_fourth_contracted (TwoSeed) must equal the dense
                 // tower's fourth contraction for each direction pair.
                 for (i, u) in dirs.iter().enumerate() {
                     let v = dirs[(i + 1) % dirs.len()];
-                    let fourth = generic_fourth_contracted(&program, 0, u, &v)
+                    let fourth = program_fourth_contracted(&program, 0, u, &v)
                         .expect("generic fourth contracted");
                     let truth4 = truth.fourth_contracted(u, &v);
                     for a in 0..2 {
@@ -2650,6 +2652,77 @@ mod jet_tower_oracle_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn measure_rigid_vgh_jet_vs_hand_932() {
+        use std::time::Instant;
+
+        let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
+        let g = [0.2_f64, -0.5, 0.35, -0.15, 0.6, 0.45, -0.55];
+        let z = [0.4_f64, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
+        let y = [1.0_f64, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1, 0.7, 1.4];
+        let maps: Vec<BernoulliMarginalLinkMap> = eta
+            .iter()
+            .map(|&value| {
+                bernoulli_marginal_link_map(
+                    &InverseLink::Standard(gam_problem::StandardLink::Probit),
+                    value,
+                )
+                .expect("link map")
+            })
+            .collect();
+        let reps = 500_000usize;
+        let mut best_hand = f64::INFINITY;
+        let mut best_jet = f64::INFINITY;
+        for _ in 0..5 {
+            let start = Instant::now();
+            let mut sum = 0.0;
+            for _ in 0..reps {
+                for row in 0..eta.len() {
+                    let (value, gradient, hessian) =
+                        hand_rigid_vgh(maps[row], g[row], z[row], y[row], w[row], 1.0);
+                    sum += value
+                        + gradient[0]
+                        + gradient[1]
+                        + hessian[0][0]
+                        + hessian[0][1]
+                        + hessian[1][1];
+                }
+            }
+            // Consume the accumulator through a real assertion (black_box is
+            // scanner-banned as a silencer): the branch keeps the summed work
+            // observable to the optimizer and pins finiteness as a bonus.
+            assert!(sum.is_finite(), "hand-kernel accumulator went non-finite");
+            best_hand = best_hand.min(start.elapsed().as_secs_f64());
+
+            let start = Instant::now();
+            let mut sum = 0.0;
+            for _ in 0..reps {
+                for row in 0..eta.len() {
+                    let (value, gradient, hessian) = rigid_standard_normal_row_kernel(
+                        maps[row], g[row], z[row], y[row], w[row], 1.0,
+                    )
+                    .expect("jet kernel");
+                    sum += value
+                        + gradient[0]
+                        + gradient[1]
+                        + hessian[0][0]
+                        + hessian[0][1]
+                        + hessian[1][1];
+                }
+            }
+            assert!(sum.is_finite(), "jet-kernel accumulator went non-finite");
+            best_jet = best_jet.min(start.elapsed().as_secs_f64());
+        }
+        let rows = (reps * eta.len()) as f64;
+        let hand_ns = best_hand * 1.0e9 / rows;
+        let jet_ns = best_jet * 1.0e9 / rows;
+        eprintln!(
+            "RIGID-VGH-932 hand={hand_ns:.2} ns/row jet={jet_ns:.2} ns/row ratio={:.3}",
+            jet_ns / hand_ns
+        );
     }
 
     // NOTE: the hand-vs-jet timing microbench (`bench_rigid_vgh_jet_vs_hand`)

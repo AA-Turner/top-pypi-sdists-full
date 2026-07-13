@@ -166,26 +166,26 @@ pub(super) fn fill_link_basis_cell_coeff_jet(
 
 pub(super) fn assemble_bms_block_local_s_psi(
     deriv: &crate::custom_family::CustomFamilyBlockPsiDerivative,
-    per_block_rho: &Array1<f64>,
+    per_block_lambdas: &Array1<f64>,
     p_block: usize,
 ) -> Array2<f64> {
     if let Some(ref components) = deriv.s_psi_penalty_components {
         let mut s_psi = Array2::<f64>::zeros((p_block, p_block));
         for (penalty_idx, s_part) in components {
-            s_part.add_scaled_to(per_block_rho[*penalty_idx].exp(), &mut s_psi);
+            s_part.add_scaled_to(per_block_lambdas[*penalty_idx], &mut s_psi);
         }
         return s_psi;
     }
     if let Some(ref components) = deriv.s_psi_components {
         let mut s_psi = Array2::<f64>::zeros((p_block, p_block));
         for (penalty_idx, s_part) in components {
-            s_psi.scaled_add(per_block_rho[*penalty_idx].exp(), s_part);
+            s_psi.scaled_add(per_block_lambdas[*penalty_idx], s_part);
         }
         s_psi
     } else if let Some(penalty_idx) = deriv.penalty_index {
         deriv
             .s_psi
-            .mapv(|value| per_block_rho[penalty_idx].exp() * value)
+            .mapv(|value| per_block_lambdas[penalty_idx] * value)
     } else {
         Array2::<f64>::zeros((p_block, p_block))
     }
@@ -1518,6 +1518,50 @@ impl BernoulliMarginalSlopeFamily {
         }
     }
 
+    // ── Jeffreys wide-p contracted-trace-Hessian row kernel ──────────────
+    //
+    // Binary twin of
+    // `binomial_location_scale::expected_joint_contracted_trace_hessian_from_designs`
+    // (gam#979): computes one row's contribution to `∇²_β tr(W · H(β))` for a
+    // caller-supplied full-joint trace weight `W`, where `H` is the OBSERVED
+    // joint Newton Hessian (BMS's Jeffreys information is declared identical
+    // to the observed Hessian via
+    // `joint_jeffreys_information_matches_observed_hessian` staying `true`).
+    //
+    // `H` is block-structured over the two rigid primaries
+    // `(marginal, logslope)`; for row `i` it equals
+    // `X_pᵀ h_i[p][q] X_q` summed over the primary block pair `(p, q)`, so
+    // `tr(W H) = Σ_i (trace_qq[i]·h_i[q][q] + trace_qg[i]·h_i[q][g] +
+    // trace_gg[i]·h_i[g][g])` where `trace_pq[i] = x_p[i]ᵀ W_pq x_q[i]`
+    // (the reference's `trace_tt`/`trace_tl`/`trace_ll`, renamed to this
+    // family's `(marginal=q, logslope=g)` primaries). Differentiating this
+    // linear functional of the row's local Hessian twice through
+    // `η_q[i] = x_q[i]·β_q`, `η_g[i] = x_g[i]·β_g` requires exactly the
+    // row's uncontracted FOURTH-order primary tensor (one order higher than
+    // the reference's third-order expected-information coefficients, because
+    // BMS's `H` is the observed Hessian — second order in the log-likelihood
+    // — rather than an expected/Fisher information already one order lower).
+    // `contract_fourth_full` at each of the three unit (marginal, logslope)
+    // direction pairs gives that second directional derivative of the row's
+    // full local Hessian in one call; combining with the trace scalars
+    // mirrors the reference's `coeff_tt[i] = trace_tt·tt_tt + trace_tl·tt_tl +
+    // trace_ll·tt_ll` pattern exactly, substituted for this family's own
+    // closed-form tensor.
+    pub(super) fn rigid_row_contracted_trace_hessian_coefficients(
+        fourth: &[[[[f64; 2]; 2]; 2]; 2],
+        trace_qq: f64,
+        trace_qg: f64,
+        trace_gg: f64,
+    ) -> (f64, f64, f64) {
+        let m_qq = contract_fourth_full(fourth, 1.0, 0.0, 1.0, 0.0);
+        let m_qg = contract_fourth_full(fourth, 1.0, 0.0, 0.0, 1.0);
+        let m_gg = contract_fourth_full(fourth, 0.0, 1.0, 0.0, 1.0);
+        let coeff_qq = trace_qq * m_qq[0][0] + trace_qg * m_qg[0][0] + trace_gg * m_gg[0][0];
+        let coeff_qg = trace_qq * m_qq[0][1] + trace_qg * m_qg[0][1] + trace_gg * m_gg[0][1];
+        let coeff_gg = trace_qq * m_qq[1][1] + trace_qg * m_qg[1][1] + trace_gg * m_gg[1][1];
+        (coeff_qq, coeff_qg, coeff_gg)
+    }
+
     /// Outer-aware variant of `log_likelihood_only`. When
     /// `options.outer_score_subsample` is `None` this iterates over all rows
     /// and returns a value identical (bit-for-bit) to the legacy full-data
@@ -1586,19 +1630,19 @@ impl BernoulliMarginalSlopeFamily {
                     row_ll,
                 );
             }
-            let total: Result<f64, String> = weighted_rows
-                .into_par_iter()
-                .try_fold(
-                    || 0.0,
-                    |mut ll, wr| -> Result<_, String> {
-                        ll += wr.weight * row_ll(wr.index)?;
+            let total: Result<f64, String> =
+                gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+                    weighted_rows.len(),
+                    |range| -> Result<f64, String> {
+                        let mut ll = 0.0;
+                        for wr in &weighted_rows[range] {
+                            ll += wr.weight * row_ll(wr.index)?;
+                        }
                         Ok(ll)
                     },
-                )
-                .try_reduce(
-                    || 0.0,
                     |left, right| -> Result<_, String> { Ok(left + right) },
-                );
+                )
+                .map(|opt| opt.unwrap_or(0.0));
             return total;
         }
         let beta_h = self.score_beta(block_states)?;
@@ -1629,19 +1673,19 @@ impl BernoulliMarginalSlopeFamily {
                 row_ll,
             );
         }
-        let total: Result<f64, String> = weighted_rows
-            .into_par_iter()
-            .try_fold(
-                || 0.0,
-                |mut ll, wr| -> Result<_, String> {
-                    ll += wr.weight * row_ll(wr.index)?;
+        let total: Result<f64, String> =
+            gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+                weighted_rows.len(),
+                |range| -> Result<f64, String> {
+                    let mut ll = 0.0;
+                    for wr in &weighted_rows[range] {
+                        ll += wr.weight * row_ll(wr.index)?;
+                    }
                     Ok(ll)
                 },
-            )
-            .try_reduce(
-                || 0.0,
                 |left, right| -> Result<_, String> { Ok(left + right) },
-            );
+            )
+            .map(|opt| opt.unwrap_or(0.0));
         total
     }
 
@@ -4766,12 +4810,12 @@ mod empirical_flex_jet_oracle_tests {
     }
 
     /// #932 BMS-flex cutover INC-1(b) GATE: the per-denested-cell moment
-    /// factorization (production `flex_grid_calibration_derivs_factored`, reached
+    /// compiler (production `flex_grid_calibration_derivs_compiled_jet2`, reached
     /// through `compute_row_analytic_flex_from_parts_into`) reproduces the
     /// INDEPENDENT grid jet `empirical_flex_row_nll_jet2` (value / dense gradient /
     /// full Hessian) to ≤1e-9 on DEGENERATE empirical grids — a sparse grid whose
     /// four nodes leave several denested cells EMPTY and at least one holding a
-    /// single node (the degenerate-moment paths where a factored accumulator
+    /// single node (the degenerate-moment paths where a compiled accumulator
     /// typically diverges from a loop) — over score-warp AND link-deviation,
     /// `b>0` AND `b<0`. The fixture routes the `GlobalEmpirical` branch, i.e. the
     /// production path the cutover replaces; `jet2` is a fully independent
@@ -4860,7 +4904,7 @@ mod empirical_flex_jet_oracle_tests {
                         true,
                         &mut scratch,
                     )
-                    .expect("factored flex path");
+                    .expect("compiled moment-jet flex path");
                 let jet = empirical_flex_row_nll_jet2(&fx, &p0);
                 let label = if is_score_warp {
                     "score-warp"

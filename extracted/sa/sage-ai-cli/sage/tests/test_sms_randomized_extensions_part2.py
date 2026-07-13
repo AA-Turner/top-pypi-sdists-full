@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 RAND_IMAGES = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif", "gif", "animated_gif", "svg", "ico", "psd", "ai", "eps", "raw", "dng"]
 @pytest.mark.parametrize("ext", RAND_IMAGES)
 def test_sms_bridge_file_generation_images(ext, tmp_path):

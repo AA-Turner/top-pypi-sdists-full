@@ -561,7 +561,7 @@ impl LogKernelSumJet {
         let max_k_needed = t0.k.max(t1.k) + 4;
         let bundle0 = log_kernel_bundle(quadctx, t0.m, mu, sigma, max_k_needed)?;
         let mut overall_mode = bundle0.mode;
-        let bundle1_owned = if (t0.m - t1.m).abs() < 1e-300 {
+        let bundle1_owned = if t0.m == t1.m {
             None
         } else {
             let bundle1 = log_kernel_bundle(quadctx, t1.m, mu, sigma, max_k_needed)?;
@@ -673,10 +673,7 @@ impl LogKernelSumJet {
         let mut log_bundles: Vec<(f64, LogLognormalKernelBundle)> = Vec::with_capacity(2);
         let mut overall_mode = IntegratedExpectationMode::ExactClosedForm;
         for term in terms {
-            if !log_bundles
-                .iter()
-                .any(|(m, _)| (*m - term.m).abs() < 1e-300)
-            {
+            if !log_bundles.iter().any(|(m, _)| *m == term.m) {
                 let b = log_kernel_bundle(quadctx, term.m, mu, sigma, max_k_needed)?;
                 overall_mode = worst_mode(overall_mode, b.mode);
                 log_bundles.push((term.m, b));
@@ -684,11 +681,7 @@ impl LogKernelSumJet {
         }
 
         let get_lb = |m: f64| -> &LogLognormalKernelBundle {
-            &log_bundles
-                .iter()
-                .find(|(bm, _)| (*bm - m).abs() < 1e-300)
-                .unwrap()
-                .1
+            &log_bundles.iter().find(|(bm, _)| *bm == m).unwrap().1
         };
 
         // Per-term: log magnitude, sign, and ratio jet.
@@ -1114,8 +1107,7 @@ impl LatentSurvivalRowJet {
         sigma: f64,
         row: &LatentSurvivalRow,
     ) -> Result<Self, EstimationError> {
-        let has_unloaded =
-            row.mass_unloaded_exit.abs() > 1e-300 || row.mass_unloaded_entry.abs() > 1e-300;
+        let has_unloaded = row.mass_unloaded_exit != 0.0 || row.mass_unloaded_entry != 0.0;
 
         // Loaded mass for the kernel terms: when unloaded mass is present,
         // mass_exit contains only the loaded component; otherwise it is the
@@ -1131,7 +1123,7 @@ impl LatentSurvivalRowJet {
         };
 
         let num = LogKernelSumJet::single_term(quadctx, 0, mass_exit_loaded, mu, sigma)?;
-        if mass_entry_loaded > 1e-300 {
+        if mass_entry_loaded > 0.0 {
             let den = LogKernelSumJet::single_term(quadctx, 0, mass_entry_loaded, mu, sigma)?;
             Ok(Self {
                 log_lik: unloaded_offset + num.value - den.value,
@@ -1164,15 +1156,14 @@ impl LatentSurvivalRowJet {
         sigma: f64,
         row: &LatentSurvivalRow,
     ) -> Result<Self, EstimationError> {
-        let unloaded_offset =
-            if row.mass_unloaded_exit.abs() > 1e-300 || row.mass_unloaded_entry.abs() > 1e-300 {
-                -row.mass_unloaded_exit + row.mass_unloaded_entry
-            } else {
-                0.0
-            };
+        let unloaded_offset = if row.mass_unloaded_exit != 0.0 || row.mass_unloaded_entry != 0.0 {
+            -row.mass_unloaded_exit + row.mass_unloaded_entry
+        } else {
+            0.0
+        };
         let num = exact_event_kernel_jet(quadctx, row, mu, sigma)?;
 
-        if row.mass_entry > 1e-300 {
+        if row.mass_entry > 0.0 {
             let den = LogKernelSumJet::single_term(quadctx, 0, row.mass_entry, mu, sigma)?;
             Ok(Self {
                 log_lik: unloaded_offset + num.value - den.value,
@@ -1217,7 +1208,7 @@ impl LatentSurvivalRowJet {
         ];
         let num = LogKernelSumJet::evaluate(quadctx, &num_terms, mu, sigma)?;
 
-        if row.mass_entry > 1e-300 {
+        if row.mass_entry > 0.0 {
             let den = LogKernelSumJet::single_term(quadctx, 0, row.mass_entry, mu, sigma)?;
             Ok(Self {
                 log_lik: num.value + row.mass_unloaded_entry - den.value,
@@ -1444,6 +1435,44 @@ mod tests {
             (jet.score - fd_score).abs() / fd_score.abs().max(1e-15) < 1e-3,
             "score={}, fd={fd_score}",
             jet.score
+        );
+    }
+
+    /// #2277 hardening: a NARROW interval-censored window (S(L) ≈ S(R)) must
+    /// stay numerically stable. The interval contribution `log[S(L) − S(R)]` is
+    /// evaluated in the log domain (sign-aware log-sum-exp + `log1mexp`), never
+    /// as a probability-space `S(L) − S(R)` subtraction, so for a small gap
+    /// `Δ = M_R − M_L` the interval mass is `≈ |S'(M_L)|·Δ` and the
+    /// log-likelihood behaves as `const + log Δ` — finite and accurate down to
+    /// gaps where subtracting two nearly-equal survival probabilities would
+    /// catastrophically cancel. Pin the log-linear-in-Δ law: the shared,
+    /// cancellation-prone `const` drops out of the difference, leaving exactly
+    /// `log(Δ₁/Δ₂)`.
+    #[test]
+    fn survival_narrow_interval_is_log_domain_stable_issue_2277() {
+        let ctx = QuadratureContext::new();
+        let (mu, sigma, m_l) = (0.0_f64, 0.6_f64, 1.0_f64);
+        let ll = |gap: f64| {
+            let row = LatentSurvivalRow::interval_censored(0.0, m_l, m_l + gap, 0.0, 0.0, 0.0);
+            LatentSurvivalRowJet::evaluate(&ctx, &row, mu, sigma)
+                .unwrap()
+                .log_lik
+        };
+        let (g1, g2) = (1e-8_f64, 1e-12_f64);
+        let ll1 = ll(g1);
+        let ll2 = ll(g2);
+        assert!(
+            ll1.is_finite() && ll2.is_finite(),
+            "narrow-interval log-lik must stay finite: ll1={ll1}, ll2={ll2}"
+        );
+        // const + log Δ ⇒ ll(g1) − ll(g2) = log(g1/g2), independent of the
+        // shared const a probability-space subtraction would destroy here.
+        let expected = (g1 / g2).ln();
+        assert!(
+            (ll1 - ll2 - expected).abs() < 1e-5,
+            "narrow interval must follow the log-domain log(Δ) law: \
+             ll(g1)-ll(g2)={}, expected {expected}",
+            ll1 - ll2
         );
     }
 

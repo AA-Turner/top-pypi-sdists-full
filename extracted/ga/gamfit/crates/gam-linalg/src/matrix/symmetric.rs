@@ -3,6 +3,7 @@
 //! public paths `crate::matrix::{SymmetricMatrix, xt_diag_x_*, ...}` stay stable.
 
 use super::*;
+use crate::faer_ndarray::FaerCholesky;
 
 /// A unified representation of a symmetric matrix, typically an assembled Hessian.
 #[derive(Clone, Debug)]
@@ -81,7 +82,7 @@ impl SymmetricMatrix {
     pub fn factorize(&self) -> Result<Box<dyn FactorizedSystem>, String> {
         match self {
             Self::Dense(mat) => {
-                let factor = crate::utils::StableSolver::new("unnamed")
+                let factor = crate::utils::StableSolver::new()
                     .factorize(mat)
                     .map_err(|e| format!("Dense SymmetricMatrix factorization failed: {e:?}"))?;
                 Ok(Box::new(factor))
@@ -91,6 +92,34 @@ impl SymmetricMatrix {
                     .map_err(|e| format!("Sparse SymmetricMatrix factorization failed: {e:?}"))?;
                 Ok(Box::new(factor))
             }
+        }
+    }
+
+    /// Strict factorization for covariance and other SPD-only estimands.
+    ///
+    /// No LDLT/LBLT route and no diagonal jitter is admitted: dense matrices
+    /// must pass an unperturbed Cholesky factorization, while sparse matrices
+    /// use the existing exact sparse-SPD factorization.
+    pub fn factorize_spd(&self) -> Result<Box<dyn FactorizedSystem>, String> {
+        match self {
+            Self::Dense(matrix) => {
+                crate::utils::validate_finite_symmetric_matrix(
+                    matrix,
+                    "Dense SymmetricMatrix strict SPD factorization",
+                )
+                .map_err(|error| error.to_string())?;
+                matrix
+                    .cholesky(faer::Side::Lower)
+                    .map(|factor| Box::new(factor) as Box<dyn FactorizedSystem>)
+                    .map_err(|error| {
+                        format!("Dense SymmetricMatrix strict SPD factorization failed: {error}")
+                    })
+            }
+            Self::Sparse(matrix) => crate::sparse_exact::factorize_sparse_spd_strict(matrix)
+                .map(|factor| Box::new(factor) as Box<dyn FactorizedSystem>)
+                .map_err(|error| {
+                    format!("Sparse SymmetricMatrix strict SPD factorization failed: {error:?}")
+                }),
         }
     }
 
@@ -240,6 +269,20 @@ impl SymmetricMatrix {
         }
     }
 
+    /// Exact maximum absolute stored matrix entry.
+    ///
+    /// Sparse matrices store one triangle of a symmetric matrix, so scanning
+    /// their stored values is also the max-entry norm of the full matrix.
+    pub fn max_abs_entry(&self) -> f64 {
+        match self {
+            Self::Dense(matrix) => matrix.iter().copied().map(f64::abs).fold(0.0_f64, f64::max),
+            Self::Sparse(matrix) => {
+                let (_, values) = matrix.parts();
+                values.iter().copied().map(f64::abs).fold(0.0_f64, f64::max)
+            }
+        }
+    }
+
     /// Multiply on the right by a dense matrix: self * rhs.
     /// Returns a dense Array2.
     pub fn dot_matrix(&self, rhs: &Array2<f64>) -> Array2<f64> {
@@ -297,12 +340,12 @@ impl SymmetricMatrix {
 /// Callers in PIRLS should select `_signed` for observed-Hessian / Newton
 /// curvature assembly and `_psd` for Fisher-scoring updates where the working
 /// weights are guaranteed nonneg. The sign character is now encoded in the
-/// argument types: `xt_diag_x_signed` takes a `SignedWeightsView<'_>` (free
-/// construction), and `xt_diag_x_psd` takes a `PsdWeightsView<'_>` (one-time
-/// `try_new` scan at the call site).
+/// argument types: `xt_diag_x_signed` takes a `FiniteSignedWeightsView<'_>` and
+/// `xt_diag_x_psd` takes a `PsdWeightsView<'_>`; both perform a deterministic
+/// one-time certificate at their construction site.
 pub fn xt_diag_x_signed(
     design: &DesignMatrix,
-    diag: SignedWeightsView<'_>,
+    diag: FiniteSignedWeightsView<'_>,
 ) -> Result<SymmetricMatrix, String> {
     xt_diag_x_symmetric(design, &diag.view().to_owned())
 }
@@ -357,6 +400,8 @@ pub fn xt_diag_x_symmetric(
             diag.len()
         ));
     }
+    FiniteSignedWeightsView::try_from_array(diag)
+        .map_err(|reason| format!("xt_diag_x_symmetric: {reason}"))?;
     match design {
         DesignMatrix::Dense(x) => Ok(SymmetricMatrix::Dense(x.diag_xtw_x(diag)?)),
         DesignMatrix::Sparse(xs) => {
@@ -631,5 +676,22 @@ mod tests {
     fn max_abs_diag_with_negative_diagonal_entry() {
         let m = SymmetricMatrix::Dense(array![[-5.0_f64, 0.0], [0.0, 3.0]]);
         assert_eq!(m.max_abs_diag(), 5.0);
+    }
+
+    #[test]
+    fn raw_symmetric_gram_rejects_smallest_nonfinite_row_before_sparse_assembly() {
+        let sparse = SparseColMat::try_new_from_triplets(
+            3,
+            1,
+            &[
+                Triplet::new(0, 0, 1.0),
+                Triplet::new(1, 0, 2.0),
+                Triplet::new(2, 0, 3.0),
+            ],
+        )
+        .unwrap();
+        let design = DesignMatrix::Sparse(SparseDesignMatrix::new(sparse));
+        let err = xt_diag_x_symmetric(&design, &array![1.0, f64::NAN, f64::INFINITY]).unwrap_err();
+        assert!(err.contains("row 1"), "unexpected diagnostic: {err}");
     }
 }

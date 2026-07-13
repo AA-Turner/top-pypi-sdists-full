@@ -77,8 +77,8 @@ def test_partial_config_backfills_missing_keys(tmp_path):
 
 
 def test_explicit_user_values_are_respected(tmp_path):
-    m = _load(tmp_path, 'base_url = "http://192.168.50.129:8000/v1"\nmodel = "gemma4"\n')
-    assert m["base_url"] == "http://192.168.50.129:8000/v1"
+    m = _load(tmp_path, 'base_url = "http://192.0.2.10:8000/v1"\nmodel = "gemma4"\n')
+    assert m["base_url"] == "http://192.0.2.10:8000/v1"
 
 
 def test_default_base_url_is_concrete_not_empty():
@@ -108,7 +108,7 @@ def test_v2_file_is_migrated_and_backed_up(tmp_path):
 def test_real_v3_file_is_left_untouched(tmp_path):
     """A genuine v3 file (has a known key) must NOT be migrated/rewritten."""
     p = tmp_path / "config.toml"
-    p.write_text('base_url = "http://192.168.50.21:8000/v1"\n# my hand edit\n')
+    p.write_text('base_url = "http://192.0.2.20:8000/v1"\n# my hand edit\n')
     cfg.resolve({}, path=p)
     assert not p.with_name("config.toml.bak").exists()
     assert "# my hand edit" in p.read_text()  # untouched

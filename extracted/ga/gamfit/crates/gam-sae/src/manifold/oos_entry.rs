@@ -3,23 +3,28 @@
 //! [`run_sae_manifold_oos`] owns the complete inference operation: request
 //! validation, basis/evaluator reconstruction from the persisted dictionary,
 //! cold or warm coordinate and routing seeds, the fixed-decoder Arrow-Schur
-//! solve, optional hard top-k projection, collapse-aware reconstruction, and a
+//! solve, exact assignment reconstruction, collapse-aware reconstruction, and a
 //! typed report. Bindings only translate their wire representation into
 //! [`SaeOosRequest`] and serialize [`SaeOosReport`].
 
 use std::sync::Arc;
 
+use gam_terms::analytic_penalties::AnalyticPenaltyRegistry;
 use gam_terms::basis::{DuchonNullspaceOrder, duchon_sae_atom_penalty, monomial_exponents};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s};
 
 use crate::hybrid_split::AtomLinearImage;
-use crate::inference::steering::{SteerPlan, steer_delta};
+use crate::inference::steering::{
+    PatchedForwardKl, SteerPlan, TargetDoseConfig, TargetDosePlan, TargetDoseRequest, steer_delta,
+    steer_to_target_nats,
+};
 
 use super::{
     AssignmentMode, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,
     MobiusHarmonicEvaluator, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
-    SaeBasisEvaluator, SaeBasisSecondJet, SaeManifoldAtom, SaeManifoldLoss, SaeManifoldRho,
-    SaeManifoldTerm, SaeStreamingPlan, SphereChartEvaluator, TorusHarmonicEvaluator,
+    SaeBasisEvaluator, SaeBasisSecondJet, SaeCertifyRequest, SaeFitError, SaeFitReport,
+    SaeManifoldAtom, SaeManifoldLoss, SaeManifoldRho, SaeManifoldTerm, SaeStreamingPlan,
+    SphereChartEvaluator, TorusHarmonicEvaluator, run_sae_manifold_certify,
     sae_pca_seed_initial_coords,
 };
 
@@ -44,7 +49,7 @@ pub struct SaeOosAtomSpec {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SaeOosAssignmentKind {
     Softmax,
-    IbpMap { learnable_alpha: bool },
+    OrderedBetaBernoulli { learnable_alpha: bool },
     ThresholdGate { threshold: f64 },
     TopK,
 }
@@ -53,7 +58,7 @@ impl SaeOosAssignmentKind {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Softmax => "softmax",
-            Self::IbpMap { .. } => "ibp_map",
+            Self::OrderedBetaBernoulli { .. } => "ordered_beta_bernoulli",
             Self::ThresholdGate { .. } => "threshold_gate",
             Self::TopK => "topk",
         }
@@ -477,7 +482,7 @@ fn build_oos_atom(
         ));
     }
 
-    Ok(SaeManifoldAtom::new(
+    Ok(SaeManifoldAtom::new_with_provided_function_gram(
         format!("oos_atom_{atom_index}"),
         spec.basis_kind.clone(),
         spec.latent_dim,
@@ -492,6 +497,7 @@ fn build_oos_atom(
 fn build_rho(
     regularization: SaeOosRegularization,
     latent_dims: &[usize],
+    assignment_mode: AssignmentMode,
 ) -> Result<SaeManifoldRho, String> {
     let k_atoms = latent_dims.len();
     let SaeOosRegularization {
@@ -499,11 +505,6 @@ fn build_rho(
         log_lambda_smooth,
         log_ard,
     } = regularization;
-    if !log_lambda_sparse.is_finite() {
-        return Err(format!(
-            "run_sae_manifold_oos: trained log_lambda_sparse must be finite; got {log_lambda_sparse}"
-        ));
-    }
     if log_lambda_smooth.len() != k_atoms
         || !log_lambda_smooth.iter().all(|value| value.is_finite())
     {
@@ -528,60 +529,11 @@ fn build_rho(
         }
         ard.push(Array1::from(values.clone()));
     }
-    Ok(SaeManifoldRho::with_per_atom_smooth(
-        log_lambda_sparse,
-        log_lambda_smooth,
-        ard,
-    ))
-}
-
-fn project_top_k(
-    assignments: &mut Array2<f64>,
-    top_k: usize,
-    renormalize: bool,
-) -> Result<(), String> {
-    let (n_obs, k_atoms) = assignments.dim();
-    if top_k >= k_atoms {
-        return Ok(());
-    }
-    for row in 0..n_obs {
-        let mut ranked: Vec<(f64, usize)> = (0..k_atoms)
-            .map(|atom_index| (assignments[[row, atom_index]], atom_index))
-            .collect();
-        let compare = |left: &(f64, usize), right: &(f64, usize)| {
-            right.0.total_cmp(&left.0).then(left.1.cmp(&right.1))
-        };
-        ranked.select_nth_unstable_by(top_k - 1, compare);
-        let mut keep = vec![false; k_atoms];
-        for &(_, atom_index) in ranked.iter().take(top_k) {
-            keep[atom_index] = true;
-        }
-        if renormalize {
-            let kept_mass: f64 = (0..k_atoms)
-                .filter(|&atom_index| keep[atom_index])
-                .map(|atom_index| assignments[[row, atom_index]])
-                .sum();
-            if !(kept_mass.is_finite() && kept_mass > 0.0) {
-                return Err(format!(
-                    "run_sae_manifold_oos: top-k softmax projection has non-positive kept mass on row {row}"
-                ));
-            }
-            for atom_index in 0..k_atoms {
-                assignments[[row, atom_index]] = if keep[atom_index] {
-                    assignments[[row, atom_index]] / kept_mass
-                } else {
-                    0.0
-                };
-            }
-        } else {
-            for atom_index in 0..k_atoms {
-                if !keep[atom_index] {
-                    assignments[[row, atom_index]] = 0.0;
-                }
-            }
-        }
-    }
-    Ok(())
+    let rho = SaeManifoldRho::with_per_atom_smooth(log_lambda_sparse, log_lambda_smooth, ard)
+        .for_assignment(assignment_mode);
+    rho.validate_log_strength_domain()
+        .map_err(|error| format!("run_sae_manifold_oos: {error}"))?;
+    Ok(rho)
 }
 
 /// Execute frozen-decoder OOS inference from a typed, owned request.
@@ -633,11 +585,19 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
             ));
         }
     }
-    if assignment == SaeOosAssignmentKind::TopK && top_k.is_none() {
-        return Err(
-            "run_sae_manifold_oos: TopK assignment requires an explicit top_k support size"
-                .to_string(),
-        );
+    match (assignment, top_k) {
+        (SaeOosAssignmentKind::TopK, None) => {
+            return Err(
+                "run_sae_manifold_oos: TopK assignment requires an explicit top_k support size"
+                    .to_string(),
+            );
+        }
+        (SaeOosAssignmentKind::TopK, Some(_)) | (_, None) => {}
+        (_, Some(limit)) => {
+            return Err(format!(
+                "run_sae_manifold_oos: top_k={limit} is valid only for TopK assignment"
+            ));
+        }
     }
 
     let basis_kinds: Vec<SaeAtomBasisKind> = atom_specs
@@ -684,7 +644,12 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
         }
         None => {
             let mut logits = Array2::<f64>::zeros((n_obs, k_atoms));
-            if k_atoms == 1 && matches!(assignment, SaeOosAssignmentKind::IbpMap { .. }) {
+            if k_atoms == 1
+                && matches!(
+                    assignment,
+                    SaeOosAssignmentKind::OrderedBetaBernoulli { .. }
+                )
+            {
                 logits.column_mut(0).fill(4.0);
             }
             logits
@@ -693,8 +658,8 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
 
     let mode = match assignment {
         SaeOosAssignmentKind::Softmax => AssignmentMode::softmax(tau),
-        SaeOosAssignmentKind::IbpMap { learnable_alpha } => {
-            AssignmentMode::ibp_map(tau, alpha, learnable_alpha)
+        SaeOosAssignmentKind::OrderedBetaBernoulli { learnable_alpha } => {
+            AssignmentMode::ordered_beta_bernoulli(tau, alpha, learnable_alpha)
         }
         SaeOosAssignmentKind::ThresholdGate { threshold } => {
             AssignmentMode::threshold_gate(tau, threshold)
@@ -729,16 +694,19 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
     if !hybrid_linear_images.is_empty() {
         term.set_hybrid_linear_images(hybrid_linear_images.clone())?;
     }
-    term.set_softmax_active_cap(top_k);
-
-    let mut rho = build_rho(regularization, &latent_dims)?;
+    let mut rho = build_rho(regularization, &latent_dims, mode)?;
     if cold_coords {
         term.seed_coords_by_decoder_projection(target.view())?;
     }
     if cold_logits && assignment == SaeOosAssignmentKind::Softmax {
         term.seed_oos_softmax_logits_from_projection_residuals(target.view(), tau);
-    } else if cold_logits && matches!(assignment, SaeOosAssignmentKind::IbpMap { .. }) {
-        term.seed_oos_ibp_logits_from_projected_decoder_lsq(target.view(), tau);
+    } else if cold_logits
+        && matches!(
+            assignment,
+            SaeOosAssignmentKind::OrderedBetaBernoulli { .. }
+        )
+    {
+        term.seed_oos_ordered_beta_bernoulli_logits_from_projected_decoder_lsq(target.view(), tau);
     }
 
     let loss = term.run_fixed_decoder_arrow_schur(
@@ -749,33 +717,20 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
         learning_rate,
         ridge_ext_coord,
     )?;
-    let mut assignments = term.assignment.assignments();
-    if let Some(limit) = top_k {
-        if limit < k_atoms {
-            project_top_k(
-                &mut assignments,
-                limit,
-                assignment == SaeOosAssignmentKind::Softmax,
-            )?;
-        }
-    }
-    let fitted =
-        term.reconstruct_from_assignments_target_aware(target.view(), assignments.view())?;
+    let assignments = term.assignment.assignments();
+    let (fitted, atom_reconstructions, effective_coords) =
+        term.reconstruct_with_atom_images_target_aware(target.view(), assignments.view())?;
 
     let mut atom_reports = Vec::with_capacity(k_atoms);
-    let mut decoded_row = vec![0.0_f64; p_out];
-    for atom_index in 0..k_atoms {
-        let mut reconstruction = Array2::<f64>::zeros((n_obs, p_out));
-        for row in 0..n_obs {
-            term.atoms[atom_index].fill_decoded_row(row, &mut decoded_row);
-            for output in 0..p_out {
-                reconstruction[[row, output]] = decoded_row[output];
-            }
-        }
+    for (atom_index, (reconstruction, coords)) in atom_reconstructions
+        .into_iter()
+        .zip(effective_coords)
+        .enumerate()
+    {
         atom_reports.push(SaeOosAtomReport {
             basis_kind: atom_specs[atom_index].basis_kind.clone(),
             decoder: term.atoms[atom_index].decoder_coefficients.clone(),
-            coords: term.assignment.coords[atom_index].as_matrix(),
+            coords,
             assignments: assignments.column(atom_index).to_owned(),
             reconstruction,
             active_dim: latent_dims[atom_index],
@@ -822,7 +777,7 @@ pub struct SaeSteerRequest {
     /// restores the fitted assignment contract rather than guessing from the
     /// current logits.
     pub top_k: Option<usize>,
-    /// IBP-MAP concentration α (ignored outside `ibp_map`).
+    /// ordered Beta--Bernoulli concentration α (ignored outside `ordered_beta_bernoulli`).
     pub alpha: f64,
     /// Softmax / gate temperature.
     pub tau: f64,
@@ -841,13 +796,30 @@ pub struct SaeSteerRequest {
     pub t_to: Vec<f64>,
 }
 
-/// Build the frozen trained dictionary into an [`SaeManifoldTerm`] pinned at its
-/// TRAINED coordinates / logits and measure the steering plan for atom `atom_k`.
-/// Mirrors the term rebuild of [`run_sae_manifold_oos`] (sharing
-/// [`build_oos_atom`]) with no coordinate solve.
-pub fn run_sae_manifold_steer(request: SaeSteerRequest) -> Result<SteerPlan, String> {
-    let SaeSteerRequest {
-        atoms: atom_specs,
+/// Rebuild the frozen trained dictionary into an [`SaeManifoldTerm`] pinned at its
+/// TRAINED coordinates / logits (no coordinate solve), with the installed
+/// output-Fisher metric when supplied. Shared by the amplitude steer
+/// ([`run_sae_manifold_steer`]) and the target-dose steer
+/// ([`run_sae_manifold_steer_to_target`]) so both rebuild the trained dictionary
+/// bit-for-bit through one path. `caller` names the caller in error messages.
+struct SteerTermRequest {
+    caller: &'static str,
+    atom_specs: Vec<SaeOosAtomSpec>,
+    coords: Vec<Array2<f64>>,
+    logits: Array2<f64>,
+    assignment: SaeOosAssignmentKind,
+    top_k: Option<usize>,
+    alpha: f64,
+    tau: f64,
+    fisher_metric: Option<gam_problem::RowMetric>,
+    atom_k: usize,
+    metric_row: usize,
+}
+
+fn build_steer_term(request: SteerTermRequest) -> Result<SaeManifoldTerm, String> {
+    let SteerTermRequest {
+        caller,
+        atom_specs,
         coords,
         logits,
         assignment,
@@ -857,71 +829,79 @@ pub fn run_sae_manifold_steer(request: SaeSteerRequest) -> Result<SteerPlan, Str
         fisher_metric,
         atom_k,
         metric_row,
-        amplitude,
-        t_from,
-        t_to,
     } = request;
     let k_atoms = atom_specs.len();
     if k_atoms == 0 {
-        return Err("run_sae_manifold_steer: at least one atom is required".to_string());
+        return Err(format!("{caller}: at least one atom is required"));
     }
     if coords.len() != k_atoms {
         return Err(format!(
-            "run_sae_manifold_steer: coords must have K={k_atoms} per-atom blocks; got {}",
+            "{caller}: coords must have K={k_atoms} per-atom blocks; got {}",
             coords.len()
         ));
     }
     if atom_k >= k_atoms {
         return Err(format!(
-            "run_sae_manifold_steer: atom_k={atom_k} out of range for K={k_atoms} atoms"
+            "{caller}: atom_k={atom_k} out of range for K={k_atoms} atoms"
         ));
     }
     if metric_row >= logits.nrows() {
         return Err(format!(
-            "run_sae_manifold_steer: metric_row={metric_row} out of range for {} fitted rows",
+            "{caller}: metric_row={metric_row} out of range for {} fitted rows",
             logits.nrows()
         ));
     }
-    finite_positive("amplitude", amplitude)?;
     finite_positive("alpha", alpha)?;
     finite_positive("tau", tau)?;
     let n_obs = logits.nrows();
     let p_out = atom_specs[0].decoder.ncols();
     if n_obs == 0 || p_out == 0 {
         return Err(format!(
-            "run_sae_manifold_steer: n_obs and p_out must be positive; got ({n_obs}, {p_out})"
+            "{caller}: n_obs and p_out must be positive; got ({n_obs}, {p_out})"
         ));
     }
     if logits.dim() != (n_obs, k_atoms) || !logits.iter().all(|value| value.is_finite()) {
         return Err(format!(
-            "run_sae_manifold_steer: logits must be a finite ({n_obs}, {k_atoms}) matrix; got {:?}",
+            "{caller}: logits must be a finite ({n_obs}, {k_atoms}) matrix; got {:?}",
             logits.dim()
         ));
     }
     if let Some(support) = top_k {
         if support == 0 || support > k_atoms {
             return Err(format!(
-                "run_sae_manifold_steer: top_k must be in 1..={k_atoms}; got {support}"
+                "{caller}: top_k must be in 1..={k_atoms}; got {support}"
+            ));
+        }
+    }
+    match (assignment, top_k) {
+        (SaeOosAssignmentKind::TopK, None) => {
+            return Err(format!(
+                "{caller}: TopK assignment requires the saved top_k support size"
+            ));
+        }
+        (SaeOosAssignmentKind::TopK, Some(_)) | (_, None) => {}
+        (_, Some(support)) => {
+            return Err(format!(
+                "{caller}: top_k={support} is valid only for TopK assignment"
             ));
         }
     }
     let mode = match assignment {
         SaeOosAssignmentKind::Softmax => AssignmentMode::softmax(tau),
-        SaeOosAssignmentKind::IbpMap { learnable_alpha } => {
-            AssignmentMode::ibp_map(tau, alpha, learnable_alpha)
+        SaeOosAssignmentKind::OrderedBetaBernoulli { learnable_alpha } => {
+            AssignmentMode::ordered_beta_bernoulli(tau, alpha, learnable_alpha)
         }
         SaeOosAssignmentKind::ThresholdGate { threshold } => {
             if !threshold.is_finite() {
                 return Err(format!(
-                    "run_sae_manifold_steer: threshold-gate threshold must be finite; got {threshold}"
+                    "{caller}: threshold-gate threshold must be finite; got {threshold}"
                 ));
             }
             AssignmentMode::threshold_gate(tau, threshold)
         }
         SaeOosAssignmentKind::TopK => {
             let support = top_k.ok_or_else(|| {
-                "run_sae_manifold_steer: TopK assignment requires the saved top_k support size"
-                    .to_string()
+                format!("{caller}: TopK assignment requires the saved top_k support size")
             })?;
             AssignmentMode::top_k_support(support)
         }
@@ -936,14 +916,14 @@ pub fn run_sae_manifold_steer(request: SaeSteerRequest) -> Result<SteerPlan, Str
         let block = &coords[atom_index];
         if block.dim() != (n_obs, spec.latent_dim) {
             return Err(format!(
-                "run_sae_manifold_steer: coords[{atom_index}] must be (N, d)=({n_obs}, {}); got {:?}",
+                "{caller}: coords[{atom_index}] must be (N, d)=({n_obs}, {}); got {:?}",
                 spec.latent_dim,
                 block.dim()
             ));
         }
         if !block.iter().all(|value| value.is_finite()) {
             return Err(format!(
-                "run_sae_manifold_steer: coords[{atom_index}] contains non-finite values"
+                "{caller}: coords[{atom_index}] contains non-finite values"
             ));
         }
         atoms.push(build_oos_atom(atom_index, spec, block.view(), p_out)?);
@@ -956,16 +936,350 @@ pub fn run_sae_manifold_steer(request: SaeSteerRequest) -> Result<SteerPlan, Str
     let assignment_state =
         SaeAssignment::from_blocks_with_mode_and_manifolds(logits, coord_blocks, manifolds, mode)?;
     let mut term = SaeManifoldTerm::new(atoms, assignment_state)?;
-    term.set_softmax_active_cap(top_k);
     if let Some(metric) = fisher_metric {
         term.set_row_metric(metric)?;
     }
+    Ok(term)
+}
 
+/// Build the frozen trained dictionary and measure the steering plan for atom
+/// `atom_k` at a fixed `amplitude`. Mirrors the term rebuild of
+/// [`run_sae_manifold_oos`] (sharing [`build_oos_atom`]) with no coordinate solve.
+pub fn run_sae_manifold_steer(request: SaeSteerRequest) -> Result<SteerPlan, String> {
+    let SaeSteerRequest {
+        atoms,
+        coords,
+        logits,
+        assignment,
+        top_k,
+        alpha,
+        tau,
+        fisher_metric,
+        atom_k,
+        metric_row,
+        amplitude,
+        t_from,
+        t_to,
+    } = request;
+    finite_positive("amplitude", amplitude)?;
+    let term = build_steer_term(SteerTermRequest {
+        caller: "run_sae_manifold_steer",
+        atom_specs: atoms,
+        coords,
+        logits,
+        assignment,
+        top_k,
+        alpha,
+        tau,
+        fisher_metric,
+        atom_k,
+        metric_row,
+    })?;
     // The metric the dose is measured through: the installed per-row metric, or a
     // bit-identical Euclidean metric (geometry-only; dose degrades to None).
-    let euclidean = gam_problem::RowMetric::euclidean(n_obs, p_out)?;
+    let euclidean = gam_problem::RowMetric::euclidean(term.n_obs(), term.output_dim())?;
     let metric = term.row_metric().unwrap_or(&euclidean);
     steer_delta(&term, metric, atom_k, metric_row, amplitude, &t_from, &t_to)
+}
+
+/// Fully owned request to solve for the amplitude realizing a TARGET output-KL
+/// dose (in nats) on atom `atom_k`'s chord (gh#2263 target-dose surface). Same
+/// frozen-dictionary rebuild as [`SaeSteerRequest`], with `amplitude` replaced by
+/// the requested `target_nats` and the closed-loop `config`.
+pub struct SaeSteerToTargetRequest {
+    /// Persisted trained atoms (decoder + basis schema).
+    pub atoms: Vec<SaeOosAtomSpec>,
+    /// TRAINED per-row on-manifold coordinates, one `(n_obs, latent_dim)` block per atom.
+    pub coords: Vec<Array2<f64>>,
+    /// TRAINED per-row routing logits, `(n_obs, k_atoms)`.
+    pub logits: Array2<f64>,
+    /// Assignment family.
+    pub assignment: SaeOosAssignmentKind,
+    /// Saved active-set support (required for `TopK`).
+    pub top_k: Option<usize>,
+    /// Ordered Beta--Bernoulli concentration α.
+    pub alpha: f64,
+    /// Softmax / gate temperature.
+    pub tau: f64,
+    /// The per-row output-Fisher metric the dose is measured through, or `None`.
+    pub fisher_metric: Option<gam_problem::RowMetric>,
+    /// The atom whose coordinate is being steered.
+    pub atom_k: usize,
+    /// Exact fitted row whose output-Fisher block prices the applied move.
+    pub metric_row: usize,
+    /// Source on-manifold coordinate.
+    pub t_from: Vec<f64>,
+    /// Target on-manifold coordinate (fixes the chord DIRECTION; the amplitude is solved).
+    pub t_to: Vec<f64>,
+    /// Requested output-KL dose in nats.
+    pub target_nats: f64,
+    /// Closed-loop correction tuning.
+    pub config: TargetDoseConfig,
+}
+
+/// Solve for the amplitude that realizes `target_nats` on atom `atom_k`'s chord.
+/// The optional `probe` (a patched-forward KL callback, `a → KL`) drives the
+/// closed-loop secant correction and the readout-KL radius; with `probe = None`
+/// the returned [`TargetDosePlan`] is the unvalidated closed-form seed.
+pub fn run_sae_manifold_steer_to_target(
+    request: SaeSteerToTargetRequest,
+    probe: Option<&mut PatchedForwardKl<'_>>,
+) -> Result<TargetDosePlan, String> {
+    let SaeSteerToTargetRequest {
+        atoms,
+        coords,
+        logits,
+        assignment,
+        top_k,
+        alpha,
+        tau,
+        fisher_metric,
+        atom_k,
+        metric_row,
+        t_from,
+        t_to,
+        target_nats,
+        config,
+    } = request;
+    let term = build_steer_term(SteerTermRequest {
+        caller: "run_sae_manifold_steer_to_target",
+        atom_specs: atoms,
+        coords,
+        logits,
+        assignment,
+        top_k,
+        alpha,
+        tau,
+        fisher_metric,
+        atom_k,
+        metric_row,
+    })?;
+    let euclidean = gam_problem::RowMetric::euclidean(term.n_obs(), term.output_dim())?;
+    let metric = term.row_metric().unwrap_or(&euclidean);
+    steer_to_target_nats(
+        &term,
+        metric,
+        TargetDoseRequest {
+            atom_k,
+            metric_row,
+            t_from: &t_from,
+            t_to: &t_to,
+            target_nats,
+            config,
+        },
+        probe,
+    )
+}
+
+/// Fully owned, Python-free request to certify an externally-trained
+/// (torch-lane) SAE-manifold state (#2266 / #2263 item 4). Rebuilds the SAME
+/// frozen dictionary [`run_sae_manifold_oos`] / [`run_sae_manifold_steer`]
+/// rebuild from [`SaeOosAtomSpec`] + trained coordinates/logits — no
+/// coordinate or decoder solve; the caller's own (e.g. torch) training loop
+/// already produced them — installs it VERBATIM as
+/// [`SaeCertifyRequest::base_term`], and delegates to
+/// [`run_sae_manifold_certify`] for the shared post-fit diagnostics /
+/// anytime-valid structure certificate pipeline. This is the entry a torch-lane
+/// fit uses to obtain the same certificates a native closed-form fit gets,
+/// without pretending a stationarity certificate exists for state this entry
+/// never optimized.
+pub struct SaeCertifyExternalRequest {
+    /// The training target the externally-trained decoder was fit against.
+    pub target: Array2<f64>,
+    /// Persisted trained atoms (decoder + basis schema), identical to the OOS
+    /// dictionary definition.
+    pub atoms: Vec<SaeOosAtomSpec>,
+    /// The model's TRAINED per-row on-manifold coordinates, one `(n_obs,
+    /// latent_dim)` block per atom.
+    pub coords: Vec<Array2<f64>>,
+    /// The model's TRAINED per-row routing logits, `(n_obs, k_atoms)`.
+    pub logits: Array2<f64>,
+    /// Assignment family.
+    pub assignment: SaeOosAssignmentKind,
+    /// Saved active-set support; required for `TopK`.
+    pub top_k: Option<usize>,
+    /// Ordered Beta-Bernoulli concentration α (ignored outside that assignment).
+    pub alpha: f64,
+    /// Softmax / gate temperature.
+    pub tau: f64,
+    /// The trained terminal regularization state (same contract as
+    /// [`run_sae_manifold_oos`]: the certificate must be built at the
+    /// regularization that produced the decoder, not a default).
+    pub regularization: SaeOosRegularization,
+    /// The per-row output-Fisher metric to certify dosimetry through, or
+    /// `None` for the geometry-only Euclidean metric.
+    pub fisher_metric: Option<gam_problem::RowMetric>,
+    /// Pre-built analytic-penalty registry (built by the caller above
+    /// `gam-sae`, identical contract to [`SaeCertifyRequest::registry`]).
+    pub registry: AnalyticPenaltyRegistry,
+    pub max_iter: usize,
+    pub learning_rate: f64,
+    pub ridge_ext_coord: f64,
+    pub ridge_beta: f64,
+    pub isometry_pin_active: bool,
+    pub metric_provenance: &'static str,
+    /// #977/#997 evidence-guarded structure search around the installed
+    /// state (same default-true contract as [`SaeCertifyRequest`]).
+    pub run_structure_search: bool,
+}
+
+/// Certify an externally-trained (torch-lane) SAE-manifold fit with no
+/// closed-form solve. Shares its validation and term-rebuild with
+/// [`run_sae_manifold_oos`] / [`run_sae_manifold_steer`] (same
+/// [`SaeOosAtomSpec`] contract) so a torch-lane caller's decoder/coords/logits
+/// rebuild into the identical dictionary a native fit or OOS encode would, then
+/// hands the rebuilt term to [`run_sae_manifold_certify`] verbatim.
+pub fn run_sae_manifold_certify_external(
+    request: SaeCertifyExternalRequest,
+) -> Result<SaeFitReport, SaeFitError> {
+    let SaeCertifyExternalRequest {
+        target,
+        atoms: atom_specs,
+        coords,
+        logits,
+        assignment,
+        top_k,
+        alpha,
+        tau,
+        regularization,
+        fisher_metric,
+        registry,
+        max_iter,
+        learning_rate,
+        ridge_ext_coord,
+        ridge_beta,
+        isometry_pin_active,
+        metric_provenance,
+        run_structure_search,
+    } = request;
+    let k_atoms = atom_specs.len();
+    if k_atoms == 0 {
+        return Err(
+            "run_sae_manifold_certify_external: at least one atom is required"
+                .to_string()
+                .into(),
+        );
+    }
+    if coords.len() != k_atoms {
+        return Err(format!(
+            "run_sae_manifold_certify_external: coords must have K={k_atoms} per-atom blocks; got {}",
+            coords.len()
+        )
+        .into());
+    }
+    let (n_obs, p_out) = target.dim();
+    if n_obs == 0 || p_out == 0 {
+        return Err(format!(
+            "run_sae_manifold_certify_external: n_obs and p_out must be positive; got ({n_obs}, {p_out})"
+        )
+        .into());
+    }
+    if logits.dim() != (n_obs, k_atoms) || !logits.iter().all(|value| value.is_finite()) {
+        return Err(format!(
+            "run_sae_manifold_certify_external: logits must be a finite ({n_obs}, {k_atoms}) matrix; got {:?}",
+            logits.dim()
+        )
+        .into());
+    }
+    if let Some(support) = top_k {
+        if support == 0 || support > k_atoms {
+            return Err(format!(
+                "run_sae_manifold_certify_external: top_k must be in 1..={k_atoms}; got {support}"
+            )
+            .into());
+        }
+    }
+    match (assignment, top_k) {
+        (SaeOosAssignmentKind::TopK, None) => {
+            return Err(
+                "run_sae_manifold_certify_external: TopK assignment requires the saved top_k support size"
+                    .to_string()
+                    .into(),
+            );
+        }
+        (SaeOosAssignmentKind::TopK, Some(_)) | (_, None) => {}
+        (_, Some(support)) => {
+            return Err(format!(
+                "run_sae_manifold_certify_external: top_k={support} is valid only for TopK assignment"
+            )
+            .into());
+        }
+    }
+    finite_positive("alpha", alpha)?;
+    finite_positive("tau", tau)?;
+    let mode = match assignment {
+        SaeOosAssignmentKind::Softmax => AssignmentMode::softmax(tau),
+        SaeOosAssignmentKind::OrderedBetaBernoulli { learnable_alpha } => {
+            AssignmentMode::ordered_beta_bernoulli(tau, alpha, learnable_alpha)
+        }
+        SaeOosAssignmentKind::ThresholdGate { threshold } => {
+            if !threshold.is_finite() {
+                return Err(format!(
+                    "run_sae_manifold_certify_external: threshold-gate threshold must be finite; got {threshold}"
+                )
+                .into());
+            }
+            AssignmentMode::threshold_gate(tau, threshold)
+        }
+        SaeOosAssignmentKind::TopK => {
+            let support = top_k.ok_or_else(|| {
+                "run_sae_manifold_certify_external: TopK assignment requires the saved top_k support size"
+                    .to_string()
+            })?;
+            AssignmentMode::top_k_support(support)
+        }
+    };
+
+    let latent_dims: Vec<usize> = atom_specs.iter().map(|spec| spec.latent_dim).collect();
+    let mut coord_blocks = Vec::with_capacity(k_atoms);
+    let mut atoms = Vec::with_capacity(k_atoms);
+    for (atom_index, spec) in atom_specs.iter().enumerate() {
+        let block = &coords[atom_index];
+        if block.dim() != (n_obs, spec.latent_dim) {
+            return Err(format!(
+                "run_sae_manifold_certify_external: coords[{atom_index}] must be (N, d)=({n_obs}, {}); got {:?}",
+                spec.latent_dim,
+                block.dim()
+            )
+            .into());
+        }
+        if !block.iter().all(|value| value.is_finite()) {
+            return Err(format!(
+                "run_sae_manifold_certify_external: coords[{atom_index}] contains non-finite values"
+            )
+            .into());
+        }
+        atoms.push(build_oos_atom(atom_index, spec, block.view(), p_out)?);
+        coord_blocks.push(block.clone());
+    }
+    let manifolds = atom_specs
+        .iter()
+        .map(|spec| spec.basis_kind.latent_manifold(spec.latent_dim))
+        .collect();
+    let assignment_state =
+        SaeAssignment::from_blocks_with_mode_and_manifolds(logits, coord_blocks, manifolds, mode)?;
+    let mut base_term = SaeManifoldTerm::new(atoms, assignment_state)?;
+    if let Some(metric) = fisher_metric {
+        base_term.set_row_metric(metric)?;
+    }
+
+    let initial_rho = build_rho(regularization, &latent_dims, mode)?;
+
+    run_sae_manifold_certify(SaeCertifyRequest {
+        base_term,
+        target,
+        registry,
+        initial_rho,
+        max_iter,
+        learning_rate,
+        ridge_ext_coord,
+        ridge_beta,
+        alpha,
+        isometry_pin_active,
+        metric_provenance,
+        run_structure_search,
+        cancel: None,
+    })
 }
 
 #[cfg(test)]
@@ -1025,6 +1339,35 @@ mod tests {
             .map(|value| value.abs())
             .fold(0.0_f64, f64::max);
         assert!(max_error <= 1.0e-12, "max reconstruction error={max_error}");
+        let atom_error = (&report.atoms[0].reconstruction - &report.fitted)
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            atom_error <= 1.0e-12,
+            "unit-mass atom image must equal the fitted reconstruction; max error={atom_error}"
+        );
+    }
+
+    #[test]
+    fn typed_oos_report_uses_effective_hybrid_atom_image() {
+        let mut request = periodic_request();
+        request.hybrid_linear_images = vec![AtomLinearImage {
+            atom_idx: 0,
+            t_bar: 0.0,
+            b0: Array1::from_vec(vec![2.0, -1.0]),
+            b1: Array1::from_vec(vec![0.5, 0.25]),
+            v: None,
+        }];
+        let report = run_sae_manifold_oos(request).unwrap();
+        let max_error = (&report.atoms[0].reconstruction - &report.fitted)
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_error <= 1.0e-12,
+            "unit-mass hybrid atom image must equal the hybrid fitted output; max error={max_error}"
+        );
     }
 
     #[test]

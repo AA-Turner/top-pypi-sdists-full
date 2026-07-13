@@ -19,12 +19,38 @@
 #[cfg(test)]
 mod tests {
     use crate::manifold::{
-        SaeFitAssignmentKind, SaeFitConfig, SaeFitRequest, SaeFitSeedReport, SaeFitSeedRequest,
-        SaeMinimalSeedReport, SaeMinimalSeedRequest, build_sae_fit_seed, build_sae_minimal_seed,
-        run_sae_manifold_fit,
+        SaeFitAssignmentKind, SaeFitConfig, SaeFitError, SaeFitRequest, SaeFitSeedReport,
+        SaeFitSeedRequest, SaeMinimalSeedReport, SaeMinimalSeedRequest, build_sae_fit_seed,
+        build_sae_minimal_seed, run_sae_manifold_fit,
     };
     use gam_terms::analytic_penalties::AnalyticPenaltyRegistry;
     use ndarray::{Array2, Axis};
+
+    /// Test-visible forwarding logger: the engine's diagnostic channels
+    /// (`log::debug!` bail naming in `terminal_exact_newton_polish`, the
+    /// `log::warn!` incumbent/warranty restores) are silently dropped by the
+    /// test harness unless a logger is installed — the exact trap that left
+    /// the tier-0 refusal unadjudicated across multiple probe runs. eprintln
+    /// is the test-side convention (`log::warn` is dropped in tests); this
+    /// forwards every record so a plain `--nocapture` run shows the engine's
+    /// own account of WHY it refused.
+    struct ForwardingTestLogger;
+    impl log::Log for ForwardingTestLogger {
+        fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record<'_>) {
+            eprintln!("[{}] {}", record.level(), record.args());
+        }
+        fn flush(&self) {}
+    }
+    static FORWARDING_TEST_LOGGER: ForwardingTestLogger = ForwardingTestLogger;
+    fn install_test_logger() {
+        // Ignore the error when another test already installed a logger.
+        if log::set_logger(&FORWARDING_TEST_LOGGER).is_ok() {
+            log::set_max_level(log::LevelFilter::Debug);
+        }
+    }
 
     /// `N_CIRCLE` evenly-spaced points on the unit circle, plus a per-dim constant
     /// `offset` (the global DC Tier-0 must carry) plus small deterministic iid
@@ -80,7 +106,6 @@ mod tests {
             tau: 1.0,
             threshold: 0.0,
             top_k: None,
-            ibp_alpha_override: None,
             random_state: 0,
             initial_logits: None,
             initial_coords: None,
@@ -152,14 +177,13 @@ mod tests {
             learning_rate: 1.0,
             ridge_ext_coord: 1.0e-6,
             ridge_beta: 1.0e-6,
-            assignment_kind,
             alpha: 1.0,
-            top_k: None,
             isometry_pin_active,
             metric_provenance,
             promote_from_residual: false,
             run_structure_search: false,
             run_outer_rho_search: false,
+            structured_residual_passes: None,
             cancel: None,
         })
         .expect("primary fit runs")
@@ -171,6 +195,7 @@ mod tests {
     /// target's, i.e. the DC is present in `report.fitted`, carried by Tier-0).
     #[test]
     fn primary_entry_installs_tier0_mean_on_raw_target() {
+        install_test_logger();
         const OFFSET: f64 = 7.0;
         let target = circle_target(OFFSET);
         let target_col_mean = target.mean_axis(Axis(0)).unwrap();
@@ -226,6 +251,7 @@ mod tests {
     /// target, so a mean-zero target yields μ ≈ 0 (no double-subtraction hazard).
     #[test]
     fn primary_entry_tier0_is_a_noop_on_centered_target() {
+        install_test_logger();
         let target = circle_target(0.0); // the circle coords are already mean-zero
         let report = run_primary(target);
         let mu = report
@@ -241,6 +267,137 @@ mod tests {
                 m.abs() < 0.1,
                 "μ[{j}]={m} must be ≈ 0 on already-centered data (no phantom mean)"
             );
+        }
+    }
+
+    /// #2228/#2266 — drive the FULL outer ρ search on the E1-analog fixture
+    /// (K=1 softmax periodic atom, dense direct-logdet, small ρ) so the planner
+    /// selects ARC via the #2266 dense-Hessian route, and OBSERVE the outcome
+    /// end to end: does the fit mint (converge + certify), or does it stop at a
+    /// specific gate (step refusal / cost-stall / value↔gradient cert
+    /// disagreement)? The `OuterDidNotConverge` Display carries the plan (which
+    /// must read `solver=Arc`), the terminal ‖g‖, and the stop reason — the exact
+    /// evidence needed to locate the residual value↔gradient seam under ARC. This
+    /// is the warm micro-repro standing in for the real-GPT-2 E1 mint.
+    fn run_primary_outer_search(target: Array2<f64>) -> Result<crate::manifold::SaeFitReport, SaeFitError> {
+        let assignment_kind = SaeFitAssignmentKind::Softmax;
+        let minimal = build_sae_minimal_seed(SaeMinimalSeedRequest {
+            target: target.view(),
+            atom_basis: vec!["periodic".to_string()],
+            atom_dim: vec![1],
+            assignment_kind,
+            alpha: 1.0,
+            tau: 1.0,
+            threshold: 0.0,
+            top_k: None,
+            random_state: 0,
+            initial_logits: None,
+            initial_coords: None,
+        })
+        .expect("minimal seed");
+        let SaeMinimalSeedReport {
+            atom_basis,
+            effective_atom_dim,
+            atom_centers,
+            basis_values,
+            basis_jacobian,
+            basis_sizes,
+            decoder_coefficients,
+            smooth_penalties,
+            initial_logits,
+            initial_coords,
+            refine_routing,
+        } = minimal;
+
+        let registry = AnalyticPenaltyRegistry::new();
+        let seed = build_sae_fit_seed(SaeFitSeedRequest {
+            target: target.view(),
+            atom_basis: &atom_basis,
+            atom_dim: &effective_atom_dim,
+            atom_centers: &atom_centers,
+            basis_values: basis_values.view(),
+            basis_jacobian: basis_jacobian.view(),
+            basis_sizes: &basis_sizes,
+            decoder_coefficients: decoder_coefficients.view(),
+            smooth_penalties: smooth_penalties.view(),
+            initial_logits: initial_logits.view(),
+            initial_coords: initial_coords.view(),
+            alpha: 1.0,
+            tau: 1.0,
+            learnable_alpha: false,
+            assignment_kind,
+            sparsity_strength: 1.0,
+            smoothness: 1.0,
+            max_iter: 64,
+            learning_rate: 1.0,
+            ridge_ext_coord: 1.0e-6,
+            ridge_beta: 1.0e-6,
+            top_k: None,
+            threshold: 0.0,
+            native_ard_enabled: true,
+            seed_refine_routing: refine_routing,
+            seed_refine_random_state: 0,
+            data_row_reseed: false,
+            fit_config: SaeFitConfig::default(),
+            temperature_schedule: None,
+            fisher_metric: None,
+            row_loss_weights: None,
+            registry: &registry,
+        })
+        .expect("fit seed");
+        let SaeFitSeedReport {
+            base_term,
+            initial_rho,
+            isometry_pin_active,
+            metric_provenance,
+        } = seed;
+
+        run_sae_manifold_fit(SaeFitRequest {
+            base_term,
+            target,
+            registry,
+            initial_rho,
+            max_iter: 64,
+            learning_rate: 1.0,
+            ridge_ext_coord: 1.0e-6,
+            ridge_beta: 1.0e-6,
+            alpha: 1.0,
+            isometry_pin_active,
+            metric_provenance,
+            promote_from_residual: false,
+            run_structure_search: false,
+            // The whole point: enable the outer ρ search so ARC actually runs.
+            run_outer_rho_search: true,
+            // Isolate the pass-0 iid outer search from the structured-residual
+            // alternation (which is intentionally non-identifiable on the clean
+            // circle — see this module's fixture note).
+            structured_residual_passes: None,
+            cancel: None,
+        })
+    }
+
+    #[test]
+    fn e1_arc_outer_search_mints_or_reports_blocker_2266() {
+        install_test_logger();
+        let target = circle_target(0.0);
+        match run_primary_outer_search(target) {
+            Ok(report) => {
+                // Minted: the ARC outer search converged AND certified stationarity.
+                println!(
+                    "[#2266] E1-ARC outer search MINTED: penalized_quasi_laplace_criterion={:.6e}",
+                    report.penalized_quasi_laplace_criterion
+                );
+                assert!(
+                    report.penalized_quasi_laplace_criterion.is_finite(),
+                    "a minted fit must carry a finite criterion"
+                );
+            }
+            Err(err) => {
+                // Not minted — the Display carries plan= (must be solver=Arc), the
+                // terminal ‖g‖, and the stop reason: the observation this repro
+                // exists to capture.
+                panic!("[#2266] E1-ARC outer search did NOT mint: {err}");
+            }
         }
     }
 }

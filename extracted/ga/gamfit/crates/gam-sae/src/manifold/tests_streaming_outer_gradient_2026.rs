@@ -5,7 +5,7 @@
 //! test (`tests_streaming_efs_cache_1026`) did NOT cover:
 //!
 //!  1. **Outer-gradient parity.** The #1026 test proved the cache returned by
-//!     `reml_criterion_streaming_exact_with_cache` is a drop-in for the EFS
+//!     `penalized_quasi_laplace_criterion_streaming_exact_with_cache` is a drop-in for the EFS
 //!     consumers (`ard_inverse_traces` / `reconstruction_dispersion`). But the
 //!     ANALYTIC OUTER ρ-GRADIENT lane (`outer_gradient_arrow_solver` →
 //!     `analytic_outer_rho_gradient_components`) also reads the returned cache,
@@ -20,7 +20,7 @@
 //!     metric) fit at K=32, p=128, n=500 — the composition regime whose predicted
 //!     dense evidence cache (`N·q·border_dim`, q=K(1+d), border_dim=Σ_k M_k·p)
 //!     exceeds the in-core budget — must ROUTE to the streaming criterion and
-//!     COMPLETE with a finite REML value rather than hard-erroring. We pin both
+//!     COMPLETE with a finite penalized quasi-Laplace value rather than hard-erroring. We pin both
 //!     halves deterministically: (a) the memory planner refuses the dense direct
 //!     plan at this shape but admits the matrix-free plan, so the auto-router
 //!     selects streaming; and (b) the streaming value path itself returns a finite
@@ -34,12 +34,15 @@ use gam_solve::rho_optimizer::{FixedPointCoordinateCertificate, OuterObjective};
 use gam_terms::latent::LatentManifold;
 use ndarray::{Array1, Array2};
 
-use super::tests::{TestPeriodicEvaluator, periodic_basis, small_two_atom_periodic_term};
+use super::tests::{
+    PlantedCircleAssignmentMode, TestPeriodicEvaluator, periodic_basis, planted_circle_embedded,
+    planted_circle_seed_term, small_two_atom_periodic_term,
+};
 use std::sync::Arc;
 
 /// The analytic outer ρ-gradient assembled off the STREAMING cache
-/// (`reml_criterion_streaming_exact_with_cache`) must be bit-identical to the one
-/// assembled off the DENSE cache (`reml_criterion_with_cache`). Both entries
+/// (`penalized_quasi_laplace_criterion_streaming_exact_with_cache`) must be bit-identical to the one
+/// assembled off the DENSE cache (`penalized_quasi_laplace_criterion_with_cache`). Both entries
 /// converge the inner (t, β) state through the SAME
 /// `converge_inner_for_undamped_logdet` driver with the SAME undamped Direct
 /// options, so the returned factor caches — and therefore the selected-inverse
@@ -52,48 +55,43 @@ use std::sync::Arc;
 /// EFS-trace drop-in contract.
 #[test]
 fn streaming_cache_outer_gradient_matches_dense_cache() {
-    let (n, p, k) = (24usize, 2usize, 2usize);
-    let mut term0 = build_softmax_term(n, p, k);
-    // Keep both charts load-bearing throughout the inner solve: atom 0 owns the
-    // first output axis and atom 1 the second, with disjoint row territories.
-    // The former five-row scalar target could only support one chart and was
-    // correctly refused by the production total-co-collapse veto before either
-    // dense/streaming cache route was compared.
-    term0.atoms[0].decoder_coefficients =
-        ndarray::array![[0.20, 0.00], [1.10, 0.00], [0.45, 0.00]];
-    term0.atoms[1].decoder_coefficients =
-        ndarray::array![[0.00, -0.15], [0.00, 0.40], [0.00, 1.20]];
-    for row in 0..n {
-        let first_territory = row < n / 2;
-        term0.assignment.logits[[row, 0]] = if first_territory { 2.0 } else { -2.0 };
-        term0.assignment.logits[[row, 1]] = if first_territory { -2.0 } else { 2.0 };
-    }
-    let rho = SaeManifoldRho::new(
-        0.7_f64.ln(),
-        0.8_f64.ln(),
-        vec![Array1::from_elem(1, 1.2_f64.ln()); k],
-    );
-    let fitted = term0
-        .try_fitted_for_rho(&rho)
-        .expect("resolved two-chart fixture reconstruction");
-    let target = Array2::<f64>::from_shape_fn((n, p), |(row, col)| {
-        fitted[[row, col]] + 1.0e-3 * ((row + 3 * col) as f64 * 0.19).sin()
-    });
+    // Reuse the exact-recurrence K=1 planted circle from the decisive #2253
+    // value/gradient identity. Cache-route parity needs nontrivial smoothness
+    // and ARD channels, not a second chart; the former K=2 fixture exercised an
+    // unrelated non-idempotent inner map and was correctly refused before cache
+    // comparison. This branch is already certified KKT-stationary and recurrent.
+    let target = planted_circle_embedded(32, 4, 0.02);
+    let mut term0 = planted_circle_seed_term(target.view(), PlantedCircleAssignmentMode::Softmax).0;
+    term0.atoms[0].basis_second_jet = Some(Arc::new(
+        PeriodicHarmonicEvaluator::new(3).expect("periodic evaluator"),
+    ));
+    let rho = SaeManifoldRho::new(0.0, 0.05_f64.ln(), vec![Array1::<f64>::zeros(1)]);
+    let inner_max_iter = 40;
+    let learning_rate = 1.0;
+    let ridge = 1.0e-6;
     let mut dense = term0.clone();
     let mut streaming = term0;
 
     let (dense_cost, dense_loss, dense_cache) = dense
-        .reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
-        .expect("dense cache criterion");
-    let (stream_cost, stream_loss, stream_cache) = streaming
-        .reml_criterion_streaming_exact_with_cache(
+        .penalized_quasi_laplace_criterion_with_cache(
             target.view(),
             &rho,
             None,
-            2,
-            0.25,
-            1.0e-4,
-            1.0e-4,
+            inner_max_iter,
+            learning_rate,
+            ridge,
+            ridge,
+        )
+        .expect("dense cache criterion");
+    let (stream_cost, stream_loss, stream_cache) = streaming
+        .penalized_quasi_laplace_criterion_streaming_exact_with_cache(
+            target.view(),
+            &rho,
+            None,
+            inner_max_iter,
+            learning_rate,
+            ridge,
+            ridge,
         )
         .expect("streaming cache criterion");
 
@@ -104,7 +102,7 @@ fn streaming_cache_outer_gradient_matches_dense_cache() {
 
     // Assemble the analytic outer ρ-gradient off EACH cache through the identical
     // production path the seed-validation / small-BFGS lane uses.
-    let smooth = rho.lambda_smooth_vec();
+    let smooth = rho.lambda_smooth_vec().unwrap();
     let dense_solver = dense
         .outer_gradient_arrow_solver(&dense_cache, &smooth)
         .expect("dense outer-gradient solver");
@@ -171,7 +169,7 @@ fn lcg_normal(s: &mut u64) -> f64 {
     (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
 }
 
-/// A K-atom periodic term over `(n, p)` with a softmax assignment (non-IBP, so the
+/// A K-atom periodic term over `(n, p)` with a softmax assignment (non-ordered Beta--Bernoulli, so the
 /// streaming reduced-Schur log-det has a matrix-free route). Each atom carries the
 /// `TestPeriodicEvaluator` — REQUIRED by the streaming path, which re-evaluates
 /// Φ(t) per chunk via `materialize_chunk` — and a distinct nonzero decoder so the
@@ -182,7 +180,7 @@ fn build_softmax_term(n: usize, p: usize, k: usize) -> SaeManifoldTerm {
     let coord_cols: Vec<Array2<f64>> = (0..k)
         .map(|i| {
             Array2::<f64>::from_shape_fn((n, 1), |(r, _)| {
-                (0.03 + 0.11 * i as f64 + 0.017 * r as f64).rem_euclid(1.0)
+                (0.03 + 0.11 * i as f64 + 0.017 * (i + 1) as f64 * r as f64).rem_euclid(1.0)
             })
         })
         .collect();
@@ -194,7 +192,7 @@ fn build_softmax_term(n: usize, p: usize, k: usize) -> SaeManifoldTerm {
             let decoder = Array2::<f64>::from_shape_fn((3, p), |(m, c)| {
                 0.1 * f * ((m + 1) as f64) - 0.05 * (c as f64) + 0.02 * f
             });
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 format!("atom{i}"),
                 SaeAtomBasisKind::Periodic,
                 1,
@@ -307,11 +305,11 @@ fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
         Derivative::Analytic,
         "dense SAE retains its exact joint-Hessian IFT gradient"
     );
-    let (representative_term, _, representative_rho) = small_two_atom_periodic_term();
+    let (_representative_term, _, representative_rho) = small_two_atom_periodic_term();
     assert_eq!(
-        hybrid_assignment_gradient_coordinate(&representative_term, &representative_rho),
+        assignment_strength_gradient_coordinate(&representative_rho),
         representative_rho.sparse_flat_index(),
-        "a non-IBP fit must promote its active sparsity strength into Hybrid-EFS's \
+        "every active assignment strength must enter Hybrid-EFS's \
          exact-gradient block; the outer-plan crossover decides whether that block \
          is consumed, not whether the coordinate has an analytic root"
     );
@@ -321,13 +319,13 @@ fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
         .expect("matrix-free-admitted plan must not hard-error at the admission gate");
 }
 
-/// Hybrid-EFS must replace the former held-zero non-IBP assignment coordinate
-/// with the exact REML derivative and expose that same root-equivalent update to
+/// Hybrid-EFS must replace the former held-zero non-ordered Beta--Bernoulli assignment coordinate
+/// with the exact penalized quasi-Laplace derivative and expose that same root-equivalent update to
 /// the final fixed-point proof hook. This dense fixture exercises the exact dense
 /// sibling cheaply; the complete-gradient parity test below pins the matrix-free
 /// sibling to identical math.
 #[test]
-fn fixed_point_certificate_covers_non_ibp_exact_gradient() {
+fn fixed_point_certificate_covers_non_ordered_beta_bernoulli_exact_gradient() {
     let make_objective = || {
         let (term, target, rho) = small_two_atom_periodic_term();
         let rho_flat = rho.to_flat();
@@ -340,7 +338,7 @@ fn fixed_point_certificate_covers_non_ibp_exact_gradient() {
     let (mut iteration_objective, rho) = make_objective();
     let iteration = iteration_objective
         .eval_efs(&rho)
-        .expect("non-IBP EFS startup evaluation");
+        .expect("non-ordered Beta--Bernoulli EFS startup evaluation");
     let gradient = iteration
         .psi_gradient
         .as_ref()
@@ -373,7 +371,55 @@ fn fixed_point_certificate_covers_non_ibp_exact_gradient() {
     }
 }
 
-/// The non-IBP assignment-strength `0.5 tr(H^-1 dH/dlog_lambda_sparse)` channel
+/// Learnable ordered Beta--Bernoulli concentration uses the same complete criterion
+/// derivative as every other assignment-strength coordinate. This guards
+/// against reintroducing the removed occupancy-only alpha fixed point, whose
+/// stationarity equation omitted the inner response and log-determinant terms.
+#[test]
+fn fixed_point_certificate_covers_ordered_beta_bernoulli_complete_gradient() {
+    let make_objective = || {
+        let (mut term, target, mut rho) = small_two_atom_periodic_term();
+        term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.8, 1.0, true);
+        rho.log_lambda_sparse = 0.7_f64.ln();
+        let rho_flat = rho.to_flat();
+        (
+            SaeManifoldOuterObjective::new(term, target, None, rho, 2, 0.25, 1.0e-4, 1.0e-4),
+            rho_flat,
+        )
+    };
+
+    let (mut iteration_objective, rho) = make_objective();
+    let iteration = iteration_objective
+        .eval_efs(&rho)
+        .expect("ordered Beta--Bernoulli EFS startup evaluation");
+    let gradient = iteration
+        .psi_gradient
+        .as_ref()
+        .expect("learnable concentration must use the complete gradient block")[0];
+    assert!(gradient.is_finite());
+    assert_eq!(iteration.psi_indices.as_deref(), Some(&[0][..]));
+    assert_abs_diff_eq!(
+        iteration.steps[0],
+        -gradient / gradient.abs().max(1.0),
+        epsilon = 1.0e-12
+    );
+
+    let (mut proof_objective, proof_rho) = make_objective();
+    let proof = proof_objective
+        .eval_fixed_point_certificate(&proof_rho)
+        .expect("ordered Beta--Bernoulli fixed-point proof hook must evaluate");
+    match &proof.coordinates[0] {
+        FixedPointCoordinateCertificate::Covered { update, scale } => {
+            assert_abs_diff_eq!(*update, iteration.steps[0], epsilon = 1.0e-12);
+            assert_eq!(*scale, 1.0);
+        }
+        FixedPointCoordinateCertificate::Uncovered { reason } => panic!(
+            "the complete ordered Beta--Bernoulli concentration derivative must certify this coordinate: {reason}"
+        ),
+    }
+}
+
+/// The non-ordered Beta--Bernoulli assignment-strength `0.5 tr(H^-1 dH/dlog_lambda_sparse)` channel
 /// must be reconstructible from the same reduced-Schur inverse-probe bundle as
 /// the smoothness, ARD, and theta-adjoint channels. Full-basis probes with exact
 /// dense `S^-1` make the bundle identity exact, so this isolates the new matrix-
@@ -381,7 +427,7 @@ fn fixed_point_certificate_covers_non_ibp_exact_gradient() {
 #[test]
 fn assignment_strength_trace_from_probes_matches_dense_softmax() {
     let (n, p, k) = (24usize, 2usize, 2usize);
-    let mut term = build_softmax_term(n, p, k);
+    let term = build_softmax_term(n, p, k);
     let rho = SaeManifoldRho::new(
         0.7_f64.ln(),
         0.8_f64.ln(),
@@ -398,11 +444,11 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
         .try_fitted_for_rho(&rho)
         .expect("softmax positive-rank fixture reconstruction");
     let target = Array2::<f64>::from_shape_fn((n, p), |(row, col)| {
-        fitted[[row, col]] + 0.05 * ((row + 2 * col) as f64 * 0.17).sin()
+        fitted[[row, col]] + 1.0e-3 * ((row + 2 * col) as f64 * 0.17).sin()
     });
     let system = term
-        .assemble_arrow_schur(target.view(), &rho, None)
-        .expect("softmax arrow system");
+        .assemble_full_matrix_free_evidence_system(target.view(), &rho, None, None)
+        .expect("softmax matrix-free evidence system");
     let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
     let (_, _, cache) = solve_arrow_newton_step_with_options(&system, 0.0, 0.0, &options)
         .expect("direct factorization");
@@ -449,9 +495,7 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
     // partial implementation that wires only 0.5 tr(B^-1 dB/drho) while silently
     // dropping -0.5 Gamma^T A^-1 dg/drho.
     let loss = term.loss(target.view(), &rho).expect("softmax loss");
-    let sparse_index = rho
-        .sparse_flat_index()
-        .expect("softmax sparse coordinate");
+    let sparse_index = rho.sparse_flat_index().expect("softmax sparse coordinate");
     let dense_components = term
         .analytic_outer_rho_gradient_components(target.view(), &rho, &loss, &cache, &solver)
         .expect("dense complete outer gradient");
@@ -484,7 +528,7 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
     assert_abs_diff_eq!(matrix_free_gradient, dense_gradient, epsilon = 1.0e-8);
 }
 
-/// End-to-end: the whitened streaming REML criterion (`reml_criterion_streaming_
+/// End-to-end: the whitened streaming penalized quasi-Laplace criterion (`penalized_quasi_laplace_criterion_streaming_
 /// exact`) must COMPLETE with a finite value rather than surfacing the
 /// `cost-only streaming route is required` hard-error class. The streaming lane is
 /// size-INVARIANT — it runs the identical `converge_inner_for_undamped_logdet` +
@@ -520,11 +564,19 @@ fn whitened_streaming_criterion_completes() {
     );
 
     let (cost, loss) = term
-        .reml_criterion_streaming_exact(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+        .penalized_quasi_laplace_criterion_streaming_exact(
+            target.view(),
+            &rho,
+            None,
+            2,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
         .expect("whitened streaming criterion must complete, not hard-error");
     assert!(
         cost.is_finite(),
-        "streaming REML criterion must be finite; got {cost}"
+        "streaming penalized quasi-Laplace criterion must be finite; got {cost}"
     );
     assert!(
         loss.total().is_finite() && loss.data_fit.is_finite(),

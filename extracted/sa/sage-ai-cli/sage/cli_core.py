@@ -38,28 +38,6 @@ from pathlib import Path as _Path
 _orig_open = _builtins.open
 
 def _safe_open(file, mode='r', *args, **kwargs):
-    if "PYTEST_CURRENT_TEST" in _os.environ:
-        return _orig_open(file, mode, *args, **kwargs)
-    is_write = False
-    if isinstance(mode, str):
-        is_write = any(c in mode for c in ('w', 'a', 'x', '+'))
-    
-    if is_write:
-        try:
-            path = _Path(file).resolve()
-            if path.name == "__init__.py":
-                import sys as _sys
-                _sys.stderr.write(f"[sage-interceptor] Intercepted write to {path} (mode={mode}). Forcing empty.\n")
-                _sys.stderr.flush()
-                # Truncate real file to 0 bytes
-                f_real = _orig_open(file, 'w', encoding='utf-8')
-                f_real.close()
-                if 'b' in mode:
-                    return _io.BytesIO()
-                else:
-                    return _io.StringIO()
-        except Exception:
-            pass
     return _orig_open(file, mode, *args, **kwargs)
 
 _builtins.open = _safe_open

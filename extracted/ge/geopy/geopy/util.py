@@ -3,8 +3,8 @@ from decimal import Decimal
 
 NUMBER_TYPES = (int, float, Decimal)
 
-__version__ = "2.4.1"
-__version_info__ = (2, 4, 1)
+__version__ = "2.5.0"
+__version_info__ = (2, 5, 0)
 
 logger = logging.getLogger('geopy')
 
@@ -13,8 +13,7 @@ def pairwise(seq):
     """
     Pair an iterable, e.g., (1, 2, 3, 4) -> ((1, 2), (2, 3), (3, 4))
     """
-    for i in range(0, len(seq) - 1):
-        yield (seq[i], seq[i + 1])
+    yield from zip(seq, seq[1:])
 
 
 def join_filter(sep, seq, pred=bool):

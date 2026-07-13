@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+__requires__ = [
+    'pytest-freezer; extra=="test"',
+    'backports.zoneinfo; python_version < "3.9" and extra == "test"',
+    'tzdata; platform_system == "Windows" and extra == "test"',
+    'types-python-dateutil; extra=="test"',
+]
+
 import contextlib
 import datetime
 import functools
@@ -39,7 +46,7 @@ seconds_per_month = seconds_per_year / 12
 hours_per_month = hours_per_day * days_per_year / 12
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _needs_year_help() -> bool:
     """
     Some versions of Python render %Y with only three characters :(
@@ -136,9 +143,9 @@ def strftime(fmt: str, t: AnyDatetime | tuple[int, ...] | time.struct_time) -> s
     """
     t = infer_datetime(t)
     subs = (
-        ('%s', '%03d' % (t.microsecond // 1000)),
-        ('%µ', '%03d' % (t.microsecond % 1000)),
-    ) + (('%Y', '%04d' % t.year),) * _needs_year_help()
+        ('%s', f'{t.microsecond // 1000:03d}'),
+        ('%µ', f'{t.microsecond % 1000:03d}'),
+    ) + (('%Y', f'{t.year:04d}'),) * _needs_year_help()
 
     def doSub(s: str, sub: tuple[str, str]) -> str:
         return s.replace(*sub)
@@ -260,6 +267,7 @@ def gregorian_date(year: int, julian_day: int) -> datetime.date:
     return result
 
 
+@functools.singledispatch
 def get_period_seconds(
     period: str | numbers.Number | datetime.timedelta,
 ) -> numbers.Number:
@@ -277,20 +285,26 @@ def get_period_seconds(
     ...
     ValueError: period not in (second, minute, hour, day, month, year)
     """
-    if isinstance(period, str):
-        try:
-            name = 'seconds_per_' + period.lower()
-            result = cast(numbers.Number, globals()[name])
-        except KeyError:
-            msg = "period not in (second, minute, hour, day, month, year)"
-            raise ValueError(msg)
-    elif isinstance(period, numbers.Number):
-        result = period
-    elif isinstance(period, datetime.timedelta):
-        result = period.days * get_period_seconds('day') + period.seconds  # type: ignore[operator, assignment]
-    else:
-        raise TypeError('period must be a string or integer')
-    return result
+    raise TypeError('period must be a string or integer')
+
+
+@get_period_seconds.register
+def _(period: str) -> numbers.Number:
+    try:
+        name = 'seconds_per_' + period.lower()
+        return cast(numbers.Number, globals()[name])
+    except KeyError:
+        raise ValueError("period not in (second, minute, hour, day, month, year)")
+
+
+@get_period_seconds.register
+def _(period: numbers.Number) -> numbers.Number:
+    return period
+
+
+@get_period_seconds.register
+def _(period: datetime.timedelta) -> numbers.Number:
+    return period.days * get_period_seconds('day') + period.seconds  # type: ignore[operator]
 
 
 def get_date_format_string(period: str | numbers.Number | datetime.timedelta) -> str:

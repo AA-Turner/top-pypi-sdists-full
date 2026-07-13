@@ -1038,7 +1038,8 @@ impl<'a> GaussianRemlRhoResponse<'a> {
         }
         let coef = (n_eff - m0) as f64;
         let r = self.rank_s as f64;
-        let lambda = rho.exp();
+        let lambda = gam_problem::checked_exp_log_strength(rho)
+            .map_err(|error| format!("gaussian REML conformal response: {error}"))?;
 
         // A(λ) = XᵀX + λ S [+ x_* x_*ᵀ].
         let mut a = self.xtx.clone();
@@ -1125,7 +1126,7 @@ impl<'a> GaussianRemlRhoResponse<'a> {
     }
 
     /// Public, value-only REML criterion (for FD verification of the gradient).
-    pub fn reml_criterion(&self, rho: f64, z: Option<f64>) -> Result<f64, String> {
+    pub fn penalized_laml_criterion(&self, rho: f64, z: Option<f64>) -> Result<f64, String> {
         Ok(self.eval(rho, z)?.value)
     }
 
@@ -1176,7 +1177,8 @@ impl<'a> GaussianRemlRhoResponse<'a> {
     /// (ρ-re-selecting) full-conformal map, computed exactly per candidate.
     pub fn honest_membership(&self, z: f64, alpha: f64) -> Result<bool, String> {
         let rho = self.select_rho(Some(z))?;
-        let lambda = rho.exp();
+        let lambda = gam_problem::checked_exp_log_strength(rho)
+            .map_err(|error| format!("gaussian REML conformal response: {error}"))?;
         let p = self.p;
         let mut a = self.xtx.clone();
         for i in 0..p {
@@ -1214,7 +1216,8 @@ impl<'a> GaussianRemlRhoResponse<'a> {
     /// derivative maximum.
     pub fn certified_full_conformal(&self, alpha: f64) -> Result<CertifiedFullConformal, String> {
         let rho0 = self.select_rho(None)?;
-        let lambda0 = rho0.exp();
+        let lambda0 = gam_problem::checked_exp_log_strength(rho0)
+            .map_err(|error| format!("full conformal selected an invalid log strength: {error}"))?;
         let mut s_lambda = Array2::<f64>::zeros((self.p, self.p));
         for i in 0..self.p {
             for j in 0..self.p {
@@ -3122,7 +3125,7 @@ mod tests {
         let rho = 0.4_f64;
         let z = 0.3_f64;
         let ev = resp.eval(rho, Some(z)).expect("eval");
-        let v = |r: f64, zz: f64| resp.reml_criterion(r, Some(zz)).expect("v");
+        let v = |r: f64, zz: f64| resp.penalized_laml_criterion(r, Some(zz)).expect("v");
 
         let h = 1e-4_f64;
         let g_fd = (v(rho + h, z) - v(rho - h, z)) / (2.0 * h);
@@ -3153,7 +3156,7 @@ mod tests {
         // The un-augmented criterion drops the cross term and the +1 row.
         let ev0 = resp.eval(rho, None).expect("eval0");
         assert_eq!(ev0.cross, 0.0);
-        let v0 = |r: f64| resp.reml_criterion(r, None).expect("v0");
+        let v0 = |r: f64| resp.penalized_laml_criterion(r, None).expect("v0");
         let g0_fd = (v0(rho + h) - v0(rho - h)) / (2.0 * h);
         assert!((ev0.grad - g0_fd).abs() <= 1e-4 * (1.0 + ev0.grad.abs()));
     }

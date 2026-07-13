@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pirlygenes
-Version: 5.23.24
+Version: 5.23.25
 Summary: Curated cancer gene sets and reference expression data. Analysis lives in `trufflepig`.
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 Project-URL: Homepage, https://github.com/pirl-unc/pirlygenes

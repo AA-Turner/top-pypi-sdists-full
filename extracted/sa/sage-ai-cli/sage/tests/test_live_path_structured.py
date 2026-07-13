@@ -28,14 +28,12 @@ class TestLiveLoopUsesStructuredTools:
     def test_phase_loop_uses_structured_extraction(self):
         """Phase loop should use _extract_tool_commands_structured, not _extract_tool_commands."""
         # Read the source and verify _extract_tool_commands_structured is used in phase loop
-        main_py = Path(__file__).parent.parent / "main.py"
-        source = main_py.read_text()
+        repl_agent_py = Path(__file__).parent.parent / "core" / "repl_agent.py"
+        source = repl_agent_py.read_text()
 
-        # Find the phase loop area (around line 10829)
-        # The tuple parser call should be replaced with structured call
         # Check that _extract_tool_commands_structured is used
         import_structured = "_extract_tool_commands_structured" in source
-        assert import_structured, "main.py should use _extract_tool_commands_structured"
+        assert import_structured, "repl_agent.py should use _extract_tool_commands_structured"
 
     def test_response_processing_uses_structured_tools(self):
         """_process_response and related calls should use structured extraction."""

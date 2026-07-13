@@ -211,7 +211,7 @@ impl SaeManifoldTerm {
         // (converged weights) is installed on the term at the end.
         let range_layout = CrosscoderLayout::from_blocks(px, blocks);
         let dims: Vec<usize> = range_layout.block_dims().to_vec();
-        let mut cur_log_lambda: Vec<f64> = blocks.iter().map(|b| b.log_lambda).collect();
+        let mut cur_log_lambda: Vec<f64> = blocks.iter().map(OutputBlock::log_lambda).collect();
         let mut trajectories: Vec<Vec<f64>> = vec![Vec::with_capacity(max_sweeps); blocks.len()];
         let mut identifiable = vec![true; blocks.len()];
         let mut converged = false;
@@ -277,10 +277,34 @@ impl SaeManifoldTerm {
             let (base_rx, base_scaled) =
                 self.augmented_block_rss(base_aug.view(), rho, &range_layout)?;
             let base_unscaled: Vec<f64> = (0..blocks.len())
-                .map(|i| base_scaled[i] / cur_log_lambda[i].exp())
+                .map(|i| base_scaled[i] / blocks[i].lambda())
                 .collect();
-            let baseline_crit =
-                profiled_reml_criterion(n_obs, px, base_rx, &base_unscaled, &dims, &cur_log_lambda);
+            // Envelope-priced penalty energy `P` of the CURRENT-λ refit (#2228):
+            // twice the non-data-fit penalized-objective energy the inner engine
+            // drove to (`P = 2·(penalized_objective_total − data_fit)` — decoder
+            // smoothness + ARD + assignment prior + any analytic-registry energy).
+            // Since `2e178664f` the inner engine returns the PENALIZED-objective
+            // fixed point, so its residuals carry the penalty trade-off; pricing
+            // `P` into the pooled dispersion is what restores the envelope theorem
+            // (the profiled criterion's total λ-derivative equals its partial), so
+            // the closed-form `λ*` is exact again. Held FIXED across a sweep's λ
+            // moves (it is a fitted-state quantity, not an explicit λ function).
+            let base_pen = 2.0
+                * (self.penalized_objective_total(
+                    base_aug.view(),
+                    rho,
+                    analytic_penalties,
+                    1.0,
+                )? - base_loss.data_fit);
+            let baseline_crit = profiled_penalized_quasi_laplace_criterion(
+                n_obs,
+                px,
+                base_rx,
+                &base_unscaled,
+                &dims,
+                &cur_log_lambda,
+                base_pen,
+            )?;
             // The improved current-λ fit to fall back to if no λ step is accepted.
             let baseline_state = self.fit_state_snapshot();
             // The term currently holds this baseline fit; record its loss so any
@@ -297,7 +321,12 @@ impl SaeManifoldTerm {
                     continue;
                 }
                 let r_ell = base_unscaled[idx];
-                let var_x = base_rx / px as f64;
+                // `(R_x + P)/p_x` — the penalty-priced anchor variance. The
+                // coupled multiblock fixed point `λ_ℓ·R_ℓ = d_ℓ·pooled'/p̃`
+                // collapses to `λ_ℓ* = ((R_x+P)/p_x)/(R_ℓ/d_ℓ)`, so `P` enters
+                // the closed form only through this numerator (see
+                // `profiled_penalized_quasi_laplace_block_efs_log_lambda_steps`).
+                let var_x = (base_rx + base_pen) / px as f64;
                 if !(r_ell > 0.0) || !(var_x > 0.0) {
                     // No block residual variance ⇒ λ_ℓ unidentifiable; hold it.
                     identifiable[idx] = false;
@@ -310,10 +339,18 @@ impl SaeManifoldTerm {
                 any_update = true;
             }
 
+            // Sufficient-decrease floor for the line search's Armijo test. It is
+            // the ONLY authority that decides both a λ move and convergence below:
+            // the closed-form λ* is used solely as a search DIRECTION, never as a
+            // claimed criterion stationary point, so no `predicted_decrease` gate
+            // that prices the closed form against HELD residuals is consulted (that
+            // gate desynced from the refit — see the envelope note below).
+            let armijo_eps = 1e-9 * (1.0 + baseline_crit.abs());
+
             if !any_update || max_delta <= log_lambda_tol {
-                // Either every block is held (no weight can move) or the λ fixed
-                // point is within tolerance — converged in the documented sense.
-                // The term holds the current-λ baseline fit, which is the answer.
+                // Every identifiable block held (no weight can move) or the closed
+                // form proposes no move beyond tolerance — the EFS fixed point. The
+                // term holds the current-λ baseline fit, which is the answer.
                 converged = true;
                 for idx in 0..blocks.len() {
                     trajectories[idx].push(cur_log_lambda[idx]);
@@ -321,114 +358,191 @@ impl SaeManifoldTerm {
                 break;
             }
 
-            // Armijo backtracking on the profiled criterion: take the largest
-            // fraction `s` of the closed-form log-λ step whose refit strictly beats
-            // the refit-at-current-λ baseline. Each trial refits from the SAME
+            // ENVELOPE-FREE CONVERGENCE (#2015). The prior fix priced a penalty
+            // energy `P = 2·(penalized_objective − data_fit)` into the pooled
+            // dispersion to restore the envelope theorem, so the closed-form λ*
+            // (the per-block variance-ratio root at HELD residuals) would be the
+            // profiled criterion's stationary point and `baseline_crit − C(λ*)`
+            // a valid predicted decrease. That envelope is BROKEN: the sweep-first
+            // inner engine (`converge_inner_for_undamped_logdet`) converges to the
+            // penalized quasi-Laplace fixed point, whose stationarity condition
+            // ∂(data_fit + penalty + logdet)/∂θ̂ = 0 leaves ∂(data_fit + penalty)/∂θ̂
+            // = −∂logdet/∂θ̂ ≠ 0 — `penalized_objective_total` excludes the Laplace
+            // log-determinant, so pricing `P` cancels only the penalty gradient,
+            // not the logdet one. Hence `∂pooled'/∂θ̂ ≠ 0`, the profiled criterion's
+            // TOTAL λ-derivative keeps non-vanishing dR_x/dλ, dR_ℓ/dλ, dP/dλ terms
+            // (mediated by dθ̂/dλ), and the closed-form λ* is NOT the stationary
+            // point of the criterion the trials actually evaluate (C at REFIT
+            // residuals). Symptom: λ* proposed a `> tol` move whose held-residual
+            // predicted decrease exceeded `armijo_eps`, yet every backtracking
+            // fraction of the REFIT criterion failed Armijo — the sweep parked at a
+            // bit-identical λ with `converged = false` (the planted-ratio failure).
+            //
+            // The fix is to let the EXACT refit criterion decide everything. The
+            // closed form only orients the 1-D search direction `d = λ* − λ_cur`;
+            // acceptance and convergence are read off `C(refit(λ))`, guaranteeing
+            // consistency by construction. We backtrack along `+d` AND, if no
+            // forward fraction descends, along `−d`: if neither direction lowers
+            // the refit criterion below `baseline_crit − armijo_eps`, then λ_cur is
+            // a local minimiser of the exact criterion along the closed-form axis
+            // to the search resolution — a GENUINE fixed point, so `converged =
+            // true`. Only a realizable descent the search actually captured (in
+            // either direction) keeps the sweep moving.
+
+            // One signed-step trial of the closed-form direction `d = λ* − λ_cur`.
+            // `s` is a SIGNED scale: `s > 0` steps toward λ*, `s < 0` steps away
+            // from it (the reverse half-axis). Each trial refits from the SAME
             // `base` snapshot with the SAME inner budget as the baseline, so the
             // comparison isolates the λ move; the criterion penalises λ→0, so a step
             // that would abandon a block is rejected — the fix that makes the
-            // otherwise non-contractive (fit, λ-update) alternation monotone.
-            let armijo_eps = 1e-9 * (1.0 + baseline_crit.abs());
-            // Backtracking line search on the closed-form λ step, migrated onto
-            // the shared `opt` primitive. `trial(s)` evaluates the step
-            // of scale `s` (always well defined here, so never `Ok(None)`) and
-            // threads the trial iterate `(trial_ll, trial_loss)` through the
-            // payload; `accept` inlines the exact Armijo sufficient-decrease test
-            // (`trial_crit < baseline_crit − armijo_eps`), bit-for-bit identical to
-            // the pre-migration loop (initial step 1.0, ×0.5 contraction,
-            // `MAX_BACKTRACK` trials).
-            let accepted_step = backtracking_line_search::<(Vec<f64>, SaeManifoldLoss), String>(
-                BacktrackConfig {
-                    initial_step: 1.0,
-                    contraction: 0.5,
-                    max_steps: MAX_BACKTRACK,
-                },
-                |s| {
-                    let mut trial_ll = cur_log_lambda.clone();
-                    for idx in 0..blocks.len() {
-                        if identifiable[idx] {
-                            trial_ll[idx] = cur_log_lambda[idx]
-                                + s * (log_lambda_star[idx] - cur_log_lambda[idx]);
-                        }
-                    }
-                    for idx in 0..blocks.len() {
-                        blocks[idx] = blocks[idx].with_log_lambda(trial_ll[idx])?;
-                    }
-                    self.fit_state_restore(&base)?;
-                    // EXACT warm-start reparameterization: the stacked target's block
-                    // columns are `√λ_ℓ·Y_ℓ`, and quadratic β-penalties are scale-
-                    // equivariant (`min_β ‖√λ·y − Φβ‖² + βᵀSβ` maps to
-                    // `λ(‖y − Φb‖² + bᵀSb)` under `β = √λ·b`), so the incumbent fit at
-                    // `λ_cur` maps to the EXACT incumbent at `λ_trial` by scaling each
-                    // behavior block's decoder columns by `√(λ_trial/λ_cur)`. Without
-                    // this rescale every trial starts with a spurious scaled-residual
-                    // `(√λ_t − √λ_c)²·‖Ŷ‖²` that the TRUNCATED inner solve must burn
-                    // its iteration budget removing — which biases the Armijo
-                    // comparison against exactly the large closed-form λ jumps the
-                    // fixed point needs from a distant start (the from-0.0
-                    // 20-sweep-exhaustion failure of `reml_selects_lambda_y…`). The
-                    // rescaled state is the same fit in the new parameterization, so
-                    // this changes no fixed point — it only stops the line search from
-                    // paying an artificial re-fitting tax proportional to the step.
-                    for idx in 0..blocks.len() {
-                        let scale = (0.5 * (trial_ll[idx] - cur_log_lambda[idx])).exp();
-                        if scale != 1.0 {
-                            let range = range_layout.block_range(idx);
-                            for atom in &mut self.atoms {
-                                let mut cols =
-                                    atom.decoder_coefficients.slice_mut(s![.., range.clone()]);
-                                cols.mapv_inplace(|v| v * scale);
+            // otherwise non-contractive (fit, λ-update) alternation monotone. The
+            // trial threads `(trial_ll, trial_loss)` through the payload.
+            let accepted_step = {
+                let mut trial =
+                    |s: f64| -> Result<Option<(f64, (Vec<f64>, SaeManifoldLoss))>, String> {
+                        let mut trial_ll = cur_log_lambda.clone();
+                        for idx in 0..blocks.len() {
+                            if identifiable[idx] {
+                                trial_ll[idx] = cur_log_lambda[idx]
+                                    + s * (log_lambda_star[idx] - cur_log_lambda[idx]);
                             }
                         }
-                    }
-                    let aug = stack_augmented_target(anchor, blocks)?;
-                    let trial_loss = self.run_joint_fit_arrow_schur(
-                        aug.view(),
-                        rho,
-                        analytic_penalties,
-                        inner_max_iter,
-                        step_size,
-                        ridge_ext_coord,
-                        ridge_beta,
-                    )?;
-                    let (trx, trb_scaled) =
-                        self.augmented_block_rss(aug.view(), rho, &range_layout)?;
-                    let trb_unscaled: Vec<f64> = (0..blocks.len())
-                        .map(|i| trb_scaled[i] / trial_ll[i].exp())
-                        .collect();
-                    let trial_crit =
-                        profiled_reml_criterion(n_obs, px, trx, &trb_unscaled, &dims, &trial_ll);
-                    Ok(Some((trial_crit, (trial_ll, trial_loss))))
-                },
-                |_s, trial_crit| trial_crit < baseline_crit - armijo_eps,
-            )?;
+                        for idx in 0..blocks.len() {
+                            blocks[idx] = blocks[idx].with_log_lambda(trial_ll[idx])?;
+                        }
+                        self.fit_state_restore(&base)?;
+                        // EXACT warm-start reparameterization: the stacked target's block
+                        // columns are `√λ_ℓ·Y_ℓ`, and quadratic β-penalties are scale-
+                        // equivariant (`min_β ‖√λ·y − Φβ‖² + βᵀSβ` maps to
+                        // `λ(‖y − Φb‖² + bᵀSb)` under `β = √λ·b`), so the incumbent fit at
+                        // `λ_cur` maps to the EXACT incumbent at `λ_trial` by scaling each
+                        // behavior block's decoder columns by `√(λ_trial/λ_cur)` (valid
+                        // for a step of EITHER sign). Without this rescale every trial
+                        // starts with a spurious scaled-residual `(√λ_t − √λ_c)²·‖Ŷ‖²`
+                        // that the TRUNCATED inner solve must burn its iteration budget
+                        // removing — which biases the comparison against exactly the
+                        // large closed-form λ jumps the fixed point needs from a distant
+                        // start (the from-0.0 20-sweep-exhaustion failure of
+                        // `reml_selects_lambda_y…`). The rescaled state is the same fit in
+                        // the new parameterization, so this changes no fixed point — it
+                        // only stops the search from paying an artificial re-fitting tax
+                        // proportional to the step.
+                        for idx in 0..blocks.len() {
+                            let scale = gam_problem::checked_exp_log_strength(
+                                0.5 * (trial_ll[idx] - cur_log_lambda[idx]),
+                            )
+                            .map_err(|error| {
+                                format!(
+                                    "behavior smoothing warm-start rescale is outside the canonical log-strength domain: {error}"
+                                )
+                            })?;
+                            if scale != 1.0 {
+                                let range = range_layout.block_range(idx);
+                                for atom in &mut self.atoms {
+                                    let mut cols =
+                                        atom.decoder_coefficients.slice_mut(s![.., range.clone()]);
+                                    cols.mapv_inplace(|v| v * scale);
+                                }
+                            }
+                        }
+                        let aug = stack_augmented_target(anchor, blocks)?;
+                        let trial_loss = self.run_joint_fit_arrow_schur(
+                            aug.view(),
+                            rho,
+                            analytic_penalties,
+                            inner_max_iter,
+                            step_size,
+                            ridge_ext_coord,
+                            ridge_beta,
+                        )?;
+                        let (trx, trb_scaled) =
+                            self.augmented_block_rss(aug.view(), rho, &range_layout)?;
+                        let trb_unscaled: Vec<f64> = (0..blocks.len())
+                            .map(|i| trb_scaled[i] / trial_ll[i].exp())
+                            .collect();
+                        // The trial's OWN realized penalty energy `P` at its λ-trial
+                        // fitted state (same `2·(penalized_objective_total − data_fit)`
+                        // as the baseline). This is NOT an envelope correction (the
+                        // envelope is broken; see the note above) — it simply makes both
+                        // sides of the comparison price their fitted-state penalty the
+                        // same way, so `trial_crit` and `baseline_crit` are the SAME
+                        // profiled criterion read at two λ's.
+                        let trial_pen = 2.0
+                            * (self.penalized_objective_total(
+                                aug.view(),
+                                rho,
+                                analytic_penalties,
+                                1.0,
+                            )? - trial_loss.data_fit);
+                        let trial_crit = profiled_penalized_quasi_laplace_criterion(
+                            n_obs,
+                            px,
+                            trx,
+                            &trb_unscaled,
+                            &dims,
+                            &trial_ll,
+                            trial_pen,
+                        )?;
+                        Ok(Some((trial_crit, (trial_ll, trial_loss))))
+                    };
+
+                // Backtrack along `+d` toward λ* (initial step 1.0, ×0.5 contraction);
+                // if no forward fraction descends the refit criterion, backtrack along
+                // `−d` away from λ* (initial step −1.0, contraction preserves the sign).
+                // The same trial closure serves both directions — `s` carries the sign.
+                // `accept` is the exact sufficient-decrease test
+                // `trial_crit < baseline_crit − armijo_eps`, direction-agnostic.
+                let forward = backtracking_line_search::<(Vec<f64>, SaeManifoldLoss), String>(
+                    BacktrackConfig {
+                        initial_step: 1.0,
+                        contraction: 0.5,
+                        max_steps: MAX_BACKTRACK,
+                    },
+                    &mut trial,
+                    |_s, trial_crit| trial_crit < baseline_crit - armijo_eps,
+                )?;
+                if forward.is_some() {
+                    forward
+                } else {
+                    backtracking_line_search::<(Vec<f64>, SaeManifoldLoss), String>(
+                        BacktrackConfig {
+                            initial_step: -1.0,
+                            contraction: 0.5,
+                            max_steps: MAX_BACKTRACK,
+                        },
+                        &mut trial,
+                        |_s, trial_crit| trial_crit < baseline_crit - armijo_eps,
+                    )?
+                }
+            };
 
             if let Some(step) = accepted_step {
                 let (trial_ll, trial_loss) = step.payload;
                 cur_log_lambda = trial_ll;
                 loss = trial_loss;
             } else {
-                // No fraction of the closed-form λ step beats the current-λ
-                // baseline: moving λ cannot lower the criterion from here. Reinstate
-                // the improved current-λ fit (`baseline_state`, no worse than the
-                // sweep-entry state) at the unchanged weights and stop.
+                // Neither `+d` nor `−d` lowers the EXACT refit criterion below
+                // `baseline_crit − armijo_eps`: λ_cur is a local minimiser of the
+                // criterion the trials evaluate, along the closed-form axis, to the
+                // search resolution — a GENUINE criterion fixed point. Reinstate the
+                // improved current-λ fit (`baseline_state`, no worse than the
+                // sweep-entry state) at the unchanged weights and report converged.
                 //
-                // F4 — honest flag. This branch is reached ONLY after the
-                // `max_delta ≤ log_lambda_tol` gate above FAILED, so the closed-form
-                // λ* still wants a > tol move: the λ fixed-point iteration did NOT
-                // meet its tolerance. A step that then fails the line search is a
-                // STALL (the truncated inner solve cannot resolve the tiny
-                // coordinated improvement the move needs), not tolerance-
-                // convergence. Leaving `converged = false` keeps the flag honest in
-                // BOTH directions — `true` only when λ actually settled (or every
-                // block became inert), `false` for a stall or a `max_sweeps`
-                // exhaustion.
+                // This is the #2015 fix: the old code reached here only via the
+                // forward search and declared a STALL (`converged = false`),
+                // presuming the closed-form `+d` was a true descent direction the
+                // truncated solve just could not realize. With the envelope broken
+                // (see the note above) `+d` is NOT the refit criterion's descent
+                // direction, so a forward-only failure was misread as a stall for a
+                // λ that had actually settled. Testing BOTH directions on the exact
+                // criterion turns "no move helps" into an honest convergence verdict
+                // (and still catches a real reverse-descent, taking that step above).
                 for idx in 0..blocks.len() {
                     blocks[idx] = blocks[idx].with_log_lambda(cur_log_lambda[idx])?;
                 }
                 self.fit_state_restore(&baseline_state)?;
                 loss = base_loss;
-                converged = false;
+                converged = true;
                 for idx in 0..blocks.len() {
                     trajectories[idx].push(cur_log_lambda[idx]);
                 }
@@ -449,7 +563,7 @@ impl SaeManifoldTerm {
             .enumerate()
             .map(|(idx, block)| BlockRemlOutcome {
                 label: block.label.clone(),
-                log_lambda: block.log_lambda,
+                log_lambda: block.log_lambda(),
                 identifiable: identifiable[idx],
                 trajectory: std::mem::take(&mut trajectories[idx]),
             })
@@ -522,12 +636,18 @@ impl SaeManifoldTerm {
 
     /// The HONEST-units per-layer decoder `B_k^(ℓ)` of atom `k`, output block `ℓ`:
     /// the decoder columns of block `ℓ` divided by `√λ_ℓ` (un-doing the target
-    /// scaling that `stack_augmented_target` applied). Requires an installed
+    /// scaling that `stack_augmented_target` applied), and — when a Tier-0
+    /// column-equilibration scale is installed (#2015; see
+    /// [`Self::set_tier0_scale`] and `crosscoder_fit::equilibrate_crosscoder_columns`)
+    /// — un-doing that per-column scale too, so the returned decoder is honest in
+    /// the CALLER's raw target units regardless of the internal conditioning
+    /// frame the inner solve actually ran on. Requires an installed
     /// [`CrosscoderLayout`] (via a multi-block fit or [`Self::set_crosscoder_layout`]).
     ///
     /// This is the first-class form of the by-hand slice+unscale
-    /// (`decoder_coefficients[:, off_ℓ..off_ℓ+p_ℓ] / √λ_ℓ`): identical values, but
-    /// the offsets and `√λ_ℓ` are owned by the layout so no caller recomputes them.
+    /// (`decoder_coefficients[:, off_ℓ..off_ℓ+p_ℓ] / √λ_ℓ`, times the column's
+    /// tier0 scale): identical values, but the offsets, `√λ_ℓ`, and tier0 scale
+    /// are owned here so no caller recomputes them.
     pub fn layer_decoder(&self, k: usize, l: usize) -> Result<Array2<f64>, String> {
         let layout = self.crosscoder_layout.as_ref().ok_or_else(|| {
             "SaeManifoldTerm::layer_decoder: no crosscoder layout installed (run \
@@ -547,11 +667,31 @@ impl SaeManifoldTerm {
             ));
         }
         let inv = 1.0 / layout.sqrt_lambda(l);
-        // Materialize the full-width decoder before crossing the layer boundary;
-        // the fit may use a reduced Grassmann coordinate internally.
-        let physical = self.atoms[k].full_width_decoder();
+        // Materialize the full-width decoder (Tier-0 column scale already
+        // undone) before crossing the layer boundary; the fit may use a
+        // reduced Grassmann coordinate internally.
+        let physical = self.tier0_unscaled_full_width_decoder(k);
         let scaled = physical.slice(s![.., layout.block_range(l)]);
         Ok(scaled.mapv(|value| inv * value))
+    }
+
+    /// The full-width (augmented) decoder of atom `k`, with the Tier-0
+    /// column-equilibration scale (#2015; [`Self::set_tier0_scale`],
+    /// `crosscoder_fit::equilibrate_crosscoder_columns`) undone column-by-column
+    /// when one is installed — a strict no-op on the historical (unequilibrated)
+    /// path. Every consumer that carves an honest per-layer decoder out of the
+    /// full augmented width ([`Self::layer_decoder`] above, the crosscoder
+    /// drift/transport reports) starts from this, so an equilibration scale
+    /// installed by the crosscoder fit entry is undone exactly once, in one
+    /// place, rather than re-derived at each call site.
+    pub(crate) fn tier0_unscaled_full_width_decoder(&self, k: usize) -> Array2<f64> {
+        let mut decoder = self.atoms[k].full_width_decoder();
+        if let Some(scale) = self.tier0_scale() {
+            for (col, &s) in scale.iter().enumerate() {
+                decoder.column_mut(col).mapv_inplace(|v| v * s);
+            }
+        }
+        decoder
     }
 
     /// Snapshot the ENTIRE mutable fit state a λ line-search trial perturbs, so a
@@ -559,7 +699,8 @@ impl SaeManifoldTerm {
     ///
     /// A trial runs a full [`Self::run_joint_fit_arrow_schur`], which moves far
     /// more than the decoder β and latent coords: it refreshes each atom's cached
-    /// `basis_values` / `basis_jacobian` and (lagged-diffusivity) `smooth_penalty`,
+    /// `basis_values` / `basis_jacobian` while preserving or structurally
+    /// transporting the fixed reference `smooth_penalty`,
     /// rewrites the assignment `logits`, re-derives the active-set `last_row_layout`,
     /// and advances the Gumbel `temperature_schedule` one anneal step per inner
     /// iteration. The canonical [`Self::snapshot_mutable_state`] captures the first
@@ -656,7 +797,7 @@ impl SaeManifoldTerm {
         let mut output_blocks = vec![OutputBlock::new(
             "behavior",
             block.target.clone(),
-            block.log_lambda_y,
+            block.log_lambda_y(),
         )?];
         let report = self.run_multiblock_reml_fit(
             activation,
@@ -669,7 +810,7 @@ impl SaeManifoldTerm {
         // Keep the term's installed behavior block in sync with the selected
         // weight — the two-block contract that `behavior_block()` (and hence
         // `split_decoder` / `augmented_target`) reflects the converged λ_y.
-        let fitted_block = block.with_log_lambda_y(output_blocks[0].log_lambda)?;
+        let fitted_block = block.with_log_lambda_y(output_blocks[0].log_lambda())?;
         self.set_behavior_block(fitted_block)?;
 
         let outcome = &report.blocks[0];

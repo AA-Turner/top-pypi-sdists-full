@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from typing import Any, List, Optional, Union, get_type_hints
 
-from .serializers import JsonDateTimeEncoder
+from dhooks_lite.serializers import JsonDateTimeEncoder
 
 logger = logging.getLogger(__name__)
 

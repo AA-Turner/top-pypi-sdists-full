@@ -168,6 +168,8 @@ pub enum FaerLinalgError {
     SvdNoConvergence { context: &'static str },
     #[error("Self-adjoint eigendecomposition input contains non-finite values in {context}")]
     SelfAdjointEigenNonFiniteInput { context: &'static str },
+    #[error("Strict self-adjoint eigendecomposition rejected its input: {reason}")]
+    StrictSelfAdjointEigenInvalidInput { reason: String },
     #[error("Self-adjoint eigendecomposition failed: {0:?}")]
     SelfAdjointEigen(solvers::EvdError),
     #[error("Cholesky factorization failed: {0:?}")]
@@ -1898,6 +1900,53 @@ pub trait FaerEigh {
     fn eigh(&self, side: Side) -> Result<(Array1<f64>, Array2<f64>), FaerLinalgError>;
 }
 
+/// Strict self-adjoint eigendecomposition of the exact supplied matrix.
+///
+/// This entrypoint performs finite/symmetry validation and one direct faer EVD
+/// attempt. It never symmetrizes, rescales, jitters the diagonal, or subtracts
+/// a repair afterward. Rank and pseudoinverse code must use this function so
+/// its reported spectrum belongs to the matrix the caller supplied.
+pub fn strict_symmetric_eigh<S: Data<Elem = f64>>(
+    matrix: &ArrayBase<S, Ix2>,
+    side: Side,
+) -> Result<(Array1<f64>, Array2<f64>), FaerLinalgError> {
+    let owned = matrix.to_owned();
+    if owned.nrows() == 0 || owned.nrows() != owned.ncols() {
+        return Err(FaerLinalgError::StrictSelfAdjointEigenInvalidInput {
+            reason: format!(
+                "expected non-empty square matrix, got {}x{}",
+                owned.nrows(),
+                owned.ncols()
+            ),
+        });
+    }
+    crate::utils::validate_finite_symmetric_matrix(
+        &owned,
+        "strict self-adjoint eigendecomposition",
+    )
+    .map_err(
+        |error| FaerLinalgError::StrictSelfAdjointEigenInvalidInput {
+            reason: error.to_string(),
+        },
+    )?;
+    let view = FaerArrayView::new(&owned);
+    let eigen = catch_unwind(AssertUnwindSafe(|| view.as_ref().self_adjoint_eigen(side)))
+        .map_err(|_| FaerLinalgError::FactorizationFailed {
+            context: "strict self-adjoint eigendecomposition panic boundary",
+        })?
+        .map_err(FaerLinalgError::SelfAdjointEigen)?;
+    let values = diag_to_array(eigen.S());
+    let vectors = mat_to_array(eigen.U());
+    if values.iter().any(|value| !value.is_finite())
+        || vectors.iter().any(|value| !value.is_finite())
+    {
+        return Err(FaerLinalgError::SelfAdjointEigenNonFiniteInput {
+            context: "strict self-adjoint eigendecomposition output validation",
+        });
+    }
+    Ok((values, vectors))
+}
+
 impl<S: Data<Elem = f64>> FaerEigh for ArrayBase<S, Ix2> {
     fn eigh(&self, side: Side) -> Result<(Array1<f64>, Array2<f64>), FaerLinalgError> {
         fn try_eigh(
@@ -2032,6 +2081,30 @@ impl FaerCholeskyFactor {
 
     pub fn lower_triangular(&self) -> Array2<f64> {
         mat_to_array(self.factor.L())
+    }
+}
+
+impl crate::matrix::FactorizedSystem for FaerCholeskyFactor {
+    fn solve(&self, rhs: &Array1<f64>) -> Result<Array1<f64>, String> {
+        let out = self.solvevec(rhs);
+        if out.iter().all(|value| value.is_finite()) {
+            Ok(out)
+        } else {
+            Err("strict Cholesky solve produced non-finite values".to_string())
+        }
+    }
+
+    fn solvemulti(&self, rhs: &Array2<f64>) -> Result<Array2<f64>, String> {
+        let out = self.solve_mat(rhs);
+        if out.iter().all(|value| value.is_finite()) {
+            Ok(out)
+        } else {
+            Err("strict Cholesky multi-solve produced non-finite values".to_string())
+        }
+    }
+
+    fn logdet(&self) -> f64 {
+        cholesky_factor_logdet(self.factor.L())
     }
 }
 

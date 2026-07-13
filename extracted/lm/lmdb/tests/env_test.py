@@ -33,7 +33,7 @@ from testlib import INT_TYPES
 import lmdb
 
 # Whether we have the patch that allows env.copy* to take a txn
-have_txn_patch = lmdb.version(subpatch=True)[3]  # type: ignore[call-arg]
+have_txn_patch = lmdb.version(subpatch=True)[3]
 
 NO_READERS = str('(no active readers)\n')
 
@@ -54,7 +54,7 @@ class VersionTest(unittest.TestCase):
         assert all(i >= 0 for i in ver)
 
     def test_version_subpatch(self):
-        ver = lmdb.version(subpatch=True)  # type: ignore[call-arg]
+        ver = lmdb.version(subpatch=True)
         assert len(ver) == 4
         assert all(isinstance(i, INT_TYPES) for i in ver)
         assert all(i >= 0 for i in ver)
@@ -348,6 +348,147 @@ class SetMapSizeTest(unittest.TestCase):
         with env.begin() as txn:
             assert txn.get(b'key') == b'val'
         assert env.info()['map_size'] == PAGE_SIZE * 32
+
+    def test_retained_named_db_handle_survives_resize(self):
+        """A named-db handle opened before set_mapsize stays usable after it.
+
+        Regression for issue #475: set_mapsize invalidated database handles,
+        so a retained handle raised "Database handle belongs to another
+        environment" (cpython) or an invalid-dbi error (cffi)."""
+        _, env = testlib.temp_env(map_size=PAGE_SIZE * 8, max_dbs=4)
+        db = env.open_db(b'mydb')
+        with env.begin(write=True, db=db) as txn:
+            txn.put(b'k', b'v')
+
+        env.set_mapsize(PAGE_SIZE * 16)
+
+        # Reuse the ORIGINAL handle — do not re-open.
+        with env.begin(write=True, db=db) as txn:
+            with txn.cursor(db) as cursor:
+                assert cursor.set_key(b'k')
+                assert cursor.value() == b'v'
+            txn.put(b'k2', b'v2', db=db)
+        with env.begin(db=db) as txn:
+            assert txn.get(b'k') == b'v'
+            assert txn.get(b'k2') == b'v2'
+
+    def test_retained_main_db_handle_survives_resize(self):
+        """The default (main) database is usable through repeated resizes,
+        mirroring the report in issue #475 (commit, resize, keep writing)."""
+        _, env = testlib.temp_env(map_size=PAGE_SIZE * 8)
+        for i in range(4):
+            with env.begin(write=True) as txn:
+                with txn.cursor() as cursor:
+                    cursor.put(str(i).encode(), b'word', overwrite=False)
+            map_pages = env.info()['last_pgno'] + 1
+            env.set_mapsize((map_pages + 8) * PAGE_SIZE)
+
+        with env.begin() as txn:
+            for i in range(4):
+                assert txn.get(str(i).encode()) == b'word'
+
+
+@unittest.skipIf(os.getenv('LMDB_PURE') or os.getenv('LMDB_FORCE_SYSTEM'),
+                 'requires patched LMDB: unpatched mdb_env_set_mapsize can '
+                 'fail under concurrent load, invalidating the environment')
+class SetMapSizeConcurrencyTest(unittest.TestCase):
+    """Stress set_mapsize() against concurrent environment operations.
+
+    set_mapsize's invalidate/remap critical section must exclude new LMDB
+    operations (they fail fast until the resize completes) while draining
+    in-flight ones.  Concurrent operations may observe an invalidated
+    transaction (lmdb.Error) but must never crash, corrupt, or deadlock.
+    Issue #475."""
+
+    DURATION = 2.0
+
+    def tearDown(self):
+        testlib.cleanup()
+
+    def test_resize_vs_ops_stress(self):
+        import threading
+        import time
+
+        _, env = testlib.temp_env(map_size=PAGE_SIZE * 64)
+        with env.begin(write=True) as txn:
+            for i in range(512):
+                txn.put(str(i).encode(), b'x' * 64)
+
+        stop = threading.Event()
+        failures = []
+
+        def tolerated(e):
+            """A handle invalidated by a concurrent resize surfaces as
+            lmdb.Error (CPython backend) or as a TypeError mentioning the
+            _invalid sentinel (CFFI backend)."""
+            return (isinstance(e, lmdb.Error) or
+                    (isinstance(e, TypeError) and
+                     '_LMDB_Resource' in str(e)))
+
+        def worker_read():
+            while not stop.is_set():
+                try:
+                    with env.begin() as txn:
+                        txn.get(b'1')
+                except Exception as e:
+                    if not tolerated(e):
+                        failures.append(e)
+                        return
+
+        def worker_env_ops():
+            while not stop.is_set():
+                try:
+                    env.stat()
+                    env.info()
+                except Exception as e:
+                    if not tolerated(e):
+                        failures.append(e)
+                        return
+
+        def worker_write():
+            while not stop.is_set():
+                try:
+                    with env.begin(write=True) as txn:
+                        txn.put(b'wkey', b'wval')
+                except Exception as e:
+                    if not tolerated(e):
+                        failures.append(e)
+                        return
+
+        threads = [threading.Thread(target=t) for t in
+                   (worker_read, worker_read, worker_env_ops, worker_write)]
+        for t in threads:
+            t.start()
+
+        size = PAGE_SIZE * 64
+        deadline = time.time() + self.DURATION
+        resizes = 0
+        try:
+            while time.time() < deadline:
+                size += PAGE_SIZE * 8
+                try:
+                    env.set_mapsize(size)
+                    resizes += 1
+                except lmdb.Error:
+                    # A write txn was active, or another resize raced us.
+                    pass
+        finally:
+            stop.set()
+            for t in threads:
+                # A generous timeout: a deadlocked gate shows up here.
+                t.join(timeout=30)
+
+        for t in threads:
+            self.assertFalse(t.is_alive(), "worker deadlocked")
+        self.assertEqual(failures, [])
+        self.assertGreater(resizes, 0)
+
+        # Environment remains fully usable afterward.
+        with env.begin(write=True) as txn:
+            txn.put(b'after', b'ok')
+        with env.begin() as txn:
+            assert txn.get(b'after') == b'ok'
+            assert txn.get(b'1') == b'x' * 64
 
 
 class CloseTest(unittest.TestCase):

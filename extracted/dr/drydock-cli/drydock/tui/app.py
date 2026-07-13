@@ -1069,6 +1069,44 @@ class DrydockApp(App):
                 "(recent turns are always preserved)."
             )
 
+    def _graphrag_build(self, sub: str, rest: str, store, cwd: str) -> None:
+        """Worker: build/add a knowledge base off the UI thread, streaming a
+        throttled progress line so a huge folder never looks frozen."""
+        from drydock import graphrag
+        import time as _t
+
+        last = [0.0]
+
+        def progress(files_done: int, src: str) -> None:
+            now = _t.monotonic()
+            if now - last[0] >= 1.0:          # throttle UI updates to ~1/s
+                last[0] = now
+                self.call_from_thread(
+                    self.query_one("#working", Static).update,
+                    f"  ⚓ indexing… {files_done} files ({src[-48:]})")
+
+        try:
+            fn = graphrag.build_index if sub == "build" else graphrag.add_to_index
+            stats = fn([rest], store, cwd=cwd, progress=progress)
+        except Exception as e:  # noqa: BLE001 — surface, never crash the TUI
+            self.call_from_thread(self.query_one("#working", Static).update, "")
+            self.call_from_thread(self._mount, ErrorMessage(f"graphrag {sub} failed: {e}"))
+            return
+        self.call_from_thread(self.query_one("#working", Static).update, "")
+        if sub == "add" and stats["files"] == 0:
+            self.call_from_thread(
+                self._info, f"No new documents under {rest} (already indexed, or no text found).")
+            return
+        if not stats["chunks"]:
+            self.call_from_thread(self._info, f"No text found under {rest}. Nothing was indexed.")
+            return
+        verb2 = "built" if sub == "build" else f"updated (+{stats['files']} new files)"
+        self.call_from_thread(
+            self._info,
+            f"✓ Knowledge base {verb2}: {stats['chunks']} chunks · "
+            f"{stats['entities']} entities · {stats['edges']} edges.\n"
+            f"Stored at {store}. The agent draws on it via the Knowledge tool.")
+
     def _cmd_graphrag(self, arg: str) -> None:
         """Build / inspect / clear the project's GraphRAG knowledge base. Once
         built, the agent retrieves from it via the read-only Knowledge tool."""
@@ -1085,25 +1123,11 @@ class DrydockApp(App):
                 self._info(f"usage: /graphrag {sub} <path>   (a file or directory of docs/code)")
                 return
             verb = "Rebuilding" if sub == "build" else "Ingesting into"
-            self._info(f"{verb} knowledge base from {rest} …")
-            try:
-                fn = graphrag.build_index if sub == "build" else graphrag.add_to_index
-                stats = fn([rest], store, cwd=cwd)
-            except Exception as e:  # noqa: BLE001 — surface, never crash the TUI
-                self._mount(ErrorMessage(f"graphrag {sub} failed: {e}"))
-                return
-            if sub == "add" and stats["files"] == 0:
-                self._info(f"No new documents under {rest} (already indexed, or no text found).")
-                return
-            if not stats["chunks"]:
-                self._info(f"No text found under {rest}. Nothing was indexed.")
-                return
-            verb2 = "built" if sub == "build" else f"updated (+{stats['files']} new files)"
-            self._info(
-                f"✓ Knowledge base {verb2}: {stats['chunks']} chunks · "
-                f"{stats['entities']} entities · {stats['edges']} edges.\n"
-                f"Stored at {store}. The agent draws on it via the Knowledge tool."
-            )
+            self._info(f"{verb} knowledge base from {rest} … (runs in the background; "
+                       "progress below — the TUI stays responsive)")
+            # Run OFF the UI thread so a large folder can't freeze the interface,
+            # and stream progress (files indexed) back so it never looks locked up.
+            self.run_worker(lambda: self._graphrag_build(sub, rest, store, cwd), thread=True)
         elif sub == "query":
             if not rest:
                 self._info("usage: /graphrag query <question>   (test what the KB returns)")
@@ -1125,23 +1149,43 @@ class DrydockApp(App):
                 self._info("No knowledge base yet. Build one:  /graphrag build <path>")
             else:
                 srcs = graphrag.sources(index)
+                st = graphrag.index_stats(index)
                 shown = "\n".join(f"    · {s}" for s in srcs[:20])
                 more = f"\n    … +{len(srcs) - 20} more" if len(srcs) > 20 else ""
+                resolved = graphrag._resolve_store(store)
+                legacy = "  ⚠ legacy JSON — run /graphrag migrate for fast queries" \
+                    if str(resolved).endswith(".json") else ""
                 self._info(
-                    f"Knowledge base: {len(index.get('chunks', []))} chunks · "
-                    f"{len(index.get('entities', {}))} entities · {len(srcs)} sources "
-                    f"({store}).\n{shown}{more}"
+                    f"Knowledge base: {st['chunks']} chunks · {st['entities']} entities · "
+                    f"{len(srcs)} sources ({resolved}).{legacy}\n{shown}{more}"
                 )
+        elif sub == "migrate":
+            resolved = graphrag._resolve_store(store)
+            if not str(resolved).endswith(".json"):
+                self._info("Already using the fast SQLite store — nothing to migrate.")
+                return
+            db = resolved.with_suffix(".db")
+            self._info(f"Migrating legacy index → {db} (one-time; loads the JSON once) …")
+            try:
+                m = graphrag.migrate_json_to_sqlite(resolved, db)
+            except Exception as e:  # noqa: BLE001
+                self._mount(ErrorMessage(f"migrate failed: {e}"))
+                return
+            self._info(
+                f"✓ Migrated: {m['chunks']} chunks · {m['entities']} entities → {db}. "
+                f"Queries now hit the index directly (no full-file load). You can delete "
+                f"the old {resolved.name} once you've confirmed queries work."
+            )
         elif sub == "clear":
             try:
-                store.unlink(missing_ok=True)
+                graphrag._resolve_store(store).unlink(missing_ok=True)
                 self._info("Knowledge base cleared.")
             except OSError as e:
                 self._mount(ErrorMessage(f"could not clear: {e}"))
         else:
             self._info(
                 "usage:  /graphrag build <path>  ·  add <path>  ·  query <question>  "
-                "·  status  ·  clear"
+                "·  status  ·  migrate  ·  clear"
             )
 
     def _persist_config(self) -> None:

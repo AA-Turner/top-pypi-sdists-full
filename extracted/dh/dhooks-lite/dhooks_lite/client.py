@@ -8,9 +8,7 @@ from typing import List, Optional
 import requests
 
 from dhooks_lite.embed import Embed
-
-from .constants import APP_NAME, APP_VERSION, HOMEPAGE_URL
-from .serializers import JsonDateTimeEncoder
+from dhooks_lite.serializers import JsonDateTimeEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -139,10 +137,12 @@ class Webhook:
     @property
     def user_agent(self) -> UserAgent:
         """Return the user agent for this webhook."""
+        from dhooks_lite import __title__, __url__, __version__
+
         return (
             self._user_agent
             if self._user_agent
-            else UserAgent(APP_NAME, HOMEPAGE_URL, APP_VERSION)
+            else UserAgent(__title__, __url__, __version__)
         )
 
     def execute(

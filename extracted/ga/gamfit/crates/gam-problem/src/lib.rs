@@ -34,6 +34,7 @@ pub mod gauge;
 pub mod identifiability_audit;
 pub mod joint_penalty;
 mod linear_constraints;
+pub mod log_strength;
 pub mod monotone_root_error;
 pub mod outer_subsample;
 pub mod penalty_coordinate;
@@ -71,13 +72,12 @@ pub use block_spec::{
 };
 pub use coefficient_prior_mean::{CoefficientPriorMean, PriorMeanError};
 pub use custom_family_blockwise::{
-    CUSTOM_FAMILY_RIDGE_FLOOR, CUSTOM_FAMILY_WEIGHT_FLOOR, ExactNewtonOuterCurvature,
-    validate_blockspec_consistency,
+    CUSTOM_FAMILY_RIDGE_FLOOR, ExactNewtonOuterCurvature, validate_blockspec_consistency,
 };
 pub use custom_family_error::CustomFamilyError;
-pub use dispersion::Dispersion;
+pub use dispersion::{Dispersion, DispersionError};
 pub use dispersion_cov::{
-    DispersionExt, PhiScaledCovariance, UnscaledPrecision, se_from_covariance,
+    CovarianceStandardErrorError, PhiScaledCovariance, UnscaledPrecision, se_from_covariance,
 };
 pub use estimation_error::{
     EstimationError, FixedLambdaCheckpoint, FixedLambdaResidualKind, FixedLambdaSolverStage,
@@ -100,6 +100,11 @@ pub use identifiability_audit::{
 };
 pub use joint_penalty::{JointPenaltyBundle, JointPenaltyError, JointPenaltySpec};
 pub use linear_constraints::LinearInequalityConstraints;
+pub use log_strength::{
+    IndexedLogStrengthDomainError, LOG_STRENGTH_MAX, LOG_STRENGTH_MIN, LogStrengthDomainError,
+    PhysicalStrengthDomainError, checked_exp_log_strength, checked_exp_log_strengths,
+    checked_log_strength, validate_log_strength, validate_log_strengths,
+};
 pub use monotone_root_error::MonotoneRootError;
 pub use penalty_coordinate::PenaltyCoordinate;
 pub use penalty_matrix::PenaltyMatrix;

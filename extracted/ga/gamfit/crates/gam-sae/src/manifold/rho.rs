@@ -1,6 +1,14 @@
 use super::*;
+pub(crate) use gam_problem::{LOG_STRENGTH_MAX, LOG_STRENGTH_MIN};
+use gam_problem::{checked_exp_log_strength, checked_exp_log_strengths, validate_log_strength};
 
-/// #1026 — how the per-atom ARD precisions are exposed to the OUTER REML
+/// Closed numerical domain of every active flat log-strength coordinate.
+///
+/// These are real parameter-domain endpoints, not saturation points: callers
+/// reject values outside the interval instead of clipping them onto a constant
+/// objective plateau.
+
+/// #1026 — how the per-atom ARD precisions are exposed to the OUTER PENALIZED QUASI-LAPLACE
 /// optimizer.
 ///
 /// The term's inner solve always reads a full per-atom, per-axis precision
@@ -32,13 +40,110 @@ pub enum ArdSharing {
     Shared,
 }
 
-/// Whether assignment strength contributes an outer REML coordinate.
+#[cfg(test)]
+mod log_strength_domain_tests {
+    use super::*;
+    use ndarray::array;
+
+    fn fully_active_rho() -> SaeManifoldRho {
+        SaeManifoldRho::new(0.0, 0.0, vec![array![0.0]]).with_log_lambda_block(vec![0.0])
+    }
+
+    #[test]
+    fn every_active_flat_log_strength_has_one_closed_domain() {
+        let rho = fully_active_rho();
+        let dimension = rho.to_flat().len();
+        for endpoint in [LOG_STRENGTH_MIN, LOG_STRENGTH_MAX] {
+            let flat = Array1::from_elem(dimension, endpoint);
+            let rebuilt = rho
+                .from_flat(flat.view())
+                .expect("both exact log-strength endpoints are in-domain");
+            assert_eq!(rebuilt.to_flat(), flat);
+        }
+        assert_eq!(
+            rho.flat_domain_lower_bound().unwrap(),
+            Array1::from_elem(dimension, LOG_STRENGTH_MIN)
+        );
+        assert_eq!(
+            rho.flat_domain_upper_bound().unwrap(),
+            Array1::from_elem(dimension, LOG_STRENGTH_MAX)
+        );
+
+        for coordinate in 0..dimension {
+            for invalid in [
+                LOG_STRENGTH_MIN - 1.0,
+                LOG_STRENGTH_MAX + 1.0,
+                f64::NAN,
+                f64::INFINITY,
+            ] {
+                let mut flat = Array1::zeros(dimension);
+                flat[coordinate] = invalid;
+                let error = rho
+                    .from_flat(flat.view())
+                    .expect_err("every emitted log strength must fail outside the domain");
+                assert!(
+                    error.contains("must be finite and in"),
+                    "coordinate {coordinate}, value {invalid}: {error}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn structurally_absent_sparse_placeholder_is_ignored_and_never_scaled() {
+        let rho = SaeManifoldRho::new(17.0, 0.0, vec![Array1::<f64>::zeros(0)])
+            .for_assignment(AssignmentMode::softmax(1.0));
+        assert_eq!(rho.sparse_flat_index(), None);
+        let mut irrelevant_placeholder = rho.clone();
+        irrelevant_placeholder.log_lambda_sparse = f64::INFINITY;
+        irrelevant_placeholder
+            .validate_log_strength_domain()
+            .expect("a non-coordinate placeholder is outside the objective domain");
+        assert_eq!(rho.to_flat(), array![0.0]);
+
+        let scaled = rho
+            .seed_scaled_by_dispersion_for_assignment(1.0e300, AssignmentMode::softmax(1.0))
+            .expect("dispersion scaling must not touch an absent sparse coordinate");
+        assert_eq!(scaled.log_lambda_sparse, 17.0);
+        assert_eq!(scaled.to_flat().len(), 1);
+        scaled
+            .validate_log_strength_domain()
+            .expect("the active smooth coordinate remains valid");
+    }
+
+    #[test]
+    fn physical_accessors_revalidate_public_logs_and_never_reuse_stale_strengths() {
+        let mut rho = fully_active_rho();
+        rho.log_ard[0][0] = LOG_STRENGTH_MIN;
+        assert_eq!(
+            rho.ard_precisions().unwrap()[0][0].to_bits(),
+            checked_exp_log_strength(LOG_STRENGTH_MIN)
+                .unwrap()
+                .to_bits()
+        );
+
+        // Public report/state fields may be mutated by downstream Rust code.
+        // Every physical conversion therefore revalidates current storage; no
+        // cached alpha/lambda can survive this mutation.
+        rho.log_ard[0][0] = LOG_STRENGTH_MAX + 1.0;
+        let error = rho.ard_precisions().unwrap_err();
+        assert!(error.contains("atom 0, axis 0"));
+
+        rho.log_lambda_smooth[0] = f64::NAN;
+        assert!(rho.lambda_smooth_for(0).is_err());
+        assert!(rho.lambda_smooth_vec().is_err());
+        rho.log_lambda_sparse = f64::INFINITY;
+        assert!(rho.lambda_sparse().is_err());
+    }
+}
+
+/// Whether assignment strength contributes an outer penalized quasi-Laplace coordinate.
 ///
 /// The stored [`SaeManifoldRho::log_lambda_sparse`] value remains available to
 /// the inner assignment prior, but the flat outer layout includes it only when
 /// the assignment family has a non-constant strength-dependent objective:
 ///
-/// * [`Self::PenaltyWeight`] always carries the coordinate (IBP-MAP and
+/// * [`Self::PenaltyWeight`] always carries the coordinate (ordered Beta--Bernoulli and
 ///   threshold-gate priors).
 /// * [`Self::SoftmaxEntropy`] carries it only for `K > 1`. At `K = 1` the
 ///   simplex assignment is identically one and its entropy is identically zero,
@@ -69,8 +174,8 @@ impl AssignmentStrengthLayout {
 /// REML-selected continuous hyperparameters for SAE-manifold.
 #[derive(Debug, Clone)]
 pub struct SaeManifoldRho {
-    /// `log(lambda_sparse)` for softmax entropy or JumpReLU gated L1, or the
-    /// learnable `log(alpha)` offset for IBP-MAP assignment.
+    /// `log(lambda_sparse)` for softmax entropy or ThresholdGate gated L1, or the
+    /// learnable `log(alpha)` offset for ordered Beta--Bernoulli assignment.
     pub log_lambda_sparse: f64,
     /// Typed assignment-strength layout. This is assignment-family state, not
     /// an optimizer mask: when the coordinate is structurally absent it is not
@@ -113,7 +218,7 @@ pub struct SaeManifoldRho {
     /// its closed-form REML variance ratio is
     /// [`crate::manifold::behavior::OutputBlock::reml_updated_log_lambda`] and its
     /// analytic outer gradient is
-    /// [`crate::manifold::behavior::profiled_reml_block_log_lambda_gradient`].
+    /// [`crate::manifold::behavior::profiled_penalized_quasi_laplace_block_log_lambda_gradient`].
     pub log_lambda_block: Vec<f64>,
 }
 
@@ -195,7 +300,7 @@ impl SaeManifoldRho {
         self.assignment_strength_layout = match assignment_mode {
             AssignmentMode::Softmax { .. } => AssignmentStrengthLayout::SoftmaxEntropy,
             AssignmentMode::TopK { .. } => AssignmentStrengthLayout::FixedSupport,
-            AssignmentMode::IBPMap { .. } | AssignmentMode::ThresholdGate { .. } => {
+            AssignmentMode::OrderedBetaBernoulli { .. } | AssignmentMode::ThresholdGate { .. } => {
                 AssignmentStrengthLayout::PenaltyWeight
             }
         };
@@ -306,11 +411,11 @@ impl SaeManifoldRho {
     /// stiffness `λ/φ_data` dimensionless — but that identity is derived from the
     /// Gaussian penalized-likelihood normal equations on a FIXED linear design.
     /// It is well-founded for the separable-gate modes (softmax entropy /
-    /// JumpReLU gated-L1), whose per-row gates are held at their seed weighting
+    /// ThresholdGate gated-L1), whose per-row gates are held at their seed weighting
     /// while the decoder/coordinates are refit, so `λ/φ` is exactly the effective
     /// stiffness.
     ///
-    /// IBP-MAP is different in kind. Its per-row Bernoulli gates are FREE latent
+    /// ordered Beta--Bernoulli is different in kind. Its per-row Bernoulli gates are FREE latent
     /// variables the inner joint solve co-optimizes with the coordinates and
     /// decoder. A response-dispersion-WEAKENED smoothness/ARD seed
     /// (`φ_seed ≪ 1` at any non-trivial noise scale) hands that extra gate +
@@ -318,13 +423,13 @@ impl SaeManifoldRho {
     /// overfits, the reconstruction dispersion `φ̂` collapses toward 0, and the
     /// Fellner–Schall multiplicative fixed point (`λ_new ∝ φ̂`) then spirals the
     /// smoothing/ARD penalties to zero — a degenerate outer basin the ρ-optimizer
-    /// stalls in (#1744: ibp_map n=40 σ=0.18 stalled at EV 0.86). The IBP sparse
+    /// stalls in (#1744: ordered_beta_bernoulli n=40 σ=0.18 stalled at EV 0.86). The ordered Beta--Bernoulli sparse
     /// coordinate is additionally a dimensionless log-alpha concentration offset,
     /// not a squared-output-unit penalty weight, so it was never dispersion-
-    /// scalable either. NONE of the IBP-MAP ρ coordinates therefore admit the
+    /// scalable either. NONE of the ordered Beta--Bernoulli ρ coordinates therefore admit the
     /// Gaussian response-dispersion scaling; the seed stays at its absolute
     /// (already dimensionless) construction values, which keeps the smoothing/ARD
-    /// penalties strong enough that the inner IBP solve cannot overfit at the seed
+    /// penalties strong enough that the inner ordered Beta--Bernoulli solve cannot overfit at the seed
     /// and the EFS fixed point lands on the interior optimum instead of the
     /// zero-penalty collapse. The separable-gate modes are byte-for-byte
     /// unchanged.
@@ -334,16 +439,17 @@ impl SaeManifoldRho {
         assignment_mode: AssignmentMode,
     ) -> Result<Self, String> {
         let bound = self.clone().for_assignment(assignment_mode);
-        if matches!(assignment_mode, AssignmentMode::IBPMap { .. }) {
+        if matches!(assignment_mode, AssignmentMode::OrderedBetaBernoulli { .. }) {
             // Validate the dispersion for parity with the scaled path (a
             // non-finite/​non-positive φ is still a caller error), then return the
-            // unscaled seed: no IBP-MAP ρ coordinate is response-dispersion-scalable.
+            // unscaled seed: no ordered Beta--Bernoulli ρ coordinate is response-dispersion-scalable.
             if !(dispersion.is_finite() && dispersion > 0.0) {
                 return Err(format!(
                     "SaeManifoldRho::seed_scaled_by_dispersion_for_assignment: dispersion must \
                      be finite and positive; got {dispersion}"
                 ));
             }
+            bound.validate_log_strength_domain()?;
             return Ok(bound);
         }
         // Separable-gate modes (softmax entropy / ThresholdGate gated-L1).
@@ -357,11 +463,11 @@ impl SaeManifoldRho {
         // shift `ln φ_seed` WEAKENS the decoder-smoothness / ARD seed toward
         // zero. That hands the coupled `(coords, decoders)` block enough slack to
         // overfit AT THE SEED, driving the undamped per-row / cross-row joint
-        // Hessian indefinite — a non-PD seed whose Laplace evidence log-det is
+        // Hessian indefinite — a non-PD seed whose quasi-Laplace score log-det is
         // undefined. Because the SAE fit runs a single seed (`max_seeds = 1`),
         // the EFS startup validation then rejects it with "no candidate seeds
-        // passed outer startup validation" (the #1782 softmax / jumprelu failure),
-        // exactly where ibp_map — which is never dispersion-weakened — survives.
+        // passed outer startup validation" (the #1782 softmax / threshold-gate failure),
+        // exactly where ordered_beta_bernoulli — which is never dispersion-weakened — survives.
         //
         // Fix: for K > 1 keep the seed decoder-smoothness / ARD from being
         // WEAKENED below their (dimensionless) construction strength — floor the
@@ -383,7 +489,9 @@ impl SaeManifoldRho {
         let shift = dispersion.ln();
         let smooth_ard_shift = shift.max(0.0);
         let mut scaled = bound;
-        scaled.log_lambda_sparse += shift;
+        if scaled.sparse_flat_index().is_some() {
+            scaled.log_lambda_sparse += shift;
+        }
         for value in &mut scaled.log_lambda_smooth {
             *value += smooth_ard_shift;
         }
@@ -392,6 +500,7 @@ impl SaeManifoldRho {
                 *value += smooth_ard_shift;
             }
         }
+        scaled.validate_log_strength_domain()?;
         Ok(scaled)
     }
 
@@ -408,7 +517,7 @@ impl SaeManifoldRho {
         }
         let shift = dispersion.ln();
         let mut scaled = self.clone();
-        if scale_sparse {
+        if scale_sparse && scaled.sparse_flat_index().is_some() {
             scaled.log_lambda_sparse += shift;
         }
         for value in &mut scaled.log_lambda_smooth {
@@ -419,15 +528,16 @@ impl SaeManifoldRho {
                 *value += shift;
             }
         }
+        scaled.validate_log_strength_domain()?;
         Ok(scaled)
     }
 
-    pub fn lambda_sparse(&self) -> f64 {
-        // Clamp the log-strength into the finite-normal band before
-        // exponentiating: a raw `exp(log_lambda)` overflows to `inf` for
-        // `log_lambda ≳ 709`, and `inf · 0.0` / `inf / inf` then injects NaN
-        // into the penalty value/grad/Hessian and poisons the solve.
-        Self::stable_exp_strength(self.log_lambda_sparse)
+    /// Physical assignment strength on the shared exact domain. This remains
+    /// fallible because the public report fields may be edited after fitting;
+    /// conversion always reads and validates current storage.
+    pub fn lambda_sparse(&self) -> Result<f64, String> {
+        checked_exp_log_strength(self.log_lambda_sparse)
+            .map_err(|error| format!("assignment log strength: {error}"))
     }
 
     /// Number of atoms `K` carried by the per-atom smoothness vector.
@@ -436,41 +546,114 @@ impl SaeManifoldRho {
         self.log_lambda_smooth.len()
     }
 
-    /// Stable smoothness strength `exp(log_lambda_smooth[k])` for atom `k`
-    /// (#1556). The exponent is clamped into the finite-normal band by
-    /// [`Self::stable_exp_strength`] so the strength is always a finite,
-    /// strictly-positive `f64`.
+    /// Smoothness strength `exp(log_lambda_smooth[k])` for atom `k` (#1556).
+    /// The exact, unsaturated map revalidates current public storage.
     #[must_use]
-    pub fn lambda_smooth_for(&self, atom: usize) -> f64 {
-        Self::stable_exp_strength(self.log_lambda_smooth[atom])
+    pub fn lambda_smooth_for(&self, atom: usize) -> Result<f64, String> {
+        let log_strength = self.log_lambda_smooth.get(atom).copied().ok_or_else(|| {
+            format!(
+                "smoothness atom {atom} is outside K={}",
+                self.log_lambda_smooth.len()
+            )
+        })?;
+        checked_exp_log_strength(log_strength)
+            .map_err(|error| format!("smoothness log strength at atom {atom}: {error}"))
     }
 
     /// All `K` per-atom smoothness strengths `exp(log_lambda_smooth[k])`, atom
     /// order. Convenience for threading per-atom λ into the penalty assemblers
-    /// (#1556).
+    /// (#1556). The vector is returned only after every coordinate validates, so
+    /// a caller never observes a partially converted table.
     #[must_use]
-    pub fn lambda_smooth_vec(&self) -> Vec<f64> {
-        self.log_lambda_smooth
-            .iter()
-            .map(|&v| Self::stable_exp_strength(v))
-            .collect()
+    pub fn lambda_smooth_vec(&self) -> Result<Vec<f64>, String> {
+        checked_exp_log_strengths(self.log_lambda_smooth.iter().copied())
+            .map_err(|error| format!("smoothness log strength: {error}"))
     }
 
-    /// Exponentiate a learnable log-strength with the exponent clamped into the
-    /// finite-normal band, so the resulting strength is always a finite,
-    /// strictly-positive `f64` (no overflow to `inf`, no underflow to `0.0`).
-    pub(crate) fn stable_exp_strength(log_strength: f64) -> f64 {
-        Self::clamped_log_strength(log_strength).exp()
+    /// Validate and materialize the complete per-atom ARD precision table once.
+    ///
+    /// ARD consumers call this before entering their row/atom kernels and reuse
+    /// the returned physical precisions.  That gives value, gradient, Hessian,
+    /// trace, and IFT channels the identical `alpha = exp(log_alpha)` map while
+    /// avoiding a transcendental evaluation for every observation.  Validation
+    /// is atomic: no table escapes unless every coordinate lies in the shared
+    /// exact log-strength domain, and the first error is deterministic in
+    /// `(atom, axis)` order.
+    pub fn ard_precisions(&self) -> Result<Vec<Array1<f64>>, String> {
+        let mut precisions = Vec::with_capacity(self.log_ard.len());
+        for (atom, log_block) in self.log_ard.iter().enumerate() {
+            let mut block = Array1::<f64>::zeros(log_block.len());
+            for (axis, (&log_alpha, alpha)) in log_block.iter().zip(block.iter_mut()).enumerate() {
+                *alpha = checked_exp_log_strength(log_alpha).map_err(|error| {
+                    format!("ARD log precision at atom {atom}, axis {axis}: {error}")
+                })?;
+            }
+            precisions.push(block);
+        }
+        Ok(precisions)
     }
 
-    /// The clamped log-strength [`Self::stable_exp_strength`] exponentiates.
-    /// Every consumer that needs the strength in LOG space (e.g. the REML
-    /// smoothing-Occam normalizer `½·d·log λ`) must read THIS, not the raw
-    /// coordinate, so value and log conventions describe the same λ_eff.
-    pub(crate) fn clamped_log_strength(log_strength: f64) -> f64 {
-        const MAX_LOG_STRENGTH: f64 = 700.0;
-        const MIN_LOG_STRENGTH: f64 = -700.0;
-        log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH)
+    /// Validate every log-strength represented in the flat outer layout against
+    /// the supported closed domain. A structurally absent assignment strength is
+    /// deliberately ignored: it is not an objective coordinate and its stored
+    /// placeholder cannot affect the corresponding assignment family.
+    pub(crate) fn validate_log_strength_domain(&self) -> Result<(), String> {
+        if self.sparse_flat_index().is_some()
+            && validate_log_strength(self.log_lambda_sparse).is_err()
+        {
+            return Err(format!(
+                "assignment log strength must be finite and in [{LOG_STRENGTH_MIN}, \
+                 {LOG_STRENGTH_MAX}]; got {}",
+                self.log_lambda_sparse
+            ));
+        }
+        for (atom, &value) in self.log_lambda_smooth.iter().enumerate() {
+            if validate_log_strength(value).is_err() {
+                return Err(format!(
+                    "smoothness log strength at atom {atom} must be finite and in \
+                     [{LOG_STRENGTH_MIN}, {LOG_STRENGTH_MAX}]; got {value}"
+                ));
+            }
+        }
+        for (atom, block) in self.log_ard.iter().enumerate() {
+            for (axis, &value) in block.iter().enumerate() {
+                if validate_log_strength(value).is_err() {
+                    return Err(format!(
+                        "ARD log precision at atom {atom}, axis {axis} must be finite and in \
+                         [{LOG_STRENGTH_MIN}, {LOG_STRENGTH_MAX}]; got {value}"
+                    ));
+                }
+            }
+        }
+        for (block, &value) in self.log_lambda_block.iter().enumerate() {
+            if validate_log_strength(value).is_err() {
+                return Err(format!(
+                    "block log strength at block {block} must be finite and in \
+                     [{LOG_STRENGTH_MIN}, {LOG_STRENGTH_MAX}]; got {value}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Objective-domain lower face in flat-rho layout. Every emitted coordinate
+    /// is a log strength, so all coordinates share the same exact endpoint.
+    pub(crate) fn flat_domain_lower_bound(&self) -> Option<Array1<f64>> {
+        let len = self.to_flat().len();
+        if len == 0 {
+            return None;
+        }
+        Some(Array1::from_elem(len, LOG_STRENGTH_MIN))
+    }
+
+    /// Objective-domain upper face in flat-rho layout; see
+    /// [`Self::flat_domain_lower_bound`].
+    pub(crate) fn flat_domain_upper_bound(&self) -> Option<Array1<f64>> {
+        let len = self.to_flat().len();
+        if len == 0 {
+            return None;
+        }
+        Some(Array1::from_elem(len, LOG_STRENGTH_MAX))
     }
 
     /// Flatten ρ into the contiguous outer-coordinate vector the generic
@@ -576,20 +759,21 @@ impl SaeManifoldRho {
     /// per-atom smoothness coordinates (#1556) and the few shared per-axis ARD
     /// values are BROADCAST back to every atom that owns that axis, rebuilding the
     /// full per-atom table the inner solve consumes.
-    pub fn from_flat(&self, flat: ArrayView1<'_, f64>) -> SaeManifoldRho {
+    pub fn from_flat(&self, flat: ArrayView1<'_, f64>) -> Result<SaeManifoldRho, String> {
         let smooth_start = self.smooth_flat_start();
-        match self.ard_sharing {
+        let rebuilt = match self.ard_sharing {
             ArdSharing::PerAtom => {
                 let k = self.log_lambda_smooth.len();
                 let ard_len: usize = self.log_ard.iter().map(|a| a.len()).sum();
                 let block_len = self.log_lambda_block.len();
-                assert_eq!(
-                    flat.len(),
-                    smooth_start + k + ard_len + block_len,
-                    "SaeManifoldRho::from_flat: flat length {} != sparse_dim + K + Σ d_k + (L-1) = {}",
-                    flat.len(),
-                    smooth_start + k + ard_len + block_len
-                );
+                let expected = smooth_start + k + ard_len + block_len;
+                if flat.len() != expected {
+                    return Err(format!(
+                        "SaeManifoldRho::from_flat: flat length {} != sparse_dim + K + \
+                         Σ d_k + (L-1) = {expected}",
+                        flat.len()
+                    ));
+                }
                 let log_lambda_smooth: Vec<f64> =
                     (0..k).map(|atom| flat[smooth_start + atom]).collect();
                 let mut log_ard = Vec::with_capacity(self.log_ard.len());
@@ -620,13 +804,14 @@ impl SaeManifoldRho {
                 let k = self.log_lambda_smooth.len();
                 let max_d = self.max_ard_axes();
                 let block_len = self.log_lambda_block.len();
-                assert_eq!(
-                    flat.len(),
-                    smooth_start + k + max_d + block_len,
-                    "SaeManifoldRho::from_flat: shared-ARD flat length {} != sparse_dim + K + max_d + (L-1) = {}",
-                    flat.len(),
-                    smooth_start + k + max_d + block_len
-                );
+                let expected = smooth_start + k + max_d + block_len;
+                if flat.len() != expected {
+                    return Err(format!(
+                        "SaeManifoldRho::from_flat: shared-ARD flat length {} != sparse_dim + K + \
+                         max_d + (L-1) = {expected}",
+                        flat.len()
+                    ));
+                }
                 let log_lambda_smooth: Vec<f64> =
                     (0..k).map(|atom| flat[smooth_start + atom]).collect();
                 // Broadcast the shared per-axis strengths into each atom's block,
@@ -657,6 +842,8 @@ impl SaeManifoldRho {
                     log_lambda_block,
                 }
             }
-        }
+        };
+        rebuilt.validate_log_strength_domain()?;
+        Ok(rebuilt)
     }
 }

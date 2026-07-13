@@ -48,7 +48,7 @@ fn augmented_circle_atom(
 ) -> (SaeManifoldAtom, Array2<f64>) {
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let m = phi.ncols();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "b0",
         SaeAtomBasisKind::Periodic,
         1,
@@ -350,7 +350,21 @@ fn behavior_block_pins_reflection_gauge_that_activation_alone_cannot() {
     let n = 64usize;
     let p_x = 3usize;
     let vocab = 4usize; // p_y = 3
-    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(5).unwrap());
+    // Order-4 harmonic basis (num_basis = 1 + 2·4 = 9). The planted behavior is a
+    // softmax of harmonic-1 logits, and a softmax is NONLINEAR: its sphere-tangent
+    // coordinates carry the full Bessel tail (harmonics 2,3,4,… with relative
+    // amplitudes I_k(1.4)/I_0(1.4) ≈ 0.29, 0.044, 0.0080, …). An order-2 basis
+    // (harmonics 1,2) truncates at harmonic 3, leaving an IRREDUCIBLE per-row KL
+    // floor (~0.17 at the peak row) that no coupling weight λ_y can beat — the fit
+    // would converge honestly yet miss the strict 10×-finer identification bar
+    // purely for lack of decoder capacity. Order 4 captures the tail through
+    // harmonic 4 (residual starts at harmonic 5, relative amplitude ≈ 0.0011), so
+    // the representable reconstruction clears `worst_kl < 0.1·planted_sep` with
+    // orders of magnitude to spare. NOTE the reflection-PINNING signal itself (the
+    // odd `sin θ` logit) is harmonic 1 and was already representable at order 2 —
+    // raising the order does not change the identification premise, only the
+    // fidelity of the even Bessel harmonics the reconstruction is scored on.
+    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(9).unwrap());
     // BOTH fits are seeded at the FOLDED coordinate min(i, n−i)/n — the best an
     // activation-only estimator could possibly recover, since it maps mirror
     // rows (identical activations) to one point. The two-block fit must then
@@ -362,9 +376,19 @@ fn behavior_block_pins_reflection_gauge_that_activation_alone_cannot() {
     for i in 0..n {
         let theta = std::f64::consts::TAU * (i as f64 / n as f64);
         // Even functions of θ only: the activation cannot see the sign of θ.
+        // z0..z2 are representable at order 4; the small `cos 7θ` term is a high
+        // EVEN harmonic ABOVE the basis order (7 > 4) that the basis cannot absorb,
+        // so it keeps the anchor residual R_x > 0 — hence the variance-ratio λ_y*
+        // numerator stays positive and the coupling weight is not starved into the
+        // near-degenerate fixed point a perfectly-representable anchor would force
+        // (the same R_x→0 hazard the sibling isometry fixture dodges with its own
+        // wiggle). `cos 7θ` is even, so mirror rows i and n−i stay BIT-identical
+        // (the reflection-symmetry premise the test asserts), and harmonic 7 < the
+        // Nyquist 32 on this 64-point grid, so it is a genuine unrepresented
+        // residual, not an alias of a low harmonic.
         z[[i, 0]] = theta.cos();
         z[[i, 1]] = (2.0 * theta).cos();
-        z[[i, 2]] = 0.5 * (3.0 * theta).cos();
+        z[[i, 2]] = 0.5 * (3.0 * theta).cos() + 0.05 * (7.0 * theta).cos();
         // The behavior DOES see it: an odd sin θ logit.
         let law = softmax(&[1.4 * theta.sin(), 0.8 * theta.cos(), 0.3, 0.0]);
         for j in 0..vocab {
@@ -439,6 +463,9 @@ fn behavior_block_pins_reflection_gauge_that_activation_alone_cannot() {
     // the activation-only fit provably cannot represent.
     let mut planted_sep_max = 0.0_f64;
     let mut worst_kl = 0.0_f64;
+    let mut worst_row = 0usize;
+    let mut sum_kl = 0.0_f64;
+    let mut n_kl = 0usize;
     for &(a, b) in &mirror_pairs {
         let sep = SphereTangentEmbedding::exact_kl(probs.row(a), probs.row(b)).unwrap();
         planted_sep_max = planted_sep_max.max(sep);
@@ -446,9 +473,29 @@ fn behavior_block_pins_reflection_gauge_that_activation_alone_cannot() {
             let y_hat = Array1::from_shape_fn(p_y, |j| fitted_b[[row, p_x + j]] * inv);
             let p_hat = block.embedding.decode(y_hat.view()).unwrap();
             let kl = SphereTangentEmbedding::exact_kl(probs.row(row), p_hat.view()).unwrap();
-            worst_kl = worst_kl.max(kl);
+            if kl > worst_kl {
+                worst_kl = kl;
+                worst_row = row;
+            }
+            sum_kl += kl;
+            n_kl += 1;
         }
     }
+    // Verification telemetry (#2015): the selected coupling weight and the
+    // worst-row reconstruction. With the order-4 basis the representable behavior
+    // clears the 10×-finer bar with large margin; a REML-selected finite λ_y and a
+    // worst_kl far below `bar` is the expected line.
+    eprintln!(
+        "[#2015 reflection-gauge] log λ_y={:.6} (λ_y={:.4}), converged={}, sweeps={}, \
+         worst_kl={worst_kl:.6} @row {worst_row}/{n}, mean_kl={:.6}, \
+         planted_sep_max={planted_sep_max:.6}, bar=0.1·sep={:.6}",
+        report.log_lambda_y,
+        report.log_lambda_y.exp(),
+        report.converged,
+        report.sweeps,
+        sum_kl / n_kl as f64,
+        0.1 * planted_sep_max,
+    );
     // The planted behavior really is strongly asymmetric across the mirror...
     assert!(
         planted_sep_max > 0.5,

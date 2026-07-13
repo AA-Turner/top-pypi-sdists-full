@@ -19,8 +19,8 @@ Usage (guarded Pattern B — recommended):
 from __future__ import annotations
 
 from argus_redact._types import NEREntity, PatternMatch
+from argus_redact.glue.guarded_restore import guarded_restore
 from argus_redact.impure.ner import NERAdapter
-from argus_redact.pure.restore import restore
 
 # Map Presidio entity types to argus-redact types
 _PRESIDIO_TYPE_MAP = {
@@ -133,6 +133,7 @@ class PresidioBridge:
         guard: bool | None = None,
         anchor: object | None = None,
         redacted: str | None = None,
+        strict: bool = False,
         detailed: bool = False,
     ) -> "str | tuple[str, dict]":
         """Restore pseudonyms to originals.
@@ -150,32 +151,23 @@ class PresidioBridge:
             redacted: Optional — the redacted prompt text. When provided, the
                 supplementary heuristic (H) check is applied and an
                 INJECTION_SUSPECTED security event is emitted on suspicion.
+            strict: When True, raise RestoreGuardError instead of returning —
+                covering both the deterministic guard (P/S) and a suspected
+                injection (H). Opt-in fail-closed; the H layer stays advisory
+                by default.
             detailed: When True, returns (result_text, {"security_events": [...]}).
+                On the default path the events are surfaced as a SecurityWarning
+                rather than discarded.
         """
-        from argus_redact.pure.security_events import INJECTION_SUSPECTED, security_event
-
-        h_events: list[dict] = []
-        if redacted is not None and key:
-            from argus_redact.pure.restore import check_restore_safety
-
-            hints = check_restore_safety(redacted, text, key)
-            if hints:
-                h_events.append(
-                    security_event(
-                        INJECTION_SUSPECTED,
-                        count=len(hints),
-                        detail="; ".join(hints),
-                    )
-                )
-
-        result = restore(text, key, guard=guard, anchor=anchor, detailed=True)
-        _empty: dict = {"security_events": []}
-        result_text, details = result if isinstance(result, tuple) else (result, _empty)
-        all_events = h_events + details.get("security_events", [])
-
-        if detailed:
-            return result_text, {"security_events": all_events}
-        return result_text
+        return guarded_restore(
+            text,
+            key,
+            redacted=redacted,
+            anchor=anchor,
+            guard=guard,
+            strict=strict,
+            detailed=detailed,
+        )
 
 
 class PresidioNERAdapter(NERAdapter):

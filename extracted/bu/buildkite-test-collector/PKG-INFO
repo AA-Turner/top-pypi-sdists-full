@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: buildkite-test-collector
-Version: 1.4.3
+Version: 1.5.0
 Summary: Buildkite Test Engine collector
 Project-URL: Homepage, https://github.com/buildkite/test-collector-python
 Author-email: Buildkite <support@buildkite.com>
@@ -17,7 +17,7 @@ Requires-Dist: check-manifest; extra == 'dev'
 Requires-Dist: mock>=4; extra == 'dev'
 Requires-Dist: pylint; extra == 'dev'
 Requires-Dist: responses; extra == 'dev'
-Requires-Dist: twine; extra == 'dev'
+Requires-Dist: twine; (python_full_version >= '3.9.1') and extra == 'dev'
 Description-Content-Type: text/markdown
 
 # Buildkite Test Collector for Python

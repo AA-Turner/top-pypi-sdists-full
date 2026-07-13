@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-eveuniverse
-Version: 2.0.0
+Version: 2.0.1
 Summary: Complete set of Eve Universe models with on-demand loading from ESI.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.10
@@ -11,7 +11,6 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -31,9 +30,8 @@ Requires-Dist: typing_extensions
 Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory_boy ; extra == "test"
 Requires-Dist: pook ; extra == "test"
-Project-URL: Documentation, https://django-eveuniverse.readthedocs.io/en/latest/
-Project-URL: Source, https://gitlab.com/ErikKalkoken/django-eveuniverse
-Project-URL: Tracker, https://gitlab.com/ErikKalkoken/django-eveuniverse/issues
+Project-URL: Documentation, https://django-eveuniverse.readthedocs.io
+Project-URL: Homepage, https://github.com/AllianceAuth-Apps/django-eveuniverse
 Provides-Extra: test
 
 # Eve Universe
@@ -43,10 +41,10 @@ Complete set of Eve Online Universe models in Django with on-demand loading from
 [![release](https://img.shields.io/pypi/v/django-eveuniverse?label=release)](https://pypi.org/project/django-eveuniverse/)
 [![python](https://img.shields.io/pypi/pyversions/django-eveuniverse)](https://pypi.org/project/django-eveuniverse/)
 [![django](https://img.shields.io/pypi/djversions/django-eveuniverse?label=django)](https://pypi.org/project/django-eveuniverse/)
-[![pipeline](https://gitlab.com/ErikKalkoken/django-eveuniverse/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/django-eveuniverse/-/pipelines)
-[![codecov](https://codecov.io/gl/ErikKalkoken/django-eveuniverse/branch/master/graph/badge.svg?token=YZF6RVSK0P)](https://codecov.io/gl/ErikKalkoken/django-eveuniverse)
+[![CI/CD Pipeline](https://github.com/AllianceAuth-Apps/django-eveuniverse/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/django-eveuniverse/actions/workflows/ci-cd.yaml)
+[![codecov](https://codecov.io/github/AllianceAuth-Apps/django-eveuniverse/graph/badge.svg?token=2SVaZlxMIb)](https://codecov.io/github/AllianceAuth-Apps/django-eveuniverse)
 [![Documentation Status](https://readthedocs.org/projects/django-eveuniverse/badge/?version=latest)](https://django-eveuniverse.readthedocs.io/en/latest/?badge=latest)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/django-eveuniverse/-/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/django-eveuniverse#MIT-1-ov-file)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)

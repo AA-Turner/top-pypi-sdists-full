@@ -74,7 +74,9 @@ pub(crate) fn materialize_survival<'a>(
     // Interval-censored `SurvInterval(L, R, event)`: `exit_col` carried the
     // LEFT boundary `L` (resolved into `age_exit` above), and `interval_right_col`
     // carries the RIGHT boundary `R`. The kernel's interval contribution
-    // `log[S(L) − S(R)]` requires a finite `R ≥ L` per row (`event >= 0.5`); a
+    // `log[S(L) − S(R)]` requires a finite `R > L` per row (`event >= 0.5`) —
+    // the interval mass `P(L < T ≤ R) = S(L) − S(R)` is positive only for a
+    // strictly wider-than-zero bracket (`R == L` gives `log 0 = −∞`); a
     // row with `event < 0.5` is right-censored at `L` (its `R` is ignored). We
     // resolve `age_right` here so the downstream latent time stack can evaluate
     // the baseline at `R`.
@@ -85,10 +87,15 @@ pub(crate) fn materialize_survival<'a>(
             let r = data.values[[i, right_idx]];
             let is_bracketed = data.values[[i, event_idx]] >= 0.5;
             if is_bracketed {
-                if !(r.is_finite()) || r < age_exit[i] {
+                // Require a STRICTLY positive bracket width: the kernel's interval
+                // contribution is `log[S(L) − S(R)]`, which is `log 0 = −∞` at a
+                // degenerate `R == L` (zero-probability bracket) and would poison
+                // the whole fit's objective instead of surfacing this per-row
+                // error (#2277). `R < L` is likewise rejected.
+                if !(r.is_finite()) || r <= age_exit[i] {
                     return Err(WorkflowError::InvalidConfig {
                         reason: format!(
-                            "SurvInterval(L, R, event) requires a finite R >= L on bracketed rows (event >= 1); row {} has L={}, R={r}",
+                            "SurvInterval(L, R, event) requires a finite R > L on bracketed rows (event >= 1); row {} has L={}, R={r}",
                             i + 1,
                             age_exit[i]
                         ),
@@ -129,26 +136,40 @@ pub(crate) fn materialize_survival<'a>(
             ),
         });
     }
-    // Fail fast on all-censored (zero-event) survival data for every survival
-    // likelihood (#789B / construction-time fittability split). With no row
-    // marking a target event, the survival likelihood has no event score: the
-    // hazard direction is unidentified and the inner/outer solve either spins
-    // on a flat landscape (marginal-slope) or returns a numerically degenerate
-    // fit (other modes). This is the single chokepoint every survival fit
+    // Fail fast on zero effective event mass (all-censored, OR every event-coded
+    // row carries zero weight) for every survival likelihood (#789B /
+    // construction-time fittability split; #2276). With no row contributing a
+    // target event to the WEIGHTED likelihood, the survival likelihood has no
+    // event score: the hazard direction is unidentified and the inner/outer
+    // solve either spins on a flat landscape (marginal-slope) or returns a
+    // numerically degenerate fit (other modes). Testing the raw event codes here
+    // was weight-blind — a weights column that is zero exactly on the event rows
+    // passed this gate yet every kernel drops `weight <= 0` rows, so the
+    // effective event score was empty and the fit failed downstream instead of
+    // here. The weight column is resolved once and reused below; when no weight
+    // column is supplied it is all-ones, so this reduces to the original raw
+    // event-count test. This is the single chokepoint every survival fit
     // dispatcher routes through (Surv(...) responses + all FitConfig survival
     // modes), so catching it here keeps every downstream constructor —
     // `WorkingModelSurvival`, the Royston-Parmar wrapper, the marginal-slope
     // builders — free to materialize models on censored fixtures (which the
     // engine's structural unit tests rely on) without losing the user-facing
     // safety on real fits.
-    if !event_codes.iter().any(|&code| code > 0) {
+    let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
+    let weighted_event_mass: f64 = event_codes
+        .iter()
+        .zip(weights.iter())
+        .filter(|&(&code, _)| code > 0)
+        .map(|(_, &weight)| weight)
+        .sum();
+    if !(weighted_event_mass > 0.0) {
         let mode_label = match survival_mode {
             SurvivalLikelihoodMode::MarginalSlope => "survival marginal-slope",
             _ => "survival fit",
         };
         return Err(WorkflowError::InvalidConfig {
             reason: format!(
-                "{mode_label} requires at least one target event; all rows are censored, so the likelihood has no event score and cannot identify the hazard"
+                "{mode_label} requires at least one target event with positive weight; every event-coded row is absent or zero-weighted, so the weighted likelihood has no event score and cannot identify the hazard"
             ),
         });
     }
@@ -167,6 +188,34 @@ pub(crate) fn materialize_survival<'a>(
             ),
         }
         .into());
+    }
+    // Per-cause identifiability for competing risks (#2276 hardening). The total
+    // weighted-event-mass gate above guarantees SOME cause has positive mass, but
+    // a cause-specific hazard block for cause `c` is unidentifiable when `c` has
+    // zero positive-weight events — the total gate passes while a modeled cause
+    // has none. `cause_count_from_event_codes` already rejects non-contiguous
+    // codes (a code-ABSENT cause), so every cause in `1..=cause_count` is
+    // code-present here; this checks that each also carries positive WEIGHTED
+    // event mass (kernels drop `weight <= 0` rows, so a code-present but
+    // all-zero-weighted cause has an empty effective cause-`c` score and its
+    // hazard is unidentified exactly like the total zero-event case).
+    if cause_count > 1 {
+        for cause in 1..=cause_count {
+            let cause_code = cause as u8;
+            let cause_mass: f64 = event_codes
+                .iter()
+                .zip(weights.iter())
+                .filter(|&(&code, _)| code == cause_code)
+                .map(|(_, &weight)| weight)
+                .sum();
+            if !(cause_mass > 0.0) {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: format!(
+                        "cause-specific competing risks: cause {cause} of {cause_count} has no target event with positive weight, so its cause-specific hazard block is unidentifiable; every code-{cause} row is absent or zero-weighted"
+                    ),
+                });
+            }
+        }
     }
     if parsed.linkwiggle.is_some()
         && !matches!(
@@ -420,7 +469,7 @@ pub(crate) fn materialize_survival<'a>(
         double_penalty: cfg.double_penalty,
     });
 
-    let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
+    // `weights` was resolved once above for the fittability gate (#2276); reuse it.
     let threshold_offset = resolve_offset_column(data, col_map, config.offset_column.as_deref())?;
     let log_sigma_offset =
         resolve_offset_column(data, col_map, config.noise_offset_column.as_deref())?;

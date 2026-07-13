@@ -20,7 +20,7 @@ pub const SAE_SHARED_ARD_K_THRESHOLD: usize = 256;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaeFitAssignmentKind {
     Softmax,
-    IbpMap,
+    OrderedBetaBernoulli,
     ThresholdGate,
     TopK,
 }
@@ -30,7 +30,7 @@ impl SaeFitAssignmentKind {
     pub fn from_tag(tag: &str) -> Result<Self, String> {
         match crate::atom_schema::canonical_assignment_kind(tag)? {
             "softmax" => Ok(Self::Softmax),
-            "ibp_map" => Ok(Self::IbpMap),
+            "ordered_beta_bernoulli" => Ok(Self::OrderedBetaBernoulli),
             "threshold_gate" => Ok(Self::ThresholdGate),
             "topk" => Ok(Self::TopK),
             canonical => Err(format!(
@@ -42,7 +42,7 @@ impl SaeFitAssignmentKind {
     pub const fn tag(self) -> &'static str {
         match self {
             Self::Softmax => "softmax",
-            Self::IbpMap => "ibp_map",
+            Self::OrderedBetaBernoulli => "ordered_beta_bernoulli",
             Self::ThresholdGate => "threshold_gate",
             Self::TopK => "topk",
         }
@@ -57,8 +57,18 @@ impl SaeFitAssignmentKind {
         top_k: Option<usize>,
     ) -> Result<AssignmentMode, String> {
         match self {
+            Self::Softmax | Self::OrderedBetaBernoulli | Self::ThresholdGate if top_k.is_some() => {
+                Err(format!(
+                    "top_k is valid only with assignment_kind 'topk'; got assignment_kind '{}'",
+                    self.tag()
+                ))
+            }
             Self::Softmax => Ok(AssignmentMode::softmax(tau)),
-            Self::IbpMap => Ok(AssignmentMode::ibp_map(tau, alpha, learnable_alpha)),
+            Self::OrderedBetaBernoulli => Ok(AssignmentMode::ordered_beta_bernoulli(
+                tau,
+                alpha,
+                learnable_alpha,
+            )),
             Self::ThresholdGate => Ok(AssignmentMode::threshold_gate(tau, threshold)),
             Self::TopK => top_k.map(AssignmentMode::top_k_support).ok_or_else(|| {
                 "assignment_kind 'topk' requires top_k (the fixed per-row support size)".to_string()
@@ -163,12 +173,26 @@ pub fn build_sae_fit_seed(request: SaeFitSeedRequest<'_, '_>) -> Result<SaeFitSe
             request.max_iter
         ));
     }
-    if let Some(k_top) = request.top_k {
-        if k_top == 0 || k_top > k_atoms {
+    match (request.assignment_kind, request.top_k) {
+        (SaeFitAssignmentKind::TopK, Some(k_top)) if k_top > 0 && k_top <= k_atoms => {}
+        (SaeFitAssignmentKind::TopK, Some(k_top)) => {
             return Err(format!(
-                "top_k must satisfy 1 <= top_k <= k_atoms={k_atoms}; got {k_top}"
+                "assignment_kind 'topk' requires 1 <= top_k <= k_atoms={k_atoms}; got {k_top}"
             ));
         }
+        (SaeFitAssignmentKind::TopK, None) => {
+            return Err(
+                "assignment_kind 'topk' requires top_k (the fixed per-row support size)"
+                    .to_string(),
+            );
+        }
+        (kind, Some(k_top)) => {
+            return Err(format!(
+                "top_k={k_top} is valid only with assignment_kind 'topk'; got assignment_kind '{}'",
+                kind.tag()
+            ));
+        }
+        (_, None) => {}
     }
     if request.initial_logits.dim() != (n_obs, k_atoms) {
         return Err(format!(
@@ -187,29 +211,20 @@ pub fn build_sae_fit_seed(request: SaeFitSeedRequest<'_, '_>) -> Result<SaeFitSe
             return Err(format!("{name} must be finite and positive; got {value}"));
         }
     }
-    if !request.sparsity_strength.is_finite() || request.sparsity_strength < 0.0 {
+    if !request.sparsity_strength.is_finite() || request.sparsity_strength <= 0.0 {
         return Err(format!(
-            "sparsity_strength must be finite and non-negative; got {}",
+            "sparsity_strength must be finite and positive; got {}",
             request.sparsity_strength
         ));
     }
-    if !request.smoothness.is_finite() || request.smoothness < 0.0 {
+    if !request.smoothness.is_finite() || request.smoothness <= 0.0 {
         return Err(format!(
-            "smoothness must be finite and non-negative; got {}",
+            "smoothness must be finite and positive; got {}",
             request.smoothness
         ));
     }
-    const DISABLED_PENALTY_FLOOR: f64 = 1.0e-300;
-    let sparsity_strength = if request.sparsity_strength == 0.0 {
-        DISABLED_PENALTY_FLOOR
-    } else {
-        request.sparsity_strength
-    };
-    let smoothness = if request.smoothness == 0.0 {
-        DISABLED_PENALTY_FLOOR
-    } else {
-        request.smoothness
-    };
+    let sparsity_strength = request.sparsity_strength;
+    let smoothness = request.smoothness;
 
     let basis_values_shape = request.basis_values.shape();
     if basis_values_shape[0] != k_atoms || basis_values_shape[1] != n_obs {
@@ -292,7 +307,7 @@ pub fn build_sae_fit_seed(request: SaeFitSeedRequest<'_, '_>) -> Result<SaeFitSe
         .collect();
     let assignment_alpha = request
         .fit_config
-        .ibp_alpha_override
+        .ordered_beta_bernoulli_alpha_override
         .unwrap_or(request.alpha);
     let mode = request.assignment_kind.mode(
         request.tau,
@@ -328,16 +343,15 @@ pub fn build_sae_fit_seed(request: SaeFitSeedRequest<'_, '_>) -> Result<SaeFitSe
     if let Some(schedule) = request.temperature_schedule {
         base_term.set_temperature_schedule(schedule)?;
     }
-    base_term.set_softmax_active_cap(request.top_k);
 
     if request.seed_refine_routing
         && k_atoms > 1
         && matches!(
             request.assignment_kind,
-            SaeFitAssignmentKind::Softmax | SaeFitAssignmentKind::IbpMap
+            SaeFitAssignmentKind::Softmax | SaeFitAssignmentKind::OrderedBetaBernoulli
         )
     {
-        sae_em_refine_routing_seed(
+        sae_refine_routing_seed(
             &mut base_term,
             request.target,
             request.basis_sizes,
@@ -346,7 +360,6 @@ pub fn build_sae_fit_seed(request: SaeFitSeedRequest<'_, '_>) -> Result<SaeFitSe
             request.tau,
             request.threshold,
             request.seed_refine_random_state,
-            request.top_k,
         )?;
     }
 
@@ -415,7 +428,6 @@ mod tests {
             SaeFitAssignmentKind::from_tag("threshold_gate"),
             Ok(SaeFitAssignmentKind::ThresholdGate)
         );
-        assert!(SaeFitAssignmentKind::from_tag("jumprelu").is_err());
     }
 
     #[test]

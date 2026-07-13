@@ -81,7 +81,7 @@ def test_should_auto_apply_returns_true_when_all_validators_pass():
 def test_should_auto_apply_requires_confirm_for_large_batches():
     from sage.core.diff_preview import PendingChange, should_auto_apply
     changes = [
-        PendingChange(f"src/{i}.py", None, "def f(): pass\n" * 50)
+        PendingChange(f"src/{i}.txt", None, "line\n" * 50)
         for i in range(20)
     ]
     decision = should_auto_apply(changes, auto_threshold_lines=200)

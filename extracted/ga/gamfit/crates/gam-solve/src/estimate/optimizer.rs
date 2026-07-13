@@ -11,12 +11,7 @@ use crate::estimate::penalty::{
 use crate::estimate::prefit::{
     reject_prefit_binomial_separation, reject_prefit_unpenalized_rank_deficiency,
 };
-use crate::estimate::reml::eval::{
-    AUTO_CUBATURE_HESSIAN_RIDGE_ABS, AUTO_CUBATURE_HESSIAN_RIDGE_REL,
-};
-use crate::estimate::smoothing_correction::{
-    AUTO_CUBATURE_MAX_EIGENVECTORS, MAX_FACTORIZATION_ATTEMPTS,
-};
+use crate::estimate::smoothing_correction::AUTO_CUBATURE_MAX_EIGENVECTORS;
 use gam_linalg::matrix::FactorizedSystem;
 use gam_linalg::utils::KahanSum;
 use gam_problem::dispersion_cov::se_from_covariance;
@@ -24,87 +19,51 @@ use gam_problem::{SeedConfig, SeedRiskProfile};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
-/// Max-abs entry of `H·H⁻¹ − I` — a scale-free trustworthiness probe for a
-/// computed inverse. It is `≈ κ(H)·ε` for a faithful inverse but blows up to
-/// `O(δ/σ_min)` when [`matrix_inversewith_regularization`] had to add a large
-/// stabilization ridge `δ` (an ill-conditioned Hessian, e.g. a smoothing
-/// parameter saturated at the ρ rail). That ridge is a `NumericalPerturbation`
-/// the covariance callers treat as absent, yet it uniformly inflates `H` and so
-/// shrinks EVERY posterior variance — collapsing the reported standard errors
-/// (#2123: a `te(x,z)` fit that lands on the ρ₁ rail read ΣSE≈0.16 vs the
-/// correct ≈13). This probe detects that regime so the covariance can fall back
-/// to a ridge-free spectral inverse.
-fn inverse_identity_defect(h: &Array2<f64>, h_inv: &Array2<f64>) -> f64 {
-    let p = h.nrows();
-    let prod = h.dot(h_inv);
-    let mut worst = 0.0_f64;
-    for i in 0..p {
-        for j in 0..p {
-            let target = if i == j { 1.0 } else { 0.0 };
-            worst = worst.max((prod[[i, j]] - target).abs());
-        }
-    }
-    worst
+/// Unscaled posterior covariance `H⁻¹` of the supplied Hessian.
+///
+/// This is deliberately neither an additive-ridge inverse nor a truncated
+/// pseudoinverse: both would change the covariance estimand.  A singular or
+/// numerically unrepresentable Hessian is a typed failure, while success has
+/// already passed the shared scale-aware residual certificate in `gam-linalg`.
+fn posterior_covariance_inverse(
+    h: &Array2<f64>,
+    label: &str,
+) -> Result<Array2<f64>, gam_linalg::utils::CertifiedSymmetricSolveError> {
+    certified_spd_inverse(h, label).map(gam_linalg::utils::CertifiedSpdInverse::into_inverse)
 }
 
-/// Ridge-free symmetric (pseudo-)inverse from the eigendecomposition:
-/// `H⁻¹ = Σ_i (1/σ_i) u_i u_iᵀ`, inverting only eigenvalues above a relative
-/// floor `σ_max·rel_floor` (numerical nulls contribute nothing). Unlike an
-/// additive-ridge inverse this leaves the well-determined directions' variances
-/// intact while heavily-penalized directions collapse to ~0 variance on their
-/// own — the correct posterior covariance at any conditioning. Returns `None`
-/// if the eigendecomposition fails or the spectrum is degenerate.
-fn spectral_symmetric_inverse(h: &Array2<f64>) -> Option<Array2<f64>> {
-    let (evals, evecs) = h.eigh(Side::Lower).ok()?;
-    let p = h.nrows();
-    let max_ev = evals.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    if !(max_ev > 0.0) {
-        return None;
-    }
-    // Only genuine numerical nulls (≈0 relative to the top eigenvalue) are
-    // dropped; the smallest data-supported eigenvalue of a penalized Hessian is
-    // O(n)≫floor, so its variance is retained exactly.
-    let floor = max_ev * 1e-14;
-    let mut scaled = evecs.clone();
-    for j in 0..p {
-        let inv_ev = if evals[j] > floor {
-            1.0 / evals[j]
-        } else {
-            0.0
-        };
-        for i in 0..p {
-            scaled[[i, j]] *= inv_ev;
-        }
-    }
-    let inv = scaled.dot(&evecs.t());
-    inv.iter().all(|v| v.is_finite()).then_some(inv)
+fn certify_factorized_inference_solve(
+    hessian: &gam_linalg::matrix::SymmetricMatrix,
+    rhs: &Array2<f64>,
+    solution: &Array2<f64>,
+    label: &str,
+) -> Result<(), EstimationError> {
+    let residual = hessian.dot_matrix(solution) - rhs;
+    gam_linalg::utils::certify_linear_system_residual(
+        hessian.nrows(),
+        hessian.max_abs_entry(),
+        rhs,
+        solution,
+        &residual,
+        label,
+    )
+    .map(|_| ())
+    .map_err(|error| {
+        EstimationError::RemlOptimizationFailed(format!(
+            "exact factorized inference solve did not certify: {error}"
+        ))
+    })
 }
 
-/// Posterior covariance inverse `H⁻¹` that stays faithful when `H` is
-/// ill-conditioned. Uses the fast regularized-Cholesky inverse whenever it is
-/// trustworthy (the common well-conditioned case — bit-identical to before),
-/// and falls back to the ridge-free [`spectral_symmetric_inverse`] only when the
-/// stabilization ridge materially perturbed the result, which is exactly when it
-/// would otherwise collapse the SEs (#2123 ρ-rail).
-fn posterior_covariance_inverse(h: &Array2<f64>, label: &str) -> Option<Array2<f64>> {
-    let regularized = matrix_inversewith_regularization(h, label);
-    if let Some(ref inv) = regularized
-        && inverse_identity_defect(h, inv) <= 1e-6
-    {
-        return regularized;
-    }
-    // The regularized inverse was materially perturbed by its ridge (or failed);
-    // recompute a spectral inverse that does not ridge the well-determined block.
-    match spectral_symmetric_inverse(h) {
-        Some(spectral) => {
-            log::debug!(
-                "[cov#2123] posterior covariance: regularized inverse untrustworthy \
-                 (ill-conditioned Hessian, likely a saturated ρ); using ridge-free spectral inverse"
-            );
-            Some(spectral)
-        }
-        None => regularized,
-    }
+fn certify_factorized_inference_vector_solve(
+    hessian: &gam_linalg::matrix::SymmetricMatrix,
+    rhs: &Array1<f64>,
+    solution: &Array1<f64>,
+    label: &str,
+) -> Result<(), EstimationError> {
+    let rhs_matrix = rhs.view().insert_axis(Axis(1)).to_owned();
+    let solution_matrix = solution.view().insert_axis(Axis(1)).to_owned();
+    certify_factorized_inference_solve(hessian, &rhs_matrix, &solution_matrix, label)
 }
 
 /// Scale-free KKT residual for the Negative-Binomial conditional ML problem in
@@ -219,139 +178,6 @@ fn reserve_factorized_inference_state(
             log::info!("Factorized inference state could not be fully reserved: {error}");
             None
         }
-    }
-}
-
-struct DiagonalSmoothingCorrection {
-    diagonal: Option<Array1<f64>>,
-    rho_covariance: Option<Array2<f64>>,
-}
-
-/// Diagonal of the low-rank smoothing correction `J V_rho J'` without ever
-/// materializing its p×p product. `mode_response` stores `H⁻¹ ∂g/∂rho`;
-/// the IFT Jacobian is its negative, which cancels in the covariance
-/// congruence.
-fn low_rank_covariance_diagonal(
-    mode_response: ndarray::ArrayView2<'_, f64>,
-    rho_covariance: &Array2<f64>,
-) -> Option<Array1<f64>> {
-    let (p, k) = mode_response.dim();
-    if rho_covariance.dim() != (k, k) {
-        return None;
-    }
-    let mut diagonal = Array1::<f64>::zeros(p);
-    for i in 0..p {
-        let row = mode_response.row(i);
-        let mut value = KahanSum::default();
-        for a in 0..k {
-            for b in 0..k {
-                value.add(row[a] * rho_covariance[[a, b]] * row[b]);
-            }
-        }
-        let value = value.sum();
-        if !value.is_finite() {
-            return None;
-        }
-        // `rho_covariance` is the positive-eigenvalue pseudo-inverse, so this
-        // quadratic form is non-negative in exact arithmetic. Remove only a
-        // roundoff sign; no curvature direction has been discarded here.
-        diagonal[i] = value.max(0.0);
-    }
-    Some(diagonal)
-}
-
-/// First-order smoothing-parameter correction for the factorized inference
-/// path. The outer Hessian is only k×k and the cached IFT mode responses are
-/// p×k, so peak storage is linear in p for fixed smoothing dimension.
-fn compute_diagonal_smoothing_correction(
-    reml_state: &crate::estimate::reml::RemlState<'_>,
-    final_rho: &Array1<f64>,
-) -> DiagonalSmoothingCorrection {
-    if final_rho.is_empty() {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: None,
-        };
-    }
-    let mut rho_hessian = match reml_state.compute_lamlhessian_consistent(final_rho) {
-        Ok(hessian) => hessian,
-        Err(error) => {
-            log::warn!("Outer Hessian unavailable for diagonal smoothing correction: {error}");
-            return DiagonalSmoothingCorrection {
-                diagonal: None,
-                rho_covariance: None,
-            };
-        }
-    };
-    gam_linalg::matrix::symmetrize_in_place(&mut rho_hessian);
-    // Match the established first-order smoothing-correction V_rho exactly:
-    // one relative ridge with the shared absolute floor, then the same
-    // identified-subspace inverse. This keeps dense and diagonal inference on
-    // one rho-covariance definition.
-    gam_linalg::utils::add_relative_diag_ridge(
-        &mut rho_hessian,
-        AUTO_CUBATURE_HESSIAN_RIDGE_REL,
-        AUTO_CUBATURE_HESSIAN_RIDGE_ABS,
-    );
-    let Some(inverted) =
-        crate::estimate::smoothing_correction::invert_regularized_rho_hessian(&rho_hessian)
-    else {
-        log::warn!("Outer Hessian inversion failed for diagonal smoothing correction");
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: None,
-        };
-    };
-    let rho_covariance = inverted.inverse;
-    if inverted.active_rank == 0 {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: Some(rho_covariance),
-        };
-    }
-
-    // `cached_ift_rho_mode_response_cols` clones the cache payload. Reserve
-    // both the resident cache matrix and that temporary clone as one atomic
-    // linear-memory live set before asking for it.
-    let p = reml_state.p;
-    let k = final_rho.len();
-    let Ok(_mode_response_reservation) = gam_runtime::resource::MemoryGovernor::global()
-        .try_reserve_dense_f64_copies(p, k, 2, "diagonal smoothing-correction IFT mode responses")
-    else {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: Some(rho_covariance),
-        };
-    };
-    let cache_guard = reml_state.ift_warm_start_cache.read().unwrap();
-    let Some(cache) = cache_guard.as_ref() else {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: Some(rho_covariance),
-        };
-    };
-    if cache.rho.len() != final_rho.len()
-        || cache
-            .rho
-            .iter()
-            .zip(final_rho.iter())
-            .any(|(&cached, &final_value)| cached.to_bits() != final_value.to_bits())
-    {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: Some(rho_covariance),
-        };
-    }
-    let Some(mode_response) = reml_state.cached_ift_rho_mode_response_cols(cache) else {
-        return DiagonalSmoothingCorrection {
-            diagonal: None,
-            rho_covariance: Some(rho_covariance),
-        };
-    };
-    let diagonal = low_rank_covariance_diagonal(mode_response.view(), &rho_covariance);
-    DiagonalSmoothingCorrection {
-        diagonal,
-        rho_covariance: Some(rho_covariance),
     }
 }
 
@@ -851,17 +677,24 @@ where
         reml_state.enable_persistent_warm_start_disk();
     }
     reml_state.setwarm_start_original_beta(warm_start_beta);
-    let estimates_negbin_theta = cfg.likelihood.negbin_theta_is_estimated();
-    if estimates_negbin_theta {
-        let theta_seed = cfg
-            .likelihood
-            .negbin_theta()
-            .filter(|theta| theta.is_finite() && *theta > 0.0)
-            .ok_or_else(|| {
-                EstimationError::InvalidInput(
-                    "estimated Negative-Binomial theta requires a finite positive seed".to_string(),
-                )
-            })?
+    let resolved_likelihood_scale = cfg
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+    let estimates_negbin_theta = matches!(
+        resolved_likelihood_scale,
+        gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+            estimated: true,
+            ..
+        }
+    );
+    if let gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+        theta,
+        estimated: true,
+    } = resolved_likelihood_scale
+    {
+        let theta_seed = theta
+            .value()
             .clamp(pirls::NEGBIN_THETA_MIN, pirls::NEGBIN_THETA_MAX);
         // Treat the estimated family value as a warm-start coordinate. This
         // makes an exhaustion checkpoint resumable by reconstructing the same
@@ -1792,7 +1625,7 @@ where
 
             let final_eta = pirls_res.final_eta.to_owned();
             let (theta_score, theta_info) =
-                pirls::negbin_theta_score_and_info(y_o.view(), &final_eta, w_o.view(), theta);
+                pirls::negbin_theta_score_and_info(y_o.view(), &final_eta, w_o.view(), theta)?;
             let theta_residual = negbin_theta_stationarity_residual(theta, theta_score, theta_info);
             // This residual is a Newton displacement in the outer log-theta
             // coordinate, so it shares the outer REML tolerance. The beta
@@ -1885,7 +1718,7 @@ where
             // theta at the current converged eta, then re-optimize rho with theta
             // fixed. No secant/grid extrapolation and no unreported answer cap.
             let theta_next =
-                pirls::estimate_negbin_theta_from_eta(y_o.view(), &final_eta, w_o.view());
+                pirls::estimate_negbin_theta_from_eta(y_o.view(), &final_eta, w_o.view())?;
             log::info!(
                 "[OUTER] negative-binomial joint round {} not yet certified: \
                  rho residual {:.3e}/{:.3e}, theta residual {:.3e}/{:.3e}; \
@@ -1924,7 +1757,7 @@ where
             reml_state.gaussian_fixed_cache_if_eligible()
         };
         let pirls_res_pair = pirls::fit_model_for_fixed_rho_with_adaptive_kkt(
-            LogSmoothingParamsView::new(final_rho.view()),
+            LogSmoothingParamsView::new(final_rho.view())?,
             pirls::PirlsProblem {
                 x: reml_state.x(),
                 offset: offset_o.view(),
@@ -2026,7 +1859,8 @@ where
         .qs
         .dot(pirls_res.beta_transformed.as_ref());
 
-    let lambdas = final_rho.mapv(f64::exp);
+    let log_lambdas = final_rho.clone();
+    let lambdas = LogSmoothingParamsView::new(log_lambdas.view())?.exact_exp();
     let p_dim = pirls_res.beta_transformed.len();
     let penalty_rank_total = pirls_res.reparam_result.e_transformed.nrows();
     let mp = (p_dim as f64 - penalty_rank_total as f64).max(0.0);
@@ -2036,6 +1870,7 @@ where
     let mut penalty_block_trace = vec![0.0; k];
     let mut edf_total = 0.0;
     let mut smoothing_correction = None;
+    let mut smoothing_correction_method = None;
     let mut rho_covariance = None;
     let mut penalized_hessian = Array2::<f64>::zeros((0, 0));
     let mut beta_covariance = None;
@@ -2055,11 +1890,11 @@ where
     // Hold the governor charge across every dense inference allocation in this
     // fit. A refusal selects the factorized/diagonal path before any optional
     // covariance, influence, or smoothing-correction matrix is built.
-    let mut dense_covariance_reservation = opts
+    let dense_covariance_reservation = opts
         .compute_inference
         .then(|| reserve_dense_covariance_bundle(pirls_res.reparam_result.qs.nrows()))
         .flatten();
-    let mut factorized_inference_reservation =
+    let factorized_inference_reservation =
         if opts.compute_inference && dense_covariance_reservation.is_none() {
             reserve_factorized_inference_state(pirls_res.reparam_result.qs.nrows())
         } else {
@@ -2070,53 +1905,14 @@ where
         // EDF by block using stabilized H and penalty roots in transformed basis.
         let h = &pirls_res.stabilizedhessian_transformed;
         let p_dim = h.nrows();
-        // Sparse-aware factorization with ridge retry — no densification.
-        // Uses SymmetricMatrix::factorize() -> sparse Cholesky for sparse,
-        // dense Cholesky for dense.
-        let factor = {
-            let scale = h.max_abs_diag();
-            let min_step = scale * 1e-10;
-            let mut try_factorize = |ridge: f64| {
-                let candidate = if ridge > 0.0 {
-                    match h.addridge(ridge) {
-                        Ok(c) => c,
-                        Err(_) => h.clone(),
-                    }
-                } else {
-                    h.clone()
-                };
-                candidate.factorize().ok()
-            };
-            // Bare (unridged) factorization first, then the shared geometric
-            // ridge escalation; the bare try counts toward the attempt budget.
-            match try_factorize(0.0) {
-                Some(f) => f,
-                None => match opt::escalate_ridge(
-                    opt::RidgeSchedule::geometric(min_step, MAX_FACTORIZATION_ATTEMPTS - 1),
-                    &mut try_factorize,
-                ) {
-                    Ok(success) => {
-                        // This ridged factor is reused for the reported standard
-                        // errors, covariance, and bias correction below, so those
-                        // quantities are stabilized approximations, not the exact
-                        // (unridged) Hessian-based values.
-                        log::warn!(
-                            "Inference Hessian was rank-deficient and required a stabilizing \
-                             ridge {:.3e}; reported standard errors, covariance, and bias \
-                             correction are computed from the ridge-stabilized factor and are \
-                             approximations, not exact unridged values",
-                            success.ridge,
-                        );
-                        success.value
-                    }
-                    Err(_) => {
-                        return Err(EstimationError::ModelIsIllConditioned {
-                            condition_number: f64::INFINITY,
-                        });
-                    }
-                },
-            }
-        };
+        // Factor the exact Hessian already minted by PIRLS. Any objective-level
+        // ridge is already present in this matrix and its RidgePassport; this
+        // inference layer is not allowed to add another unaccounted diagonal.
+        let factor = h.factorize_spd().map_err(|reason| {
+            EstimationError::RemlOptimizationFailed(format!(
+                "exact inference Hessian factorization failed: {reason}"
+            ))
+        })?;
         let mut traces = vec![0.0f64; k];
         for (kk, cp) in pirls_res
             .reparam_result
@@ -2139,6 +1935,7 @@ where
                     .map_err(|_| EstimationError::ModelIsIllConditioned {
                         condition_number: f64::INFINITY,
                     })?;
+            certify_factorized_inference_solve(h, &rhs, &sol, "penalty-block EDF trace")?;
             // Frobenius inner product: only the block rows of rhs are nonzero.
             let mut frob = 0.0f64;
             for col in 0..rank {
@@ -2190,18 +1987,10 @@ where
 
         // Reconcile the EDF accounting with the influence matrix F = H⁻¹X'WX.
         //
-        // The block-trace channel above factorizes the TRANSFORMED stabilized
-        // Hessian with a bespoke 10×-escalation ridge loop. On rank-deficient
-        // spatial-smooth corners (degenerate-Hessian thin-plate fits) that loop
-        // can take an enormous ridge, inflating Σ tr_kk toward `p` and collapsing
-        // `edf_total = p − Σ tr_kk` onto its floor `mp` (e.g. 1.0 for a single
-        // smooth) even though the fitted surface — and the influence matrix `F`
-        // that the prediction, dispersion, and per-term EDF all consume — has
-        // legitimately spent ~70 EDF (issue #1356). The authoritative model
-        // definition of EDF is the influence-matrix trace; the per-term EDF
-        // (`FitResult::per_term_edf`) reads `tr(F)` over each block. Recompute the
-        // per-block penalty traces from the SAME rank-revealing inverse `F` uses
-        // (`matrix_inversewith_regularization` of the original-basis Hessian), so
+        // The authoritative model definition of EDF is the influence-matrix
+        // trace; the per-term EDF (`FitResult::per_term_edf`) reads `tr(F)` over
+        // each block. Recompute the per-block penalty traces from the SAME exact
+        // inverse `F` uses, so
         // `edf_total = p − Σ tr_kk = tr(F)`, `Σ edf_by_block = edf_total`, and the
         // total can never fall below a single term's own EDF. Done before the
         // dispersion `σ̂² = RSS/(n − edf_total)` is formed so it, too, uses the
@@ -2220,21 +2009,17 @@ where
             let p_orig = pirls_res.reparam_result.qs.nrows();
             if dense_covariance_reservation.is_some() {
                 let h_orig = map_hessian_to_original_basis(&pirls_res)?;
-                // Use the SAME inverse the influence matrix `F = I − H⁻¹S` is
-                // built from (`posterior_covariance_inverse`, below), not the bare
-                // ridged `matrix_inversewith_regularization`. In the near-linear /
-                // large-λ regime `H` is ill-conditioned, so the regularized inverse
-                // is materially perturbed by its ridge (`inverse_identity_defect >
-                // 1e-6`) and `posterior_covariance_inverse` falls back to the
-                // ridge-free spectral inverse. `F` (and hence `tr(F)`) takes that
-                // spectral branch while this reconciliation, on the bare ridged
-                // inverse, did not — so `tr_kk = λ_kk·tr(H⁻¹S_kk)` was contracted
-                // against a DIFFERENT `H⁻¹` than `F`, breaking the exact identity
-                // `edf_total = p − Σ tr_kk = tr(F)` by the ridge perturbation (the
-                // #1027 basis/PSD-floor inconsistency, ~2.4e-5 on a heavily-smoothed
-                // `s(x)`). Sharing `posterior_covariance_inverse` makes both traces
-                // read the identical `H⁻¹`, restoring the identity to round-off.
-                if let Some(h_inv) = posterior_covariance_inverse(&h_orig, "edf reconciliation") {
+                // Sharing one certified SPD inverse makes the block traces and
+                // influence matrix read the identical `H⁻¹`. Failure is not a
+                // request to silently change rank or add a diagonal perturbation.
+                let h_inv = posterior_covariance_inverse(&h_orig, "edf reconciliation").map_err(
+                    |error| {
+                        EstimationError::RemlOptimizationFailed(format!(
+                            "EDF reconciliation requires an exact SPD Hessian inverse: {error}"
+                        ))
+                    },
+                )?;
+                {
                     let qs = &pirls_res.reparam_result.qs;
                     let p_t = qs.ncols();
                     let mut traces_f = vec![0.0f64; k];
@@ -2318,20 +2103,20 @@ where
             let mut acc = s_beta_t.slice_mut(ndarray::s![r.clone()]);
             acc.scaled_add(lam_k, &local_beta);
         }
-        match factor.solve(&s_beta_t) {
-            Ok(b_t) => {
-                let qs = &pirls_res.reparam_result.qs;
-                let b_orig = qs.dot(&b_t);
-                if b_orig.iter().all(|v| v.is_finite()) {
-                    bias_correction_beta = Some(b_orig);
-                } else {
-                    log::warn!("bias-correction vector contained non-finite entries; skipping");
-                }
-            }
-            Err(e) => {
-                log::warn!("bias-correction solve failed: {e}");
-            }
+        let b_t = factor.solve(&s_beta_t).map_err(|reason| {
+            EstimationError::RemlOptimizationFailed(format!(
+                "exact bias-correction solve failed: {reason}"
+            ))
+        })?;
+        certify_factorized_inference_vector_solve(h, &s_beta_t, &b_t, "bias correction")?;
+        let qs = &pirls_res.reparam_result.qs;
+        let b_orig = qs.dot(&b_t);
+        if b_orig.iter().any(|value| !value.is_finite()) {
+            return Err(EstimationError::RemlOptimizationFailed(
+                "bias-correction basis map produced non-finite coefficients".to_string(),
+            ));
         }
+        bias_correction_beta = Some(b_orig);
         // Preserve the factorization for solve-on-demand SE and covariance
         // computation below, after dispersion has been determined.
         edf_factor = Some(factor);
@@ -2348,24 +2133,45 @@ where
     // df computed just above from tr(λ_k · H⁻¹ S_k), and is exactly the residual
     // df mgcv uses. When inference is off, edf_total is unavailable, so the MLE
     // RSS/n is returned instead.
-    let standard_deviation = match &pirls_res.likelihood.spec.response {
-        ResponseFamily::Gaussian => {
+    let resolved_likelihood_scale = pirls_res
+        .likelihood
+        .resolved_scale()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+    let profiled_gaussian_standard_deviation = match resolved_likelihood_scale {
+        gam_problem::ResolvedLikelihoodScale::ProfiledGaussian => {
             let denom = if opts.compute_inference {
-                (n - edf_total).max(1.0)
+                n - edf_total
             } else {
-                n.max(1.0)
+                n
             };
-            (weighted_rss / denom).sqrt()
+            if !(denom.is_finite() && denom > 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "profiled Gaussian residual degrees of freedom must be finite and positive, got {denom:?}"
+                )));
+            }
+            if !(weighted_rss.is_finite() && weighted_rss >= 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "profiled Gaussian weighted RSS must be finite and non-negative, got {weighted_rss:?}"
+                )));
+            }
+            let variance = weighted_rss / denom;
+            if !variance.is_finite() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "profiled Gaussian residual variance is not representable: {weighted_rss:?}/{denom:?}"
+                )));
+            }
+            Some(variance.sqrt())
         }
-        ResponseFamily::Gamma => pirls_res.likelihood.gamma_shape().unwrap_or(1.0),
-        ResponseFamily::Binomial
-        | ResponseFamily::Tweedie { .. }
-        | ResponseFamily::NegativeBinomial { .. }
-        | ResponseFamily::Beta { .. }
-        | ResponseFamily::Poisson
-        | ResponseFamily::RoystonParmar => 1.0,
+        _ => None,
     };
-    let dispersion = dispersion_from_likelihood(&pirls_res.likelihood, standard_deviation);
+    let dispersion = dispersion_from_likelihood(
+        &pirls_res.likelihood,
+        profiled_gaussian_standard_deviation,
+    )?;
+    // Persist the square root of the resolved response dispersion for every
+    // scalar-scale family. It is never an overloaded Gamma shape or an inert
+    // unit placeholder; family-specific inference consumes the typed metadata.
+    let standard_deviation = dispersion.phi().sqrt();
 
     // Explicit dispersion contract for coefficient covariance matrices:
     // Vb = H⁻¹ · cov_scale, where the stored penalized Hessian is always
@@ -2389,7 +2195,25 @@ where
     let cov_scale = pirls_res
         .likelihood
         .coefficient_covariance_scale(standard_deviation * standard_deviation)
-        .max(f64::MIN_POSITIVE);
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+    let zero_covariance_boundary = dispersion.is_zero_estimate()
+        && matches!(
+            &pirls_res.likelihood.spec.response,
+            ResponseFamily::Gaussian
+        )
+        && matches!(
+            &pirls_res.likelihood.scale,
+            LikelihoodScaleMetadata::ProfiledGaussian
+        );
+    if !cov_scale.is_finite()
+        || cov_scale < 0.0
+        || (cov_scale == 0.0 && !zero_covariance_boundary)
+        || (zero_covariance_boundary && cov_scale != 0.0)
+    {
+        return Err(EstimationError::InvalidInput(format!(
+            "coefficient covariance scale {cov_scale:?} is inconsistent with dispersion {dispersion:?}"
+        )));
+    }
 
     // Re-certify the exact rho point and inner state that will be shipped.
     // Seeds and nuisance refinements may initialize work, but they can never
@@ -2459,28 +2283,20 @@ where
         // the factorised-Hessian path in PredictionCovarianceBackend::Factorized.
 
         // Attempt the full inverse when the bundle fits the policy budget.
-        let beta_covariance_unscaled: Option<Array2<f64>> = if dense_covariance_reservation
-            .is_some()
-        {
-            match posterior_covariance_inverse(&penalized_hessian, "posterior covariance") {
-                Some(h_inv) => Some(h_inv),
-                None => {
-                    log::warn!(
-                        "posterior covariance inversion failed (p={p_cov}): \
-                         falling back to solve-on-demand standard errors"
-                    );
-                    // Release the optional 24-matrix live-set charge before
-                    // the chunked path asks the governor for workspaces,
-                    // then retain only the factor/precision state that is
-                    // genuinely still live.
-                    drop(dense_covariance_reservation.take());
-                    factorized_inference_reservation = reserve_factorized_inference_state(p_cov);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        let beta_covariance_unscaled: Option<Array2<f64>> =
+            if dense_covariance_reservation.is_some() {
+                Some(
+                posterior_covariance_inverse(&penalized_hessian, "posterior covariance").map_err(
+                    |error| {
+                        EstimationError::RemlOptimizationFailed(format!(
+                            "posterior covariance requires an exact SPD Hessian inverse: {error}"
+                        ))
+                    },
+                )?,
+            )
+            } else {
+                None
+            };
 
         if let Some(ref h_inv) = beta_covariance_unscaled {
             // Full inverse available: wrap as phi-scaled covariance, compute
@@ -2573,22 +2389,28 @@ where
         // correction lands on the same c² variance scale as `Vb = cov_scale·H_opt⁻¹`
         // (#582); the var_beta = Cov_ρ[β̂] block is already on that scale and
         // stays unscaled.
-        let smoothing_correction_diagonal = if beta_covariance_unscaled.is_some() {
+        if beta_covariance_unscaled.is_some() {
             let smoothing_outcome = reml_state.compute_smoothing_correction_auto(
                 &final_rho,
+                &lambdas,
                 &pirls_res,
                 beta_covariance_unscaled.as_ref(),
                 cov_scale,
                 finalgrad_norm,
-            );
-            rho_covariance = smoothing_outcome.rho_covariance().cloned();
-            smoothing_correction = smoothing_outcome.into_correction();
-            None
-        } else {
-            let diagonal_outcome = compute_diagonal_smoothing_correction(&reml_state, &final_rho);
-            rho_covariance = diagonal_outcome.rho_covariance;
-            diagonal_outcome.diagonal
-        };
+            )?;
+            match smoothing_outcome {
+                super::reml::eval::SmoothingCorrectionOutcome::Unavailable { reason, .. } => {
+                    return Err(EstimationError::InvalidInput(format!(
+                        "exact smoothing-corrected covariance unavailable: {reason:?}"
+                    )));
+                }
+                outcome => {
+                    rho_covariance = outcome.rho_covariance().cloned();
+                    (smoothing_correction, smoothing_correction_method) =
+                        outcome.into_correction_with_method();
+                }
+            }
+        }
 
         // Tier-0 marginal-smoothing certificate (#938): while the REML objective
         // is still live, sample the outer criterion around the converged ρ̂ to
@@ -2636,12 +2458,26 @@ where
         beta_standard_errors = if let Some(ref h_inv) = beta_covariance_unscaled {
             // Fast path: SE from stored full inverse (already phi-scaled via
             // beta_covariance, but we need the unscaled diagonal here).
-            let raw_se = Array1::from_iter(
-                h_inv
-                    .diag()
-                    .iter()
-                    .map(|&v| (cov_scale * v.max(0.0)).sqrt()),
-            );
+            let mut raw_se = Array1::<f64>::zeros(p_cov);
+            for (index, &variance_unscaled) in h_inv.diag().iter().enumerate() {
+                if !(variance_unscaled.is_finite() && variance_unscaled > 0.0) {
+                    return Err(EstimationError::RemlOptimizationFailed(format!(
+                        "exact SPD inverse has invalid diagonal {index}: {variance_unscaled:?}"
+                    )));
+                }
+                let variance = cov_scale * variance_unscaled;
+                let valid = if zero_covariance_boundary {
+                    variance == 0.0
+                } else {
+                    variance.is_finite() && variance > 0.0
+                };
+                if !valid {
+                    return Err(EstimationError::RemlOptimizationFailed(format!(
+                        "posterior covariance diagonal {index} is not positive and representable: {variance:?}"
+                    )));
+                }
+                raw_se[index] = variance.sqrt();
+            }
             Some(raw_se)
         } else if let Some(ref factor_t) = edf_factor {
             // Solve-on-demand: process columns of Qs^T in chunks.
@@ -2649,56 +2485,77 @@ where
             // (H_orig⁻¹)_{ii} = Qs[i,:] · H_t⁻¹ · Qs[i,:]'
             // Batch: column i of Qs^T is row i of Qs. Solve H_t Z = Qs^T[:,chunk]
             // then dot each solution column back with the corresponding Qs row.
+            if se_chunk_cols == 0 {
+                return Err(EstimationError::RemlOptimizationFailed(
+                    "resource policy cannot admit even one exact factorized coefficient-SE column"
+                        .to_string(),
+                ));
+            }
             let mut diag_inv = Array1::<f64>::zeros(p_cov);
             let mut col_start = 0usize;
-            let mut solve_failed = false;
             while col_start < p_cov {
                 let col_end = (col_start + se_chunk_cols).min(p_cov);
                 let chunk = col_end - col_start;
-                let Ok(_chunk_reservation) = governor.try_reserve_dense_f64_copies(
-                    qs.ncols(),
-                    chunk,
-                    2,
-                    "factorized coefficient-SE solve chunk",
-                ) else {
-                    log::warn!(
-                        "SE solve-on-demand could not reserve chunk {col_start}..{col_end}; discarding coefficient SEs"
-                    );
-                    solve_failed = true;
-                    break;
-                };
-                // qs.t() has shape (p_t, p_cov); slice to (p_t, chunk).
-                let rhs = qs.t().slice(ndarray::s![.., col_start..col_end]).to_owned();
-                match factor_t.solvemulti(&rhs) {
-                    Ok(z_chunk) => {
-                        // z_chunk is (p_t × chunk).
-                        // (H_orig⁻¹)_{ii} = qs.row(i) · z_chunk.column(i - col_start)
-                        for local_i in 0..chunk {
-                            let global_i = col_start + local_i;
-                            let qs_row = qs.row(global_i);
-                            let z_col = z_chunk.column(local_i);
-                            diag_inv[global_i] = qs_row.dot(&z_col);
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "SE solve-on-demand failed at chunk {col_start}..{col_end}: {e}"
-                        );
-                        solve_failed = true;
-                        break;
-                    }
+                let chunk_reservation = governor
+                    .try_reserve_dense_f64_copies(
+                        qs.ncols(),
+                        chunk,
+                        2,
+                        "factorized coefficient-SE solve chunk",
+                    )
+                    .map_err(|_| {
+                        EstimationError::RemlOptimizationFailed(format!(
+                            "resource policy refused exact coefficient-SE columns {col_start}..{col_end}"
+                        ))
+                    })?;
+                // qs.t() has shape (p_t, p_cov); slice to (p_t, chunk). The
+                // reservation covers this buffer and its `solvemulti` output
+                // jointly, so it is bound to whichever one outlives the other
+                // (both are dropped together at the end of this iteration).
+                let rhs =
+                    chunk_reservation.bind(qs.t().slice(ndarray::s![.., col_start..col_end]).to_owned());
+                let z_chunk = factor_t.solvemulti(&rhs).map_err(|reason| {
+                    EstimationError::RemlOptimizationFailed(format!(
+                        "exact coefficient-SE solve failed at columns {col_start}..{col_end}: {reason}"
+                    ))
+                })?;
+                certify_factorized_inference_solve(
+                    &pirls_res.stabilizedhessian_transformed,
+                    &rhs,
+                    &z_chunk,
+                    "factorized coefficient standard errors",
+                )?;
+                // z_chunk is (p_t × chunk).
+                // (H_orig⁻¹)_{ii} = qs.row(i) · z_chunk.column(i - col_start)
+                for local_i in 0..chunk {
+                    let global_i = col_start + local_i;
+                    let qs_row = qs.row(global_i);
+                    let z_col = z_chunk.column(local_i);
+                    diag_inv[global_i] = qs_row.dot(&z_col);
                 }
                 col_start = col_end;
             }
-            let se = diag_inv.mapv(|v| (cov_scale * v.max(0.0)).sqrt());
-            if !solve_failed && se.iter().all(|v| v.is_finite()) {
-                Some(se)
-            } else {
-                if !solve_failed {
-                    log::warn!("SE solve-on-demand produced non-finite entries; discarding");
+            let mut se = Array1::<f64>::zeros(p_cov);
+            for (index, &variance_unscaled) in diag_inv.iter().enumerate() {
+                if !(variance_unscaled.is_finite() && variance_unscaled > 0.0) {
+                    return Err(EstimationError::RemlOptimizationFailed(format!(
+                        "exact factorized SPD inverse has invalid diagonal {index}: {variance_unscaled:?}"
+                    )));
                 }
-                None
+                let variance = cov_scale * variance_unscaled;
+                let valid = if zero_covariance_boundary {
+                    variance == 0.0
+                } else {
+                    variance.is_finite() && variance > 0.0
+                };
+                if !valid {
+                    return Err(EstimationError::RemlOptimizationFailed(format!(
+                        "factorized posterior variance {index} is not positive and representable: {variance:?}"
+                    )));
+                }
+                se[index] = variance.sqrt();
             }
+            Some(se)
         } else {
             None
         };
@@ -2721,50 +2578,44 @@ where
             (Some(base_cov), Some(corr)) if base_cov.as_array().dim() == corr.dim() => {
                 let mut corrected = base_cov.as_array().clone();
                 corrected += corr;
-                if let Some(a_bc) = bias_correction_jacobian.as_ref()
-                    && a_bc.dim() == corrected.dim()
-                {
+                if let Some(a_bc) = bias_correction_jacobian.as_ref() {
+                    if a_bc.dim() != corrected.dim() {
+                        return Err(EstimationError::RemlOptimizationFailed(format!(
+                            "bias-correction Jacobian shape {:?} does not match corrected covariance {:?}",
+                            a_bc.dim(),
+                            corrected.dim()
+                        )));
+                    }
                     corrected = a_bc.dot(&corrected).dot(&a_bc.t());
                 }
                 gam_linalg::matrix::symmetrize_in_place(&mut corrected);
                 Some(corrected)
             }
-            (Some(_), Some(corr)) => {
-                log::warn!(
-                    "Skipping corrected covariance: dimension mismatch (base {:?}, corr {:?})",
-                    beta_covariance.as_ref().map(|c| c.as_array().dim()),
-                    Some(corr.dim())
-                );
-                None
+            (Some(base), Some(corr)) => {
+                return Err(EstimationError::RemlOptimizationFailed(format!(
+                    "base covariance shape {:?} does not match smoothing correction {:?}",
+                    base.as_array().dim(),
+                    corr.dim()
+                )));
             }
             _ => None,
         };
         beta_standard_errors_corrected = beta_covariance_corrected
             .as_ref()
             .map(se_from_covariance)
-            .or_else(|| {
-                let base = beta_standard_errors.as_ref()?;
-                let correction = smoothing_correction_diagonal.as_ref()?;
-                if base.len() != correction.len() {
-                    log::warn!(
-                        "Skipping corrected standard errors: base length {} != smoothing diagonal length {}",
-                        base.len(),
-                        correction.len(),
-                    );
-                    return None;
-                }
-                Some(Array1::from_iter(
-                    base.iter()
-                        .zip(correction.iter())
-                        .map(|(&se, &delta)| (se * se + delta.max(0.0)).sqrt()),
+            .transpose()
+            .map_err(|error| {
+                EstimationError::RemlOptimizationFailed(format!(
+                    "corrected coefficient covariance is not a valid standard-error source: {error}"
                 ))
-            });
+            })?;
     }
     let inference = opts.compute_inference.then(|| FitInference {
         edf_by_block,
         penalty_block_trace,
         edf_total,
         smoothing_correction,
+        smoothing_correction_method,
         penalized_hessian: penalized_hessian.into(),
         working_weights: pirls_res.solveweights.to_owned(),
         working_response: pirls_res.solveworking_response.to_owned(),
@@ -2823,20 +2674,31 @@ where
         }
         _ => {}
     }
+    if zero_covariance_boundary {
+        return Err(EstimationError::InvalidInput(
+            "the general REML reporting path reached the degenerate profiled-Gaussian boundary sigma^2 = 0, where no finite normalized Gaussian density exists; exact constant-response fits must use the dedicated deterministic-Gaussian shortcut"
+                .to_string(),
+        ));
+    }
     // The fully-normalized reporting kernel (#2096) reads a CONCRETE dispersion
     // `φ = σ̂²` for Gaussian off `likelihood.scale`. A profiled Gaussian carries
     // only the `ProfiledGaussian` marker (`fixed_phi() == None`), which the
     // kernel maps to NaN by contract (the #1583 no-silent-`φ=1` rule) — so the
     // reported `log_likelihood` (and the AIC built from it) came out NaN for
-    // every Gaussian fit. Resolve the profiled residual scale `σ̂²` (the
-    // `standard_deviation` computed above, floored like `cov_scale`) into the
-    // reporting spec here. This is a REPORTING-only substitution: the persisted
-    // `likelihood_scale` field below stays `ProfiledGaussian` so downstream
-    // consumers still see that the scale was profiled, not user-fixed.
+    // every non-degenerate Gaussian fit. Resolve a positive profiled residual
+    // scale `σ̂²` into the reporting spec exactly. The validated boundary
+    // estimate `σ̂² = 0` deliberately stays `ProfiledGaussian`: an ordinary
+    // normalized Lebesgue density does not exist there, and relabeling it as a
+    // positive fixed dispersion would falsify both provenance and density. This
+    // is a REPORTING-only substitution: the persisted `likelihood_scale` field
+    // below stays `ProfiledGaussian` so downstream consumers still see that the
+    // scale was profiled, not user-fixed.
     let reporting_scale = match (&reported_family.response, likelihood_scale_field) {
-        (ResponseFamily::Gaussian, LikelihoodScaleMetadata::ProfiledGaussian) => {
+        (ResponseFamily::Gaussian, LikelihoodScaleMetadata::ProfiledGaussian)
+            if !zero_covariance_boundary =>
+        {
             LikelihoodScaleMetadata::FixedDispersion {
-                phi: (standard_deviation * standard_deviation).max(f64::MIN_POSITIVE),
+                phi: standard_deviation * standard_deviation,
             }
         }
         _ => likelihood_scale_field,
@@ -2845,15 +2707,17 @@ where
         spec: reported_family.clone(),
         scale: reporting_scale,
     };
-    let log_likelihood = crate::pirls::calculate_loglikelihood(
+    let log_likelihood = crate::pirls::evaluate_full_log_likelihood_from_eta(
         y_o.view(),
-        &pirls_res.finalmu.to_owned(),
+        pirls_res.final_eta.view(),
         &reported_likelihood,
         w_o.view(),
-    );
+    )?
+    .total();
 
     let result = ExternalOptimResult {
         beta: beta_orig_internal,
+        log_lambdas,
         lambdas: lambdas.to_owned(),
         likelihood_family: reported_family,
         likelihood_scale: likelihood_scale_field,
@@ -2920,7 +2784,7 @@ where
     // both holds explicitly before handing the assembled result back.
     drop(dense_covariance_reservation);
     drop(factorized_inference_reservation);
-    Ok(conditioning.backtransform_external_result(result))
+    conditioning.backtransform_external_result(result)
 }
 
 #[cfg(test)]
@@ -3087,14 +2951,14 @@ mod reported_loglikelihood_normalization_tests {
     //! `ExternalOptimResult::log_likelihood` — the number that surfaces as
     //! `Model.summary()["log_likelihood"]` and feeds the conditional/corrected
     //! AIC. Before #2096 that field was wired to the REML building-block kernel
-    //! `calculate_loglikelihood_omitting_constants`, which drops the Poisson
+    //! `calculate_loglikelihood_omitting_constants_from_eta`, which drops the Poisson
     //! count normalizer `−Σ lnΓ(y+1)`. On count data that makes the reported
     //! log-likelihood POSITIVE — impossible for a probability mass — and, because
     //! different families drop different normalizers, non-comparable across
     //! families (breaking any AIC built from it).
     //!
     //! The fix routes the reporting field through the fully-normalized
-    //! `calculate_loglikelihood` kernel and tags it
+    //! full eta-space likelihood evaluation and tags it
     //! `LogLikelihoodNormalization::Full`. This test fits a small Poisson GAM
     //! surface through the real optimizer and asserts the reported field is a
     //! proper (negative) log-mass — the direct, field-level symptom of #2096,

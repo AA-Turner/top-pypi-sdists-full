@@ -52,4 +52,4 @@ after
         files_read=set(),
     )
     assert written == ["sage/notes.md"]
-    assert target.read_text(encoding="utf-8") == "after\n"
+    assert target.read_text(encoding="utf-8") == "after"

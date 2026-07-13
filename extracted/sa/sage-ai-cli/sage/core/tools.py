@@ -59,6 +59,7 @@ class ToolType(Enum):
     SEARCH_CODE = "search_code"
     SEARCH_FILES = "search_files"
     WEB_FETCH = "web_fetch"
+    IMAGE_GEN = "image_gen"
     GIT = "git"
     LINT = "lint"
     TEST = "test"
@@ -1109,6 +1110,33 @@ class WebFetchTool:
             )
 
 
+
+class ImageGenerationTool:
+    """Tool for generating images."""
+    def __init__(self, context: ToolContext):
+        self.context = context
+
+    def generate(self, prompt: str, aspect_ratio: str = "16:9") -> ToolResult:
+        from sage.core.image_generator import ImageGenerator, ImageGenerationError
+        try:
+            # We don't have a configured client here, rely on default ADC
+            gen = ImageGenerator()
+            image = gen.generate(prompt, aspect_ratio=aspect_ratio)
+            # Save it to cwd
+            saved_path = image.save(self.context.cwd)
+            return ToolResult(
+                tool_type=ToolType.IMAGE_GEN,
+                status=ToolStatus.SUCCESS,
+                output=f"Image generated and saved to {saved_path}",
+                metadata={"path": str(saved_path)},
+            )
+        except Exception as e:
+            return ToolResult(
+                tool_type=ToolType.IMAGE_GEN,
+                status=ToolStatus.ERROR,
+                error=str(e),
+            )
+
 class ToolExecutor:
     """Central executor for all tools."""
 
@@ -1119,6 +1147,7 @@ class ToolExecutor:
         self.shell = ShellTool(context)
         self.search = SearchTool(context)
         self.web_fetch = WebFetchTool(context)
+        self.image_gen = ImageGenerationTool(context)
         self.history: list[ToolResult] = []
 
     def execute(
@@ -1147,6 +1176,8 @@ class ToolExecutor:
             result = self.search.search_files(**kwargs)
         elif tool_type == ToolType.WEB_FETCH:
             result = self.web_fetch.fetch(**kwargs)
+        elif tool_type == ToolType.IMAGE_GEN:
+            result = self.image_gen.generate(**kwargs)
         else:
             result = ToolResult(
                 tool_type=tool_type,
@@ -1221,6 +1252,7 @@ class ToolParser:
         "FIND",
         "WEB",
         "FETCH",
+        "IMAGE",
         "ASK",
         "QUESTION",
         "PLAN",
@@ -1571,6 +1603,7 @@ def parse_tool_command(text: str) -> ToolCall | None:
         "FILE": ToolType.FILE,
         "WRITE": ToolType.FILE_WRITE,
         "EDIT": ToolType.FILE_WRITE,
+        "IMAGE": ToolType.IMAGE_GEN,
     }
 
     tool_type = tool_type_map.get(tool_name.upper())
@@ -1590,6 +1623,8 @@ def parse_tool_command(text: str) -> ToolCall | None:
     elif tool_type in (ToolType.FILE, ToolType.FILE_WRITE):
         arguments["path"] = target
         arguments["content"] = ""  # Will be filled by parse_tool_commands for FILE blocks
+    elif tool_type == ToolType.IMAGE_GEN:
+        arguments["prompt"] = target
     else:
         arguments = result.arguments.copy()
 
@@ -1635,7 +1670,7 @@ def parse_tool_commands(text: str) -> list[ToolCall]:
                 next_line = lines[i]
                 # Check if this is a new command
                 if re.match(
-                    r"^(READ|SEARCH|RUN|BASH|FILE|WRITE|EDIT):\s", next_line.strip(), re.IGNORECASE
+                    r"^(READ|SEARCH|RUN|BASH|FILE|WRITE|EDIT|IMAGE):\s", next_line.strip(), re.IGNORECASE
                 ):
                     break
                 content_lines.append(next_line)
@@ -1755,6 +1790,28 @@ def execute_tool_call(call: ToolCall) -> ToolResult:
                 tool_type=call.tool_type,
                 status=ToolStatus.SUCCESS,
                 files_created=[path],
+            )
+        except Exception as e:
+            return ToolResult(
+                tool_type=call.tool_type,
+                status=ToolStatus.ERROR,
+                error=str(e),
+            )
+
+    elif call.tool_type == ToolType.IMAGE_GEN:
+        prompt = call.arguments.get("prompt", "")
+        from sage.core.image_generator import ImageGenerator
+        try:
+            gen = ImageGenerator()
+            image = gen.generate(prompt)
+            # Find working directory (either passed in context or use CWD)
+            cwd = Path.cwd()
+            saved_path = image.save(str(cwd))
+            return ToolResult(
+                tool_type=call.tool_type,
+                status=ToolStatus.SUCCESS,
+                output=f"Image generated and saved to {saved_path}",
+                metadata={"path": str(saved_path)},
             )
         except Exception as e:
             return ToolResult(

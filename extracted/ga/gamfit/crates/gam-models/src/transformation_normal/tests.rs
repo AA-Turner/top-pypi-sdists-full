@@ -3,6 +3,58 @@ use crate::custom_family::custom_family_outer_derivatives;
 use gam_test_support::assert_matrix_derivativefd;
 use ndarray::array;
 
+#[test]
+pub(crate) fn exact_ctn_mode_branch_freezes_derivative_input() {
+    let warm = |value: f64| {
+        CustomFamilyWarmStart::from_cached_beta(&[1], &array![value])
+            .expect("one-coefficient CTN mode seed")
+    };
+    let beta_value = |state: &TransformationExactModeBranch| {
+        state
+            .warm_start(&Array1::zeros(0))
+            .expect("compatible CTN mode seed")
+            .block_beta_view(0)
+            .expect("one CTN coefficient")[0]
+    };
+
+    let mut state = TransformationExactModeBranch::default();
+    assert!(state.warm_start(&Array1::zeros(0)).is_none());
+
+    state.record_value(gam_problem::EvalMode::ValueOnly, warm(1.0));
+    assert_eq!(beta_value(&state), 1.0);
+    state.record_value(gam_problem::EvalMode::ValueOnly, warm(2.0));
+    assert_eq!(beta_value(&state), 2.0);
+
+    let (froze, candidates) = state.candidates(gam_problem::EvalMode::ValueOnly, &Array1::zeros(0));
+    assert!(!froze);
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates[0].is_none(), "cold candidate is evaluated first");
+    assert_eq!(
+        candidates[1]
+            .as_ref()
+            .expect("continuation candidate")
+            .block_beta_view(0)
+            .expect("one CTN coefficient")[0],
+        2.0
+    );
+
+    assert!(state.prepare(gam_problem::EvalMode::ValueGradientHessian));
+    assert_eq!(beta_value(&state), 2.0);
+
+    state.record_value(gam_problem::EvalMode::ValueOnly, warm(4.0));
+    state.record_value(gam_problem::EvalMode::ValueAndGradient, warm(5.0));
+    assert!(!state.prepare(gam_problem::EvalMode::ValueAndGradient));
+    assert_eq!(
+        beta_value(&state),
+        2.0,
+        "outer trial history must not replace the CTN branch anchor"
+    );
+
+    let mut cold = TransformationExactModeBranch::default();
+    assert!(cold.prepare(gam_problem::EvalMode::ValueAndGradient));
+    assert!(cold.warm_start(&Array1::zeros(0)).is_none());
+}
+
 pub(crate) fn dense_first_order_psi_hessian(terms: &ExactNewtonJointPsiTerms) -> Array2<f64> {
     if terms.hessian_psi.nrows() > 0 {
         terms.hessian_psi.clone()
@@ -338,17 +390,6 @@ pub(crate) fn toy_family_and_derivatives(
     toy_family_and_derivatives_with_penalty_mode(psi, false)
 }
 
-fn toy_penalized_family_and_derivatives(
-    psi: &Array1<f64>,
-) -> (
-    TransformationNormalFamily,
-    Vec<Vec<CustomFamilyBlockPsiDerivative>>,
-    ParameterBlockState,
-    ParameterBlockSpec,
-) {
-    toy_family_and_derivatives_with_penalty_mode(psi, true)
-}
-
 #[test]
 pub(crate) fn ctn_row_quantity_cache_matches_direct_formulas() {
     let psi = array![0.15, -0.10];
@@ -665,7 +706,9 @@ pub(crate) fn kronecker_dense_fast_paths_match_dense_materialization() {
     let expected_gram = fast_atb(&weight_rows(&dense, &weights), &dense);
 
     let got_transpose = kron.transpose_mul(&v);
-    let got_gram = kron.weighted_gram(&weights, &ResourcePolicy::default_library());
+    let got_gram = kron
+        .weighted_gram(&weights, &ResourcePolicy::default_library())
+        .unwrap();
 
     let transpose_err = (&got_transpose - &expected_transpose)
         .iter()

@@ -477,8 +477,8 @@ pub(crate) fn build_subspace_kernel(
     // OUTSIDE U_S so H_proj is full-rank by construction), every
     // eigenvalue passes the threshold and the result is the exact
     // inverse.
-    use gam_linalg::faer_ndarray::FaerEigh;
     use faer::Side;
+    use gam_linalg::faer_ndarray::FaerEigh;
     let h_proj = u_s.t().dot(h_full).dot(u_s);
     let (evals, evecs) = h_proj
         .eigh(Side::Lower)
@@ -753,8 +753,8 @@ pub(crate) fn projected_pseudo_inverse_truth(
     a: &Array1<f64>,
     b: &Array1<f64>,
 ) -> f64 {
-    use gam_linalg::faer_ndarray::FaerEigh;
     use faer::Side;
+    use gam_linalg::faer_ndarray::FaerEigh;
     let proj_a = u_s.t().dot(a);
     let proj_b = u_s.t().dot(b);
     let h_proj = u_s.t().dot(h_full).dot(u_s);
@@ -1199,11 +1199,9 @@ pub(crate) fn dense_and_materialized_outer_hessian(
         None,
     )
     .unwrap();
-    let materialized = gam_problem::HessianOperator::apply_mat(
-        &operator,
-        Array2::eye(operator.dim()).view(),
-    )
-    .unwrap();
+    let materialized =
+        gam_problem::HessianOperator::apply_mat(&operator, Array2::eye(operator.dim()).view())
+            .unwrap();
     (dense, operator, materialized)
 }
 
@@ -2199,7 +2197,9 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
             c_array: c_array.clone(),
             d_array: Some(d_array.clone()),
             hessian_weights: Array1::ones(3),
-            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(x.clone())),
+            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                x.clone(),
+            )),
         };
         let contracted_psi_second_order: Option<ContractedPsiSecondOrderFn> = if with_hook {
             let g = psi_pair_g.clone();
@@ -2329,11 +2329,9 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
         "#740 operator must advertise Unavailable materialization to stay matrix-free"
     );
 
-    let materialized = gam_problem::HessianOperator::apply_mat(
-        &operator,
-        Array2::eye(operator.dim()).view(),
-    )
-    .unwrap();
+    let materialized =
+        gam_problem::HessianOperator::apply_mat(&operator, Array2::eye(operator.dim()).view())
+            .unwrap();
 
     // CONTROL: the SAME operator built WITHOUT the hook (ψψ block filled from
     // the per-pair ext_coord_pair_fn tables) must already match the dense
@@ -2355,12 +2353,11 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
         None,
     )
     .unwrap();
-    let control_mat =
-        gam_problem::HessianOperator::apply_mat(
-            &control_operator,
-            Array2::eye(control_operator.dim()).view(),
-        )
-        .unwrap();
+    let control_mat = gam_problem::HessianOperator::apply_mat(
+        &control_operator,
+        Array2::eye(control_operator.dim()).view(),
+    )
+    .unwrap();
 
     for row in 0..dense.nrows() {
         for col in 0..dense.ncols() {
@@ -2431,7 +2428,9 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
             c_array: Array1::zeros(3),
             d_array: Some(Array1::zeros(3)),
             hessian_weights: Array1::ones(3),
-            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(x.clone())),
+            x_transformed: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                x.clone(),
+            )),
         });
         compute_outer_hessian(
             &sol,
@@ -2785,8 +2784,7 @@ pub(crate) fn outer_hessian_operator_matvec_matches_dense_subspace_with_null_alp
         array![0.7, -0.3],
     ];
     for alpha in alphas.iter() {
-        let hvp =
-            gam_problem::HessianOperator::apply(&operator, alpha).expect("operator HVP");
+        let hvp = gam_problem::HessianOperator::apply(&operator, alpha).expect("operator HVP");
         let dense_hvp = dense.dot(alpha);
         for i in 0..hvp.len() {
             assert_relative_eq!(hvp[i], dense_hvp[i], epsilon = 1e-12, max_relative = 1e-12);
@@ -3302,7 +3300,7 @@ pub(crate) fn efs_step_is_zero_at_scalar_optimum() {
     // universal form `Δρ = log(1 − 2·g_full/q_eff)` collapses to
     // `log(1) = 0`.
     let gradient_at_optimum = [0.0_f64];
-    let steps = compute_efs_update(&solution, &rho, &gradient_at_optimum);
+    let steps = compute_efs_update(&solution, &rho, &gradient_at_optimum).expect("valid EFS rho");
     assert_eq!(steps.len(), 1);
     assert!(
         steps[0].abs() < 1e-12,
@@ -3314,7 +3312,7 @@ pub(crate) fn efs_step_is_zero_at_scalar_optimum() {
     // multiplicative target `1 − 2·0.1/0.75 = 0.733` ⇒ Δρ = log(0.733).
     let q_eff = lambda * beta_hat * beta_hat; // 0.75
     let g_off = 0.1_f64;
-    let steps_off = compute_efs_update(&solution, &rho, &[g_off]);
+    let steps_off = compute_efs_update(&solution, &rho, &[g_off]).expect("valid EFS rho");
     let expected = (1.0_f64 - 2.0 * g_off / q_eff).ln();
     assert!(
         (steps_off[0] - expected).abs() < 1e-12,
@@ -3322,6 +3320,44 @@ pub(crate) fn efs_step_is_zero_at_scalar_optimum() {
         steps_off[0],
         expected
     );
+}
+
+/// The pure-EFS stepper (`compute_efs_update`) and the hybrid stepper
+/// (`compute_hybrid_efs_update`) must produce BIT-FOR-BIT identical ρ/τ steps
+/// whenever there are no ψ (design-moving) coordinates — both now route the
+/// penalty-like block through the single shared `efs_penalty_like_steps`
+/// helper, so the two can never silently diverge again. This pins that
+/// unification: re-inlining either loop with a subtly different `q_eff` or a
+/// non-deterministic write-back would break the exact-bits assertion.
+#[test]
+pub(crate) fn efs_update_and_hybrid_agree_bit_for_bit_without_psi() {
+    // Two-ρ Gaussian solution, no ext coords (no ψ): the hybrid path's ψ block
+    // is empty, so its output is exactly the penalty-like block.
+    let rho = [0.3_f64, -0.7_f64];
+    let solution = build_gaussian_test_solution(&rho);
+    assert!(
+        solution.ext_coords.is_empty(),
+        "fixture must have no ext coords so hybrid == pure EFS"
+    );
+
+    // An off-optimum gradient so the steps are non-trivial and the comparison
+    // exercises the actual `log(1 − 2g/q_eff)` arithmetic, not just `log 1 = 0`.
+    for gradient in [[0.11_f64, -0.04_f64], [0.0, 0.0], [-0.25, 0.18]] {
+        let pure = compute_efs_update(&solution, &rho, &gradient).expect("pure EFS");
+        let hybrid = compute_hybrid_efs_update(&solution, &rho, &gradient).expect("hybrid EFS");
+        assert_eq!(pure.len(), hybrid.steps.len());
+        assert!(
+            hybrid.psi_indices.is_empty() && hybrid.psi_gradient.is_empty(),
+            "no ψ coords ⇒ empty ψ metadata"
+        );
+        for (i, (&p, &h)) in pure.iter().zip(hybrid.steps.iter()).enumerate() {
+            assert_eq!(
+                p.to_bits(),
+                h.to_bits(),
+                "coord {i}: pure EFS step {p} != hybrid step {h} (gradient {gradient:?})"
+            );
+        }
+    }
 }
 
 /// `efs_log_step_from_grad` recovers the canonical
@@ -3520,10 +3556,10 @@ impl gam_problem::HessianOperator for FixedHessianOperator {
     ) -> Result<(), opt::ObjectiveEvalError> {
         if v.len() != self.dim() {
             return Err(opt::ObjectiveEvalError::fatal(format!(
-                    "fixed test outer Hessian dimension mismatch: got {}, expected {}",
-                    v.len(),
-                    self.dim()
-                )));
+                "fixed test outer Hessian dimension mismatch: got {}, expected {}",
+                v.len(),
+                self.dim()
+            )));
         }
         out.assign(&self.matrix.dot(v));
         Ok(())
@@ -3575,10 +3611,9 @@ impl HessianDerivativeProvider for FamilyOperatorDerivatives {
 #[test]
 pub(crate) fn family_outer_hessian_operator_short_circuits_dense_pairwise_assembly() {
     let supplied = array![[2.5]];
-    let provider_op: Arc<dyn gam_problem::HessianOperator> =
-        Arc::new(FixedHessianOperator {
-            matrix: supplied.clone(),
-        });
+    let provider_op: Arc<dyn gam_problem::HessianOperator> = Arc::new(FixedHessianOperator {
+        matrix: supplied.clone(),
+    });
     let solution = InnerSolution {
         log_likelihood: 0.0,
         penalty_quadratic: 0.4,
@@ -4508,9 +4543,8 @@ pub(crate) fn sparse_takahashi_trace_hinv_product_pairs_symmetric_lookups() {
     let factor =
         std::sync::Arc::new(gam_linalg::sparse_exact::factorize_sparse_spd(&h_sparse).unwrap());
     let sfactor = gam_linalg::sparse_exact::factorize_simplicial(&h_sparse).unwrap();
-    let taka = std::sync::Arc::new(
-        gam_linalg::sparse_exact::TakahashiInverse::compute(&sfactor).unwrap(),
-    );
+    let taka =
+        std::sync::Arc::new(gam_linalg::sparse_exact::TakahashiInverse::compute(&sfactor).unwrap());
     let sparse = SparseCholeskyOperator::new(factor, 0.0, h.nrows()).with_takahashi(taka);
     let dense = DenseSpectralOperator::from_symmetric(&h).unwrap();
 
@@ -5143,9 +5177,9 @@ pub(crate) fn batched_implicit_trace_matches_per_operator_trace() {
         [0.8, -0.5, 1.2],
         [0.2, 0.7, -0.4],
     ];
-    let x_design = Arc::new(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        x_data,
-    )));
+    let x_design = Arc::new(DesignMatrix::Dense(
+        gam_linalg::matrix::DenseDesignMatrix::from(x_data),
+    ));
     let w_diag = Arc::new(array![1.0, 0.7, 1.3, 0.9, 1.1]);
     let h = Array2::<f64>::eye(p);
     let ds = DenseSpectralOperator::from_symmetric(&h).unwrap();
@@ -5222,9 +5256,9 @@ pub(crate) fn implicit_hyper_operator_third_derivative_term_matches_dense_refere
 
     // Active-basis design X (n × p): chosen so Xᵀ X is well-conditioned.
     let x_data = array![[1.0, 0.30], [0.50, 1.20], [-0.20, 0.80], [0.90, -0.40],];
-    let x_design = Arc::new(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        x_data.clone(),
-    )));
+    let x_design = Arc::new(DesignMatrix::Dense(
+        gam_linalg::matrix::DenseDesignMatrix::from(x_data.clone()),
+    ));
     let w_diag = Arc::new(array![0.8, 1.2, 0.6, 1.5]);
 
     // S_psi (p × p): symmetric, dense.
@@ -5366,9 +5400,9 @@ pub(crate) fn implicit_hyper_operator_third_derivative_term_centered_fd_matches_
         [0.8, -0.5, 1.2],
         [0.2, 0.7, -0.4],
     ];
-    let x_design = Arc::new(DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        x_data.clone(),
-    )));
+    let x_design = Arc::new(DesignMatrix::Dense(
+        gam_linalg::matrix::DenseDesignMatrix::from(x_data.clone()),
+    ));
     let w_diag = Arc::new(array![1.0, 0.7, 1.3, 0.9, 1.1]);
     let s_psi = Array2::<f64>::eye(p) * 0.05;
 
@@ -6895,7 +6929,10 @@ pub(crate) fn tangent_projected_trace_logdet_operator_matches_densify_then_proje
     let h_t_op = DenseSpectralOperator::from_symmetric(&h_t).unwrap();
     let h_t_op_ref = DenseSpectralOperator::from_symmetric(&h_t).unwrap();
 
-    let wrapper = TangentProjectedHessianOperator { z: z.clone(), h_t_op };
+    let wrapper = TangentProjectedHessianOperator {
+        z: z.clone(),
+        h_t_op,
+    };
 
     // Operator-backed symmetric drift B.
     let b = Array2::<f64>::from_shape_fn((p, p), |(i, j)| {

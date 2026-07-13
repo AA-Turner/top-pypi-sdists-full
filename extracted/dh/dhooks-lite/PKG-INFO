@@ -1,32 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dhooks-lite
-Version: 1.1.0
-Summary: Another simple class wrapper for interacting with Discord webhooks.
-Keywords: discord,discordhooks,discordwebhooks,webhooks
+Version: 2.0.0
+Summary: A wrapper for sending messages to Discord webhooks.
+Keywords: discord,webhooks
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
 Requires-Dist: requests
-Project-URL: Changelog, https://gitlab.com/ErikKalkoken/dhooks-lite/-/blob/master/CHANGELOG.md
-Project-URL: Documentation, https://dhooks-lite.readthedocs.io/en/latest/
-Project-URL: Homepage, https://gitlab.com/ErikKalkoken/dhooks-lite
-Project-URL: Source, https://gitlab.com/ErikKalkoken/dhooks-lite
-Project-URL: Tracker, https://gitlab.com/ErikKalkoken/dhooks-lite/-/issues
+Requires-Dist: coverage ; extra == "test"
+Requires-Dist: requests-mock ; extra == "test"
+Project-URL: Documentation, https://dhooks-lite.readthedocs.io
+Project-URL: Homepage, https://github.com/AllianceAuth-Apps/dhooks-lite
+Provides-Extra: test
 
 # dhooks-lite
 
@@ -34,10 +34,10 @@ Another simple class wrapper for interacting with Discord webhooks.
 
 [![release](https://img.shields.io/pypi/v/dhooks-lite?label=release)](https://pypi.org/project/dhooks-lite/)
 [![python](https://img.shields.io/pypi/pyversions/dhooks-lite)](https://pypi.org/project/dhooks-lite/)
-[![pipeline status](https://gitlab.com/ErikKalkoken/dhooks-lite/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/dhooks-lite/-/commits/master)
-[![codecov](https://codecov.io/gl/ErikKalkoken/dhooks-lite/branch/master/graph/badge.svg?token=9YNL3HEJ5D)](https://codecov.io/gl/ErikKalkoken/dhooks-lite)
+[![CI/CD Pipeline](https://github.com/AllianceAuth-Apps/dhooks-lite/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/dhooks-lite/actions/workflows/ci-cd.yaml)
+[![codecov](https://codecov.io/github/AllianceAuth-Apps/dhooks-lite/graph/badge.svg?token=ZenRf0SHWP)](https://codecov.io/github/AllianceAuth-Apps/dhooks-lite)
 [![Documentation Status](https://readthedocs.org/projects/dhooks-lite/badge/?version=latest)](https://dhooks-lite.readthedocs.io/en/latest/?badge=latest)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/dhooks-lite/-/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/dhooks-lite#MIT-1-ov-file)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)
@@ -121,7 +121,7 @@ e1 = Embed(
     description='Only a few years ago, scientists stumbled upon an electrical current of cosmic proportions.(...)',
     title='Universe\'s highest electric current found',
     url='https://www.newscientist.com/article/mg21028174-900-universes-highest-electric-current-found/',
-    timestamp=datetime.datetime.utcnow(),
+    timestamp=datetime.datetime.now(),
     color=0x5CDBF0,
     footer=Footer(
         'Science Department',
@@ -162,7 +162,7 @@ pip install dhooks-lite
 
 ## Documentation
 
-For a full documentation of all classes please see the official docs [here](https://dhooks-lite.readthedocs.io/en/latest/).
+For a full documentation of all classes please see the [official docs](https://dhooks-lite.readthedocs.io/en/latest/).
 
 ## Contribution
 

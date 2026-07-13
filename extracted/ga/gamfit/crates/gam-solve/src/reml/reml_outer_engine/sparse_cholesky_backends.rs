@@ -612,8 +612,8 @@ impl DenseCholeskyValueOnlyOperator {
     /// entries. Callers should fall back to [`DenseSpectralOperator`] on
     /// failure (e.g. near-singular Hessians that need soft regularization).
     pub fn from_spd(h: &Array2<f64>) -> Result<Self, String> {
-        use gam_linalg::faer_ndarray::FaerCholesky;
         use faer::Side;
+        use gam_linalg::faer_ndarray::FaerCholesky;
 
         let n = h.nrows();
         if n != h.ncols() {
@@ -1448,7 +1448,8 @@ pub fn compute_block_penalty_logdet_derivs_with_prior_factors(
                 second: Array2::zeros((kb, kb)),
             });
         }
-        let lambdas: Vec<f64> = block_rho.iter().map(|&r| r.exp()).collect();
+        let lambdas = gam_problem::checked_exp_log_strengths(block_rho.iter().copied())
+            .map_err(|error| format!("penalty-logdet block {b}: {error}"))?;
         let mask = prior_factor_mask.map(|m| m[b].as_slice());
         let factor_indices: Vec<usize> = (0..kb)
             .filter(|&k| mask.is_some_and(|m| m.get(k).copied().unwrap_or(false)))
@@ -1482,9 +1483,8 @@ pub fn compute_block_penalty_logdet_derivs_with_prior_factors(
         let mut first = Array1::<f64>::zeros(kb);
         let mut second = Array2::<f64>::zeros((kb, kb));
 
-        let coalesced_indices: Vec<usize> = (0..kb)
-            .filter(|k| !factor_indices.contains(k))
-            .collect();
+        let coalesced_indices: Vec<usize> =
+            (0..kb).filter(|k| !factor_indices.contains(k)).collect();
         if !coalesced_indices.is_empty() {
             let sub_pens: Vec<Array2<f64>> = coalesced_indices
                 .iter()

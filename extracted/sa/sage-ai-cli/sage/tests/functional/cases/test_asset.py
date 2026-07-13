@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
-from sage.tests.functional.harnesses import run_test
+from sage.tests.functional.harnesses import run_test_with_verification
 from sage.tests.functional.validators import validate_media
 
 def test_asset(test_case):
-    result = run_test(
+    result, verify = run_test_with_verification(
         channel=test_case["channel"],
         request=test_case["request"],
         model=test_case["model"]
@@ -25,5 +25,10 @@ def test_asset(test_case):
         
     assert result.exit_code == 0, f"Non-zero exit code: {result.logs}"
     assert result.artifact_path is not None and result.artifact_path.exists(), f"Artifact not created. Logs: {result.logs}"
+    
+    assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+    assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+    assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+    assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
 
     validate_media(result.artifact_path, test_case["request"]["success_criteria"])

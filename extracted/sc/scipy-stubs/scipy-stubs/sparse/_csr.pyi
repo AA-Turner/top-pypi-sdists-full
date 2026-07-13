@@ -75,6 +75,9 @@ class csr_array(_csr_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
     @override
     @type_check_only
     def __assoc_as_float64__(self, /) -> csr_array[np.float64, _ShapeT_co]: ...
+    @override
+    @type_check_only
+    def __assoc_as_any__(self, /) -> csr_array[Any, _ShapeT_co]: ...
 
     #
     @overload  # sparse or dense (know dtype & shape)
@@ -441,7 +444,7 @@ class csr_array(_csr_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: csr_array[_ScalarT, tuple[int]], /, axes: None = None, copy: bool = False
     ) -> csr_array[_ScalarT, tuple[int]]: ...
 
-class csr_matrix(_csr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT_co]):
+class csr_matrix(_csr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT_co]):  # type: ignore[misc]
     # NOTE: These four methods do not exist at runtime.
     # See the relevant comment in `sparse._base._spbase` for more information.
     @override
@@ -456,6 +459,9 @@ class csr_matrix(_csr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
     @override
     @type_check_only
     def __assoc_as_float64__(self, /) -> csr_matrix[np.float64]: ...
+    @override
+    @type_check_only
+    def __assoc_as_any__(self, /) -> csr_matrix[Any]: ...
 
     # NOTE: keep in sync with `csc_matrix.__init__`
     @overload  # matrix-like (known dtype)

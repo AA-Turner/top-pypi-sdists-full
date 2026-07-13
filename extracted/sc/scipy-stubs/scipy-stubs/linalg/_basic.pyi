@@ -70,14 +70,50 @@ type _LapackDriver = Literal["gelsd", "gelsy", "gelss"]
 type _LapackDriverDS = Literal["gelsd", "gelss"]
 type _LapackDriverY = Literal["gelsy"]
 
-type _LstSqResultND[ScalarT: np.generic, T] = tuple[onp.ArrayND[ScalarT], onp.Array1D[ScalarT], int, T]
+# `lstsq` inputs, named after the scalar-type of the result they produce
+type _CoFloat64 = np.float64 | npc.floating80 | npc.integer | np.bool
+
+type _AsFloat64Strict1D = onp.ToArrayStrict1D[float, _CoFloat64]
+type _AsFloat64Strict2D = onp.ToArrayStrict2D[float, _CoFloat64]
+type _AsFloat64_2D = onp.ToArray2D[float, _CoFloat64]
+type _AsFloat64_ND = onp.ToArrayND[float, _CoFloat64]
+
+type _AsFloat32Strict1D = onp.ToJustFloat32Strict1D | onp.ToJustFloat16Strict1D
+type _AsFloat32Strict2D = onp.ToJustFloat32Strict2D | onp.ToJustFloat16Strict2D
+type _AsFloat32_2D = onp.ToJustFloat32_2D | onp.ToJustFloat16_2D
+type _AsFloat32_ND = onp.ToJustFloat32_ND | onp.ToJustFloat16_ND
+
+type _AsComplex128Strict1D = onp.ToJustComplex128Strict1D | onp.ToJustCLongDoubleStrict1D
+type _AsComplex128Strict2D = onp.ToJustComplex128Strict2D | onp.ToJustCLongDoubleStrict2D
+type _AsComplex128_2D = onp.ToJustComplex128_2D | onp.ToJustCLongDouble2D
+type _AsComplex128_ND = onp.ToJustComplex128_ND | onp.ToJustCLongDoubleND
+
+type _AsComplex64Strict1D = onp.ToJustComplex64Strict1D | _AsFloat32Strict1D
+type _AsComplex64Strict2D = onp.ToJustComplex64Strict2D | _AsFloat32Strict2D
+type _AsComplex64_ND = onp.ToJustComplex64_ND | _AsFloat32_ND
+
+type _LstSqResult11[ScalarT: np.generic] = tuple[onp.Array1D[ScalarT], onp.Array1D[ScalarT], np.int64, None]  # gelsy
+type _LstSqResult1N[ScalarT: np.generic, T] = tuple[onp.Array1D[ScalarT], onp.ArrayND[ScalarT], np.int64, T]
+type _LstSqResult21[ScalarT: np.generic, T] = tuple[onp.Array2D[ScalarT], onp.Array1D[ScalarT], np.int64, T]
+type _LstSqResultND[ScalarT: np.generic, T] = tuple[onp.ArrayND[ScalarT], onp.ArrayND[ScalarT], np.int64 | Any, T]
 
 ###
 
-@overload  # 2D ~float64, +float64
+@overload  # 2d ~float64, 1d +float64
 def solve(
     a: _InputFloatStrict2D,
-    b: onp.ToFloatStrict1D | onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~float64, 2d +float64
+def solve(
+    a: _InputFloatStrict2D,
+    b: onp.ToFloatStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -85,7 +121,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.float64]: ...
-@overload  # Nd ~float64, +float64
+@overload  # Nd ~float64, Nd +float64
 def solve(
     a: _InputFloat,
     b: onp.ToFloatND,
@@ -96,10 +132,21 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.float64]: ...
-@overload  # 2d +float64, ~float64
+@overload  # 2d +float64, 1d ~float64
 def solve(
     a: onp.ToFloatStrict2D,
-    b: _InputFloatStrict1D | _InputFloatStrict2D,
+    b: _InputFloatStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d +float64, 2d ~float64
+def solve(
+    a: onp.ToFloatStrict2D,
+    b: _InputFloatStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -107,7 +154,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.float64]: ...
-@overload  # Nd +float64, ~float64
+@overload  # Nd +float64, Nd ~float64
 def solve(
     a: onp.ToFloatND,
     b: _InputFloat,
@@ -118,10 +165,21 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.float64]: ...
-@overload  # 2d ~complex128, +complex128
+@overload  # 2d ~complex128, 1d +complex128
 def solve(
     a: _InputComplexStrict2D,
-    b: onp.ToComplexStrict1D | onp.ToComplexStrict2D,
+    b: onp.ToComplexStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.complex128]: ...
+@overload  # 2d ~complex128, 2d +complex128
+def solve(
+    a: _InputComplexStrict2D,
+    b: onp.ToComplexStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -129,7 +187,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.complex128]: ...
-@overload  # Nd ~complex128, +complex128
+@overload  # Nd ~complex128, Nd +complex128
 def solve(
     a: _InputComplex,
     b: onp.ToComplexND,
@@ -140,10 +198,21 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.complex128]: ...
-@overload  # 2d +complex128, ~complex128
+@overload  # 2d +complex128, 1d ~complex128
 def solve(
     a: onp.ToComplexStrict2D,
-    b: _InputComplexStrict1D | _InputComplexStrict2D,
+    b: _InputComplexStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.complex128]: ...
+@overload  # 2d +complex128, 2d ~complex128
+def solve(
+    a: onp.ToComplexStrict2D,
+    b: _InputComplexStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -151,7 +220,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.complex128]: ...
-@overload  # Nd +complex128, ~complex128
+@overload  # Nd +complex128, Nd ~complex128
 def solve(
     a: onp.ToComplexND,
     b: _InputComplex,
@@ -162,10 +231,21 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.complex128]: ...
-@overload  # 2d +floating, +floating
+@overload  # 2d +floating, 1d +floating
 def solve(
     a: onp.ToFloatStrict2D,
-    b: onp.ToFloatStrict1D | onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.float32 | np.float64]: ...
+@overload  # 2d +floating, 2d +floating
+def solve(
+    a: onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -173,7 +253,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.float32 | np.float64]: ...
-@overload  # Nd +floating, +floating
+@overload  # Nd +floating, Nd +floating
 def solve(
     a: onp.ToFloatND,
     b: onp.ToFloatND,
@@ -184,10 +264,21 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.float32 | np.float64]: ...
-@overload  # 2d +complexfloating, ~complexfloating
+@overload  # 2d +complexfloating, 1d ~complexfloating
 def solve(
     a: onp.ToComplexStrict2D,
-    b: onp.ToJustComplexStrict1D | onp.ToJustComplexStrict2D,
+    b: onp.ToJustComplexStrict1D,
+    lower: bool = False,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    assume_a: _AssumeA | None = None,
+    transposed: bool = False,
+) -> onp.Array1D[np.complex64 | np.complex128]: ...
+@overload  # 2d +complexfloating, 2d ~complexfloating
+def solve(
+    a: onp.ToComplexStrict2D,
+    b: onp.ToJustComplexStrict2D,
     lower: bool = False,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -195,7 +286,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.Array2D[np.complex64 | np.complex128]: ...
-@overload  # Nd +complexfloating, ~complexfloating
+@overload  # Nd +complexfloating, Nd ~complexfloating
 def solve(
     a: onp.ToComplexND,
     b: onp.ToJustComplexND,
@@ -206,7 +297,7 @@ def solve(
     assume_a: _AssumeA | None = None,
     transposed: bool = False,
 ) -> onp.ArrayND[np.complex64 | np.complex128]: ...
-@overload  # Nd +complexfloating, +complexfloating
+@overload  # Nd +complexfloating, Nd +complexfloating
 def solve(
     a: onp.ToComplexND,
     b: onp.ToComplexND,
@@ -1118,20 +1209,62 @@ def det(
     a: onp.ToComplex128_ND, overwrite_a: bool = False, check_finite: bool = True
 ) -> np.float64 | np.complex128 | onp.ArrayND[np.float64 | np.complex128]: ...
 
-# TODO(@jorenham): shape-typing for `b`
-@overload  # ~f64, +f64
+#
+@overload  # ~f64, +f64 1d
 def lstsq(
-    a: onp.ToArray2D[float, np.float64 | npc.inexact80 | npc.integer | np.bool],
+    a: _AsFloat64Strict2D,
+    b: onp.ToFloatStrict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult1N[np.float64, onp.Array1D[np.float64]]: ...
+@overload  # ~f64, +f64 1d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsFloat64Strict2D,
+    b: onp.ToFloatStrict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.float64]: ...
+@overload  # ~f64, +f64 2d
+def lstsq(
+    a: _AsFloat64Strict2D,
+    b: onp.ToFloatStrict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.float64, onp.Array1D[np.float64]]: ...
+@overload  # ~f64, +f64 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsFloat64Strict2D,
+    b: onp.ToFloatStrict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.float64, None]: ...
+@overload  # ~f64, +f64 Nd
+def lstsq(
+    a: _AsFloat64_2D,
     b: onp.ToFloatND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.float64, onp.Array1D[np.float64]]: ...
-@overload  # ~f64, +f64, lapack_driver='gelsy' (keyword)
+) -> _LstSqResultND[np.float64, onp.ArrayND[np.float64]]: ...
+@overload  # ~f64, +f64 Nd, lapack_driver='gelsy' (keyword)
 def lstsq(
-    a: onp.ToArray2D[float, np.float64 | npc.inexact80 | npc.integer | np.bool],
+    a: _AsFloat64_2D,
     b: onp.ToFloatND,
     cond: float | None = None,
     overwrite_a: bool = False,
@@ -1140,20 +1273,62 @@ def lstsq(
     *,
     lapack_driver: _LapackDriverY,
 ) -> _LstSqResultND[np.float64, None]: ...
-@overload  # +f64, -f64
+@overload  # +f64, ~f64 1d
 def lstsq(
-    a: onp.ToFloat2D,
-    b: onp.ToArrayND[float, np.float64 | npc.inexact80 | npc.integer | np.bool],
+    a: onp.ToFloatStrict2D,
+    b: _AsFloat64Strict1D,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.float64, onp.Array1D[np.float64]]: ...
-@overload  # +f64, -f64, lapack_driver='gelsy' (keyword)
+) -> _LstSqResult1N[np.float64, onp.Array1D[np.float64]]: ...
+@overload  # +f64, ~f64 1d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToFloatStrict2D,
+    b: _AsFloat64Strict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.float64]: ...
+@overload  # +f64, ~f64 2d
+def lstsq(
+    a: onp.ToFloatStrict2D,
+    b: _AsFloat64Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.float64, onp.Array1D[np.float64]]: ...
+@overload  # +f64, ~f64 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToFloatStrict2D,
+    b: _AsFloat64Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.float64, None]: ...
+@overload  # +f64, ~f64 Nd
 def lstsq(
     a: onp.ToFloat2D,
-    b: onp.ToArrayND[float, np.float64 | npc.inexact80 | npc.integer | np.bool],
+    b: _AsFloat64_ND,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResultND[np.float64, onp.ArrayND[np.float64]]: ...
+@overload  # +f64, ~f64 Nd, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToFloat2D,
+    b: _AsFloat64_ND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -1161,20 +1336,62 @@ def lstsq(
     *,
     lapack_driver: _LapackDriverY,
 ) -> _LstSqResultND[np.float64, None]: ...
-@overload  # ~f32, ~f32
+@overload  # ~f32 1d
 def lstsq(
-    a: onp.ToJustFloat32_2D | onp.ToJustFloat16_2D,
-    b: onp.ToJustFloat32_ND | onp.ToJustFloat16_ND,
+    a: _AsFloat32Strict2D,
+    b: _AsFloat32Strict1D,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.float32, onp.Array1D[np.float32]]: ...
-@overload  # ~f32, -f32, lapack_driver='gelsy' (keyword)
+) -> _LstSqResult1N[np.float32, onp.Array1D[np.float32]]: ...
+@overload  # ~f32 1d, lapack_driver='gelsy' (keyword)
 def lstsq(
-    a: onp.ToJustFloat32_2D | onp.ToJustFloat16_2D,
-    b: onp.ToJustFloat32_ND | onp.ToJustFloat16_ND,
+    a: _AsFloat32Strict2D,
+    b: _AsFloat32Strict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.float32]: ...
+@overload  # ~f32 2d
+def lstsq(
+    a: _AsFloat32Strict2D,
+    b: _AsFloat32Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.float32, onp.Array1D[np.float32]]: ...
+@overload  # ~f32 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsFloat32Strict2D,
+    b: _AsFloat32Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.float32, None]: ...
+@overload  # ~f32 Nd
+def lstsq(
+    a: _AsFloat32_2D,
+    b: _AsFloat32_ND,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResultND[np.float32, onp.ArrayND[np.float32]]: ...
+@overload  # ~f32 Nd, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsFloat32_2D,
+    b: _AsFloat32_ND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -1182,19 +1399,61 @@ def lstsq(
     *,
     lapack_driver: _LapackDriverY,
 ) -> _LstSqResultND[np.float32, None]: ...
-@overload  # ~c128, +c128
+@overload  # ~c128, +c128 1d
 def lstsq(
-    a: onp.ToJustComplex128_2D | onp.ToJustCLongDoubleND,
+    a: _AsComplex128Strict2D,
+    b: onp.ToComplexStrict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult1N[np.complex128, onp.Array1D[np.float64]]: ...
+@overload  # ~c128, +c128 1d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsComplex128Strict2D,
+    b: onp.ToComplexStrict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.complex128]: ...
+@overload  # ~c128, +c128 2d
+def lstsq(
+    a: _AsComplex128Strict2D,
+    b: onp.ToComplexStrict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.complex128, onp.Array1D[np.float64]]: ...
+@overload  # ~c128, +c128 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: _AsComplex128Strict2D,
+    b: onp.ToComplexStrict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.complex128, None]: ...
+@overload  # ~c128, +c128 Nd
+def lstsq(
+    a: _AsComplex128_2D,
     b: onp.ToComplexND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.complex128, onp.Array1D[np.float64]]: ...
-@overload  # ~c128, +c128, lapack_driver='gelsy' (keyword)
+) -> _LstSqResultND[np.complex128, onp.ArrayND[np.float64]]: ...
+@overload  # ~c128, +c128 Nd, lapack_driver='gelsy' (keyword)
 def lstsq(
-    a: onp.ToJustComplex128_2D | onp.ToJustCLongDouble2D,
+    a: _AsComplex128_2D,
     b: onp.ToComplexND,
     cond: float | None = None,
     overwrite_a: bool = False,
@@ -1203,20 +1462,62 @@ def lstsq(
     *,
     lapack_driver: _LapackDriverY,
 ) -> _LstSqResultND[np.complex128, None]: ...
-@overload  # +c128, ~c128
+@overload  # +c128, ~c128 1d
 def lstsq(
-    a: onp.ToComplex2D,
-    b: onp.ToJustComplex128_ND | onp.ToJustCLongDoubleND,
+    a: onp.ToComplexStrict2D,
+    b: _AsComplex128Strict1D,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.complex128, onp.Array1D[np.float64]]: ...
-@overload  # +c128, ~c128, lapack_driver='gelsy' (keyword)
+) -> _LstSqResult1N[np.complex128, onp.Array1D[np.float64]]: ...
+@overload  # +c128, ~c128 1d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToComplexStrict2D,
+    b: _AsComplex128Strict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.complex128]: ...
+@overload  # +c128, ~c128 2d
+def lstsq(
+    a: onp.ToComplexStrict2D,
+    b: _AsComplex128Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.complex128, onp.Array1D[np.float64]]: ...
+@overload  # +c128, ~c128 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToComplexStrict2D,
+    b: _AsComplex128Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.complex128, None]: ...
+@overload  # +c128, ~c128 Nd
 def lstsq(
     a: onp.ToComplex2D,
-    b: onp.ToJustComplex128_ND | onp.ToJustCLongDoubleND,
+    b: _AsComplex128_ND,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResultND[np.complex128, onp.ArrayND[np.float64]]: ...
+@overload  # +c128, ~c128 Nd, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToComplex2D,
+    b: _AsComplex128_ND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -1224,20 +1525,62 @@ def lstsq(
     *,
     lapack_driver: _LapackDriverY,
 ) -> _LstSqResultND[np.complex128, None]: ...
-@overload  # ~c64, +c64
+@overload  # ~c64 1d
 def lstsq(
-    a: onp.ToJustComplex64_2D,
-    b: onp.ToJustComplex64_ND | onp.ToJustFloat32_ND | onp.ToJustFloat16_ND,
+    a: onp.ToJustComplex64Strict2D,
+    b: _AsComplex64Strict1D,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriverDS | None = None,
-) -> _LstSqResultND[np.complex64, onp.Array1D[np.float32]]: ...
-@overload  # ~c64, +c64, lapack_driver='gelsy' (keyword)
+) -> _LstSqResult1N[np.complex64, onp.Array1D[np.float32]]: ...
+@overload  # ~c64 1d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToJustComplex64Strict2D,
+    b: _AsComplex64Strict1D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult11[np.complex64]: ...
+@overload  # ~c64 2d
+def lstsq(
+    a: onp.ToJustComplex64Strict2D,
+    b: _AsComplex64Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResult21[np.complex64, onp.Array1D[np.float32]]: ...
+@overload  # ~c64 2d, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToJustComplex64Strict2D,
+    b: _AsComplex64Strict2D,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    *,
+    lapack_driver: _LapackDriverY,
+) -> _LstSqResult21[np.complex64, None]: ...
+@overload  # ~c64 Nd
 def lstsq(
     a: onp.ToJustComplex64_2D,
-    b: onp.ToJustComplex64_ND | onp.ToJustFloat32_ND | onp.ToJustFloat16_ND,
+    b: _AsComplex64_ND,
+    cond: float | None = None,
+    overwrite_a: bool = False,
+    overwrite_b: bool = False,
+    check_finite: bool = True,
+    lapack_driver: _LapackDriverDS | None = None,
+) -> _LstSqResultND[np.complex64, onp.ArrayND[np.float32]]: ...
+@overload  # ~c64 Nd, lapack_driver='gelsy' (keyword)
+def lstsq(
+    a: onp.ToJustComplex64_2D,
+    b: _AsComplex64_ND,
     cond: float | None = None,
     overwrite_a: bool = False,
     overwrite_b: bool = False,
@@ -1254,7 +1597,7 @@ def lstsq(
     overwrite_b: bool = False,
     check_finite: bool = True,
     lapack_driver: _LapackDriver | None = None,
-) -> _LstSqResultND[Incomplete, onp.Array1D[np.float64 | Any] | Any]: ...
+) -> _LstSqResultND[Incomplete, onp.ArrayND[np.float64 | Any] | Any]: ...
 
 # TODO(jorenham): improve this
 @overload
@@ -1274,7 +1617,7 @@ def pinv(
     rtol: onp.ToFloat | None = None,
     return_rank: Literal[True],
     check_finite: bool = True,
-) -> tuple[_FloatND, int]: ...
+) -> tuple[_FloatND, np.int_]: ...
 @overload  # (complex[:, :], return_rank=False) -> complex[:, :]
 def pinv(
     a: onp.ToComplexND,
@@ -1292,7 +1635,7 @@ def pinv(
     rtol: onp.ToFloat | None = None,
     return_rank: Literal[True],
     check_finite: bool = True,
-) -> tuple[_InexactND, int]: ...
+) -> tuple[_InexactND, np.int_]: ...
 
 # TODO(jorenham): improve this
 @overload  # (float[:, :], return_rank=False) -> float[:, :]

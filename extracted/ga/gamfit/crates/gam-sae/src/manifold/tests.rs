@@ -117,7 +117,7 @@ pub(crate) fn phi_eta_one_reproduces_current_atom_bases_bit_for_bit() {
 pub(crate) fn trivial_k1_euclidean_term() -> SaeManifoldTerm {
     let n = 4usize;
     let p = 3usize;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "atom0",
         SaeAtomBasisKind::EuclideanPatch,
         1,
@@ -152,10 +152,11 @@ pub(crate) fn trivial_k1_euclidean_term() -> SaeManifoldTerm {
 /// simplest possible manifold-SAE fit (isometry on OR off) — this pins that a
 /// sustained small-amplitude flicker survives indefinitely.
 #[test]
-pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() {
+pub(crate) fn criterion_gauge_deflation_count_bounded_flicker_reanchors_freely() {
     let mut term = trivial_k1_euclidean_term();
     // Pin the expected count at a realistic large level (like the circle fit).
-    term.record_evidence_gauge_deflation_count(150).unwrap();
+    term.record_criterion_gauge_deflation_count(150, true)
+        .unwrap();
     // A sustained 150<->147 flicker reverses direction on EVERY step — far more
     // reversals than the K=1 budget of 6 — yet the amplitude (3) is well inside
     // the relative jitter band (150/4 = 37), so none charge the budget.
@@ -163,15 +164,15 @@ pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() 
         147usize, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150,
     ];
     for &c in &flicker {
-        term.record_evidence_gauge_deflation_count(c)
+        term.record_criterion_gauge_deflation_count(c, true)
             .expect("a bounded low-amplitude flicker must re-anchor, never abort");
     }
     assert_eq!(
-        term.evidence_gauge_deflation_reanchors, 0,
+        term.criterion_gauge_deflation_reanchors, 0,
         "a flicker inside the relative jitter band charges no reversals"
     );
     assert_eq!(
-        term.expected_evidence_gauge_deflated_directions,
+        term.expected_criterion_gauge_deflated_directions,
         Some(150),
         "the comparison re-anchors to the latest observed count"
     );
@@ -179,12 +180,17 @@ pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() 
     // But a WIDE-amplitude oscillation at the SAME level is still the runaway
     // pathology and must still be refused: 150<->40 swings ~73% of the level.
     let mut term2 = trivial_k1_euclidean_term();
-    term2.record_evidence_gauge_deflation_count(150).unwrap();
+    term2
+        .record_criterion_gauge_deflation_count(150, true)
+        .unwrap();
     let mut errored = false;
     for &c in &[
         40usize, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150,
     ] {
-        if term2.record_evidence_gauge_deflation_count(c).is_err() {
+        if term2
+            .record_criterion_gauge_deflation_count(c, true)
+            .is_err()
+        {
             errored = true;
             break;
         }
@@ -206,29 +212,32 @@ pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() 
 /// catch is an OSCILLATING count — repeated direction reversals that never
 /// settle — which is refused loudly past the reversal budget.
 #[test]
-pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runaway() {
+pub(crate) fn criterion_gauge_deflation_count_guard_reanchors_then_rejects_runaway() {
     let mut term = trivial_k1_euclidean_term();
-    assert!(term.expected_evidence_gauge_deflated_directions.is_none());
+    assert!(term.expected_criterion_gauge_deflated_directions.is_none());
 
     // First observation pins the expected count (high, like a real K=2 walk
     // that starts with many near-null evidence directions).
-    term.record_evidence_gauge_deflation_count(60).unwrap();
-    assert_eq!(term.expected_evidence_gauge_deflated_directions, Some(60));
+    term.record_criterion_gauge_deflation_count(60, true)
+        .unwrap();
+    assert_eq!(term.expected_criterion_gauge_deflated_directions, Some(60));
 
     // A matching later observation is a no-op (still Ok, count unchanged).
-    term.record_evidence_gauge_deflation_count(60).unwrap();
-    assert_eq!(term.expected_evidence_gauge_deflated_directions, Some(60));
+    term.record_criterion_gauge_deflation_count(60, true)
+        .unwrap();
+    assert_eq!(term.expected_criterion_gauge_deflated_directions, Some(60));
 
     // A MONOTONE drift (the #1217 benign case — a per-row conditioning count
     // shrinking across the ρ-walk) re-anchors freely without charging the budget,
     // no matter how many steps it takes. This is exactly the real-OLMo K=2
     // signature (171→…→113) that the old `k`-event budget wrongly tripped on.
     for c in [50usize, 40, 33, 21, 12, 9, 6, 4, 3, 2] {
-        term.record_evidence_gauge_deflation_count(c).unwrap();
-        assert_eq!(term.expected_evidence_gauge_deflated_directions, Some(c));
+        term.record_criterion_gauge_deflation_count(c, true)
+            .unwrap();
+        assert_eq!(term.expected_criterion_gauge_deflated_directions, Some(c));
     }
     assert_eq!(
-        term.evidence_gauge_deflation_reanchors, 0,
+        term.criterion_gauge_deflation_reanchors, 0,
         "monotone drift charges no reversals"
     );
 
@@ -239,7 +248,7 @@ pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runawa
     let oscillation = [9usize, 2, 9, 2, 9, 2, 9, 2, 9, 2, 9, 2, 9, 2];
     let mut errored = false;
     for &c in &oscillation {
-        match term.record_evidence_gauge_deflation_count(c) {
+        match term.record_criterion_gauge_deflation_count(c, true) {
             Ok(()) => {
                 last_ok = c;
             }
@@ -250,7 +259,7 @@ pub(crate) fn evidence_gauge_deflation_count_guard_reanchors_then_rejects_runawa
                 );
                 // On the refusal the expected count is NOT re-anchored.
                 assert_eq!(
-                    term.expected_evidence_gauge_deflated_directions,
+                    term.expected_criterion_gauge_deflated_directions,
                     Some(last_ok)
                 );
                 errored = true;
@@ -283,7 +292,7 @@ pub(crate) fn curvature_homotopy_eta_inertness_probe_tracks_curved_columns() {
     let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(7).unwrap());
     let coords = array![[0.05], [0.20], [0.55], [0.80], [0.35]];
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic7",
         SaeAtomBasisKind::Periodic,
         1,
@@ -314,7 +323,7 @@ pub(crate) fn linear_span_anchor_recovers_planted_two_plane_configuration() {
     let decoder = Array2::<f64>::zeros((2, p));
     let smooth = Array2::<f64>::eye(2);
     let atoms = vec![
-        SaeManifoldAtom::new(
+        SaeManifoldAtom::new_with_provided_function_gram(
             "plane0",
             SaeAtomBasisKind::EuclideanPatch,
             1,
@@ -324,7 +333,7 @@ pub(crate) fn linear_span_anchor_recovers_planted_two_plane_configuration() {
             smooth.clone(),
         )
         .unwrap(),
-        SaeManifoldAtom::new(
+        SaeManifoldAtom::new_with_provided_function_gram(
             "plane1",
             SaeAtomBasisKind::EuclideanPatch,
             1,
@@ -382,7 +391,7 @@ pub(crate) fn circle_certificate_fixture(
         let mut decoder = Array2::<f64>::zeros((3, p));
         decoder[[1, axis_sin]] = radius;
         decoder[[2, axis_cos]] = radius;
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             format!("circle_{atom_idx}"),
             SaeAtomBasisKind::Periodic,
             1,
@@ -468,35 +477,39 @@ pub(crate) fn dictionary_incoherence_report_circle_kappa_matches_inverse_radius(
 
 /// `try_assignments_row` may only pin the K==1 assignment to `1.0` for
 /// Softmax, whose single simplex coordinate is genuinely fixed. For the
-/// independent gate modes (IBP-MAP, JumpReLU) the lone logit must drive the
+/// independent gate modes (ordered Beta--Bernoulli and smooth threshold) the lone logit must drive the
 /// gate; otherwise the reconstruction ignores a free parameter that the
 /// prior still penalizes (an invalid objective). Regression for the
 /// audit's K==1 special-case bug.
 #[test]
 pub(crate) fn k1_gate_modes_do_not_pin_assignment_to_one() {
-    // IBP, K=1: the posterior-mean Bernoulli gate is σ(0/τ)=0.5. The ordered
+    // Ordered Beta--Bernoulli, K=1: the neutral sigmoid gate is σ(0/τ)=0.5. The ordered
     // prior is scored separately and never caps the final function.
-    let ibp = SaeAssignment::from_blocks_with_mode(
+    let ordered_beta_bernoulli = SaeAssignment::from_blocks_with_mode(
         array![[0.0]],
         vec![array![[0.0]]],
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
     )
     .unwrap();
-    let ibp_gate = ibp.try_assignments_row(0).unwrap()[0];
-    assert_abs_diff_eq!(ibp_gate, 0.5, epsilon = 1e-9);
+    let ordered_beta_bernoulli_gate = ordered_beta_bernoulli.try_assignments_row(0).unwrap()[0];
+    assert_abs_diff_eq!(ordered_beta_bernoulli_gate, 0.5, epsilon = 1e-9);
     assert!(
-        (ibp_gate - 1.0).abs() > 1e-6,
-        "K=1 IBP-MAP must not pin the gate to 1.0"
+        (ordered_beta_bernoulli_gate - 1.0).abs() > 1e-6,
+        "K=1 ordered Beta--Bernoulli must not pin the gate to 1.0"
     );
 
-    // JumpReLU, K=1, logit below threshold: hard-gated off (not 1.0).
+    // Smooth threshold gate, K=1: the logit remains a live logistic coordinate.
     let jr = SaeAssignment::from_blocks_with_mode(
         array![[-1.0]],
         vec![array![[0.0]]],
         AssignmentMode::threshold_gate(1.0, 0.0),
     )
     .unwrap();
-    assert_abs_diff_eq!(jr.try_assignments_row(0).unwrap()[0], 0.0, epsilon = 1e-12);
+    assert_abs_diff_eq!(
+        jr.try_assignments_row(0).unwrap()[0],
+        gam_linalg::utils::stable_logistic(-1.0),
+        epsilon = 1e-12
+    );
 
     // Softmax, K=1: still pinned to 1.0 (no free simplex coordinate).
     // The softmax logits matrix carries `K = k_atoms()` columns (one per
@@ -512,16 +525,15 @@ pub(crate) fn k1_gate_modes_do_not_pin_assignment_to_one() {
     assert_abs_diff_eq!(sm.try_assignments_row(0).unwrap()[0], 1.0, epsilon = 1e-12);
 }
 
-/// The JumpReLU surrogate is centered at the threshold: just above the
+/// The smooth threshold gate is centered at the threshold: just above the
 /// threshold the gate is ≈ σ(0) = 0.5, not the uncentered σ(threshold/τ).
-/// Below the threshold the hard gate keeps the value at exactly zero.
 /// Regression for the audit's miscentered-threshold bug.
 #[test]
-pub(crate) fn jumprelu_surrogate_is_centered_at_threshold() {
+pub(crate) fn smooth_threshold_gate_is_centered_at_threshold() {
     let threshold = 2.0;
     let temperature = 1.0;
     let logits = array![2.0 + 1e-6, 1.0];
-    let gates = jumprelu_row(logits.view(), temperature, threshold);
+    let gates = threshold_gate_row(logits.view(), temperature, threshold);
     // Just above threshold the centered surrogate is ≈ 0.5; the old
     // uncentered surrogate would have been σ(2.0) ≈ 0.88.
     assert_abs_diff_eq!(gates[0], 0.5, epsilon = 1e-3);
@@ -530,8 +542,12 @@ pub(crate) fn jumprelu_surrogate_is_centered_at_threshold() {
         "surrogate not centered at threshold: {}",
         gates[0]
     );
-    // Strictly below the threshold the gate is hard-zero.
-    assert_abs_diff_eq!(gates[1], 0.0, epsilon = 1e-12);
+    // Below threshold the same smooth scalar remains positive and exact.
+    assert_abs_diff_eq!(
+        gates[1],
+        gam_linalg::utils::stable_logistic(-1.0),
+        epsilon = 1e-12
+    );
 }
 
 pub(crate) fn periodic_basis(coords: &Array2<f64>) -> (Array2<f64>, Array3<f64>) {
@@ -665,7 +681,7 @@ pub(crate) fn ard_value_continuous_across_periodic_cut_d1() {
     // Single periodic atom, one row sitting just below the cut at t≈1.
     let coords0 = array![[0.999_f64]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -680,7 +696,7 @@ pub(crate) fn ard_value_continuous_across_periodic_cut_d1() {
         Array2::<f64>::zeros((1, 1)),
         vec![coords0],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -733,7 +749,7 @@ pub(crate) fn ard_value_continuous_across_periodic_cut_d1() {
 pub(crate) fn penalized_objective_continuous_across_periodic_cut_with_registry_ard() {
     let coords0 = array![[0.999_f64]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -748,7 +764,7 @@ pub(crate) fn penalized_objective_continuous_across_periodic_cut_with_registry_a
         Array2::<f64>::zeros((1, 1)),
         vec![coords0],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -803,7 +819,7 @@ pub(crate) fn penalized_objective_continuous_across_periodic_cut_with_registry_a
 /// line-search objective, that jump made a near-zero coordinate Newton step
 /// change the objective by an O(weight) amount, so Armijo rejected
 /// otherwise-valid steps and the inner joint solve never reached
-/// stationarity (`reml_criterion: inner solve did not converge`).
+/// stationarity (`penalized_quasi_laplace_criterion: inner solve did not converge`).
 ///
 /// The fix restricts the SCAD/MCP shrinkage to the Euclidean axes, so on a
 /// pure Circle atom it contributes nothing — the objective with the SCAD
@@ -815,7 +831,7 @@ pub(crate) fn scad_coord_penalty_inert_and_continuous_on_periodic_axis() {
 
     let coords0 = array![[0.999_f64]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -830,7 +846,7 @@ pub(crate) fn scad_coord_penalty_inert_and_continuous_on_periodic_axis() {
         Array2::<f64>::zeros((1, 1)),
         vec![coords0],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -972,7 +988,7 @@ pub(crate) fn scad_no_origin_pinning_occupancy_on_circle() {
     let scad_contribution = |coords: Array2<f64>| -> f64 {
         let n = coords.nrows();
         let (phi, jet) = periodic_basis(&coords);
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "periodic",
             SaeAtomBasisKind::Periodic,
             1,
@@ -987,7 +1003,7 @@ pub(crate) fn scad_no_origin_pinning_occupancy_on_circle() {
             Array2::<f64>::zeros((n, 1)),
             vec![coords],
             vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::ibp_map(0.7, 1.0, true),
+            AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
         )
         .unwrap();
         let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -1097,7 +1113,7 @@ pub(crate) fn periodic_ard_curvature_is_psd_in_assembled_htt() {
     // Two rows past the quarter period (t in (0.25, 0.75)) where cos(2πt) < 0.
     let coords0 = array![[0.40_f64], [0.60_f64]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1138,12 +1154,8 @@ pub(crate) fn periodic_ard_curvature_is_psd_in_assembled_htt() {
     }
 }
 
-/// #1117 follow-up (curved-atom sparse co-assignment): the compact active-set
-/// layout must apply the SAME per-row Riemannian geometry to the assembled
-/// Arrow-Schur blocks as the dense uniform-`q` layout. Before the fix the
-/// compact path skipped the tangent projection entirely (and `sparse_active_plan`
-/// refused to engage on any non-Euclidean ext-coord manifold), so a curved-atom
-/// SAE at large `K` paid the dense `K²` co-assignment Gram. The new code rebuilds
+/// The exact TopK compact layout must apply the same per-row Riemannian geometry
+/// as a full-support layout. The compact path rebuilds
 /// each compact row's product manifold + point in compact column order
 /// (`compact_row_ext_manifold_and_point`) and applies the identical
 /// `gt` gradient projection, `htt` Riemannian-Hessian correction, and `htbeta`
@@ -1151,7 +1163,7 @@ pub(crate) fn periodic_ard_curvature_is_psd_in_assembled_htt() {
 ///
 /// This pins the equivalence directly: with EVERY row's active set forced to the
 /// full atom set, the compact column order coincides with the dense full-`q`
-/// order (IBP-MAP has `assignment_coord_dim == k_atoms`), so the two assemblies
+/// order (`TopK { k: K }` has no gate coordinates), so the two assemblies
 /// must produce BIT-IDENTICAL `gt`, `htt`, and `htbeta` on a genuinely curved
 /// (Circle) two-atom term with non-trivial logits and coordinates (so the
 /// von-Mises gradient — hence the Riemannian Hessian correction — is nonzero).
@@ -1170,7 +1182,7 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
     let coords_b = array![[0.81_f64], [0.05], [0.48], [0.23]];
     let (phi_a, jet_a) = periodic_basis(&coords_a);
     let (phi_b, jet_b) = periodic_basis(&coords_b);
-    let atom_a = SaeManifoldAtom::new(
+    let atom_a = SaeManifoldAtom::new_with_provided_function_gram(
         "circle_a",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1181,7 +1193,7 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
     )
     .unwrap()
     .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    let atom_b = SaeManifoldAtom::new(
+    let atom_b = SaeManifoldAtom::new_with_provided_function_gram(
         "circle_b",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1202,7 +1214,7 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
             LatentManifold::Circle { period: 1.0 },
             LatentManifold::Circle { period: 1.0 },
         ],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::top_k_support(2),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom_a, atom_b], assignment).unwrap();
@@ -1212,8 +1224,7 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
         [-0.12, 0.08],
         [0.05, -0.20]
     ];
-    let alpha = 5.0_f64;
-    let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![alpha.ln()], array![alpha.ln()]]);
+    let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![5.0_f64.ln()], array![5.0_f64.ln()]]);
     let probe = SAE_DENSE_BETA_PENALTY_PROBE_MAX_DIM;
 
     // Dense layout: pin `Some(None)` so the override forces the dense path
@@ -1223,10 +1234,13 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
         .unwrap();
 
     // Compact layout with EVERY row's active set = both atoms (full support).
-    let coord_dims = vec![1usize, 1usize];
-    let coord_offsets = term.assignment.coord_offsets();
-    let full_active: Vec<Vec<usize>> = (0..n).map(|_| vec![0usize, 1usize]).collect();
-    let layout = SaeRowLayout::from_active_atoms(full_active, coord_dims, coord_offsets);
+    let layout = SaeRowLayout::from_topk_gates(
+        &term.assignments_all_parallel(n).unwrap(),
+        2,
+        vec![1usize, 1usize],
+        term.assignment.coord_offsets(),
+    )
+    .unwrap();
     let compact = term
         .assemble_arrow_schur_inner(target.view(), &rho, None, 1.0, probe, Some(Some(layout)))
         .unwrap();
@@ -1270,21 +1284,12 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
     );
 }
 
-/// #1117 follow-up gate (a): the compact sparse co-assignment plan must ENGAGE
-/// on a curved (non-Euclidean) ext-coord manifold once the dense `K²` data Gram
-/// trips the in-core budget — exactly the manifold-SAE-on-OLMo regime (curved
-/// atoms + large `K`). Before the fix `sparse_active_plan` returned `None` for
-/// ANY curved atom regardless of `K`, forcing the dense `K²` coupling; the
-/// `is_euclidean()` guard is now removed and the budget is the sole gate.
-///
-/// We assert the engagement decision is identical for a curved (Circle) term and
-/// its Euclidean twin at the same `m_total`: (1) with a budget BELOW the dense
-/// Gram both engage the compact plan with the same `k_active_cap`; (2) with a
-/// huge budget both stay dense (`None`). The budget is pinned via
-/// `sparse_active_plan_for_budget` so no multi-GB Gram is allocated.
+/// Exact dense assignment admission is geometry-independent and refuses before
+/// allocation when the required row-curvature plus decoder-Gram storage exceeds
+/// the supplied budget. It never changes the model into a compact surrogate.
 #[test]
-pub(crate) fn sparse_plan_engages_on_curved_manifold_when_budget_tripped() {
-    // Build a `k`-atom IBP-MAP term with the given per-atom coordinate manifold.
+pub(crate) fn dense_assignment_budget_refuses_without_truncation() {
+    // Build a `k`-atom ordered Beta--Bernoulli term with the given per-atom coordinate manifold.
     // Each atom carries the width-3 periodic basis, so `m_total = 3·k`.
     fn build_term(k: usize, curved: bool) -> SaeManifoldTerm {
         let n = 4usize;
@@ -1292,7 +1297,7 @@ pub(crate) fn sparse_plan_engages_on_curved_manifold_when_budget_tripped() {
         let (phi, jet) = periodic_basis(&coords);
         let atoms: Vec<SaeManifoldAtom> = (0..k)
             .map(|j| {
-                SaeManifoldAtom::new(
+                SaeManifoldAtom::new_with_provided_function_gram(
                     format!("atom_{j}"),
                     SaeAtomBasisKind::Periodic,
                     1,
@@ -1314,7 +1319,7 @@ pub(crate) fn sparse_plan_engages_on_curved_manifold_when_budget_tripped() {
             Array2::<f64>::zeros((n, k)),
             (0..k).map(|_| coords.clone()).collect(),
             (0..k).map(|_| manifold.clone()).collect(),
-            AssignmentMode::ibp_map(0.7, 1.0, true),
+            AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
         )
         .unwrap();
         SaeManifoldTerm::new(atoms, assignment).unwrap()
@@ -1324,38 +1329,23 @@ pub(crate) fn sparse_plan_engages_on_curved_manifold_when_budget_tripped() {
     let curved = build_term(k, true);
     let euclidean = build_term(k, false);
 
-    // `m_total = 3·k`; dense Gram = (3k)² · 8 bytes. Pin a budget strictly below
-    // it so the plan must engage, and one far above it so it must not.
-    let m_total = 3 * k;
-    let dense_gram_bytes = m_total * m_total * std::mem::size_of::<f64>();
-    let small_budget = dense_gram_bytes / 2;
-    let huge_budget = dense_gram_bytes * 16;
-
-    let curved_engaged = curved.sparse_active_plan_for_budget(small_budget);
-    let euclid_engaged = euclidean.sparse_active_plan_for_budget(small_budget);
-    assert!(
-        curved_engaged.is_some(),
-        "curved-manifold term must engage the sparse plan once the dense K² Gram \
-         trips the budget (the #1117 follow-up lever) — got None"
-    );
+    let curved_required = curved.exact_dense_assignment_bytes();
+    let euclidean_required = euclidean.exact_dense_assignment_bytes();
     assert_eq!(
-        curved_engaged, euclid_engaged,
-        "the sparse-plan engagement decision (k_active_cap + cutoff) must no longer \
-         depend on whether the ext-coord manifold is curved: curved={curved_engaged:?} \
-         euclidean={euclid_engaged:?}"
+        curved_required, euclidean_required,
+        "exact dense memory accounting must not depend on coordinate geometry"
     );
-
-    // Above the dense-Gram footprint, both stay on the exact dense layout.
-    assert_eq!(
-        curved.sparse_active_plan_for_budget(huge_budget),
-        None,
-        "a curved term whose dense Gram fits the budget must keep the dense layout"
-    );
-    assert_eq!(
-        euclidean.sparse_active_plan_for_budget(huge_budget),
-        None,
-        "a Euclidean term whose dense Gram fits the budget must keep the dense layout"
-    );
+    let too_small = curved_required.saturating_sub(1);
+    let error = curved
+        .require_exact_dense_assignment_budget(too_small)
+        .expect_err("an undersized budget must refuse the exact dense model");
+    assert!(error.contains("never silently truncated"));
+    curved
+        .require_exact_dense_assignment_budget(curved_required)
+        .expect("the exact required-byte boundary is admitted");
+    euclidean
+        .require_exact_dense_assignment_budget(euclidean_required)
+        .expect("the exact required-byte boundary is admitted");
 }
 
 /// `snapshot_mutable_state` / `restore_mutable_state` (the in-place
@@ -1368,7 +1358,7 @@ pub(crate) fn sparse_plan_engages_on_curved_manifold_when_budget_tripped() {
 pub(crate) fn snapshot_restore_round_trips_mutated_state() {
     let coords0 = array![[0.05], [0.20], [0.55], [0.80]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1383,7 +1373,7 @@ pub(crate) fn snapshot_restore_round_trips_mutated_state() {
         Array2::<f64>::zeros((4, 1)),
         vec![coords0],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -1434,10 +1424,10 @@ pub(crate) fn snapshot_restore_round_trips_mutated_state() {
 }
 
 #[test]
-pub(crate) fn ibp_path_refreshes_periodic_basis_for_two_newton_iterations() {
+pub(crate) fn ordered_beta_bernoulli_path_refreshes_periodic_basis_for_two_newton_iterations() {
     let coords0 = array![[0.05], [0.20], [0.55], [0.80]];
     let (phi0, jet0) = periodic_basis(&coords0);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1452,7 +1442,7 @@ pub(crate) fn ibp_path_refreshes_periodic_basis_for_two_newton_iterations() {
         Array2::<f64>::zeros((4, 1)),
         vec![coords0],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, true),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -1500,7 +1490,7 @@ pub(crate) fn accepted_iterations_reuse_arrow_and_device_frame_allocations_with_
         target[[row, 0]] += 0.08 * (row as f64 + 0.5).sin();
         target[[row, 1]] -= 0.06 * (row as f64 + 1.0).cos();
     }
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "resident_periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1711,7 +1701,7 @@ pub(crate) fn small_two_atom_periodic_term() -> (SaeManifoldTerm, Array2<f64>, S
     let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45]];
     let (phi0, jet0) = periodic_basis(&coords0);
     let (phi1, jet1) = periodic_basis(&coords1);
-    let atom0 = SaeManifoldAtom::new(
+    let atom0 = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic0",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1722,7 +1712,7 @@ pub(crate) fn small_two_atom_periodic_term() -> (SaeManifoldTerm, Array2<f64>, S
     )
     .unwrap()
     .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    let atom1 = SaeManifoldAtom::new(
+    let atom1 = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic1",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1784,8 +1774,9 @@ pub(crate) fn threshold_gate_fixed_logit_third_derivative_is_zero_bug4() {
     );
 
     // FREE atom 0 inside the band ⇒ nonzero third derivative (fixture is live).
+    let threshold_strength = rho.lambda_sparse().unwrap();
     let free = term.assignment_prior_hdiag_derivative_entry(
-        &rho,
+        threshold_strength,
         0,
         0,
         SaeLocalRowVar::Logit { atom: 0 },
@@ -1798,7 +1789,7 @@ pub(crate) fn threshold_gate_fixed_logit_third_derivative_is_zero_bug4() {
 
     // FIXED atom 1 ⇒ the θ-adjoint third derivative MUST be exactly zero.
     let fixed = term.assignment_prior_hdiag_derivative_entry(
-        &rho,
+        threshold_strength,
         0,
         1,
         SaeLocalRowVar::Logit { atom: 1 },
@@ -1877,70 +1868,6 @@ pub(crate) fn per_atom_loao_ev_attributes_each_load_bearing_atom() {
     );
 }
 
-/// #1230 — when structure search settles on a CHANGED model, the pre-search
-/// joint-Hessian shape bands are stale and must be recomputed from the final
-/// per-atom inner fits. The FFI signals "recompute" by calling
-/// [`SaeShapeUncertainty::invalidate_bands_for_recompute`], whose contract is:
-/// drop EVERY atom's `decoder_covariance` and set EVERY atom's `band_sd` to
-/// `NaN`, so the subsequent `complete_born_atom_shape_bands` completion pass —
-/// which refills any `NaN` band but SKIPS already-filled bands — recomputes the
-/// bands of ALL atoms (seed and born), not just the born ones.
-///
-/// The #1230 bug was that a SEED atom kept its pre-search joint-Hessian band
-/// even after a landed move re-converged the dictionary at a new ρ: the
-/// completion pass skipped it because its band_sd was still filled. This test
-/// pins the invalidation contract that makes that skip impossible — after the
-/// call no band is left filled for the completion pass to skip.
-#[test]
-pub(crate) fn invalidate_bands_for_recompute_clears_every_seed_band() {
-    // A fully-FILLED two-atom shape-uncertainty payload, as the pre-search
-    // joint Hessian would assemble: finite band_sd and a materialized
-    // decoder_covariance for BOTH atoms (the "seed" atoms).
-    fn filled_atom(cov_diag: f64) -> SaeAtomShapeUncertainty {
-        SaeAtomShapeUncertainty {
-            decoder_covariance: Some(Array2::<f64>::eye(3) * cov_diag),
-            band_coords: array![[0.0_f64], [0.5], [1.0]],
-            band_mean: Array2::<f64>::from_elem((3, 2), 0.25),
-            band_sd: Array2::<f64>::from_elem((3, 2), 0.10),
-            band_sd_robust: None,
-        }
-    }
-    let mut shape = SaeShapeUncertainty {
-        dispersion: 1.0,
-        atoms: vec![filled_atom(1.0), filled_atom(2.0)],
-    };
-
-    // Precondition: both seed atoms start fully filled (nothing to recompute).
-    for atom in &shape.atoms {
-        assert!(atom.decoder_covariance.is_some());
-        assert!(
-            atom.band_sd.iter().all(|v| v.is_finite()),
-            "precondition: a seed band starts with finite band_sd"
-        );
-    }
-
-    shape.invalidate_bands_for_recompute();
-
-    // Postcondition: EVERY atom's band is now flagged for recompute — no filled
-    // band survives for the completion pass to skip. A seed atom can no longer
-    // keep its stale pre-search band.
-    for (idx, atom) in shape.atoms.iter().enumerate() {
-        assert!(
-            atom.decoder_covariance.is_none(),
-            "atom {idx}: decoder_covariance must be dropped so the band is recomputed"
-        );
-        assert!(
-            atom.band_sd.iter().all(|v| v.is_nan()),
-            "atom {idx}: every band_sd entry must be NaN so complete_born_atom_shape_bands refills it"
-        );
-        // The completion pass rebuilds band_coords/band_mean from the final
-        // fitted atom; invalidation leaves their shape intact for that refill.
-        assert_eq!(atom.band_coords.dim(), (3, 1));
-        assert_eq!(atom.band_mean.dim(), (3, 2));
-        assert_eq!(atom.band_sd.dim(), (3, 2));
-    }
-}
-
 /// #1777 helper: a single `d = 1` periodic atom whose latent coordinate has
 /// COLLAPSED to one point (all rows share the same `t`), so the hybrid split
 /// cannot fit a slope against its own codes and must take the collapse-rescue
@@ -1952,7 +1879,7 @@ fn collapse_rescue_term_and_target() -> (SaeManifoldTerm, Array2<f64>, SaeManifo
     // Collapsed coordinate: every row at the SAME t → zero coordinate spread.
     let coords = Array2::<f64>::from_elem((n, 1), 0.3);
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "collapsed_circle",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1963,7 +1890,7 @@ fn collapse_rescue_term_and_target() -> (SaeManifoldTerm, Array2<f64>, SaeManifo
     )
     .unwrap()
     .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    // Softmax K=1 → gate ≡ 1 on every row (no IBP α to resolve).
+    // Softmax K=1 → gate ≡ 1 on every row (no ordered Beta--Bernoulli α to resolve).
     let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
         Array2::<f64>::zeros((n, 1)),
         vec![coords],
@@ -2052,35 +1979,48 @@ pub(crate) fn collapse_rescue_projection_matches_train_and_oos_and_refuses_targe
 }
 
 /// #1777 GOAL 2 — the PER-FIT [`SaeFitConfig`] is the source of truth for the
-/// IBP-α and separation-barrier overrides: two terms carrying DIFFERENT configs
+/// ordered Beta--Bernoulli-α and separation-barrier overrides: two terms carrying DIFFERENT configs
 /// produce correspondingly-different α / barrier strength, and the two terms do
 /// not leak into each other.
 #[test]
-pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
-    let (mut term_a, _t_a, rho_a) = small_two_atom_ibp_term();
-    let (mut term_b, _t_b, rho_b) = small_two_atom_ibp_term();
+pub(crate) fn per_fit_config_isolates_barrier_and_ordered_beta_bernoulli_alpha() {
+    let (mut term_a, _t_a, rho_a) = small_two_atom_ordered_beta_bernoulli_term();
+    let (mut term_b, _t_b, rho_b) = small_two_atom_ordered_beta_bernoulli_term();
 
     // Distinct per-fit configs, applied to each term independently.
     term_a.set_fit_config(SaeFitConfig {
         separation_barrier_strength_override: Some(0.1),
-        ibp_alpha_override: Some(0.2),
+        ordered_beta_bernoulli_alpha_override: Some(0.2),
     });
     term_b.set_fit_config(SaeFitConfig {
         separation_barrier_strength_override: Some(3.0),
-        ibp_alpha_override: Some(5.0),
+        ordered_beta_bernoulli_alpha_override: Some(5.0),
     });
 
     // Round-trips through the config accessor.
-    assert_eq!(term_a.fit_config().ibp_alpha_override, Some(0.2));
+    assert_eq!(
+        term_a.fit_config().ordered_beta_bernoulli_alpha_override,
+        Some(0.2)
+    );
     assert_eq!(
         term_b.fit_config().separation_barrier_strength_override,
         Some(3.0)
     );
 
-    // IBP-α: the per-fit override is the resolved α (bypassing the mode schedule),
+    // ordered Beta--Bernoulli-α: the per-fit override is the resolved α (bypassing the mode schedule),
     // and the two terms resolve different α values.
-    assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(0.2));
-    assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
+    assert_eq!(
+        term_a
+            .assignment
+            .resolved_ordered_beta_bernoulli_alpha(&rho_a),
+        Some(0.2)
+    );
+    assert_eq!(
+        term_b
+            .assignment
+            .resolved_ordered_beta_bernoulli_alpha(&rho_b),
+        Some(5.0)
+    );
 
     // Distinct α ⇒ distinct gates (the ordered geometric prior π_k differs).
     let gates_a = term_a.assignment.try_assignments().unwrap();
@@ -2090,7 +2030,7 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
         .fold(0.0_f64, |m, d| m.max(d.abs()));
     assert!(
         gate_gap > 1e-6,
-        "distinct per-fit IBP-α overrides must produce distinct gates; gap {gate_gap:e}"
+        "distinct per-fit ordered Beta--Bernoulli-α overrides must produce distinct gates; gap {gate_gap:e}"
     );
 
     // Barrier strength (K=2, so the barrier is live): the per-fit override is the
@@ -2101,8 +2041,18 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
     // Isolation: clearing term_a's config leaves term_b untouched, and term_a
     // uses the mode's canonical α.
     term_a.set_fit_config(SaeFitConfig::default());
-    assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(1.0)); // the mode's compiled α
-    assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
+    assert_eq!(
+        term_a
+            .assignment
+            .resolved_ordered_beta_bernoulli_alpha(&rho_a),
+        Some(1.0)
+    ); // the mode's compiled α
+    assert_eq!(
+        term_b
+            .assignment
+            .resolved_ordered_beta_bernoulli_alpha(&rho_b),
+        Some(5.0)
+    );
 }
 
 /// F5 — the per-fit separation-barrier override (#1777) must isolate two
@@ -2124,10 +2074,10 @@ pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
             .map(|&mu| {
                 scope.spawn(move || {
                     // Each thread owns its term (a distinct concurrent "fit").
-                    let (mut term, _t, _rho) = small_two_atom_ibp_term();
+                    let (mut term, _t, _rho) = small_two_atom_ordered_beta_bernoulli_term();
                     term.set_fit_config(SaeFitConfig {
                         separation_barrier_strength_override: Some(mu),
-                        ibp_alpha_override: None,
+                        ordered_beta_bernoulli_alpha_override: None,
                     });
                     // Hammer the barrier-strength read while the sibling thread
                     // hammers its own with a different μ. The per-fit field is
@@ -2256,31 +2206,39 @@ pub(crate) fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() 
         epsilon = 1.0e-14
     );
 
-    // #1744 — IBP-MAP admits NO response-dispersion scaling on ANY ρ coordinate
+    // #1744 — ordered Beta--Bernoulli admits NO response-dispersion scaling on ANY ρ coordinate
     // (learnable-α or fixed-α). Its free per-row Bernoulli gates overfit under a
     // dispersion-weakened smoothness/ARD seed, collapsing the Fellner–Schall
     // fixed point; the sparse coordinate is a dimensionless log-α concentration
-    // offset that was never a squared-output-unit penalty weight. So every IBP
+    // offset that was never a squared-output-unit penalty weight. So every ordered Beta--Bernoulli
     // coordinate stays at its absolute (already dimensionless) construction value.
-    for ibp_mode in [
-        AssignmentMode::ibp_map(1.0, 1.0, true),
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+    for ordered_beta_bernoulli_mode in [
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, true),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
     ] {
-        let ibp = rho
-            .seed_scaled_by_dispersion_for_assignment(dispersion, ibp_mode)
+        let ordered_beta_bernoulli = rho
+            .seed_scaled_by_dispersion_for_assignment(dispersion, ordered_beta_bernoulli_mode)
             .unwrap();
         assert_abs_diff_eq!(
-            ibp.log_lambda_sparse,
+            ordered_beta_bernoulli.log_lambda_sparse,
             rho.log_lambda_sparse,
             epsilon = 1.0e-14
         );
         assert_abs_diff_eq!(
-            ibp.log_lambda_smooth[0],
+            ordered_beta_bernoulli.log_lambda_smooth[0],
             rho.log_lambda_smooth[0],
             epsilon = 1.0e-14
         );
-        assert_abs_diff_eq!(ibp.log_ard[0][0], rho.log_ard[0][0], epsilon = 1.0e-14);
-        assert_abs_diff_eq!(ibp.log_ard[0][1], rho.log_ard[0][1], epsilon = 1.0e-14);
+        assert_abs_diff_eq!(
+            ordered_beta_bernoulli.log_ard[0][0],
+            rho.log_ard[0][0],
+            epsilon = 1.0e-14
+        );
+        assert_abs_diff_eq!(
+            ordered_beta_bernoulli.log_ard[0][1],
+            rho.log_ard[0][1],
+            epsilon = 1.0e-14
+        );
     }
 }
 
@@ -2288,7 +2246,7 @@ pub(crate) fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() 
 pub(crate) fn fit_data_collapse_records_terminal_event_for_active_atom() {
     let coords = array![[0.0], [0.25], [0.5], [0.75]];
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "circle",
         SaeAtomBasisKind::Periodic,
         1,
@@ -2401,14 +2359,14 @@ pub(crate) fn global_ev(target: ArrayView2<'_, f64>, fitted: ArrayView2<'_, f64>
 #[derive(Clone, Copy)]
 pub(crate) enum PlantedCircleAssignmentMode {
     Softmax,
-    IbpMap,
+    OrderedBetaBernoulli,
 }
 
 impl PlantedCircleAssignmentMode {
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Softmax => "softmax",
-            Self::IbpMap => "ibp_map",
+            Self::OrderedBetaBernoulli => "ordered_beta_bernoulli",
         }
     }
 
@@ -2417,7 +2375,7 @@ impl PlantedCircleAssignmentMode {
         const ALPHA: f64 = 1.0;
         match self {
             Self::Softmax => AssignmentMode::softmax(TAU),
-            Self::IbpMap => AssignmentMode::ibp_map(TAU, ALPHA, false),
+            Self::OrderedBetaBernoulli => AssignmentMode::ordered_beta_bernoulli(TAU, ALPHA, false),
         }
     }
 
@@ -2425,14 +2383,14 @@ impl PlantedCircleAssignmentMode {
         const TAU: f64 = 1.0;
         match self {
             Self::Softmax => 0.0,
-            Self::IbpMap => 6.0 * TAU,
+            Self::OrderedBetaBernoulli => 6.0 * TAU,
         }
     }
 
     pub(crate) fn seed_gate(self) -> f64 {
         match self {
             Self::Softmax => 1.0,
-            Self::IbpMap => 1.0 / (1.0 + (-6.0_f64).exp()),
+            Self::OrderedBetaBernoulli => 1.0 / (1.0 + (-6.0_f64).exp()),
         }
     }
 }
@@ -2463,7 +2421,7 @@ pub(crate) fn planted_circle_seed_term(
         }
     }
     let seed_dispersion = (rss / (n * z.ncols()) as f64).max(1.0e-12);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "circle",
         SaeAtomBasisKind::Periodic,
         1,
@@ -2495,7 +2453,7 @@ pub(crate) fn planted_circle_focus_1744() {
     let mut out = String::new();
     for assignment_mode in [
         PlantedCircleAssignmentMode::Softmax,
-        PlantedCircleAssignmentMode::IbpMap,
+        PlantedCircleAssignmentMode::OrderedBetaBernoulli,
     ] {
         let label = assignment_mode.label();
         let (term, seed_dispersion) = planted_circle_seed_term(z.view(), assignment_mode);
@@ -2507,7 +2465,7 @@ pub(crate) fn planted_circle_focus_1744() {
                 for &smooth in &[-8.0_f64, -5.0, -3.0, -1.0, 0.0, 1.0, 3.0] {
                     let mut t = term.clone();
                     let r = SaeManifoldRho::new(sparse, smooth, vec![array![ard]]);
-                    match t.reml_criterion_with_cache(
+                    match t.penalized_quasi_laplace_criterion_with_cache(
                         z.view(),
                         &r,
                         None,
@@ -2538,7 +2496,7 @@ pub(crate) fn planted_circle_focus_1744() {
 }
 
 /// #1744 focused regression guard for the single noise-scale sweep point that
-/// failed: `ibp_map` n=40 σ=0.18. Runs exactly one outer solve from the
+/// failed: `ordered_beta_bernoulli` n=40 σ=0.18. Runs exactly one outer solve from the
 /// dimensionless ρ seed (the same construction the full sweep uses), so it
 /// reproduces the RED (~70s) far faster than the ~400s full sweep.
 ///
@@ -2549,8 +2507,8 @@ pub(crate) fn planted_circle_focus_1744() {
 /// both more-smoothed and farther from stationarity, so keep-best now retains
 /// the flexible seed. Uses the same 0.95 threshold as the full sweep.
 #[test]
-pub(crate) fn planted_circle_ibp_map_n40_sigma018_reaches_high_ev_1744() {
-    let assignment_mode = PlantedCircleAssignmentMode::IbpMap;
+pub(crate) fn planted_circle_ordered_beta_bernoulli_n40_sigma018_reaches_high_ev_1744() {
+    let assignment_mode = PlantedCircleAssignmentMode::OrderedBetaBernoulli;
     let n = 40usize;
     let sigma = 0.18_f64;
     let z = planted_circle_data(n, sigma);
@@ -2575,7 +2533,7 @@ pub(crate) fn planted_circle_ibp_map_n40_sigma018_reaches_high_ev_1744() {
     let ev = global_ev(z.view(), fitted_result.term.fitted().view());
     assert!(
         ev > 0.95,
-        "focused #1744 fixture (ibp_map n={n} sigma={sigma}) seed_ev={seed_ev:.4} \
+        "focused #1744 fixture (ordered_beta_bernoulli n={n} sigma={sigma}) seed_ev={seed_ev:.4} \
          final_rho=({:.3},{:?},{:?}) EV={ev:.4} should exceed 0.95",
         rho.log_lambda_sparse,
         rho.log_lambda_smooth,
@@ -2587,7 +2545,7 @@ pub(crate) fn planted_circle_ibp_map_n40_sigma018_reaches_high_ev_1744() {
 pub(crate) fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionless_rho_seed() {
     for assignment_mode in [
         PlantedCircleAssignmentMode::Softmax,
-        PlantedCircleAssignmentMode::IbpMap,
+        PlantedCircleAssignmentMode::OrderedBetaBernoulli,
     ] {
         let assignment_label = assignment_mode.label();
         for &n in &[40usize, 250usize] {
@@ -2647,33 +2605,24 @@ pub(crate) fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionles
 pub(crate) fn sae_value_probe_refusal_classification_is_inner_only() {
     assert!(
         SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
-            "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ"
+            "SaeManifoldTerm::penalized_quasi_laplace_criterion: inner solve did not converge at fixed ρ"
         )
     );
     assert!(
         SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
-            "SaeManifoldTerm::reml_criterion: undamped evidence factorization hit a non-PD per-row H_tt block before KKT stationarity"
-        )
-    );
-    // A non-PD cross-row IBP joint Hessian at a probed ρ is genuine infeasibility
-    // (the Laplace evidence log-det is undefined there) — recoverable, the same
-    // class as the per-row non-PD refusal, so the outer optimizer returns +∞ and
-    // steers back into the PD region instead of aborting the whole fit.
-    assert!(
-        SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
-            "SaeManifoldTerm::reml_criterion: cross-row IBP joint Hessian is non-PD at this ρ; evidence Laplace log-det undefined (infeasible ρ probe)"
+            "SaeManifoldTerm::penalized_quasi_laplace_criterion: undamped criterion factorization hit a non-PD per-row H_tt block before KKT stationarity"
         )
     );
     // The generic "log-det unavailable" message (a real factorization defect, not
     // an infeasibility) stays FATAL — it is NOT in the recoverable set.
     assert!(
         !SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
-            "SaeManifoldTerm::reml_criterion: arrow_log_det_from_cache returned None (undamped joint Hessian log-det unavailable for the Laplace normaliser)"
+            "SaeManifoldTerm::penalized_quasi_laplace_criterion: arrow_log_det_from_cache returned None (undamped joint Hessian log-det unavailable for the Laplace normaliser)"
         )
     );
     assert!(
         !SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
-            "SaeManifoldTerm::reml_criterion: row-gauge evidence deflation count re-anchored \
+            "SaeManifoldTerm::penalized_quasi_laplace_criterion: row-gauge criterion deflation count re-anchored \
                  4 times within one optimization; the quotient dimension is not stabilizing"
         )
     );
@@ -2685,27 +2634,41 @@ pub(crate) fn streaming_exact_reml_matches_full_batch_reml_small_sae() {
     let mut full = term0.clone();
     let mut streaming = term0;
     let (full_cost, full_loss, _cache) = full
-        .reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            2,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
         .unwrap();
     let (stream_cost, stream_loss) = streaming
-        .reml_criterion_streaming_exact(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+        .penalized_quasi_laplace_criterion_streaming_exact(
+            target.view(),
+            &rho,
+            None,
+            2,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
         .unwrap();
     assert_abs_diff_eq!(stream_cost, full_cost, epsilon = 1.0e-8);
     assert_abs_diff_eq!(stream_loss.total(), full_loss.total(), epsilon = 1.0e-8);
 }
 
-/// As [`small_two_atom_periodic_term`], but in **IBP-MAP** assignment mode so
-/// the exact joint Hessian carries the #1038 cross-row rank-`R` Woodbury block
-/// `H_full = H₀' + U D Uᵀ` (the empirical-mass coupling between distinct latent
-/// rows through a shared atom column). The dense evidence log-det therefore
-/// includes the capacitance term `log|C| = log det(I_R + D Uᵀ H₀'⁻¹ U)` — the
-/// quantity the streaming path must reproduce.
-pub(crate) fn small_two_atom_ibp_term() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+/// As [`small_two_atom_periodic_term`], but in ordered independent
+/// Beta--Bernoulli assignment mode. The full-batch and streaming paths must
+/// assemble the same shared-mass-dependent PSD curvature majorizer.
+pub(crate) fn small_two_atom_ordered_beta_bernoulli_term()
+-> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
     let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35]];
     let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45]];
     let (phi0, jet0) = periodic_basis(&coords0);
     let (phi1, jet1) = periodic_basis(&coords1);
-    let atom0 = SaeManifoldAtom::new(
+    let atom0 = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic0",
         SaeAtomBasisKind::Periodic,
         1,
@@ -2716,7 +2679,7 @@ pub(crate) fn small_two_atom_ibp_term() -> (SaeManifoldTerm, Array2<f64>, SaeMan
     )
     .unwrap()
     .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-    let atom1 = SaeManifoldAtom::new(
+    let atom1 = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic1",
         SaeAtomBasisKind::Periodic,
         1,
@@ -2741,7 +2704,7 @@ pub(crate) fn small_two_atom_ibp_term() -> (SaeManifoldTerm, Array2<f64>, SaeMan
             LatentManifold::Circle { period: 1.0 },
             LatentManifold::Circle { period: 1.0 },
         ],
-        AssignmentMode::ibp_map(0.8, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.8, 1.0, false),
     )
     .unwrap();
     let term = SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap();
@@ -2754,60 +2717,36 @@ pub(crate) fn small_two_atom_ibp_term() -> (SaeManifoldTerm, Array2<f64>, SaeMan
     (term, target, rho)
 }
 
-/// #1038/#1225 — the streaming evidence log-det MUST equal the dense full-batch
-/// evidence log-det for an **IBP-MAP** term, i.e. it MUST carry the exact
-/// cross-row Woodbury capacitance correction `log|C|`.
-///
-/// Pre-fix the streaming path could not represent the rank-`R` cross-row block:
-/// `reduced_schur_and_log_det_tt` refused IBP-active systems outright, so
-/// `reml_criterion_streaming_exact` *errored* on this fixture — and if that
-/// refusal had instead silently returned `log_det_tt + log_det_schur`, the
-/// streaming criterion would have under-counted the dense criterion by exactly
-/// `½·log|C|` (the dropped capacitance term), violating the #1225 invariant
-/// that streaming and dense optimize the SAME REML objective.
-///
-/// This pins both halves of the fix:
-///   (1) the dense cache genuinely carries a non-trivial cross-row correction
-///       on this fixture (`|log|C|| > 0`), so the equality below is load-bearing
-///       rather than a vacuous `log|C| = 0` match (which any softmax term gives);
-///   (2) the streaming exact log-det now reproduces the dense criterion to
-///       inner-solve tolerance.
+/// The streaming evidence log determinant must equal the dense full-batch
+/// determinant for an ordered Beta--Bernoulli term at the same fitted state.
 #[test]
-pub(crate) fn streaming_exact_reml_matches_full_batch_reml_ibp_woodbury() {
-    let (term0, target, rho) = small_two_atom_ibp_term();
+pub(crate) fn streaming_exact_laml_matches_full_batch_ordered_beta_bernoulli() {
+    let (term0, target, rho) = small_two_atom_ordered_beta_bernoulli_term();
     let mut full = term0;
     let (_full_cost, _full_loss, cache) = full
-        .reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
-        .expect("dense IBP criterion must evaluate");
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            2,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
+        .expect("dense ordered Beta--Bernoulli criterion must evaluate");
 
-    // (1) The dense joint Hessian carries a genuine cross-row Woodbury block on
-    // this fixture: its capacitance correction is present, finite, and nonzero.
-    // This is the `log|C|` the streaming path would drop without the fix.
-    assert!(
-        cache.cross_row_woodbury.is_some(),
-        "IBP fixture must build a cross-row Woodbury carrier (else the test is vacuous)"
-    );
-    let log_c = cache.cross_row_woodbury_log_det();
-    assert!(
-        log_c.is_finite() && log_c.abs() > 1.0e-6,
-        "IBP fixture must have a load-bearing nonzero cross-row log|C|; got {log_c}"
-    );
-
-    // (2) The streaming exact LOG-DET must reproduce the dense `log|H|` at the SAME
+    // The streaming exact log determinant must reproduce dense `log|H|` at the same
     // converged state — `full` is already at its converged (t,β) after the dense
     // criterion. We compare the log-det DIRECTLY rather than re-fitting through
-    // `reml_criterion_streaming_exact`: a streaming RE-FIT runs a fresh inner solve
+    // `penalized_quasi_laplace_criterion_streaming_exact`: a streaming RE-FIT runs a fresh inner solve
     // whose faer parallel reduction is non-deterministic under thread contention
     // and intermittently surfaces the (recoverable) non-PD refusal — orthogonal to
-    // this Woodbury-correctness test. `streaming_exact_arrow_log_det` re-assembles
-    // `log|H_full|` chunk-by-chunk at the frozen state with NO inner solve, so the
-    // only delta vs the dense `arrow_log_det_from_cache` is FP reassociation
-    // (~1e-13). Pre-fix the streaming path DROPPED `log|C|` (or hard-refused on the
-    // cross-row source), so this differed by `log|C|` (≈ {log_c}) or errored.
+    // this value-comparison test. `streaming_exact_arrow_log_det` reassembles
+    // `log|H|` chunk-by-chunk at the frozen state with no inner solve.
     let dense_logdet = arrow_log_det_from_cache(&cache).expect("dense log-det finite");
     let stream_logdet = full
         .streaming_exact_arrow_log_det(target.view(), &rho, None, None)
-        .expect("streaming log-det must evaluate (cross-row Woodbury now carried)");
+        .expect("streaming ordered Beta--Bernoulli log-det must evaluate");
     assert_abs_diff_eq!(stream_logdet, dense_logdet, epsilon = 1.0e-8);
 }
 
@@ -2825,10 +2764,19 @@ pub(crate) fn value_probe_refine_policy_ranks_same_criterion_as_full_policy() {
     let mut full = term0.clone();
     let mut probe = term0;
     let (full_cost, full_loss) = full
-        .reml_criterion_with_refine_policy(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4, true)
+        .penalized_quasi_laplace_criterion_with_refine_policy(
+            target.view(),
+            &rho,
+            None,
+            2,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+            true,
+        )
         .expect("full-budget criterion must converge on the small fixture");
     let (probe_cost, probe_loss) = probe
-        .reml_criterion_with_refine_policy(
+        .penalized_quasi_laplace_criterion_with_refine_policy(
             target.view(),
             &rho,
             None,
@@ -2843,15 +2791,15 @@ pub(crate) fn value_probe_refine_policy_ranks_same_criterion_as_full_policy() {
     assert_abs_diff_eq!(probe_loss.total(), full_loss.total(), epsilon = 1.0e-8);
 }
 
-/// #1224 — every fitting/ranking lane must price the same pure REML criterion.
+/// #1224 — every fitting/ranking lane must price the same penalized quasi-Laplace criterion.
 ///
 /// The outer optimizer compares three lanes at a fixed ρ:
 ///   * `eval` (`OuterEvalOrder::ValueAndGradient`) returns the consistent
-///     gradient-lane pair `(f, ∇f)` — pure REML cost paired with the exact
+///     gradient-lane pair `(f, ∇f)` — penalized quasi-Laplace cost paired with the exact
 ///     REML λ-gradient.
 ///   * `eval_with_order(Value)` is the line-search probe: it accepts/rejects
 ///     steps whose DIRECTION came from `eval`'s `∇f`, so its cost must be the
-///     SAME pure REML `f`. Folding the gradient-free consistency penalty `c(ρ)`
+///     SAME penalized quasi-Laplace `f`. Folding the gradient-free consistency penalty `c(ρ)`
 ///     here while the direction is `∇f` mixes two functions in the Armijo test
 ///     (the objective↔gradient desync bug class). The fix threads
 ///     `fold_cotrain = false` into this lane.
@@ -2862,14 +2810,14 @@ pub(crate) fn value_probe_refine_policy_ranks_same_criterion_as_full_policy() {
 /// The regression pins one invariant: gradient, line-search, and ranking costs
 /// agree at the same `ρ`.
 #[test]
-pub(crate) fn outer_value_and_ranking_lanes_share_pure_reml_criterion() {
+pub(crate) fn outer_value_and_ranking_lanes_share_pure_penalized_quasi_laplace_criterion() {
     use gam_solve::rho_optimizer::{OuterEvalOrder, OuterObjective};
 
     // A fixed ρ at which all three lanes converge from the same fixture state.
     let rho_flat = warmstart_test_objective().baseline_rho.to_flat();
 
     // Gradient lane (ValueAndGradient): the consistent `(f, ∇f)` pair. Its cost
-    // is pure REML (+ the discrete collapse barrier, which stays on both lanes).
+    // is penalized quasi-Laplace (+ the discrete collapse barrier, which stays on both lanes).
     let mut grad_obj = warmstart_test_objective();
     let grad_cost = grad_obj
         .eval(&rho_flat)
@@ -2877,7 +2825,7 @@ pub(crate) fn outer_value_and_ranking_lanes_share_pure_reml_criterion() {
         .cost;
 
     // Line-search lane (Value order): the BFGS/ARC probe. Post-fix this reports
-    // the SAME pure REML cost the gradient lane reports.
+    // the SAME penalized quasi-Laplace cost the gradient lane reports.
     let mut ls_obj = warmstart_test_objective();
     let ls_cost = ls_obj
         .eval_with_order(&rho_flat, OuterEvalOrder::Value)
@@ -2963,22 +2911,22 @@ pub(crate) fn refine_iteration_limit_probe_budget_never_extends() {
 #[test]
 pub(crate) fn objective_stall_cannot_substitute_for_kkt_envelope_2253() {
     let tolerance = 1.0e-4;
-    assert!(!SaeManifoldTerm::evidence_kkt_stationary(
+    assert!(!SaeManifoldTerm::quasi_laplace_kkt_stationary(
         2.0 * tolerance,
         3.0 * tolerance,
         tolerance,
     ));
-    assert!(SaeManifoldTerm::evidence_kkt_stationary(
+    assert!(SaeManifoldTerm::quasi_laplace_kkt_stationary(
         tolerance,
         3.0 * tolerance,
         tolerance,
     ));
-    assert!(SaeManifoldTerm::evidence_kkt_stationary(
+    assert!(SaeManifoldTerm::quasi_laplace_kkt_stationary(
         2.0 * tolerance,
         tolerance,
         tolerance,
     ));
-    assert!(!SaeManifoldTerm::evidence_kkt_stationary(
+    assert!(!SaeManifoldTerm::quasi_laplace_kkt_stationary(
         f64::NAN,
         f64::INFINITY,
         tolerance,
@@ -2997,7 +2945,7 @@ pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     // opposite directions, so the logit-block Schur complement goes indefinite).
     // Before #1117 the undamped (`ridge = 0`) factor REFUSED this with
     // `PerRowFactorFailed` and the criterion recovered by refining the inner
-    // state. #1117 (`factor_spectral_deflated_evidence_row`) now conditions the
+    // state. #1117 (`factor_spectral_deflated_criterion_row`) now conditions the
     // block the principled way at the COLD state too: it discovers the
     // negative/flat eigen-direction and stiffens it to UNIT curvature (eigenvalue
     // → +1, contributing a ρ-independent log 1 = 0), so the undamped solve returns
@@ -3009,7 +2957,7 @@ pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     // indefinite AND that the #1117 deflation engaged).
     let (.., cold_cache) = solve_arrow_newton_step_with_options(&cold_sys, 0.0, 0.0, &options)
         .expect(
-            "cold undamped evidence factor must be spectrally conditioned (#1117), not refused",
+            "cold undamped criterion factor must be spectrally conditioned (#1117), not refused",
         );
     let cold_deflated_rows = cold_cache
         .deflation_row_spectra
@@ -3027,15 +2975,31 @@ pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     let mut full = term0.clone();
     let mut streaming = term0;
     let (full_cost, full_loss, cache) = full
-        .reml_criterion_with_cache(target.view(), &rho, None, 1, 0.25, 1.0e-4, 1.0e-4)
-        .expect("dense REML must refine through the cold non-PD evidence factor");
+        .penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            1,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
+        .expect("dense REML must refine through the cold non-PD criterion factor");
     let log_det = arrow_log_det_from_cache(&cache).expect("refined cache must carry log-det");
     assert!(full_cost.is_finite());
     assert!(full_loss.total().is_finite());
     assert!(log_det.is_finite());
 
     let (stream_cost, stream_loss) = streaming
-        .reml_criterion_streaming_exact(target.view(), &rho, None, 1, 0.25, 1.0e-4, 1.0e-4)
+        .penalized_quasi_laplace_criterion_streaming_exact(
+            target.view(),
+            &rho,
+            None,
+            1,
+            0.25,
+            1.0e-4,
+            1.0e-4,
+        )
         .expect("streaming REML must share the dense refinement retry");
     assert_abs_diff_eq!(stream_cost, full_cost, epsilon = 1.0e-8);
     assert_abs_diff_eq!(stream_loss.total(), full_loss.total(), epsilon = 1.0e-8);
@@ -3123,7 +3087,7 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
         target[[row, 0]] += 1.0e-3 * (0.37 * row as f64).sin();
         target[[row, 1]] += 1.0e-3 * (0.29 * row as f64).cos();
     }
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3156,13 +3120,20 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
         .reconstruction_dispersion(&loss, &cache, &rho, None)
         .unwrap();
     let smooth_edf: f64 = term
-        .decoder_smoothness_effective_dof_per_atom(&cache, &rho.lambda_smooth_vec())
+        .decoder_smoothness_effective_dof_per_atom(&cache, &rho.lambda_smooth_vec().unwrap())
         .unwrap()
         .iter()
         .sum();
     let beta_edf = (term.beta_dim() as f64 - smooth_edf).max(0.0);
     let traces = term.ard_inverse_traces(&cache).unwrap();
-    let coord_edf = (n as f64 - alpha * traces[0][0]).clamp(0.0, n as f64);
+    let coord_edf = super::construction_reconstruction::certified_ard_axis_edf(
+        n as f64,
+        alpha,
+        traces[0][0],
+        0,
+        0,
+    )
+    .unwrap();
     let rss = 2.0 * loss.data_fit;
     let expected = rss / ((n * p) as f64 - beta_edf - coord_edf).max(1.0);
     assert_abs_diff_eq!(dispersion, expected, epsilon = 1.0e-10);
@@ -3201,7 +3172,7 @@ fn matrix_free_smoothness_edf_from_probes_matches_dense_selected_inverse() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3235,7 +3206,7 @@ fn matrix_free_smoothness_edf_from_probes_matches_dense_selected_inverse() {
     let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
-    let lambda = rho.lambda_smooth_vec();
+    let lambda = rho.lambda_smooth_vec().unwrap();
 
     let dense = term
         .decoder_smoothness_effective_dof_per_atom(&cache, &lambda)
@@ -3288,7 +3259,7 @@ fn matrix_free_ard_traces_from_probes_matches_dense_selected_inverse() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3374,7 +3345,7 @@ fn matrix_free_ard_logdet_hessian_trace_from_probes_matches_dense() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3469,7 +3440,7 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
         target[[row, 0]] += 1.0e-3 * (0.37 * row as f64).sin();
         target[[row, 1]] += 1.0e-3 * (0.29 * row as f64).cos();
     }
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3560,6 +3531,90 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
     );
 }
 
+/// #2080(A) clobber-armor: the single adjoint solve that collapses the
+/// per-coordinate IFT correction `−½·⟨Γ, A⁺ g_ρ_l⟩` into `−½·⟨A⁺Γ, g_ρ_l⟩`
+/// (`analytic_outer_rho_gradient_components_with_bundle`, dropping the outer IFT
+/// cost from `O(P_ρ)` solves to one) is valid iff the exact-stationarity operator
+/// `A⁺` is SELF-ADJOINT. Pin exactly that: on the converged fixture,
+/// `⟨A⁺u, v⟩ == ⟨u, A⁺v⟩` for two production IFT right-hand sides. A future
+/// rewrite that breaks `A`'s symmetry or the deflation's `B`-orthogonality (the
+/// only ways the collapse could silently diverge from the per-coordinate form)
+/// turns this red.
+#[test]
+fn solve_exact_stationarity_is_self_adjoint_2080() {
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let decoder = array![[0.30, -0.10], [1.20, 0.20], [0.10, 1.10]];
+    assert_eq!(decoder.ncols(), p);
+    let mut target = phi.dot(&decoder);
+    for row in 0..n {
+        target[[row, 0]] += 1.0e-3 * (0.37 * row as f64).sin();
+        target[[row, 1]] += 1.0e-3 * (0.29 * row as f64).cos();
+    }
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        decoder,
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+    let solver = DeflatedArrowSolver::plain(&cache);
+
+    let n_params = rho.to_flat().len();
+    assert!(n_params >= 2, "fixture must expose ≥2 outer coordinates");
+    // Two production IFT right-hand sides (the sparse coordinate and the smooth
+    // coordinate), so the test exercises A⁺ on genuine, distinct arrow vectors.
+    let u = term
+        .outer_rho_gradient_ift_rhs(&rho, 0, &cache)
+        .unwrap();
+    let v = term
+        .outer_rho_gradient_ift_rhs(&rho, n_params - 1, &cache)
+        .unwrap();
+    let a_u = term
+        .solve_exact_stationarity(&rho, target.view(), &cache, &solver, &u)
+        .unwrap();
+    let a_v = term
+        .solve_exact_stationarity(&rho, target.view(), &cache, &solver, &v)
+        .unwrap();
+    // ⟨A⁺u, v⟩ vs ⟨u, A⁺v⟩ (pub arrow-vector fields; no type import needed).
+    let lhs = a_u.t.iter().zip(v.t.iter()).map(|(a, b)| a * b).sum::<f64>()
+        + a_u.beta.iter().zip(v.beta.iter()).map(|(a, b)| a * b).sum::<f64>();
+    let rhs = u.t.iter().zip(a_v.t.iter()).map(|(a, b)| a * b).sum::<f64>()
+        + u.beta.iter().zip(a_v.beta.iter()).map(|(a, b)| a * b).sum::<f64>();
+    let scale = lhs.abs().max(rhs.abs()).max(1.0);
+    assert!(
+        (lhs - rhs).abs() <= 1.0e-6 * scale,
+        "solve_exact_stationarity must be self-adjoint (the #2080(A) single-adjoint \
+         IFT identity): ⟨A⁺u,v⟩={lhs} vs ⟨u,A⁺v⟩={rhs}"
+    );
+    // Non-vacuity: the cross term must be a genuine, resolvable, finite contribution.
+    assert!(
+        scale > 1.0 && lhs.is_finite() && rhs.is_finite(),
+        "self-adjoint pin must be non-trivial and finite: lhs={lhs} rhs={rhs}"
+    );
+}
+
 #[test]
 pub(crate) fn latent_block_inverse_diagonal_hutchinson_matches_exact_trace() {
     // The matrix-free Hutchinson estimator of `diag((H⁻¹)_tt)` (the #1777 fold
@@ -3572,7 +3627,7 @@ pub(crate) fn latent_block_inverse_diagonal_hutchinson_matches_exact_trace() {
     let p = 2usize;
     let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -3702,11 +3757,19 @@ pub(crate) fn streaming_plan_routes_by_memory_budget_with_identical_logdet() {
     // softmax negative-logit curvature is indefinite, so factoring there at
     // ridge 0 surfaces `PerRowFactorFailed` for BOTH the dense and streaming
     // paths. Converge the inner `(t, β)` state first (matching how
-    // `reml_criterion_with_cache` reaches a PD block), then compare the
+    // `penalized_quasi_laplace_criterion_with_cache` reaches a PD block), then compare the
     // streaming-vs-dense log-determinants of the SAME converged system —
     // which is the routing invariant this test pins (#847).
-    full.reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
-        .unwrap();
+    full.penalized_quasi_laplace_criterion_with_cache(
+        target.view(),
+        &rho,
+        None,
+        2,
+        0.25,
+        1.0e-4,
+        1.0e-4,
+    )
+    .unwrap();
     let sys = full
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
@@ -3796,18 +3859,14 @@ pub(crate) fn matrix_free_plan_admits_when_in_core_budget_collapses_to_zero() {
     assert!(plan.admitted_or_error(n_obs, border_dim, k_atoms).is_ok());
 }
 
-/// Build a `K`-atom softmax SAE term whose per-row logits concentrate on a
-/// planted small support, for the #1450 end-to-end large-K compact-path test.
+/// Build a `K`-atom hard-TopK SAE term with a planted small support.
 ///
 /// Every atom is a 1-D `EuclideanPatch` with an `M=2` constant+linear basis and
 /// a distinct decoder direction, so the reconstruction is genuine and the
 /// per-row Arrow-Schur block has a real data-fit Gauss-Newton contribution.
-/// Row `i`'s logits put large mass on its planted active atoms and a uniform
-/// floor on every other atom, so the softmax assignment vector concentrates on
-/// the planted set (the true top-`k` support) while the dropped tail carries
-/// negligible `O(a)` mass — exactly the regime the compact softmax layout
-/// (#1408/#1409) is meant to optimize.
-fn planted_softmax_sae_term(
+/// Row `i`'s logits rank its planted atoms above every other atom, so the hard
+/// forward model and compact derivative system have exactly the same support.
+fn planted_topk_sae_term(
     n: usize,
     k_atoms: usize,
     planted: &[Vec<usize>],
@@ -3832,7 +3891,7 @@ fn planted_softmax_sae_term(
         let mut decoder = Array2::<f64>::zeros((2, p));
         decoder[[1, atom_idx % p]] = 0.1 + 0.01 * ((atom_idx % 7) as f64);
         atoms.push(
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 format!("atom{atom_idx}"),
                 SaeAtomBasisKind::EuclideanPatch,
                 1,
@@ -3857,7 +3916,7 @@ fn planted_softmax_sae_term(
         logits,
         coord_blocks,
         manifolds,
-        AssignmentMode::softmax(1.0),
+        AssignmentMode::top_k_support(planted[0].len()),
     )
     .unwrap();
     let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
@@ -3865,16 +3924,14 @@ fn planted_softmax_sae_term(
     (term, target)
 }
 
-/// #1450 — end-to-end large-`K` compact-path contract for the softmax SAE
-/// encode: the assignment→support-proposal→assembly path must produce a per-row
+/// End-to-end large-`K` compact-path contract for the hard-TopK SAE: the
+/// assignment→support→assembly path must produce a per-row
 /// block whose dimension tracks the per-row active-atom count `k_active`, NOT
 /// the total `K`, and the assembled support must recover the planted top-`k`
-/// atoms. This drives the REAL paths #1408/#1409 fixed
-/// (`softmax_active_plan` → `from_dense_weights` → compact `assemble_arrow_schur`
-/// in fixed-decoder mode), not a hand-built `from_active_atoms` layout, and at a
-/// `K` (1000) large enough that a full-`K` per-row block would be ~1000× larger.
+/// atoms at a `K` large enough that a full-support row block would be orders of
+/// magnitude larger.
 #[test]
-pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_support() {
+pub(crate) fn large_k_topk_encode_is_support_bounded_and_exact() {
     let n = 8usize;
     let p = 4usize;
     let top_k = 3usize;
@@ -3886,17 +3943,14 @@ pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_suppor
     // support; the per-row compact dims must be IDENTICAL (n-free / independent
     // of K) and bounded by O(top_k).
     let assemble_dims = |k_atoms: usize| -> (Vec<usize>, Vec<Vec<usize>>) {
-        let (mut term, target) = planted_softmax_sae_term(n, k_atoms, &planted, p);
-        // Fold top_k into the OPTIMIZATION (the #1409 fix): softmax now engages
-        // the compact top-`k` row layout instead of a post-fit projection.
-        term.set_softmax_active_cap(Some(top_k));
+        let (mut term, target) = planted_topk_sae_term(n, k_atoms, &planted, p);
         // Fixed-decoder encode assembly (the #1407 path the encoder uses): only
         // the per-row htt/gt block is produced.
         term.fixed_decoder_assembly = true;
         let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k_atoms]);
         let sys = term
             .assemble_arrow_schur(target.view(), &rho, None)
-            .expect("compact softmax fixed-decoder assembly must succeed at large K");
+            .expect("exact TopK fixed-decoder assembly must succeed at large K");
         let dims: Vec<usize> = sys.rows.iter().map(|r| r.htt.nrows()).collect();
         // Each row's htt must be square and match gt.
         for r in &sys.rows {
@@ -3906,7 +3960,7 @@ pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_suppor
         let layout = term
             .last_row_layout
             .clone()
-            .expect("softmax at large K must engage the COMPACT active-set layout (#1408)");
+            .expect("TopK must install its exact compact support layout");
         let active: Vec<Vec<usize>> = layout.active_atoms.clone();
         (dims, active)
     };
@@ -3915,10 +3969,10 @@ pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_suppor
     let (dims_10k, active_10k) = assemble_dims(10_000);
 
     // (a) O(1)-per-token / n-free: per-row block dim is bounded by the active
-    // contract `top_k·(1 + d) = top_k·2` for d=1 coords, and is IDENTICAL across
+    // contract `top_k·d = top_k` for d=1 coords, and is IDENTICAL across
     // K=1000 and K=10000 (independent of total K). A full-K block would be
-    // `q = (K-1) + K·d`, i.e. ~3000 and ~30000 — orders of magnitude larger.
-    let bound = top_k * (1 + 1); // |active| + Σ d_k  (d_k = 1)
+    // `q = K·d`, i.e. 1000 and 10000 — orders of magnitude larger.
+    let bound = top_k; // no free gate coordinates; only Σ d_k
     for row in 0..n {
         assert!(
             dims_1k[row] <= bound,
@@ -3935,7 +3989,7 @@ pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_suppor
     // The full-K dense block would dwarf the compact one: assert the compact
     // total work is < 1/100 of the dense block even at the smaller K=1000.
     let compact_work: usize = dims_1k.iter().map(|&q| q * q).sum();
-    let dense_q = (1_000 - 1) + 1_000; // (K-1) free logits + K coord axes
+    let dense_q = 1_000; // K coordinate axes; TopK has no gate coordinates
     let dense_work = n * dense_q * dense_q;
     assert!(
         compact_work * 100 < dense_work,
@@ -3963,16 +4017,20 @@ pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_suppor
 pub(crate) fn sparse_active_layout_work_scales_with_active_atoms_not_total_k() {
     let n = 3;
     let k_atoms = 100_000;
-    let mut active_rows = Vec::with_capacity(n);
+    let mut gates = Vec::with_capacity(n);
     for row in 0..n {
-        active_rows.push(vec![row, 10_000 + row, 90_000 + row]);
+        let mut row_gates = Array1::<f64>::zeros(k_atoms);
+        for atom in [row, 10_000 + row, 90_000 + row] {
+            row_gates[atom] = 1.0;
+        }
+        gates.push(row_gates);
     }
     let coord_dims = vec![1usize; k_atoms];
-    let coord_offsets_full: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
-    let layout = SaeRowLayout::from_active_atoms(active_rows, coord_dims, coord_offsets_full);
+    let coord_offsets_full: Vec<usize> = (0..k_atoms).collect();
+    let layout = SaeRowLayout::from_topk_gates(&gates, 3, coord_dims, coord_offsets_full).unwrap();
     for row in 0..n {
         assert_eq!(layout.active_atoms[row].len(), 3);
-        assert_eq!(layout.row_q_active(row), 6);
+        assert_eq!(layout.row_q_active(row), 3);
     }
     let compact_work: usize = (0..n)
         .map(|row| {
@@ -3980,10 +4038,10 @@ pub(crate) fn sparse_active_layout_work_scales_with_active_atoms_not_total_k() {
             q * q
         })
         .sum();
-    let dense_q = 2 * k_atoms;
+    let dense_q = k_atoms;
     let dense_work = n * dense_q * dense_q;
     assert!(compact_work < dense_work / 1_000_000_000);
-    assert_eq!(compact_work, n * 36);
+    assert_eq!(compact_work, n * 9);
 }
 
 /// Regression test for https://github.com/SauersML/gam/issues/163.
@@ -4009,7 +4067,7 @@ pub(crate) fn run_joint_fit_arrow_schur_escalates_ridge_on_non_pd_row_block() {
     // recover.
     let coords = array![[0.1], [0.4], [0.7]];
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4056,7 +4114,7 @@ pub(crate) fn run_joint_fit_arrow_schur_escalates_ridge_on_non_pd_row_block() {
 /// collapses so basis columns are linearly dependent IN THE DATA — the bare
 /// data Gram `G_k` is rank-deficient (`[SAE-AUDIT]` `rank r/M`). The deep fix
 /// discovers that dead subspace `N_k` from `G_k` and returns a projector
-/// `Π_k = N_k N_kᵀ` (a) so the inner solve & evidence log-det deflate the dead
+/// `Π_k = N_k N_kᵀ` (a) so the inner solve & criterion log-det deflate the dead
 /// directions at unit stiffness (no ρ-dependent flat valley), and (b) so the
 /// converged decoder is projected onto `range(G_k)` (the rank-`r` oracle).
 ///
@@ -4084,7 +4142,7 @@ pub(crate) fn rank_revealing_reduction_collapses_unexcited_circle_harmonic_to_fu
     );
     let penalty = Array2::<f64>::eye(5);
     let decoder = array![[0.05], [-0.05], [0.05], [0.02], [-0.02]];
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4317,7 +4375,7 @@ pub(crate) fn production_builder_circle_reduces_rank_and_completes_stage1_step0_
         penalties.view(),
         logits.view(),
         std::slice::from_ref(&coords),
-        AssignmentMode::ibp_map(1.0, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(1.0, 1.0, false),
         &evaluators,
     )
     .unwrap();
@@ -4388,7 +4446,7 @@ pub(crate) fn rank_reduction_is_idempotent_on_already_reduced_atom() {
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let penalty = Array2::<f64>::eye(5);
     let decoder = array![[0.05], [-0.05], [0.05], [0.02], [-0.02]];
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4455,7 +4513,7 @@ pub(crate) fn full_rank_circle_design_keeps_full_harmonic_depth_unchanged() {
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let penalty = Array2::<f64>::eye(5);
     let decoder = array![[0.05], [-0.05], [0.05], [0.02], [-0.02]];
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4524,7 +4582,7 @@ pub(crate) fn solve_newton_step_escalates_ridge_on_non_pd_row_block() {
     // 1e-6 the Cholesky still finds a tiny negative pivot from rounding.
     let coords = array![[0.1], [0.4], [0.7]];
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4559,7 +4617,7 @@ pub(crate) fn solve_newton_step_escalates_ridge_on_non_pd_row_block() {
 pub(crate) fn sae_arrow_schur_beta_quadratic_model_matches_penalized_loss_change() {
     let coords = array![[0.10], [0.35], [0.80]];
     let (phi, jet) = periodic_basis(&coords);
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -4714,123 +4772,77 @@ pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
     }
 }
 
-/// `SaeRowLayout::from_dense_weights` must keep, per row, the
-/// top-`k_active_cap` atoms above the magnitude cutoff (always at least
-/// one), with compact coord starts that reproduce the `expand_row`
-/// round-trip back to full-q positions.
+/// `SaeRowLayout::from_topk_gates` records exactly the binary support and its
+/// compact coordinate starts reproduce the expansion into full coordinates.
 
 #[test]
-pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
-    // 3 atoms, coord dims [2, 1, 2] ⇒ full q = 3 + 5 = 8.
+pub(crate) fn sae_row_layout_from_topk_gates_is_exact() {
+    // 3 atoms, coord dims [2, 1, 2] ⇒ full q = 5 (TopK has no logit slots).
     let coord_dims = vec![2usize, 1, 2];
-    let coord_offsets_full = vec![3usize, 5, 6];
+    let coord_offsets_full = vec![0usize, 2, 3];
     let assignments = vec![
-        // Row 0: weights [0.7, 0.01, 0.29]; row peak 0.7, cutoff
-        // 0.05·0.7 = 0.035, cap 2 ⇒ {0, 2} (0.01 is below cutoff).
-        Array1::from_vec(vec![0.7, 0.01, 0.29]),
-        // Row 1 (#1414): uniformly small weights [0.001, 0.002, 0.0005].
-        // Row-relative cutoff 0.05·0.002 = 1e-4 keeps the two above it
-        // (atoms 1 and 0), NOT a single atom — a GLOBAL cutoff against
-        // row 0's peak (0.035) would have wrongly dropped this whole row to
-        // its single largest atom. Cap 2 ⇒ {0, 1}.
-        Array1::from_vec(vec![0.001, 0.002, 0.0005]),
+        Array1::from_vec(vec![1.0, 0.0, 1.0]),
+        Array1::from_vec(vec![1.0, 1.0, 0.0]),
     ];
-    let layout = SaeRowLayout::from_dense_weights(
-        &assignments,
-        2,
-        0.05,
-        coord_dims,
-        coord_offsets_full,
-        None,
-    );
+    let layout =
+        SaeRowLayout::from_topk_gates(&assignments, 2, coord_dims, coord_offsets_full).unwrap();
     assert_eq!(layout.active_atoms[0], vec![0, 2]);
     assert_eq!(layout.active_atoms[1], vec![0, 1]);
-    // Row 0 compact dim = |{0,2}| + d_0 + d_2 = 2 + 2 + 2 = 6.
-    assert_eq!(layout.row_q_active(0), 6);
-    // Row 1 compact dim = |{0,1}| + d_0 + d_1 = 2 + 2 + 1 = 5.
-    assert_eq!(layout.row_q_active(1), 5);
-    // expand_row round-trip for row 0: compact [logit0, logit2, t0_0,
-    // t0_1, t2_0, t2_1] → full-q with zeros for inactive atom 1.
-    let compact = vec![1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0];
-    let mut full = vec![0.0_f64; 8];
+    assert_eq!(layout.row_q_active(0), 4);
+    assert_eq!(layout.row_q_active(1), 3);
+    // Row 0 compact [t0_0, t0_1, t2_0, t2_1] expands with atom 1 zero.
+    let compact = vec![1.0_f64, 2.0, 3.0, 4.0];
+    let mut full = vec![0.0_f64; 5];
     layout.expand_row(0, &compact, &mut full);
-    // logits: full[0] = atom0 logit, full[2] = atom2 logit, full[1] = 0.
     assert_eq!(full[0], 1.0);
-    assert_eq!(full[1], 0.0);
-    assert_eq!(full[2], 2.0);
-    // coords: atom0 at offset 3 (d=2), atom2 at offset 6 (d=2); atom1
-    // (offset 5, d=1) is inactive ⇒ zero.
+    assert_eq!(full[1], 2.0);
+    assert_eq!(full[2], 0.0);
     assert_eq!(full[3], 3.0);
     assert_eq!(full[4], 4.0);
-    assert_eq!(full[5], 0.0);
-    assert_eq!(full[6], 5.0);
-    assert_eq!(full[7], 6.0);
 }
 
-/// #1450: drive the REAL high-K support-proposal path (`from_dense_weights`,
-/// the routine #1411 fixed to use an O(K) partial-select instead of a full
-/// O(K log K) per-row sort) at production scale (K = 100_000) and assert the
-/// headline contract: per-token assembly work depends on `k_active`, NOT on
-/// total `K`. The existing `from_dense_weights` coverage
-/// (`sae_row_layout_from_dense_weights_top_k_and_cutoff`) runs only at K = 3,
-/// and `sparse_active_layout_work_scales_with_active_atoms_not_total_k` builds
-/// its layout from an already-known 3-atom active set via `from_active_atoms`,
-/// so neither exercises the actual proposal/selection at large K. This does:
-/// it constructs a dense K = 100_000 weight vector per row, runs the proposal,
-/// checks support recovery is exact, and pins the compact work to be
-/// independent of K (`q_active` set only by `cap` + active coord dims).
-// #1450 (salvaged from PR #1461 by HomunculusLabs): large-K (K=100000) end-to-end
-// `from_dense_weights` coverage — exact support recovery + K-independent compact work.
+/// Large-K hard-TopK layout: exact binary support recovery and coordinate work
+/// independent of total dictionary width.
 #[test]
-pub(crate) fn from_dense_weights_large_k_support_proposal_1450() {
+pub(crate) fn from_topk_gates_large_k_support_is_exact() {
     let (k_atoms, d, k_true, n) = (100_000_usize, 1, 4, 4);
     let planted: Vec<usize> = (0..k_true).map(|j| j * k_atoms / k_true).collect();
     let assignments: Vec<Array1<f64>> = (0..n)
-        .map(|row| {
-            let mut a = vec![1e-9_f64; k_atoms];
-            for (i, &atom) in planted.iter().enumerate() {
-                a[atom] = 0.2 + 0.01 * (row + i) as f64;
+        .map(|_| {
+            let mut a = vec![0.0_f64; k_atoms];
+            for &atom in &planted {
+                a[atom] = 1.0;
             }
             Array1::from_vec(a)
         })
         .collect();
-    let coord_offsets: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
-    let layout = SaeRowLayout::from_dense_weights(
-        &assignments,
-        k_true,
-        1e-3,
-        vec![d; k_atoms],
-        coord_offsets,
-        None,
-    );
+    let coord_offsets: Vec<usize> = (0..k_atoms).collect();
+    let layout =
+        SaeRowLayout::from_topk_gates(&assignments, k_true, vec![d; k_atoms], coord_offsets)
+            .unwrap();
     for row in 0..n {
         assert_eq!(layout.active_atoms[row], planted, "row {row} wrong atoms");
-        assert_eq!(layout.row_q_active(row), k_true + k_true * d);
+        assert_eq!(layout.row_q_active(row), k_true * d);
     }
     let compact_work: usize = (0..n).map(|r| layout.row_q_active(r).pow(2)).sum();
-    assert!(compact_work < n * (k_atoms * (1 + d)).pow(2) / 1_000_000);
+    assert!(compact_work < n * (k_atoms * d).pow(2) / 1_000_000);
 }
 
 #[test]
-pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active() {
+pub(crate) fn sae_row_layout_from_topk_gates_large_k_work_scales_with_support() {
     let n = 4usize;
     let k_atoms = 100_000usize;
     let cap = 8usize;
-    let relative_cutoff = 0.05_f64;
-    // Per row, plant `cap` large weights at known indices (descending so the
-    // row peak is unambiguous) on a background of tiny weights well below the
-    // row-relative cutoff. Support recovery must return exactly the planted set.
+    // Per row, plant exactly `cap` binary gates at known indices.
     let mut planted: Vec<Vec<usize>> = Vec::with_capacity(n);
     let mut assignments: Vec<Array1<f64>> = Vec::with_capacity(n);
     for row in 0..n {
-        let mut a = Array1::<f64>::from_elem(k_atoms, 1e-6);
+        let mut a = Array1::<f64>::zeros(k_atoms);
         let mut plant = Vec::with_capacity(cap);
         for j in 0..cap {
-            // Spread the planted atoms across the index range so a tail-only or
-            // prefix-only selector would miss some; magnitudes 1.0 down to
-            // ~0.3, all far above `relative_cutoff * peak = 0.05`.
+            // Spread the planted atoms across the index range.
             let idx = (row + j * (k_atoms / cap)) % k_atoms;
-            a[idx] = 1.0 - 0.1 * j as f64;
+            a[idx] = 1.0;
             plant.push(idx);
         }
         plant.sort_unstable();
@@ -4838,15 +4850,9 @@ pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active(
         assignments.push(a);
     }
     let coord_dims = vec![1usize; k_atoms];
-    let coord_offsets_full: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
-    let layout = SaeRowLayout::from_dense_weights(
-        &assignments,
-        cap,
-        relative_cutoff,
-        coord_dims,
-        coord_offsets_full,
-        None,
-    );
+    let coord_offsets_full: Vec<usize> = (0..k_atoms).collect();
+    let layout =
+        SaeRowLayout::from_topk_gates(&assignments, cap, coord_dims, coord_offsets_full).unwrap();
     for row in 0..n {
         // Exact support recovery: the proposal must return exactly the planted
         // top-`cap` atoms (all background weights are below the cutoff).
@@ -4854,9 +4860,7 @@ pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active(
             layout.active_atoms[row], planted[row],
             "row {row}: support recovery mismatch"
         );
-        // Compact dim is bounded by `cap` (+ one coord axis each), independent
-        // of K: q_active = cap + cap·1 = 2·cap.
-        assert_eq!(layout.row_q_active(row), 2 * cap, "row {row}: q_active");
+        assert_eq!(layout.row_q_active(row), cap, "row {row}: q_active");
     }
     let compact_work: usize = (0..n)
         .map(|row| {
@@ -4867,10 +4871,10 @@ pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active(
     // The dense per-token cost would be `q² = (2K)²`; the compact contract is
     // `(2·cap)²` — independent of K. Pin the K-independent exact value AND that
     // it is astronomically below the dense full-K work.
-    assert_eq!(compact_work, n * (2 * cap) * (2 * cap));
-    let dense_q = 2 * k_atoms;
+    assert_eq!(compact_work, n * cap * cap);
+    let dense_q = k_atoms;
     let dense_work = n * dense_q * dense_q;
-    // The work ratio is EXACTLY `(2K)² / (2·cap)² = (K/cap)²` (the `n` token
+    // The work ratio is exactly `K² / cap² = (K/cap)²` (the `n` token
     // factor cancels), so for K = 100 000, cap = 8 the compact path is
     // `12500² = 156_250_000`× cheaper. Pin that exact astronomical factor — a
     // strictly stronger guard than the previous `< dense_work / 1e9`, whose
@@ -4991,7 +4995,7 @@ pub(crate) fn sae_mechsparsity_beta_block_routes_through_arrow_schur_gb() {
         [-0.5, 0.6, -0.1, 0.3],
         [0.2, 0.0, -0.4, -0.6],
     ];
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -5114,7 +5118,7 @@ pub(crate) fn sae_nuclear_norm_beta_block_routes_through_gb_and_shrinks_spectrum
     ];
     let m = 3usize;
     let p = 4usize;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic",
         SaeAtomBasisKind::Periodic,
         1,
@@ -5248,7 +5252,7 @@ fn hetero_compat_term(d0: usize, d1: usize) -> SaeManifoldTerm {
     let p = 3usize;
     let m = 2usize;
     let make_atom = |name: &'static str, d: usize| {
-        SaeManifoldAtom::new(
+        SaeManifoldAtom::new_with_provided_function_gram(
             name,
             SaeAtomBasisKind::EuclideanPatch,
             d,
@@ -5283,7 +5287,7 @@ fn hetero_compat_term(d0: usize, d1: usize) -> SaeManifoldTerm {
 /// #2098 (SPEC-8) / F6 — the heterogeneous-`d_atom` + row-block-penalty guard,
 /// after the F6 composition split. It must refuse a heterogeneous dictionary
 /// ONLY when a *non-composing*, fixed-`d` structural row-block penalty is present
-/// (block-orthogonality / TopK / JumpReLU / row-precision), and ADMIT the
+/// (block-orthogonality / TopK / ThresholdGate / row-precision), and ADMIT the
 /// dim-adaptive penalties that compose per atom (SCAD-MCP, sparsity, native ARD,
 /// isometry) — those are exactly what the flagship evidence-heterogeneous
 /// dictionary + gauge/ARD machinery need to run together.
@@ -5394,7 +5398,7 @@ fn ard_atom_and_coord(
     let (n, d) = coords.dim();
     let m = 2usize;
     let p = 3usize;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         name,
         SaeAtomBasisKind::EuclideanPatch,
         d,
@@ -5407,10 +5411,59 @@ fn ard_atom_and_coord(
     (atom, manifold, coords)
 }
 
+/// The periodic ARD partition is a centered Bessel expression. At large
+/// precision, separately forming `-eta + log I0(eta)` rounds both terms to the
+/// same enormous float and loses the `-½ log(2πη)` normalizer; likewise
+/// `eta·(I1/I0-1)` becomes zero after the ratio rounds to one. Pin both the
+/// value and its log-precision derivative in that regime.
+#[test]
+pub(crate) fn periodic_ard_centered_bessel_value_gradient_survive_domain_edge() {
+    let n = 3usize;
+    let coords = Array2::<f64>::zeros((n, 1));
+    let manifold = LatentManifold::Circle { period: 1.0 };
+    let (atom, manifold, coords) = ard_atom_and_coord("circle", manifold, coords);
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![manifold],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let log_alpha = LOG_STRENGTH_MAX - 1.0e-3;
+    let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![log_alpha]]);
+
+    let value = term.ard_value(&rho).unwrap();
+    let log_eta = log_alpha - 2.0 * std::f64::consts::TAU.ln();
+    let expected = -0.5 * n as f64 * (std::f64::consts::TAU.ln() + log_eta);
+    assert!(value.is_finite());
+    assert!(
+        (value - expected).abs() < 2.0e-8,
+        "centered periodic normalizer drifted: value={value}, expected={expected}"
+    );
+
+    let derivative = term.ard_log_precision_explicit_derivatives(&rho).unwrap()[0][0];
+    assert!(derivative.is_finite());
+    assert!(
+        (derivative + 0.5 * n as f64).abs() < 1.0e-12,
+        "periodic normalizer derivative lost its -n/2 limit: {derivative}"
+    );
+
+    let step = 1.0e-4;
+    let plus = SaeManifoldRho::new(0.0, 0.0, vec![array![log_alpha + step]]);
+    let minus = SaeManifoldRho::new(0.0, 0.0, vec![array![log_alpha - step]]);
+    let finite_difference =
+        (term.ard_value(&plus).unwrap() - term.ard_value(&minus).unwrap()) / (2.0 * step);
+    assert!(
+        (finite_difference - derivative).abs() < 2.0e-7,
+        "periodic ARD value/gradient mismatch: analytic={derivative}, finite_difference={finite_difference}"
+    );
+}
+
 /// F6 (fit-level composition): the native ARD energy on a coordinate-
 /// HETEROGENEOUS `{circle d=1, patch d=2, linear d=1}` dictionary is *exactly*
 /// the sum of the per-atom ARD energies — the same per-atom-additive
-/// decomposition the Laplace/REML evidence sums over atoms — so admitting ARD on
+/// decomposition the penalized quasi-Laplace score sums over atoms — so admitting ARD on
 /// a mixed dictionary (the F6 composition) keeps the evidence exact with no
 /// padding or truncation. This is the concrete counterpart to the validator
 /// test: the gate opens (validator) AND the energy it lets through composes

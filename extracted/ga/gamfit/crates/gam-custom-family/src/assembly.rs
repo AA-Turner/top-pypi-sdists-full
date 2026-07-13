@@ -75,7 +75,7 @@ pub(crate) fn build_custom_family_inner_assembly<'dp>(
         .iter()
         .map(|v| v.as_slice())
         .collect();
-    let penalty_logdet_ridge = if options.ridge_policy.include_penalty_logdet {
+    let penalty_logdet_ridge = if options.ridge_policy.accounts_for_objective() {
         ridge
     } else {
         0.0
@@ -91,10 +91,10 @@ pub(crate) fn build_custom_family_inner_assembly<'dp>(
     // assembly is byte-identical to the per-block-only path.
     let joint_bundle = options.joint_penalties.as_deref();
     let joint_log_lambdas: Vec<f64> = joint_bundle
-        .map(|b| b.log_lambdas.clone())
+        .map(|b| b.log_lambdas().to_vec())
         .unwrap_or_default();
     let joint_penalty_matrices: Vec<Array2<f64>> = joint_bundle
-        .map(|b| b.specs.iter().map(|s| s.matrix.clone()).collect())
+        .map(|b| b.specs().iter().map(|s| s.matrix.clone()).collect())
         .unwrap_or_default();
     for matrix in &joint_penalty_matrices {
         let root = penalty_matrix_root(matrix)?;
@@ -617,7 +617,7 @@ pub(crate) fn unified_joint_efs_eval(
     if has_psi {
         let inner_hessian_scale =
             hessian_factorization_geometric_scale(inner_solution.hessian_op.as_ref());
-        let hybrid = compute_hybrid_efs_update(&inner_solution, rho_slice, gradient_slice);
+        let hybrid = compute_hybrid_efs_update(&inner_solution, rho_slice, gradient_slice)?;
         Ok(gam_problem::EfsEval {
             cost: result.cost,
             steps: hybrid.steps,
@@ -641,7 +641,7 @@ pub(crate) fn unified_joint_efs_eval(
             hessian_factorization_geometric_scale(inner_solution.hessian_op.as_ref());
         Ok(gam_problem::EfsEval {
             cost: result.cost,
-            steps: compute_efs_update(&inner_solution, rho_slice, gradient_slice),
+            steps: compute_efs_update(&inner_solution, rho_slice, gradient_slice)?,
             beta: Some(inner_solution.beta.clone()),
             psi_gradient: None,
             psi_indices: None,
@@ -1885,18 +1885,12 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
         );
     }
     let ridge = effective_solverridge(options.ridge_floor);
-    let moderidge = if options.ridge_policy.include_quadratic_penalty {
+    let moderidge = if options.ridge_policy.accounts_for_objective() {
         ridge
     } else {
         0.0
     };
-    let extra_logdet_ridge = if options.ridge_policy.include_penalty_logdet
-        && !options.ridge_policy.include_quadratic_penalty
-    {
-        ridge
-    } else {
-        0.0
-    };
+    let extra_logdet_ridge = 0.0;
 
     refresh_all_block_etas(family, specs, &mut inner.block_states)?;
     let ranges = block_param_ranges(specs);
@@ -1990,8 +1984,8 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                     spec,
                     block_idx,
                     |x_dyn, _| {
-                        let w = floor_positiveworking_weights(working_weights, options.minweight)?;
-                        let (xtwx, _) = weighted_normal_equations(x_dyn, &w, None)?;
+                        let w = certify_finite_working_weights(working_weights)?;
+                        let (xtwx, _) = weighted_normal_equations(x_dyn, w, None)?;
                         diagonal_design = Some(x_dyn.clone());
                         Ok(xtwx)
                     },
@@ -2047,8 +2041,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                         "missing dynamic design for block {block_idx} diagonal fixed-point correction"
                                     )
                                 })?;
-                        let wwork =
-                            floor_positiveworking_weights(working_weights, options.minweight)?;
+                        let wwork = certify_finite_working_weights(working_weights)?;
                         let x_dense = x_dyn.to_dense();
                         let n = x_dense.nrows();
 
@@ -2081,7 +2074,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                             }
                         }
 
-                        let mut dw = family
+                        let dw = family
                                     .diagonalworking_weights_directional_derivative(
                                         &inner.block_states,
                                         block_idx,
@@ -2099,23 +2092,6 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                 n
                             ) }.into());
                         }
-                        // The Hessian VALUE above uses
-                        // `floor_positiveworking_weights(w, minweight)`, which is
-                        // CONSTANT (0 or minweight) on every row with
-                        // w_i < minweight (incl. w_i ≤ 0). The exact directional
-                        // derivative of that floored surface is therefore zero on
-                        // those rows; leaving the raw family dW there makes the
-                        // ½tr(H⁻¹Ḣ) EFS gradient differentiate a different
-                        // operator than the ½log|H_pen| value — the same
-                        // reconciliation the wx/wdx geometry terms already get
-                        // through `wwork`.
-                        ndarray::Zip::from(&mut dw)
-                            .and(working_weights)
-                            .par_for_each(|d, &wi| {
-                                if !(wi.is_finite() && wi >= options.minweight) {
-                                    *d = 0.0;
-                                }
-                            });
                         let mut scaled_x = x_dense.clone();
                         ndarray::Zip::from(scaled_x.rows_mut())
                             .and(&dw)
@@ -2156,7 +2132,10 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                     }
                     BlockWorkingSet::Diagonal {
                         working_response: _,
-                        working_weights,
+                        // The diagonal d2H correction re-derives curvature through
+                        // `diagonalworking_weights_second_directional_derivative`
+                        // (`d2w` below), so the base working weights are unused here.
+                        working_weights: _,
                     } => {
                         let x_dyn = diagonal_design.as_ref().ok_or_else(|| {
                             format!(
@@ -2200,7 +2179,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                         )?;
                         let d_eta_u = x_dyn.matrixvectormultiply(u);
                         let d_eta_v = x_dyn.matrixvectormultiply(v);
-                        let mut d2w = family
+                        let d2w = family
                             .diagonalworking_weights_second_directional_derivative(
                                 &inner.block_states,
                                 block_idx,
@@ -2219,17 +2198,6 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
                                 n
                             ) }.into());
                         }
-                        // Same floored-surface reconciliation as the first-order
-                        // dW above: the value Hessian's floored weights are
-                        // constant on w_i < minweight rows, so their second
-                        // directional derivative is zero there too.
-                        ndarray::Zip::from(&mut d2w)
-                            .and(working_weights)
-                            .par_for_each(|d, &wi| {
-                                if !(wi.is_finite() && wi >= options.minweight) {
-                                    *d = 0.0;
-                                }
-                            });
                         let mut scaled_x = x_dense.clone();
                         ndarray::Zip::from(scaled_x.rows_mut())
                             .and(&d2w)
@@ -2402,24 +2370,24 @@ pub(crate) fn normalize_outer_eval_error_detail(error: &str) -> &str {
 /// zero (the ψ coordinate does not move any realized penalty).
 pub(crate) fn assemble_block_local_s_psi(
     deriv: &CustomFamilyBlockPsiDerivative,
-    per_block_rho: &Array1<f64>,
+    per_block_lambdas: &Array1<f64>,
     p_block: usize,
 ) -> Array2<f64> {
     if let Some(ref components) = deriv.s_psi_penalty_components {
         let mut s = Array2::<f64>::zeros((p_block, p_block));
         for (penalty_idx, s_part) in components {
-            s_part.add_scaled_to(per_block_rho[*penalty_idx].exp(), &mut s);
+            s_part.add_scaled_to(per_block_lambdas[*penalty_idx], &mut s);
         }
         return s;
     }
     if let Some(ref components) = deriv.s_psi_components {
         let mut s = Array2::<f64>::zeros((p_block, p_block));
         for (penalty_idx, s_part) in components {
-            s.scaled_add(per_block_rho[*penalty_idx].exp(), s_part);
+            s.scaled_add(per_block_lambdas[*penalty_idx], s_part);
         }
         s
     } else if let Some(penalty_idx) = deriv.penalty_index {
-        deriv.s_psi.mapv(|v| per_block_rho[penalty_idx].exp() * v)
+        deriv.s_psi.mapv(|v| per_block_lambdas[penalty_idx] * v)
     } else {
         Array2::<f64>::zeros((p_block, p_block))
     }
@@ -2434,14 +2402,14 @@ pub(crate) fn assemble_block_local_s_psi(
 pub(crate) fn assemble_block_local_s_psi_psi(
     deriv_i: &CustomFamilyBlockPsiDerivative,
     local_j: usize,
-    per_block_rho: &Array1<f64>,
+    per_block_lambdas: &Array1<f64>,
     p_block: usize,
 ) -> Array2<f64> {
     if let Some(ref parts) = deriv_i.s_psi_psi_penalty_components {
         let mut s = Array2::<f64>::zeros((p_block, p_block));
         if let Some(pair_parts) = parts.get(local_j) {
             for (penalty_idx, s_part) in pair_parts {
-                s_part.add_scaled_to(per_block_rho[*penalty_idx].exp(), &mut s);
+                s_part.add_scaled_to(per_block_lambdas[*penalty_idx], &mut s);
             }
         }
         return s;
@@ -2450,14 +2418,14 @@ pub(crate) fn assemble_block_local_s_psi_psi(
         let mut s = Array2::<f64>::zeros((p_block, p_block));
         if let Some(pair_parts) = parts.get(local_j) {
             for (penalty_idx, s_part) in pair_parts {
-                s.scaled_add(per_block_rho[*penalty_idx].exp(), s_part);
+                s.scaled_add(per_block_lambdas[*penalty_idx], s_part);
             }
         }
         s
     } else if let Some(ref parts) = deriv_i.s_psi_psi {
         if let Some(s_part) = parts.get(local_j) {
             if let Some(penalty_index) = deriv_i.penalty_index {
-                s_part.mapv(|v| per_block_rho[penalty_index].exp() * v)
+                s_part.mapv(|v| per_block_lambdas[penalty_index] * v)
             } else {
                 Array2::<f64>::zeros((p_block, p_block))
             }

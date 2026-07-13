@@ -1,271 +1,70 @@
-//! Survival marginal-slope rigid per-row NLL jet on the GPU (#932 → A100 cutover).
+//! Survival marginal-slope rigid per-row V/G/H jet on the GPU.
 //!
-//! The rigid survival marginal-slope `RowKernel<4>`
-//! ([`crate::survival::marginal_slope::row_kernel::rigid_row_nll`], the
-//! #932 unified single source) computes, per row, the order-2 derivative tower
-//! `(v, g[4], H[4][4])` of the negative log-likelihood
+//! The production cache builder requests exactly the order-2 channels
+//! `(value, gradient[4], Hessian[4][4])`. Large admitted batches execute the
+//! order-2 CUDA lowering of
+//! [`crate::survival::marginal_slope::row_kernel::rigid_row_nll`]; smaller or
+//! unavailable-device batches use the ordinary per-row cache path. Contracted
+//! third/fourth derivatives have separate live CPU consumers whose directions
+//! vary by row and are intentionally not part of this batch API.
 //!
-//! ```text
-//!   c(g)  = √(1 + (s·g)²·cov),   η0 = q0·c + s·g·z,   η1 = q1·c + s·g·z,
-//!   ad1   = qd1·c,
-//!   ℓ     = +w·logΦ(−η0) + w·(1−d)·logΦ(−η1) − w·d·(logφ(η1) + log ad1)
-//! ```
-//!
-//! plus the contracted third `Σ_c ℓ_{abc} dir_c` and fourth
-//! `Σ_{cd} ℓ_{abcd} u_c v_d`. Each row evaluates the probit Mills-ratio stack
-//! (`erfcx`/`erfc`) several times — a transcendental + bandwidth wall that the
-//! CPU pays serially per thread across all `n` rows on every inner-Newton step
-//! and on the #979 Jeffreys/Firth all-axes sweeps.
-//!
-//! On an A100 the per-row jet is embarrassingly parallel and the `erfc`/`erfcx`
-//! are hardware f64 special functions. Measured (aga13 A100, full f64, no
-//! fast-math, n=8e6): **~500× kernel-only** over the 16-thread CPU jet and
-//! **~160× end-to-end** with the on-device reduction. The standalone
-//! measurement prototype lives at
-//! `src/gpu/proto/survival_marginal_slope_jet_932.cu`.
-//!
-//! # CPU↔device parity (#415 / #1175)
-//!
-//! The device kernel runs the SAME seeded-jet arithmetic as the CPU jet (pinned
-//! line-for-line by the host-oracle `*_tests` module on every box), so the
-//! CPU↔device residual is NOT an algebra mismatch. After #1686 disabled NVRTC
-//! FMA contraction (`--fmad=false`, applied here because this kernel now
-//! compiles through `device_cache::compile_ptx_arch`, the shared arch+fmad
-//! options), TWO distinct floors remain, with very different magnitudes:
-//!
-//!   * **Low-order channels (value/grad/hess)** — FMA contraction WAS the
-//!     dominant source here, so `--fmad=false` tightened them sharply. Measured
-//!     on a **Tesla V100 (sm_70)**: value 1.5e-10, grad 8.2e-10, hess 8.8e-9
-//!     absolute (≤1.1e-1 normalized to channel magnitude).
-//!   * **High-order channels (third/fourth)** — dominated by *transcendental*
-//!     drift, NOT FMA: CUDA's `erfc`/`erfcx`/`exp`/`sqrt` differ from the host
-//!     libm at the ULP level, and that ε is amplified ~5e8× through the order-4
-//!     seeded-jet chain. `--fmad=false` leaves these essentially unchanged
-//!     (third 5.09e-8, fourth 4.54e-8 absolute — bit-identical to the
-//!     pre-#1686 measurement to 4 sig figs), confirming FMA was never their
-//!     root cause. Normalized to channel magnitude they are ≤1.2e-9 (third) and
-//!     bounded by the magnitude-scaled band below (fourth).
-//!
-//! The parity gate (`tests::device_matches_cpu_when_available`, and the
-//! fail-loud device-only sweep) is therefore a per-channel
-//! `atol + rtol·channel_scale` band, NOT a flat absolute tolerance — see
-//! `tests::PARITY_RTOL` for why a flat `1e-9` absolute bound was wrong (it
-//! ignored both derivative-order amplification AND the transcendental floor
-//! that #1686's FMA fix cannot reach) and why the magnitude-scaled band still
-//! catches any real algebra bug with comfortable headroom. This band is
-//! *complementary* to #1686, not redundant: #1686 removes the FMA component,
-//! the band absorbs the irreducible transcendental component.
-//!
-//! # Single source, exactly
-//!
-//! The device kernel is a byte-faithful port of the seeded-jet arithmetic that
-//! the CPU `rigid_row_nll` runs:
-//!
-//!   * `J2`  — order-2 `(v, g, H)` over `K=4` primaries (mirrors `Order2<4>`);
-//!   * `JS1` — one-seed jet whose ε-Hessian channel IS `Σ_c ℓ_{abc} dir_c`
-//!     (mirrors `OneSeed<4>` — O(K²) state, NOT a dense K³ `t3`);
-//!   * `JS2` — two-seed jet whose εδ-Hessian channel IS `Σ_{cd} ℓ_{abcd} u_c v_d`
-//!     (mirrors `TwoSeed<4>` — O(K²) state, NOT a dense K⁴ `t4`).
-//!
-//! Seeded jets are load-bearing: a dense `Tower4<4>` on device spills 41 KB/thread
-//! (256-entry `t4`) and OOMs the launch local-memory reservation; the seeded jets
-//! drop per-thread stack to ~900 B. The same NLL program (`def_nll!`) is written
-//! ONCE and instantiated at each scalar type — no bespoke gate chain rule, so the
-//! #736 cross-block sign-flip bug genus cannot reappear.
-//!
-//! # CPU fallback
-//!
-//! [`survival_rigid_row_jets`] is the general entry point. When a CUDA device is
-//! admitted and the batch is large enough to amortise the launch it runs the
-//! kernel; otherwise (no Linux / no runtime / probe failure / small `n` / any
-//! device error) it falls back to the CPU `rigid_row_nll` — the SAME unified jet —
-//! so the result is identical and the path is never GPU-only.
+//! The CUDA leaf uses native full-precision `erfc`, while NVRTC compilation
+//! disables FMA contraction for close agreement with separately rounded host
+//! arithmetic. Direct device tests cover both ordinary and probability-tail
+//! rows against the CPU row program.
 
-use crate::survival::marginal_slope::row_kernel::RigidRowInputs;
-
-// #415 parity-lock: a host transcription of the device `.cu` seeded-jet
-// arithmetic, pinned to the production CPU jet on every box. Declared bare
-// (the whole file is `#![cfg(test)]`) with a `*_tests` name so the build.rs
-// ban-scanner exempts the test-only substrate — see `bms::test_support`.
-mod survival_rowjet_host_oracle_tests;
-
-/// Per-row order-≤2 + contracted third/fourth channels for a batch of rows,
-/// flattened row-major. `K = 4` (the rigid survival primaries `q0,q1,qd1,g`).
-///
-/// * `value[row]`            — `ℓ`
-/// * `grad[row*K + a]`       — `∂ℓ/∂p_a`
-/// * `hess[row*K*K + a*K+b]` — `∂²ℓ/∂p_a∂p_b`
-/// * `third[row*K*K + a*K+b]`  — `Σ_c ℓ_{abc} dir_c`        (one fixed `dir`)
-/// * `fourth[row*K*K + a*K+b]` — `Σ_{cd} ℓ_{abcd} u_c v_d`  (one fixed `(u,v)`)
+/// Flattened row-major value, gradient, and Hessian channels for `K = 4`.
+#[cfg(target_os = "linux")]
 #[derive(Debug, Clone, PartialEq)]
-pub struct SurvivalRowJetChannels {
-    pub n_rows: usize,
-    pub value: Vec<f64>,
-    pub grad: Vec<f64>,
-    pub hess: Vec<f64>,
-    pub third: Vec<f64>,
-    pub fourth: Vec<f64>,
+pub(crate) struct SurvivalRowVghChannels {
+    pub(crate) value: Vec<f64>,
+    pub(crate) grad: Vec<f64>,
+    pub(crate) hess: Vec<f64>,
 }
 
-/// The scalar-independent per-row inputs the kernel consumes: the four primaries
-/// `(q0,q1,qd1,g)` and the row scalars `(w,d,z_sum,cov_ones)`. `probit_scale` is
-/// shared across all rows (a scalar kernel argument). These are exactly the
-/// values [`RigidRowInputs`] + `rigid_row_kernel_primaries` produce per row.
+/// Scalar-independent inputs for one rigid survival row.
+#[cfg(target_os = "linux")]
 #[derive(Debug, Clone)]
-pub struct SurvivalRowInputs {
-    pub primaries: [f64; 4],
-    pub wi: f64,
-    pub di: f64,
-    pub z_sum: f64,
-    pub cov_ones: f64,
+pub(crate) struct SurvivalRowInputs {
+    pub(crate) primaries: [f64; 4],
+    pub(crate) wi: f64,
+    pub(crate) di: f64,
+    pub(crate) z_sum: f64,
+    pub(crate) cov_ones: f64,
 }
 
-/// Minimum row count below which the device launch is not worth its fixed cost
-/// (probe + H2D + D2H). Below this the CPU path is used even when a device is
-/// available; the result is identical (same unified jet). The standalone A100
-/// measurement put the kernel/CPU crossover well under 1e5 rows; 1e5 is a
-/// conservative break-even that keeps small-fit latency on the CPU.
-pub const DEVICE_ROW_THRESHOLD: usize = 100_000;
+/// Minimum row count that amortises probe, transfer, and launch costs.
+const DEVICE_ROW_THRESHOLD: usize = 100_000;
 
-/// CPU reference / fallback: build every row's channels from the SAME unified jet
-/// the production `RowKernel` consumes (`rigid_row_nll` at `Order2`/`OneSeed`/
-/// `TwoSeed`). This is BOTH the fallback path AND the exactness oracle the device
-/// kernel is pinned to.
+/// Whether this batch is admitted to the production CUDA V/G/H path.
+#[inline]
 #[must_use]
-pub fn survival_rigid_row_jets_cpu(
-    rows: &[SurvivalRowInputs],
-    probit_scale: f64,
-    dir: &[f64; 4],
-    dir_u: &[f64; 4],
-    dir_v: &[f64; 4],
-) -> SurvivalRowJetChannels {
-    use crate::survival::marginal_slope::row_kernel::{
-        RIGID_LINEAR_MASK, SparseOrder2, rigid_row_nll,
-    };
-    use gam_math::jet_scalar::{JetScalar, OneSeed, TwoSeed};
-    let n = rows.len();
-    let mut value = vec![0.0_f64; n];
-    let mut grad = vec![0.0_f64; n * 4];
-    let mut hess = vec![0.0_f64; n * 16];
-    let mut third = vec![0.0_f64; n * 16];
-    let mut fourth = vec![0.0_f64; n * 16];
-    for (row, inp) in rows.iter().enumerate() {
-        let in_row = RigidRowInputs {
-            row,
-            wi: inp.wi,
-            di: inp.di,
-            z_sum: inp.z_sum,
-            covariance_ones: inp.cov_ones,
-            probit_scale,
-            // The CPU monotonicity guard floor: the device kernel does not
-            // re-derive it (the caller pre-validates the primaries before
-            // building the batch), so use the always-pass sentinel here to
-            // keep the oracle a pure derivative comparison.
-            qd1_lower: f64::NEG_INFINITY,
-        };
-        // (v, g, H) at the static-sparsity Order2 scalar (production hot path).
-        let p = inp.primaries;
-        let vars: [SparseOrder2<RIGID_LINEAR_MASK>; 4] =
-            std::array::from_fn(|a| SparseOrder2::variable(p[a], a));
-        if let Ok(out) = rigid_row_nll(&vars, &in_row) {
-            value[row] = out.value();
-            grad[row * 4..row * 4 + 4].copy_from_slice(&out.g());
-            let h = out.h();
-            for a in 0..4 {
-                for b in 0..4 {
-                    hess[row * 16 + a * 4 + b] = h[a][b];
-                }
-            }
-        }
-        // contracted third via OneSeed (ε-Hessian = Σ_c ℓ_{abc} dir_c).
-        let vars1: [OneSeed<4>; 4] =
-            std::array::from_fn(|a| OneSeed::seed_direction(p[a], a, dir[a]));
-        if let Ok(out1) = rigid_row_nll(&vars1, &in_row) {
-            let t = out1.contracted_third();
-            for a in 0..4 {
-                for b in 0..4 {
-                    third[row * 16 + a * 4 + b] = t[a][b];
-                }
-            }
-        }
-        // contracted fourth via TwoSeed (εδ-Hessian = Σ_{cd} ℓ_{abcd} u_c v_d).
-        let vars2: [TwoSeed<4>; 4] =
-            std::array::from_fn(|a| TwoSeed::seed(p[a], a, dir_u[a], dir_v[a]));
-        if let Ok(out2) = rigid_row_nll(&vars2, &in_row) {
-            let f = out2.contracted_fourth();
-            for a in 0..4 {
-                for b in 0..4 {
-                    fourth[row * 16 + a * 4 + b] = f[a][b];
-                }
-            }
-        }
-    }
-    SurvivalRowJetChannels {
-        n_rows: n,
-        value,
-        grad,
-        hess,
-        third,
-        fourth,
-    }
+pub(crate) const fn survival_rigid_row_vgh_device_selected(n_rows: usize) -> bool {
+    cfg!(target_os = "linux") && n_rows >= DEVICE_ROW_THRESHOLD
 }
 
-/// General entry point: compute every row's order-≤2 + contracted third/fourth
-/// channels, on the GPU when a CUDA device is admitted and the batch is large
-/// enough to amortise the launch, else on the CPU. Both paths run the SAME
-/// unified jet, so the result agrees within the per-channel magnitude-scaled
-/// parity band (irreducible transcendental drift only — see the module docs and
-/// `tests::PARITY_RTOL`; worst measured ≤1.2e-9 relative on a V100). On ANY
-/// device error the CPU path runs — no fragility.
+/// Execute an already-admitted production V/G/H batch on CUDA.
+#[cfg(target_os = "linux")]
 #[must_use]
-pub fn survival_rigid_row_jets(
+pub(crate) fn survival_rigid_row_vgh(
     rows: &[SurvivalRowInputs],
     probit_scale: f64,
-    dir: &[f64; 4],
-    dir_u: &[f64; 4],
-    dir_v: &[f64; 4],
-) -> SurvivalRowJetChannels {
-    #[cfg(target_os = "linux")]
-    {
-        if rows.len() >= DEVICE_ROW_THRESHOLD {
-            match device::survival_rigid_row_jets_device(rows, probit_scale, dir, dir_u, dir_v) {
-                Ok(out) => return out,
-                Err(e) => {
-                    // Fall through to CPU on any device error (the GPU path is an
-                    // accelerator, never the only correct path). Log WHY so a
-                    // silent CPU fallback on an admitted device is diagnosable.
-                    log::info!("[GPU] survival_rowjet device path fell back to CPU: {e}");
-                }
-            }
-        }
-    }
-    survival_rigid_row_jets_cpu(rows, probit_scale, dir, dir_u, dir_v)
+) -> Result<SurvivalRowVghChannels, String> {
+    assert!(
+        survival_rigid_row_vgh_device_selected(rows.len()),
+        "survival VGH CUDA execution requires an admitted batch",
+    );
+    device::survival_rigid_row_vgh_device(rows, probit_scale)
+        .map_err(|error| format!("survival VGH device execution failed: {error}"))
 }
 
-/// Diagnostic: run ONLY the device path and return its `Result` (the error
-/// string on failure). Linux-only; intended for A100 verification harnesses to
-/// surface a compile/launch failure that the silent-fallback dispatcher hides.
+/// Order-2 CUDA lowering for the four rigid survival primaries.
 #[cfg(target_os = "linux")]
-pub fn survival_rigid_row_jets_device_only(
-    rows: &[SurvivalRowInputs],
-    probit_scale: f64,
-    dir: &[f64; 4],
-    dir_u: &[f64; 4],
-    dir_v: &[f64; 4],
-) -> Result<SurvivalRowJetChannels, String> {
-    device::survival_rigid_row_jets_device(rows, probit_scale, dir, dir_u, dir_v)
-        .map_err(|e| e.to_string())
-}
-
-/// The NVRTC source: a byte-faithful port of the seeded-jet arithmetic.
-/// `K=4` is fixed for the rigid survival primaries, so the kernel is compiled
-/// once (no shape macros). Full f64, no fast-math.
-#[cfg(target_os = "linux")]
-pub const SURVIVAL_ROWJET_SOURCE: &str = include_str!("survival_rowjet_kernel.cu");
+const SURVIVAL_ROWJET_SOURCE: &str = include_str!("survival_rowjet_kernel.cu");
 
 #[cfg(target_os = "linux")]
 mod device {
-    use super::{SURVIVAL_ROWJET_SOURCE, SurvivalRowInputs, SurvivalRowJetChannels};
+    use super::{SURVIVAL_ROWJET_SOURCE, SurvivalRowInputs, SurvivalRowVghChannels};
     use gam_gpu::gpu_error::{GpuError, GpuResultExt};
     use std::sync::{Arc, Mutex, OnceLock};
 
@@ -292,181 +91,201 @@ mod device {
             .map_err(GpuError::clone)
     }
 
-    fn module(b: &Backend) -> Result<Arc<CudaModule>, GpuError> {
-        if let Ok(guard) = b.module.lock() {
-            if let Some(m) = guard.as_ref() {
-                return Ok(m.clone());
+    fn module(backend: &Backend) -> Result<Arc<CudaModule>, GpuError> {
+        if let Ok(guard) = backend.module.lock() {
+            if let Some(module) = guard.as_ref() {
+                return Ok(module.clone());
             }
         }
-        // Compile through the shared arch+fmad options (NOT bare `compile_ptx`,
-        // which leaves NVRTC at `--fmad=true` and no `--gpu-architecture` pin).
-        // FMA contraction must be off so the deep seeded-jet tower is
-        // bit-comparable to the separately-rounded CPU oracle — bare
-        // `compile_ptx` made this kernel miss the 1e-9 parity gate by ~5e-8 on
-        // a V100. The arch pin keeps the kernel keyed to the device's real
-        // compute capability rather than NVRTC's default.
+        // The shared compiler pins the real device architecture and disables
+        // FMA contraction for close parity with separately rounded host ops.
         let ptx = gam_gpu::device_cache::compile_ptx_arch(SURVIVAL_ROWJET_SOURCE)
-            .gpu_ctx_with(|err| format!("survival_rowjet NVRTC compile: {err}"))?;
-        let m = b
+            .gpu_ctx_with(|error| format!("survival_rowjet NVRTC compile: {error}"))?;
+        let module = backend
             .ctx
             .load_module(ptx)
             .gpu_ctx("survival_rowjet module load")?;
-        if let Ok(mut guard) = b.module.lock() {
-            guard.get_or_insert_with(|| m.clone());
+        if let Ok(mut guard) = backend.module.lock() {
+            guard.get_or_insert_with(|| module.clone());
         }
-        Ok(m)
+        Ok(module)
     }
 
-    fn has_nonzero_direction(dir: &[f64; 4]) -> bool {
-        dir.iter().any(|&v| v != 0.0)
+    type FlatInputs = (
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<f64>,
+    );
+
+    fn flatten_inputs(rows: &[SurvivalRowInputs]) -> FlatInputs {
+        let n = rows.len();
+        let mut q0 = Vec::with_capacity(n);
+        let mut q1 = Vec::with_capacity(n);
+        let mut qd1 = Vec::with_capacity(n);
+        let mut g = Vec::with_capacity(n);
+        let mut wi = Vec::with_capacity(n);
+        let mut di = Vec::with_capacity(n);
+        let mut z_sum = Vec::with_capacity(n);
+        let mut cov_ones = Vec::with_capacity(n);
+        for row in rows {
+            q0.push(row.primaries[0]);
+            q1.push(row.primaries[1]);
+            qd1.push(row.primaries[2]);
+            g.push(row.primaries[3]);
+            wi.push(row.wi);
+            di.push(row.di);
+            z_sum.push(row.z_sum);
+            cov_ones.push(row.cov_ones);
+        }
+        (q0, q1, qd1, g, wi, di, z_sum, cov_ones)
     }
 
-    pub(super) fn survival_rigid_row_jets_device(
+    pub(super) fn survival_rigid_row_vgh_device(
         rows: &[SurvivalRowInputs],
         probit_scale: f64,
-        dir: &[f64; 4],
-        dir_u: &[f64; 4],
-        dir_v: &[f64; 4],
-    ) -> Result<SurvivalRowJetChannels, GpuError> {
+    ) -> Result<SurvivalRowVghChannels, GpuError> {
         let n = rows.len();
         if n == 0 {
-            return Ok(SurvivalRowJetChannels {
-                n_rows: 0,
+            return Ok(SurvivalRowVghChannels {
                 value: Vec::new(),
                 grad: Vec::new(),
                 hess: Vec::new(),
-                third: Vec::new(),
-                fourth: Vec::new(),
             });
         }
-        let b = backend()?;
-        let m = module(b)?;
-        let need_fourth = has_nonzero_direction(dir_u) && has_nonzero_direction(dir_v);
-        let func_name = if need_fourth {
-            "survival_rowjet"
-        } else {
-            "survival_rowjet_no_t4"
-        };
-        let func = m
-            .load_function(func_name)
-            .gpu_ctx_with(|err| format!("survival_rowjet load_function {func_name}: {err}"))?;
-        let stream = b.stream.clone();
-
-        // Flatten inputs into struct-of-arrays for coalesced device reads.
-        let mut q0 = vec![0.0_f64; n];
-        let mut q1 = vec![0.0_f64; n];
-        let mut qd1 = vec![0.0_f64; n];
-        let mut g = vec![0.0_f64; n];
-        let mut wi = vec![0.0_f64; n];
-        let mut di = vec![0.0_f64; n];
-        let mut zs = vec![0.0_f64; n];
-        let mut cov = vec![0.0_f64; n];
-        for (i, r) in rows.iter().enumerate() {
-            q0[i] = r.primaries[0];
-            q1[i] = r.primaries[1];
-            qd1[i] = r.primaries[2];
-            g[i] = r.primaries[3];
-            wi[i] = r.wi;
-            di[i] = r.di;
-            zs[i] = r.z_sum;
-            cov[i] = r.cov_ones;
-        }
-
-        let q0_d = stream.clone_htod(&q0).gpu_ctx("htod q0")?;
-        let q1_d = stream.clone_htod(&q1).gpu_ctx("htod q1")?;
-        let qd1_d = stream.clone_htod(&qd1).gpu_ctx("htod qd1")?;
-        let g_d = stream.clone_htod(&g).gpu_ctx("htod g")?;
-        let wi_d = stream.clone_htod(&wi).gpu_ctx("htod wi")?;
-        let di_d = stream.clone_htod(&di).gpu_ctx("htod di")?;
-        let zs_d = stream.clone_htod(&zs).gpu_ctx("htod zsum")?;
-        let cov_d = stream.clone_htod(&cov).gpu_ctx("htod cov")?;
-        let dir_d = stream.clone_htod(&dir.to_vec()).gpu_ctx("htod dir")?;
-
-        let mut value_d = stream.alloc_zeros::<f64>(n).gpu_ctx("alloc value")?;
-        let mut grad_d = stream.alloc_zeros::<f64>(n * 4).gpu_ctx("alloc grad")?;
-        let mut hess_d = stream.alloc_zeros::<f64>(n * 16).gpu_ctx("alloc hess")?;
-        let mut third_d = stream.alloc_zeros::<f64>(n * 16).gpu_ctx("alloc third")?;
-        let mut fourth_d = stream.alloc_zeros::<f64>(n * 16).gpu_ctx("alloc fourth")?;
+        let backend = backend()?;
+        let module = module(backend)?;
+        let function = module
+            .load_function("survival_rowjet_vgh")
+            .gpu_ctx("survival_rowjet_vgh load_function")?;
+        let stream = backend.stream.clone();
+        let (q0, q1, qd1, g, wi, di, z_sum, cov_ones) = flatten_inputs(rows);
+        let q0_device = stream.clone_htod(&q0).gpu_ctx("vgh htod q0")?;
+        let q1_device = stream.clone_htod(&q1).gpu_ctx("vgh htod q1")?;
+        let qd1_device = stream.clone_htod(&qd1).gpu_ctx("vgh htod qd1")?;
+        let g_device = stream.clone_htod(&g).gpu_ctx("vgh htod g")?;
+        let wi_device = stream.clone_htod(&wi).gpu_ctx("vgh htod wi")?;
+        let di_device = stream.clone_htod(&di).gpu_ctx("vgh htod di")?;
+        let z_sum_device = stream.clone_htod(&z_sum).gpu_ctx("vgh htod z_sum")?;
+        let cov_ones_device = stream.clone_htod(&cov_ones).gpu_ctx("vgh htod cov_ones")?;
+        let mut value_device = stream.alloc_zeros::<f64>(n).gpu_ctx("vgh alloc value")?;
+        let mut grad_device = stream.alloc_zeros::<f64>(n * 4).gpu_ctx("vgh alloc grad")?;
+        let mut hess_device = stream
+            .alloc_zeros::<f64>(n * 16)
+            .gpu_ctx("vgh alloc hess")?;
 
         let n_i32 = i32::try_from(n)
-            .map_err(|_| gam_gpu::gpu_err!("survival_rowjet n={n} overflows i32"))?;
-        const TPB: u32 = 128;
-        let grid = ((n as u32).div_ceil(TPB)).max(1);
-        let cfg = LaunchConfig {
-            grid_dim: (grid, 1, 1),
-            block_dim: (TPB, 1, 1),
+            .map_err(|_| gam_gpu::gpu_err!("survival_rowjet_vgh n={n} overflows i32"))?;
+        const THREADS_PER_BLOCK: u32 = 128;
+        let config = LaunchConfig {
+            grid_dim: (((n as u32).div_ceil(THREADS_PER_BLOCK)).max(1), 1, 1),
+            block_dim: (THREADS_PER_BLOCK, 1, 1),
             shared_mem_bytes: 0,
         };
-        let mut builder = stream.launch_builder(&func);
+        let mut builder = stream.launch_builder(&function);
         builder
             .arg(&n_i32)
-            .arg(&q0_d)
-            .arg(&q1_d)
-            .arg(&qd1_d)
-            .arg(&g_d)
-            .arg(&wi_d)
-            .arg(&di_d)
-            .arg(&zs_d)
-            .arg(&cov_d)
+            .arg(&q0_device)
+            .arg(&q1_device)
+            .arg(&qd1_device)
+            .arg(&g_device)
+            .arg(&wi_device)
+            .arg(&di_device)
+            .arg(&z_sum_device)
+            .arg(&cov_ones_device)
             .arg(&probit_scale)
-            .arg(&dir_d);
-        let diru_d;
-        let dirv_d;
-        if need_fourth {
-            diru_d = stream.clone_htod(&dir_u.to_vec()).gpu_ctx("htod dir_u")?;
-            dirv_d = stream.clone_htod(&dir_v.to_vec()).gpu_ctx("htod dir_v")?;
-            builder.arg(&diru_d).arg(&dirv_d);
-        }
-        builder
-            .arg(&mut value_d)
-            .arg(&mut grad_d)
-            .arg(&mut hess_d)
-            .arg(&mut third_d)
-            .arg(&mut fourth_d);
-        // SAFETY: grid/block validated; every pointer is a cudarc-checked
-        // allocation on this stream; the selected kernel reads the 8 input
-        // arrays of length n (+ one or three length-4 directions) and writes
-        // within the output buffers of length n / n*16.
-        unsafe { builder.launch(cfg) }.gpu_ctx("survival_rowjet kernel launch")?;
+            .arg(&mut value_device)
+            .arg(&mut grad_device)
+            .arg(&mut hess_device);
+        // SAFETY: all device slices match the kernel signature and lengths; the
+        // kernel bounds-checks the final partial block.
+        unsafe { builder.launch(config) }.gpu_ctx("survival_rowjet_vgh kernel launch")?;
 
         let mut value = vec![0.0_f64; n];
         let mut grad = vec![0.0_f64; n * 4];
         let mut hess = vec![0.0_f64; n * 16];
-        let mut third = vec![0.0_f64; n * 16];
-        let mut fourth = vec![0.0_f64; n * 16];
         stream
-            .memcpy_dtoh(&value_d, &mut value)
-            .gpu_ctx("dtoh value")?;
+            .memcpy_dtoh(&value_device, &mut value)
+            .gpu_ctx("vgh dtoh value")?;
         stream
-            .memcpy_dtoh(&grad_d, &mut grad)
-            .gpu_ctx("dtoh grad")?;
+            .memcpy_dtoh(&grad_device, &mut grad)
+            .gpu_ctx("vgh dtoh grad")?;
         stream
-            .memcpy_dtoh(&hess_d, &mut hess)
-            .gpu_ctx("dtoh hess")?;
-        stream
-            .memcpy_dtoh(&third_d, &mut third)
-            .gpu_ctx("dtoh third")?;
-        stream
-            .memcpy_dtoh(&fourth_d, &mut fourth)
-            .gpu_ctx("dtoh fourth")?;
+            .memcpy_dtoh(&hess_device, &mut hess)
+            .gpu_ctx("vgh dtoh hess")?;
         stream
             .synchronize()
-            .gpu_ctx("survival_rowjet synchronize")?;
-
-        Ok(SurvivalRowJetChannels {
-            n_rows: n,
-            value,
-            grad,
-            hess,
-            third,
-            fourth,
-        })
+            .gpu_ctx("survival_rowjet_vgh synchronize")?;
+        Ok(SurvivalRowVghChannels { value, grad, hess })
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+    use crate::survival::marginal_slope::row_kernel::RigidRowInputs;
+
+    #[inline]
+    fn rigid_cpu_row_inputs(
+        row: usize,
+        input: &SurvivalRowInputs,
+        probit_scale: f64,
+    ) -> RigidRowInputs {
+        RigidRowInputs {
+            row,
+            wi: input.wi,
+            di: input.di,
+            z_sum: input.z_sum,
+            covariance_ones: input.cov_ones,
+            probit_scale,
+            // The batch caller validates the monotonicity guard before dispatch.
+            qd1_lower: f64::NEG_INFINITY,
+        }
+    }
+
+    /// CPU execution of the canonical row program at its order-2 scalar.
+    #[must_use]
+    fn survival_rigid_row_vgh_cpu(
+        rows: &[SurvivalRowInputs],
+        probit_scale: f64,
+    ) -> SurvivalRowVghChannels {
+        use crate::survival::marginal_slope::row_kernel::{
+            RIGID_LINEAR_MASK, SparseOrder2, rigid_row_nll,
+        };
+        use gam_math::jet_scalar::JetScalar;
+
+        let n = rows.len();
+        let mut value = vec![0.0_f64; n];
+        let mut grad = vec![0.0_f64; n * 4];
+        let mut hess = vec![0.0_f64; n * 16];
+        for (row, input) in rows.iter().enumerate() {
+            let in_row = rigid_cpu_row_inputs(row, input, probit_scale);
+            let p = input.primaries;
+            let vars: [SparseOrder2<RIGID_LINEAR_MASK>; 4] =
+                std::array::from_fn(|axis| SparseOrder2::variable(p[axis], axis));
+            if let Ok(out) = rigid_row_nll(&vars, &in_row) {
+                value[row] = out.value();
+                grad[row * 4..row * 4 + 4].copy_from_slice(&out.g());
+                let row_hessian = out.h();
+                for a in 0..4 {
+                    hess[row * 16 + a * 4..row * 16 + a * 4 + 4].copy_from_slice(&row_hessian[a]);
+                }
+            }
+        }
+        SurvivalRowVghChannels { value, grad, hess }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn survival_rigid_row_vgh_device_only(
+        rows: &[SurvivalRowInputs],
+        probit_scale: f64,
+    ) -> Result<SurvivalRowVghChannels, String> {
+        device::survival_rigid_row_vgh_device(rows, probit_scale).map_err(|error| error.to_string())
+    }
 
     fn fixture(n: usize) -> Vec<SurvivalRowInputs> {
         (0..n)
@@ -488,359 +307,184 @@ mod tests {
             .collect()
     }
 
-    const DIR: [f64; 4] = [0.31, -0.22, 0.17, 0.44];
-    const DIRU: [f64; 4] = [0.13, 0.27, -0.41, 0.05];
-    const DIRV: [f64; 4] = [-0.19, 0.33, 0.08, 0.22];
+    fn edge_fixture() -> Vec<SurvivalRowInputs> {
+        let row = |primaries, wi, di, z_sum, cov_ones| SurvivalRowInputs {
+            primaries,
+            wi,
+            di,
+            z_sum,
+            cov_ones,
+        };
+        vec![
+            row([-0.4, 0.6, 0.9, 0.3], 1.0, 1.0, 0.2, 0.5),
+            row([-0.4, 0.6, 0.9, 0.3], 1.0, 0.0, 0.2, 0.5),
+            row([8.0, 9.0, 1.2, 2.5], 1.0, 0.0, -3.0, 1.0),
+            row([-8.0, -9.0, 1.2, -2.5], 1.0, 1.0, 3.0, 1.0),
+            row([40.0, 41.0, 0.7, 3.0], 1.0, 0.0, 0.0, 2.0),
+            row([-0.3, 0.5, 0.8, 1.5], 1.0, 1.0, 0.4, 1e-10),
+            row([-0.2, 0.4, 1.1, 4.0], 1.0, 1.0, 0.1, 50.0),
+            row([-0.5, 0.3, 0.6, 1e-9], 1.0, 0.0, 0.7, 0.9),
+            row([-0.5, 0.3, 0.6, 0.4], 0.0, 1.0, 0.7, 0.9),
+            row([-0.5, 0.3, 1e-3, 0.4], 1.0, 1.0, 0.2, 0.6),
+        ]
+    }
 
     #[test]
-    fn cpu_channels_match_unified_rowkernel() {
-        // The CPU fallback IS `rigid_row_nll` at Order2/OneSeed/TwoSeed, the same
-        // thing the production `SurvivalMarginalSlopeRowKernel` calls. Cross-check
-        // the (v,g,H) channels against a direct `Order2<4>` evaluation so the
-        // flattening/layout is pinned to the single source.
+    fn cpu_vgh_matches_canonical_dense_order2() {
         use crate::survival::marginal_slope::row_kernel::rigid_row_nll;
         use gam_math::jet_scalar::{JetScalar, Order2};
-        let rows = fixture(7);
-        let out = survival_rigid_row_jets_cpu(&rows, 0.7, &DIR, &DIRU, &DIRV);
-        for (row, inp) in rows.iter().enumerate() {
-            let in_row = RigidRowInputs {
-                row,
-                wi: inp.wi,
-                di: inp.di,
-                z_sum: inp.z_sum,
-                covariance_ones: inp.cov_ones,
-                probit_scale: 0.7,
-                qd1_lower: f64::NEG_INFINITY,
-            };
-            let vars: [Order2<4>; 4] =
-                std::array::from_fn(|a| Order2::variable(inp.primaries[a], a));
-            let dense = rigid_row_nll(&vars, &in_row).expect("dense order2");
-            assert!((dense.value() - out.value[row]).abs() <= 1e-12);
+
+        let rows = fixture(64);
+        let out = survival_rigid_row_vgh_cpu(&rows, 0.7);
+        for (row, input) in rows.iter().enumerate() {
+            let row_inputs = rigid_cpu_row_inputs(row, input, 0.7);
+            let variables: [Order2<4>; 4] =
+                std::array::from_fn(|axis| Order2::variable(input.primaries[axis], axis));
+            let expected = rigid_row_nll(&variables, &row_inputs).expect("dense order-2 row");
+            assert!((expected.value() - out.value[row]).abs() <= 1e-12);
             for a in 0..4 {
-                assert!((dense.g()[a] - out.grad[row * 4 + a]).abs() <= 1e-12);
+                assert!((expected.g()[a] - out.grad[row * 4 + a]).abs() <= 1e-12);
                 for b in 0..4 {
                     assert!(
-                        (dense.h()[a][b] - out.hess[row * 16 + a * 4 + b]).abs() <= 1e-12,
-                        "hess mismatch row {row} {a},{b}"
+                        (expected.h()[a][b] - out.hess[row * 16 + a * 4 + b]).abs() <= 1e-12,
+                        "Hessian mismatch at row {row}, ({a}, {b})",
                     );
                 }
             }
         }
     }
 
-    #[test]
-    fn cpu_third_fourth_match_dense_tower_oracle() {
-        // The seeded-jet (OneSeed/TwoSeed, O(K²)) contracted third/fourth in the
-        // CPU fallback must equal the TRUE tensor contraction from the dense
-        // `Tower4<4>` (the K³/K⁴ tensor). This pins the seeded contraction to the
-        // single-source tensor exactly — the same property the device kernel's
-        // JS1/JS2 channels rely on (and the device parity gate then matches THIS
-        // CPU result to ≤1e-9).
-        use crate::survival::marginal_slope::row_kernel::rigid_row_nll;
-        use gam_math::jet_tower::Tower4;
-        let rows = fixture(9);
-        let out = survival_rigid_row_jets_cpu(&rows, 0.7, &DIR, &DIRU, &DIRV);
-        for (row, inp) in rows.iter().enumerate() {
-            let in_row = RigidRowInputs {
-                row,
-                wi: inp.wi,
-                di: inp.di,
-                z_sum: inp.z_sum,
-                covariance_ones: inp.cov_ones,
-                probit_scale: 0.7,
-                qd1_lower: f64::NEG_INFINITY,
-            };
-            let vars: [Tower4<4>; 4] =
-                std::array::from_fn(|a| Tower4::variable(inp.primaries[a], a));
-            let tower = rigid_row_nll(&vars, &in_row).expect("dense tower4");
-            let t3 = tower.third_contracted(&DIR);
-            let t4 = tower.fourth_contracted(&DIRU, &DIRV);
-            for a in 0..4 {
-                for b in 0..4 {
-                    assert!(
-                        (t3[a][b] - out.third[row * 16 + a * 4 + b]).abs() <= 1e-12,
-                        "third mismatch row {row} {a},{b}: tensor={} seeded={}",
-                        t3[a][b],
-                        out.third[row * 16 + a * 4 + b]
-                    );
-                    assert!(
-                        (t4[a][b] - out.fourth[row * 16 + a * 4 + b]).abs() <= 1e-12,
-                        "fourth mismatch row {row} {a},{b}: tensor={} seeded={}",
-                        t4[a][b],
-                        out.fourth[row * 16 + a * 4 + b]
-                    );
-                }
-            }
-        }
-    }
-
-    /// Per-channel CPU↔device parity tolerance (#415 / #1175).
-    ///
-    /// The device kernel runs the SAME seeded-jet arithmetic as the CPU jet
-    /// (pinned line-for-line by the host-oracle `*_tests` module on every box),
-    /// so the residual is NOT an algebra mismatch. With NVRTC FMA contraction
-    /// now disabled (#1686, `--fmad=false`), the residual splits into a tight
-    /// low-order floor (FMA was its dominant source, so the fix shrank it) and
-    /// an irreducible transcendental floor in the high-order channels: CUDA's
-    /// `erfc`/`erfcx`/`exp`/`sqrt` differ from the host libm at the ULP level,
-    /// and that ε is amplified through the order-4 jet chain (`logΦ`, the Mills
-    /// `k1..k4` polynomial, the `c=√(1+(s·g)²cov)` composition) into the
-    /// third/fourth channels — which `--fmad=false` leaves unchanged (5.09e-8 /
-    /// 4.54e-8, bit-identical to the pre-#1686 measurement). Measured on a
-    /// Tesla V100 (sm_70), the drift, **normalized to each channel's
-    /// magnitude**, is:
-    ///
-    /// ```text
-    ///   channel  worst |Δ|     channel max|cpu|   |Δ|/scale
-    ///   value    1.48e-10      2.22e1             6.7e-12
-    ///   grad     8.18e-10      1.14e1             7.2e-11
-    ///   hess     8.79e-9       2.50e1             3.5e-10
-    ///   third    5.09e-8       4.25e1             1.2e-9
-    ///   fourth   4.54e-8       1.23e2             3.7e-10
-    /// ```
-    ///
-    /// (The old gate compared a flat `|Δ| <= 1e-9` ACROSS ALL channels — it
-    /// ignored both derivative-order amplification and the transcendental
-    /// floor, so the third channel's 5.09e-8 failed it even though that is a
-    /// 1.2e-9 relative drift. Per-element *relative* error is also wrong here:
-    /// the high-order channels cross zero, so at a cancellation point |cpu| is
-    /// ~1e-7 while the channel scale is ~1e2 and the relative error spuriously
-    /// reads 2.0.) The principled scale is the channel magnitude. A real
-    /// algebra bug (a sign flip / dropped Leibniz term, the #736 genus) makes
-    /// an error of order the channel magnitude itself — normalized residual
-    /// ~O(1), seven orders above this floor — so the gate below catches every
-    /// real defect with ~80× headroom over the transcendental noise.
     #[cfg(target_os = "linux")]
-    const PARITY_ATOL: f64 = 1e-9;
+    const PARITY_ABS_TOLERANCE: f64 = 1e-9;
     #[cfg(target_os = "linux")]
-    const PARITY_RTOL: f64 = 1e-7;
-
-    /// Assert every element of `dev` matches `cpu` within
-    /// `PARITY_ATOL + PARITY_RTOL * channel_scale`, where `channel_scale` is the
-    /// channel's max |cpu| (the magnitude a real bug would perturb). Returns the
-    /// worst normalized residual for reporting.
-    #[cfg(target_os = "linux")]
-    fn assert_channel_parity(name: &str, cpu: &[f64], dev: &[f64]) -> f64 {
-        let scale = cpu.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
-        let tol = PARITY_ATOL + PARITY_RTOL * scale;
-        let mut worst = 0.0_f64;
-        let mut worst_i = 0usize;
-        for (i, (x, y)) in cpu.iter().zip(dev).enumerate() {
-            let d = (x - y).abs();
-            if d > worst {
-                worst = d;
-                worst_i = i;
-            }
-        }
-        assert!(
-            worst <= tol,
-            "survival device vs CPU `{name}` channel: worst |Δ|={worst:.3e} at idx {worst_i} \
-             (cpu={:.6e} dev={:.6e}) exceeds tol={tol:.3e} (atol={PARITY_ATOL:.0e} + \
-             rtol={PARITY_RTOL:.0e}·scale {scale:.3e}). A residual this large is an algebra \
-             mismatch, not transcendental drift — check the .cu JS1/JS2 recurrences.",
-            cpu[worst_i],
-            dev[worst_i]
-        );
-        worst / tol
-    }
+    const PARITY_REL_TOLERANCE: f64 = 1e-7;
 
     #[cfg(target_os = "linux")]
-    #[test]
-    fn diag_device_channel_breakdown() {
-        let rows = fixture(DEVICE_ROW_THRESHOLD + 1024);
-        let cpu = survival_rigid_row_jets_cpu(&rows, 0.7, &DIR, &DIRU, &DIRV);
-        let got = match survival_rigid_row_jets_device_only(&rows, 0.7, &DIR, &DIRU, &DIRV) {
-            Ok(g) => g,
-            Err(e) => {
-                eprintln!("DEVICE PATH UNAVAILABLE: {e}");
-                return;
-            }
-        };
-        let report = |name: &str, a: &[f64], b: &[f64]| {
-            let mut maxabs = 0.0_f64;
-            let mut maxrel = 0.0_f64;
-            let mut worst_idx = 0usize;
-            let mut worst_cpu = 0.0_f64;
-            let mut worst_gpu = 0.0_f64;
-            for (i, (x, y)) in a.iter().zip(b).enumerate() {
-                let ad = (x - y).abs();
-                if ad > maxabs {
-                    maxabs = ad;
-                    worst_idx = i;
-                    worst_cpu = *x;
-                    worst_gpu = *y;
-                }
-                let denom = x.abs().max(y.abs());
-                if denom > 1e-12 {
-                    maxrel = maxrel.max(ad / denom);
-                }
-            }
-            eprintln!(
-                "[{name:8}] maxabs={maxabs:.3e} maxrel={maxrel:.3e} \
-                 worst@{worst_idx} cpu={worst_cpu:.6e} gpu={worst_gpu:.6e}"
-            );
-        };
-        report("value", &cpu.value, &got.value);
-        report("grad", &cpu.grad, &got.grad);
-        report("hess", &cpu.hess, &got.hess);
-        report("third", &cpu.third, &got.third);
-        report("fourth", &cpu.fourth, &got.fourth);
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn device_matches_cpu_when_available() {
-        // Exactness gate: when a device is admitted, every channel must match the
-        // CPU unified jet within the principled per-channel magnitude-scaled band
-        // (see PARITY_ATOL/PARITY_RTOL). When no device is available the dispatcher
-        // returns the CPU result, so this asserts CPU==CPU (trivially within band).
-        let rows = fixture(DEVICE_ROW_THRESHOLD + 1024);
-        let cpu = survival_rigid_row_jets_cpu(&rows, 0.7, &DIR, &DIRU, &DIRV);
-        let got = survival_rigid_row_jets(&rows, 0.7, &DIR, &DIRU, &DIRV);
-        assert_channel_parity("value", &cpu.value, &got.value);
-        assert_channel_parity("grad", &cpu.grad, &got.grad);
-        assert_channel_parity("hess", &cpu.hess, &got.hess);
-        assert_channel_parity("third", &cpu.third, &got.third);
-        assert_channel_parity("fourth", &cpu.fourth, &got.fourth);
-
-        // Anti-false-green: if a CUDA runtime is present the dispatcher MUST have
-        // exercised the device kernel above (n > DEVICE_ROW_THRESHOLD), not the
-        // silent CPU fallback. Prove the device path itself runs and matches —
-        // otherwise this gate would pass on CPU==CPU even with a dead kernel.
-        if gam_gpu::device_runtime::GpuRuntime::global().is_some() {
-            let dev = survival_rigid_row_jets_device_only(&rows, 0.7, &DIR, &DIRU, &DIRV)
-                .expect("CUDA runtime present but survival_rowjet device path could not run");
-            assert_channel_parity("device value", &cpu.value, &dev.value);
-            assert_channel_parity("device grad", &cpu.grad, &dev.grad);
-            assert_channel_parity("device hess", &cpu.hess, &dev.hess);
-            assert_channel_parity("device third", &cpu.third, &dev.third);
-            assert_channel_parity("device fourth", &cpu.fourth, &dev.fourth);
-        }
-    }
-
-    /// Edge-regime fixture: rows deliberately placed in the hard corners of the
-    /// probit Mills-ratio stack, where erfc/erfcx differ most between host libm
-    /// and CUDA and the seeded-jet amplification is largest. Covers
-    /// censored/event × entry-present, deep negative tails (logΦ underflow
-    /// regime), tiny and large covariance, near-zero slope, large scale, zero
-    /// weight (the early-out branch), and the erfcx asymptotic cutover (|η|>26).
-    #[cfg(target_os = "linux")]
-    fn edge_fixture() -> Vec<SurvivalRowInputs> {
-        let mut rows = Vec::new();
-        let push = |rows: &mut Vec<SurvivalRowInputs>, p: [f64; 4], w, d, z, c| {
-            rows.push(SurvivalRowInputs {
-                primaries: p,
-                wi: w,
-                di: d,
-                z_sum: z,
-                cov_ones: c,
-            });
-        };
-        // interior, event & censored
-        push(&mut rows, [-0.4, 0.6, 0.9, 0.3], 1.0, 1.0, 0.2, 0.5);
-        push(&mut rows, [-0.4, 0.6, 0.9, 0.3], 1.0, 0.0, 0.2, 0.5);
-        // deep negative probit tail (logΦ(−η)→ asymptotic / Mills tail)
-        push(&mut rows, [8.0, 9.0, 1.2, 2.5], 1.0, 0.0, -3.0, 1.0);
-        push(&mut rows, [-8.0, -9.0, 1.2, -2.5], 1.0, 1.0, 3.0, 1.0);
-        // erfcx asymptotic cutover region (argument near/above 26)
-        push(&mut rows, [40.0, 41.0, 0.7, 3.0], 1.0, 0.0, 0.0, 2.0);
-        // tiny covariance (c ≈ 1, derivative of √ near flat)
-        push(&mut rows, [-0.3, 0.5, 0.8, 1.5], 1.0, 1.0, 0.4, 1e-10);
-        // large covariance + large scale (c large, strong coupling)
-        push(&mut rows, [-0.2, 0.4, 1.1, 4.0], 1.0, 1.0, 0.1, 50.0);
-        // near-zero slope (og→0, opb2→1)
-        push(&mut rows, [-0.5, 0.3, 0.6, 1e-9], 1.0, 0.0, 0.7, 0.9);
-        // zero weight (the w==0 early-out: every channel 0)
-        push(&mut rows, [-0.5, 0.3, 0.6, 0.4], 0.0, 1.0, 0.7, 0.9);
-        // small positive qd1 (log(ad1) near its valid edge)
-        push(&mut rows, [-0.5, 0.3, 1e-3, 0.4], 1.0, 1.0, 0.2, 0.6);
-        rows
-    }
-
-    /// #415 core deliverable — **fail loud, never silently degrade.** On a GPU
-    /// box the device path MUST run; this calls `survival_rigid_row_jets_device_only`
-    /// (which never falls back) and asserts it both (a) succeeds — no silent
-    /// NVRTC-declined / wrong-arch / launch-failure swallowed by the dispatcher —
-    /// and (b) matches the CPU oracle within the principled per-channel band, for
-    /// BOTH the t4 and the no-t4 kernel variants and across the edge-regime sweep.
-    ///
-    /// When no CUDA device is present the device-only path returns `Err`, which
-    /// is the legitimate state on a CPU-only box — so the test SKIPS with a clear
-    /// log there. Set `GAM_REQUIRE_GPU=1` (CI on the GPU runner) to turn that skip
-    /// into a HARD failure: a box that is supposed to have a GPU but can't run the
-    /// kernel must break the build, not pass on the CPU.
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn device_only_path_runs_and_matches_cpu_fail_loud() {
-        // Fail loud only when a CUDA device is actually present (a real runtime
-        // check, not an env-var read — `env::var` is banned crate-wide): on a GPU
-        // box the device path MUST run, while a CI runner with no device skips
-        // gracefully.
-        let require_gpu = gam_gpu::device_runtime::GpuRuntime::global().is_some();
-
-        // Two batches: enough rows to amortise the launch, in both the interior
-        // (smooth) and edge (transcendental-stress) regimes. The edge batch is
-        // padded by tiling so it crosses DEVICE_ROW_THRESHOLD.
-        let interior = fixture(DEVICE_ROW_THRESHOLD + 777);
-        let edge_unit = edge_fixture();
-        let reps = (DEVICE_ROW_THRESHOLD + 999).div_ceil(edge_unit.len());
-        let edge: Vec<_> = edge_unit
+    fn assert_channel_parity(name: &str, cpu: &[f64], device: &[f64]) {
+        assert_eq!(cpu.len(), device.len(), "{name} channel length");
+        let scale = cpu
             .iter()
-            .cloned()
-            .cycle()
-            .take(reps * edge_unit.len())
-            .collect();
+            .fold(0.0_f64, |current, value| current.max(value.abs()));
+        let tolerance = PARITY_ABS_TOLERANCE + PARITY_REL_TOLERANCE * scale;
+        let (worst_index, worst) = cpu
+            .iter()
+            .zip(device)
+            .enumerate()
+            .map(|(index, (left, right))| (index, (left - right).abs()))
+            .max_by(|left, right| left.1.total_cmp(&right.1))
+            .unwrap_or((0, 0.0));
+        assert!(
+            worst <= tolerance,
+            "survival VGH {name} device drift {worst:.3e} at {worst_index} exceeds \
+             {tolerance:.3e} (scale {scale:.3e})",
+        );
+    }
 
-        // Variant matrix: (label, dir_u, dir_v). All-zero (u,v) selects the
-        // `survival_rowjet_no_t4` kernel (fourth channel ≡ 0); nonzero selects
-        // the full `survival_rowjet`. Cover both so neither entry point rots.
-        let zero = [0.0_f64; 4];
-        let variants: [(&str, &[f64; 4], &[f64; 4]); 2] =
-            [("t4", &DIRU, &DIRV), ("no_t4", &zero, &zero)];
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn admitted_dispatch_and_device_path_match_cpu_vgh() {
+        let rows = fixture(DEVICE_ROW_THRESHOLD + 1024);
+        let cpu = survival_rigid_row_vgh_cpu(&rows, 0.7);
+        let dispatched = survival_rigid_row_vgh(&rows, 0.7).expect("admitted CUDA VGH batch");
+        assert_channel_parity("dispatched value", &cpu.value, &dispatched.value);
+        assert_channel_parity("dispatched gradient", &cpu.grad, &dispatched.grad);
+        assert_channel_parity("dispatched Hessian", &cpu.hess, &dispatched.hess);
 
-        let mut ran_on_device = false;
-        for (regime, rows) in [("interior", &interior), ("edge", &edge)] {
-            for (vlabel, du, dv) in variants {
-                let dev = match survival_rigid_row_jets_device_only(rows, 0.7, &DIR, du, dv) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        if require_gpu {
-                            panic!(
-                                "GAM_REQUIRE_GPU set but survival_rowjet device path \
-                                 ({regime}/{vlabel}) could not run: {e}"
-                            );
-                        }
-                        eprintln!(
-                            "[#415] no CUDA device ({regime}/{vlabel}) — skipping device-only \
-                             parity (set GAM_REQUIRE_GPU=1 to make this a hard failure): {e}"
-                        );
-                        continue;
-                    }
-                };
-                ran_on_device = true;
-                let cpu = survival_rigid_row_jets_cpu(rows, 0.7, &DIR, du, dv);
-                assert_channel_parity(&format!("{regime}/{vlabel}/value"), &cpu.value, &dev.value);
-                assert_channel_parity(&format!("{regime}/{vlabel}/grad"), &cpu.grad, &dev.grad);
-                assert_channel_parity(&format!("{regime}/{vlabel}/hess"), &cpu.hess, &dev.hess);
-                assert_channel_parity(&format!("{regime}/{vlabel}/third"), &cpu.third, &dev.third);
-                assert_channel_parity(
-                    &format!("{regime}/{vlabel}/fourth"),
-                    &cpu.fourth,
-                    &dev.fourth,
-                );
-                // The no_t4 variant must yield an exactly-zero fourth channel
-                // (the kernel writes 0.0), and the CPU oracle agrees because
-                // (u,v)=0 contracts the fourth tensor to zero.
-                if vlabel == "no_t4" {
-                    assert!(
-                        dev.fourth.iter().all(|&x| x == 0.0),
-                        "no_t4 kernel must write an all-zero fourth channel"
-                    );
-                }
+        if gam_gpu::device_runtime::GpuRuntime::global().is_some() {
+            let device = survival_rigid_row_vgh_device_only(&rows, 0.7)
+                .expect("CUDA runtime present but survival VGH device path failed");
+            assert_channel_parity("device value", &cpu.value, &device.value);
+            assert_channel_parity("device gradient", &cpu.grad, &device.grad);
+            assert_channel_parity("device Hessian", &cpu.hess, &device.hess);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn device_only_vgh_matches_cpu_in_edge_regimes() {
+        if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+            eprintln!("CUDA runtime unavailable; skipping direct survival VGH device parity");
+            return;
+        }
+        let rows = edge_fixture();
+        let cpu = survival_rigid_row_vgh_cpu(&rows, 0.7);
+        let device = survival_rigid_row_vgh_device_only(&rows, 0.7)
+            .expect("CUDA runtime present but survival VGH edge sweep failed");
+        assert_channel_parity("edge value", &cpu.value, &device.value);
+        assert_channel_parity("edge gradient", &cpu.grad, &device.grad);
+        assert_channel_parity("edge Hessian", &cpu.hess, &device.hess);
+    }
+
+    /// #932 production-boundary throughput measurement. The timed device call
+    /// includes allocation, all host/device transfers, launch, and synchronize;
+    /// module compilation is warmed outside the timing. This is intentionally
+    /// stricter than a kernel-only number and reports whether CUDA wins at the
+    /// exact API the row-kernel cache consumes.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn measure_device_vgh_end_to_end_932() {
+        use std::time::{Duration, Instant};
+
+        if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+            eprintln!("CUDA runtime unavailable; skipping survival VGH throughput measurement");
+            return;
+        }
+        const ROWS: usize = 1_000_000;
+        let rows = fixture(ROWS);
+        let warm =
+            survival_rigid_row_vgh_device_only(&rows, 0.7).expect("warm survival VGH device call");
+
+        let cpu_start = Instant::now();
+        let cpu = survival_rigid_row_vgh_cpu(&rows, 0.7);
+        let cpu_elapsed = cpu_start.elapsed();
+
+        let mut best_elapsed = Duration::MAX;
+        let mut best_device = warm;
+        for round in 0..3 {
+            std::hint::black_box(round);
+            let device_start = Instant::now();
+            let candidate = survival_rigid_row_vgh_device_only(&rows, 0.7)
+                .expect("timed survival VGH device call");
+            let elapsed = device_start.elapsed();
+            if elapsed < best_elapsed {
+                best_elapsed = elapsed;
+                best_device = candidate;
             }
         }
-        if ran_on_device {
-            eprintln!("[#415] device-only parity PASSED on GPU for all regimes × variants");
+
+        assert_channel_parity("measured value", &cpu.value, &best_device.value);
+        assert_channel_parity("measured gradient", &cpu.grad, &best_device.grad);
+        assert_channel_parity("measured Hessian", &cpu.hess, &best_device.hess);
+        let cpu_ns = cpu_elapsed.as_secs_f64() * 1e9 / ROWS as f64;
+        let device_ns = best_elapsed.as_secs_f64() * 1e9 / ROWS as f64;
+        eprintln!(
+            "SURVIVAL-VGH-CUDA-932 rows={ROWS} cpu={cpu_ns:.2} ns/row device-e2e={device_ns:.2} ns/row speedup={:.2}x",
+            cpu_ns / device_ns,
+        );
+        assert!(cpu_ns.is_finite() && device_ns.is_finite() && device_ns > 0.0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn cuda_source_exports_only_the_production_vgh_kernel() {
+        assert!(SURVIVAL_ROWJET_SOURCE.contains("survival_rowjet_vgh"));
+        assert_eq!(
+            SURVIVAL_ROWJET_SOURCE
+                .matches("extern \"C\" __global__")
+                .count(),
+            1,
+        );
+        for removed in [
+            "survival_rowjet_no_t4",
+            "struct JS1",
+            "struct JS2",
+            "nll_js1",
+            "nll_js2",
+        ] {
+            assert!(
+                !SURVIVAL_ROWJET_SOURCE.contains(removed),
+                "dead CUDA surface reintroduced: {removed}",
+            );
         }
     }
 }

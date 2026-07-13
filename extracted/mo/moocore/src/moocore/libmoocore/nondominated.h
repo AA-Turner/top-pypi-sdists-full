@@ -76,7 +76,7 @@ check_all_minimize_maximize(const int * restrict minmax, dimension_t dim)
 static inline int *
 minmax_from_boolvec(const boolvec * restrict maximise, dimension_t nobj)
 {
-    ASSUME(nobj > 0 && nobj < 128);
+    ASSUME(nobj > 0);
     int * minmax = malloc(nobj * sizeof(*minmax));
     for (dimension_t k = 0; k < nobj; k++) {
         minmax[k] = maximise[k] ? AGREE_MAXIMISE : AGREE_MINIMISE;
@@ -87,7 +87,7 @@ minmax_from_boolvec(const boolvec * restrict maximise, dimension_t nobj)
 static inline boolvec *
 new_boolvec_maximise(dimension_t nobj, bool maximise_all)
 {
-    ASSUME(nobj > 0 && nobj < 128);
+    ASSUME(nobj > 0);
     boolvec * maximise = malloc(nobj * sizeof(*maximise));
     for (dimension_t k = 0; k < nobj; k++)
         maximise[k] = maximise_all;
@@ -97,7 +97,7 @@ new_boolvec_maximise(dimension_t nobj, bool maximise_all)
 static inline const int *
 default_minmax(dimension_t nobj, int default_value)
 {
-    ASSUME(nobj > 0 && nobj < 128);
+    ASSUME(nobj > 0);
     ASSUME(default_value == AGREE_MINIMISE || default_value == AGREE_MAXIMISE);
     int * minmax = malloc(nobj * sizeof(*minmax));
     for (dimension_t i = 0; i < nobj; i++)
@@ -180,8 +180,7 @@ force_agree_minimize(const double * restrict points, size_t size,
     double * pnew = malloc(new_dim * size * sizeof(*pnew));
 
     if (new_dim < true_dim) { // Remove columns
-        ASSUME(true_dim < MOOCORE_DIMENSION_MAX);
-        uint8_t idx[MOOCORE_DIMENSION_MAX];
+        uint8_t idx[MOOCORE_DIMENSION_MAX + 1];
         for (dimension_t j = prefix, t = 0; j < true_dim; j++)
             if (minmax[j] != 0)
                 idx[t++] = (uint8_t)j;
@@ -451,24 +450,14 @@ early_end:
     return new_size;
 }
 
-static __force_inline__ size_t
-find_nondominated_3d_impl(const double ** restrict rows, size_t size,
-                          const bool keep_weakly,
-                          const bool find_dominated)
+static inline size_t
+find_dominated_3d_impl(const double * restrict points, size_t size, bool keep_weakly)
 {
     // Sort in ascending lexicographic order from the last dimension.
-    qsort_typesafe(rows, size, cmp_ppdouble_asc_rev_3d);
-    // Help GCC generate all possible specializations of this function.
-    return keep_weakly
-        ? find_nondominated_3d_impl_sorted(rows, size,  true, find_dominated)
-        : find_nondominated_3d_impl_sorted(rows, size, false, find_dominated);
-}
-
-static inline size_t
-find_dominated_3d_(const double * restrict points, size_t size, bool keep_weakly)
-{
-    const double ** rows = generate_row_pointers(points, size, 3);
-    size_t pos = find_nondominated_3d_impl(rows, size, keep_weakly, /* find_dominated=*/true);
+    const double ** rows = generate_row_pointers_asc_rev_3d(points, size);
+    size_t pos = keep_weakly
+        ? find_nondominated_3d_impl_sorted(rows, size,  true, /* find_dominated=*/true)
+        : find_nondominated_3d_impl_sorted(rows, size, false, /* find_dominated=*/true);
     if (pos < size)
         pos = row_index_from_ptr(points, rows[pos], 3);
     free(rows);
@@ -480,12 +469,14 @@ find_dominated_3d_(const double * restrict points, size_t size, bool keep_weakly
    nondominated points.
 */
 static inline size_t
-find_nondominated_set_3d_(const double * restrict points, size_t size,
-                          const bool keep_weakly, boolvec * restrict nondom)
+find_nondominated_set_3d_impl(const double * restrict points, size_t size,
+                              const bool keep_weakly, boolvec * restrict nondom)
 {
     ASSUME(nondom != NULL);
-    const double ** rows = generate_row_pointers(points, size, 3);
-    size_t new_size = find_nondominated_3d_impl(rows, size, keep_weakly, /* find_dominated=*/false);
+    const double ** rows = generate_row_pointers_asc_rev_3d(points, size);
+    size_t new_size = keep_weakly
+        ? find_nondominated_3d_impl_sorted(rows, size,  true, /* find_dominated=*/false)
+        : find_nondominated_3d_impl_sorted(rows, size, false, /* find_dominated=*/false);
 
     if (new_size < size) {
         memset(nondom, false, size * sizeof(*nondom));
@@ -652,7 +643,7 @@ find_dominated_point_(const double * restrict points, size_t size, dimension_t d
         if (dim == 2) {
             res = find_dominated_2d_(pp, size, keep_weakly);
         } else {
-            res = find_dominated_3d_(pp, size, keep_weakly);
+            res = find_dominated_3d_impl(pp, size, keep_weakly);
         }
         if (pp != points)
             free((void *) pp);
@@ -696,7 +687,7 @@ find_nondominated_set_(const double * restrict points, size_t size, dimension_t 
         if (dim == 2) {
             new_size = find_nondominated_set_2d_(pp, size, keep_weakly, nondom);
         } else if (dim == 3) {
-            new_size = find_nondominated_set_3d_(pp, size, keep_weakly, nondom);
+            new_size = find_nondominated_set_3d_impl(pp, size, keep_weakly, nondom);
         } else {
             new_size = find_nondominated_set_kung(pp, size, dim, keep_weakly, nondom);
         }
@@ -714,7 +705,6 @@ find_nondominated_set_(const double * restrict points, size_t size, dimension_t 
     ASSUME(nondom != NULL);
     return find_nondominated_set_agree_bf(points, size, dim, keep_weakly, agree, minmax, nondom);
 }
-#undef KUNG_SMALL_THRESHOLD
 
 static inline size_t
 find_dominated_point_agree(const double * restrict points, size_t size, dimension_t dim,

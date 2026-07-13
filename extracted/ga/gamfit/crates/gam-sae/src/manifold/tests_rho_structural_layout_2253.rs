@@ -49,7 +49,7 @@ fn fixed_assignment_strength_is_absent_from_flat_rho_layout_2253() {
     // the stored (inner-state) sparse value without emitting it into the outer
     // vector.
     let moved = array![0.7, -0.5];
-    let restored = softmax.from_flat(moved.view());
+    let restored = softmax.from_flat(moved.view()).unwrap();
     assert_eq!(restored.to_flat(), moved);
     assert_abs_diff_eq!(restored.log_lambda_sparse, -1.7, epsilon = 0.0);
 
@@ -73,6 +73,30 @@ fn fixed_assignment_strength_is_absent_from_flat_rho_layout_2253() {
 }
 
 #[test]
+fn invalid_constructor_rho_is_refused_before_bounds_or_fixed_fit_2253() {
+    let mut bounded = planted_periodic_outer_objective_2253();
+    bounded.baseline_rho.log_lambda_smooth[0] = LOG_STRENGTH_MAX + 1.0;
+    let error = bounded
+        .outer_domain_lower_bound()
+        .expect_err("an invalid constructor-supplied baseline must not be projected into domain");
+    assert!(
+        error.to_string().contains("smoothness log strength"),
+        "unexpected baseline-domain error: {error}"
+    );
+
+    let mut fixed = planted_periodic_outer_objective_2253();
+    let mut flat = fixed.baseline_rho.to_flat();
+    flat[fixed.baseline_rho.ard_flat_index(0, 0)] = LOG_STRENGTH_MIN - 1.0;
+    let error = fixed
+        .fit_at_fixed_rho(flat.view())
+        .expect_err("fixed-rho entry must reject before any inner solve");
+    assert!(
+        error.to_string().contains("ARD log precision"),
+        "unexpected fixed-rho domain error: {error}"
+    );
+}
+
+#[test]
 fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
     let mut gradient_objective = planted_periodic_outer_objective_2253();
     let base = gradient_objective.baseline_rho.to_flat();
@@ -89,7 +113,7 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
         .expect("base value lane must converge");
     assert!(
         base_cost.is_finite(),
-        "the active-rho derivative witness must start at feasible REML evidence: \
+        "the active-rho derivative witness must start at feasible penalized quasi-Laplace score: \
          base={base_cost:.17e}"
     );
     let evaluation = gradient_objective
@@ -107,11 +131,14 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
     );
     assert_eq!(evaluation.gradient.len(), 2);
 
-    let rho_state = gradient_objective.baseline_rho.from_flat(base.view());
+    let rho_state = gradient_objective
+        .baseline_rho
+        .from_flat(base.view())
+        .unwrap();
     let mut audit_term = gradient_objective.term.clone();
     let mut atomized_audit_term = audit_term.clone();
     let (audit_value, audit_loss, audit_cache) = audit_term
-        .reml_criterion_with_cache(
+        .penalized_quasi_laplace_criterion_with_cache(
             gradient_objective.target.view(),
             &rho_state,
             gradient_objective.registry.as_ref(),
@@ -132,9 +159,8 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
             gradient_objective.ridge_beta,
         )
         .expect("rank-adjusted criterion atoms must assemble");
-    let atom_identity_roundoff = 64.0
-        * f64::EPSILON
-        * (1.0 + audit_value.abs().max(atomized_criterion.value().abs()));
+    let atom_identity_roundoff =
+        64.0 * f64::EPSILON * (1.0 + audit_value.abs().max(atomized_criterion.value().abs()));
     assert!(
         (atomized_criterion.value() - audit_value).abs() <= atom_identity_roundoff,
         "criterion atoms must equal the production rank-adjusted scalar: \
@@ -142,7 +168,7 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
         atomized_criterion.value(),
     );
     let audit_solver = audit_term
-        .outer_gradient_arrow_solver(&audit_cache, &rho_state.lambda_smooth_vec())
+        .outer_gradient_arrow_solver(&audit_cache, &rho_state.lambda_smooth_vec().unwrap())
         .expect("frozen accepted-state outer solver");
     let audit_components = audit_term
         .analytic_outer_rho_gradient_components(
@@ -154,13 +180,13 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
         )
         .expect("frozen accepted-state gradient components");
     let rank_charge_derivative = audit_term
-        .hard_rank_charge_derivative(
+        .production_rank_charge_derivative(
             gradient_objective.target.view(),
             &rho_state,
             &audit_loss,
             &audit_cache,
         )
-        .expect("frozen accepted-state hard-rank-charge derivative");
+        .expect("frozen accepted-state production-rank-charge derivative");
     let plain_audit_solver = DeflatedArrowSolver::plain(&audit_cache);
     let plain_audit_components = audit_term
         .analytic_outer_rho_gradient_components(
@@ -189,15 +215,11 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
     let quotient_kkt_norm = kkt_term.quotient_gradient_norm_from_system(
         &kkt_system,
         kkt_norm_sq,
-        &rho_state.lambda_smooth_vec(),
+        &rho_state.lambda_smooth_vec().unwrap(),
     );
     let kkt_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * kkt_term.inner_iterate_scale();
     assert!(
-        SaeManifoldTerm::evidence_kkt_stationary(
-            kkt_norm,
-            quotient_kkt_norm,
-            kkt_tolerance,
-        ),
+        SaeManifoldTerm::quasi_laplace_kkt_stationary(kkt_norm, quotient_kkt_norm, kkt_tolerance,),
         "an off-KKT state cannot emit or certify the analytic envelope gradient: \
          raw={kkt_norm:.9e}, quotient={quotient_kkt_norm:.9e}, \
          tolerance={kkt_tolerance:.9e}"
@@ -215,9 +237,9 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
     let frozen_ridge_beta = gradient_objective.ridge_beta;
     let criterion_parts_at = |rho_flat: &Array1<f64>, inner_max_iter: usize| {
         let mut term = frozen_anchor_term.clone();
-        let rho = frozen_baseline_rho.from_flat(rho_flat.view());
+        let rho = frozen_baseline_rho.from_flat(rho_flat.view()).unwrap();
         let (criterion, loss, cache) = term
-            .reml_criterion_with_cache(
+            .penalized_quasi_laplace_criterion_with_cache(
                 frozen_target.view(),
                 &rho,
                 frozen_registry.as_ref(),
@@ -227,10 +249,9 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
                 frozen_ridge_beta,
             )
             .expect("frozen-state directional value probe");
-        let extra_penalty = frozen_registry.as_ref().map_or(Ok(0.0), |registry| {
-            term.reml_extra_penalty_value_total(registry)
-                .map_err(|error| error.to_string())
-        });
+        let extra_penalty = term
+            .reml_extra_penalty_value_total(frozen_registry.as_ref())
+            .map_err(|error| error.to_string());
         let data_and_priors = loss.total() + extra_penalty.expect("frozen extra penalty");
         let half_logdet =
             0.5 * arrow_log_det_from_cache(&cache).expect("frozen authoritative log determinant");
@@ -305,12 +326,12 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
     let frozen_minus_cost = frozen_cost_at(&minus);
     assert!(
         plus_cost.is_finite(),
-        "+h must evaluate feasible REML evidence: \
+        "+h must evaluate feasible penalized quasi-Laplace score: \
          cost={plus_cost:.17e}, telemetry={plus_telemetry:?}"
     );
     assert!(
         minus_cost.is_finite(),
-        "-h must evaluate feasible REML evidence: \
+        "-h must evaluate feasible penalized quasi-Laplace score: \
          cost={minus_cost:.17e}, telemetry={minus_telemetry:?}"
     );
     assert_eq!(
@@ -543,4 +564,95 @@ fn k1_softmax_active_rho_gradient_matches_directional_fd_2253() {
         plain_audit_components.logdet_trace,
         audit_solver.gauge_basis.len(),
     );
+}
+
+/// Per-coordinate, per-channel FIXED-STATE criterion-derivative audit — the
+/// single-source instrument for the outer criterion (#2253, stage 3.3.iii).
+///
+/// For every ρ coordinate: central FD of the FROZEN criterion (the
+/// `inner_max_iter == 0` verbatim-reuse contract holds θ̂ bit-for-bit fixed,
+/// so the FD sees ONLY the direct ρ-dependence) versus the fixed-state
+/// analytic channel sum `explicit + logdet_trace + occam` (the adjoint /
+/// third-order channel is the θ̂-response and is correctly EXCLUDED at fixed
+/// state). A mismatch therefore isolates a genuine channel-formula desync —
+/// and the failure message prints each channel separately so the desync NAMES
+/// its channel (the instrument that localizes the historical ARD fixed-state
+/// anomaly, FD +0.208 vs analytic +1.066). Trap-immunity: no re-solve is on
+/// the FD path, so an under-converged inner state cannot fake either side.
+#[test]
+fn frozen_state_per_coordinate_channel_fd_audit_2253() {
+    let mut objective = planted_periodic_outer_objective_2253();
+    let base = objective.baseline_rho.to_flat();
+    objective
+        .eval_cost(&base)
+        .expect("base value lane must converge");
+    objective
+        .eval(&base)
+        .expect("base gradient lane must converge");
+    let rho_state = objective.baseline_rho.from_flat(base.view()).unwrap();
+    let mut audit_term = objective.term.clone();
+    let (_frozen_value, audit_loss, audit_cache) = audit_term
+        .penalized_quasi_laplace_criterion_with_cache(
+            objective.target.view(),
+            &rho_state,
+            objective.registry.as_ref(),
+            0,
+            objective.learning_rate,
+            objective.ridge_ext_coord,
+            objective.ridge_beta,
+        )
+        .expect("frozen accepted-state evidence audit must evaluate");
+    let audit_solver = audit_term
+        .outer_gradient_arrow_solver(&audit_cache, &rho_state.lambda_smooth_vec().unwrap())
+        .expect("frozen accepted-state outer solver");
+    let components = audit_term
+        .analytic_outer_rho_gradient_components(
+            objective.target.view(),
+            &rho_state,
+            &audit_loss,
+            &audit_cache,
+            &audit_solver,
+        )
+        .expect("frozen accepted-state gradient components");
+
+    let anchor_term = objective.term.clone();
+    let frozen_cost_at = |rho_flat: &Array1<f64>| -> f64 {
+        let mut term = anchor_term.clone();
+        let rho = objective.baseline_rho.from_flat(rho_flat.view()).unwrap();
+        term.penalized_quasi_laplace_criterion_with_cache(
+            objective.target.view(),
+            &rho,
+            objective.registry.as_ref(),
+            0,
+            objective.learning_rate,
+            objective.ridge_ext_coord,
+            objective.ridge_beta,
+        )
+        .expect("frozen per-coordinate value probe")
+        .0
+    };
+
+    let h = 1.0e-4_f64;
+    for idx in 0..base.len() {
+        let mut plus = base.clone();
+        plus[idx] += h;
+        let mut minus = base.clone();
+        minus[idx] -= h;
+        let fd = (frozen_cost_at(&plus) - frozen_cost_at(&minus)) / (2.0 * h);
+        let analytic =
+            components.explicit[idx] + components.logdet_trace[idx] + components.occam[idx];
+        let scale = analytic.abs().max(fd.abs()).max(1.0e-6);
+        let rel = (analytic - fd).abs() / scale;
+        assert!(
+            rel <= 1.0e-3,
+            "fixed-state channel desync at rho[{idx}]: analytic={analytic:.9e} \
+             (explicit={:.9e}, logdet_trace={:.9e}, occam={:.9e}, \
+             excluded third_order={:.9e}) vs frozen central FD={fd:.9e} (rel={rel:.3e}). \
+             The desync lives in whichever channel above disagrees with the FD split.",
+            components.explicit[idx],
+            components.logdet_trace[idx],
+            components.occam[idx],
+            components.third_order_correction[idx],
+        );
+    }
 }

@@ -447,7 +447,7 @@ impl<'a> RemlState<'a> {
             .read()
             .unwrap()
             .as_ref()
-            .map(|bundle| bundle.ridge_passport.delta)
+            .map(|bundle| bundle.ridge_passport.delta())
     }
 
     pub(crate) fn dense_penalty_logdet_derivs(
@@ -462,7 +462,8 @@ impl<'a> RemlState<'a> {
         free_basis: Option<&Array2<f64>>,
     ) -> Result<(usize, super::reml_outer_engine::PenaltyLogdetDerivs), EstimationError> {
         let logdet_s_start = std::time::Instant::now();
-        let lambdas = rho.mapv(f64::exp);
+        let lambdas =
+            Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
         let ridge = ridge_passport.penalty_logdet_ridge();
 
         // Active-constraint projection consistency (#1380). When an active
@@ -861,45 +862,38 @@ impl<'a> RemlState<'a> {
             .and(c_array)
             .and(&x_y)
             .par_for_each(|o, &d, &h, &c, &xy| *o = d * h - c * xy);
-        let chunk_len = (n
-            / (rayon::current_num_threads()
-                .saturating_mul(TK_CHUNK_OVERSUBSCRIBE)
-                .max(1)))
-        .clamp(TK_BLOCK_SIZE, TK_CHUNK_MAX_ROWS);
-        let chunks = n.div_ceil(chunk_len);
-        let mut p_total = (0..chunks)
-            .into_par_iter()
-            .fold(
-                || Array2::<f64>::zeros((p, p)),
-                |mut local, chunk_idx| {
-                    let i0 = chunk_idx * chunk_len;
-                    let i1 = (i0 + chunk_len).min(n);
-                    for i in i0..i1 {
-                        let wi = diag_combined[i];
-                        if wi == 0.0 {
-                            continue;
-                        }
-                        for a in 0..p {
-                            let wa = wi * z[[a, i]];
-                            for b in a..p {
-                                let val = wa * z[[b, i]];
-                                local[[a, b]] += val;
-                                if a != b {
-                                    local[[b, a]] += val;
-                                }
+        // Deterministic parallel row reduction: length-only pairwise tree so
+        // the accumulated float result never depends on thread count or work
+        // stealing (#2228 determinism probe — rayon fold/reduce grouping is
+        // demand-driven and made this sum nondeterministic run-to-run).
+        let mut p_total = gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+            n,
+            |range: core::ops::Range<usize>| {
+                let mut local = Array2::<f64>::zeros((p, p));
+                for i in range {
+                    let wi = diag_combined[i];
+                    if wi == 0.0 {
+                        continue;
+                    }
+                    for a in 0..p {
+                        let wa = wi * z[[a, i]];
+                        for b in a..p {
+                            let val = wa * z[[b, i]];
+                            local[[a, b]] += val;
+                            if a != b {
+                                local[[b, a]] += val;
                             }
                         }
                     }
-                    local
-                },
-            )
-            .reduce(
-                || Array2::<f64>::zeros((p, p)),
-                |mut left, right| {
-                    left += &right;
-                    left
-                },
-            );
+                }
+                local
+            },
+            |mut left, right| {
+                left += &right;
+                left
+            },
+        )
+        .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
         p_total.mapv_inplace(|v| 0.25 * v);
         for a in 0..p {
             for b in 0..p {
@@ -912,11 +906,13 @@ impl<'a> RemlState<'a> {
                 (0..=j_block_idx).map(move |i_block_idx| (i_block_idx, j_block_idx))
             })
             .collect();
-        let active_total = active_pairs
-            .par_iter()
-            .fold(
-                || Array2::<f64>::zeros((p, p)),
-                |mut local, &(i_block_idx, j_block_idx)| {
+        // Same deterministic tree over the active block-pair list (order is
+        // the deterministic `active_pairs` construction above).
+        let active_total = gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+            active_pairs.len(),
+            |pair_range: core::ops::Range<usize>| {
+                let mut local = Array2::<f64>::zeros((p, p));
+                for &(i_block_idx, j_block_idx) in &active_pairs[pair_range] {
                     let i_block = &shared.active_blocks[i_block_idx];
                     let j_block = &shared.active_blocks[j_block_idx];
                     let sym_factor = if i_block_idx == j_block_idx { 1.0 } else { 2.0 };
@@ -953,16 +949,15 @@ impl<'a> RemlState<'a> {
                             }
                         }
                     }
-                    local
-                },
-            )
-            .reduce(
-                || Array2::<f64>::zeros((p, p)),
-                |mut left, right| {
-                    left += &right;
-                    left
-                },
-            );
+                }
+                local
+            },
+            |mut left, right| {
+                left += &right;
+                left
+            },
+        )
+        .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
         p_total += &active_total;
 
         let xp = gam_linalg::faer_ndarray::fast_ab(x_dense, &p_total);
@@ -1212,7 +1207,11 @@ impl<'a> RemlState<'a> {
                 }
             }
             if !entries.is_empty() {
-                blocks.push(TkActiveBlock { start, end, entries });
+                blocks.push(TkActiveBlock {
+                    start,
+                    end,
+                    entries,
+                });
             }
         }
 
@@ -1575,7 +1574,8 @@ impl<'a> RemlState<'a> {
         // them once here so the O(k²) pair loop reuses them instead of rebuilding
         // an O(n·r²·p) reduced Hadamard-Gram for each pair. Exact / bit-identical
         // to per-pair hphisecond_direction_apply(.., &eye) (#1575).
-        let firth_second_eye_cache = firth_op.map(|op| op.tk_second_direction_eye_cache(&firth_dir_i));
+        let firth_second_eye_cache =
+            firth_op.map(|op| op.tk_second_direction_eye_cache(&firth_dir_i));
 
         let mut beta_ij: Vec<Vec<Array1<f64>>> = (0..k)
             .map(|_| (0..k).map(|_| Array1::<f64>::zeros(p)).collect())
@@ -1628,9 +1628,9 @@ impl<'a> RemlState<'a> {
                 // Reuse the per-penalty directions built once above and the
                 // single-index second-derivative sub-blocks cached once above,
                 // instead of rebuilding them per (i,j) pair (#1575).
-                let cache = firth_second_eye_cache.as_ref().expect(
-                    "firth second-direction eye cache present when firth_op is Some",
-                );
+                let cache = firth_second_eye_cache
+                    .as_ref()
+                    .expect("firth second-direction eye cache present when firth_op is Some");
                 h -= &op.hphisecond_direction_apply_eye_cached(cache, &firth_dir_i, i, j);
             }
             gam_linalg::matrix::symmetrize_in_place(&mut h);
@@ -2107,7 +2107,7 @@ impl<'a> RemlState<'a> {
                     rhs,
                 )?)
             };
-            let lambdas: Vec<f64> = rho.iter().map(|r| r.exp()).collect();
+            let lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())?;
             let beta = self.sparse_exact_beta_original(pirls_result);
             let firth_op = if reml_robust_jeffreys_link(&self.config).is_some() {
                 let jeffreys_link = self.runtime_inverse_link();
@@ -2253,13 +2253,16 @@ impl<'a> RemlState<'a> {
                 .canonical_transformed
                 .iter()
                 .map(|cp| {
-                    gam_terms::construction::CanonicalPenalty::from_dense_root(cp.root.dot(z), p_eff)
+                    gam_terms::construction::CanonicalPenalty::from_dense_root(
+                        cp.root.dot(z),
+                        p_eff,
+                    )
                 })
                 .collect()
         } else {
             pirls_result.reparam_result.canonical_transformed.clone()
         };
-        let lambdas: Vec<f64> = rho.iter().map(|r| r.exp()).collect();
+        let lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())?;
         let beta = if use_original_basis {
             self.sparse_exact_beta_original(pirls_result)
         } else if let Some(z) = free_basis_opt.as_ref() {
@@ -2517,7 +2520,8 @@ impl<'a> RemlState<'a> {
         // Resolve the injected gam-inference sampler. When the sampler tier is
         // not linked / registered, decline the correction (zero contribution) —
         // the same safe no-op as every other decline branch here.
-        let Some(sampler) = gam_problem::laplace_sampler_contract::laplace_marginal_sampler() else {
+        let Some(sampler) = gam_problem::laplace_sampler_contract::laplace_marginal_sampler()
+        else {
             return Ok(zero());
         };
 
@@ -2602,37 +2606,73 @@ impl<'a> RemlState<'a> {
         // `RemlState`, so the vectors are ρ- and mode-invariant (exact hoist,
         // identical values for every consumer).
         let penalty_scores = bundle.canonical_penalty_scores_at_mode(&self.canonical_penalties)?;
-        let lambdas: Vec<f64> = rho.iter().map(|&r| r.exp()).collect();
+        let lambdas = gam_problem::checked_exp_log_strengths(rho.iter().copied())?;
 
-        // Dispersion φ used to turn deviance into log-likelihood.
+        // Scale converting the REPORTED deviance into negative log-likelihood.
+        // Gaussian's reported deviance already includes a fixed dispersion;
+        // Beta's deviance is defined directly as twice a saturated-loglikelihood
+        // difference and already contains its precision.  Dividing either a
+        // second time would change the sampled objective. Gamma and Tweedie,
+        // by contrast, deliberately report unscaled deviance and need their
+        // EDM dispersion here.
         let phi = match reml_spec(&self.config.likelihood).response {
-            ResponseFamily::Gaussian => 1.0,
-            _ => reml_fixed_glm_dispersion(&self.config.likelihood),
+            ResponseFamily::Gaussian | ResponseFamily::Beta { .. } => 1.0,
+            _ => reml_fixed_glm_dispersion(&self.config.likelihood)?,
         };
-        let phi = if phi.is_finite() && phi > 0.0 {
-            phi
-        } else {
-            1.0
-        };
+        if !(phi.is_finite() && phi > 0.0) {
+            return Err(EstimationError::InvalidInput(format!(
+                "#784 block-local fallback requires finite positive dispersion; got {phi}"
+            )));
+        }
 
         let x_dense = x_design
             .try_to_dense_arc("#784 block-local fallback requires dense design access")
             .map_err(EstimationError::InvalidInput)?;
 
+        let eta_hat = pirls_result.final_eta.to_owned();
+        let inverse_link = self.runtime_inverse_link();
+        let base_rows = crate::pirls::deviance_eta_rows_with_log_measure_scale(
+            self.y.view(),
+            &eta_hat,
+            &self.config.likelihood,
+            &inverse_link,
+            self.weights.view(),
+            -phi.ln(),
+        )?;
+        let base_half_values: Vec<f64> = base_rows.iter().map(|row| row.half_deviance).collect();
+        let base_scaled_half_deviance = crate::pirls::stable_finite_signed_sum(
+            &base_half_values,
+            "#784 base scaled half-deviance",
+        )?;
+        let base_neg_score_at_mode =
+            Array1::from_iter(base_rows.into_iter().map(|row| row.eta_score));
+        gam_linalg::matrix::FiniteSignedWeightsView::try_new(pirls_result.finalweights.view())
+            .map_err(EstimationError::InvalidInput)?;
+        let weights_obs = pirls_result.finalweights.to_owned();
+        let weights_obs_log_abs = weights_obs.mapv(|weight| {
+            if weight == 0.0 {
+                f64::NEG_INFINITY
+            } else {
+                weight.abs().ln()
+            }
+        });
+
         let target = Gam784BlockTarget {
             x_transformed: x_dense.as_ref(),
             block_vecs,
             block_lambdas,
-            eta_hat: pirls_result.final_eta.to_owned(),
-            weights_obs: pirls_result.finalweights.to_owned(),
+            eta_hat,
+            weights_obs,
+            weights_obs_log_abs,
             y: self.y.to_owned(),
             prior_weights: self.weights.to_owned(),
             likelihood: self.config.likelihood.clone(),
-            inverse_link: self.runtime_inverse_link(),
+            inverse_link,
             phi,
             penalty_scores,
             lambdas,
-            base_deviance: pirls_result.deviance,
+            base_scaled_half_deviance,
+            base_neg_score_at_mode,
         };
 
         let sampled = sampler
@@ -2704,7 +2744,9 @@ impl<'a> RemlState<'a> {
         let x = x_dense.as_ref();
         let n_rows = x.nrows();
         let xv = x.dot(&target.block_vecs); // n × m
-        let ngs_base = target.base_neg_score();
+        let ngs_base = target
+            .base_neg_score()
+            .map_err(EstimationError::InvalidInput)?;
 
         // σ²_i = E_p[s_i²] and the shared n×m intermediates.
         let xv_ett = xv.dot(&moments.e_tt); // n × m
@@ -3267,14 +3309,12 @@ impl<'a> RemlState<'a> {
         pirls_result: &PirlsResult,
     ) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>), EstimationError> {
         let (c_array, d_array) = self.hessian_cd_arrays(pirls_result)?;
-        Ok(crate::pirls::outer_hessian_curvature_arrays(
+        crate::pirls::exact_hessian_surface_arrays(
             pirls_result.final_weights_signed(),
-            pirls_result.solve_weights_psd(),
             &c_array,
             &d_array,
             &pirls_result.final_eta.to_owned(),
-            &self.config.link_kind,
-        ))
+        )
     }
 
     /// Returns the (c, d, e) per-row mode-curvature carriers required for
@@ -3316,22 +3356,15 @@ impl<'a> RemlState<'a> {
 
         let inverse_link = self.runtime_inverse_link();
 
-        // Use the same saturation contract as PIRLS observed-Hessian
-        // assembly.  If PIRLS evaluated W_obs at a clamped eta, the
-        // derivative wrt the unclamped eta is zero; higher curvature carriers
-        // must be zero on that branch as well.
-
         // Canonical-Logit fast path: W = h'(η), so ∂³W/∂η³ = h''''(η)
         // taken from the dedicated 5-jet (no variance-jet machinery).
         // Mixture links advertise `link_function() == Logit` but are
         // non-canonical; route them through the general path below.
-        let canonical_logit = matches!(
-            reml_spec(&pirls_result.likelihood).response,
-            ResponseFamily::Binomial
-        ) && matches!(
-            &inverse_link,
-            InverseLink::Standard(StandardLink::Logit)
-        );
+        let canonical_logit =
+            matches!(
+                reml_spec(&pirls_result.likelihood).response,
+                ResponseFamily::Binomial
+            ) && matches!(&inverse_link, InverseLink::Standard(StandardLink::Logit));
 
         if canonical_logit {
             // Canonical Logit fast path: per-row 5-jet evaluation, no
@@ -3342,14 +3375,17 @@ impl<'a> RemlState<'a> {
             let weights = &self.weights;
             let e_s = e_array.as_slice_mut().expect("e_array must be contiguous");
             e_s.par_iter_mut().enumerate().for_each(|(i, e_o)| {
-                let eta_raw = final_eta[i];
-                if pirls::eta_clamp_active(&inverse_link, eta_raw) {
-                    *e_o = 0.0;
-                } else {
-                    let jet = crate::mixture_link::logit_inverse_link_jet5(eta_raw);
-                    *e_o = weights[i].max(0.0) * jet.d4;
-                }
+                let jet = crate::mixture_link::logit_inverse_link_jet5(final_eta[i]);
+                *e_o = weights[i] * jet.d4;
             });
+            if let Some((i, &value)) = e_array.iter().enumerate().find(|(_, v)| !v.is_finite()) {
+                return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+                    row: i,
+                    quantity: "observed Hessian d3W/deta3",
+                    eta: final_eta[i],
+                    value,
+                });
+            }
             return Ok((c_array, d_array, e_array));
         }
 
@@ -3357,8 +3393,8 @@ impl<'a> RemlState<'a> {
         // links and other GLM families that support the observed Hessian
         // surface (Probit, CLogLog, SAS, BetaLogistic, Mixture, GammaLog).
         let likelihood = &pirls_result.likelihood;
-        let weight_family = pirls::weight_family_for_glm_likelihood(likelihood);
-        let phi = reml_fixed_glm_dispersion(likelihood);
+        let weight_family = pirls::weight_family_for_glm_likelihood(likelihood)?;
+        let phi = reml_fixed_glm_dispersion(likelihood)?;
         let dmu_deta = &pirls_result.solve_dmu_deta;
         let d2mu_deta2 = &pirls_result.solve_d2mu_deta2;
         let d3mu_deta3 = &pirls_result.solve_d3mu_deta3;
@@ -3382,22 +3418,18 @@ impl<'a> RemlState<'a> {
         // Noncanonical / GammaLog observed-information path: each row's
         // e_i depends only on (eta[i], mu[i], priorweights[i], y[i], dmu/d2/d3
         // jets at row i, and the inverse-link's higher-order pdf derivatives
-        // evaluated at eta_used). No carrier across rows. The h4/h5 lookup
-        // calls return Result, so we propagate first error via try_for_each.
+        // evaluated at the exact eta). No carrier crosses rows. Compute into an
+        // indexed certificate vector, then scan in row order for deterministic
+        // failure selection before publishing the array.
         use rayon::prelude::*;
         let final_eta = &pirls_result.final_eta;
         let weights = &self.weights;
         let y_view = &self.y;
         let inverse_link_ref = &inverse_link;
-        let e_s = e_array.as_slice_mut().expect("e_array must be contiguous");
-        e_s.par_iter_mut()
-            .enumerate()
-            .try_for_each(|(i, e_o)| -> Result<(), EstimationError> {
+        let certified: Vec<Result<f64, EstimationError>> = (0..n)
+            .into_par_iter()
+            .map(|i| -> Result<f64, EstimationError> {
                 let eta_raw = final_eta[i];
-                if pirls::eta_clamp_active(inverse_link_ref, eta_raw) {
-                    *e_o = 0.0;
-                    return Ok(());
-                }
                 let h1 = dmu_deta[i];
                 let h2 = d2mu_deta2[i];
                 let h3 = d3mu_deta3[i];
@@ -3415,21 +3447,39 @@ impl<'a> RemlState<'a> {
                     || !h4.is_finite()
                     || !h5.is_finite()
                 {
-                    *e_o = 0.0;
-                    return Ok(());
+                    return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+                        row: i,
+                        quantity: "observed Hessian inverse-link five-jet",
+                        eta: eta_raw,
+                        value: h5,
+                    });
                 }
                 let mu_i = mu[i];
                 let vj = pirls::variance_jet_for_weight_family(weight_family, mu_i);
                 if !(vj.v.is_finite() && vj.v > 0.0) {
-                    *e_o = 0.0;
-                    return Ok(());
+                    return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+                        row: i,
+                        quantity: "observed Hessian variance",
+                        eta: eta_raw,
+                        value: vj.v,
+                    });
                 }
-                let pw = weights[i].max(0.0);
+                let pw = weights[i];
                 let y_i = y_view[i];
                 let e_i = pirls::e_obs_from_jets(y_i, mu_i, h1, h2, h3, h4, h5, vj, phi, pw);
-                *e_o = if e_i.is_finite() { e_i } else { 0.0 };
-                Ok(())
-            })?;
+                if e_i.is_finite() {
+                    Ok(e_i)
+                } else {
+                    Err(EstimationError::PirlsRowGeometryUnrepresentable {
+                        row: i,
+                        quantity: "observed Hessian d3W/deta3",
+                        eta: eta_raw,
+                        value: e_i,
+                    })
+                }
+            })
+            .collect();
+        e_array = Array1::from_vec(certified.into_iter().collect::<Result<_, _>>()?);
 
         Ok((c_array, d_array, e_array))
     }
@@ -3457,15 +3507,17 @@ impl<'a> RemlState<'a> {
         let weights = &self.weights;
         let f_s = f_array.as_slice_mut().expect("f_array must be contiguous");
         f_s.par_iter_mut().enumerate().for_each(|(i, f_o)| {
-            let eta_raw = final_eta[i];
-            let eta_used = eta_raw.clamp(-ETA_OVERFLOW_CLAMP, ETA_OVERFLOW_CLAMP);
-            if eta_raw != eta_used {
-                *f_o = 0.0;
-            } else {
-                let jet = crate::mixture_link::logit_inverse_link_jet5(eta_used);
-                *f_o = weights[i].max(0.0) * jet.d5;
-            }
+            let jet = crate::mixture_link::logit_inverse_link_jet5(final_eta[i]);
+            *f_o = weights[i] * jet.d5;
         });
+        if let Some((i, &value)) = f_array.iter().enumerate().find(|(_, v)| !v.is_finite()) {
+            return Err(EstimationError::PirlsRowGeometryUnrepresentable {
+                row: i,
+                quantity: "observed Hessian d4W/deta4",
+                eta: final_eta[i],
+                value,
+            });
+        }
         Ok((c_array, d_array, e_array, f_array))
     }
 
@@ -3643,7 +3695,7 @@ impl<'a> RemlState<'a> {
     ///
     /// `Var(yᵢ) = φ/wᵢ` under inverse-variance prior weights, so the full
     /// weighted-Gaussian normalization is `½ Σ log(2π φ/wᵢ) =
-    /// (n/2) log(2πφ) − ½ Σ log wᵢ`; the `calculate_loglikelihood_omitting_constants`
+    /// (n/2) log(2πφ) − ½ Σ log wᵢ`; the `calculate_loglikelihood_omitting_constants_from_eta`
     /// helper omits the `−½ Σ log wᵢ` piece. The `ProfiledGaussian` REML cost
     /// adds it back (`InnerSolution::gaussian_weight_log_sum_half`) so the
     /// objective VALUE is exactly invariant to a global prior-weight rescale
@@ -3893,7 +3945,10 @@ impl<'a> RemlState<'a> {
     /// link states) whose profiled ridge the closed form does not model, no
     /// penalties, or a sparse design (skipped rather than densified so a huge
     /// random-effects design never pays an `n×p` materialization).
-    pub(crate) fn analytic_gaussian_closed_form_rho(&self, bounds: (f64, f64)) -> Option<Array1<f64>> {
+    pub(crate) fn analytic_gaussian_closed_form_rho(
+        &self,
+        bounds: (f64, f64),
+    ) -> Option<Array1<f64>> {
         if !reml_is_gaussian_identity(&self.config.likelihood) {
             return None;
         }
@@ -4068,11 +4123,9 @@ impl<'a> RemlState<'a> {
         &self,
         pr: &PirlsResult,
     ) -> Result<(Array2<f64>, RidgePassport), EstimationError> {
-        // Use the same stabilized H = X' W X + S + δI that PIRLS built,
-        // where W = `solver_weights = max(W_obs, floor(W_F))` keeps H PD.
-        // The OUTER analytic operator constructs ∂H/∂ψ from the same
-        // floored W (via `outer_hessian_curvature_arrays`), so log|H| and
-        // its trace gradient live on a single, consistent surface.
+        // Use the same stabilized H = X' W X + S + delta I that PIRLS built.
+        // W is the exact signed statistical curvature; only the assembled
+        // matrix receives the explicit, rho-independent stabilization ridge.
         let h = &pr.stabilizedhessian_transformed;
         if h.factorize().is_ok() {
             return Ok((h.to_dense(), pr.ridge_passport));
@@ -4444,7 +4497,7 @@ impl<'a> RemlState<'a> {
         self.arena
             .inner_pirls_solve_count
             .fetch_add(1, Ordering::Relaxed);
-        let decision = self.select_reml_geometry(rho);
+        let decision = self.select_reml_geometry(rho)?;
         match decision.geometry {
             RemlGeometry::SparseExactSpd => {
                 match self.prepare_sparse_eval_bundlewithkey(rho, key.clone()) {
@@ -5075,7 +5128,8 @@ impl<'a> RemlState<'a> {
         let mut gram_original = match pr.coordinate_frame {
             pirls::PirlsCoordinateFrame::OriginalSparseNative => gram_transformed,
             pirls::PirlsCoordinateFrame::TransformedQs => {
-                let left = gam_linalg::faer_ndarray::fast_ab(&pr.reparam_result.qs, &gram_transformed);
+                let left =
+                    gam_linalg::faer_ndarray::fast_ab(&pr.reparam_result.qs, &gram_transformed);
                 gam_linalg::faer_ndarray::fast_ab(&left, &pr.reparam_result.qs.t().to_owned())
             }
         };
@@ -6208,9 +6262,14 @@ impl<'a> RemlState<'a> {
                 w * centered * centered
             })
             .sum::<f64>();
+        let finite_weights =
+            match gam_linalg::matrix::FiniteSignedWeightsView::try_from_array(&weights_owned) {
+                Ok(weights) => weights,
+                Err(_) => return None,
+            };
         let xtwx = match gam_linalg::matrix::LinearOperator::xt_diag_x_signed_op(
             &self.x,
-            gam_linalg::matrix::SignedWeightsView::from_array(&weights_owned),
+            finite_weights,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -6394,7 +6453,8 @@ impl<'a> RemlState<'a> {
             )
         })?;
 
-        let lambdas = rho.mapv(f64::exp);
+        let lambdas =
+            Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
         let mut s_lambda = Array2::<f64>::zeros((self.p, self.p));
         for (k, cp) in self.canonical_penalties.iter().enumerate() {
             if k < lambdas.len() && lambdas[k] != 0.0 {
@@ -6427,7 +6487,7 @@ impl<'a> RemlState<'a> {
             x_sparse,
             &hessian_weights,
             &s_lambda,
-            ridge_passport.delta,
+            ridge_passport.delta(),
             precomputed_xtwx,
         )?;
         let lambdas_slice = lambdas.as_slice().ok_or_else(|| {
@@ -6658,8 +6718,7 @@ impl<'a> RemlState<'a> {
             }
             if pirls_config.max_iterations != original_cap
                 || (in_screening
-                    && pirls_config.convergence_tolerance
-                        > self.config.pirls_convergence_tolerance)
+                    && pirls_config.convergence_tolerance > self.config.pirls_convergence_tolerance)
             {
                 log::debug!(
                     "[PIRLS cap] inner_max_iterations={} (full={} screening={} outer={}) inner_tol={:.1e} (full_tol={:.1e})",
@@ -6676,6 +6735,10 @@ impl<'a> RemlState<'a> {
                 );
             }
             pirls_config.link_kind = self.runtime_inverse_link();
+            let resolved_likelihood_scale = pirls_config
+                .likelihood
+                .resolved_scale()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             // Negative-Binomial λ-search θ freeze (#1082). With θ estimated,
             // the inner solver re-derives θ from each outer iterate's warm-start
             // η, so the NB working response / deviance / penalty-logdet — and
@@ -6689,16 +6752,29 @@ impl<'a> RemlState<'a> {
             // `refine_dispersion_at_converged_eta = true` accept-fit in
             // `optimizer.rs`), exactly as the dispersion-at-converged-η contract
             // requires. No effect on non-NB or user-fixed-θ specs.
-            if pirls_config.likelihood.negbin_theta_is_estimated() {
+            if matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+                    estimated: true,
+                    ..
+                }
+            ) {
                 let frozen_bits = self.frozen_negbin_theta.load(Ordering::Relaxed);
                 if frozen_bits != 0 {
                     let frozen_theta = f64::from_bits(frozen_bits);
-                    if frozen_theta.is_finite() && frozen_theta > 0.0 {
-                        pirls_config.likelihood = pirls_config
-                            .likelihood
-                            .clone()
-                            .with_negbin_theta_frozen_for_search(frozen_theta);
+                    if !(frozen_theta.is_finite() && frozen_theta > 0.0) {
+                        return Err(EstimationError::InvalidInput(format!(
+                            "frozen negative-binomial theta is invalid: {frozen_theta:?}"
+                        )));
                     }
+                    pirls_config.likelihood = pirls_config
+                        .likelihood
+                        .clone()
+                        .with_negbin_theta_frozen_for_search(frozen_theta);
+                    pirls_config
+                        .likelihood
+                        .resolved_scale()
+                        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 }
             }
             // Tweedie λ-search φ freeze (#1477). The same drift mechanism as the
@@ -6712,16 +6788,29 @@ impl<'a> RemlState<'a> {
             // `F(ρ) = REML(ρ, φ_frozen)` is stationary in ρ; φ is still refreshed
             // at the single final reported fit. No effect on non-Tweedie or
             // user-fixed-φ specs.
-            if pirls_config.likelihood.tweedie_phi_is_estimated() {
+            if matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::Tweedie {
+                    estimated: true,
+                    ..
+                }
+            ) {
                 let frozen_bits = self.frozen_tweedie_phi.load(Ordering::Relaxed);
                 if frozen_bits != 0 {
                     let frozen_phi = f64::from_bits(frozen_bits);
-                    if frozen_phi.is_finite() && frozen_phi > 0.0 {
-                        pirls_config.likelihood = pirls_config
-                            .likelihood
-                            .clone()
-                            .with_tweedie_phi_frozen_for_search(frozen_phi);
+                    if !(frozen_phi.is_finite() && frozen_phi > 0.0) {
+                        return Err(EstimationError::InvalidInput(format!(
+                            "frozen Tweedie dispersion is invalid: {frozen_phi:?}"
+                        )));
                     }
+                    pirls_config.likelihood = pirls_config
+                        .likelihood
+                        .clone()
+                        .with_tweedie_phi_frozen_for_search(frozen_phi);
+                    pirls_config
+                        .likelihood
+                        .resolved_scale()
+                        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 }
             }
             // Gamma λ-search shape freeze (#1074). Same drift mechanism as the NB
@@ -6740,16 +6829,29 @@ impl<'a> RemlState<'a> {
             // converged solve's MLE `k` so `F(ρ) = REML(ρ, k_frozen)` is
             // stationary in ρ; `k` is still refreshed at the single final
             // reported fit. No effect on non-Gamma or user-fixed-shape specs.
-            if pirls_config.likelihood.scale.gamma_shape_is_estimated() {
+            if matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::Gamma {
+                    estimated: true,
+                    ..
+                }
+            ) {
                 let frozen_bits = self.frozen_gamma_shape.load(Ordering::Relaxed);
                 if frozen_bits != 0 {
                     let frozen_shape = f64::from_bits(frozen_bits);
-                    if frozen_shape.is_finite() && frozen_shape > 0.0 {
-                        pirls_config.likelihood = pirls_config
-                            .likelihood
-                            .clone()
-                            .with_gamma_shape_frozen_for_search(frozen_shape);
+                    if !(frozen_shape.is_finite() && frozen_shape > 0.0) {
+                        return Err(EstimationError::InvalidInput(format!(
+                            "frozen Gamma shape is invalid: {frozen_shape:?}"
+                        )));
                     }
+                    pirls_config.likelihood = pirls_config
+                        .likelihood
+                        .clone()
+                        .with_gamma_shape_frozen_for_search(frozen_shape);
+                    pirls_config
+                        .likelihood
+                        .resolved_scale()
+                        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 }
             }
             // Levenberg-Marquardt damping warm-start. Read the cached
@@ -6857,7 +6959,7 @@ impl<'a> RemlState<'a> {
             };
             let pirls_start = std::time::Instant::now();
             let result = pirls::fit_model_for_fixed_rho_with_adaptive_kkt(
-                LogSmoothingParamsView::new(rho.view()),
+                LogSmoothingParamsView::new(rho.view())?,
                 problem,
                 penalty,
                 &pirls_config,
@@ -6906,6 +7008,10 @@ impl<'a> RemlState<'a> {
 
         let (pirls_result, _) = pirls_result?; // Propagate error if it occurred
         let pirls_result = Arc::new(pirls_result);
+        let resolved_likelihood_scale = pirls_result
+            .likelihood
+            .resolved_scale()
+            .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
         // Capture the data-driven NB θ from the first converged non-screening
         // λ-search solve and freeze it for the rest of the search (#1082). The
         // first solve still estimated θ from the seed η (this branch only runs
@@ -6915,16 +7021,22 @@ impl<'a> RemlState<'a> {
         // solves use a tiny inner budget and a partial mode, so they are never
         // the source of the frozen value.
         if !in_screening
-            && pirls_result.likelihood.negbin_theta_is_estimated()
+            && matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+                    estimated: true,
+                    ..
+                }
+            )
             && self.frozen_negbin_theta.load(Ordering::Relaxed) == 0
             && matches!(
                 pirls_result.status,
                 pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
             )
-            && let Some(theta) = pirls_result.likelihood.negbin_theta()
-            && theta.is_finite()
-            && theta > 0.0
         {
+            let theta = resolved_likelihood_scale
+                .negative_binomial_theta()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             self.frozen_negbin_theta
                 .store(theta.to_bits(), Ordering::Relaxed);
             log::info!(
@@ -6940,17 +7052,24 @@ impl<'a> RemlState<'a> {
         // would have used — we simply stop letting it drift (and reward dispersion
         // inflation) on subsequent outer evaluations.
         if !in_screening
-            && pirls_result.likelihood.tweedie_phi_is_estimated()
+            && matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::Tweedie {
+                    estimated: true,
+                    ..
+                }
+            )
             && self.frozen_tweedie_phi.load(Ordering::Relaxed) == 0
             && matches!(
                 pirls_result.status,
                 pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
             )
-            && let Some(phi) = pirls_result.likelihood.fixed_phi()
-            && phi.is_finite()
-            && phi > 0.0
         {
-            self.frozen_tweedie_phi.store(phi.to_bits(), Ordering::Relaxed);
+            let phi = resolved_likelihood_scale
+                .tweedie_phi()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+            self.frozen_tweedie_phi
+                .store(phi.to_bits(), Ordering::Relaxed);
             log::info!(
                 "[OUTER] tweedie λ-search φ frozen at {phi:.6e} (#1477); \
                  outer LAML criterion now stationary in ρ"
@@ -6966,17 +7085,24 @@ impl<'a> RemlState<'a> {
         // the curvature `H = k·XᵀX + λS` and the data-fit `k·½D` jump with ρ and
         // rails λ to the over-smoothed corner) on subsequent outer evaluations.
         if !in_screening
-            && pirls_result.likelihood.scale.gamma_shape_is_estimated()
+            && matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::Gamma {
+                    estimated: true,
+                    ..
+                }
+            )
             && self.frozen_gamma_shape.load(Ordering::Relaxed) == 0
             && matches!(
                 pirls_result.status,
                 pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
             )
-            && let Some(shape) = pirls_result.likelihood.gamma_shape()
-            && shape.is_finite()
-            && shape > 0.0
         {
-            self.frozen_gamma_shape.store(shape.to_bits(), Ordering::Relaxed);
+            let shape = resolved_likelihood_scale
+                .gamma_shape()
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+            self.frozen_gamma_shape
+                .store(shape.to_bits(), Ordering::Relaxed);
             log::info!(
                 "[OUTER] gamma λ-search shape frozen at {shape:.6e} (#1074); \
                  outer REML criterion now stationary in ρ"
@@ -7226,52 +7352,95 @@ impl<'a> RemlState<'a> {
     ) -> Result<Arc<PirlsResult>, EstimationError> {
         let mut pirls_config = self.config.as_pirls_config();
         pirls_config.link_kind = self.runtime_inverse_link();
+        let resolved_likelihood_scale = pirls_config
+            .likelihood
+            .resolved_scale()
+            .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
         // Pin the same λ-search-frozen NB θ the outer loop converged under
         // (#1082), so the rho-uncertainty sigma-point criterion is evaluated on
         // the identical stationary surface F(ρ) = REML(ρ, θ_frozen) rather than
         // re-estimating θ at each off-trajectory σ-point.
-        if pirls_config.likelihood.negbin_theta_is_estimated() {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::NegativeBinomial {
+                estimated: true,
+                ..
+            }
+        ) {
             let frozen_bits = self.frozen_negbin_theta.load(Ordering::Relaxed);
             if frozen_bits != 0 {
                 let frozen_theta = f64::from_bits(frozen_bits);
-                if frozen_theta.is_finite() && frozen_theta > 0.0 {
-                    pirls_config.likelihood = pirls_config
-                        .likelihood
-                        .clone()
-                        .with_negbin_theta_frozen_for_search(frozen_theta);
+                if !(frozen_theta.is_finite() && frozen_theta > 0.0) {
+                    return Err(EstimationError::InvalidInput(format!(
+                        "frozen negative-binomial theta is invalid: {frozen_theta:?}"
+                    )));
                 }
+                pirls_config.likelihood = pirls_config
+                    .likelihood
+                    .clone()
+                    .with_negbin_theta_frozen_for_search(frozen_theta);
+                pirls_config
+                    .likelihood
+                    .resolved_scale()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             }
         }
         // Pin the same λ-search-frozen Tweedie φ the outer loop converged under
         // (#1477), so the rho-uncertainty sigma-point criterion is evaluated on
         // the identical stationary surface F(ρ) = REML(ρ, φ_frozen) rather than
         // re-estimating φ at each off-trajectory σ-point.
-        if pirls_config.likelihood.tweedie_phi_is_estimated() {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::Tweedie {
+                estimated: true,
+                ..
+            }
+        ) {
             let frozen_bits = self.frozen_tweedie_phi.load(Ordering::Relaxed);
             if frozen_bits != 0 {
                 let frozen_phi = f64::from_bits(frozen_bits);
-                if frozen_phi.is_finite() && frozen_phi > 0.0 {
-                    pirls_config.likelihood = pirls_config
-                        .likelihood
-                        .clone()
-                        .with_tweedie_phi_frozen_for_search(frozen_phi);
+                if !(frozen_phi.is_finite() && frozen_phi > 0.0) {
+                    return Err(EstimationError::InvalidInput(format!(
+                        "frozen Tweedie dispersion is invalid: {frozen_phi:?}"
+                    )));
                 }
+                pirls_config.likelihood = pirls_config
+                    .likelihood
+                    .clone()
+                    .with_tweedie_phi_frozen_for_search(frozen_phi);
+                pirls_config
+                    .likelihood
+                    .resolved_scale()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             }
         }
         // Pin the same λ-search-frozen Gamma shape the outer loop converged under
         // (#1074), so the rho-uncertainty sigma-point criterion is evaluated on
         // the identical stationary surface F(ρ) = REML(ρ, k_frozen) rather than
         // re-estimating `k` at each off-trajectory σ-point.
-        if pirls_config.likelihood.scale.gamma_shape_is_estimated() {
+        if matches!(
+            resolved_likelihood_scale,
+            gam_problem::ResolvedLikelihoodScale::Gamma {
+                estimated: true,
+                ..
+            }
+        ) {
             let frozen_bits = self.frozen_gamma_shape.load(Ordering::Relaxed);
             if frozen_bits != 0 {
                 let frozen_shape = f64::from_bits(frozen_bits);
-                if frozen_shape.is_finite() && frozen_shape > 0.0 {
-                    pirls_config.likelihood = pirls_config
-                        .likelihood
-                        .clone()
-                        .with_gamma_shape_frozen_for_search(frozen_shape);
+                if !(frozen_shape.is_finite() && frozen_shape > 0.0) {
+                    return Err(EstimationError::InvalidInput(format!(
+                        "frozen Gamma shape is invalid: {frozen_shape:?}"
+                    )));
                 }
+                pirls_config.likelihood = pirls_config
+                    .likelihood
+                    .clone()
+                    .with_gamma_shape_frozen_for_search(frozen_shape);
+                pirls_config
+                    .likelihood
+                    .resolved_scale()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
             }
         }
 
@@ -7305,7 +7474,7 @@ impl<'a> RemlState<'a> {
 
         let pirls_start = std::time::Instant::now();
         let result = pirls::fit_model_for_fixed_rho_with_adaptive_kkt(
-            LogSmoothingParamsView::new(rho.view()),
+            LogSmoothingParamsView::new(rho.view())?,
             problem,
             penalty,
             &pirls_config,
@@ -8121,9 +8290,13 @@ mod firth_hessian_direction_reuse_tests {
         }
         let h_solver = h.clone();
         let h_inv_solve = move |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> {
-            let sol = gam_linalg::utils::solve_symmetric_vector_with_floor(&h_solver, rhs, 1e-10)
-                .expect("well-conditioned SPD solve");
-            Ok(sol)
+            Ok(
+                gam_linalg::utils::certified_spd_factorize(&h_solver, "Firth test Hessian")
+                    .expect("well-conditioned SPD factor")
+                    .solve(rhs)
+                    .expect("certified SPD solve")
+                    .into_solution(),
+            )
         };
 
         let hess = RemlState::tk_hessian_rho_canonical_logit(
@@ -8226,12 +8399,24 @@ mod firth_hessian_direction_reuse_tests {
         }
         let h_solver = h.clone();
         let h_inv_solve = move |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> {
-            let sol = gam_linalg::utils::solve_symmetric_vector_with_floor(&h_solver, rhs, 1e-10)
-                .expect("well-conditioned SPD solve");
-            Ok(sol)
+            Ok(
+                gam_linalg::utils::certified_spd_factorize(&h_solver, "Firth k4 test Hessian")
+                    .expect("well-conditioned SPD factor")
+                    .solve(rhs)
+                    .expect("certified SPD solve")
+                    .into_solution(),
+            )
         };
         RemlState::tk_hessian_rho_canonical_logit(
-            x, &c_array, &d_array, &e_array, &f_array, penalties, lambdas, beta, Some(op),
+            x,
+            &c_array,
+            &d_array,
+            &e_array,
+            &f_array,
+            penalties,
+            lambdas,
+            beta,
+            Some(op),
             &h_inv_solve,
         )
         .expect("tk hessian")
@@ -8349,8 +8534,7 @@ mod firth_hessian_direction_reuse_tests {
             x_vks.push(v);
         }
 
-        let solve =
-            |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> { Ok(rhs.clone()) };
+        let solve = |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> { Ok(rhs.clone()) };
         let shared = RemlState::tk_shared_intermediates(
             &x_dense,
             &z,
@@ -8396,7 +8580,11 @@ mod firth_hessian_direction_reuse_tests {
         )
         .expect("batched direct gradient");
 
-        assert_eq!(batched.len(), k, "batched must return one value per direction");
+        assert_eq!(
+            batched.len(),
+            k,
+            "batched must return one value per direction"
+        );
         for idx in 0..k {
             assert!(
                 reference[idx].is_finite() && reference[idx].abs() > 0.0,
@@ -8449,8 +8637,7 @@ mod firth_hessian_direction_reuse_tests {
             })
             .collect();
 
-        let solve =
-            |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> { Ok(rhs.clone()) };
+        let solve = |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> { Ok(rhs.clone()) };
         let shared =
             RemlState::tk_shared_intermediates(&x_dense, &z, &c_array, "perf test", &solve)
                 .expect("shared TK intermediates");

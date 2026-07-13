@@ -30,7 +30,6 @@
 //! [`binomial_q_derivs`], [`binomial_q_coeffs`], [`validation`],
 //! [`weighted_design_products`], [`row_linalg`], and [`joint_packing`].
 
-use gam_problem::MIN_WEIGHT;
 use gam_terms::basis::{BasisOptions, PenaltyInfo, PenaltySource};
 
 use crate::custom_family::{
@@ -39,7 +38,7 @@ use crate::custom_family::{
     CustomFamilyJointDesignPairContribution, CustomFamilyJointPsiOperator,
     CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef, CustomFamilyPsiSecondDesignAction,
     CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
-    ExactNewtonJointPsiDirectCache, FamilyChannelHessian, FamilyEvaluation, ParameterBlockSpec,
+    ExactNewtonJointPsiDirectCache, FamilyEvaluation, ParameterBlockSpec,
     ParameterBlockState, PenaltyMatrix, PsiDesignMap, evaluate_custom_family_joint_hyper,
     evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
     resolve_custom_family_x_psi_map, resolve_custom_family_x_psi_psi_map, second_psi_linear_map,
@@ -87,9 +86,7 @@ use gam_linalg::matrix::SymmetricMatrix;
 
 use gam_linalg::matrix::{DenseDesignOperator, DesignMatrix};
 
-use gam_solve::mixture_link::{
-    inverse_link_jet_for_inverse_link, inverse_link_mu_d1_for_inverse_link,
-};
+use gam_solve::mixture_link::inverse_link_jet_for_inverse_link;
 
 use gam_solve::pirls::LinearInequalityConstraints;
 
@@ -166,12 +163,12 @@ use validation::{
 
 mod weighted_design_products;
 use weighted_design_products::{
-    mirror_upper_to_lower, scaled_outer_add, signedwith_floor, xt_diag_x_dense, xt_diag_x_design,
-    xt_diag_y_dense, xt_diag_y_design,
+    mirror_upper_to_lower, scaled_outer_add, xt_diag_x_dense, xt_diag_x_design, xt_diag_y_dense,
+    xt_diag_y_design,
 };
 
 mod row_linalg;
-use row_linalg::{psd_clamp_2x2, scale_matrix_rows};
+use row_linalg::scale_matrix_rows;
 
 mod joint_packing;
 use joint_packing::{

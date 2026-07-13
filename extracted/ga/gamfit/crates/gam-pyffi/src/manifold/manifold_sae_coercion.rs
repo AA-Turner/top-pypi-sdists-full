@@ -1,42 +1,30 @@
-//! Rust-owned coercion helpers for the `ManifoldSAE.from_payload` -> flat
-//! `to_dict` schema derivation (#2091 phase-2, design (A)). These own the
-//! derivations so the fit path can return
-//! a Rust-owned `ManifoldSaeCore` built directly from the raw
-//! `sae_manifold_fit_minimal` payload, with no Python dataclass in the middle.
+//! Rust-owned conversion from the native fit report to the persisted
+//! `ManifoldSaePayload` schema. The public fit path returns a Rust-owned
+//! `ManifoldSaeCore` directly, with no Python model or schema in the middle.
 //!
-//! This module owns assignment tokens and topology aliases, topology naming, distilled
-//! assignment activation dispatch, and the periodic shape-band reorder,
-//! exposed to Python as `sae_atom_topologies` / `sae_periodic_shape_band_reorder`
-//! — the same Rust-owner pattern as `sae_canonical_n_harmonics`. The full
-//! `RawFitPayload -> ManifoldSaePayload` assembly below consumes those same
-//! helpers; Python only marshals typed inputs to this owner.
+//! This module owns assignment tokens, topology naming, periodic shape-band
+//! ordering, and `RawFitPayload -> ManifoldSaePayload` assembly. Python only
+//! marshals typed inputs to this owner.
 
 use crate::manifold::manifold_sae_payload::{
     AtomPayload, CrosscoderPayload, ManifoldSaePayload, SCHEMA_TAG,
 };
 use ndarray::{Array2, Array3, ArrayView2};
-use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PyTuple};
 use serde_json::Value;
 
-// The pure token-canonicalization schema (basis/topology aliases, assignment
-// tables, n_harmonics repair, chart periods) moved to the library
+// The strict token schema (basis/topology vocabulary, assignment tables,
+// harmonic validation, chart periods) lives in the library
 // (`gam_sae::atom_schema`) so the CLI, Rust users, and this binding share one
-// vocabulary — issue #2236. Re-exported here so every established
-// `manifold_sae_coercion::X` path keeps resolving.
-pub(crate) use gam::terms::sae::atom_schema::{
-    basis_kind_for_topology, basis_to_topology, canon_name, canonical_assignment_kind,
-    canonical_basis_kind, canonical_n_harmonics, canonical_topology, coordinate_periods_for_basis,
-    flat_block_assignment, topologies_for_bases, topology_for_bases,
+// vocabulary.
+pub(crate) use gam::terms::sae::atom_schema::canonical_assignment_kind;
+use gam::terms::sae::atom_schema::{
+    flat_block_assignment, topologies_for_bases, topology_for_bases, validated_n_harmonics,
 };
 
-/// Column mean `x.mean(axis=0)` -> `(P,)` — the training-mean centering vector.
-/// Owned in Rust so neither the fit builder nor the gamfit SAC lift
-/// (`StagewiseSAE.to_manifold_sae`) computes a reduction in production Python
-/// (SPEC thin-wrapper rule). `n == 0` yields zeros (matching the builder's prior
-/// inline guard). Shared by [`build_manifold_sae_payload`] and the
-/// `sae_manifold_training_mean` pyfunction.
+/// Column mean `x.mean(axis=0)` -> `(P,)` — the training-mean centering vector
+/// used by the native fitted-artifact builder. `n == 0` yields zeros.
 pub(crate) fn column_mean(x: ArrayView2<'_, f64>) -> Vec<f64> {
     let (n, p) = x.dim();
     (0..p)
@@ -89,17 +77,9 @@ pub(crate) fn channel_cov_factors(cov: ArrayView2<'_, f64>, m_basis: i64) -> Opt
 /// (Python `bool` subclasses `int`), and `int` before `float` so an integral
 /// value serializes as a JSON integer, matching `json.dumps`.
 ///
-/// NaN / +-Inf policy (explicit, #2091): a non-finite `f64` maps to
-/// `Value::Null`. `serde_json::Value` provably cannot represent non-finite
-/// numbers (`Number::from_f64` returns `None`), and the existing
-/// `ManifoldSaeCore::new` path (Python `json.dumps` -> `ManifoldSaePayload::from_json`)
-/// rejects the bare `NaN` / `Infinity` literals `json.dumps` emits (serde_json's
-/// parser errors), so a non-finite report value has never round-tripped through
-/// the Rust schema at all. Nulling it (rather than erroring) keeps a fit whose
-/// diagnostics carry a meaningless non-finite value loadable instead of failing
-/// the whole build; the `json_value_cannot_hold_nonfinite_*` test pins both the
-/// schema limitation and the parser rejection so the policy is asserted, not
-/// assumed.
+/// Non-finite floats are rejected. A converged fit artifact cannot silently
+/// replace a failed diagnostic with JSON `null`, and `serde_json::Value` cannot
+/// represent NaN or infinity in any case.
 pub(crate) fn py_any_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     if obj.is_none() {
         return Ok(Value::Null);
@@ -119,11 +99,12 @@ pub(crate) fn py_any_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         return Ok(Value::Number(i.into()));
     }
     if let Ok(f) = obj.extract::<f64>() {
-        // Non-finite (NaN / +-Inf) -> Null: `from_f64` returns `None`, matching
-        // the schema's inability to hold non-finite (see the fn doc-comment).
-        return Ok(serde_json::Number::from_f64(f)
-            .map(Value::Number)
-            .unwrap_or(Value::Null));
+        let number = serde_json::Number::from_f64(f).ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err(
+                "SAE fit report contains a non-finite floating-point value",
+            )
+        })?;
+        return Ok(Value::Number(number));
     }
     if let Ok(s) = obj.extract::<String>() {
         return Ok(Value::String(s));
@@ -160,59 +141,6 @@ pub(crate) fn py_any_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     )))
 }
 
-/// Python bridge for the complete dictionary's structural chart periods.
-#[pyfunction]
-pub(crate) fn sae_coordinate_periods(
-    basis_kinds: Vec<String>,
-    atom_dims: Vec<usize>,
-) -> PyResult<Vec<Vec<Option<f64>>>> {
-    if basis_kinds.len() != atom_dims.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "basis_kinds and atom_dims must have equal length; got {} and {}",
-            basis_kinds.len(),
-            atom_dims.len()
-        )));
-    }
-    basis_kinds
-        .iter()
-        .zip(atom_dims)
-        .map(|(basis, dim)| coordinate_periods_for_basis(basis, dim))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(pyo3::exceptions::PyValueError::new_err)
-}
-
-/// Python bridge for [`canonical_assignment_kind`].
-#[pyfunction]
-pub(crate) fn sae_canonical_assignment_kind(kind: &str) -> PyResult<String> {
-    canonical_assignment_kind(kind)
-        .map(str::to_string)
-        .map_err(pyo3::exceptions::PyValueError::new_err)
-}
-
-/// Python bridge for [`canonical_basis_kind`].
-#[pyfunction]
-pub(crate) fn sae_canonical_basis_kind(name: &str) -> String {
-    canonical_basis_kind(name)
-}
-
-/// Python bridge for [`basis_kind_for_topology`].
-#[pyfunction]
-pub(crate) fn sae_basis_kind_for_topology(name: &str) -> String {
-    basis_kind_for_topology(name)
-}
-
-/// Python bridge for [`basis_to_topology`].
-#[pyfunction]
-pub(crate) fn sae_topology_for_basis(name: &str) -> String {
-    basis_to_topology(name)
-}
-
-/// Python bridge for [`canonical_topology`].
-#[pyfunction]
-pub(crate) fn sae_canonical_topology(name: &str) -> String {
-    canonical_topology(name)
-}
-
 /// Python bridge for [`flat_block_assignment`].
 #[pyfunction]
 pub(crate) fn sae_flat_block_assignment(gating: &str) -> PyResult<String> {
@@ -221,354 +149,9 @@ pub(crate) fn sae_flat_block_assignment(gating: &str) -> PyResult<String> {
         .map_err(pyo3::exceptions::PyValueError::new_err)
 }
 
-/// Convert a fitted encoder's `(N, K)` routing logits into assignment values
-/// with the exact production kernel used by the Rust fit. This deletes the
-/// former NumPy reimplementation (including its independently-maintained IBP
-/// exponent) from `gamfit.distill`.
-#[pyfunction(signature = (
-    logits, assignment, temperature, threshold, top_k=None
-))]
-pub(crate) fn sae_activation_matrix_from_logits<'py>(
-    py: Python<'py>,
-    logits: PyReadonlyArray2<'py, f64>,
-    assignment: &str,
-    temperature: f64,
-    threshold: f64,
-    top_k: Option<usize>,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let kind =
-        canonical_assignment_kind(assignment).map_err(pyo3::exceptions::PyValueError::new_err)?;
-    if kind == "topk" {
-        let support = top_k.ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err(
-                "topk activation requires the fitted top_k support size",
-            )
-        })?;
-        let logits = logits.as_array();
-        let (n_rows, k_atoms) = logits.dim();
-        if support == 0 || support > k_atoms {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "top_k must be in [1, K={k_atoms}]; got {support}"
-            )));
-        }
-        if let Some(((row, atom), value)) =
-            logits.indexed_iter().find(|(_, value)| !value.is_finite())
-        {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "assignment logits contain non-finite value at ({row}, {atom}): {value}"
-            )));
-        }
-        let mut values = Array2::<f64>::zeros((n_rows, k_atoms));
-        for row in 0..n_rows {
-            values
-                .row_mut(row)
-                .assign(&gam::terms::sae::assignment::topk_row(
-                    logits.row(row),
-                    support,
-                ));
-        }
-        return Ok(values.into_pyarray(py).unbind());
-    }
-    if kind == "threshold_gate" && !threshold.is_finite() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "threshold must be finite; got {threshold}"
-        )));
-    }
-    gam::terms::sae::assignment::activation_matrix_from_logits(
-        logits.as_array(),
-        kind,
-        temperature,
-        threshold,
-    )
-    .map(|values| values.into_pyarray(py).unbind())
-    .map_err(pyo3::exceptions::PyValueError::new_err)
-}
-
-struct StagewisePayloadConfig {
-    assignment: String,
-    assignment_label: String,
-    alpha: f64,
-    learnable_alpha: bool,
-    tau: f64,
-    sparsity_strength: f64,
-    smoothness: f64,
-    learning_rate: f64,
-    max_iter: i64,
-    random_state: i64,
-    jumprelu_threshold: f64,
-}
-
-fn require_matrix_shape(
-    matrix: &Array2<f64>,
-    rows: usize,
-    cols: usize,
-    label: &str,
-) -> Result<(), String> {
-    if matrix.dim() != (rows, cols) {
-        return Err(format!(
-            "sae_manifold_core_from_stagewise: {label} must have shape ({rows}, {cols}); got {:?}",
-            matrix.dim()
-        ));
-    }
-    if let Some(((row, col), value)) = matrix.indexed_iter().find(|(_, value)| !value.is_finite()) {
-        return Err(format!(
-            "sae_manifold_core_from_stagewise: {label} contains non-finite value \
-             at ({row}, {col}): {value}"
-        ));
-    }
-    Ok(())
-}
-
-/// Build the persisted model schema for a stagewise-composed frozen dictionary.
-/// This is the only owner of the v1 field/default layout for that lift; Python
-/// passes typed arrays and seed scalars and receives a [`ManifoldSaePayload`].
-fn build_stagewise_manifold_sae_payload(
-    basis_kinds: Vec<String>,
-    decoder_blocks: Vec<Array2<f64>>,
-    atom_dims: Vec<i64>,
-    coords: Vec<Array2<f64>>,
-    assignments: Array2<f64>,
-    fitted: Array2<f64>,
-    logits: Array2<f64>,
-    training: Array2<f64>,
-    reconstruction_r2: f64,
-    cfg: &StagewisePayloadConfig,
-) -> Result<ManifoldSaePayload, String> {
-    let k = basis_kinds.len();
-    if k == 0 {
-        return Err("sae_manifold_core_from_stagewise requires at least one atom".to_string());
-    }
-    for (label, len) in [
-        ("decoder_blocks", decoder_blocks.len()),
-        ("atom_dims", atom_dims.len()),
-        ("coords", coords.len()),
-    ] {
-        if len != k {
-            return Err(format!(
-                "sae_manifold_core_from_stagewise: {label} has length {len}, expected K={k}"
-            ));
-        }
-    }
-    let (n, p) = training.dim();
-    if n == 0 || p == 0 {
-        return Err(
-            "sae_manifold_core_from_stagewise requires non-empty training data".to_string(),
-        );
-    }
-    require_matrix_shape(&training, n, p, "training")?;
-    require_matrix_shape(&fitted, n, p, "fitted")?;
-    require_matrix_shape(&assignments, n, k, "assignments")?;
-    require_matrix_shape(&logits, n, k, "logits")?;
-    for atom in 0..k {
-        let dim = usize::try_from(atom_dims[atom]).map_err(|_| {
-            format!(
-                "sae_manifold_core_from_stagewise: atom_dims[{atom}] must be positive; got {}",
-                atom_dims[atom]
-            )
-        })?;
-        if dim == 0 {
-            return Err(format!(
-                "sae_manifold_core_from_stagewise: atom_dims[{atom}] must be positive"
-            ));
-        }
-        require_matrix_shape(&coords[atom], n, dim, &format!("coords[{atom}]"))?;
-        if decoder_blocks[atom].nrows() == 0 {
-            return Err(format!(
-                "sae_manifold_core_from_stagewise: decoder_blocks[{atom}] has zero basis rows"
-            ));
-        }
-        require_matrix_shape(
-            &decoder_blocks[atom],
-            decoder_blocks[atom].nrows(),
-            p,
-            &format!("decoder_blocks[{atom}]"),
-        )?;
-    }
-    if !reconstruction_r2.is_finite() {
-        return Err(format!(
-            "sae_manifold_core_from_stagewise: reconstruction_r2 must be finite; got {reconstruction_r2}"
-        ));
-    }
-
-    let basis_sizes: Vec<i64> = decoder_blocks
-        .iter()
-        .map(|block| block.nrows() as i64)
-        .collect();
-    let raw_n_harmonics: Vec<i64> = basis_kinds
-        .iter()
-        .zip(&basis_sizes)
-        .map(|(kind, &size)| {
-            if kind == "periodic" {
-                (size - 1) / 2
-            } else {
-                0
-            }
-        })
-        .collect();
-    let n_harmonics = canonical_n_harmonics(&basis_kinds, &raw_n_harmonics, &basis_sizes);
-    let decoder_nested: Vec<Vec<Vec<f64>>> = decoder_blocks.iter().map(array2_to_nested).collect();
-    let coords_nested: Vec<Vec<Vec<f64>>> = coords.iter().map(array2_to_nested).collect();
-    let assignments_nested = array2_to_nested(&assignments);
-
-    let atoms: Vec<AtomPayload> = (0..k)
-        .map(|atom| AtomPayload {
-            basis: basis_kinds[atom].clone(),
-            decoder_coefficients: decoder_nested[atom].clone(),
-            assignments: assignments_nested.iter().map(|row| row[atom]).collect(),
-            coords: coords_nested[atom].clone(),
-            coords_u_arc: None,
-            evidence: None,
-            active_dim: atom_dims[atom],
-            decoder_covariance_channel_factors: None,
-            shape_band_coords: None,
-            shape_band_mean: None,
-            shape_band_sd: None,
-            functional_evidence: None,
-        })
-        .collect();
-    let atom_topologies = topologies_for_bases(&basis_kinds);
-    let atom_topology = topology_for_bases(&basis_kinds)
-        .ok_or("sae_manifold_core_from_stagewise requires at least one basis")?;
-
-    Ok(ManifoldSaePayload {
-        schema: SCHEMA_TAG.to_string(),
-        atom_topology,
-        atom_topologies,
-        assignment: cfg.assignment.clone(),
-        assignment_label: cfg.assignment_label.clone(),
-        alpha: cfg.alpha,
-        learnable_alpha: cfg.learnable_alpha,
-        tau: cfg.tau,
-        sparsity_strength: cfg.sparsity_strength,
-        smoothness: cfg.smoothness,
-        learning_rate: cfg.learning_rate,
-        max_iter: cfg.max_iter,
-        random_state: cfg.random_state,
-        top_k: None,
-        jumprelu_threshold: cfg.jumprelu_threshold,
-        oos_projection_top1: false,
-        dispersion: 1.0,
-        penalized_loss_score: None,
-        reconstruction_r2,
-        primitive_names: vec!["sae_manifold_fit_stagewise".to_string()],
-        basis_specs: basis_kinds.clone(),
-        basis_kinds,
-        atom_dims,
-        basis_sizes,
-        n_harmonics,
-        training_mean: column_mean(training.view()),
-        fitted: array2_to_nested(&fitted),
-        assignments: assignments_nested,
-        low_level_logits: array2_to_nested(&logits),
-        coords: coords_nested,
-        decoder_blocks: decoder_nested,
-        duchon_centers: vec![None; k],
-        crosscoder: None,
-        atoms,
-        diagnostics: serde_json::json!({"atom_trust": [], "atoms": []}),
-        top_k_projection: None,
-        pre_topk: None,
-        solver_plan: None,
-        atom_two_lens: None,
-        residual_gauge: None,
-        incoherence_report: None,
-        curvature_report: None,
-        coordinate_fidelity: None,
-        topology_persistence: None,
-        atom_inference: None,
-        certificates: None,
-        structure_certificate: None,
-        cotrain: None,
-        hybrid_split: None,
-        fisher_factors: None,
-        fisher_provenance: None,
-        metric_provenance: "Euclidean".to_string(),
-        fisher_mass_residual: None,
-        selected_log_lambda_sparse: None,
-        selected_log_lambda_smooth: None,
-        selected_log_ard: None,
-        structured_residual_diagnostics: Vec::new(),
-        termination: None,
-    })
-}
-
-/// Typed Python entry point for the stagewise-to-model lift.
-#[pyfunction(signature = (
-    atom_topologies, decoder_blocks, atom_dims, coords, assignments, fitted,
-    logits, training, assignment, assignment_label, alpha, learnable_alpha, tau,
-    sparsity_strength, smoothness, learning_rate, max_iter, random_state,
-    jumprelu_threshold, reconstruction_r2
-))]
-pub(crate) fn sae_manifold_from_stagewise<'py>(
-    py: Python<'py>,
-    atom_topologies: Vec<String>,
-    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
-    atom_dims: Vec<i64>,
-    coords: Vec<PyReadonlyArray2<'py, f64>>,
-    assignments: PyReadonlyArray2<'py, f64>,
-    fitted: PyReadonlyArray2<'py, f64>,
-    logits: PyReadonlyArray2<'py, f64>,
-    training: PyReadonlyArray2<'py, f64>,
-    assignment: &str,
-    assignment_label: String,
-    alpha: f64,
-    learnable_alpha: bool,
-    tau: f64,
-    sparsity_strength: f64,
-    smoothness: f64,
-    learning_rate: f64,
-    max_iter: i64,
-    random_state: i64,
-    jumprelu_threshold: f64,
-    reconstruction_r2: f64,
-) -> PyResult<Py<crate::ManifoldSaeCore>> {
-    let assignment = canonical_assignment_kind(assignment)
-        .map(str::to_string)
-        .map_err(pyo3::exceptions::PyValueError::new_err)?;
-    let basis_kinds = atom_topologies
-        .iter()
-        .map(|topology| canonical_basis_kind(topology))
-        .collect();
-    let decoder_blocks = decoder_blocks
-        .iter()
-        .map(|block| block.as_array().to_owned())
-        .collect();
-    let coords = coords
-        .iter()
-        .map(|block| block.as_array().to_owned())
-        .collect();
-    let cfg = StagewisePayloadConfig {
-        assignment,
-        assignment_label,
-        alpha,
-        learnable_alpha,
-        tau,
-        sparsity_strength,
-        smoothness,
-        learning_rate,
-        max_iter,
-        random_state,
-        jumprelu_threshold,
-    };
-    let payload = build_stagewise_manifold_sae_payload(
-        basis_kinds,
-        decoder_blocks,
-        atom_dims,
-        coords,
-        assignments.as_array().to_owned(),
-        fitted.as_array().to_owned(),
-        logits.as_array().to_owned(),
-        training.as_array().to_owned(),
-        reconstruction_r2,
-        &cfg,
-    )
-    .map_err(pyo3::exceptions::PyValueError::new_err)?;
-    Py::new(py, crate::ManifoldSaeCore::from_payload(payload)?)
-}
-
 /// Restore the `linear_block` label a flat-block fit reports as the generic
 /// `linear`: for each atom the caller
-/// DECLARED as `linear_block`/`flat_block` AND that the fit left at topology
+/// DECLARED as `linear_block` AND that the fit left at topology
 /// `linear` (K unchanged), relabel its `basis_kinds` entry and topology to
 /// `linear_block`. `basis_specs` (the fitted kinds) is intentionally not patched;
 /// only the public `basis_kinds` / `atom_topologies` labels change. No-op
@@ -582,15 +165,12 @@ pub(crate) fn preserve_linear_block_labels(
     if bases.is_empty() || bases.len() != atom_topologies.len() {
         return;
     }
-    let want: Vec<bool> = bases
-        .iter()
-        .map(|b| matches!(canon_name(b).as_str(), "linear_block" | "flat_block"))
-        .collect();
+    let want: Vec<bool> = bases.iter().map(|b| b == "linear_block").collect();
     if !want.iter().any(|&w| w) {
         return;
     }
     for i in 0..atom_topologies.len() {
-        if want[i] && canon_name(&atom_topologies[i]) == "linear" {
+        if want[i] && atom_topologies[i] == "linear" {
             atom_topologies[i] = "linear_block".to_string();
             basis_kinds[i] = "linear_block".to_string();
         }
@@ -675,7 +255,6 @@ pub(crate) fn periodic_shape_band_reorder(
 /// [`build_manifold_sae_payload`] so the Rust-owned persisted schema is complete.
 /// `assignment` is already canonicalized by this module's shared parser.
 pub(crate) struct FitConfig {
-    pub(crate) topology_fallback: String,
     pub(crate) assignment: String,
     pub(crate) assignment_label: String,
     pub(crate) penalties: Vec<String>,
@@ -688,7 +267,7 @@ pub(crate) struct FitConfig {
     pub(crate) max_iter: i64,
     pub(crate) random_state: i64,
     pub(crate) top_k: Option<i64>,
-    pub(crate) jumprelu_threshold: f64,
+    pub(crate) threshold_gate_threshold: f64,
     /// The retained WP-D output-Fisher shard `U` `(n, p, r)`; `None` for a
     /// Euclidean fit. When present, `metric_provenance` still comes from the raw
     /// solver payload (the Rust fit stamped `"OutputFisher"`).
@@ -813,7 +392,7 @@ fn shape_band_for_kind(
 }
 
 /// Build a [`ManifoldSaePayload`] (the flat `to_dict` schema) directly from the
-/// raw `sae_manifold_fit_minimal` payload (as a `serde_json::Value`), the
+/// native raw fit payload (as a `serde_json::Value`), the
 /// training mean, and [`FitConfig`]. Fisher retention and `linear_block`
 /// relabeling happen in this same builder, with no parallel Python schema.
 pub(crate) fn build_manifold_sae_payload(
@@ -842,9 +421,13 @@ pub(crate) fn build_manifold_sae_payload(
     let assignments = v_arr2(vget(raw, "assignments_z")?)?;
     let logits = v_arr2(vget(raw, "logits")?)?;
     for (name, arr) in [("assignments_z", &assignments), ("logits", &logits)] {
-        let cols = arr.first().map_or(0, Vec::len);
-        if cols != k {
-            return Err(format!("'{name}' must be (N, K={k}); got {cols} columns"));
+        for (row_index, row) in arr.iter().enumerate() {
+            if row.len() != k {
+                return Err(format!(
+                    "'{name}' must be rectangular with K={k} columns; row {row_index} has {}",
+                    row.len()
+                ));
+            }
         }
     }
 
@@ -869,7 +452,7 @@ pub(crate) fn build_manifold_sae_payload(
         .map(|a| v_arr2(vget(a, "decoder_B")?))
         .collect::<Result<_, _>>()?;
     let widths: Vec<i64> = decoder_blocks.iter().map(|b| b.len() as i64).collect();
-    let n_harmonics = canonical_n_harmonics(&kinds, &raw_nharm, &widths);
+    let n_harmonics = validated_n_harmonics(&kinds, &raw_nharm, &widths)?;
     let coords: Vec<Vec<Vec<f64>>> = atoms
         .iter()
         .map(|a| v_arr2(vget(a, "on_atom_coords_t")?))
@@ -887,10 +470,7 @@ pub(crate) fn build_manifold_sae_payload(
     for (idx, a) in atoms.iter().enumerate() {
         let decoder_coefficients = decoder_blocks[idx].clone();
         // Per-atom gate column = column idx of the top-level assignments_z.
-        let assignments_col: Vec<f64> = assignments
-            .iter()
-            .map(|row| row.get(idx).copied().unwrap_or(0.0))
-            .collect();
+        let assignments_col: Vec<f64> = assignments.iter().map(|row| row[idx]).collect();
         let coords_u_arc = match vopt(a, "on_atom_coords_u_arc") {
             None => None,
             Some(v) => Some(v_arr1(v)?),
@@ -926,18 +506,18 @@ pub(crate) fn build_manifold_sae_payload(
     }
 
     let mut primitive_names = Vec::with_capacity(cfg.penalties.len() + 1);
-    primitive_names.push("rust_module.sae_manifold_fit_minimal".to_string());
+    primitive_names.push("rust_module.sae_manifold_fit_model".to_string());
     primitive_names.extend(cfg.penalties.iter().cloned());
 
     // `basis_specs` keeps the fitted kinds; public labels may be restored to
     // `linear_block` for a flat-block fit.
     let mut basis_kinds = kinds.clone();
-    let mut atom_topologies = topologies_for_bases(&kinds);
+    let mut atom_topologies = topologies_for_bases(&kinds)?;
     if let Some(bases) = cfg.declared_bases.as_deref() {
         preserve_linear_block_labels(&mut basis_kinds, &mut atom_topologies, bases);
     }
-    let atom_topology =
-        topology_for_bases(&basis_kinds).unwrap_or_else(|| cfg.topology_fallback.clone());
+    let atom_topology = topology_for_bases(&basis_kinds)?
+        .ok_or_else(|| "converged SAE payload contains no atoms".to_string())?;
     let metric_provenance = vstr(raw, "metric_provenance")?;
     let fisher_mass_residual = vopt(raw, "fisher_mass_residual").map(v_arr1).transpose()?;
     let selected_log_lambda_sparse = match vopt(raw, "log_lambda_sparse") {
@@ -978,10 +558,11 @@ pub(crate) fn build_manifold_sae_payload(
         max_iter: cfg.max_iter,
         random_state: cfg.random_state,
         top_k: cfg.top_k,
-        jumprelu_threshold: cfg.jumprelu_threshold,
+        threshold_gate_threshold: cfg.threshold_gate_threshold,
         oos_projection_top1: vbool(raw, "oos_projection_top1")?,
         dispersion: vf64(raw, "dispersion")?,
         penalized_loss_score: score,
+        penalized_quasi_laplace_criterion: vf64(raw, "penalized_quasi_laplace_criterion")?,
         reconstruction_r2: vf64(raw, "reconstruction_r2")?,
         primitive_names,
         // basis_specs = fitted kinds (unpatched); basis_kinds = post-relabel.
@@ -1000,8 +581,6 @@ pub(crate) fn build_manifold_sae_payload(
         crosscoder,
         atoms: atom_payloads,
         diagnostics: vget(raw, "diagnostics")?.clone(),
-        top_k_projection: report("top_k_projection"),
-        pre_topk: report("pre_topk"),
         solver_plan: report("solver_plan"),
         atom_two_lens: report("atom_two_lens"),
         residual_gauge: report("residual_gauge"),
@@ -1036,58 +615,57 @@ pub(crate) fn build_manifold_sae_payload(
 #[cfg(test)]
 mod manifold_sae_coercion_tests {
     use super::*;
+    use gam::terms::sae::atom_schema::{
+        basis_kind_for_topology, basis_to_topology, canonical_topology,
+        coordinate_periods_for_basis,
+    };
     use ndarray::array;
 
     #[test]
-    fn canon_name_lowercases_trims_and_dashes_to_underscore() {
-        assert_eq!(canon_name("  Periodic-Spline "), "periodic_spline");
-        assert_eq!(canon_name("EUCLIDEAN"), "euclidean");
-        assert_eq!(canon_name("linear-rank1"), "linear_rank1");
-    }
-
-    #[test]
     fn assignment_tokens_have_one_strict_parser() {
-        for canonical in ["softmax", "ibp_map", "threshold_gate", "topk"] {
+        for canonical in [
+            "softmax",
+            "ordered_beta_bernoulli",
+            "threshold_gate",
+            "topk",
+        ] {
             assert_eq!(
                 canonical_assignment_kind(canonical),
                 Ok(canonical),
                 "canonical token {canonical}"
             );
         }
-        for rejected in [
-            " SoftMax ",
-            "ibp",
-            "ibp-map",
-            "gated",
-            "jump-relu",
-            "jumprelu",
-            "top-k",
-        ] {
+        for rejected in ["unknown"] {
             let err = canonical_assignment_kind(rejected).expect_err("alias must be rejected");
             assert!(err.contains("not a recognized assignment kind"));
-            assert!(err.contains("ibp_map") && err.contains("threshold_gate"));
+            assert!(err.contains("ordered_beta_bernoulli") && err.contains("threshold_gate"));
         }
     }
 
     #[test]
-    fn topology_and_basis_aliases_share_one_directional_table() {
-        for (alias, canonical) in [
-            ("circle", "periodic"),
-            ("Periodic-Spline", "periodic"),
-            ("affine", "linear"),
-            ("flat-block", "linear_block"),
-            ("euclidean_quadratic_patch", "euclidean"),
-            ("hyperbolic", "poincare"),
-            ("mobius-band", "mobius"),
-            (" AUTO ", "auto"),
+    fn topology_and_basis_tokens_are_strict() {
+        assert_eq!(
+            basis_kind_for_topology("circle"),
+            Ok("periodic".to_string())
+        );
+        assert_eq!(basis_kind_for_topology("auto"), Ok("auto".to_string()));
+        for removed in [
+            "Periodic-Spline",
+            "affine",
+            "flat-block",
+            "euclidean_quadratic_patch",
+            "hyperbolic",
+            "mobius-band",
+            " AUTO ",
+            "Weird-Kind",
         ] {
-            assert_eq!(canonical_basis_kind(alias), canonical, "alias {alias}");
-            assert_eq!(basis_kind_for_topology(alias), canonical, "alias {alias}");
+            assert!(
+                basis_kind_for_topology(removed).is_err(),
+                "removed {removed}"
+            );
+            assert!(gam::terms::sae::atom_schema::validate_seed_basis_kind(removed).is_err());
         }
-        assert_eq!(canonical_basis_kind(" Weird-Kind "), "weird_kind");
-        assert_eq!(basis_kind_for_topology(" Weird-Kind "), " Weird-Kind ");
-        assert_eq!(canonical_topology(" AUTO "), "auto");
-        assert_eq!(canonical_topology("mobius-band"), "mobius");
+        assert_eq!(canonical_topology("circle"), Ok("circle".to_string()));
     }
 
     #[test]
@@ -1105,7 +683,7 @@ mod manifold_sae_coercion_tests {
             Ok(vec![None, Some(std::f64::consts::TAU)])
         );
         assert_eq!(
-            coordinate_periods_for_basis("mobius-band", 2),
+            coordinate_periods_for_basis("mobius", 2),
             Ok(vec![Some(2.0), None])
         );
         assert!(coordinate_periods_for_basis("mobius", 1).is_err());
@@ -1113,7 +691,10 @@ mod manifold_sae_coercion_tests {
 
     #[test]
     fn flat_block_gating_uses_rust_owned_assignment_tokens() {
-        assert_eq!(flat_block_assignment("norm_selection"), Ok("ibp_map"));
+        assert_eq!(
+            flat_block_assignment("norm_selection"),
+            Ok("ordered_beta_bernoulli")
+        );
         assert_eq!(flat_block_assignment("separate_gate"), Ok("threshold_gate"));
         assert!(flat_block_assignment("norm-selection").is_err());
         assert!(flat_block_assignment(" Separate-Gate ").is_err());
@@ -1121,98 +702,43 @@ mod manifold_sae_coercion_tests {
     }
 
     #[test]
-    fn stagewise_payload_is_built_from_the_rust_schema() {
-        let cfg = StagewisePayloadConfig {
-            assignment: "softmax".to_string(),
-            assignment_label: "softmax".to_string(),
-            alpha: 1.0,
-            learnable_alpha: false,
-            tau: 0.5,
-            sparsity_strength: 1.0,
-            smoothness: 2.0,
-            learning_rate: 1.0,
-            max_iter: 20,
-            random_state: 7,
-            jumprelu_threshold: 0.0,
-        };
-        let payload = build_stagewise_manifold_sae_payload(
-            vec!["periodic".to_string(), "euclidean".to_string()],
-            vec![
-                array![[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]],
-                array![[1.0, 1.0], [0.5, -0.5]],
-            ],
-            vec![1, 1],
-            vec![array![[0.1], [0.2]], array![[0.3], [0.4]]],
-            array![[0.75, 0.25], [0.4, 0.6]],
-            array![[1.0, 2.0], [3.0, 4.0]],
-            array![[1.0, 0.0], [0.0, 1.0]],
-            array![[0.0, 2.0], [4.0, 6.0]],
-            0.8,
-            &cfg,
-        )
-        .expect("stagewise payload");
-
-        assert_eq!(payload.schema, SCHEMA_TAG);
-        assert_eq!(payload.atom_topology, "mixed");
-        assert_eq!(payload.atom_topologies, vec!["circle", "euclidean"]);
-        assert_eq!(payload.training_mean, vec![2.0, 4.0]);
-        assert_eq!(payload.basis_sizes, vec![3, 2]);
-        assert_eq!(payload.n_harmonics, vec![1, 0]);
-        assert_eq!(payload.atoms[0].assignments, vec![0.75, 0.4]);
-        assert_eq!(payload.primitive_names, vec!["sae_manifold_fit_stagewise"]);
-        assert!(payload.penalized_loss_score.is_none());
-        assert!(payload.fisher_factors.is_none());
-    }
-
-    #[test]
-    fn basis_to_topology_matches_python_alias_map() {
-        // Every documented alias -> canonical topology, plus alias/casing forms.
+    fn basis_to_topology_maps_only_canonical_native_kinds() {
         for (basis, topo) in [
             ("periodic", "circle"),
-            ("periodic_spline", "circle"),
-            ("Circle", "circle"),
             ("sphere", "sphere"),
             ("torus", "torus"),
             ("linear", "linear"),
-            ("linear_rank1", "linear"),
-            ("affine", "linear"),
             ("linear_block", "linear_block"),
-            ("flat-block", "linear_block"),
             ("duchon", "euclidean"),
             ("euclidean", "euclidean"),
-            ("euclidean_patch", "euclidean"),
-            ("euclidean_quadratic_patch", "euclidean"),
             ("poincare", "poincare"),
-            ("hyperbolic", "poincare"),
-            ("poincare_patch", "poincare"),
             ("cylinder", "cylinder"),
-            ("mobius-band", "mobius"),
-            (" AUTO ", "auto"),
+            ("mobius", "mobius"),
+            ("finite_set", "finite_set"),
         ] {
-            assert_eq!(basis_to_topology(basis), topo, "basis {basis}");
+            assert_eq!(
+                basis_to_topology(basis),
+                Ok(topo.to_string()),
+                "basis {basis}"
+            );
         }
-    }
-
-    #[test]
-    fn basis_to_topology_unknown_passes_through_original_string() {
-        // The round-trip label conversion returns the raw argument on a miss.
-        assert_eq!(basis_to_topology("Weird-Kind"), "Weird-Kind");
+        assert!(basis_to_topology("Weird-Kind").is_err());
     }
 
     #[test]
     fn topology_for_bases_common_vs_mixed() {
         assert_eq!(
-            topology_for_bases(&["periodic".into(), "circle".into()]),
-            Some("circle".to_string()),
+            topology_for_bases(&["periodic".into(), "periodic".into()]),
+            Ok(Some("circle".to_string())),
         );
         assert_eq!(
             topology_for_bases(&["periodic".into(), "euclidean".into()]),
-            Some("mixed".to_string()),
+            Ok(Some("mixed".to_string())),
         );
-        assert_eq!(topology_for_bases(&[]), None);
+        assert_eq!(topology_for_bases(&[]), Ok(None));
         assert_eq!(
             topologies_for_bases(&["duchon".into(), "linear".into()]),
-            vec!["euclidean".to_string(), "linear".to_string()],
+            Ok(vec!["euclidean".to_string(), "linear".to_string()]),
         );
     }
 
@@ -1305,11 +831,8 @@ mod manifold_sae_coercion_tests {
 
     #[test]
     fn json_value_cannot_hold_nonfinite_and_parser_rejects_nan() {
-        // Pins the existing-path behavior py_any_to_json_value's NaN/Inf policy
-        // matches: serde_json::Value cannot represent non-finite numbers, and the
-        // json.dumps -> ManifoldSaePayload::from_json path rejects the bare
-        // `NaN` / `Infinity` literals json.dumps emits, so a non-finite report
-        // value never round-trips through the Rust schema -> the helper Nulls it.
+        // The binding rejects these values instead of manufacturing JSON nulls.
+        // Pin the underlying serde limitation that requires that policy.
         assert!(serde_json::Number::from_f64(f64::NAN).is_none());
         assert!(serde_json::Number::from_f64(f64::INFINITY).is_none());
         assert!(serde_json::Number::from_f64(f64::NEG_INFINITY).is_none());

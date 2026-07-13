@@ -260,7 +260,7 @@ impl<'a> RemlState<'a> {
         {
             // Validation and diagnostics (before delegating to unified evaluator).
             let pirls_result = bundle.pirls_result.as_ref();
-            let ridge_used = bundle.ridge_passport.delta;
+            let ridge_used = bundle.ridge_passport.delta();
 
             if !p.is_empty() {
                 let k_lambda = p.len();
@@ -731,7 +731,7 @@ impl<'a> RemlState<'a> {
             DispersionHandling::ProfiledGaussian
         } else {
             DispersionHandling::Fixed {
-                phi: reml_fixed_glm_dispersion(&pirls_result.likelihood),
+                phi: reml_fixed_glm_dispersion(&pirls_result.likelihood)?,
                 include_logdet_h: true,
                 include_logdet_s: true,
             }
@@ -751,12 +751,13 @@ impl<'a> RemlState<'a> {
         let log_likelihood = if is_gaussian_identity {
             -0.5 * pirls_result.deviance
         } else {
-            crate::pirls::calculate_loglikelihood_omitting_constants(
+            crate::pirls::calculate_loglikelihood_omitting_constants_from_eta(
                 self.y,
-                &pirls_result.finalmu.to_owned(),
+                &pirls_result.final_eta.to_owned(),
                 &pirls_result.likelihood,
+                &self.runtime_inverse_link(),
                 self.weights,
-            )
+            )?
         };
 
         // Construct barrier config for monotonicity constraints when no
@@ -836,7 +837,7 @@ impl<'a> RemlState<'a> {
         } else if pirls_result.derivatives_unsupported {
             (
                 DispersionHandling::Fixed {
-                    phi: reml_fixed_glm_dispersion(&pirls_result.likelihood),
+                    phi: reml_fixed_glm_dispersion(&pirls_result.likelihood)?,
                     include_logdet_h: true,
                     include_logdet_s: true,
                 },
@@ -846,7 +847,7 @@ impl<'a> RemlState<'a> {
             let (hessian_weights, c_array, d_array) = self.hessian_surface_arrays(pirls_result)?;
             (
                 DispersionHandling::Fixed {
-                    phi: reml_fixed_glm_dispersion(&pirls_result.likelihood),
+                    phi: reml_fixed_glm_dispersion(&pirls_result.likelihood)?,
                     include_logdet_h: true,
                     include_logdet_s: true,
                 },
@@ -880,12 +881,13 @@ impl<'a> RemlState<'a> {
         let log_likelihood = if is_gaussian_identity {
             -0.5 * pirls_result.deviance
         } else {
-            crate::pirls::calculate_loglikelihood_omitting_constants(
+            crate::pirls::calculate_loglikelihood_omitting_constants_from_eta(
                 self.y,
-                &pirls_result.finalmu.to_owned(),
+                &pirls_result.final_eta.to_owned(),
                 &pirls_result.likelihood,
+                &self.runtime_inverse_link(),
                 self.weights,
-            )
+            )?
         };
 
         // Construct barrier config for monotonicity constraints.
@@ -1001,9 +1003,7 @@ impl<'a> RemlState<'a> {
             pirls::PirlsCoordinateFrame::OriginalSparseNative => r_t,
             pirls::PirlsCoordinateFrame::TransformedQs => pirls_result.reparam_result.qs.dot(&r_t),
         };
-        Some(crate::model_types::ProjectedKktResidual::from_active_projected(
-            r_o,
-        ))
+        Some(crate::model_types::ProjectedKktResidual::from_active_projected(r_o))
     }
 
     /// Pack a `DerivativeContext` plus backend-specific pieces into an
@@ -1431,7 +1431,8 @@ impl<'a> RemlState<'a> {
 
         let nullspace_dim = p_dim.saturating_sub(sparse.penalty_rank) as f64;
         let det2 = if mode == super::reml_outer_engine::EvalMode::ValueGradientHessian {
-            let lambdas = rho.mapv(f64::exp);
+            let lambdas =
+                Array1::from_vec(gam_problem::checked_exp_log_strengths(rho.iter().copied())?);
             let (_, det2) =
                 self.structural_penalty_logdet_derivatives_block_local(&lambdas, bundle)?;
             Some(det2)
@@ -2054,7 +2055,8 @@ impl<'a> RemlState<'a> {
                 &inner_solution,
                 rho.as_slice().unwrap(),
                 gradient.as_slice().unwrap(),
-            );
+            )
+            .map_err(EstimationError::InvalidInput)?;
             let psi_gradient = if hybrid.psi_indices.is_empty() {
                 None
             } else {
@@ -2080,7 +2082,8 @@ impl<'a> RemlState<'a> {
                 &inner_solution,
                 rho.as_slice().unwrap(),
                 gradient.as_slice().unwrap(),
-            );
+            )
+            .map_err(EstimationError::InvalidInput)?;
             gam_problem::EfsEval {
                 cost: cost_result.cost,
                 steps,
@@ -3445,9 +3448,12 @@ mod tk_math_tests {
                 .expect("sas state");
             let link = InverseLink::Sas(state);
             for &eta in &etas {
-                let jet = sas_inverse_link_jet(eta, state.epsilon, state.log_delta);
-                let h4 = sas_inverse_link_pdfthird_derivative(eta, state.epsilon, state.log_delta);
-                let h5 = sas_inverse_link_pdffourth_derivative(eta, state.epsilon, state.log_delta);
+                let jet = sas_inverse_link_jet(eta, state.epsilon, state.log_delta)
+                    .expect("finite SAS eta");
+                let h4 = sas_inverse_link_pdfthird_derivative(eta, state.epsilon, state.log_delta)
+                    .expect("finite SAS eta");
+                let h5 = sas_inverse_link_pdffourth_derivative(eta, state.epsilon, state.log_delta)
+                    .expect("finite SAS eta");
                 // Cross-check the Result-returning dispatch path used by
                 // `hessian_cde_arrays` against the direct closed-form
                 // helpers — both must return the same h₄, h₅.

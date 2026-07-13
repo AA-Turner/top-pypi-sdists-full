@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Literal, Union
+from typing import TYPE_CHECKING, Literal, Union
 
-import numpy as np
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
@@ -18,6 +17,7 @@ from ._from_values import (
 from .sqlrecord import SQLRecord, get_name_field
 
 if TYPE_CHECKING:
+    import numpy as np
     from lamin_utils._inspect import InspectResult
     from pandas import DataFrame
 
@@ -36,7 +36,7 @@ def _check_if_record_in_db(record: str | SQLRecord | None, using_key: str | None
                 )
 
 
-def _concat_lists(values: ListLike | str) -> list[str]:
+def _concat_lists(values: ListLike | list[list[str]] | str) -> ListLike:
     """Concatenate a list of lists of strings into a single list."""
     import pandas as pd
 
@@ -50,7 +50,7 @@ def _concat_lists(values: ListLike | str) -> list[str]:
             values = [
                 v for sublist in values if isinstance(sublist, list) for v in sublist
             ]
-    return values
+    return values  # type: ignore
 
 
 def _inspect(
@@ -167,6 +167,7 @@ def _validate(
     strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
+    import numpy as np
     import pandas as pd
     from lamin_utils._inspect import validate
 
@@ -232,6 +233,7 @@ def _standardize(
     strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
+    import numpy as np
     import pandas as pd
     from lamin_utils._standardize import standardize as map_synonyms
 
@@ -462,8 +464,8 @@ class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
     @strict_classmethod
-    def inspect(
-        cls,
+    def inspect(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         *,
@@ -518,8 +520,8 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def validate(
-        cls,
+    def validate(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         *,
@@ -572,8 +574,8 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def from_values(
-        cls,
+    def from_values(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         create: bool = False,
@@ -626,9 +628,9 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def standardize(
-        cls,
-        values: Iterable,
+    def standardize(  # type: ignore[misc]
+        cls: type[CanCurate],
+        values: ListLike,
         field: StrField | None = None,
         *,
         return_field: StrField | None = None,

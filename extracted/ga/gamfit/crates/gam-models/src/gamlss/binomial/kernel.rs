@@ -325,29 +325,34 @@ pub(crate) fn binomial_location_scale_ll_only(
     let et_slice = eta_t.as_slice().expect("eta_t must be contiguous");
     let el_slice = eta_ls.as_slice().expect("eta_ls must be contiguous");
     let ew_slice = etawiggle.map(|w| w.as_slice().expect("etawiggle must be contiguous"));
-    (0..n)
-        .into_par_iter()
-        .try_fold(
-            || 0.0_f64,
-            |acc, i| -> Result<f64, String> {
-                let SigmaJet1 { sigma, .. } = exp_sigma_jet1_scalar(el_slice[i]);
-                let q0 = binomial_location_scale_q0(et_slice[i], sigma);
-                let q = q0 + ew_slice.map_or(0.0, |w| w[i]);
-                if matches!(link_kind, InverseLink::Standard(StandardLink::Probit)) {
-                    return Ok(acc
-                        + binomial_location_scale_log_likelihood(
+    Ok(
+        gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            n,
+            |range| -> Result<f64, String> {
+                let mut acc = 0.0_f64;
+                for i in range {
+                    let SigmaJet1 { sigma, .. } = exp_sigma_jet1_scalar(el_slice[i]);
+                    let q0 = binomial_location_scale_q0(et_slice[i], sigma);
+                    let q = q0 + ew_slice.map_or(0.0, |w| w[i]);
+                    if matches!(link_kind, InverseLink::Standard(StandardLink::Probit)) {
+                        acc += binomial_location_scale_log_likelihood(
                             y_slice[i], w_slice[i], q, link_kind, 0.5,
-                        )?);
-                }
-                let jet = inverse_link_jet_for_inverse_link(link_kind, q)
-                    .map_err(|e| format!("location-scale inverse-link evaluation failed: {e}"))?;
-                Ok(acc
-                    + binomial_location_scale_log_likelihood(
+                        )?;
+                        continue;
+                    }
+                    let jet = inverse_link_jet_for_inverse_link(link_kind, q).map_err(|e| {
+                        format!("location-scale inverse-link evaluation failed: {e}")
+                    })?;
+                    acc += binomial_location_scale_log_likelihood(
                         y_slice[i], w_slice[i], q, link_kind, jet.mu,
-                    )?)
+                    )?;
+                }
+                Ok(acc)
             },
-        )
-        .try_reduce(|| 0.0_f64, |a, b| Ok(a + b))
+            |a, b| Ok(a + b),
+        )?
+        .unwrap_or(0.0),
+    )
 }
 
 pub(crate) fn binomial_location_scale_core(
@@ -430,32 +435,38 @@ pub(crate) fn binomial_location_scale_core(
     let d2mu_p = SendPtr(d2mu_dq2.as_mut_ptr());
     let d3mu_p = SendPtr(d3mu_dq3.as_mut_ptr());
 
-    let ll = (0..n)
-        .into_par_iter()
-        .map(move |i| {
-            let row = binomial_location_scalerow(
-                y_slice[i],
-                w_slice[i],
-                et_slice[i],
-                el_slice[i],
-                ew_slice.map_or(0.0, |w| w[i]),
-                link_kind,
-            )?;
-            // SAFETY: `i` comes from `0..n`, so it is in-bounds for each
-            // preallocated length-`n` buffer, and every index is produced once;
-            // each pointer targets a distinct output buffer.
-            unsafe {
-                sigma_p.write(i, row.sigma);
-                dsigma_p.write(i, row.dsigma_deta);
-                q0_p.write(i, row.q0);
-                mu_p.write(i, row.inverse_link.mu);
-                dmu_p.write(i, row.inverse_link.d1);
-                d2mu_p.write(i, row.inverse_link.d2);
-                d3mu_p.write(i, row.inverse_link.d3);
+    let ll = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+        n,
+        move |range| -> Result<f64, String> {
+            let mut acc = 0.0_f64;
+            for i in range {
+                let row = binomial_location_scalerow(
+                    y_slice[i],
+                    w_slice[i],
+                    et_slice[i],
+                    el_slice[i],
+                    ew_slice.map_or(0.0, |w| w[i]),
+                    link_kind,
+                )?;
+                // SAFETY: `i` comes from `0..n`, so it is in-bounds for each
+                // preallocated length-`n` buffer, and every index is produced once;
+                // each pointer targets a distinct output buffer.
+                unsafe {
+                    sigma_p.write(i, row.sigma);
+                    dsigma_p.write(i, row.dsigma_deta);
+                    q0_p.write(i, row.q0);
+                    mu_p.write(i, row.inverse_link.mu);
+                    dmu_p.write(i, row.inverse_link.d1);
+                    d2mu_p.write(i, row.inverse_link.d2);
+                    d3mu_p.write(i, row.inverse_link.d3);
+                }
+                acc += row.ll;
             }
-            Ok::<f64, String>(row.ll)
-        })
-        .try_reduce(|| 0.0_f64, |a, b| Ok(a + b))?;
+            Ok(acc)
+        },
+        |a, b| Ok(a + b),
+    )?
+    .unwrap_or(0.0);
 
     Ok(BinomialLocationScaleCore {
         sigma: Array1::from_vec(sigma),
@@ -541,13 +552,12 @@ pub(crate) fn binomial_location_scale_nll_generic<S: gam_math::jet_scalar::JetSc
     Ok(q.compose_unary([neg_ll, m1, m2, m3, m4]))
 }
 
-/// Dense `Tower4<2>` builder for the binomial location-scale row NLL: the
-/// all-channels evaluation of [`binomial_location_scale_nll_generic`]. Retained
-/// as the #932 oracle (the contracted/Hessian packed-scalar paths are pinned
-/// bit-identical to its channels) and for the gradient-only consumers in
-/// `location_scale.rs`.
+/// Gradient-only instantiation of the single-source location-scale row NLL.
+/// `Order1<2>` deletes the unread Hessian/t3/t4 state, and `need_value=false`
+/// also skips the special-function-bearing log-likelihood value already
+/// supplied by the row core.
 #[inline]
-pub(crate) fn binomial_location_scale_nll_tower(
+pub(crate) fn binomial_location_scale_nll_gradient(
     y: f64,
     weight: f64,
     eta_t: f64,
@@ -558,10 +568,10 @@ pub(crate) fn binomial_location_scale_nll_tower(
     d2mu_dq2: f64,
     d3mu_dq3: f64,
     link_kind: &InverseLink,
-    include_fourth: bool,
-) -> Result<gam_math::jet_tower::Tower4<2>, String> {
-    use gam_math::jet_tower::Tower4;
-    binomial_location_scale_nll_generic::<Tower4<2>>(
+) -> Result<[f64; 2], String> {
+    use gam_math::jet_scalar::{JetScalar, Order1};
+
+    let out = binomial_location_scale_nll_generic::<Order1<2>>(
         y,
         weight,
         eta_t,
@@ -572,12 +582,11 @@ pub(crate) fn binomial_location_scale_nll_tower(
         d2mu_dq2,
         d3mu_dq3,
         link_kind,
-        include_fourth,
-        // The Tower4 builder is the value/gradient/oracle consumer: it needs the
-        // exact `−ll` value channel.
-        true,
-        |x, axis| Tower4::<2>::variable(x, axis),
-    )
+        false,
+        false,
+        |x, axis| Order1::<2>::variable(x, axis),
+    )?;
+    Ok(out.g())
 }
 
 /// SIMD 4-rows-per-pass evaluation of the binomial location-scale row NLL at the
@@ -852,6 +861,7 @@ mod packed_scalar_oracle_tests {
     //! replaced — value/grad/Hessian for `Order2`, the contracted third for
     //! `OneSeed`, the contracted fourth for `TwoSeed`.
     use super::*;
+    use crate::gamlss::test_support::binomial_location_scale_nll_tower;
     use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
     use gam_problem::{InverseLink, StandardLink};
 
@@ -911,6 +921,14 @@ mod packed_scalar_oracle_tests {
                     y_, w_, et_, el_, q_, mu_, d1_, d2_, d3_, lk_, true,
                 )
                 .expect("tower");
+
+                let gradient = binomial_location_scale_nll_gradient(
+                    y_, w_, et_, el_, q_, mu_, d1_, d2_, d3_, lk_,
+                )
+                .expect("order1 gradient");
+                for a in 0..2 {
+                    rel_close(gradient[a], tower.g[a], "order1 grad");
+                }
 
                 // Order2 (v, g, H).
                 let (y2, w2, et2, el2, q2, mu2, d12, d22, d32, lk2, f2) = args(false);
@@ -987,6 +1005,97 @@ mod packed_scalar_oracle_tests {
                         rel_close(fourth[a][b], truth4[a][b], "twoseed fourth");
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn measure_gradient_order1_vs_tower4_932() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        let links = [
+            InverseLink::Standard(StandardLink::Logit),
+            InverseLink::Standard(StandardLink::Probit),
+            InverseLink::Standard(StandardLink::CLogLog),
+        ];
+        let y = 1.0;
+        let weight = 1.3;
+        let eta_t = -0.7;
+        let eta_ls = 0.5;
+        let SigmaJet1 { sigma, .. } = exp_sigma_jet1_scalar(eta_ls);
+        let q = binomial_location_scale_q0(eta_t, sigma);
+        let iterations = if cfg!(debug_assertions) { 4 } else { 250_000 };
+        for link in &links {
+            let jet = inverse_link_jet_for_inverse_link(link, q).expect("inverse-link jet");
+            let gradient = binomial_location_scale_nll_gradient(
+                y, weight, eta_t, eta_ls, q, jet.mu, jet.d1, jet.d2, jet.d3, link,
+            )
+            .expect("order1 gradient");
+            let tower = binomial_location_scale_nll_tower(
+                y, weight, eta_t, eta_ls, q, jet.mu, jet.d1, jet.d2, jet.d3, link, false,
+            )
+            .expect("tower gradient baseline");
+            assert_eq!(
+                gradient, tower.g,
+                "Order1 must be bit-identical to Tower4 gradient"
+            );
+
+            let mut order1_best = f64::INFINITY;
+            let mut tower_best = f64::INFINITY;
+            for _ in 0..5 {
+                let start = Instant::now();
+                for _ in 0..iterations {
+                    black_box(
+                        binomial_location_scale_nll_gradient(
+                            black_box(y),
+                            black_box(weight),
+                            black_box(eta_t),
+                            black_box(eta_ls),
+                            black_box(q),
+                            black_box(jet.mu),
+                            black_box(jet.d1),
+                            black_box(jet.d2),
+                            black_box(jet.d3),
+                            black_box(link),
+                        )
+                        .expect("order1 timing"),
+                    );
+                }
+                order1_best = order1_best.min(start.elapsed().as_secs_f64());
+
+                let start = Instant::now();
+                for _ in 0..iterations {
+                    black_box(
+                        binomial_location_scale_nll_tower(
+                            black_box(y),
+                            black_box(weight),
+                            black_box(eta_t),
+                            black_box(eta_ls),
+                            black_box(q),
+                            black_box(jet.mu),
+                            black_box(jet.d1),
+                            black_box(jet.d2),
+                            black_box(jet.d3),
+                            black_box(link),
+                            false,
+                        )
+                        .expect("tower timing"),
+                    );
+                }
+                tower_best = tower_best.min(start.elapsed().as_secs_f64());
+            }
+            let order1_ns = order1_best * 1e9 / iterations as f64;
+            let tower_ns = tower_best * 1e9 / iterations as f64;
+            eprintln!(
+                "BINOMIAL-LS-GRAD-932 link={link:?} tower4={tower_ns:.2} ns/row order1={order1_ns:.2} ns/row speedup={:.3}x",
+                tower_ns / order1_ns,
+            );
+            if !cfg!(debug_assertions) {
+                assert!(
+                    order1_ns < tower_ns,
+                    "Order1 gradient must beat Tower4 for {link:?}: {order1_ns} vs {tower_ns} ns/row"
+                );
             }
         }
     }

@@ -1,6 +1,6 @@
 use super::*;
-use gam_linalg::matrix::symmetrize_in_place;
 use crate::mixture_link::fisher_weight_jet5_for_inverse_link;
+use gam_linalg::matrix::symmetrize_in_place;
 use gam_problem::InverseLink;
 
 pub(crate) const FIRTH_DERIVATIVE_PARALLEL_MIN_N: usize = 16_384;
@@ -105,11 +105,9 @@ impl<'a> RemlState<'a> {
     /// Undo the fixed observation-weight row scale used by Firth reduced
     /// designs.
     ///
-    /// Keep this distinct from PIRLS's sparse-SpGEMM `sqrt_weights` cache in
-    /// `solver/pirls.rs`: PIRLS materializes roots of the current working
-    /// weights for a Gram factorization, while this uses stored fixed
-    /// case-weight roots and their reciprocals to map reduced design
-    /// derivatives back to raw design space.
+    /// These stored fixed case-weight roots and reciprocals map reduced design
+    /// derivatives back to raw design space. PIRLS's moving sparse Gram uses
+    /// the signed asymmetric factorization `(X^T W) X` and has no root cache.
     #[inline]
     pub(crate) fn scale_rows_by_inverse_observation_weight_sqrt(
         out: &mut Array2<f64>,
@@ -681,8 +679,7 @@ impl FirthDenseOperator {
         eta: &Array1<f64>,
     ) -> Result<(Array1<f64>, f64, Array1<f64>), EstimationError> {
         let core = Self::firth_reduced_core(factor, link, eta)?;
-        let (w, w1, h_diag, half_log_det) =
-            (core.w, core.w1, core.h_diag, core.half_log_det);
+        let (w, w1, h_diag, half_log_det) = (core.w, core.w1, core.h_diag, core.half_log_det);
         // hat_diag = w ⊙ h_diag (matches `pirls_hat_diag`).
         let hat_diag = &w * &h_diag;
         // firth_score_shift_i = ½ (w'_i / w_i) h_diag_i for w_i > 0, else 0
@@ -1428,8 +1425,10 @@ impl FirthDenseOperator {
         }
         let tau_bundle = self.exact_tau_kernel(x_tau, beta, true);
         let tau_kernel = tau_bundle.tau_kernel?;
-        let firth_direction =
-            self.direction_from_deta(gam_linalg::faer_ndarray::fast_av(&self.x_dense, beta_direction));
+        let firth_direction = self.direction_from_deta(gam_linalg::faer_ndarray::fast_av(
+            &self.x_dense,
+            beta_direction,
+        ));
         let x_tau_v = gam_linalg::faer_ndarray::fast_av(x_tau, beta_direction);
         let kernel = self.d_beta_hphi_tau_partial_prepare_from_partials(
             &tau_kernel,

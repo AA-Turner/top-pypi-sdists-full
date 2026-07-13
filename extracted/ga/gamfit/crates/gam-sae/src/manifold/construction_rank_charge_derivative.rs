@@ -1,13 +1,13 @@
-// Analytic differential of the hard Marchenko--Pastur rank charge used by the
+// Analytic differential of the production chargeable-rank penalty used by the
 // quasi-Laplace criterion. This file is included from `construction.rs` and
 // therefore shares that module's imports and private access.
 
-pub(crate) struct HardRankChargeDerivative {
+pub(crate) struct ProductionRankChargeDerivative {
     pub(crate) direct_rho: Array1<f64>,
     pub(crate) theta: SaeArrowVector,
 }
 
-struct HardRankChargeAtomDifferential {
+struct ProductionRankChargeAtomDifferential {
     gram: Array2<f64>,
     occupancy: f64,
 }
@@ -15,7 +15,6 @@ struct HardRankChargeAtomDifferential {
 impl SaeManifoldTerm {
     fn rank_charge_assignment_derivative(
         &self,
-        row: usize,
         wrt_atom: usize,
         atom: usize,
         assignments: &[f64],
@@ -29,47 +28,45 @@ impl SaeManifoldTerm {
                 let a_wrt = assignments[wrt_atom];
                 a_atom * ((if atom == wrt_atom { 1.0 } else { 0.0 }) - a_wrt) / temperature
             }
-            AssignmentMode::IBPMap { temperature, .. } if atom == wrt_atom => {
+            AssignmentMode::OrderedBetaBernoulli { temperature, .. } if atom == wrt_atom => {
                 let a = assignments[atom];
                 a * (1.0 - a) / temperature
             }
-            AssignmentMode::ThresholdGate {
-                temperature,
-                threshold,
-            } if atom == wrt_atom && self.assignment.logits[[row, atom]] > threshold => {
+            AssignmentMode::ThresholdGate { temperature, .. } if atom == wrt_atom => {
                 let a = assignments[atom];
                 a * (1.0 - a) / temperature
             }
-            AssignmentMode::IBPMap { .. }
+            AssignmentMode::OrderedBetaBernoulli { .. }
             | AssignmentMode::ThresholdGate { .. }
             | AssignmentMode::TopK { .. } => 0.0,
         }
     }
 
     /// Differential of
-    /// `C = Σ_k ½ rank_hard,k · basis_edf,k · log(max(N_eff,k, 1))` on one
-    /// fixed MP-rank branch.
+    /// `C = Σ_k ½ rank_chargeable,k · basis_edf,k · log(max(N_eff,k, 1))`
+    /// on one fixed production-rank branch.
     ///
-    /// The hard MP count is integer-valued and therefore locally constant away
-    /// from an eigenvalue/noise-edge crossing. The smooth pieces are
+    /// The chargeable rank is integer-valued and therefore locally constant away
+    /// from an MP-edge crossing or the vanished/alive threshold. The smooth pieces are
     /// `basis_edf = tr(G(G+λS)⁻¹)` and `N_eff = Σ_i a_i²`, with
     /// `G = Σ_i a_i² φ_i φ_iᵀ`. Their exact differential supplies both the
     /// direct `log λ_smooth` channel and the implicit `(logit, t)` response.
-    /// Decoder coefficients affect only the discrete hard-rank branch, so the
+    /// Decoder coefficients affect only the discrete production-rank branch, so the
     /// within-branch beta differential is exactly zero.
-    pub(crate) fn hard_rank_charge_derivative(
+    pub(crate) fn production_rank_charge_derivative(
         &self,
         target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
         loss: &SaeManifoldLoss,
         cache: &ArrowFactorCache,
-    ) -> Result<HardRankChargeDerivative, String> {
+    ) -> Result<ProductionRankChargeDerivative, String> {
+        self.assignment.validate_rho_domain(rho)?;
         let residual = self.reconstruction_residual(target, rho)?;
         let dispersion = self.reconstruction_dispersion(loss, cache, rho, Some(residual.view()))?;
         let mut grams = self.empty_decoder_gram_accumulator();
         self.accumulate_decoder_gram(&mut grams);
         let n_eff = self.per_atom_effective_sample_size();
-        let lambda = rho.lambda_smooth_vec();
+        let lambda = rho.lambda_smooth_vec()?;
         let p = self.output_dim() as f64;
         let mut atom_differentials = Vec::with_capacity(self.k_atoms());
         let mut direct_rho = Array1::<f64>::zeros(rho.to_flat().len());
@@ -88,16 +85,23 @@ impl SaeManifoldTerm {
                 lambda[atom_idx],
                 Some(&atom.smooth_penalty),
             )?;
-            let rank = spectrum.rank_hard();
+            // #2258 — the CHARGEABLE rank, not the raw hard MP count: the
+            // value path promotes a below-reconstruction-rank-edge-but-alive atom to
+            // rank 1, and the derivative must take the SAME branch (the
+            // promoted rank is locally constant, so the differential's form
+            // is unchanged). Only a genuinely VANISHED decoder — the
+            // Laplace-invalid regime the veto prices +∞ — remains an error
+            // here, matching the value side's categorical veto.
+            let rank = spectrum.production_chargeable_rank() as f64;
             if !(rank > 0.0) {
                 return Err(format!(
-                    "hard_rank_charge_derivative: atom {atom_idx} is on the rank-zero \
-                     Laplace-invalid branch"
+                    "production_rank_charge_derivative: atom {atom_idx} is on the rank-zero \
+                     Laplace-invalid branch (vanished decoder)"
                 ));
             }
             let log_n = n_atom.max(1.0).ln();
             if m == 0 || log_n == 0.0 {
-                atom_differentials.push(HardRankChargeAtomDifferential {
+                atom_differentials.push(ProductionRankChargeAtomDifferential {
                     gram: Array2::<f64>::zeros((m, m)),
                     occupancy: 0.0,
                 });
@@ -113,15 +117,19 @@ impl SaeManifoldTerm {
             }
             let factor = penalized_gram.cholesky(Side::Lower).map_err(|error| {
                 format!(
-                    "hard_rank_charge_derivative: atom {atom_idx} penalized Gram \
+                    "production_rank_charge_derivative: atom {atom_idx} penalized Gram \
                      factorization failed: {error}"
                 )
             })?;
             let inverse = factor.solve_mat(&Array2::<f64>::eye(m));
             let edf_matrix = factor.solve_mat(gram);
             let raw_edf = (0..m).map(|i| edf_matrix[[i, i]]).sum::<f64>();
-            let edf_is_interior = raw_edf > 0.0 && raw_edf < m as f64;
-            let edf = raw_edf.clamp(0.0, m as f64);
+            let edf = super::construction::certified_basis_edf(
+                raw_edf,
+                m,
+                "production_rank_charge_derivative",
+            )?;
+            let edf_is_interior = edf > 0.0 && edf < m as f64;
             let mut gram_differential = Array2::<f64>::zeros((m, m));
             let mut log_lambda_differential = 0.0_f64;
             if edf_is_interior {
@@ -130,15 +138,11 @@ impl SaeManifoldTerm {
                 // the exact matrix used by the value, with no hidden diagonal
                 // regularizer whose differential would otherwise be omitted.
                 let inverse_gram_inverse = inverse.dot(gram).dot(&inverse);
-                gram_differential = (&inverse - &inverse_gram_inverse)
-                    * (0.5 * rank * log_n);
+                gram_differential = (&inverse - &inverse_gram_inverse) * (0.5 * rank * log_n);
                 let inv_g_inv_s = inverse.dot(gram).dot(&inverse).dot(&atom.smooth_penalty);
                 let edf_log_lambda =
                     -lambda[atom_idx] * (0..m).map(|i| inv_g_inv_s[[i, i]]).sum::<f64>();
-                let raw_log_lambda = rho.log_lambda_smooth[atom_idx];
-                if SaeManifoldRho::clamped_log_strength(raw_log_lambda) == raw_log_lambda {
-                    log_lambda_differential = 0.5 * rank * log_n * edf_log_lambda;
-                }
+                log_lambda_differential = 0.5 * rank * log_n * edf_log_lambda;
             }
             direct_rho[rho.smooth_flat_index(atom_idx)] += log_lambda_differential;
             let occupancy_differential = if n_atom > 1.0 {
@@ -146,7 +150,7 @@ impl SaeManifoldTerm {
             } else {
                 0.0
             };
-            atom_differentials.push(HardRankChargeAtomDifferential {
+            atom_differentials.push(ProductionRankChargeAtomDifferential {
                 gram: gram_differential,
                 occupancy: occupancy_differential,
             });
@@ -180,7 +184,6 @@ impl SaeManifoldTerm {
                         let mut derivative = 0.0_f64;
                         for atom in 0..self.k_atoms() {
                             let da = self.rank_charge_assignment_derivative(
-                                row,
                                 wrt_atom,
                                 atom,
                                 assignments
@@ -204,7 +207,7 @@ impl SaeManifoldTerm {
             }
         }
 
-        Ok(HardRankChargeDerivative {
+        Ok(ProductionRankChargeDerivative {
             direct_rho,
             theta: SaeArrowVector {
                 t: theta_t,

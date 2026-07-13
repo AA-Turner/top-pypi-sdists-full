@@ -25,10 +25,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 from collections import Counter, defaultdict
+from pathlib import Path
 
 from drydock import extract
-from pathlib import Path
 
 # Files we ingest as text. Everything else (binaries, images) is skipped.
 _TEXT_EXT = {
@@ -59,8 +60,150 @@ _RE_WORD = re.compile(r"[a-zA-Z0-9_]+")
 
 
 def default_store_path(cwd: str) -> Path:
-    """Project-local index (travels with the project, easy to .gitignore)."""
-    return Path(cwd) / ".drydock" / "graphrag.json"
+    """Project-local index. SQLite so queries touch only matching rows (fast even
+    at multi-GB scale) instead of parsing a giant JSON on every query."""
+    return Path(cwd) / ".drydock" / "graphrag.db"
+
+
+def _resolve_store(store_path) -> Path:
+    """Given a requested store path, return the one that actually exists — a
+    ``.db`` (SQLite) if present, else a legacy ``.json`` sibling, else the path
+    as given (a fresh build will create it)."""
+    p = Path(store_path)
+    if p.exists():
+        return p
+    db = p.with_suffix(".db")
+    if db.exists():
+        return db
+    js = p.with_suffix(".json")
+    if js.exists():
+        return js
+    return p
+
+
+# ── SQLite + FTS5 backend (the scalable store) ────────────────────────────
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS chunks(id INTEGER PRIMARY KEY, source TEXT, text TEXT);
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, content='chunks', content_rowid='id');
+CREATE TABLE IF NOT EXISTS entities(entity TEXT, chunk_id INTEGER);
+CREATE INDEX IF NOT EXISTS idx_entity ON entities(entity);
+CREATE TABLE IF NOT EXISTS edges(a TEXT, b TEXT, weight INTEGER);
+CREATE INDEX IF NOT EXISTS idx_edge_a ON edges(a);
+CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
+"""
+
+_FTS_STRIP = re.compile(r'[^A-Za-z0-9_ ]+')
+
+
+def _is_sqlite(path) -> bool:
+    return str(path).endswith(".db")
+
+
+def _write_sqlite(store_path, chunks, entity_chunks, edges) -> None:
+    """(Re)build the SQLite store from the accumulated chunks/entities/edges."""
+    sp = Path(store_path)
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    if sp.exists():
+        sp.unlink()
+    con = sqlite3.connect(str(sp))
+    try:
+        con.executescript(_SCHEMA)
+        con.executemany("INSERT INTO chunks(id,source,text) VALUES(?,?,?)",
+                        ((c["id"], c["source"], c["text"]) for c in chunks))
+        con.executemany("INSERT INTO chunks_fts(rowid,text) VALUES(?,?)",
+                        ((c["id"], c["text"]) for c in chunks))
+        con.executemany("INSERT INTO entities(entity,chunk_id) VALUES(?,?)",
+                        ((e, cid) for e, cids in entity_chunks.items() for cid in cids))
+        con.executemany("INSERT INTO edges(a,b,weight) VALUES(?,?,?)",
+                        ((a, b, w) for a, nbrs in edges.items() for b, w in nbrs.items()))
+        con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('version','2')")
+        con.commit()
+    finally:
+        con.close()
+
+
+def _fts_query(words) -> str:
+    """Build a safe FTS5 MATCH expression (OR of quoted terms)."""
+    terms = []
+    for w in words:
+        w = _FTS_STRIP.sub(" ", w).strip()
+        if w:
+            terms.append('"' + w + '"')
+    return " OR ".join(terms)
+
+
+def _query_sqlite(store_path, query: str, k: int, hops: bool) -> dict:
+    """Fast query: FTS5 full-text over chunk text + indexed entity/graph lookups.
+    Loads only the matching rows — no full-file parse."""
+    con = sqlite3.connect(str(store_path))
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    try:
+        q_entities = set(extract_entities(query))
+        q_words = {w for w in (w.lower() for w in _RE_WORD.findall(query))
+                   if len(w) > 2 and w not in _STOPWORDS}
+        scores: dict[int, float] = defaultdict(float)
+
+        # 1) FTS5 keyword retrieval (indexed, bm25-ranked) — the main recall path.
+        expr = _fts_query(q_words)
+        if expr:
+            try:
+                rows = cur.execute(
+                    "SELECT rowid, rank FROM chunks_fts WHERE chunks_fts MATCH ? "
+                    "ORDER BY rank LIMIT 400", (expr,)).fetchall()
+                for r in rows:
+                    scores[r["rowid"]] += 0.5 + min(2.0, -float(r["rank"]) / 4.0)
+            except sqlite3.OperationalError:
+                pass
+
+        # 2) Exact entity hits (indexed) weigh most; collect matched entities.
+        matched: set[str] = set()
+        cand = {e.lower() for e in q_entities} | q_words
+        for qe in cand:
+            for r in cur.execute("SELECT chunk_id, entity FROM entities WHERE entity=?", (qe,)):
+                scores[r["chunk_id"]] += 3.0
+                matched.add(r["entity"])
+
+        # 3) 1-hop graph expansion over the strongest neighbors of matched entities.
+        related: list[str] = []
+        if hops and matched:
+            for e in list(matched):
+                nbrs = cur.execute("SELECT b, weight FROM edges WHERE a=? ORDER BY weight DESC LIMIT 5",
+                                   (e,)).fetchall()
+                for nb in nbrs:
+                    if nb["b"] not in matched:
+                        related.append(nb["b"])
+                        for r in cur.execute("SELECT chunk_id FROM entities WHERE entity=?", (nb["b"],)):
+                            scores[r["chunk_id"]] += 1.0
+
+        if not scores:
+            return {"chunks": [], "related": []}
+        ranked = sorted(scores.items(), key=lambda kv: -kv[1])[:k]
+        out = []
+        for cid, sc in ranked:
+            if sc <= 0:
+                continue
+            row = cur.execute("SELECT source, text FROM chunks WHERE id=?", (cid,)).fetchone()
+            if row:
+                out.append({"source": row["source"], "text": row["text"], "score": round(sc, 1)})
+        seen: set[str] = set()
+        rel_unique = [r for r in related if not (r in seen or seen.add(r))][:12]
+        return {"chunks": out, "related": rel_unique}
+    finally:
+        con.close()
+
+
+def migrate_json_to_sqlite(json_path, db_path) -> dict:
+    """One-time conversion of a legacy JSON index to the SQLite store. Loads the
+    JSON once (slow for a huge file, but one-time), then queries are fast."""
+    data = json.loads(Path(json_path).read_text("utf-8"))
+    chunks = data.get("chunks", [])
+    entity_chunks = {e: list(cids) for e, cids in data.get("entities", {}).items()}
+    edges = {a: dict(nbrs) for a, nbrs in data.get("edges", {}).items()}
+    _write_sqlite(db_path, chunks, entity_chunks, edges)
+    return {"chunks": len(chunks), "entities": len(entity_chunks),
+            "edges": sum(len(n) for n in edges.values())}
 
 
 def extract_entities(text: str) -> list[str]:
@@ -127,16 +270,16 @@ def _iter_text_files(paths: list[str]):
                         yield fp
 
 
-def _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip_sources):
-    """Chunk + extract + graph every text file under paths into the (mutable)
-    accumulators, skipping any source already present. Returns files added."""
-    added = 0
+def _iter_file_chunks(paths, cwd, skip_sources, progress=None):
+    """Yield (rel_source, [(body, entities), …]) for each ingestible file, one file
+    at a time (so callers never hold every file's text at once). Per-file isolation:
+    one unreadable/odd file (a locked Word doc, weird encoding, PDF quirk) is skipped,
+    not fatal. Calls progress(files_done, rel) after each file so a long build can
+    report instead of appearing frozen."""
     cleaned = [_unquote(p) for p in paths]
+    files_done = 0
     for fp in _iter_text_files([str(Path(cwd) / p) if not os.path.isabs(p) else p
                                 for p in cleaned]):
-        # Per-file isolation: ONE unreadable/odd file (a locked Word doc, a weird
-        # encoding, a PDF backend quirk) must never crash a whole-folder build —
-        # skip it and keep indexing the rest.
         try:
             rel = os.path.relpath(str(fp), cwd)
             if rel in skip_sources:
@@ -146,14 +289,25 @@ def _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip_sources):
             else:
                 text = fp.read_text("utf-8", "ignore")
             if not text or not text.strip():
-                continue  # unreadable / empty — skip cleanly
-            # Build this file's chunks locally; commit only if it ALL succeeds so a
-            # mid-file failure leaves no partial state and isn't miscounted.
+                continue
             local = [(body, extract_entities(body)) for body in _chunk_text(text)]
         except Exception:  # noqa: BLE001 — isolate a bad file, never abort the build
             continue
+        skip_sources.add(rel)
+        files_done += 1
+        if progress:
+            try:
+                progress(files_done, rel)
+            except Exception:  # noqa: BLE001 — a progress callback must never break a build
+                pass
+        yield rel, local
+
+
+def _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip_sources, progress=None):
+    """In-memory ingest into the accumulators (legacy JSON path — small indexes)."""
+    added = 0
+    for rel, local in _iter_file_chunks(paths, cwd, skip_sources, progress):
         added += 1
-        skip_sources.add(rel)  # don't double-ingest the same file in one call
         for body, ents in local:
             cid = len(chunks)
             chunks.append({"id": cid, "source": rel, "text": body, "entities": ents})
@@ -166,16 +320,73 @@ def _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip_sources):
     return added
 
 
-def _save(store_path, chunks, entity_chunks, edges, files_added):
-    index = {
-        "version": 1,
-        "chunks": chunks,
-        "entities": {e: sorted(cids) for e, cids in entity_chunks.items()},
-        "edges": {a: dict(nbrs) for a, nbrs in edges.items()},
-    }
+def _build_sqlite_stream(paths, store_path, cwd, skip_sources, progress=None, append=False):
+    """Streaming SQLite build: chunk text is inserted per-file (never held for the
+    whole corpus, so memory stays bounded even for a huge folder). Entities/edges
+    aggregate in memory (far smaller than the text) and are written at the end."""
     sp = Path(store_path)
     sp.parent.mkdir(parents=True, exist_ok=True)
-    sp.write_text(json.dumps(index), encoding="utf-8")
+    if not append and sp.exists():
+        sp.unlink()
+    con = sqlite3.connect(str(sp))
+    entity_chunks: dict[str, set[int]] = defaultdict(set)
+    edges: dict[str, Counter] = defaultdict(Counter)
+    added = 0
+    try:
+        con.executescript(_SCHEMA)
+        # continue chunk ids after any existing rows (append mode)
+        row = con.execute("SELECT COALESCE(MAX(id), -1) FROM chunks").fetchone()
+        next_id = (row[0] if row else -1) + 1
+        if append:  # seed the in-memory graph with what's already stored
+            for r in con.execute("SELECT entity, chunk_id FROM entities"):
+                entity_chunks[r[0]].add(r[1])
+            for r in con.execute("SELECT a, b, weight FROM edges"):
+                edges[r[0]][r[1]] = r[2]
+            con.execute("DELETE FROM entities"); con.execute("DELETE FROM edges")
+        for rel, local in _iter_file_chunks(paths, cwd, skip_sources, progress):
+            added += 1
+            rows = []
+            for body, ents in local:
+                cid = next_id; next_id += 1
+                con.execute("INSERT INTO chunks(id,source,text) VALUES(?,?,?)", (cid, rel, body))
+                con.execute("INSERT INTO chunks_fts(rowid,text) VALUES(?,?)", (cid, body))
+                for e in ents:
+                    entity_chunks[e].add(cid)
+                for i, a in enumerate(ents):
+                    for b in ents[i + 1:]:
+                        edges[a][b] += 1; edges[b][a] += 1
+                rows.append(cid)
+            if added % 200 == 0:
+                con.commit()
+        con.executemany("INSERT INTO entities(entity,chunk_id) VALUES(?,?)",
+                        ((e, cid) for e, cids in entity_chunks.items() for cid in cids))
+        con.executemany("INSERT INTO edges(a,b,weight) VALUES(?,?,?)",
+                        ((a, b, w) for a, nbrs in edges.items() for b, w in nbrs.items()))
+        con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('version','2')")
+        con.commit()
+        return {"files": added, "chunks": next_id, "entities": len(entity_chunks),
+                "edges": sum(len(n) for n in edges.values()) // 2}
+    finally:
+        con.close()
+
+
+def _save(store_path, chunks, entity_chunks, edges, files_added):
+    # SQLite by default (scalable). A caller can still target a .json path
+    # explicitly (small/portable indexes, tests) and get the legacy format.
+    if _is_sqlite(store_path):
+        _write_sqlite(store_path, chunks,
+                      {e: sorted(cids) for e, cids in entity_chunks.items()},
+                      {a: dict(nbrs) for a, nbrs in edges.items()})
+    else:
+        index = {
+            "version": 1,
+            "chunks": chunks,
+            "entities": {e: sorted(cids) for e, cids in entity_chunks.items()},
+            "edges": {a: dict(nbrs) for a, nbrs in edges.items()},
+        }
+        sp = Path(store_path)
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        sp.write_text(json.dumps(index), encoding="utf-8")
     return {
         "files": files_added,
         "chunks": len(chunks),
@@ -184,23 +395,54 @@ def _save(store_path, chunks, entity_chunks, edges, files_added):
     }
 
 
-def build_index(paths: list[str], store_path: str | Path, *, cwd: str = ".") -> dict:
+def build_index(paths: list[str], store_path: str | Path, *, cwd: str = ".",
+                progress=None) -> dict:
     """Build (or REBUILD from scratch) the knowledge graph from paths; persist to
-    store_path. Returns {files, chunks, entities, edges}."""
+    store_path. Returns {files, chunks, entities, edges}. `progress(files_done, src)`
+    is called per file (for a UI). SQLite stores stream to disk (bounded memory)."""
+    if _is_sqlite(store_path):
+        return _build_sqlite_stream(paths, store_path, cwd, set(), progress, append=False)
     chunks: list[dict] = []
     entity_chunks: dict[str, set[int]] = defaultdict(set)
     edges: dict[str, Counter] = defaultdict(Counter)
-    added = _ingest_files(paths, cwd, chunks, entity_chunks, edges, set())
+    added = _ingest_files(paths, cwd, chunks, entity_chunks, edges, set(), progress)
     return _save(store_path, chunks, entity_chunks, edges, added)
 
 
-def add_to_index(paths: list[str], store_path: str | Path, *, cwd: str = ".") -> dict:
+def _read_all(store_path) -> dict:
+    """Read a whole index into a dict (chunks/entities/edges) — used by add_to_index
+    to append. Handles both the SQLite store and a legacy JSON file."""
+    sp = _resolve_store(store_path)
+    if _is_sqlite(sp):
+        con = sqlite3.connect(str(sp))
+        con.row_factory = sqlite3.Row
+        try:
+            chunks = [{"id": r["id"], "source": r["source"], "text": r["text"]}
+                      for r in con.execute("SELECT id,source,text FROM chunks")]
+            entities: dict[str, list[int]] = defaultdict(list)
+            for r in con.execute("SELECT entity,chunk_id FROM entities"):
+                entities[r["entity"]].append(r["chunk_id"])
+            edges: dict[str, dict] = defaultdict(dict)
+            for r in con.execute("SELECT a,b,weight FROM edges"):
+                edges[r["a"]][r["b"]] = r["weight"]
+            return {"chunks": chunks, "entities": entities, "edges": edges}
+        finally:
+            con.close()
+    return json.loads(Path(sp).read_text("utf-8"))
+
+
+def add_to_index(paths: list[str], store_path: str | Path, *, cwd: str = ".",
+                 progress=None) -> dict:
     """Incrementally ADD documents to an existing index (build it if none yet).
     Files already indexed (by relative path) are skipped — clear+build to refresh
     changed files. Returns {files (added), chunks, entities, edges} totals."""
-    existing = load_index(store_path)
-    if existing is None:
-        return build_index(paths, store_path, cwd=cwd)
+    sp = _resolve_store(store_path)
+    if not sp.exists():
+        return build_index(paths, store_path, cwd=cwd, progress=progress)
+    if _is_sqlite(sp):
+        skip = {r[0] for r in sqlite3.connect(str(sp)).execute("SELECT DISTINCT source FROM chunks")}
+        return _build_sqlite_stream(paths, sp, cwd, skip, progress, append=True)
+    existing = _read_all(sp)
     chunks: list[dict] = list(existing.get("chunks", []))
     entity_chunks: dict[str, set[int]] = defaultdict(set)
     for e, cids in existing.get("entities", {}).items():
@@ -209,21 +451,51 @@ def add_to_index(paths: list[str], store_path: str | Path, *, cwd: str = ".") ->
     for a, nbrs in existing.get("edges", {}).items():
         edges[a] = Counter(nbrs)
     skip = {c["source"] for c in chunks}
-    added = _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip)
-    return _save(store_path, chunks, entity_chunks, edges, added)
+    added = _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip, progress)
+    return _save(sp, chunks, entity_chunks, edges, added)
 
 
 def sources(index: dict) -> list[str]:
-    """The distinct source files in an index, sorted."""
+    """The distinct source files in an index, sorted. Accepts a loaded JSON dict
+    OR a SQLite handle ({'_db': path})."""
+    db = index.get("_db")
+    if db:
+        con = sqlite3.connect(str(db))
+        try:
+            return sorted(r[0] for r in con.execute("SELECT DISTINCT source FROM chunks"))
+        finally:
+            con.close()
     return sorted({c["source"] for c in index.get("chunks", [])})
 
 
-def load_index(store_path: str | Path) -> dict | None:
-    sp = Path(store_path)
+def index_stats(index: dict) -> dict:
+    """{chunks, entities} counts for a loaded dict OR a SQLite handle — without
+    reading a large index into memory."""
+    db = index.get("_db")
+    if db:
+        con = sqlite3.connect(str(db))
+        try:
+            c = con.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+            e = con.execute("SELECT COUNT(DISTINCT entity) FROM entities").fetchone()[0]
+            return {"chunks": c, "entities": e}
+        finally:
+            con.close()
+    return {"chunks": len(index.get("chunks", [])), "entities": len(index.get("entities", {}))}
+
+
+def load_index(store_path: str | Path):
+    """Return a query handle for the index at store_path, or None if none exists.
+
+    For the SQLite store this is a tiny handle ({'_db': path}) — it does NOT read
+    the data (queries hit the DB directly, so a multi-GB index stays instant). For
+    a legacy JSON file it loads the dict (small/portable indexes)."""
+    sp = _resolve_store(store_path)
     if not sp.exists():
         return None
+    if _is_sqlite(sp):
+        return {"_db": str(sp)}
     try:
-        return json.loads(sp.read_text("utf-8"))
+        return json.loads(Path(sp).read_text("utf-8"))
     except (OSError, ValueError):
         return None
 
@@ -233,6 +505,11 @@ def query_index(index: dict, query: str, *, k: int = 5, hops: bool = True) -> di
 
     Returns {chunks: [{source, text, score}], related: [entities]}.
     """
+    # SQLite handle → the fast, indexed path (no full-file load).
+    db = index.get("_db")
+    if db:
+        return _query_sqlite(db, query, k, hops)
+
     chunks = index.get("chunks", [])
     entities = index.get("entities", {})
     edges = index.get("edges", {})

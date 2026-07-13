@@ -65,7 +65,7 @@ class TestBackToBackBehavior:
         ]
 
         # Mock tdd_gate to skip actual execution for speed
-        with patch("sage.main.TDDGate") as mock_tdd_gate_cls:
+        with patch("sage.cli_core.TDDGate") as mock_tdd_gate_cls:
             mock_tdd_gate = mock_tdd_gate_cls.return_value
             mock_tdd_gate.verify_red.return_value = (True, "Tests failed")
             mock_tdd_gate.verify_tests_pass.return_value = (True, "Tests passed", {})
@@ -98,8 +98,8 @@ class TestBackToBackBehavior:
         
         mock_send_to_model.return_value = "Done"
 
-        with patch("sage.main.renderer.phase") as mock_phase, \
-             patch("sage.main.renderer.info") as mock_info:
+        with patch("sage.cli_core.renderer.phase") as mock_phase, \
+             patch("sage.cli_core.renderer.info") as mock_info:
             _execute_task_prompt("Add a new feature", save_history=False)
             
             # Verify create_plan was called and result was used

@@ -25,7 +25,8 @@ Usage (endpoint-level) with guard-by-default restore:
 
 from __future__ import annotations
 
-from argus_redact import redact, restore
+from argus_redact import redact
+from argus_redact.glue.guarded_restore import guarded_restore
 
 
 def _validate_message(i: int, msg: object) -> None:
@@ -118,6 +119,7 @@ def restore_body(
     anchor: object | None = None,
     guard: bool | None = None,
     redacted: str | None = None,
+    strict: bool = False,
     detailed: bool = False,
 ) -> "dict | str | tuple[dict | str, dict]":
     """Restore PII in a response body.
@@ -140,45 +142,27 @@ def restore_body(
             return response, {"security_events": []}
         return response
 
-    h_events: list[dict] = []
-    if redacted is not None and key:
-        from argus_redact.pure.restore import check_restore_safety
-        from argus_redact.pure.security_events import INJECTION_SUSPECTED, security_event
-
-        response_text = (
-            response if isinstance(response, str) else (response.get(field, "") if field else "")
-        )
-        hints = check_restore_safety(redacted, response_text, key)
-        if hints:
-            h_events.append(
-                security_event(
-                    INJECTION_SUSPECTED,
-                    count=len(hints),
-                    detail="; ".join(hints),
-                )
-            )
+    # Bound once: the str and dict branches below differ ONLY in which string they
+    # restore and how the result is repackaged. Two near-identical call sites meant a
+    # new guarded_restore kwarg had to be threaded twice — the copy-paste drift this
+    # release exists to remove.
+    guard_kwargs = dict(
+        redacted=redacted, anchor=anchor, guard=guard, strict=strict, detailed=detailed
+    )
 
     if isinstance(response, str):
-        result_text, guard_details = restore(
-            response, key, guard=guard, anchor=anchor, detailed=True
-        )
-        all_events = h_events + guard_details.get("security_events", [])
-        if detailed:
-            return result_text, {"security_events": all_events}
-        return result_text
+        return guarded_restore(response, key, **guard_kwargs)
 
     if isinstance(response, dict) and field and field in response:
-        result = dict(response)
         if isinstance(response[field], str):
-            result_text, guard_details = restore(
-                response[field], key, guard=guard, anchor=anchor, detailed=True
-            )
-            all_events = h_events + guard_details.get("security_events", [])
-            result[field] = result_text
+            result = dict(response)
+            out = guarded_restore(response[field], key, **guard_kwargs)
             if detailed:
-                return result, {"security_events": all_events}
+                result[field], details = out
+                return result, details
+            result[field] = out
             return result
 
     if detailed:
-        return response, {"security_events": h_events}
+        return response, {"security_events": []}
     return response

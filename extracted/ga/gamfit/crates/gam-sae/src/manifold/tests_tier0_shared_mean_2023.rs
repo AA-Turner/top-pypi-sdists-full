@@ -108,7 +108,7 @@ mod tests {
             // negative leave-one-atom-out ΔEV.
             decoder[[2, 2 * c]] = 1.0;
             decoder[[1, 2 * c + 1]] = 1.0;
-            let atom = SaeManifoldAtom::new(
+            let atom = SaeManifoldAtom::new_with_provided_function_gram(
                 format!("circle{c}"),
                 SaeAtomBasisKind::Periodic,
                 1,
@@ -148,7 +148,7 @@ mod tests {
             for j in 0..P {
                 decoder[[0, j]] = zombie_dc;
             }
-            let atom = SaeManifoldAtom::new(
+            let atom = SaeManifoldAtom::new_with_provided_function_gram(
                 "dc_zombie".to_string(),
                 SaeAtomBasisKind::Periodic,
                 1,
@@ -164,17 +164,13 @@ mod tests {
             manifolds.push(LatentManifold::Circle { period: 1.0 });
         }
 
-        // Independent hard-sigmoid (ThresholdGate) gates with saturating logits ⇒
+        // Independent smooth logistic ThresholdGate gates with saturating logits ⇒
         // every atom fires ~1 (σ((3−0)/0.7) ≈ 0.986) and each gate is a function of
-        // its OWN logit alone — no cross-atom coupling. This is deliberately NOT
-        // IBP-MAP here: IBP-MAP multiplies each gate by the ordered stick-breaking
-        // prior mean `π_k = (α/(α+1))^{k+1}` (α=1 ⇒ 0.5^{k+1}), which decays
-        // GEOMETRICALLY in the atom INDEX — so the six circles would fire at
-        // 0.49, 0.25, …, 0.015 and the late circles would carry near-zero
-        // reconstruction mass, making their leave-one-out ΔEV vanishingly small and
-        // fragile (the survival gate `ΔEV > 0` lands in f64 noise and flips
-        // negative). The DC-zombie property this test asserts is about Tier-0 vs the
-        // raw mean, NOT about the assignment prior, so a uniform gate where "every
+        // its OWN logit alone — no cross-atom coupling. This deliberately avoids
+        // the ordered Beta--Bernoulli prior so the fixture isolates Tier-0 behavior instead
+        // of simultaneously testing index-dependent prior energy. The DC-zombie
+        // property this test asserts is about Tier-0 vs the raw mean, NOT about
+        // the assignment prior, so a uniform gate where "every
         // atom fires ~1" actually holds is the honest fixture: each circle then earns
         // a solid, index-independent ΔEV ≈ 0.16 in both modes.
         let logits = Array2::<f64>::from_elem((N, NCIRC + 1), 3.0);

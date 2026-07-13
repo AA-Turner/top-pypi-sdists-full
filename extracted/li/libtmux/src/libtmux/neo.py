@@ -776,6 +776,124 @@ def fetch_objs(
     return outputs
 
 
+def _is_target_not_found_error(stderr_text: str) -> bool:
+    """Return True if tmux failed because the ``-t`` target does not exist.
+
+    A live tmux server rejects an unknown target with ``can't find <kind>:
+    <target>`` on stderr (``cmd_find_target`` in tmux's ``cmd-find.c``), for
+    every object kind and every supported tmux version. Every *other* failure
+    -- a stopped daemon, a missing socket, a permission error -- says something
+    else, and stays a :exc:`~libtmux.exc.LibTmuxException`.
+
+    This is the mirror image of :func:`libtmux.server._is_daemon_not_up_error`:
+    together they answer "is the object gone, or is the server gone?" from the
+    same stderr text.
+
+    Parameters
+    ----------
+    stderr_text : str
+        tmux's stderr, as carried by the raised
+        :exc:`~libtmux.exc.LibTmuxException`.
+
+    Returns
+    -------
+    bool
+        True when the object named by ``-t`` does not exist on a reachable
+        server.
+
+    Examples
+    --------
+    >>> from libtmux.neo import _is_target_not_found_error
+    >>> _is_target_not_found_error("can't find pane: %99")
+    True
+    >>> _is_target_not_found_error("can't find window: @99")
+    True
+    >>> _is_target_not_found_error("can't find session: $99")
+    True
+
+    A server that isn't there is a different answer:
+
+    >>> _is_target_not_found_error("no server running on /tmp/tmux-1000/default")
+    False
+    >>> _is_target_not_found_error(
+    ...     "error connecting to /tmp/tmux-1000/nope (No such file or directory)"
+    ... )
+    False
+    """
+    return "can't find " in stderr_text
+
+
+def _best_winlink(rows: OutputsRaw) -> OutputRaw:
+    """Pick the winlink row tmux would select.
+
+    A ``list-windows`` listing enumerates :term:`winlinks <winlink>` --
+    ``(session, index, window)`` edges -- not windows. ``link-window`` can attach
+    one window to a session at several indexes at once, so the same
+    ``window_id`` may appear on several rows, each with a different
+    ``window_index``.
+
+    tmux selects the current winlink when it contains the window, otherwise the
+    first. ``#{window_active}`` identifies the current row, and the lowest
+    ``window_index`` is tmux's first -- chosen explicitly here, so the caller
+    need not pre-sort the rows.
+
+    Parameters
+    ----------
+    rows : OutputsRaw
+        Non-empty rows for one object id in one session. Order does not
+        matter: the current winlink wins, otherwise the lowest
+        ``window_index``.
+
+    Returns
+    -------
+    OutputRaw
+        The row naming the winlink tmux would act on.
+
+    Examples
+    --------
+    One row is the whole answer:
+
+    >>> from libtmux.neo import _best_winlink
+    >>> _best_winlink([{"window_id": "@0", "window_index": "1"}])["window_index"]
+    '1'
+
+    A window linked into one session twice gives two rows. When the session is
+    sitting on the higher-indexed link, that is the one tmux acts on:
+
+    >>> _best_winlink([
+    ...     {"window_id": "@0", "window_index": "1", "window_active": "0"},
+    ...     {"window_id": "@0", "window_index": "5", "window_active": "1"},
+    ... ])["window_index"]
+    '5'
+
+    When the session is sitting on some *other* window, neither link is current,
+    and tmux falls back to the first:
+
+    >>> _best_winlink([
+    ...     {"window_id": "@0", "window_index": "1", "window_active": "0"},
+    ...     {"window_id": "@0", "window_index": "5", "window_active": "0"},
+    ... ])["window_index"]
+    '1'
+
+    The fallback reads the lowest index, not the first row, so a listing that
+    happened to arrive high-index-first still answers tmux's first:
+
+    >>> _best_winlink([
+    ...     {"window_id": "@0", "window_index": "5", "window_active": "0"},
+    ...     {"window_id": "@0", "window_index": "1", "window_active": "0"},
+    ... ])["window_index"]
+    '1'
+    """
+    if len(rows) == 1:
+        return rows[0]
+
+    for row in rows:
+        if row.get("window_active") == "1":
+            return row
+
+    return min(rows, key=lambda row: int(row["window_index"]))
+
+
 def fetch_obj(
     server: Server,
     obj_key: str,
@@ -783,19 +901,91 @@ def fetch_obj(
     list_cmd: ListCmd = "list-panes",
     list_extra_args: ListExtraArgs = None,
 ) -> OutputRaw:
-    """Fetch raw data from tmux command."""
-    obj_formatters_filtered = fetch_objs(
-        server=server,
-        list_cmd=list_cmd,
-        list_extra_args=list_extra_args,
-    )
+    """Fetch the single ``list-*`` row whose *obj_key* equals *obj_id*.
 
-    obj = None
-    for _obj in obj_formatters_filtered:
-        if _obj.get(obj_key) == obj_id:
-            obj = _obj
+    A listing enumerates :term:`winlinks <winlink>`, so a window linked into one
+    session at two indexes matches twice. :func:`_best_winlink` then picks the
+    row tmux itself would act on, rather than whichever sorted last.
 
-    if obj is None:
+    Parameters
+    ----------
+    server : :class:`~libtmux.server.Server`
+        The tmux server to query.
+    obj_key : str
+        Identity field to match, e.g. ``"pane_id"``.
+    obj_id : str
+        Value the identity field must equal, e.g. ``"%3"``.
+    list_cmd : ListCmd
+        tmux list subcommand to run.
+    list_extra_args : ListExtraArgs, optional
+        Extra arguments appended verbatim to the tmux command, e.g.
+        ``("-t", "%3")`` to scope the listing to one object's parent.
+
+    Returns
+    -------
+    OutputRaw
+        The matching row, as a dict of tmux format fields.
+
+    Raises
+    ------
+    :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+        When the object does not exist -- whether tmux said so on stderr
+        (``can't find pane: %99``, for a ``-t``-scoped listing) or the object
+        simply never appeared in the rows.
+    :exc:`~libtmux.exc.LibTmuxException`
+        For every other tmux failure, notably an unreachable server.
+
+    Examples
+    --------
+    >>> from libtmux.neo import fetch_obj
+    >>> fetch_obj(
+    ...     server=pane.server,
+    ...     obj_key="pane_id",
+    ...     obj_id=pane.pane_id,
+    ...     list_cmd="list-panes",
+    ...     list_extra_args=("-t", pane.pane_id),
+    ... )["pane_id"] == pane.pane_id
+    True
+
+    A pane that does not exist on a live server is a
+    :exc:`~libtmux.exc.TmuxObjectDoesNotExist`, not a bare tmux error:
+
+    >>> from libtmux import exc
+    >>> try:
+    ...     fetch_obj(
+    ...         server=pane.server,
+    ...         obj_key="pane_id",
+    ...         obj_id="%99999",
+    ...         list_cmd="list-panes",
+    ...         list_extra_args=("-t", "%99999"),
+    ...     )
+    ... except exc.TmuxObjectDoesNotExist as e:
+    ...     print(e)
+    Could not find pane_id=%99999 for list-panes ('-t', '%99999')
+    """
+    try:
+        obj_formatters_filtered = fetch_objs(
+            server=server,
+            list_cmd=list_cmd,
+            list_extra_args=list_extra_args,
+        )
+    except exc.LibTmuxException as e:
+        # A ``-t``-scoped listing pushes the "does it exist?" question down
+        # into tmux, which answers on stderr rather than with an empty listing.
+        # Re-raise those as the same TmuxObjectDoesNotExist an unscoped listing
+        # would have produced; anything else (a dead server) keeps propagating.
+        if not _is_target_not_found_error(str(e)):
+            raise
+        raise exc.TmuxObjectDoesNotExist(
+            obj_key=obj_key,
+            obj_id=obj_id,
+            list_cmd=list_cmd,
+            list_extra_args=list_extra_args,
+        ) from e
+
+    matches = [row for row in obj_formatters_filtered if row.get(obj_key) == obj_id]
+
+    if not matches:
         raise exc.TmuxObjectDoesNotExist(
             obj_key=obj_key,
             obj_id=obj_id,
@@ -803,6 +993,4 @@ def fetch_obj(
             list_extra_args=list_extra_args,
         )
 
-    assert obj is not None
-
-    return obj
+    return _best_winlink(matches)

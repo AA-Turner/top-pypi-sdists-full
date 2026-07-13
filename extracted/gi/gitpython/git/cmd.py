@@ -649,6 +649,11 @@ class Git(metaclass=_GitMeta):
 
     re_unsafe_protocol = re.compile(r"(.+)::.+")
 
+    unsafe_git_ls_remote_options = [
+        # This option allows arbitrary command execution in git-ls-remote.
+        "--upload-pack",
+    ]
+
     def __getstate__(self) -> Dict[str, Any]:
         return slots_to_dict(self, exclude=self._excluded_)
 
@@ -961,17 +966,80 @@ class Git(metaclass=_GitMeta):
 
     @classmethod
     def check_unsafe_options(cls, options: List[str], unsafe_options: List[str]) -> None:
-        """Check for unsafe options.
+        """Raise :class:`~git.exc.UnsafeOptionError` for blocked option spellings.
 
-        Some options that are passed to ``git <command>`` can be used to execute
-        arbitrary commands. These are blocked by default.
+        In addition to exact matches, this rejects abbreviated long options accepted
+        by Git (for example, ``--upl`` for ``--upload-pack``) and unsafe short options
+        whose values are joined to the same token, including after clusterable flags
+        (for example, ``-uVALUE`` and ``-fuVALUE``).
+
+        A list containing only bare names is treated as normalized keyword arguments,
+        so multi-character names such as ``upload_p`` are checked as long-option
+        abbreviations. If any item starts with ``-``, the list is treated as tokenized
+        command-line input: bare items can be option values and are not checked as
+        abbreviations. Thus ``["--origin", "upload"]`` is allowed. Single-dash options
+        use short-option parsing rather than broad prefix matching, preserving safe
+        attached values such as ``-oupstream`` and ``-bcurrent``.
+
+        Some options passed to ``git <command>`` can execute arbitrary commands and
+        are therefore blocked by default unless the caller explicitly allows them.
         """
         # Options can be of the form `foo`, `--foo`, `--foo bar`, or `--foo=bar`.
+        # Git accepts any unambiguous prefix of a long option, so an abbreviated
+        # spelling such as `--upl` for `--upload-pack` must be rejected too. An
+        # option is unsafe if its canonical name is a prefix of any blocked
+        # option's canonical name. Only long options and multi-character kwargs
+        # can be abbreviations; single-character short options remain exact-match
+        # only.
         canonical_unsafe_options = {cls._canonicalize_option_name(option): option for option in unsafe_options}
+        unsafe_short_options = {
+            canonical: option
+            for canonical, option in canonical_unsafe_options.items()
+            if option.startswith("-") and not option.startswith("--") and len(canonical) == 1
+        }
+        # These value-less Git flags can be clustered before another short option
+        # (for example, ``-fuVALUE``). Stop at any other character because it may
+        # begin an attached value, as ``o`` does in the safe option ``-oupstream``.
+        clusterable_short_options = frozenset("46flnqsv")
+        options_are_kwargs = all(not option.startswith("-") for option in options)
         for option in options:
-            unsafe_option = canonical_unsafe_options.get(cls._canonicalize_option_name(option))
+            candidate = cls._canonicalize_option_name(option)
+            if not candidate:
+                continue
+            unsafe_option = canonical_unsafe_options.get(candidate)
             if unsafe_option is not None:
                 raise UnsafeOptionError(f"{unsafe_option} is not allowed, use `allow_unsafe_options=True` to allow it.")
+            option_token = option.split("=", 1)[0].split(None, 1)[0]
+            if option_token.startswith("-") and not option_token.startswith("--"):
+                for option_char in option_token[1:]:
+                    unsafe_option = unsafe_short_options.get(option_char)
+                    if unsafe_option is not None:
+                        raise UnsafeOptionError(
+                            f"{unsafe_option} is not allowed, use `allow_unsafe_options=True` to allow it."
+                        )
+                    if option_char not in clusterable_short_options:
+                        break
+            if not (option.startswith("--") or (options_are_kwargs and len(candidate) > 1)):
+                continue
+            for canonical, unsafe_option in canonical_unsafe_options.items():
+                if canonical.startswith(candidate):
+                    raise UnsafeOptionError(
+                        f"{unsafe_option} is not allowed, use `allow_unsafe_options=True` to allow it."
+                    )
+
+    @classmethod
+    def _option_candidates(cls, args: Sequence[Any] = (), kwargs: Optional[Mapping[str, Any]] = None) -> List[str]:
+        """Collect possible option spellings before command-line transformation."""
+        options = [
+            option for option in cls._unpack_args([arg for arg in args if arg is not None]) if option.startswith("-")
+        ]
+        if kwargs:
+            for key, value in kwargs.items():
+                values = value if isinstance(value, (list, tuple)) else (value,)
+                if any(value is True or (value is not False and value is not None) for value in values):
+                    key = str(key)
+                    options.append(f"-{key}" if len(key) == 1 else f"--{dashify(key)}")
+        return options
 
     AutoInterrupt: TypeAlias = _AutoInterrupt
 
@@ -1029,6 +1097,22 @@ class Git(metaclass=_GitMeta):
         """
 
         self._persistent_git_options = self.transform_kwargs(split_single_char_options=True, **kwargs)
+
+    def ls_remote(
+        self,
+        *args: Any,
+        allow_unsafe_options: bool = False,
+        **kwargs: Any,
+    ) -> Union[str, bytes, Tuple[int, Union[str, bytes], str], "Git.AutoInterrupt"]:
+        """List references in a remote repository.
+
+        :param allow_unsafe_options:
+            Allow unsafe options, like ``--upload-pack``.
+        """
+        if not allow_unsafe_options:
+            candidate_options = self._option_candidates(args, kwargs)
+            Git.check_unsafe_options(options=candidate_options, unsafe_options=self.unsafe_git_ls_remote_options)
+        return self._call_process("ls_remote", *args, **kwargs)
 
     @property
     def working_dir(self) -> Union[None, PathLike]:
@@ -1131,9 +1215,28 @@ class Git(metaclass=_GitMeta):
         information (stdout).
 
         :param command:
-            The command argument list to execute.
-            It should be a sequence of program arguments, or a string. The
-            program to execute is the first item in the args sequence or string.
+            The command to execute. A sequence of program arguments is recommended.
+            A string is also accepted, but its meaning is strongly platform-dependent.
+
+            By default, a shell is not used. On Unix-like systems, a string is the whole
+            program name (so ``"git log -n 1"`` raises :class:`GitCommandNotFound`). On
+            Windows, the program parses the arguments itself, so multi-word strings can
+            work but are not portable.
+
+            Avoid ``shell=True`` (and :attr:`Git.USE_SHELL`): this runs the command in
+            a shell, which is generally unsafe. The shell interprets metacharacters
+            such as ``;``, ``|``, ``&``, ``$(...)``, ``$VAR``, ``%VAR%``, and ``^``
+            (depending on the platform) as syntax. Any untrusted text in the command
+            can then execute arbitrary OS commands. See :attr:`Git.USE_SHELL`.
+
+            Producing a sequence automatically by :func:`shlex.split` and passing it
+            as the command is far safer than ``shell=True``. But :func:`shlex.split`
+            parses POSIX shell syntax on all systems, and the result is still unsafe
+            for anything but *fixed, fully trusted* strings. Do not use it on strings
+            built by interpolating values: whitespace or quoting in an untrusted value
+            can still inject arguments. For input derived in any way from untrusted
+            data, build the argument sequence yourself, while ensuring each argument
+            is fully sanitized.
 
         :param istream:
             Standard input filehandle passed to :class:`subprocess.Popen`.
@@ -1200,6 +1303,11 @@ class Git(metaclass=_GitMeta):
             forward it to :meth:`Git.execute`. Passing ``shell=True`` is also no longer
             needed (nor useful) to work around any known operating system specific
             issues.
+
+            On Unix-like systems, when migrating away from passing string commands with
+            ``shell=True``, :func:`shlex.split` may serve as a transitional step in rare
+            cases, with extreme care. (Drop ``shell=True`` and pass the resulting
+            sequence as the command.) See the `command` parameter above on the risks.
 
         :param env:
             A dictionary of environment variables to be passed to
@@ -1512,7 +1620,7 @@ class Git(metaclass=_GitMeta):
         return args
 
     @classmethod
-    def _unpack_args(cls, arg_list: Sequence[str]) -> List[str]:
+    def _unpack_args(cls, arg_list: Sequence[Any]) -> List[str]:
         outlist = []
         if isinstance(arg_list, (list, tuple)):
             for arg in arg_list:
@@ -1588,7 +1696,7 @@ class Git(metaclass=_GitMeta):
 
         turns into::
 
-            git rev-list --max-count=10 --header=master
+            git rev-list --max-count=10 --header master
 
         :return:
             Same as :meth:`execute`. If no args are given, used :meth:`execute`'s

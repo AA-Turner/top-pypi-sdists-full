@@ -69,22 +69,6 @@ pub fn solve_arrow_newton_step_with_options(
             reason: "streaming Arrow-Schur solve does not materialize the factor cache required by this entry point".to_string(),
         });
     }
-    // #1038 cross-row IBP: when the system carries the exact rank-`R` source, the
-    // evidence base must be the NO-SELF `H₀'` (per-row logit-slot self term
-    // `d_k·z'_ik²` downdated), so the full rank-one outer product `U D Uᵀ` — which
-    // re-adds the `i=j` diagonal — does not double-count. We factor against `H₀'`,
-    // then layer the exact Woodbury correction (value + logdet + adjoint) onto the
-    // resulting cache. The Newton step is corrected to `H_full⁻¹(−g)` below so the
-    // returned step and the reported curvature describe the SAME `H_full`.
-    let downdated_owner;
-    let ibp_source: Option<&IbpCrossRowSource> = sys.ibp_cross_row.as_ref();
-    let sys: &ArrowSchurSystem = match ibp_self_term_downdated_system(sys) {
-        Some(downdated) => {
-            downdated_owner = downdated;
-            &downdated_owner
-        }
-        None => sys,
-    };
     let step = solve_arrow_newton_step_artifacts(sys, ridge_t, ridge_beta, options)?;
     let backend = CpuBatchedBlockSolver;
 
@@ -186,30 +170,7 @@ pub fn solve_arrow_newton_step_with_options(
         beta_gauge_quotient: beta_gauge_factor_is_pinned
             .then(|| sys.beta_gauge_quotient.clone())
             .flatten(),
-        cross_row_woodbury: None,
     };
-    let mut delta_t = step.delta_t;
-    let mut delta_beta = step.delta_beta;
-    if let Some(source) = ibp_source {
-        // The cache's per-row factors are now `H₀'`; build the exact rank-`R`
-        // Woodbury (one back-solve per atom column + the `R×R` capacitance LU)
-        // and store it so the logdet/inverse/adjoint all read the same
-        // `H_full = H₀' + U D Uᵀ`.
-        if let Some(woodbury) = CrossRowWoodbury::build(&cache, source)? {
-            // Correct the Newton step from `H₀'⁻¹(−g)` to `H_full⁻¹(−g)`. The base
-            // `step.delta_t/β` solve `H₀' Δ₀ = −g`, so `delta_t` is the `t`-block
-            // of `H₀'⁻¹(−g)`; the rank-`R` Woodbury inverse correction reads
-            // `Uᵀ Δ₀ₜ` and writes both the `t` and `β` blocks of `H_full⁻¹(−g)`.
-            let h0inv_neg_g_t = delta_t.clone();
-            woodbury.apply_inverse_correction(
-                h0inv_neg_g_t.view(),
-                &source.entries,
-                &mut delta_t,
-                &mut delta_beta,
-            )?;
-            cache.cross_row_woodbury = Some(woodbury);
-        }
-    }
     // Evidence log-determinant. On the matrix-free large-`k` SAE path the step
     // carries a precomputed reduced-Schur `log|S|` from Stochastic Lanczos
     // Quadrature (no dense `k × k` Cholesky was formed, so `schur_factor` is
@@ -222,41 +183,13 @@ pub fn solve_arrow_newton_step_with_options(
         Some(_) => cache.compute_undamped_arrow_log_det(),
         None => cache.compute_undamped_arrow_log_det(),
     };
-    Ok((delta_t, delta_beta, cache))
-}
-
-/// #1038 — build the NO-SELF `H₀'` system for an IBP cross-row source: clone the
-/// system and downdate each per-row logit-slot diagonal by the self term
-/// `d_k·z'_ik²`, so factoring against it plus the exact rank-`R` Woodbury
-/// `U D Uᵀ` correction never double-counts the `i = j` diagonal. Returns `None`
-/// when the system carries no `ibp_cross_row` source (factor the system as-is).
-/// Single source of the downdate arithmetic for the full evidence entry
-/// ([`solve_arrow_newton_step_with_options`]) and the per-row feasibility probe
-/// ([`probe_undamped_evidence_row_factors`]), so both always factor the SAME
-/// per-row blocks and reach the identical PD / non-PD verdict.
-pub(crate) fn ibp_self_term_downdated_system(sys: &ArrowSchurSystem) -> Option<ArrowSchurSystem> {
-    let source = sys.ibp_cross_row.as_ref()?;
-    let mut downdated = sys.clone();
-    let total_len = downdated.row_offsets[downdated.rows.len()];
-    let down = source.self_term_downdate(total_len);
-    let offsets = Arc::clone(&downdated.row_offsets);
-    for (i, row) in downdated.rows.iter_mut().enumerate() {
-        let base = offsets[i];
-        let di = row.htt.nrows();
-        for j in 0..di {
-            row.htt[[j, j]] -= down[base + j];
-        }
-    }
-    // The downdated rows carry a new curvature fingerprint.
-    downdated.refresh_row_hessian_fingerprint();
-    Some(downdated)
+    Ok((step.delta_t, step.delta_beta, cache))
 }
 
 /// #2080 — per-row-only UNDAMPED evidence feasibility factorization.
 ///
-/// Factors ONLY the per-row `H_tt^(i)` blocks at `ridge_t = 0` — with the same
-/// IBP self-term downdate ([`ibp_self_term_downdated_system`]) and the same
-/// gauge / spectral deflation policy ([`factor_blocks_for_system`]) the full
+/// Factors ONLY the per-row `H_tt^(i)` blocks at `ridge_t = 0`, with the same
+/// gauge/spectral-deflation policy ([`factor_blocks_for_system`]) the full
 /// evidence entry `solve_arrow_newton_step_with_options(sys, 0.0, 0.0, options)`
 /// applies as its FIRST stage — then discards the factors. It never forms the
 /// reduced border (β-Schur) system, so it costs `O(Σ_i d_i³)` per-row work
@@ -279,8 +212,7 @@ pub(crate) fn ibp_self_term_downdated_system(sys: &ArrowSchurSystem) -> Option<A
 /// failures surfaced — at the stationary iterate's full factorization).
 /// Cross-row-penalty systems route the full solve through matrix-free CG,
 /// where no per-row-only verdict exists, so they return `Ok(())` here; the SAE
-/// evidence path never carries `cross_row_penalties` (its IBP coupling is the
-/// separate `ibp_cross_row` Woodbury source, which IS downdated and checked).
+/// evidence path never carries `cross_row_penalties`.
 pub fn probe_undamped_evidence_row_factors(
     sys: &ArrowSchurSystem,
     options: &ArrowSolveOptions,
@@ -299,14 +231,6 @@ pub fn probe_undamped_evidence_row_factors(
         // factorization remains the authority.
         return Ok(());
     }
-    let downdated_owner;
-    let sys: &ArrowSchurSystem = match ibp_self_term_downdated_system(sys) {
-        Some(downdated) => {
-            downdated_owner = downdated;
-            &downdated_owner
-        }
-        None => sys,
-    };
     factor_blocks_for_system(sys, 0.0, options, &CpuBatchedBlockSolver).map(|_| ())
 }
 
@@ -774,13 +698,27 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
             //     cache's `schur_log_det_override` and leave `schur_factor = None`,
             //     so the Laplace normaliser reads the SLQ value directly.
             //
-            // MEMORY note (do not over-read): SLQ here is FLOP-matrix-free, not yet
-            // MEMORY-matrix-free — it still assembles the dense `S` (`O(k²)`) to
-            // supply `S·v`. A fully memory-matrix-free evidence path additionally
-            // needs the device-resident reduced-Schur apply (`Σ_i Y_iᵀ(Y_i x)`,
-            // the same operator the PCG hot loop already runs on-device) fed as the
-            // SLQ `matvec`; wiring that closure here removes the `O(k²)` assembly
-            // too. That device-apply plumbing is the remaining future work.
+            // RESIDENCY note (#1017): SLQ here is now both FLOP- and
+            // MEMORY-matrix-free — no dense `k×k` `S` is ever formed (see the
+            // IMPORTANT block below and `slq_reduced_schur_log_det`). Every
+            // Lanczos apply goes through `ReducedSchurOperator::apply`, which
+            // routes to the device `GpuSchurMatvec` when one is built
+            // (`maybe_build_evidence_gpu_matvec`) and otherwise to the CPU
+            // `schur_matvec` resident row-factor lane — both matrix-free.
+            //
+            // Device residency at massive K (#1017, LANDED): when the framed
+            // matrix-free system carries `sys.device_sae_pcg` (the production
+            // SAE border), `maybe_build_evidence_gpu_matvec` builds the
+            // device-resident DETERMINISTIC framed apply the PCG hot loop
+            // already runs (`ResidentSaeFrameHandle` + `launch_sae_frame_matvec`,
+            // #1551 parity-tested), uploading the ridge-independent operands once
+            // and crossing only `x`/`out` per Lanczos apply — measured 97% GPU
+            // util over the SLQ loop. The CPU row-procedural closure
+            // `gpu_schur_matvec_backend` returns for `htbeta_matvec` systems
+            // (`build_row_procedural_matvec`, applies on rayon) is now only the
+            // FALLBACK: taken when no `device_sae_pcg` is installed (e.g. the
+            // legacy sparse lane) or when the framed builder declines the
+            // shape/device/ridge.
             //
             // On any failure forming/factoring the Schur (non-PD pivot the LM
             // escalation must respond to), surface the error rather than returning a
@@ -805,12 +743,11 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
                 // without materialising `S`.
                 // #1017 Phase-3: run the SLQ log|S| probes on the SAME resident
                 // device `S·v` this Direct path already solves the step through,
-                // built once for the evaluation. This closes the "device-apply
-                // plumbing / remaining future work" noted above: with the operator
-                // engaged, every Lanczos apply runs on device (no `O(k²)` dense
-                // assembly, no per-apply host round-trip); when it declines the
-                // shape/device the byte-identical CPU resident row-factor lane is
-                // staged instead.
+                // built once for the evaluation. With the operator engaged every
+                // Lanczos apply runs on device (no `O(k²)` dense assembly, no
+                // per-apply host round-trip); when it declines the shape/device
+                // the byte-identical CPU resident row-factor lane is staged
+                // instead.
                 let device_matvec = crate::arrow_schur::maybe_build_evidence_gpu_matvec(
                     sys,
                     ridge_t,

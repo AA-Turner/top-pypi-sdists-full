@@ -150,7 +150,7 @@ struct MFixture {
 
 /// Deterministic 65-node grid over [−2.6, 2.6] with a normalized bell-shaped
 /// weight profile — large enough that per-node work dominates per-cell work,
-/// matching the production shape the factored path was built for.
+/// matching the production shape the compiled moment-jet path was built for.
 fn mgrid() -> EmpiricalZGrid {
     let nodes: Vec<f64> = (0..GRID_NODES)
         .map(|i| -2.6 + 5.2 * (i as f64) / ((GRID_NODES - 1) as f64))
@@ -283,6 +283,24 @@ fn measure_branch(is_score_warp: bool) {
         intercept_fast_path: false,
         degree9_cells: None,
     };
+    let grid = fx
+        .family
+        .latent_measure
+        .empirical_grid_for_training_row(0)
+        .expect("measured grid query")
+        .expect("forced empirical grid");
+    let cells = fx
+        .family
+        .denested_partition_cells(intercept, pt.b, beta_h, beta_w)
+        .expect("measured denested cells");
+    let occupied_cells = cells
+        .iter()
+        .filter(|partition_cell| {
+            grid.nodes
+                .iter()
+                .any(|&node| node >= partition_cell.cell.left && node < partition_cell.cell.right)
+        })
+        .count();
     let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(r);
 
     let call = |scratch: &mut BernoulliMarginalSlopeFlexRowScratch| -> f64 {
@@ -377,9 +395,11 @@ fn measure_branch(is_score_warp: bool) {
     );
 
     eprintln!(
-        "#932 measure {label}: r={r} grid={GRID_NODES} \
+        "#932 measure {label}: r={r} grid={GRID_NODES} cells={} occupied={} \
          warmed[allocs/row={calls_per_row:.3} bytes/row={bytes_per_row:.1} ns/row={warm_ns_per_row:.0}] \
-         cold[allocs={cold_calls} bytes={cold_bytes} ns={cold_ns:.0}]"
+         cold[allocs={cold_calls} bytes={cold_bytes} ns={cold_ns:.0}]",
+        cells.len(),
+        occupied_cells,
     );
 
     // ---- The asserted gate --------------------------------------------

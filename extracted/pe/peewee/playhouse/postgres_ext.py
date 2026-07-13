@@ -260,7 +260,9 @@ def _path_array(parts):
 class _JsonLookupBase(_LookupNode):
     def __init__(self, node, parts, as_json=False):
         super(_JsonLookupBase, self).__init__(node, parts)
-        self._jsonb = getattr(node, '_json_type', 'jsonb') == 'jsonb'
+        # Propagated so that chained lookups resolve the correct flavor.
+        self._json_datatype = getattr(node, '_json_datatype', 'jsonb')
+        self._jsonb = self._json_datatype == 'jsonb'
         self._as_json = as_json
 
     def clone(self):
@@ -425,6 +427,11 @@ class JSONField(FieldDatabaseHook, Field):
     def __init__(self, dumps=None, **kwargs):
         self._dumps = dumps
         super(JSONField, self).__init__(**kwargs)
+
+    def ddl_datatype(self, ctx):
+        # The core postgres backend maps the JSON field-type to JSONB; these
+        # fields declare their column type explicitly.
+        return SQL(self.field_type)
 
     def _db_hook(self, database):
         if database is None or not hasattr(database, '_adapter'):
@@ -670,30 +677,15 @@ def ServerSide(query, array_size=None):
         yield row
 
 
-class _empty_object(object):
-    __slots__ = ()
-    def __nonzero__(self):
-        return False
-    __bool__ = __nonzero__
-
-
 class Psycopg2ExtAdapter(Psycopg2Adapter):
     def register_hstore(self, conn):
         register_hstore(conn)
-
-    def server_side_cursor(self, conn):
-        # psycopg2 does not allow us to use these in autocommit, even if we ARE
-        # inside a transaction - so specify withhold (not desirable!).
-        return conn.cursor(name=str(uuid.uuid1()), withhold=True)
 
 
 class Psycopg3ExtAdapter(Psycopg3Adapter):
     def register_hstore(self, conn):
         info = TypeInfo.fetch(conn, 'hstore')
         register_hstore_pg3(info, conn)
-
-    def server_side_cursor(self, conn):
-        return conn.cursor(name=str(uuid.uuid1()))
 
 
 class PostgresqlExtDatabase(PostgresqlDatabase):

@@ -7,12 +7,12 @@
 //! is the latent position. The exact joint Newton calculus consumes the first
 //! through fourth derivatives `m1..m4 = d^kF/dq^k`.
 //!
-//! Probit, logit, and cloglog have stable closed forms (the fast path); any
-//! other link falls back to the generic inverse-link jet plus the analytic
-//! fourth derivative of the inverse-link pdf. All functions here are pure.
+//! Probit, logit, and cloglog each expose one stable four-entry primitive stack;
+//! every consumer selects its required prefix from that stack. Other links use
+//! the same generic inverse-link jet composition. All functions here are pure.
 
-use crate::probability::signed_probit_logcdf_and_mills_ratio;
 use gam_math::jet_tower::{Tower3, Tower4};
+use gam_math::probability::normal_logcdf_derivatives;
 use gam_problem::{InverseLink, StandardLink};
 use gam_solve::mixture_link::inverse_link_pdfthird_derivative_for_inverse_link;
 
@@ -218,30 +218,14 @@ pub(super) fn binomial_neglog_q_derivatives_probit_closed_form(
     q: f64,
 ) -> (f64, f64, f64) {
     // Closed-form derivatives for F_i(q) = -w_i[y log Phi(q) + (1-y) log(1-Phi(q))].
-    // Uses stable Mills ratios instead of `phi / mu` divisions. In the
-    // incompatible separated tail (for example y=0, q>>0), `phi(q)` underflows
-    // to zero while `phi(q)/Phi(-q) ≈ q`; computing the ratio in log-CDF space
-    // preserves the true score/curvature signal instead of manufacturing a
-    // flat optimum.
-    if weight == 0.0 || !q.is_finite() {
+    // The shared log-Phi stack carries both separated tails without Mills-ratio
+    // cancellation. Zero-coefficient branches are skipped explicitly so a
+    // compatible saturated observation cannot manufacture `0 * infinity`.
+    if weight == 0.0 {
         return (0.0, 0.0, 0.0);
     }
-    let (_, left) = signed_probit_logcdf_and_mills_ratio(q);
-    let (_, right) = signed_probit_logcdf_and_mills_ratio(-q);
-
-    let left_prime = -left * (q + left);
-    let left_m2 = -left_prime;
-    let left_m3 = left + left_prime * (q + 2.0 * left);
-
-    let right_prime = right * (right - q);
-    let right_m2 = right_prime;
-    let right_m3 = right_prime * (2.0 * right - q) - right;
-
-    let y0 = 1.0 - y;
-    let m1 = weight * (y0 * right - y * left);
-    let m2 = weight * (y0 * right_m2 + y * left_m2);
-    let m3 = weight * (y0 * right_m3 + y * left_m3);
-    (m1, m2, m3)
+    let derivatives = binomial_neglog_q_derivatives_probit_stack(y, weight, q);
+    (derivatives[0], derivatives[1], derivatives[2])
 }
 
 #[inline]
@@ -251,23 +235,39 @@ pub(super) fn binomial_neglog_q_fourth_derivative_probit_closed_form(
     q: f64,
 ) -> f64 {
     // Closed-form m4 for F_i(q) = -w_i[y log Phi(q) + (1-y) log(1-Phi(q))].
-    // Stability (Issue 5): see binomial_neglog_q_derivatives_probit_closed_form.
-    if weight == 0.0 || !q.is_finite() {
+    if weight == 0.0 {
         return 0.0;
     }
-    let (_, left) = signed_probit_logcdf_and_mills_ratio(q);
-    let (_, right) = signed_probit_logcdf_and_mills_ratio(-q);
+    binomial_neglog_q_derivatives_probit_stack(y, weight, q)[3]
+}
 
-    let left_prime = -left * (q + left);
-    let left_m3 = left + left_prime * (q + 2.0 * left);
-    let left_m4 = 2.0 * left_prime - left_m3 * (q + 2.0 * left) + 2.0 * left_prime * left_prime;
+#[inline]
+fn binomial_neglog_q_derivatives_probit_stack(y: f64, weight: f64, q: f64) -> [f64; 4] {
+    let left = normal_logcdf_derivatives(q);
+    let right = normal_logcdf_derivatives(-q);
+    let y0 = 1.0 - y;
+    let mut out = [0.0; 4];
+    for order in 1..=4 {
+        let left_term = coefficient_product(y, left[order]);
+        let reflected = if order % 2 == 0 {
+            right[order]
+        } else {
+            -right[order]
+        };
+        let right_term = coefficient_product(y0, reflected);
+        let derivative = -weight * (left_term + right_term);
+        out[order - 1] = if derivative == 0.0 { 0.0 } else { derivative };
+    }
+    out
+}
 
-    let right_prime = right * (right - q);
-    let right_m3 = right_prime * (2.0 * right - q) - right;
-    let right_m4 =
-        right_m3 * (2.0 * right - q) + 2.0 * right_prime * right_prime - 2.0 * right_prime;
-
-    weight * ((1.0 - y) * right_m4 + y * left_m4)
+#[inline]
+fn coefficient_product(coefficient: f64, value: f64) -> f64 {
+    if coefficient == 0.0 {
+        0.0
+    } else {
+        coefficient * value
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -343,15 +343,8 @@ pub(super) fn binomial_neglog_q_derivatives_logit_closed_form(
     // with G = logistic CDF. All three are exact derivatives of the evaluated
     // softplus loss F(q) = w[(1-y)q + softplus(-q)]:
     //   m1 = w(p - y),  m2 = ws,  m3 = ws(1 - 2p),  with s = p(1-p).
-    if weight == 0.0 || !q.is_finite() {
-        return (0.0, 0.0, 0.0);
-    }
-    let (p, s) = logit_probability_and_variance(q);
-
-    let m1 = weight * (p - y);
-    let m2 = weight * s;
-    let m3 = weight * s * (1.0 - 2.0 * p);
-    (m1, m2, m3)
+    let stack = binomial_neglog_q_derivatives_logit_stack(y, weight, q);
+    (stack[0], stack[1], stack[2])
 }
 
 #[inline]
@@ -368,13 +361,24 @@ pub(super) fn binomial_neglog_q_fourth_derivative_logit_closed_form(
     // even-order derivatives of the canonical Bernoulli NLL are functions
     // of p alone. The y-dependence cancels out in the chain rule because
     // the logit is the canonical link.
+    binomial_neglog_q_derivatives_logit_stack(x, weight, q)[3]
+}
+
+#[inline]
+fn binomial_neglog_q_derivatives_logit_stack(y: f64, weight: f64, q: f64) -> [f64; 4] {
     if weight == 0.0 || !q.is_finite() {
-        return 0.0;
+        return [0.0; 4];
     }
     // Exact `s = p(1-p)` via the cancellation-free tail form — see
-    // `logit_probability_and_variance`. m4 depends only on s.
-    let (_p, s) = logit_probability_and_variance(q);
-    weight * s * (1.0 - 6.0 * s)
+    // `logit_probability_and_variance`.
+    let (p, s) = logit_probability_and_variance(q);
+    let weighted_variance = weight * s;
+    [
+        weight * (p - y),
+        weighted_variance,
+        weighted_variance * (1.0 - 2.0 * p),
+        weighted_variance * (1.0 - 6.0 * s),
+    ]
 }
 
 // ---------------------------------------------------------------------------
@@ -466,31 +470,8 @@ pub(super) fn binomial_neglog_q_derivatives_cloglog_closed_form(
 ) -> (f64, f64, f64) {
     // Returns (m1, m2, m3) for F(q) = -w[y log G(q) + (1-y) log(1-G(q))]
     // with G = cloglog CDF: G(q) = 1 - exp(-exp(q)).
-    if weight == 0.0 || !q.is_finite() {
-        return (0.0, 0.0, 0.0);
-    }
-    let z = q.exp(); // z = e^q; may be large but that's handled below
-    let h = cloglog_stable_h(z);
-    let y0 = 1.0 - y;
-    let y0_term = if y0 == 0.0 { 0.0 } else { y0 * z };
-
-    // y=0 branch: all derivatives equal w*z (since F_{y=0} = w*e^q).
-    // y=1 branch: uses the h-polynomial forms.
-    // General y: linear combination.
-    //
-    // Once h rounds to 0, the y=1 contribution has already underflowed to 0
-    // in f64. Returning the remaining y=0 branch here avoids 0 * inf products
-    // when q is deep in the right tail.
-    if y == 0.0 || h == 0.0 {
-        let base = weight * y0_term;
-        return (base, base, base);
-    }
-
-    let m1 = weight * (y0_term - y * h);
-    let m2 = weight * (y0_term + y * h * (h + z - 1.0));
-    let m3 =
-        weight * (y0_term - y * h * (2.0 * h * h + 3.0 * (z - 1.0) * h + z * z - 3.0 * z + 1.0));
-    (m1, m2, m3)
+    let stack = binomial_neglog_q_derivatives_cloglog_stack(y, weight, q);
+    (stack[0], stack[1], stack[2])
 }
 
 #[inline]
@@ -501,15 +482,22 @@ pub(super) fn binomial_neglog_q_fourth_derivative_cloglog_closed_form(
 ) -> f64 {
     // Returns m4 = d^4F/dq^4 for cloglog link.
     // m4 = w[(1-y)z + yh(6h^3 + 12(z-1)h^2 + (7z^2-18z+7)h + z^3-6z^2+7z-1)]
+    binomial_neglog_q_derivatives_cloglog_stack(y, weight, q)[3]
+}
+
+#[inline]
+fn binomial_neglog_q_derivatives_cloglog_stack(y: f64, weight: f64, q: f64) -> [f64; 4] {
     if weight == 0.0 || !q.is_finite() {
-        return 0.0;
+        return [0.0; 4];
     }
     let z = q.exp();
     let h = cloglog_stable_h(z);
     let y0 = 1.0 - y;
     let y0_term = if y0 == 0.0 { 0.0 } else { y0 * z };
+    // Once h rounds to zero, the y=1 contribution is below precision. Avoid
+    // forming its `0 * inf` right-tail polynomials.
     if y == 0.0 || h == 0.0 {
-        return weight * y0_term;
+        return [weight * y0_term; 4];
     }
     let h2 = h * h;
     let h3 = h2 * h;
@@ -519,7 +507,12 @@ pub(super) fn binomial_neglog_q_fourth_derivative_cloglog_closed_form(
         - 6.0 * z2
         + 7.0 * z
         - 1.0;
-    weight * (y0_term + y * h * y1_poly)
+    [
+        weight * (y0_term - y * h),
+        weight * (y0_term + y * h * (h + z - 1.0)),
+        weight * (y0_term - y * h * (2.0 * h2 + 3.0 * (z - 1.0) * h + z2 - 3.0 * z + 1.0)),
+        weight * (y0_term + y * h * y1_poly),
+    ]
 }
 
 #[inline]
@@ -558,9 +551,9 @@ pub(super) fn binomial_neglog_q_fourth_derivative_from_jet(
 // Unified exact dispatch for binomial m1–m4
 // ---------------------------------------------------------------------------
 //
-// Closed forms remain the fast path for Probit, Logit, and CLogLog, but the
-// exact joint Newton calculus is not restricted to those links. When no
-// closed form is available, we use the generic inverse-link jet plus the
+// Stable primitive stacks serve Probit, Logit, and CLogLog, but the exact joint
+// Newton calculus is not restricted to those links. Every other link uses the
+// generic inverse-link jet plus the
 // analytic third derivative of the inverse-link pdf (f''' = μ'''', the fourth
 // derivative of the inverse-link CDF).
 // ---------------------------------------------------------------------------
@@ -656,6 +649,51 @@ fn binomial_neglog_q_fourth_derivative_closed_form_dispatch(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn probit_closed_form_preserves_separated_and_compatible_tail_limits() {
+        assert_eq!(
+            binomial_neglog_q_derivatives_probit_closed_form(1.0, 2.0, f64::INFINITY),
+            (0.0, 0.0, 0.0)
+        );
+        assert_eq!(
+            binomial_neglog_q_derivatives_probit_closed_form(0.0, 2.0, f64::INFINITY),
+            (f64::INFINITY, 2.0, 0.0)
+        );
+        assert_eq!(
+            binomial_neglog_q_derivatives_probit_closed_form(0.0, 2.0, f64::NEG_INFINITY),
+            (0.0, 0.0, 0.0)
+        );
+        assert_eq!(
+            binomial_neglog_q_derivatives_probit_closed_form(1.0, 2.0, f64::NEG_INFINITY),
+            (f64::NEG_INFINITY, 2.0, 0.0)
+        );
+        let nan_derivatives = binomial_neglog_q_derivatives_probit_closed_form(0.5, 2.0, f64::NAN);
+        assert!(
+            [nan_derivatives.0, nan_derivatives.1, nan_derivatives.2]
+                .into_iter()
+                .all(f64::is_nan)
+        );
+    }
+
+    #[test]
+    fn probit_closed_form_keeps_deep_tail_curvature_and_subnormal_channels() {
+        let (m1, m2, m3) = binomial_neglog_q_derivatives_probit_closed_form(0.0, 1.0, 1.0e100);
+        assert_eq!(m1, 1.0e100);
+        assert_eq!(m2, 1.0);
+        assert!(m3 > 0.0 && m3.is_finite());
+        assert_eq!(
+            binomial_neglog_q_fourth_derivative_probit_closed_form(0.0, 1.0, 1.0e100),
+            0.0
+        );
+
+        let (m1, m2, m3) = binomial_neglog_q_derivatives_probit_closed_form(1.0, 1.0, 38.6);
+        assert_eq!(m1, 0.0);
+        assert!(m2 > 0.0 && m2.is_subnormal());
+        assert!(m3 < 0.0 && m3.is_subnormal());
+        let m4 = binomial_neglog_q_fourth_derivative_probit_closed_form(1.0, 1.0, 38.6);
+        assert!(m4 > 0.0 && m4.is_subnormal());
+    }
 
     // Cauchit inverse link μ(q) = ½ + atan(q)/π and its eta-derivatives, derived
     // independently of the production link machinery. With u = 1 + q²:

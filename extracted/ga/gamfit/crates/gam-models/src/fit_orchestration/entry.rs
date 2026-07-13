@@ -658,12 +658,13 @@ fn constant_gaussian_standard_fit(
         penalty_block_trace,
         edf_total,
         smoothing_correction: None,
+        smoothing_correction_method: None,
         penalized_hessian: penalized_hessian_precision.clone(),
         working_weights: weights.clone(),
         working_response: working_response.clone(),
         reparam_qs: None,
         // Exact fit ⇒ residual variance is exactly zero.
-        dispersion: gam_solve::estimate::Dispersion::Estimated(0.0),
+        dispersion: gam_solve::estimate::Dispersion::ZERO_ESTIMATE,
         beta_covariance: Some(gam_problem::dispersion_cov::PhiScaledCovariance::wrap(
             ndarray::Array2::<f64>::zeros((p, p)),
         )),

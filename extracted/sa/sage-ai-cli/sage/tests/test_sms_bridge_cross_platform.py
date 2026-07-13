@@ -62,7 +62,7 @@ def test_handle_imessage_to_apple_id_fallback(monkeypatch, platform, apple_email
         "text": "Hello"
     }
     
-    bridge._handle_imessage_to_apple_id(msg)
+    bridge._handle_imessage_to_apple_id(None, msg)
     
     if platform == "darwin":
         assert "imessage" in calls

@@ -919,6 +919,7 @@ class WorkspacesApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
             '404': "ProblemDetails",
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -986,6 +987,7 @@ class WorkspacesApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
             '404': "ProblemDetails",
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1053,6 +1055,7 @@ class WorkspacesApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
             '404': "ProblemDetails",
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,

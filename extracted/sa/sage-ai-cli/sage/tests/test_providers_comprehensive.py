@@ -50,6 +50,10 @@ from sage.providers.gemini import (
 )
 from sage.providers.llama_cpp import LlamaCppProvider
 
+@pytest.fixture(autouse=True)
+def clear_sage_testing(monkeypatch):
+    monkeypatch.delenv("SAGE_TESTING", raising=False)
+
 
 # =============================================================================
 # Tests for Message Dataclass

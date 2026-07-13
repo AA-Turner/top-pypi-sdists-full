@@ -163,7 +163,7 @@ impl BinomialLocationScaleFamily {
         let gradient_pairs: Result<Vec<(f64, f64)>, String> = (0..n)
             .into_par_iter()
             .map(|i| {
-                let tower = binomial_location_scale_nll_tower(
+                let gradient = binomial_location_scale_nll_gradient(
                     y_slice[i],
                     w_slice[i],
                     eta_t_slice[i],
@@ -174,9 +174,8 @@ impl BinomialLocationScaleFamily {
                     core.d2mu_dq2[i],
                     core.d3mu_dq3[i],
                     link_kind,
-                    false,
                 )?;
-                Ok((-tower.g[0], -tower.g[1]))
+                Ok((-gradient[0], -gradient[1]))
             })
             .collect();
         for (i, (g_t, g_ls)) in gradient_pairs?.into_iter().enumerate() {
@@ -2386,7 +2385,7 @@ impl CustomFamily for BinomialLocationScaleFamily {
         let gradient_pairs: Result<Vec<(f64, f64)>, String> = (0..n)
             .into_par_iter()
             .map(|i| {
-                let tower = binomial_location_scale_nll_tower(
+                let gradient = binomial_location_scale_nll_gradient(
                     y_slice_e[i],
                     w_slice_e[i],
                     eta_t_slice_e[i],
@@ -2397,9 +2396,8 @@ impl CustomFamily for BinomialLocationScaleFamily {
                     core.d2mu_dq2[i],
                     core.d3mu_dq3[i],
                     link_kind_e,
-                    false,
                 )?;
-                Ok((-tower.g[0], -tower.g[1]))
+                Ok((-gradient[0], -gradient[1]))
             })
             .collect();
         for (i, (g_t, g_ls)) in gradient_pairs?.into_iter().enumerate() {
@@ -2485,18 +2483,18 @@ impl CustomFamily for BinomialLocationScaleFamily {
             }
             .into());
         }
-        use rayon::iter::ParallelIterator;
         let link_kind = &self.link_kind;
-        let ll: Result<f64, String> = subsample
-            .rows
-            .par_iter()
-            .try_fold(
-                || 0.0_f64,
-                |acc, row| -> Result<f64, String> {
+        let rows = &subsample.rows;
+        let ll = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
+            rows.len(),
+            |range| -> Result<f64, String> {
+                let mut acc = 0.0_f64;
+                for k in range {
+                    let row = &rows[k];
                     let i = row.index;
                     let wi = self.weights[i];
                     if wi == 0.0 {
-                        return Ok(acc);
+                        continue;
                     }
                     let SigmaJet1 { sigma, .. } = exp_sigma_jet1_scalar(eta_ls[i]);
                     let q = binomial_location_scale_q0(eta_t[i], sigma);
@@ -2510,11 +2508,13 @@ impl CustomFamily for BinomialLocationScaleFamily {
                     };
                     let term =
                         binomial_location_scale_log_likelihood(self.y[i], wi, q, link_kind, mu)?;
-                    Ok(acc + row.weight * term)
-                },
-            )
-            .try_reduce(|| 0.0_f64, |a, b| Ok(a + b));
-        ll
+                    acc += row.weight * term;
+                }
+                Ok(acc)
+            },
+            |a, b| Ok(a + b),
+        )?;
+        Ok(ll.unwrap_or(0.0))
     }
 
     fn requires_joint_outer_hyper_path(&self) -> bool {

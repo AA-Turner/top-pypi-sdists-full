@@ -69,7 +69,7 @@ fn fitted_circle(
     let mut decoder = Array2::<f64>::zeros((3, p));
     decoder[[1, 0]] = radius;
     decoder[[2, 1]] = radius;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "circle".to_string(),
         SaeAtomBasisKind::Periodic,
         1,
@@ -85,7 +85,7 @@ fn fitted_circle(
         logits,
         vec![coords],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
@@ -121,8 +121,8 @@ fn hand_correction(
             .unwrap();
         let a_k = a_row[0];
         let t = term.assignment.coords[0].row(i)[0];
-        let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[0][0]);
-        let v_pp = ArdAxisPrior::eval(alpha, t, periods[0]).hess.max(0.0);
+        let alpha = rho.ard_precisions().unwrap()[0][0];
+        let v_pp = ArdAxisPrior::eval(alpha, t, periods[0]).psd_majorizer_hess();
         term.atoms[0].fill_decoded_derivative_row(i, 0, &mut g1);
         term.atoms[0].fill_decoded_second_derivative_row(&sj[0], i, 0, &mut g2);
         let htt = a_k * a_k * g1.iter().map(|v| v * v).sum::<f64>();
@@ -203,7 +203,7 @@ fn sure_correction_matches_fd_divergence_2133() {
     let (n, p, radius) = (160usize, 6usize, 1.0);
     let (term, rho, x) = fitted_circle(n, p, radius, 0.30, 0x2133_C0FF_EE00_0002);
     let residual = term.reconstruction_residual(x.view(), &rho).unwrap();
-    let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[0][0]);
+    let alpha = rho.ard_precisions().unwrap()[0][0];
     let periods = term.assignment.coords[0].effective_axis_periods();
 
     // Evaluate the atom's fitted image f(t) = a_k·Φ(t)·B and its coordinate MAP by
@@ -296,7 +296,7 @@ fn sure_correction_matches_fd_divergence_2133() {
         }
         // Analytic divergence at the fitted coordinate (same primitives as prod).
         let t = term.assignment.coords[0].row(i)[0];
-        let v_pp = ArdAxisPrior::eval(alpha, t, periods[0]).hess.max(0.0);
+        let v_pp = ArdAxisPrior::eval(alpha, t, periods[0]).psd_majorizer_hess();
         term.atoms[0].fill_decoded_derivative_row(i, 0, &mut g1);
         term.atoms[0].fill_decoded_second_derivative_row(&sj[0], i, 0, &mut g2);
         let htt = a * a * g1.iter().map(|v| v * v).sum::<f64>();

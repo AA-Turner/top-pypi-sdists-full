@@ -102,7 +102,7 @@ fn seed_term(turns0: &Array2<f64>, p: usize) -> (SaeManifoldTerm, SaeManifoldRho
     let mut decoder = Array2::<f64>::zeros((3, p));
     decoder[[1, 0]] = 1.0;
     decoder[[2, 1]] = 1.0;
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "probe_seed_c0".to_string(),
         SaeAtomBasisKind::Periodic,
         1,
@@ -119,7 +119,7 @@ fn seed_term(turns0: &Array2<f64>, p: usize) -> (SaeManifoldTerm, SaeManifoldRho
         logits,
         vec![turns0.clone()],
         vec![LatentManifold::Circle { period: 1.0 }],
-        AssignmentMode::ibp_map(0.7, 1.0, false),
+        AssignmentMode::ordered_beta_bernoulli(0.7, 1.0, false),
     )
     .unwrap();
     let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();

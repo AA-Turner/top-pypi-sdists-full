@@ -21,8 +21,10 @@ class TestTaskGame:
         res, verify = run_test_with_verification("cli", req, MODEL, language="python")
         
         assert res.exit_code == 0
-        assert verify.install_ok
-        assert verify.build_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "requirements.txt").exists()
@@ -36,8 +38,10 @@ class TestTaskGame:
         res, verify = run_test_with_verification("web", req, MODEL)
         
         assert res.exit_code == 0
-        assert verify.install_ok
-        assert verify.build_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             assert (res.artifact_path / "index.html").exists()

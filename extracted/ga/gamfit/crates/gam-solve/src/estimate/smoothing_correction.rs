@@ -78,8 +78,6 @@ impl RemlConfig {
         }
     }
 }
-pub(crate) const MAX_FACTORIZATION_ATTEMPTS: usize = 4;
-
 /// Small ridge added to the rho-space LAML Hessian before inversion, for
 /// numerical stability when smoothing parameters are weakly identified.
 ///
@@ -94,7 +92,6 @@ pub(crate) const MAX_FACTORIZATION_ATTEMPTS: usize = 4;
 /// record is emitted at this site because the perturbation never escapes the
 /// local `V_rho` inverse (it touches no saved coefficient, objective, or
 /// user-visible summary).
-const LAML_RIDGE: f64 = 1e-8;
 /// Minimum penalized-deviance floor, expressed as a fraction of the
 /// problem's own deviance scale (the weighted null deviance `D₀`, see
 /// [`smooth_floor_dp`]). The floor exists only to keep the profiled
@@ -221,9 +218,9 @@ pub(crate) fn smooth_floor_dp(dp: f64, scale: f64) -> (f64, f64, f64) {
 ///   - and H_{kℓ} terms containing fourth-likelihood derivatives.
 ///
 /// This routine obtains V_ρ^{-1} from the analytic rho-space Hessian selected
-/// by `compute_lamlhessian_consistent`, then regularizes before inversion.
-/// If that analytic Hessian is unavailable, the correction is skipped rather
-/// than synthesized numerically.
+/// by `compute_lamlhessian_consistent`, then inverts its explicitly identified
+/// subspace without perturbing the matrix. If exact geometry is unavailable,
+/// the typed status records why; no substitute Hessian is used.
 ///
 /// Notes on omitted higher-order terms:
 /// - The exact `E[A(rho)]` and `Var(b(rho))` can be written with the Gaussian
@@ -246,156 +243,263 @@ pub(crate) struct SmoothingCorrectionComputation {
     /// use this to decide whether higher-order corrections are even
     /// meaningful — they aren't when V_ρ is rank-deficient.
     pub active_rank: Option<usize>,
+    pub status: SmoothingCorrectionStatus,
 }
 
-/// Result of pseudo-inverting the rho-space LAML Hessian on the identified subspace.
-///
-/// When the outer rho-Hessian has negative or near-zero eigenvalues at convergence
-/// (genuine non-convexity, Z₂-saddles from redundant penalty blocks, or weakly
-/// identified ρ directions on no-signal data), inverting it naively would either
-/// fail or yield an arbitrarily large V_ρ along those directions. Instead we
-/// split the spectrum into an identified subspace (eigenvalues strictly above an
-/// identifiability floor) and a non-identified subspace (negative, numerical zero,
-/// or marginally positive but below the floor). The returned `inverse` is the
-/// rank-deficient pseudo-inverse: 1/σ on the identified directions, 0 on the rest.
-/// `J · V_ρ · J^T` is then a valid rank-deficient inflation along well-identified
-/// rho directions, with zero contribution from non-identified directions.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum SmoothingCorrectionStatus {
+    Computed,
+    NotApplicableNoSmoothingParameters,
+    ZeroNoIdentifiedOuterDirections,
+    Unavailable(SmoothingCorrectionUnavailable),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum SmoothingCorrectionUnavailable {
+    ObjectiveInnerHessian {
+        error: String,
+    },
+    InnerHessianDimension {
+        rows: usize,
+        cols: usize,
+        coefficients: usize,
+    },
+    InnerHessianNotPositiveDefinite,
+    SensitivitySolve,
+    OuterHessian {
+        error: String,
+    },
+    OuterHessianInverse { error: String },
+    PenaltyDimension {
+        rho: usize,
+        lambdas: usize,
+        canonical_penalties: usize,
+    },
+    PenaltyStructure { error: String },
+    NonFiniteCorrection,
+    MateriallyIndefiniteCorrection {
+        min_eigenvalue: f64,
+        tolerance: f64,
+    },
+    CorrectionEigendecomposition,
+}
+
+/// Certified inverse of the rho-space LAML Hessian. A pseudoinverse is admitted
+/// only for zero directions whose count is independently certified by the
+/// structural penalty map; positive curvature is never truncated and negative
+/// curvature is never salvaged as covariance.
 pub(crate) struct InvertedRhoHessian {
-    /// Pseudo-inverse projected onto the identified subspace.
     pub inverse: Array2<f64>,
-    /// Number of eigenpairs retained (σ_i > tau).
     pub active_rank: usize,
-    /// Eigenpairs dropped for σ_i < −neg_tol (genuine negative curvature).
-    pub dropped_negative: usize,
-    /// Eigenpairs dropped for marginally positive σ_i in (neg_tol, tau].
-    pub dropped_small_positive: usize,
-    /// Eigenpairs dropped for |σ_i| ≤ neg_tol (numerical zero).
-    pub dropped_numerical_zero: usize,
-    /// Smallest eigenvalue (signed) of the input Hessian.
-    pub min_eigenvalue: f64,
-    /// True whenever active_rank < n (i.e. anything was dropped). Cholesky fast
-    /// path always returns false.
-    pub repaired_hessian: bool,
-    /// Per-eigenvalue classification (length n), aligned with the input matrix's
-    /// eigendecomposition order from `eigh`. Used by the [INDEF-HESS] diagnostic.
-    /// Empty on the Cholesky fast path (matrix was SPD, no classification needed).
+    pub structural_zero: usize,
+    pub used_structural_pseudoinverse: bool,
+    pub eigenvalue_backward_error_bound: f64,
     pub eigenvalues: Array1<f64>,
-    /// Eigenvectors as columns, aligned with `eigenvalues`. Empty on the Cholesky
-    /// fast path. Carrying these here eliminates a second `eigh` call in the
-    /// `[INDEF-HESS]` diagnostic — the slow path computes them once and shares.
     pub eigenvectors: Array2<f64>,
-    /// Per-eigenvalue classification labels parallel to `eigenvalues`.
     pub classifications: Vec<EigenClassification>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EigenClassification {
     Active,
-    DroppedNegative,
-    DroppedSmallPositive,
-    DroppedNumericalZero,
+    StructuralZero,
 }
 
-/// Invert the rho-space LAML Hessian onto the identified subspace.
-///
-/// Fast path: when the matrix is strictly positive-definite, returns the full
-/// Cholesky inverse with `active_rank = n` and `repaired_hessian = false`.
-///
-/// Slow path: eigendecompose, classify each eigenpair, and assemble the
-/// rank-deficient pseudo-inverse. Returns `None` only when the eigendecomposition
-/// itself fails (non-finite eigenvalues or eigenvectors). An all-bad spectrum
-/// (active_rank == 0) still returns `Some`; the caller is responsible for
-/// deciding whether to use a zero-rank covariance.
-pub(crate) fn invert_regularized_rho_hessian(
-    hessian_rho: &Array2<f64>,
-) -> Option<InvertedRhoHessian> {
-    let n = hessian_rho.nrows();
-    if let Ok(chol) = hessian_rho.cholesky(faer::Side::Lower) {
-        let mut inverse = Array2::<f64>::eye(n);
-        for col in 0..n {
-            let colvec = inverse.column(col).to_owned();
-            let solved = chol.solvevec(&colvec);
-            inverse.column_mut(col).assign(&solved);
+fn eigenpair_backward_error_bound(
+    matrix: &Array2<f64>,
+    eigenvalues: &Array1<f64>,
+    eigenvectors: &Array2<f64>,
+) -> Result<f64, String> {
+    let n = matrix.nrows();
+    if matrix.ncols() != n || eigenvalues.len() != n || eigenvectors.dim() != (n, n) {
+        return Err("eigendecomposition dimensions do not match the symmetric matrix".into());
+    }
+    if !matrix.iter().all(|value| value.is_finite())
+        || !eigenvalues.iter().all(|value| value.is_finite())
+        || !eigenvectors.iter().all(|value| value.is_finite())
+    {
+        return Err("eigendecomposition contains a non-finite value".into());
+    }
+    let matrix_scale = matrix
+        .iter()
+        .copied()
+        .map(f64::abs)
+        .fold(0.0_f64, f64::max);
+    let mut max_residual_norm = 0.0_f64;
+    for column in 0..n {
+        let vector = eigenvectors.column(column);
+        let residual = matrix.dot(&vector) - &vector.mapv(|value| value * eigenvalues[column]);
+        max_residual_norm = max_residual_norm.max(residual.dot(&residual).sqrt());
+    }
+    let arithmetic_bound = 64.0 * n.max(1) as f64 * f64::EPSILON * matrix_scale;
+    Ok(max_residual_norm.max(arithmetic_bound))
+}
+
+fn penalty_map_structural_nullity(
+    canonical: &[gam_terms::construction::CanonicalPenalty],
+    coefficient_dimension: usize,
+) -> Result<usize, String> {
+    use gam_linalg::faer_ndarray::FaerEigh;
+
+    let k = canonical.len();
+    if k == 0 {
+        return Ok(0);
+    }
+    for (index, penalty) in canonical.iter().enumerate() {
+        let block_dimension = penalty.col_range.end.saturating_sub(penalty.col_range.start);
+        if penalty.col_range.end > coefficient_dimension
+            || penalty.local.dim() != (block_dimension, block_dimension)
+        {
+            return Err(format!(
+                "canonical penalty {index} has range {:?}, local shape {:?}, coefficient dimension {coefficient_dimension}",
+                penalty.col_range,
+                penalty.local.dim()
+            ));
         }
-        // Spectral scale / min eigenvalue are not needed when Cholesky succeeds,
-        // but we surface coherent placeholders so downstream consumers can rely
-        // on the struct fields unconditionally.
-        return Some(InvertedRhoHessian {
-            inverse,
+    }
+    // Gram matrix of the unscaled derivative maps S_k. Positive lambdas only
+    // rescale columns and therefore cannot change this structural rank.
+    let mut gram = Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        for j in i..k {
+            let start = canonical[i].col_range.start.max(canonical[j].col_range.start);
+            let end = canonical[i].col_range.end.min(canonical[j].col_range.end);
+            let mut inner = 0.0_f64;
+            for global_row in start..end {
+                for global_col in start..end {
+                    inner += canonical[i].local[[
+                        global_row - canonical[i].col_range.start,
+                        global_col - canonical[i].col_range.start,
+                    ]] * canonical[j].local[[
+                        global_row - canonical[j].col_range.start,
+                        global_col - canonical[j].col_range.start,
+                    ]];
+                }
+            }
+            gram[[i, j]] = inner;
+            gram[[j, i]] = inner;
+        }
+    }
+    let (eigenvalues, eigenvectors) = gram
+        .eigh(faer::Side::Lower)
+        .map_err(|error| format!("penalty-map Gram eigendecomposition failed: {error}"))?;
+    let zero_bound = eigenpair_backward_error_bound(&gram, &eigenvalues, &eigenvectors)?;
+    let minimum = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
+    if minimum < -zero_bound {
+        let neg_zero_bound = -zero_bound;
+        return Err(format!(
+            "penalty-map Gram matrix has negative eigenvalue {minimum:.3e} below backward-error bound {neg_zero_bound:.3e}"
+        ));
+    }
+    let rank = eigenvalues
+        .iter()
+        .filter(|&&eigenvalue| eigenvalue > zero_bound)
+        .count();
+    Ok(k - rank)
+}
+
+pub(crate) fn invert_identified_rho_hessian(
+    hessian_rho: &Array2<f64>,
+    expected_structural_nullity: usize,
+) -> Result<InvertedRhoHessian, String> {
+    let n = hessian_rho.nrows();
+    if expected_structural_nullity > n {
+        return Err(format!(
+            "structural nullity {expected_structural_nullity} exceeds rho dimension {n}"
+        ));
+    }
+    if expected_structural_nullity == 0 {
+        let certified = gam_linalg::utils::certified_spd_inverse(
+            hessian_rho,
+            "unperturbed rho Hessian",
+        )
+        .map_err(|error| error.to_string())?;
+        return Ok(InvertedRhoHessian {
+            inverse: certified.into_inverse(),
             active_rank: n,
-            dropped_negative: 0,
-            dropped_small_positive: 0,
-            dropped_numerical_zero: 0,
-            min_eigenvalue: f64::NAN,
-            repaired_hessian: false,
+            structural_zero: 0,
+            used_structural_pseudoinverse: false,
+            eigenvalue_backward_error_bound: 0.0,
             eigenvalues: Array1::<f64>::zeros(0),
             eigenvectors: Array2::<f64>::zeros((0, 0)),
             classifications: Vec::new(),
         });
     }
 
-    let (eigenvalues, eigenvectors) = hessian_rho.eigh(faer::Side::Lower).ok()?;
-    if eigenvalues.iter().any(|v| !v.is_finite()) || !eigenvectors.iter().all(|v| v.is_finite()) {
-        return None;
+    let (eigenvalues, eigenvectors) = hessian_rho
+        .eigh(faer::Side::Lower)
+        .map_err(|error| format!("rho-Hessian eigendecomposition failed: {error}"))?;
+    let zero_bound = eigenpair_backward_error_bound(hessian_rho, &eigenvalues, &eigenvectors)?;
+    let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
+    if min_eigenvalue < -zero_bound {
+        let neg_zero_bound = -zero_bound;
+        return Err(format!(
+            "rho Hessian has negative curvature {min_eigenvalue:.3e} below eigensolver backward-error bound {neg_zero_bound:.3e}"
+        ));
     }
 
-    let spectral_scale = eigenvalues
-        .iter()
-        .copied()
-        .map(f64::abs)
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
-    let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
-    let neg_tol = 64.0 * f64::EPSILON * (n.max(1) as f64) * spectral_scale;
-    let tau = (spectral_scale * 1e-10).max(LAML_RIDGE);
-
     let mut inverse = Array2::<f64>::zeros((n, n));
+    let mut projector = Array2::<f64>::zeros((n, n));
     let mut classifications = Vec::with_capacity(n);
     let mut active_rank = 0usize;
-    let mut dropped_negative = 0usize;
-    let mut dropped_small_positive = 0usize;
-    let mut dropped_numerical_zero = 0usize;
+    let mut structural_zero = 0usize;
 
     for i in 0..n {
         let sigma = eigenvalues[i];
-        let class = if sigma > tau {
+        let class = if sigma > zero_bound {
             EigenClassification::Active
-        } else if sigma.abs() <= neg_tol {
-            EigenClassification::DroppedNumericalZero
-        } else if sigma > 0.0 {
-            // 0 < sigma <= tau and |sigma| > neg_tol: marginally positive but
-            // below the identifiability floor; 1/sigma would explode.
-            EigenClassification::DroppedSmallPositive
         } else {
-            // sigma < -neg_tol: genuine negative curvature.
-            EigenClassification::DroppedNegative
+            EigenClassification::StructuralZero
         };
         classifications.push(class);
         match class {
             EigenClassification::Active => {
                 active_rank += 1;
                 let inv_lambda = 1.0 / sigma;
+                if !inv_lambda.is_finite() {
+                    return Err(format!(
+                        "positive rho curvature {sigma:.3e} has an unrepresentable reciprocal"
+                    ));
+                }
                 let v = eigenvectors.column(i);
                 for row in 0..n {
                     for col in 0..n {
                         inverse[[row, col]] += inv_lambda * v[row] * v[col];
+                        projector[[row, col]] += v[row] * v[col];
                     }
                 }
             }
-            EigenClassification::DroppedNegative => dropped_negative += 1,
-            EigenClassification::DroppedSmallPositive => dropped_small_positive += 1,
-            EigenClassification::DroppedNumericalZero => dropped_numerical_zero += 1,
+            EigenClassification::StructuralZero => structural_zero += 1,
         }
     }
+    if structural_zero != expected_structural_nullity {
+        return Err(format!(
+            "rho Hessian has {structural_zero} zero direction(s) within eigensolver backward error, but the penalty map certifies {expected_structural_nullity}"
+        ));
+    }
+    gam_linalg::matrix::symmetrize_in_place(&mut inverse);
+    let matrix_max_abs = gam_linalg::utils::validate_finite_symmetric_matrix(
+        hessian_rho,
+        "structurally singular rho Hessian",
+    )
+    .map_err(|error| error.to_string())?;
+    let residual = hessian_rho.dot(&inverse) - &projector;
+    gam_linalg::utils::certify_linear_system_residual(
+        n,
+        matrix_max_abs,
+        &projector,
+        &inverse,
+        &residual,
+        "rho-Hessian structural pseudoinverse",
+    )
+    .map_err(|error| error.to_string())?;
 
-    Some(InvertedRhoHessian {
+    Ok(InvertedRhoHessian {
         inverse,
         active_rank,
-        dropped_negative,
-        dropped_small_positive,
-        dropped_numerical_zero,
-        min_eigenvalue,
-        repaired_hessian: active_rank < n,
+        structural_zero,
+        used_structural_pseudoinverse: true,
+        eigenvalue_backward_error_bound: zero_bound,
         eigenvalues,
         eigenvectors,
         classifications,
@@ -468,12 +572,11 @@ fn dump_indefinite_rho_hessian_diagnostic(
     );
     if let Some(inv) = inverted {
         log::warn!(
-            "[INDEF-HESS] active_rank={}/{} dropped_negative={} dropped_small_positive={} dropped_numerical_zero={}",
+            "[INDEF-HESS] active_rank={}/{} structural_zero={} eigenvalue_backward_error_bound={:.3e}",
             inv.active_rank,
             k,
-            inv.dropped_negative,
-            inv.dropped_small_positive,
-            inv.dropped_numerical_zero,
+            inv.structural_zero,
+            inv.eigenvalue_backward_error_bound,
         );
         if !inv.classifications.is_empty() {
             let labels: Vec<&'static str> = inv
@@ -481,13 +584,11 @@ fn dump_indefinite_rho_hessian_diagnostic(
                 .iter()
                 .map(|c| match c {
                     EigenClassification::Active => "A",
-                    EigenClassification::DroppedNegative => "N",
-                    EigenClassification::DroppedSmallPositive => "P",
-                    EigenClassification::DroppedNumericalZero => "Z",
+                    EigenClassification::StructuralZero => "Z",
                 })
                 .collect();
             log::warn!(
-                "[INDEF-HESS] classifications={:?} (A=active N=neg P=small_pos Z=numerical_zero)",
+                "[INDEF-HESS] classifications={:?} (A=active Z=structurally certified zero)",
                 labels,
             );
         }
@@ -656,6 +757,7 @@ fn dump_indefinite_rho_hessian_diagnostic(
 pub(crate) fn compute_smoothing_correction(
     reml_state: &RemlState<'_>,
     final_rho: &Array1<f64>,
+    lambdas: &Array1<f64>,
     final_fit: &pirls::PirlsResult,
 ) -> SmoothingCorrectionComputation {
     use gam_linalg::faer_ndarray::{FaerCholesky, FaerEigh};
@@ -667,12 +769,42 @@ pub(crate) fn compute_smoothing_correction(
             hessian_rho: None,
             rho_covariance: None,
             active_rank: None,
+            status: SmoothingCorrectionStatus::NotApplicableNoSmoothingParameters,
         };
     }
 
     let n_coeffs_trans = final_fit.beta_transformed.len();
     let n_coeffs_orig = final_fit.reparam_result.qs.nrows();
-    let lambdas: Array1<f64> = final_rho.mapv(f64::exp);
+    let ct = &final_fit.reparam_result.canonical_transformed;
+    if lambdas.len() != n_rho || ct.len() != n_rho {
+        return SmoothingCorrectionComputation {
+            correction: None,
+            hessian_rho: None,
+            rho_covariance: None,
+            active_rank: None,
+            status: SmoothingCorrectionStatus::Unavailable(
+                SmoothingCorrectionUnavailable::PenaltyDimension {
+                    rho: n_rho,
+                    lambdas: lambdas.len(),
+                    canonical_penalties: ct.len(),
+                },
+            ),
+        };
+    }
+    let structural_nullity = match penalty_map_structural_nullity(ct, n_coeffs_trans) {
+        Ok(nullity) => nullity,
+        Err(error) => {
+            return SmoothingCorrectionComputation {
+                correction: None,
+                hessian_rho: None,
+                rho_covariance: None,
+                active_rank: None,
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::PenaltyStructure { error },
+                ),
+            };
+        }
+    };
 
     // Step 1: Compute the Jacobian J = d(beta)/d(rho) in transformed space.
     //
@@ -687,24 +819,33 @@ pub(crate) fn compute_smoothing_correction(
     // Use the same objective-consistent inner Hessian surface used by REML:
     // - non-Firth: H = X'W_HX + S (+ stabilization if present)
     // - Firth logit: H_total = H - d²Phi/dβ²
-    // Fallback to PIRLS stabilized Hessian only if bundle recovery fails.
-    //
     // Conclusion:
     //   J[:,k] = dβ̂/dρ_k must use the Jacobian of the actual stationarity
     //   system G*(β,ρ)=0, i.e. H_total for Firth-adjusted fits. Using only
     //   X'W_HX+S here would be inconsistent with the fitted objective and would
     //   misstate smoothing-parameter uncertainty propagation.
-    let h_trans = reml_state
-        .objective_innerhessian(final_rho)
-        .unwrap_or_else(|_| final_fit.stabilizedhessian_transformed.to_dense());
+    let h_trans = match reml_state.objective_innerhessian(final_rho) {
+        Ok(hessian) => hessian,
+        Err(error) => {
+            return SmoothingCorrectionComputation {
+                correction: None,
+                hessian_rho: None,
+                rho_covariance: None,
+                active_rank: None,
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::ObjectiveInnerHessian {
+                        error: error.to_string(),
+                    },
+                ),
+            };
+        }
+    };
 
     // The IFT solve below feeds length-`n_coeffs_trans` right-hand sides into
     // the Cholesky factor of `h_trans`, and faer asserts `rhs.len() == factor.n()`.
     // A Hessian that does not match the coefficient dimension (e.g. a degenerate
     // 0×0 placeholder from a geometry backend that failed to materialize a real
     // dense inner Hessian) would otherwise abort the whole fit inside the solve.
-    // Bail to the no-correction branch exactly like the Cholesky-`Err` guard
-    // below, so the post-fit smoothing correction is simply skipped.
     if h_trans.nrows() != n_coeffs_trans || h_trans.ncols() != n_coeffs_trans {
         log::warn!(
             "smoothing-correction inner Hessian shape {}x{} does not match coefficient dimension {}; skipping.",
@@ -717,6 +858,13 @@ pub(crate) fn compute_smoothing_correction(
             hessian_rho: None,
             rho_covariance: None,
             active_rank: None,
+            status: SmoothingCorrectionStatus::Unavailable(
+                SmoothingCorrectionUnavailable::InnerHessianDimension {
+                    rows: h_trans.nrows(),
+                    cols: h_trans.ncols(),
+                    coefficients: n_coeffs_trans,
+                },
+            ),
         };
     }
 
@@ -730,13 +878,14 @@ pub(crate) fn compute_smoothing_correction(
                 hessian_rho: None,
                 rho_covariance: None,
                 active_rank: None,
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::InnerHessianNotPositiveDefinite,
+                ),
             };
         }
     };
 
     let beta_trans = final_fit.beta_transformed.as_ref();
-    let ct = &final_fit.reparam_result.canonical_transformed;
-
     // Build the stationarity-gradient derivative matrix G_ρ where column k is
     // ∂g(β,ρ)/∂ρ_k = λ_k S_k(β - μ_k), then delegate the IFT solve
     // dβ/dρ = -H⁻¹G_ρ to the canonical evidence helper. This keeps the
@@ -750,9 +899,6 @@ pub(crate) fn compute_smoothing_correction(
     // skips them entirely (their sensitivity is identically zero). See #779.
     let mut col_supports: Vec<std::ops::Range<usize>> = vec![0..0; n_rho];
     for k in 0..n_rho {
-        if k >= ct.len() {
-            continue;
-        }
         let cp = &ct[k];
         if cp.rank() == 0 {
             continue;
@@ -775,23 +921,26 @@ pub(crate) fn compute_smoothing_correction(
     // penalty block, and skip structurally inactive columns. Exact on a
     // block-decoupled Hessian (entries outside the cone are identically zero)
     // and identical to the full joint solve on a fully coupled Hessian.
-    let jacobian_trans = match crate::sensitivity::FitSensitivity::from_faer_cholesky(
-        &h_chol,
-        n_coeffs_trans,
-    )
-    .mode_response_coned(h_trans.view(), dg_drho_trans.view(), &col_supports)
-    {
-        Some(jacobian) => jacobian,
-        None => {
-            log::warn!("IFT beta-rho sensitivity solve failed for smoothing correction; skipping.");
-            return SmoothingCorrectionComputation {
-                correction: None,
-                hessian_rho: None,
-                rho_covariance: None,
-                active_rank: None,
-            };
-        }
-    };
+    let jacobian_trans =
+        match crate::sensitivity::FitSensitivity::from_faer_cholesky(&h_chol, n_coeffs_trans)
+            .mode_response_coned(h_trans.view(), dg_drho_trans.view(), &col_supports)
+        {
+            Some(jacobian) => jacobian,
+            None => {
+                log::warn!(
+                    "IFT beta-rho sensitivity solve failed for smoothing correction; skipping."
+                );
+                return SmoothingCorrectionComputation {
+                    correction: None,
+                    hessian_rho: None,
+                    rho_covariance: None,
+                    active_rank: None,
+                    status: SmoothingCorrectionStatus::Unavailable(
+                        SmoothingCorrectionUnavailable::SensitivitySolve,
+                    ),
+                };
+            }
+        };
 
     // Step 2: Build V_rho by inverting the LAML Hessian in rho-space.
     // The authoritative inner-strategy path chooses the rho-space Hessian
@@ -810,6 +959,11 @@ pub(crate) fn compute_smoothing_correction(
                 hessian_rho: None,
                 rho_covariance: None,
                 active_rank: None,
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::OuterHessian {
+                        error: err.to_string(),
+                    },
+                ),
             };
         }
     };
@@ -817,16 +971,13 @@ pub(crate) fn compute_smoothing_correction(
     // Symmetrize the Hessian
     gam_linalg::matrix::symmetrize_in_place(&mut hessian_rho);
 
-    // Step 3: Invert Hessian to get V_rho.
-    // Add a small ridge before factorization to regularize weakly identified ρ directions.
-    add_relative_diag_ridge(&mut hessian_rho, LAML_RIDGE, LAML_RIDGE);
-
-    let inverted = match invert_regularized_rho_hessian(&hessian_rho) {
-        Some(inv) => inv,
-        None => {
-            log::warn!(
-                "Eigendecomposition of LAML rho Hessian failed for smoothing correction; skipping."
-            );
+    // Step 3: invert the exact, unperturbed Hessian on its explicitly
+    // identified spectral subspace. A diagonal ridge would change V_rho and
+    // therefore the covariance estimand while being invisible in the result.
+    let inverted = match invert_identified_rho_hessian(&hessian_rho, structural_nullity) {
+        Ok(inverse) => inverse,
+        Err(error) => {
+            log::warn!("Exact LAML rho-Hessian inversion failed: {error}");
             dump_indefinite_rho_hessian_diagnostic(
                 &hessian_rho,
                 final_rho,
@@ -838,22 +989,22 @@ pub(crate) fn compute_smoothing_correction(
                 hessian_rho: Some(hessian_rho),
                 rho_covariance: None,
                 active_rank: None,
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::OuterHessianInverse { error },
+                ),
             };
         }
     };
 
     let n_rho_total = hessian_rho.nrows();
     if inverted.active_rank == 0 {
-        // All directions non-identified. Pseudo-inverse is zero, so J·V_ρ·J^T
-        // adds nothing; report no correction (consistent with the prior behavior
-        // for fully indefinite Hessians, but now logged with full context).
+        // Every direction is independently certified as a structural zero of
+        // the penalty map, so J·V_ρ·Jᵀ is mathematically zero.
         log::info!(
-            "LAML rho Hessian has no identified directions (active_rank=0/{}, dropped_negative={}, dropped_small_positive={}, dropped_numerical_zero={}, min_eig={:.3e}); smoothing correction is zero, skipping.",
+            "LAML rho Hessian has no identified directions (active_rank=0/{}, structural_zero={}, eigenvalue_backward_error_bound={:.3e}); smoothing correction is exactly zero.",
             n_rho_total,
-            inverted.dropped_negative,
-            inverted.dropped_small_positive,
-            inverted.dropped_numerical_zero,
-            inverted.min_eigenvalue,
+            inverted.structural_zero,
+            inverted.eigenvalue_backward_error_bound,
         );
         dump_indefinite_rho_hessian_diagnostic(
             &hessian_rho,
@@ -866,18 +1017,17 @@ pub(crate) fn compute_smoothing_correction(
             hessian_rho: Some(hessian_rho),
             rho_covariance: Some(inverted.inverse),
             active_rank: Some(0),
+            status: SmoothingCorrectionStatus::ZeroNoIdentifiedOuterDirections,
         };
     }
 
     if inverted.active_rank < n_rho_total {
         log::info!(
-            "LAML rho Hessian is rank-deficient on the identified subspace (active_rank={}/{}, dropped_negative={}, dropped_small_positive={}, dropped_numerical_zero={}, min_eig={:.3e}); proceeding with pseudo-inverse V_ρ.",
+            "LAML rho Hessian has independently certified structural redundancy (active_rank={}/{}, structural_zero={}, eigenvalue_backward_error_bound={:.3e}); using its certified structural pseudoinverse.",
             inverted.active_rank,
             n_rho_total,
-            inverted.dropped_negative,
-            inverted.dropped_small_positive,
-            inverted.dropped_numerical_zero,
-            inverted.min_eigenvalue,
+            inverted.structural_zero,
+            inverted.eigenvalue_backward_error_bound,
         );
         dump_indefinite_rho_hessian_diagnostic(
             &hessian_rho,
@@ -887,11 +1037,11 @@ pub(crate) fn compute_smoothing_correction(
         );
     }
 
-    let repaired_hessian = inverted.repaired_hessian;
+    let used_structural_pseudoinverse = inverted.used_structural_pseudoinverse;
     let active_rank_used = inverted.active_rank;
     let v_rho = inverted.inverse;
     let rho_covariance = v_rho.clone();
-    if repaired_hessian {
+    if used_structural_pseudoinverse {
         log::debug!(
             "Applied rank-deficient pseudo-inverse on identified rho-Hessian subspace before smoothing correction."
         );
@@ -930,6 +1080,9 @@ pub(crate) fn compute_smoothing_correction(
             hessian_rho: Some(hessian_rho),
             rho_covariance: Some(rho_covariance),
             active_rank: Some(active_rank_used),
+            status: SmoothingCorrectionStatus::Unavailable(
+                SmoothingCorrectionUnavailable::NonFiniteCorrection,
+            ),
         };
     }
 
@@ -979,11 +1132,26 @@ pub(crate) fn compute_smoothing_correction(
                     hessian_rho: Some(hessian_rho),
                     rho_covariance: Some(rho_covariance),
                     active_rank: Some(active_rank_used),
+                    status: SmoothingCorrectionStatus::Unavailable(
+                        SmoothingCorrectionUnavailable::MateriallyIndefiniteCorrection {
+                            min_eigenvalue: min_eig,
+                            tolerance: neg_tol,
+                        },
+                    ),
                 };
             }
         }
         Err(_) => {
             log::warn!("Eigendecomposition failed for smoothing correction validation.");
+            return SmoothingCorrectionComputation {
+                correction: None,
+                hessian_rho: Some(hessian_rho),
+                rho_covariance: Some(rho_covariance),
+                active_rank: Some(active_rank_used),
+                status: SmoothingCorrectionStatus::Unavailable(
+                    SmoothingCorrectionUnavailable::CorrectionEigendecomposition,
+                ),
+            };
         }
     }
     SmoothingCorrectionComputation {
@@ -991,5 +1159,6 @@ pub(crate) fn compute_smoothing_correction(
         hessian_rho: Some(hessian_rho),
         rho_covariance: Some(rho_covariance),
         active_rank: Some(active_rank_used),
+        status: SmoothingCorrectionStatus::Computed,
     }
 }

@@ -200,7 +200,7 @@ def test_build_routing_to_principal_pipeline(monkeypatch):
             "out_dir": "/tmp",
         }
         
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", mock_route)
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", mock_route)
     
     # Use a prompt that matches looks_like_build_request but contains negation text
     build_prompt = "Build a FastAPI backend with PostgreSQL and Redis caching. Do not modify any placeholder names."
@@ -680,7 +680,7 @@ def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: True)
 
     # 1. Test case when install_ok is False
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", lambda *args, **kwargs: {
         "install_ok": False,
         "build_ok": True,
         "runs_ok": True,
@@ -691,7 +691,7 @@ def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     assert task_ok is False
 
     # 2. Test case when build_ok is False
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", lambda *args, **kwargs: {
         "install_ok": True,
         "build_ok": False,
         "runs_ok": True,
@@ -702,7 +702,7 @@ def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     assert task_ok is False
 
     # 3. Test case when runs_ok is False
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", lambda *args, **kwargs: {
         "install_ok": True,
         "build_ok": True,
         "runs_ok": False,
@@ -713,7 +713,7 @@ def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     assert task_ok is False
 
     # 4. Test case when tests_ok is False
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", lambda *args, **kwargs: {
         "install_ok": True,
         "build_ok": True,
         "runs_ok": True,
@@ -724,7 +724,7 @@ def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     assert task_ok is False
 
     # 5. Test case when all 4 are True
-    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+    monkeypatch.setattr("sage.cli_core._route_to_principal_pipeline", lambda *args, **kwargs: {
         "install_ok": True,
         "build_ok": True,
         "runs_ok": True,
@@ -846,7 +846,7 @@ def build_me():
 
     # Monkeypatch looks_like_build_request and _get_current_task_prompt
     monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: False)
-    monkeypatch.setattr("sage.main._get_current_task_prompt", lambda: "Build a helper function")
+    monkeypatch.setattr("sage.cli_core._get_current_task_prompt", lambda: "Build a helper function")
 
     # Initial response containing a syntax error
     initial_response = """
@@ -930,8 +930,8 @@ def test_scaffold_continuation_empty_round_handling(monkeypatch, tmp_path):
     
     # Mock helpers
     monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: False)
-    monkeypatch.setattr("sage.main._get_current_task_prompt", lambda: "Build a brand new platform")
-    monkeypatch.setattr("sage.main._auto_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr("sage.cli_core._get_current_task_prompt", lambda: "Build a brand new platform")
+    monkeypatch.setattr("sage.cli_core._auto_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr("sage.core.validation.pre_validate_content", lambda *args, **kwargs: (True, ""))
     monkeypatch.setattr("sage.core.validation_helpers._pre_validate_content", lambda *args, **kwargs: (True, ""))
     

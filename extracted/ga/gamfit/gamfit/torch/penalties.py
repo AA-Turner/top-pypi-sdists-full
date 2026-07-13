@@ -19,9 +19,9 @@ from .._penalty_bridge import (
     ard_descriptor,
     block_orthogonality_descriptor,
     call_rust_value_grad as _call_rust_value_grad,
-    ibp_assignment_descriptor,
     latent_json as _latent_json,
     mechanism_sparsity_descriptor,
+    ordered_beta_bernoulli_descriptor,
     penalty_json as _penalty_json,
 )
 from .._select_topology import TopologyAutoSelector
@@ -45,7 +45,9 @@ def _check_matrix(value: torch.Tensor, name: str) -> torch.Tensor:
     return value
 
 
-def _rho_tensor(rho: torch.Tensor | None, ref: torch.Tensor, count: int) -> torch.Tensor:
+def _rho_tensor(
+    rho: torch.Tensor | None, ref: torch.Tensor, count: int
+) -> torch.Tensor:
     if rho is None:
         return torch.zeros(count, dtype=ref.dtype, device=ref.device)
     if rho.numel() != count:
@@ -69,13 +71,20 @@ class _RustPenaltyFn(torch.autograd.Function):
         return value
 
     @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, None, None]:
+    def backward(
+        ctx: Any, grad_output: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, None, None]:
         target, rho = ctx.saved_tensors
         _, grad_target, grad_rho, _ = _call_rust_value_grad(
             target, rho, ctx.latents_json, ctx.penalties_json
         )
         scale = grad_output.to(dtype=target.dtype, device=target.device)
-        return grad_target * scale, grad_rho * scale.to(dtype=rho.dtype, device=rho.device), None, None
+        return (
+            grad_target * scale,
+            grad_rho * scale.to(dtype=rho.dtype, device=rho.device),
+            None,
+            None,
+        )
 
 
 class _IsometryPenaltyFn(torch.autograd.Function):
@@ -101,7 +110,11 @@ class _IsometryPenaltyFn(torch.autograd.Function):
             isometry_jacobian=jacobian.reshape(target.shape[0], -1),
             isometry_jacobian_second=jacobian_second,
         )[0]
-        saved_second = jacobian_second if jacobian_second is not None else torch.empty(0, dtype=target.dtype, device=target.device)
+        saved_second = (
+            jacobian_second
+            if jacobian_second is not None
+            else torch.empty(0, dtype=target.dtype, device=target.device)
+        )
         ctx.save_for_backward(target, rho, basis, saved_second)
         ctx.has_second = jacobian_second is not None
         ctx.latents_json = latents_json
@@ -208,9 +221,7 @@ class _RustPenaltyModule(nn.Module):
     ) -> float:
         """Closed-form penalty value (no autograd graph)."""
         primary_t = torch.as_tensor(primary, dtype=torch.float64)
-        basis_t = (
-            None if basis is None else torch.as_tensor(basis, dtype=torch.float64)
-        )
+        basis_t = None if basis is None else torch.as_tensor(basis, dtype=torch.float64)
         call = self._prepare(primary_t, basis=basis_t)
         extras: dict[str, torch.Tensor] = {}
         if call.isometry_basis is not None:
@@ -278,7 +289,9 @@ class IsometryPenalty(_RustPenaltyModule):
         return _PenaltyCall(
             target=latent,
             rho=rho,
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
             isometry_basis=basis_t,
         )
@@ -287,7 +300,9 @@ class IsometryPenalty(_RustPenaltyModule):
 class ARDPenalty(_RustPenaltyModule):
     """Automatic relevance determination over latent axes."""
 
-    def __init__(self, latent_dim: int | None = None, weight: float = 1.0, *, target: str = "t") -> None:
+    def __init__(
+        self, latent_dim: int | None = None, weight: float = 1.0, *, target: str = "t"
+    ) -> None:
         super().__init__()
         if weight <= 0.0:
             raise ValueError("ARDPenalty.weight must be > 0")
@@ -300,7 +315,14 @@ class ARDPenalty(_RustPenaltyModule):
     def _rho(self, latent: torch.Tensor) -> torch.Tensor:
         if not hasattr(self, "log_precision"):
             self.latent_dim = int(latent.shape[1])
-            self.register_parameter("log_precision", nn.Parameter(torch.zeros(self.latent_dim, dtype=latent.dtype, device=latent.device)))
+            self.register_parameter(
+                "log_precision",
+                nn.Parameter(
+                    torch.zeros(
+                        self.latent_dim, dtype=latent.dtype, device=latent.device
+                    )
+                ),
+            )
         return self.log_precision.to(device=latent.device, dtype=latent.dtype)
 
     def _prepare(
@@ -312,7 +334,9 @@ class ARDPenalty(_RustPenaltyModule):
         return _PenaltyCall(
             target=latent,
             rho=self._rho(latent),
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
@@ -320,7 +344,15 @@ class ARDPenalty(_RustPenaltyModule):
 class BlockOrthogonalityPenalty(_RustPenaltyModule):
     """Between-block orthogonality over latent-axis groups."""
 
-    def __init__(self, groups: Sequence[Sequence[int]], weight: float, n_eff: int | None = None, *, target: str = "t", learnable: bool = False) -> None:
+    def __init__(
+        self,
+        groups: Sequence[Sequence[int]],
+        weight: float,
+        n_eff: int | None = None,
+        *,
+        target: str = "t",
+        learnable: bool = False,
+    ) -> None:
         super().__init__()
         self.groups = [[int(axis) for axis in group] for group in groups]
         self.weight = float(weight)
@@ -342,11 +374,15 @@ class BlockOrthogonalityPenalty(_RustPenaltyModule):
             int(self.n_eff or latent.shape[0]),
             learnable=self.learnable,
         )
-        rho = _rho_tensor(getattr(self, "log_weight", None), latent, 1 if self.learnable else 0)
+        rho = _rho_tensor(
+            getattr(self, "log_weight", None), latent, 1 if self.learnable else 0
+        )
         return _PenaltyCall(
             target=latent,
             rho=rho,
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
@@ -373,7 +409,9 @@ class MonotonicityPenalty(_RustPenaltyModule):
         if n_eff <= 0:
             raise ValueError("MonotonicityPenalty.n_eff must be > 0")
         if not (np.isfinite(direction) and direction != 0.0):
-            raise ValueError("MonotonicityPenalty.direction must be finite and non-zero")
+            raise ValueError(
+                "MonotonicityPenalty.direction must be finite and non-zero"
+            )
         if not (np.isfinite(smoothing_eps) and smoothing_eps > 0.0):
             raise ValueError("MonotonicityPenalty.smoothing_eps must be finite and > 0")
         self.weight = float(weight)
@@ -399,28 +437,33 @@ class MonotonicityPenalty(_RustPenaltyModule):
             "smoothing_eps": self.smoothing_eps,
             "learnable": self.learnable,
         }
-        rho = _rho_tensor(getattr(self, "log_weight", None), latent, 1 if self.learnable else 0)
+        rho = _rho_tensor(
+            getattr(self, "log_weight", None), latent, 1 if self.learnable else 0
+        )
         return _PenaltyCall(
             target=latent,
             rho=rho,
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
 
 class HarmonicRoughnessPenalty(_RustPenaltyModule):
-    """Graduated periodic-basis roughness prior over a decoder block (#1282).
+    """Thin descriptor for graduated periodic-basis decoder roughness.
 
     Routes through the Rust ``harmonic_roughness`` analytic-penalty descriptor,
-    which evaluates ``weight · Σ_r row_weights[r mod period] · Σ_j target[r,j]²``
-    on a row-major ``(n_eff, d)`` block. ``row_weights`` is one atom's per-basis
-    weight vector (``h⁴`` on harmonic rows ``h ≥ 2``, ``0`` on DC / fundamental)
-    and is tiled across the ``F`` atoms of a stacked ``(F·K, D)`` decoder.
+    which evaluates
+    ``0.5 · weight · Σ_r row_weights[r mod period] · Σ_j target[r,j]²`` on a
+    row-major ``(n_eff, d)`` block. ``row_weights`` is one atom's per-basis
+    weight vector (``h⁴`` on harmonic rows ``h ≥ 2``, zero on DC/fundamental)
+    and is tiled across the atoms of a stacked decoder.
 
-    ``weight`` is the evidence-optimal roughness precision refreshed from the
-    Rust REML machinery during training (see
-    :func:`ManifoldSAE.decoder_harmonic_penalty`); it is a plain float held off
-    the autograd tape, so mutating it between forwards is safe.
+    ``weight`` is the fixed base precision. With ``learnable=True``, the module
+    supplies a log-precision rho coordinate and the Rust registry evaluates the
+    same scalar with ``weight · exp(rho)``. This wrapper does not perform or
+    claim an evidence/REML refresh.
     """
 
     def __init__(
@@ -446,6 +489,8 @@ class HarmonicRoughnessPenalty(_RustPenaltyModule):
             raise ValueError(
                 "HarmonicRoughnessPenalty.n_eff must be a multiple of len(row_weights)"
             )
+        if not (np.isfinite(weight) and weight > 0.0):
+            raise ValueError("HarmonicRoughnessPenalty.weight must be finite and > 0")
         self.row_weights = rows
         self.n_eff = int(n_eff)
         self.weight = float(weight)
@@ -473,7 +518,9 @@ class HarmonicRoughnessPenalty(_RustPenaltyModule):
         return _PenaltyCall(
             target=coeffs,
             rho=rho,
-            latents_json=_latent_json(coeffs.shape[0], coeffs.shape[1], name=self.target),
+            latents_json=_latent_json(
+                coeffs.shape[0], coeffs.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
@@ -481,9 +528,20 @@ class HarmonicRoughnessPenalty(_RustPenaltyModule):
 class MechanismSparsityPenalty(_RustPenaltyModule):
     """Per-latent group-lasso sparsity over decoder feature groups."""
 
-    def __init__(self, feature_groups: Sequence[Sequence[int]], weight: float, n_eff: float, smoothing_eps: float = 1e-6, *, target: str = "t", learnable: bool = False) -> None:
+    def __init__(
+        self,
+        feature_groups: Sequence[Sequence[int]],
+        weight: float,
+        n_eff: float,
+        smoothing_eps: float = 1e-6,
+        *,
+        target: str = "t",
+        learnable: bool = False,
+    ) -> None:
         super().__init__()
-        self.feature_groups = [[int(feature) for feature in group] for group in feature_groups]
+        self.feature_groups = [
+            [int(feature) for feature in group] for group in feature_groups
+        ]
         self.weight = float(weight)
         self.n_eff = float(n_eff)
         self.smoothing_eps = float(smoothing_eps)
@@ -505,7 +563,9 @@ class MechanismSparsityPenalty(_RustPenaltyModule):
             self.n_eff,
             learnable=self.learnable,
         )
-        rho = _rho_tensor(getattr(self, "log_weight", None), weights, 1 if self.learnable else 0)
+        rho = _rho_tensor(
+            getattr(self, "log_weight", None), weights, 1 if self.learnable else 0
+        )
         return _PenaltyCall(
             target=weights,
             rho=rho,
@@ -516,10 +576,18 @@ class MechanismSparsityPenalty(_RustPenaltyModule):
         )
 
 
-class IBPAssignmentPenalty(_RustPenaltyModule):
-    """Finite IBP prior over row-wise assignment logits."""
+class OrderedBetaBernoulliPenalty(_RustPenaltyModule):
+    """Ordered independent Beta--Bernoulli prior over assignment logits."""
 
-    def __init__(self, k_max: int, alpha: float = 1.0, tau: float = 1.0, *, target: str = "t", learnable: bool = False) -> None:
+    def __init__(
+        self,
+        k_max: int,
+        alpha: float = 1.0,
+        tau: float = 1.0,
+        *,
+        target: str = "t",
+        learnable: bool = False,
+    ) -> None:
         super().__init__()
         self.k_max = int(k_max)
         self.alpha = float(alpha)
@@ -536,18 +604,22 @@ class IBPAssignmentPenalty(_RustPenaltyModule):
         logits = _check_matrix(primary, "logits")
         if logits.shape[1] != self.k_max:
             raise ValueError("logits width must equal k_max")
-        descriptor = ibp_assignment_descriptor(
+        descriptor = ordered_beta_bernoulli_descriptor(
             self.target,
             self.k_max,
             self.alpha,
             self.tau,
             learnable=self.learnable,
         )
-        rho = _rho_tensor(getattr(self, "log_alpha", None), logits, 1 if self.learnable else 0)
+        rho = _rho_tensor(
+            getattr(self, "log_alpha", None), logits, 1 if self.learnable else 0
+        )
         return _PenaltyCall(
             target=logits,
             rho=rho,
-            latents_json=_latent_json(logits.shape[0], logits.shape[1], name=self.target),
+            latents_json=_latent_json(
+                logits.shape[0], logits.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
@@ -555,7 +627,16 @@ class IBPAssignmentPenalty(_RustPenaltyModule):
 class IvaeRidgeMeanGauge(_RustPenaltyModule):
     """iVAE conditional-mean ridge gauge on latent coordinates."""
 
-    def __init__(self, aux: Any, weight: float, n_eff: int | None = None, ridge_eps: float = 1e-6, *, target: str = "t", learnable: bool = False) -> None:
+    def __init__(
+        self,
+        aux: Any,
+        weight: float,
+        n_eff: int | None = None,
+        ridge_eps: float = 1e-6,
+        *,
+        target: str = "t",
+        learnable: bool = False,
+    ) -> None:
         super().__init__()
         aux_t = torch.as_tensor(aux, dtype=torch.float64)
         if aux_t.dim() != 2:
@@ -585,34 +666,31 @@ class IvaeRidgeMeanGauge(_RustPenaltyModule):
             "n_eff": self.n_eff,
             "learnable": self.learnable,
         }
-        rho = _rho_tensor(getattr(self, "log_weight", None), latent, 1 if self.learnable else 0)
+        rho = _rho_tensor(
+            getattr(self, "log_weight", None), latent, 1 if self.learnable else 0
+        )
         return _PenaltyCall(
             target=latent,
             rho=rho,
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
 
-class JumpReLUPenalty(_RustPenaltyModule):
-    """JumpReLU SAE prior with hard-threshold gating + straight-through estimator.
+class SmoothThresholdPenalty(_RustPenaltyModule):
+    """Smooth threshold sparsity prior and activation.
 
-    Forward: ``φ(z) = z · 1[z > τ]`` per latent axis with per-axis learnable
-    thresholds ``τ_k = thresholds_k · exp(log_threshold_k)``. The hard-threshold
-    forward path has zero subgradient almost everywhere; the STE backward path
-    routes ``∂L/∂z = ∂L/∂φ · 1[|z − τ| < bandwidth]`` (rectangular kernel) plus
-    ``∂L/∂τ = −∂L/∂φ · φ̄`` evaluated by the gam Rust core's analytic
-    smoothed sigmoid (``smoothing_eps`` controls the smoothing scale).
-
-    Acts as a sparsity penalty when used as ``loss += w · jumprelu(z).sum()``;
-    acts as an activation function when used as ``z_active = jumprelu(z)``.
-    Both modes share the same parameters and STE backward.
+    The activation is ``φ(z)=z·σ((z−τ)/ε)`` with exact derivatives of that
+    same scalar. Per-axis thresholds are
+    ``τ_k = thresholds_k · exp(log_threshold_k)``.
 
     Parameters
     ----------
     thresholds: per-axis base thresholds (length F). Each entry must be > 0.
     weight: scalar prior weight (must be > 0).
-    smoothing_eps: bandwidth of the sigmoid-smoothed STE gate (default 1e-3).
+    smoothing_eps: bandwidth of the sigmoid gate (default 1e-3).
         Smaller → harder threshold (closer to true step), larger → smoother
         backward; numerics get hairy below 1e-5.
     learnable_threshold: if True, expose ``log_threshold`` as ``nn.Parameter``;
@@ -633,44 +711,50 @@ class JumpReLUPenalty(_RustPenaltyModule):
         super().__init__()
         thr = torch.as_tensor(thresholds, dtype=torch.float64).reshape(-1)
         if thr.numel() == 0:
-            raise ValueError("JumpReLUPenalty.thresholds must be non-empty")
+            raise ValueError("SmoothThresholdPenalty.thresholds must be non-empty")
         if not bool(torch.isfinite(thr).all()) or bool((thr <= 0).any()):
-            raise ValueError("JumpReLUPenalty.thresholds must be finite and > 0")
+            raise ValueError("SmoothThresholdPenalty.thresholds must be finite and > 0")
         if not (np.isfinite(weight) and weight > 0.0):
-            raise ValueError(f"JumpReLUPenalty.weight must be finite and > 0, got {weight}")
+            raise ValueError(
+                f"SmoothThresholdPenalty.weight must be finite and > 0, got {weight}"
+            )
         if not (np.isfinite(smoothing_eps) and smoothing_eps > 0.0):
             raise ValueError(
-                f"JumpReLUPenalty.smoothing_eps must be finite and > 0, got {smoothing_eps}"
+                f"SmoothThresholdPenalty.smoothing_eps must be finite and > 0, got {smoothing_eps}"
             )
         self.register_buffer("thresholds", thr)
         self.weight = float(weight)
         self.smoothing_eps = float(smoothing_eps)
         self.target = str(target)
         if learnable_threshold:
-            self.log_threshold = nn.Parameter(torch.zeros(thr.numel(), dtype=torch.float64))
+            self.log_threshold = nn.Parameter(
+                torch.zeros(thr.numel(), dtype=torch.float64)
+            )
         else:
-            self.register_buffer("log_threshold", torch.zeros(thr.numel(), dtype=torch.float64))
+            self.register_buffer(
+                "log_threshold", torch.zeros(thr.numel(), dtype=torch.float64)
+            )
 
     def effective_thresholds(self, dtype: torch.dtype = torch.float64) -> torch.Tensor:
-        return (self.thresholds.to(dtype) * torch.exp(self.log_threshold.to(dtype)))
+        return self.thresholds.to(dtype) * torch.exp(self.log_threshold.to(dtype))
 
     def gate(self, z: torch.Tensor) -> torch.Tensor:
-        """Hard-threshold forward with STE backward. Returns ``z · 1[z > τ]``."""
+        """Apply ``z·σ((z−τ)/ε)`` with its exact analytic derivative."""
         tau = self.effective_thresholds(z.dtype).to(z.device)
-        return _JumpReLUSTEFn.apply(z, tau, float(self.smoothing_eps))
+        return _SmoothThresholdFn.apply(z, tau, float(self.smoothing_eps))
 
     def _prepare(
         self, primary: torch.Tensor, basis: torch.Tensor | None = None
     ) -> _PenaltyCall:
         """Penalty value: ``weight · Σ τ · σ((z − τ)/ε)`` (smoothed L0).
 
-        Matches the Rust ``JumpReLUPenalty::value`` analytic formulation so
+        Matches the Rust ``SmoothThresholdPenalty::value`` analytic formulation so
         outer-loop REML can compose this term with other gam penalties.
         """
         del basis
         latent = _check_matrix(primary, "latent")
         descriptor = {
-            "kind": "jumprelu",
+            "kind": "smooth_threshold",
             "target": self.target,
             "thresholds": to_numpy_f64(self.thresholds).reshape(-1).tolist(),
             "weight": self.weight,
@@ -680,28 +764,26 @@ class JumpReLUPenalty(_RustPenaltyModule):
         return _PenaltyCall(
             target=latent,
             rho=rho,
-            latents_json=_latent_json(latent.shape[0], latent.shape[1], name=self.target),
+            latents_json=_latent_json(
+                latent.shape[0], latent.shape[1], name=self.target
+            ),
             penalties_json=_penalty_json(descriptor),
         )
 
 
-class _JumpReLUSTEFn(torch.autograd.Function):
-    """Hard-threshold JumpReLU gate backed by the Rust value/gradient kernel.
-
-    Forward returns the hard gate ``φ(z) = z · 1[z > τ]``; backward uses the
-    smooth surrogate ``φ̃(z) = z · σ((z − τ)/ε)`` so the activation keeps a usable
-    subgradient inside the smoothing band ``|z − τ| ≲ ε`` (a straight-through
-    estimator). Rust computes the value and both per-element derivatives through
-    ``jumprelu_gate_value_grad``; Python only caches those derivatives and applies
-    the upstream gradient on Torch's tape.
-    """
+class _SmoothThresholdFn(torch.autograd.Function):
+    """Smooth threshold activation backed by one Rust value/gradient kernel."""
 
     @staticmethod
-    def forward(ctx: Any, z: torch.Tensor, tau: torch.Tensor, smoothing_eps: float) -> torch.Tensor:
-        value_np, dphi_dz_np, dphi_dtau_np = rust_module().jumprelu_gate_value_grad(
-            to_numpy_f64(z.reshape(z.shape[0], -1)),
-            to_numpy_f64(tau.reshape(-1)),
-            float(smoothing_eps),
+    def forward(
+        ctx: Any, z: torch.Tensor, tau: torch.Tensor, smoothing_eps: float
+    ) -> torch.Tensor:
+        value_np, dphi_dz_np, dphi_dtau_np = (
+            rust_module().smooth_threshold_gate_value_grad(
+                to_numpy_f64(z.reshape(z.shape[0], -1)),
+                to_numpy_f64(tau.reshape(-1)),
+                float(smoothing_eps),
+            )
         )
         value = from_numpy_like(value_np, z).reshape_as(z)
         dphi_dz = from_numpy_like(dphi_dz_np, z).reshape_as(z)
@@ -717,174 +799,68 @@ class _JumpReLUSTEFn(torch.autograd.Function):
         return grad_z, grad_tau, None
 
 
-class _IBPMapFn(torch.autograd.Function):
-    """IBP posterior-mean gate, value+grad from the Rust source of truth.
+class RiemannianGradientDescent(Optimizer):
+    """One-step Riemannian gradient optimizer using the manifold metric."""
 
-    Forward returns ``z_k = σ(l_k/τ)``. The ordered Beta--Bernoulli shrinkage is
-    scored once by the IBP prior rather than multiplied into the final function;
-    backward multiplies the upstream gradient by
-    the diagonal logit Jacobian ``∂z_k/∂l_k`` that Rust returns. Replacing the
-    bare ``sigmoid(logits/τ)`` torch path makes torch IBP-Gumbel agree with the
-    closed-form ``SaeAssignment`` IBP-MAP assignments (see
-    ``src/terms/sae_manifold.rs`` ``ibp_map_row``).
-    """
-
-    @staticmethod
-    def forward(ctx: Any, logits: torch.Tensor, temperature: float) -> torch.Tensor:
-        value_np, grad_np = rust_module().sae_ibp_map_batch_value_grad(
-            to_numpy_f64(logits.reshape(logits.shape[0], -1)),
-            float(temperature),
-        )
-        value = from_numpy_like(value_np, logits).reshape_as(logits)
-        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
-        ctx.save_for_backward(grad)
-        return value
-
-    @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, None]:
-        (jac_diag,) = ctx.saved_tensors
-        return grad_output * jac_diag, None
-
-
-def ibp_map(logits: torch.Tensor, temperature: float) -> torch.Tensor:
-    """Differentiable IBP posterior-mean assignments via Rust."""
-    if not isinstance(logits, torch.Tensor):
-        raise TypeError("ibp_map logits must be a torch.Tensor")
-    apply = cast(Callable[..., torch.Tensor], _IBPMapFn.apply)
-    return apply(logits, float(temperature))
-
-
-class _JumpReLUBoundedGateFn(torch.autograd.Function):
-    """Bounded threshold gate backed by the Rust value/gradient kernel.
-
-    Forward returns ``a_k = σ((l_k − θ_k)/τ) · 1[l_k > θ_k]`` — the SAME bounded
-    ``[0, 1)`` gate the closed-form ``SaeAssignment`` jumprelu / threshold_gate
-    path evaluates (``jumprelu_row``; magnitude lives in the decoder). The math
-    is computed by the Rust source of truth
-    ``gam_sae::assignment::jumprelu_batch_value_grad`` through one batched FFI
-    call. Python caches the returned diagonal derivative for Torch's backward.
-    Backward multiplies the upstream gradient by the smooth surrogate's diagonal
-    derivative ``da/dl_k = σ'((l_k − θ_k)/τ)/τ`` (a straight-through estimator,
-    alive on both sides of the jump so gated-off atoms keep a training signal);
-    the threshold gradient is its negated row-sum
-    (``∂a_k/∂θ_k = −da/dl_k``); callers negate and accumulate.
-    """
-
-    @staticmethod
-    def forward(
-        ctx: Any, logits: torch.Tensor, thresholds: torch.Tensor, temperature: float
-    ) -> torch.Tensor:
-        value_np, grad_np = rust_module().sae_jumprelu_batch_value_grad(
-            to_numpy_f64(logits.reshape(logits.shape[0], -1)),
-            float(temperature),
-            to_numpy_f64(thresholds.reshape(-1)),
-        )
-        value = from_numpy_like(value_np, logits).reshape_as(logits)
-        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
-        ctx.save_for_backward(grad)
-        return value
-
-    @staticmethod
-    def backward(
-        ctx: Any, grad_output: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, None]:
-        (jac_diag,) = ctx.saved_tensors
-        upstream = grad_output * jac_diag
-        return upstream, -upstream.sum(dim=0), None
-
-
-def jumprelu_bounded_gate(
-    logits: torch.Tensor, thresholds: torch.Tensor, temperature: float
-) -> torch.Tensor:
-    """Differentiable bounded threshold gate via the Rust value+grad kernel."""
-    if not isinstance(logits, torch.Tensor):
-        raise TypeError("jumprelu_bounded_gate logits must be a torch.Tensor")
-    if not isinstance(thresholds, torch.Tensor):
-        raise TypeError("jumprelu_bounded_gate thresholds must be a torch.Tensor")
-    apply = cast(Callable[..., torch.Tensor], _JumpReLUBoundedGateFn.apply)
-    return apply(logits, thresholds, float(temperature))
-
-
-class _TopKActivationFn(torch.autograd.Function):
-    """Top-k SAE activation backed by the Rust value-and-gradient kernel.
-
-    Forward returns the per-atom **independent**, strictly non-negative
-    activation ``a_k = τ·softplus(l_k/τ)`` the ``softmax_topk`` gate scores atoms
-    with. Both that value and its diagonal derivative ``da/dl_k = σ(l_k/τ)``
-    come from ``gam_sae::assignment::topk_activation_batch_value_grad`` through
-    ``sae_topk_activation_value_grad``. Python only caches the returned Jacobian
-    diagonal for Torch's backward pass. The hard top-k *selection* and its masked
-    gradient remain on the caller's tape.
-    """
-
-    @staticmethod
-    def forward(ctx: Any, logits: torch.Tensor, temperature: float) -> torch.Tensor:
-        value_np, grad_np = rust_module().sae_topk_activation_value_grad(
-            to_numpy_f64(logits), float(temperature)
-        )
-        value = from_numpy_like(value_np, logits).reshape_as(logits)
-        grad = from_numpy_like(grad_np, logits).reshape_as(logits)
-        ctx.save_for_backward(grad)
-        return value
-
-    @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, None]:
-        (jac_diag,) = ctx.saved_tensors
-        return grad_output * jac_diag, None
-
-
-def topk_activation(logits: torch.Tensor, temperature: float) -> torch.Tensor:
-    """Differentiable top-k SAE activation via the Rust value+grad kernel.
-
-    Returns ``τ·softplus(logits/τ)`` with the Rust-defined diagonal derivative
-    ``σ(logits/τ)`` on the backward. The hard top-k mask/STE stays on the caller's
-    tape; this owns only the smooth non-negative activation.
-    """
-    if not isinstance(logits, torch.Tensor):
-        raise TypeError("topk_activation logits must be a torch.Tensor")
-    apply = cast(Callable[..., torch.Tensor], _TopKActivationFn.apply)
-    return apply(logits, float(temperature))
-
-
-class RiemannianRetraction(Optimizer):
-    """Optimizer that retracts Euclidean gradient steps onto a manifold."""
-
-    def __init__(self, params: Any, manifold: str | dict[str, Any] | _ManifoldJson, lr: float = 1e-2, inner_steps: int = 1) -> None:
-        if lr <= 0.0:
-            raise ValueError("lr must be > 0")
-        if inner_steps <= 0:
-            raise ValueError("inner_steps must be > 0")
+    def __init__(
+        self,
+        params: Any,
+        manifold: str | dict[str, Any] | _ManifoldJson,
+        lr: float = 1e-2,
+    ) -> None:
+        if not math.isfinite(lr) or lr <= 0.0:
+            raise ValueError("lr must be finite and > 0")
         self.manifold = manifold
-        defaults = {"lr": float(lr), "inner_steps": int(inner_steps)}
+        defaults = {"lr": float(lr)}
         super().__init__(params, defaults)
 
-    @torch.no_grad()
-    def step(self, closure: Callable[[], torch.Tensor] | None = None) -> torch.Tensor | None:
-        loss = closure() if closure is not None else None
-        manifold_spec = self.manifold.to_json() if isinstance(self.manifold, _ManifoldJson) else self.manifold
-        manifold_json = json.dumps(manifold_spec if isinstance(manifold_spec, dict) else {"kind": manifold_spec})
-        for group in self.param_groups:
-            lr = float(group["lr"])
-            inner_steps = int(group["inner_steps"])
-            for param in group["params"]:
-                if param.grad is None:
-                    continue
-                if param.dim() != 2:
-                    raise ValueError("RiemannianRetraction parameters must be 2-D row batches")
-                current = param.detach()
-                grad = param.grad.detach().to(dtype=current.dtype, device=current.device)
-                for _ in range(inner_steps):
-                    delta = -lr * grad
-                    out = rust_module().riemannian_retract(manifold_json, to_numpy_f64(current), to_numpy_f64(delta))
-                    current = from_numpy_like(out, current)
-                param.copy_(current)
+    def step(
+        self, closure: Callable[[], torch.Tensor] | None = None
+    ) -> torch.Tensor | None:
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+        manifold_spec = (
+            self.manifold.to_json()
+            if isinstance(self.manifold, _ManifoldJson)
+            else self.manifold
+        )
+        manifold_json = json.dumps(
+            manifold_spec
+            if isinstance(manifold_spec, dict)
+            else {"kind": manifold_spec}
+        )
+        with torch.no_grad():
+            for group in self.param_groups:
+                lr = float(group["lr"])
+                for param in group["params"]:
+                    if param.grad is None:
+                        continue
+                    if param.dim() != 2:
+                        raise ValueError(
+                            "RiemannianGradientDescent parameters must be 2-D row batches"
+                        )
+                    out = rust_module().riemannian_gradient_step(
+                        manifold_json,
+                        to_numpy_f64(param),
+                        to_numpy_f64(param.grad),
+                        lr,
+                    )
+                    param.copy_(from_numpy_like(out, param))
         return loss
 
 
 class LazyPcaBasis(nn.Module):
     """Memmap-backed PCA score loader with torch row indexing."""
 
-    def __init__(self, path: str | Path, *, dtype: torch.dtype = torch.float64, device: torch.device | str | None = None) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        dtype: torch.dtype = torch.float64,
+        device: torch.device | str | None = None,
+    ) -> None:
         super().__init__()
         self.path = Path(path)
         self.dtype = dtype
@@ -910,13 +886,12 @@ __all__ = [
     "BlockOrthogonalityPenalty",
     "GumbelTemperatureSchedule",
     "HarmonicRoughnessPenalty",
-    "IBPAssignmentPenalty",
+    "OrderedBetaBernoulliPenalty",
     "IsometryPenalty",
     "IvaeRidgeMeanGauge",
-    "JumpReLUPenalty",
+    "SmoothThresholdPenalty",
     "LazyPcaBasis",
     "MechanismSparsityPenalty",
-    "RiemannianRetraction",
+    "RiemannianGradientDescent",
     "TopologyAutoSelector",
-    "ibp_map",
 ]

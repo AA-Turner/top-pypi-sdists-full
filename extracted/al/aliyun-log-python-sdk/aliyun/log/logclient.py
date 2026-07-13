@@ -94,6 +94,7 @@ if six.PY3:
 CONNECTION_TIME_OUT = 120
 MAX_LIST_PAGING_SIZE = 500
 MAX_GET_LOG_PAGING_SIZE = 100
+MAX_PUT_LOG_SIZE = 30 * 1024 * 1024
 
 DEFAULT_QUERY_RETRY_COUNT = 5
 DEFAULT_QUERY_RETRY_INTERVAL = 0.5
@@ -429,7 +430,7 @@ class LogClient(object):
         return PutLogsResponse(header, resp)
 
     def put_logs(self, request):
-        """ Put logs to log service. up to 512000 logs up to 10MB size
+        """ Put logs to log service. up to 512000 logs up to 30MB size
         Unsuccessful operation will cause an LogException.
 
         :type request: PutLogsRequest
@@ -468,9 +469,9 @@ class LogClient(object):
                 pb_tag.Value = value
         body = logGroup.SerializeToString()
 
-        if len(body) > 10 * 1024 * 1024:  # 10 MB
+        if len(body) > MAX_PUT_LOG_SIZE:
             raise LogException('InvalidLogSize',
-                               "logItems' size exceeds maximum limitation: 10 MB. now: {0} MB.".format(
+                               "logItems' size exceeds maximum limitation: 30 MB. now: {0} MB.".format(
                                    len(body) / 1024.0 / 1024))
 
         headers = {'x-log-bodyrawsize': str(len(body)), 'Content-Type': 'application/x-protobuf'}

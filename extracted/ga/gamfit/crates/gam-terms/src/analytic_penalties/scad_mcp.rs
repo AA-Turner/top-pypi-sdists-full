@@ -147,7 +147,7 @@ impl ScadMcpPenalty {
 
     fn resolved_weight(&self, rho: ArrayView1<'_, f64>) -> f64 {
         if self.learnable_weight {
-            resolve_learnable_weight(self.weight, rho[self.rho_index])
+            validated_learnable_weight(self.weight, rho[self.rho_index])
         } else {
             self.weight
         }
@@ -419,6 +419,7 @@ impl AnalyticPenalty for ScadMcpPenalty {
     }
 
     impl_learnable_weight_rho_count!();
+    impl_learnable_weight_domain!(weight);
 
     fn name(&self) -> &str {
         "scad_mcp"

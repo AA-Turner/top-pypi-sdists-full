@@ -91,7 +91,7 @@ pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL: f64 = 1.0e-8;
 /// inner solve is accepted as numerically converged. At `1e-4` the inner fit has
 /// captured ≥ 99.99% of the achievable penalised-objective reduction before the
 /// criterion is ranked — far past the point where further crawl can change the
-/// Laplace evidence, yet strict enough that a materially-improving fit refines on.
+/// quasi-Laplace score, yet strict enough that a materially-improving fit refines on.
 pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION: f64 = 1.0e-4;
 
 /// Minimum completed refine rounds before the objective-stagnation fixed point
@@ -107,8 +107,7 @@ pub(crate) const SAE_DENSE_BETA_PENALTY_PROBE_MAX_DIM: usize = 4096;
 
 /// Relative spectral cutoff for counting the numerical rank / nullity of a
 /// symmetric penalty Gram: eigenvalues at or below `cutoff · λ_max` are treated
-/// as zero. Shared by [`SaeManifoldTerm::symmetric_rank`] and
-/// [`smooth_penalty_nullity`] so the two stay in lockstep.
+/// as zero. Used by [`SaeManifoldTerm::symmetric_rank`].
 pub(crate) const SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF: f64 = 1.0e-9;
 
 /// Floor on the Levenberg-Marquardt ridge added to a per-row Hessian before
@@ -228,14 +227,13 @@ pub(crate) const SAE_DECODER_REPULSION_COLLINEARITY_GATE: f64 = 0.5;
 /// mass, so the co-activation it would register and the anti-collapse repulsion /
 /// separation it would receive are negligible.
 ///
-/// For structurally sparse assignments (JumpReLU hard gate, IBP-MAP) the surviving
-/// active atoms sit far above this floor and the hard zeros are excluded anyway,
-/// so the co-active support is unchanged. It is load-bearing for SOFTMAX, whose
-/// normalization gives EVERY atom a tiny but strictly nonzero tail mass: a plain
-/// `a ≠ 0` test would mark all `K` atoms co-active on every row and collapse the
-/// scan to the dense `O(N·K²)` all-pairs cost (minutes at `K = 10⁴`). Matches the
-/// `1e-3` relative cutoff the compact row layout uses (`from_dense_weights`), so
-/// the penalty support and the assembled Newton support stay consistent.
+/// Only TopK is structurally sparse. ThresholdGate, ordered Beta--Bernoulli, and
+/// Softmax all have strictly positive finite-logit tails, so this floor defines
+/// their common numerical co-activity support. A plain `a ≠ 0` test would mark
+/// all `K` atoms co-active on every row and collapse the scan to the dense
+/// `O(N·K²)` all-pairs cost (minutes at `K = 10⁴`).
+/// This threshold is only an anti-collapse diagnostic/conditioning definition;
+/// it never truncates the reconstruction or its derivatives.
 pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 
 // ── #1026 / #1522 interior-point COLLAPSE-PREVENTION barriers ────────────────
@@ -250,7 +248,7 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 // The SEPARATION barrier has NO strength scalar `μ_C` at all: it is the SAE decoder
 // Jeffreys prior `−½ log det F` (see [`super::penalties::BarrierComponent`]), whose
 // exponent `½` is fixed by the prior (`π(B) ∝ √det F`) and is the exact
-// reparametrization-invariant counter-term to the Laplace evidence's `+½ log(volume)`
+// reparametrization-invariant counter-term to the quasi-Laplace score's `+½ log(volume)`
 // collapse reward — so a per-pair strength is neither present nor needed. The
 // historical `μ_jk = γ_jk/(1−γ_jk)` (data-fit inseparability, see
 // [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) survives
@@ -339,7 +337,7 @@ pub struct SaeManifoldTerm {
     pub(crate) chart_atlases: Vec<ManifoldChartAtlas>,
     pub(crate) temperature_schedule: Option<GumbelTemperatureSchedule>,
     /// Active-set row layout from the most recent `assemble_arrow_schur` call.
-    /// `None` for dense modes (Softmax / IBPMap) or when not yet assembled.
+    /// `None` for dense modes (Softmax / OrderedBetaBernoulli) or when not yet assembled.
     pub(crate) last_row_layout: Option<SaeRowLayout>,
     /// The single provenance-carrying per-row inner product (Object 2). The
     /// reconstruction likelihood whitens residuals through it and the isometry
@@ -364,18 +362,16 @@ pub struct SaeManifoldTerm {
     /// the design's selection bias is removed (oversampled loud rows are
     /// downweighted back).
     ///
-    /// The weights enter the objective as a per-row scalar metric `w_i · I_p`
-    /// on the reconstruction channel ONLY, realized as a `√w_i` scaling of the
+    /// The weights enter the reconstruction as a per-row scalar metric `w_i · I_p`,
+    /// realized as a `√w_i` scaling of the
     /// per-row residual, latent Jacobian, and β basis load at their single
     /// construction sites in the assembly — so the data-fit value, the t-block
     /// Gauss-Newton, the β gradient/Gram, and the cross blocks all carry
     /// exactly one factor of `w_i` and cannot desync (the same discipline as
-    /// the #974 whitening seam). Per-row latent priors (assignment prior, ARD
-    /// coordinate prior) are deliberately NOT weighted: included rows' latent
-    /// states are genuine model components of the subsampled model,
-    /// conditional on inclusion; the HT correction applies to the row
-    /// *evidence* about shared structure (decoder β, ρ), not to the latent
-    /// priors. `None` ⇒ the exact unweighted path, bit-for-bit.
+    /// the #974 whitening seam). Per-row assignment and ARD priors use the same
+    /// population measure: row-separable terms carry `w_i`, while the integrated
+    /// ordered Beta--Bernoulli prior uses `M_k = Σ_i w_i z_ik` and
+    /// `N_eff = Σ_i w_i`. `None` selects unit row weights.
     pub(crate) row_loss_weights: Option<Vec<f64>>,
     /// #2231 crosscoder block-relevance pricing spans `(p_x, block_dims)` in
     /// stacked-column order, installed by
@@ -414,20 +410,6 @@ pub struct SaeManifoldTerm {
     /// `K`-dependent decoder assembly it otherwise computes-and-discards is
     /// avoided. A transient mode set in lock-step by that driver, not persisted.
     pub(crate) fixed_decoder_assembly: bool,
-    /// #1408/#1409 — optional hard per-row active-atom cap for Softmax mode,
-    /// threaded from the fit/encode `top_k` argument. When set (and `< K`), the
-    /// Softmax assignment engages the COMPACT top-`k` row layout
-    /// ([`SaeRowLayout::from_dense_weights`]) inside the optimization itself, so
-    /// the Newton assembly/solve and the criterion only ever touch each row's
-    /// top-`k` softmax atoms instead of all `K`. The full-`K` softmax
-    /// normalization is still used to FORM each row's assignment vector `a`
-    /// (the gate map); only the dropped tail logits — carrying negligible
-    /// `O(a)` reconstruction mass and `O(a²)` curvature — are excluded from the
-    /// per-row block. This folds `top_k` into the optimization rather than
-    /// applying it as a post-fit projection (the #1409 defect), and makes the
-    /// FFI's after-the-fact top-`k` projection a no-op at the optimum. `None`
-    /// (the default) keeps the budget-driven engagement only.
-    pub(crate) softmax_active_cap: Option<usize>,
     /// Reusable dense β-tier workspace for analytic penalty assembly. SAE
     /// immediately lowers the dense block into a `BetaPenaltyOp`, so the returned
     /// `ArrowSchurSystem` does not need to keep owning the allocation.
@@ -446,17 +428,17 @@ pub struct SaeManifoldTerm {
     /// the objective's `reset` so each seed's walk reports only its own run.
     pub(crate) curvature_walk_report: Option<CurvatureWalkReport>,
     /// Deflated row-gauge direction count established by the first undamped
-    /// evidence factorization in the current optimization. A later change means
+    /// criterion factorization in the current optimization. A later change means
     /// the quotient dimension changed mid-solve, which is a structural event and
     /// must not be hidden inside the Laplace normalizer.
-    pub(crate) expected_evidence_gauge_deflated_directions: Option<usize>,
+    pub(crate) expected_criterion_gauge_deflated_directions: Option<usize>,
     /// #1037 re-anchor counter: how many times the quotient (gauge-deflation)
     /// dimension has been re-anchored within the current optimization. A
     /// legitimate quotient-dimension change (an atom born / reseeded /
     /// rank-reduced) re-anchors the comparison once; an unbounded churn that
     /// never settles is the genuine pathology the guard must still catch. Reset
-    /// to `0` alongside `expected_evidence_gauge_deflated_directions`.
-    pub(crate) evidence_gauge_deflation_reanchors: usize,
+    /// to `0` alongside `expected_criterion_gauge_deflated_directions`.
+    pub(crate) criterion_gauge_deflation_reanchors: usize,
     /// #1217 oscillation detector: the sign of the most recent change in the
     /// gauge-deflation count (`+1` when it last increased, `−1` when it last
     /// decreased, `0` before the first change). The deflation count is a
@@ -467,11 +449,11 @@ pub struct SaeManifoldTerm {
     /// OSCILLATING count (repeated direction reversals that never settle), so
     /// the re-anchor budget is charged only on a direction REVERSAL, not on
     /// every monotone drift step. Reset to `0` alongside the re-anchor counter.
-    pub(crate) evidence_gauge_deflation_last_delta_sign: i8,
+    pub(crate) criterion_gauge_deflation_last_delta_sign: i8,
     /// #976 / #1117 K>1 robustness: how many full-dictionary co-collapse
     /// multi-starts the decoder-norm guard has already spent in the current
     /// optimization. Bounded by [`SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET`];
-    /// reset to `0` alongside [`Self::evidence_gauge_deflation_reanchors`] at the
+    /// reset to `0` alongside [`Self::criterion_gauge_deflation_reanchors`] at the
     /// start of each outer optimization. Distinct from the per-atom reseed
     /// ledger in [`Self::collapse_events`] because a co-collapse reseed is a
     /// whole-dictionary multi-start, not a per-atom second chance.
@@ -574,7 +556,7 @@ pub struct SaeManifoldTerm {
     /// once in [`Self::canonicalize_charts_post_fit`] after the joint fit
     /// converges. Each eligible `d = 1` atom's fitted curved image is adjudicated
     /// against its straight (linear special-case) sub-model on the common
-    /// rank-aware Laplace evidence scale. `None` until the post-fit pass runs (or
+    /// rank-aware quasi-Laplace score scale. `None` until the post-fit pass runs (or
     /// when no atom is eligible). Surfaced in the Python model output so a user
     /// sees which atoms genuinely earn their curvature and which collapse to the
     /// linear tail. Read via [`Self::hybrid_split_report`].
@@ -662,6 +644,12 @@ pub struct SaeManifoldTerm {
     /// DC-constant decoder is then EV-invisible BY CONSTRUCTION — the mean it would
     /// chase is already gone. Carried across clones like the other persisted config.
     pub(crate) tier0_mean: Option<Array1<f64>>,
+    /// Tier-0 per-column scale σ (input standardization): the fit ran on
+    /// `(Z − μ)/σ` and every reconstruction lifts back `μ + σ ⊙ x̂`. `None` on
+    /// the historical (unstandardized) path. Persisted configuration like
+    /// `tier0_mean`, carried across clones so a cloned candidate standardizes
+    /// identically.
+    pub(crate) tier0_scale: Option<Array1<f64>>,
 }
 
 /// Per-fit SAE configuration consumed by the Python/FFI layer. Build it, then
@@ -674,9 +662,9 @@ pub struct SaeFitConfig {
     /// Per-fit separation-barrier strength `μ_C`. `Some` bypasses the #1610
     /// evidence-derived per-pair strengths (`0.0` = conditioner off).
     pub separation_barrier_strength_override: Option<f64>,
-    /// Per-fit truncated-IBP concentration `α`. `Some` bypasses the mode's own
+    /// Per-fit truncated-ordered Beta--Bernoulli concentration `α`. `Some` bypasses the mode's own
     /// `α` / learnable schedule.
-    pub ibp_alpha_override: Option<f64>,
+    pub ordered_beta_bernoulli_alpha_override: Option<f64>,
 }
 
 impl Clone for SaeManifoldTerm {
@@ -694,17 +682,15 @@ impl Clone for SaeManifoldTerm {
             last_frames_active: self.last_frames_active,
             assembly_chunk_override: self.assembly_chunk_override,
             fixed_decoder_assembly: false,
-            // Persisted configuration (like the assignment mode), carried across
-            // clones so a cloned term optimizes the same compact top-`k` problem.
-            softmax_active_cap: self.softmax_active_cap,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
             arrow_assembly_workspace: SaeArrowAssemblyWorkspace::default(),
             certificate_dispersion: self.certificate_dispersion,
             curvature_walk_report: self.curvature_walk_report.clone(),
-            expected_evidence_gauge_deflated_directions: self
-                .expected_evidence_gauge_deflated_directions,
-            evidence_gauge_deflation_reanchors: self.evidence_gauge_deflation_reanchors,
-            evidence_gauge_deflation_last_delta_sign: self.evidence_gauge_deflation_last_delta_sign,
+            expected_criterion_gauge_deflated_directions: self
+                .expected_criterion_gauge_deflated_directions,
+            criterion_gauge_deflation_reanchors: self.criterion_gauge_deflation_reanchors,
+            criterion_gauge_deflation_last_delta_sign: self
+                .criterion_gauge_deflation_last_delta_sign,
             dictionary_cocollapse_reseeds: self.dictionary_cocollapse_reseeds,
             // Transient in-fit multi-start incumbent — not part of the persisted
             // term identity (like `border_hbb_workspace`); a fresh clone starts
@@ -740,13 +726,14 @@ impl Clone for SaeManifoldTerm {
             // #2023 C4 — persisted Tier-0 shared mean, carried across clones like
             // the assignment mode so a cloned candidate de-means identically.
             tier0_mean: self.tier0_mean.clone(),
+            tier0_scale: self.tier0_scale.clone(),
         }
     }
 }
 
 /// Snapshot of exactly the mutable term state that an `apply_newton_step` +
 /// `loss` line-search trial perturbs, stored DIFFERENTIALLY: the CHEAP driving
-/// state — decoder coefficients, the live intrinsic smoothness Gram, and the
+/// state — decoder coefficients, the frozen reference-function Gram, and the
 /// per-atom basis-determining handles (`basis_evaluator`, `basis_second_jet`,
 /// `homotopy_eta`) — plus the assignment logits, latent coordinates, and row
 /// layout.
@@ -780,12 +767,10 @@ impl Clone for SaeManifoldTerm {
 /// The profiled decoder frame is not static: the block-coordinate polar refresh
 /// changes it between Newton steps, so it is part of the canonical state below.
 ///
-/// The canonical `smooth_penalty_raw` / `smooth_penalty_order` are static, but
-/// the live intrinsic roughness Gram `smooth_penalty` is mutable state: it is
-/// refreshed by assembly from the current decoder and basis Jacobian, and the
-/// line-search objective reads it directly. Restoring it with the decoder keeps
-/// every rejected trial's baseline and nonlinear objective on the same
-/// lagged-diffusivity quadratic.
+/// The reference-function Gram `smooth_penalty` is fixed for an objective and
+/// transported only by an explicit basis reparameterization. It remains in the
+/// snapshot so restoring a rejected structural trial restores the complete
+/// declared quadratic together with its decoder coordinates.
 #[derive(Debug)]
 pub(crate) struct SaeManifoldMutableState {
     /// Per-atom differential state

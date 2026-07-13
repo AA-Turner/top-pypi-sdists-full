@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from importlib.resources import files
+from types import EllipsisType
 from typing import Any, cast
 
-from html5tagger import HTML, E  # type: ignore[import]
+from html5tagger import HTML, Document, E, Template
 
 from .chain_analysis import build_chronological_frames
 from .trace import build_chain_header, chainmsg, extract_chain, symbols, symdesc
@@ -14,6 +15,81 @@ javascript = (
 )
 
 detail_show = "{display: inherit}"
+
+PAGE_STYLE = """\
+:root { color-scheme: light dark; }
+body { font-family: var(--tracerite-ui-font); margin: 1em; }
+header { margin-bottom: 1em; }
+main { margin: 0; }
+h1 { margin: 0 0 0.25em 0; }
+p { margin: 0 0 0.5em 0; }
+"""
+
+# fmt: off
+Page = Template(
+    Document(E.Title, lang="en")
+    .style(style)
+    .style(PAGE_STYLE)
+    .script(javascript)
+    .Header
+    .main(E.Heading.Content)
+    .Footer
+)
+# fmt: on
+
+Header = Template(E.h1.Heading.p.Ingress)
+
+
+def html_page(
+    exc: BaseException | None = None,
+    *,
+    title: str | None = None,
+    heading: str | None = None,
+    ingress: str | None = None,
+    header: Any | None = None,
+    footer: Any | None = None,
+    msg: str | None | EllipsisType = ...,
+    chain: list[dict[str, Any]] | None = None,
+    autodark: bool = True,
+    local_urls: bool = False,
+    **extract_args: Any,
+) -> HTML:
+    """Render a full HTML5 document containing a TraceRite traceback.
+
+    Returns an html5tagger `HTML` string. The underlying `Page` template
+    includes TraceRite's CSS and JavaScript, an optional site-wide header and
+    footer, a heading/ingress block inside `<main>`, and the traceback itself.
+
+    The default heading inside `<main>` is built from the `Header` template,
+    which exposes `Heading` and `Ingress` slots. The `Header` and `Footer`
+    slots of `Page` are empty by default so callers can inject site-wide
+    header/footer content.
+    """
+    chain = extract_chain(exc=exc, **extract_args)[-3:] if chain is None else chain
+    page_title = (
+        title if title is not None else (chain[-1]["type"] if chain else "TraceRite")
+    )
+    page_heading = heading if heading is not None else page_title
+    page_ingress = (
+        ingress
+        if ingress is not None
+        else "An unexpected error occurred while processing."
+    )
+    traceback_html = html_traceback(
+        exc=exc,
+        chain=chain,
+        msg=msg,
+        include_js_css=False,
+        autodark=autodark,
+        local_urls=local_urls,
+    )
+    return Page(
+        Title=page_title,
+        Header="" if header is None else header,
+        Heading=Header(Heading=page_heading, Ingress=page_ingress),
+        Content=traceback_html,
+        Footer="" if footer is None else footer,
+    )
 
 
 def _collapse_call_runs(
@@ -38,10 +114,11 @@ def _collapse_call_runs(
             # End of a call run - process it
             if run_start is not None:
                 run_length = i - run_start
-                if run_length >= min_run_length:
-                    # Keep first and last of the run, add ellipsis
+                skipped = run_length - 2
+                if run_length >= min_run_length and skipped > 0:
+                    # Keep first and last of the run, add ellipsis with count
                     result.append(frames[run_start])
-                    result.append(...)
+                    result.append((..., skipped))
                     result.append(frames[i - 1])
                 else:
                     # Run too short, keep all
@@ -53,9 +130,10 @@ def _collapse_call_runs(
     # Handle final run at end
     if run_start is not None:
         run_length = len(frames) - run_start
-        if run_length >= min_run_length:
+        skipped = run_length - 2
+        if run_length >= min_run_length and skipped > 0:
             result.append(frames[run_start])
-            result.append(...)
+            result.append((..., skipped))
             result.append(frames[-1])
         else:
             result.extend(frames[run_start:])
@@ -67,7 +145,7 @@ def html_traceback(
     exc: BaseException | None = None,
     chain: list[dict[str, Any]] | None = None,
     *,
-    msg: str | None = ...,  # type: ignore[assignment]
+    msg: str | None | EllipsisType = ...,
     include_js_css: bool = True,
     local_urls: bool = False,
     replace_previous: bool = False,
@@ -75,6 +153,13 @@ def html_traceback(
     autodark: bool = True,
     **extract_args: Any,
 ) -> Any:
+    """Render an exception as an interactive HTML fragment.
+
+    Returns an html5tagger HTML fragment wrapped in a ``<div class="tracerite">``.
+    By default the fragment includes the TraceRite stylesheet and JavaScript;
+    set ``include_js_css=False`` when embedding it in a page that already
+    provides them.
+    """
     chain = chain or extract_chain(exc=exc, **extract_args)[-3:]
     # Chain is oldest-first from extract_chain
     classes = "tracerite autodark" if autodark else "tracerite"
@@ -133,8 +218,10 @@ def _render_frame_list(
     limited_frames = _collapse_call_runs(frames, min_run_length=10)
 
     for frinfo in limited_frames:
-        if frinfo is ...:
-            doc.p("...", class_="traceback-ellipsis")
+        if isinstance(frinfo, tuple):
+            assert frinfo[0] is ...
+            skipped = frinfo[1]
+            doc.p(f"⋮ {skipped} more calls", class_="traceback-ellipsis")
             continue
 
         relevance = frinfo["relevance"]
@@ -208,14 +295,33 @@ def _exception_banner(doc: Any, exc_info: dict[str, Any]) -> None:
 
     chain_suffix = chainmsg.get(from_type, "")
 
-    doc.h3(E.span(f"{exc_type}{chain_suffix}:", class_="exctype")(f" {summary}"))
-    # Show remaining lines in pre only if message has multiple lines
-    # Summary is always the first line, so we strip that from pre
+    doc.h3(
+        E.span(f"{exc_type}{chain_suffix}:", class_="exctype"),
+        E.span(f" {summary}", class_="excsummary"),
+    )
+    # Show remaining lines in pre only if message has multiple lines.
+    # Summary is always the first line, so we strip that from pre.
     parts = message.split("\n", 1)
     if len(parts) > 1:
         rest = parts[1].rstrip()  # Only strip trailing whitespace, preserve leading
         if rest:
-            doc.pre(rest, class_="excmessage")
+            lines = rest.split("\n")
+            visual_counts = [1 + len(line) // 80 for line in lines]
+            total_visual = sum(visual_counts)
+            marker_index: int | None = None
+            if total_visual > 100 and len(lines) > 40:
+                shown_visual = sum(visual_counts[:20]) + sum(visual_counts[-20:])
+                skipped = total_visual - shown_visual
+                lines = lines[:20] + [f"⋮ {skipped} more lines"] + lines[-20:]
+                marker_index = 20
+            with doc.pre(class_="excmessage"):
+                for i, line in enumerate(lines):
+                    if i > 0:
+                        doc("\n")
+                    if i == marker_index:
+                        doc.span(line, class_="excmessage-ellipsis")
+                    else:
+                        doc(line)
 
 
 def _compact_code_line(doc: Any, frinfo: dict[str, Any]) -> None:
@@ -293,11 +399,14 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
     """Render frame detail in chronological mode."""
     fragments = frinfo["fragments"]
     relevance = frinfo["relevance"]
+    symbol = symbols.get(relevance, "")
+    desc = symdesc.get(relevance, "")
+    symbol_text = f"{symbol} {desc}" if desc else symbol
 
     if not fragments:
         # Show "(no source code)" with the symbol emoji like a code line would have
-        symbol = symbols.get(relevance, "")
-        doc.p(f"(no source code) {symbol}")
+        doc.p("(no source code) ")
+        doc.span(class_="tracerite-symbol", data_text=symbol_text)
         return
 
     with doc.pre, doc.code:
@@ -307,18 +416,11 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
             abs_line = start + line_num - 1
             line_fragments = line_info["fragments"]
 
-            # Prepare tooltip attributes for tooltip span on final line
-            tooltip_attrs = {}
+            # Show the symbol next to the final line of the frame range
+            show_symbol = False
             frame_range = frinfo["range"]
             if frame_range and abs_line == frame_range.lfinal:
-                relevance = frinfo["relevance"]
-                symbol = symbols.get(relevance, relevance)
-                text = symdesc.get(relevance, relevance)
-                tooltip_attrs = {
-                    "class": "tracerite-tooltip",
-                    "data-symbol": symbol,
-                    "data-tooltip": text,
-                }
+                show_symbol = True
 
             with doc.span(class_="codeline", data_lineno=abs_line):
                 non_trailing_fragments = []
@@ -341,24 +443,11 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
                         }
                         non_trailing_fragments[0] = first_fragment_modified
 
-                if tooltip_attrs and non_trailing_fragments:
-                    with doc.span(
-                        class_="tracerite-tooltip",
-                        data_tooltip=tooltip_attrs["data-tooltip"],
-                    ):
-                        for fragment in non_trailing_fragments:
-                            _render_fragment(doc, fragment)
-                    doc.span(
-                        class_="tracerite-symbol",
-                        data_symbol=tooltip_attrs["data-symbol"],
-                    )
-                    doc.span(
-                        class_="tracerite-tooltip-text",
-                        data_tooltip=tooltip_attrs["data-tooltip"],
-                    )
-                else:
-                    for fragment in non_trailing_fragments:
-                        _render_fragment(doc, fragment)
+                for fragment in non_trailing_fragments:
+                    _render_fragment(doc, fragment)
+
+                if show_symbol and non_trailing_fragments:
+                    doc.span(class_="tracerite-symbol", data_text=symbol_text)
 
                 fragment = trailing_fragment
             if fragment:

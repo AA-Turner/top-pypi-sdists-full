@@ -80,9 +80,9 @@
 //! ────────────────────────────────────────────────────────────────────────────
 
 use super::*;
-use crate::bms::signed_probit_neglog_derivatives_up_to_fourth;
-use crate::inference::probability::signed_probit_logcdf_and_mills_ratio;
+use crate::bms::signed_probit_neglog_unary_stack;
 use crate::survival::marginal_slope::gpu;
+use gam_math::jet_scalar::{DynamicOrder2Accumulator, DynamicOrder2Term};
 
 /// The `[f64; 5]` Faà di Bruno stack of `g(η) = logΦ(−η)` at `η`.
 ///
@@ -94,9 +94,18 @@ use crate::survival::marginal_slope::gpu;
 /// (`flex_sensitivity.rs`, `gpu::cpu_oracle_*`).
 #[inline]
 fn surv_stack(eta: f64) -> Result<[f64; 5], String> {
-    let (logcdf, _) = signed_probit_logcdf_and_mills_ratio(-eta);
-    let (k1, k2, k3, k4) = signed_probit_neglog_derivatives_up_to_fourth(-eta, 1.0)?;
-    Ok([logcdf, k1, -k2, k3, -k4])
+    let signed_margin = -eta;
+    if signed_margin != f64::INFINITY && !signed_margin.is_finite() {
+        return Err(format!(
+            "non-finite signed margin in exact probit derivative helper: {signed_margin}"
+        ));
+    }
+    // `weight = -1` makes the fused BMS primitive return the derivative stack
+    // of `logΦ(m)` from ONE Mills-ratio evaluation. Compose with `m = -η` by
+    // flipping odd derivative orders. This replaces the old two-call sequence
+    // (one `logcdf`, then another `logcdf` discarded by the derivative helper).
+    let m_stack = signed_probit_neglog_unary_stack(signed_margin, -1.0);
+    Ok([m_stack[0], -m_stack[1], m_stack[2], -m_stack[3], m_stack[4]])
 }
 
 /// The `[f64; 5]` Faà di Bruno stack of `ln(x)`.
@@ -108,20 +117,219 @@ fn ln_stack(x: f64) -> [f64; 5] {
 }
 
 /// A runtime-`K` truncated-Taylor scalar: the row loss is written once against
-/// this interface and re-instantiated at [`Jet2`] / [`Jet3`] / [`Jet4`] for the
-/// value/grad/Hessian, contracted-third, and contracted-fourth channels.
-trait FlexJet: Sized + Clone {
-    fn value(&self) -> f64;
-    fn add(&self, o: &Self) -> Self;
-    fn sub(&self, o: &Self) -> Self;
-    fn mul(&self, o: &Self) -> Self;
-    fn scale(&self, s: f64) -> Self;
-    /// Faà di Bruno composition `f ∘ self` with stack `[f, f′, f″, f‴, f⁗]`.
-    fn compose_unary(&self, d: [f64; 5]) -> Self;
-    /// `ln(self)` via [`ln_stack`] at the value channel.
-    #[inline]
-    fn ln(&self) -> Self {
-        self.compose_unary(ln_stack(self.value()))
+/// this interface and re-instantiated at [`Jet1`] / [`Jet2`] / [`Jet3`] /
+/// [`Jet4`] for gradient-only, value/grad/Hessian, contracted-third, and
+/// contracted-fourth channels.
+/// The runtime-`p` (Vec-backed) INNER timepoint-geometry jet layer. It EXTENDS
+/// the shared [`JetField`] scalar-field algebra (value / add / sub / mul / neg /
+/// scale / the single Faà di Bruno `compose_unary`) with only the one thing the
+/// flex geometry adds on top: the truncation order [`FlexJet::ORDER`]. The
+/// const-`K` packed row seam (`JetScalar`) extends the SAME `JetField` base — but
+/// the two program layers stay distinct: `FlexJet` is runtime-`p`, not const-`K`.
+trait FlexJet: JetField + Clone {
+    /// Highest derivative order represented by this nilpotent algebra.
+    /// A value-zero perturbation raised to `ORDER + 1` is identically zero, so
+    /// generic Taylor-polynomial builders must stop at this exact order.
+    const ORDER: usize;
+}
+
+const FLEX_OUTER_SOURCE_COUNT: usize = 6;
+const FLEX_OUTER_TERM_COUNT: usize = 7;
+
+/// The six independent inner scalars used by the seven-term flex row NLL.
+/// `eta1` appears twice (survival and Gaussian-density terms), and the order-two
+/// compiler fuses those two outer stacks before touching its derivative views.
+#[derive(Clone, Copy)]
+#[repr(usize)]
+enum FlexOuterSource {
+    Eta0 = 0,
+    Eta1 = 1,
+    Q1 = 2,
+    Chi1 = 3,
+    D1 = 4,
+    Qd1 = 5,
+}
+
+impl FlexOuterSource {
+    #[inline(always)]
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
+#[derive(Clone, Copy)]
+enum FlexOuterTransform {
+    Compose([f64; 5]),
+    Square,
+}
+
+#[derive(Clone, Copy)]
+enum FlexOuterCombine {
+    Add,
+    Subtract,
+}
+
+/// One term of the flex row NLL. This term list is the sole mathematical
+/// definition consumed by both the generic high-order jets and the compiled
+/// allocation-minimal order-two lowering.
+#[derive(Clone, Copy)]
+struct FlexOuterTerm {
+    source: FlexOuterSource,
+    transform: FlexOuterTransform,
+    scale: f64,
+    combine: FlexOuterCombine,
+}
+
+impl FlexOuterTerm {
+    #[inline(always)]
+    fn evaluate<J: FlexJet>(&self, sources: &FlexJetSources<'_, J>) -> J {
+        let source = sources.get(self.source);
+        let transformed = match self.transform {
+            FlexOuterTransform::Compose(stack) => source.compose_unary(stack),
+            FlexOuterTransform::Square => source.mul(source),
+        };
+        transformed.scale(self.scale)
+    }
+
+    #[inline(always)]
+    fn order2_channels(&self, source_value: f64) -> [f64; 3] {
+        let mut channels = match self.transform {
+            FlexOuterTransform::Compose(stack) => [stack[0], stack[1], stack[2]],
+            FlexOuterTransform::Square => [
+                source_value * source_value,
+                source_value + source_value,
+                2.0,
+            ],
+        };
+        for channel in &mut channels {
+            *channel *= self.scale;
+        }
+        channels
+    }
+}
+
+struct FlexJetSources<'a, J> {
+    eta0: &'a J,
+    eta1: &'a J,
+    q1: &'a J,
+    chi1: &'a J,
+    d1: &'a J,
+    qd1: &'a J,
+}
+
+impl<'a, J> FlexJetSources<'a, J> {
+    #[inline(always)]
+    fn get(&self, source: FlexOuterSource) -> &'a J {
+        match source {
+            FlexOuterSource::Eta0 => self.eta0,
+            FlexOuterSource::Eta1 => self.eta1,
+            FlexOuterSource::Q1 => self.q1,
+            FlexOuterSource::Chi1 => self.chi1,
+            FlexOuterSource::D1 => self.d1,
+            FlexOuterSource::Qd1 => self.qd1,
+        }
+    }
+}
+
+/// The single flex row-NLL source, excluding the additive `w·d·ln2π`
+/// constant. The ordered seven-term plan preserves the generic evaluator's
+/// historical arithmetic while exposing the same source/transform metadata to
+/// the order-two compiler.
+struct FlexOuterPlan {
+    terms: [FlexOuterTerm; FLEX_OUTER_TERM_COUNT],
+}
+
+impl FlexOuterPlan {
+    #[inline(always)]
+    fn new(
+        chi1: f64,
+        d1: f64,
+        qd1: f64,
+        surv0: [f64; 5],
+        surv1: [f64; 5],
+        wi: f64,
+        di: f64,
+    ) -> Self {
+        let wd = wi * di;
+        Self {
+            terms: [
+                FlexOuterTerm {
+                    source: FlexOuterSource::Eta0,
+                    transform: FlexOuterTransform::Compose(surv0),
+                    scale: wi,
+                    combine: FlexOuterCombine::Add,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::Eta1,
+                    transform: FlexOuterTransform::Compose(surv1),
+                    scale: -wi * (1.0 - di),
+                    combine: FlexOuterCombine::Add,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::Eta1,
+                    transform: FlexOuterTransform::Square,
+                    scale: 0.5 * wd,
+                    combine: FlexOuterCombine::Add,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::Q1,
+                    transform: FlexOuterTransform::Square,
+                    scale: 0.5 * wd,
+                    combine: FlexOuterCombine::Add,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::Chi1,
+                    transform: FlexOuterTransform::Compose(ln_stack(chi1)),
+                    scale: wd,
+                    combine: FlexOuterCombine::Subtract,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::D1,
+                    transform: FlexOuterTransform::Compose(ln_stack(d1)),
+                    scale: wd,
+                    combine: FlexOuterCombine::Add,
+                },
+                FlexOuterTerm {
+                    source: FlexOuterSource::Qd1,
+                    transform: FlexOuterTransform::Compose(ln_stack(qd1)),
+                    scale: wd,
+                    combine: FlexOuterCombine::Subtract,
+                },
+            ],
+        }
+    }
+
+    #[inline(always)]
+    fn evaluate<J: FlexJet>(&self, sources: &FlexJetSources<'_, J>) -> J {
+        let mut output = self.terms[0].evaluate(sources);
+        for term in &self.terms[1..] {
+            let contribution = term.evaluate(sources);
+            output = match term.combine {
+                FlexOuterCombine::Add => output.add(&contribution),
+                FlexOuterCombine::Subtract => output.sub(&contribution),
+            };
+        }
+        output
+    }
+
+    /// Compile the ordered term list to one value plus one `(f', f'')` pair per
+    /// independent source. Terms sharing a source are fused before the
+    /// runtime-width gradient/Hessian sweep.
+    #[inline(always)]
+    fn compile_order2(&self, source_values: [f64; FLEX_OUTER_SOURCE_COUNT]) -> FlexOrder2Plan {
+        let mut value = 0.0;
+        let mut derivatives = [[0.0; 2]; FLEX_OUTER_SOURCE_COUNT];
+        for term in &self.terms {
+            let channels = term.order2_channels(source_values[term.source.index()]);
+            let sign = match term.combine {
+                FlexOuterCombine::Add => 1.0,
+                FlexOuterCombine::Subtract => -1.0,
+            };
+            value += sign * channels[0];
+            derivatives[term.source.index()][0] += sign * channels[1];
+            derivatives[term.source.index()][1] += sign * channels[2];
+        }
+        FlexOrder2Plan { value, derivatives }
     }
 }
 
@@ -141,160 +349,141 @@ fn flex_row_nll<J: FlexJet>(
     wi: f64,
     di: f64,
 ) -> J {
-    let wd = wi * di;
-    // w·logΦ(−η₀)
-    let mut nll = eta0.compose_unary(surv0).scale(wi);
-    // −w(1−d)·logΦ(−η₁)
-    nll = nll.add(&eta1.compose_unary(surv1).scale(-wi * (1.0 - di)));
-    // +w·d·½η₁²   (the −d·logφ(η₁) term, sans ½ln2π const)
-    nll = nll.add(&eta1.mul(eta1).scale(0.5 * wd));
-    // +w·d·½q₁²   (the −d·logφ(q₁) term, sans ½ln2π const)
-    nll = nll.add(&q1.mul(q1).scale(0.5 * wd));
-    // −w·d·logχ₁
-    nll = nll.sub(&chi1.ln().scale(wd));
-    // +w·d·logD₁
-    nll = nll.add(&d1.ln().scale(wd));
-    // −w·d·logqd₁
-    nll = nll.sub(&qd1.ln().scale(wd));
-    nll
+    FlexOuterPlan::new(chi1.value(), d1.value(), qd1.value(), surv0, surv1, wi, di)
+        .evaluate(&FlexJetSources {
+            eta0,
+            eta1,
+            q1,
+            chi1,
+            d1,
+            qd1,
+        })
 }
 
-// ── Fused single-allocation Jet2 row-NLL (value/grad/Hessian) ───────────────
+// ── Compiled two-allocation order-two lowering (value/grad/Hessian) ────────
 //
-// The generic [`flex_row_nll`] above is the single source of truth; instantiated
-// at [`Jet2`] it allocates ~18 intermediate `Vec`s (two per `add`/`sub`/`mul`/
-// `scale`/`compose_unary` temporary). The value/grad/Hessian path is the hottest
-// flex site (one call per row, every PIRLS Hessian assembly), and that allocation
-// churn — not the arithmetic — dominates it. [`fused_row_nll_jet2`] evaluates the
-// **same seven NLL terms in the same left-to-right accumulation order**, but
-// straight into a single preallocated `(g, h)` accumulator: the only heap
-// allocations are the `g`/`h` buffers the caller returns anyway. Measured
-// `2.2×–4.3×` faster (p∈{6,12,24}) and `f64::to_bits`-identical to the generic
-// `Jet2` path channel-for-channel (gate
-// [`fused_jet2_row_nll_is_bit_identical_to_generic`], ≥2000 random inputs/​p).
-//
-// Bit-identity holds because every fused expression is the textual image of the
-// generic op composition: `compose_unary` then `scale` then `add`/`sub`, with the
-// `±` accumulation associated exactly as the generic chained `add`/`sub` does
-// (per element, left to right). IEEE `+`/`*` commutativity (`a+b≡b+a`, `a*b≡b*a`,
-// bit-exact) covers the only reordered pairs (the `g_i·g_j + g_j·g_i` cross term
-// and the trailing `·s` of each term).
-struct FusedSrc<'a> {
-    v: f64,
-    g: &'a [f64],
-    h: &'a [f64],
-}
-struct FusedOut {
-    v: f64,
-    g: Vec<f64>,
-    h: Vec<f64>,
+// Instantiating the plan through the generic [`Jet2`] algebra would allocate
+// roughly 18 intermediate vectors. Instead [`FlexOuterPlan::compile_order2`]
+// fuses the ordered term list to six source coefficients and the universal
+// [`DynamicOrder2Accumulator`] reads the ndarray channels in place. The only
+// allocations are the two buffers returned to the caller. Both representations
+// consume the same plan; there is no second likelihood formula to maintain.
+struct FlexOrder2Plan {
+    value: f64,
+    derivatives: [[f64; 2]; FLEX_OUTER_SOURCE_COUNT],
 }
 
-/// `out = (f∘x)·s` for the leading term — image of `x.compose_unary(d).scale(s)`.
-#[inline]
-fn fused_init_compose_scaled(out: &mut FusedOut, x: &FusedSrc, d: [f64; 5], s: f64, p: usize) {
-    let (f, f1, f2) = (d[0], d[1], d[2]);
-    out.v = f * s;
-    for i in 0..p {
-        out.g[i] = (f1 * x.g[i]) * s;
+struct FlexOrder2View<'a> {
+    value: f64,
+    gradient: ndarray::ArrayView1<'a, f64>,
+    hessian: ndarray::ArrayView2<'a, f64>,
+}
+
+struct FlexOrder2Inputs<'a> {
+    eta0: FlexOrder2View<'a>,
+    eta1: FlexOrder2View<'a>,
+    q1: (f64, usize),
+    chi1: FlexOrder2View<'a>,
+    d1: FlexOrder2View<'a>,
+    qd1: (f64, usize),
+}
+
+enum FlexOrder2Term<'a> {
+    Dense {
+        outer: [f64; 2],
+        gradient: ndarray::ArrayView1<'a, f64>,
+        hessian: ndarray::ArrayView2<'a, f64>,
+    },
+    Axis {
+        outer: [f64; 2],
+        axis: usize,
+    },
+}
+
+impl DynamicOrder2Term for FlexOrder2Term<'_> {
+    #[inline(always)]
+    fn outer_first(&self) -> f64 {
+        match self {
+            Self::Dense { outer, .. } | Self::Axis { outer, .. } => outer[0],
+        }
     }
-    for i in 0..p {
-        let xi = x.g[i];
-        for j in 0..p {
-            out.h[i * p + j] = (f2 * xi * x.g[j] + f1 * x.h[i * p + j]) * s;
+
+    #[inline(always)]
+    fn outer_second(&self) -> f64 {
+        match self {
+            Self::Dense { outer, .. } | Self::Axis { outer, .. } => outer[1],
+        }
+    }
+
+    #[inline(always)]
+    fn inner_gradient(&self, axis: usize) -> f64 {
+        match self {
+            Self::Dense { gradient, .. } => gradient[axis],
+            Self::Axis { axis: source, .. } => {
+                if axis == *source { 1.0 } else { 0.0 }
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn inner_hessian(&self, row: usize, column: usize) -> f64 {
+        match self {
+            Self::Dense { hessian, .. } => hessian[[row, column]],
+            Self::Axis { .. } => 0.0,
         }
     }
 }
 
-/// `out ±= (f∘x)·s` — image of `nll.add/​sub(&x.compose_unary(d).scale(s))`.
+/// Allocation-minimal order-two lowering of the same [`FlexOuterPlan`] used by
+/// the generic high-order jets. The plan fuses the two `eta1` terms into one
+/// outer derivative pair; [`DynamicOrder2Accumulator`] then performs one fused
+/// gradient pass and one fused Hessian pass into exactly two owned buffers.
 #[inline]
-fn fused_acc_compose_scaled(
-    out: &mut FusedOut,
-    x: &FusedSrc,
-    d: [f64; 5],
-    s: f64,
-    sign: f64,
-    p: usize,
-) {
-    let (f, f1, f2) = (d[0], d[1], d[2]);
-    out.v += sign * (f * s);
-    for i in 0..p {
-        out.g[i] += sign * ((f1 * x.g[i]) * s);
-    }
-    for i in 0..p {
-        let xi = x.g[i];
-        for j in 0..p {
-            let term = (f2 * xi * x.g[j] + f1 * x.h[i * p + j]) * s;
-            out.h[i * p + j] += sign * term;
-        }
-    }
-}
-
-/// `out += (x·x)·s` — image of `nll.add(&x.mul(x).scale(s))`.
-#[inline]
-fn fused_acc_square_scaled(out: &mut FusedOut, x: &FusedSrc, s: f64, p: usize) {
-    out.v += (x.v * x.v) * s;
-    for i in 0..p {
-        out.g[i] += (x.v * x.g[i] + x.g[i] * x.v) * s;
-    }
-    for i in 0..p {
-        let xi = x.g[i];
-        for j in 0..p {
-            let hij = (x.v * x.h[i * p + j] + xi * x.g[j] + x.g[j] * xi + x.h[i * p + j] * x.v) * s;
-            out.h[i * p + j] += hij;
-        }
-    }
-}
-
-/// Fused value/grad/Hessian of the flex row NLL (sans the additive `w·d·ln2π`
-/// constant, added by the caller). Bit-identical to `flex_row_nll::<Jet2>`.
-#[inline]
-fn fused_row_nll_jet2(
-    eta0: &FusedSrc,
-    eta1: &FusedSrc,
-    chi1: &FusedSrc,
-    d1: &FusedSrc,
-    q1: &FusedSrc,
-    qd1: &FusedSrc,
-    surv0: [f64; 5],
-    surv1: [f64; 5],
-    wi: f64,
-    di: f64,
-    p: usize,
-) -> FusedOut {
-    let wd = wi * di;
-    let mut out = FusedOut {
-        v: 0.0,
-        g: vec![0.0; p],
-        h: vec![0.0; p * p],
-    };
-    fused_init_compose_scaled(&mut out, eta0, surv0, wi, p); // w·logΦ(−η₀)
-    fused_acc_compose_scaled(&mut out, eta1, surv1, -wi * (1.0 - di), 1.0, p); // −w(1−d)logΦ(−η₁)
-    fused_acc_square_scaled(&mut out, eta1, 0.5 * wd, p); // +w·d·½η₁²
-    fused_acc_square_scaled(&mut out, q1, 0.5 * wd, p); // +w·d·½q₁²
-    fused_acc_compose_scaled(&mut out, chi1, ln_stack(chi1.v), wd, -1.0, p); // −w·d·logχ₁
-    fused_acc_compose_scaled(&mut out, d1, ln_stack(d1.v), wd, 1.0, p); // +w·d·logD₁
-    fused_acc_compose_scaled(&mut out, qd1, ln_stack(qd1.v), wd, -1.0, p); // −w·d·logqd₁
-    out
-}
-
-/// Copy a length-`p` gradient view + `p×p` Hessian view into the contiguous
-/// `(g, h)` SoA the fused evaluator reads (contiguity-safe, element-wise copy).
-/// The single input copy the `Jet2` path already pays.
-#[inline]
-fn fused_inputs_from_view(
-    g: ndarray::ArrayView1<'_, f64>,
-    h: ndarray::ArrayView2<'_, f64>,
-    p: usize,
-) -> (Vec<f64>, Vec<f64>) {
-    let gv: Vec<f64> = g.iter().copied().collect();
-    let mut hv = vec![0.0; p * p];
-    for i in 0..p {
-        for j in 0..p {
-            hv[i * p + j] = h[[i, j]];
-        }
-    }
-    (gv, hv)
+fn lower_flex_outer_plan_order2(
+    plan: &FlexOuterPlan,
+    inputs: FlexOrder2Inputs<'_>,
+    dimension: usize,
+) -> (f64, Vec<f64>, Vec<f64>) {
+    let source_values = [
+        inputs.eta0.value,
+        inputs.eta1.value,
+        inputs.q1.0,
+        inputs.chi1.value,
+        inputs.d1.value,
+        inputs.qd1.0,
+    ];
+    let compiled = plan.compile_order2(source_values);
+    let terms = [
+        FlexOrder2Term::Dense {
+            outer: compiled.derivatives[FlexOuterSource::Eta0.index()],
+            gradient: inputs.eta0.gradient,
+            hessian: inputs.eta0.hessian,
+        },
+        FlexOrder2Term::Dense {
+            outer: compiled.derivatives[FlexOuterSource::Eta1.index()],
+            gradient: inputs.eta1.gradient,
+            hessian: inputs.eta1.hessian,
+        },
+        FlexOrder2Term::Axis {
+            outer: compiled.derivatives[FlexOuterSource::Q1.index()],
+            axis: inputs.q1.1,
+        },
+        FlexOrder2Term::Dense {
+            outer: compiled.derivatives[FlexOuterSource::Chi1.index()],
+            gradient: inputs.chi1.gradient,
+            hessian: inputs.chi1.hessian,
+        },
+        FlexOrder2Term::Dense {
+            outer: compiled.derivatives[FlexOuterSource::D1.index()],
+            gradient: inputs.d1.gradient,
+            hessian: inputs.d1.hessian,
+        },
+        FlexOrder2Term::Axis {
+            outer: compiled.derivatives[FlexOuterSource::Qd1.index()],
+            axis: inputs.qd1.1,
+        },
+    ];
+    DynamicOrder2Accumulator::from_composed_sum(dimension, compiled.value, &terms).into_channels()
 }
 
 // ── Jet2: value / gradient / Hessian (runtime K) ───────────────────────────
@@ -348,7 +537,7 @@ impl Jet2 {
     }
 }
 
-impl FlexJet for Jet2 {
+impl JetField for Jet2 {
     #[inline]
     fn value(&self) -> f64 {
         self.v
@@ -413,6 +602,10 @@ impl FlexJet for Jet2 {
             h: self.h.iter().map(|&x| x * s).collect(),
         }
     }
+    #[inline]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         // Order-≤2 reads only [f, f', f''].
         let p = self.p();
@@ -429,6 +622,10 @@ impl FlexJet for Jet2 {
         }
         Jet2 { v: f, g, h }
     }
+}
+
+impl FlexJet for Jet2 {
+    const ORDER: usize = 2;
 }
 
 // ── Jet1: value + gradient only (grad-only path, no discarded Hessian) ──────
@@ -472,7 +669,7 @@ impl Jet1 {
     }
 }
 
-impl FlexJet for Jet1 {
+impl JetField for Jet1 {
     #[inline]
     fn value(&self) -> f64 {
         self.v
@@ -507,6 +704,10 @@ impl FlexJet for Jet1 {
             g: self.g.iter().map(|&x| x * s).collect(),
         }
     }
+    #[inline]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         // Order-≤1 reads only [f, f'].
         let p = self.p();
@@ -517,6 +718,10 @@ impl FlexJet for Jet1 {
         }
         Jet1 { v: f, g }
     }
+}
+
+impl FlexJet for Jet1 {
+    const ORDER: usize = 1;
 }
 
 // ── Jet3: one-seed directional, contracted third (doc §A.2) ────────────────
@@ -544,7 +749,7 @@ impl Jet3 {
     }
 }
 
-impl FlexJet for Jet3 {
+impl JetField for Jet3 {
     #[inline]
     fn value(&self) -> f64 {
         self.base.v
@@ -573,6 +778,10 @@ impl FlexJet for Jet3 {
             eps: self.eps.scale(s),
         }
     }
+    #[inline]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         let base = self.base.compose_unary([d[0], d[1], d[2], d[3], d[4]]);
         // f'(base) as a Jet2 (consumes [f', f'', f''']).
@@ -580,6 +789,10 @@ impl FlexJet for Jet3 {
         let eps = fprime.mul(&self.eps);
         Jet3 { base, eps }
     }
+}
+
+impl FlexJet for Jet3 {
+    const ORDER: usize = 3;
 }
 
 // ── Jet4: two-seed, contracted fourth (doc §A.3) ───────────────────────────
@@ -610,7 +823,7 @@ impl Jet4 {
     }
 }
 
-impl FlexJet for Jet4 {
+impl JetField for Jet4 {
     #[inline]
     fn value(&self) -> f64 {
         self.base.v
@@ -656,6 +869,10 @@ impl FlexJet for Jet4 {
             eps_del: self.eps_del.scale(s),
         }
     }
+    #[inline]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         let base = self.base.compose_unary([d[0], d[1], d[2], d[3], d[4]]);
         let fprime = self.base.compose_unary([d[1], d[2], d[3], d[4], d[4]]);
@@ -673,6 +890,10 @@ impl FlexJet for Jet4 {
             eps_del,
         }
     }
+}
+
+impl FlexJet for Jet4 {
+    const ORDER: usize = 4;
 }
 
 /// `Σ_i x[i]·y[i]` over equal-length slices.
@@ -797,69 +1018,46 @@ impl SurvivalMarginalSlopeFamily {
             let grad = Array1::from(out.g);
             return Ok((value, grad, Array2::zeros((p, p))));
         }
-        // Fused single-allocation Jet2 evaluation: bit-identical to
-        // `flex_row_nll::<Jet2>` (gate `fused_jet2_row_nll_is_bit_identical_to_generic`)
-        // but without the ~18 intermediate `Vec` allocations of the generic op
-        // chain (2.2×–4.3× faster). The four timepoint inputs are flattened into
-        // contiguous SoA (the same single copy `Jet2::from_view` paid); the q₁/qd₁
-        // primaries are unit-gradient/zero-Hessian slices.
-        let eta0_h = eta0_h.ok_or("flex fused Jet2: missing eta0 Hessian")?;
-        let chi1_h = chi1_h.ok_or("flex fused Jet2: missing chi1 Hessian")?;
-        let d1_h = d1_h.ok_or("flex fused Jet2: missing d1 Hessian")?;
-        let eta1_h = eta1_h.ok_or("flex fused Jet2: missing eta1 Hessian")?;
-        let (eta0_gv, eta0_hv) = fused_inputs_from_view(eta0_g, eta0_h, p);
-        let (eta1_gv, eta1_hv) = fused_inputs_from_view(eta1_g, eta1_h, p);
-        let (chi1_gv, chi1_hv) = fused_inputs_from_view(chi1_g, chi1_h, p);
-        let (d1_gv, d1_hv) = fused_inputs_from_view(d1_g, d1_h, p);
-        let zero_h = vec![0.0; p * p];
-        let mut q1_g = vec![0.0; p];
-        if primary.q1 < p {
-            q1_g[primary.q1] = 1.0;
-        }
-        let mut qd1_g = vec![0.0; p];
-        if primary.qd1 < p {
-            qd1_g[primary.qd1] = 1.0;
-        }
-        let out = fused_row_nll_jet2(
-            &FusedSrc {
-                v: eta0_v,
-                g: &eta0_gv,
-                h: &eta0_hv,
+        // Compile the SAME seven-term outer plan the generic Jet1/Jet3/Jet4
+        // evaluators consume, then lower its six independent sources in one
+        // order-two pass. Only the returned gradient and Hessian allocate.
+        let eta0_h = eta0_h.ok_or("flex order-two lowering: missing eta0 Hessian")?;
+        let chi1_h = chi1_h.ok_or("flex order-two lowering: missing chi1 Hessian")?;
+        let d1_h = d1_h.ok_or("flex order-two lowering: missing d1 Hessian")?;
+        let eta1_h = eta1_h.ok_or("flex order-two lowering: missing eta1 Hessian")?;
+        let plan = FlexOuterPlan::new(chi1_v, d1_v, qd1, surv0, surv1, wi, di);
+        let (row_value, row_gradient, row_hessian) = lower_flex_outer_plan_order2(
+            &plan,
+            FlexOrder2Inputs {
+                eta0: FlexOrder2View {
+                    value: eta0_v,
+                    gradient: eta0_g,
+                    hessian: eta0_h,
+                },
+                eta1: FlexOrder2View {
+                    value: eta1_v,
+                    gradient: eta1_g,
+                    hessian: eta1_h,
+                },
+                q1: (q1, primary.q1),
+                chi1: FlexOrder2View {
+                    value: chi1_v,
+                    gradient: chi1_g,
+                    hessian: chi1_h,
+                },
+                d1: FlexOrder2View {
+                    value: d1_v,
+                    gradient: d1_g,
+                    hessian: d1_h,
+                },
+                qd1: (qd1, primary.qd1),
             },
-            &FusedSrc {
-                v: eta1_v,
-                g: &eta1_gv,
-                h: &eta1_hv,
-            },
-            &FusedSrc {
-                v: chi1_v,
-                g: &chi1_gv,
-                h: &chi1_hv,
-            },
-            &FusedSrc {
-                v: d1_v,
-                g: &d1_gv,
-                h: &d1_hv,
-            },
-            &FusedSrc {
-                v: q1,
-                g: &q1_g,
-                h: &zero_h,
-            },
-            &FusedSrc {
-                v: qd1,
-                g: &qd1_g,
-                h: &zero_h,
-            },
-            surv0,
-            surv1,
-            wi,
-            di,
             p,
         );
-        let value = out.v + wi * di * std::f64::consts::TAU.ln();
-        let grad = Array1::from(out.g);
-        let hess = Array2::from_shape_vec((p, p), out.h).map_err(|e| e.to_string())?;
+        let value = row_value + wi * di * std::f64::consts::TAU.ln();
+        let grad = Array1::from(row_gradient);
+        let hess =
+            Array2::from_shape_vec((p, p), row_hessian).map_err(|e| e.to_string())?;
         Ok((value, grad, hess))
     }
 
@@ -1175,9 +1373,10 @@ impl MomentTerm for Jet1 {
 /// jets) and dotting against the NUMERIC moments gives the interior
 /// `Σ_m S_m·M_{n+m}^{numeric}` — exact to every order because the `e^{−Δq}`
 /// expansion already contains the `(∂q)²` cross-term and higher. The truncation
-/// `e^{−Δq} ≈ Σ_{k≤4} (−Δq)^k/k!` is exact for the Jet≤4 nilpotency (`Δq` has
-/// value 0, so `(−Δq)^5` only feeds 5th-and-higher derivatives the order-≤4 jets
-/// discard). The boundary is the Leibniz flux `+ f(z_R)·z_R' − f(z_L)·z_L'`,
+/// `e^{−Δq} ≈ Σ_{k≤J::ORDER} (−Δq)^k/k!` is exact in each instantiated
+/// nilpotent algebra (`Δq` has value 0, so the next power only feeds derivative
+/// orders that `J` does not represent). The boundary is the Leibniz flux
+/// `+ f(z_R)·z_R' − f(z_L)·z_L'`,
 /// integrand VALUE at the moving endpoint times the edge θ-velocity jet (exact to
 /// all orders via the edge-jet algebra).
 fn base_moment_jets<J: FlexJet>(
@@ -1188,6 +1387,19 @@ fn base_moment_jets<J: FlexJet>(
     right_finite: bool,
     numeric_moments: &[f64],
 ) -> [J; 5] {
+    assert!(
+        (1..=4).contains(&J::ORDER),
+        "base_moment_jets supports exact derivative orders 1 through 4"
+    );
+    let required_moments = 5 + 6 * J::ORDER;
+    assert!(
+        numeric_moments.len() >= required_moments,
+        "order-{} base-moment jet requires numeric M_0..M_{}, got only {} moments",
+        J::ORDER,
+        required_moments - 1,
+        numeric_moments.len()
+    );
+
     // η₀ = value-only coefficient jets; jet-polynomial convolution helper.
     let c0_const: [J; 4] = std::array::from_fn(|k| const_jet_like(&c[k], c[k].value()));
     let conv = |lhs: &[J], rhs: &[J]| -> Vec<J> {
@@ -1209,10 +1421,13 @@ fn base_moment_jets<J: FlexJet>(
         .zip(eta0_sq.iter())
         .map(|(a, b)| a.sub(b).scale(-0.5))
         .collect();
-    // S(z) = e^{−Δq} = Σ_{k=0}^{4} (−Δq)^k / k!  (jet-coefficient polynomial),
-    // splitting e^{−q(θ)} = e^{−q0}·e^{−Δq}, Δq = q(θ)−q0. Truncating at k=p=4
-    // is EXACT for the order-≤4 jets: value(−Δq)=0 ⇒ −Δq ∈ m (nilpotent) ⇒
-    // (−Δq)^{p+1} = 0.
+    // S(z) = e^{−Δq} = Σ_{k=0}^{J::ORDER} (−Δq)^k / k!
+    // (jet-coefficient polynomial),
+    // splitting e^{−q(θ)} = e^{−q0}·e^{−Δq}, Δq = q(θ)−q0. Truncating at
+    // p=J::ORDER is EXACT: value(−Δq)=0 ⇒ −Δq ∈ m (nilpotent) ⇒
+    // (−Δq)^{p+1} = 0. Using the instantiated order is not an approximation:
+    // evaluating the order-four polynomial in Jet1/2/3 previously spent most
+    // of its time constructing channels that are identically zero.
     //
     // MOMENT-DEGREE BUDGET. η is cubic ⇒ deg_z(Δq) ≤ 6, so deg_z(S) ≤ 6p, and
     // the interior dot `Σ_m S_m·M_{n+m}` below reaches `M_{n+6p}`. An order-`p`
@@ -1222,7 +1437,7 @@ fn base_moment_jets<J: FlexJet>(
     let mut s_poly: Vec<J> = vec![const_jet_like(&c[0], 1.0)];
     let mut power: Vec<J> = s_poly.clone();
     let factorials = [1.0_f64, 1.0, 2.0, 6.0, 24.0];
-    for fact in factorials.iter().skip(1) {
+    for fact in factorials.iter().take(J::ORDER + 1).skip(1) {
         power = conv(&power, &neg_dq);
         for (m, coeff) in power.iter().enumerate() {
             let term = coeff.scale(1.0 / fact);
@@ -1250,7 +1465,7 @@ fn base_moment_jets<J: FlexJet>(
     std::array::from_fn(|n| {
         let mut acc = const_jet_like(&c[0], 0.0);
         for (m, s_m) in s_poly.iter().enumerate() {
-            let m_npm = numeric_moments.get(n + m).copied().unwrap_or(0.0);
+            let m_npm = numeric_moments[n + m];
             if m_npm != 0.0 {
                 acc = acc.add(&s_m.scale(m_npm));
             }
@@ -1269,9 +1484,11 @@ fn base_moment_jets<J: FlexJet>(
 /// 0, derivative channels = the §D moving-boundary flux to all orders). With
 /// `δ = z_E − z_E0` (jet, value 0) and `g(z) = zⁿ e^{−q}`,
 /// `∫_{z_E0}^{z_E} g dz = g·δ + ½ g_z δ² + ⅙ g_zz δ³ + (1/24) g_zzz δ⁴` (Taylor
-/// in δ; δ⁵ vanishes for the order-≤4 jets). `g`, `g_z`, … are evaluated at the
-/// FIXED edge `z_E0` but with the θ-dependent coefficient jets `c`, so the sliver
-/// carries the full coefficient × edge cross-motion. `q = ½(z² + η²)`,
+/// in δ; the instantiated [`FlexJet::ORDER`] selects the exact prefix because
+/// the next δ power vanishes in that nilpotent quotient). `g`, `g_z`, … are
+/// evaluated at the FIXED edge `z_E0` but with the θ-dependent coefficient jets
+/// `c`, so the sliver carries the full coefficient × edge cross-motion.
+/// `q = ½(z² + η²)`,
 /// `q_z = z + η η_z`, `η_z = c1 + 2c2 z + 3c3 z²`; the `g`-stack follows from
 /// `g_z = (n/z − q_z) g` by the product/chain rule.
 ///
@@ -1294,7 +1511,8 @@ fn edge_sliver_jet<J: FlexJet>(n: usize, c: &[J; 4], z_e: &J, finite: bool) -> O
     }
     let z0 = z_e.value();
     let zc = const_jet_like(z_e, z0); // fixed edge, value-only
-    // η, η_z, η_zz, η_zzz at the fixed edge as jets (in c).
+    // η at the fixed edge as a jet in c. Higher z-derivatives are constructed
+    // lazily below only when the instantiated nilpotent order can consume them.
     let eta = c[3]
         .mul(&zc)
         .add(&c[2])
@@ -1302,17 +1520,6 @@ fn edge_sliver_jet<J: FlexJet>(n: usize, c: &[J; 4], z_e: &J, finite: bool) -> O
         .add(&c[1])
         .mul(&zc)
         .add(&c[0]);
-    let eta_z = c[2]
-        .scale(2.0)
-        .add(&c[3].scale(3.0).mul(&zc))
-        .mul(&zc)
-        .add(&c[1]); // c1 + 2c2 z + 3c3 z²
-    let eta_zz = c[2].scale(2.0).add(&c[3].scale(6.0).mul(&zc)); // 2c2 + 6c3 z
-    let eta_zzz = c[3].scale(6.0); // 6c3
-    // q_z = z + η η_z ; q_zz = 1 + η_z² + η η_zz ; q_zzz = 3 η_z η_zz + η η_zzz
-    let q_z = zc.add(&eta.mul(&eta_z));
-    let q_zz = add_const(&eta_z.mul(&eta_z).add(&eta.mul(&eta_zz)), 1.0);
-    let q_zzz = eta_z.scale(3.0).mul(&eta_zz).add(&eta.mul(&eta_zzz));
     // g = zⁿ e^{−q}.
     let z_pow = {
         let mut zk = const_jet_like(z_e, 1.0);
@@ -1324,6 +1531,19 @@ fn edge_sliver_jet<J: FlexJet>(n: usize, c: &[J; 4], z_e: &J, finite: bool) -> O
     let q = zc.mul(&zc).add(&eta.mul(&eta)).scale(0.5);
     let w = exp_jet(&q.scale(-1.0));
     let g = z_pow.mul(&w);
+    let delta = tangent_jet(z_e);
+    let mut sliver = g.mul(&delta);
+    if J::ORDER == 1 {
+        return Some(sliver);
+    }
+
+    // η_z and q_z are needed starting at the δ² term.
+    let eta_z = c[2]
+        .scale(2.0)
+        .add(&c[3].scale(3.0).mul(&zc))
+        .mul(&zc)
+        .add(&c[1]); // c1 + 2c2 z + 3c3 z²
+    let q_z = zc.add(&eta.mul(&eta_z));
     // n/z^k constants (z held at the fixed edge); 0 when n=0 or z0=0.
     let nz = |power: i32| -> J {
         if n == 0 || z0 == 0.0 {
@@ -1332,27 +1552,42 @@ fn edge_sliver_jet<J: FlexJet>(n: usize, c: &[J; 4], z_e: &J, finite: bool) -> O
             const_jet_like(z_e, n as f64 / z0.powi(power))
         }
     };
-    // g_z/g = a1 = n/z − q_z ; a1' = −n/z² − q_zz ; a1'' = 2n/z³ − q_zzz.
+    // g_z/g = a1 = n/z − q_z.
     let a1 = nz(1).sub(&q_z);
-    let a1p = nz(2).scale(-1.0).sub(&q_zz);
-    let a1pp = nz(3).scale(2.0).sub(&q_zzz);
     let g_z = a1.mul(&g);
-    // g_zz/g = b2 = a1' + a1² ; g_zzz/g = b2' + a1 b2, b2' = a1'' + 2 a1 a1'.
+    let d2 = delta.mul(&delta);
+    sliver = sliver.add(&g_z.mul(&d2).scale(0.5));
+    if J::ORDER == 2 {
+        return Some(sliver);
+    }
+
+    // η_zz, q_zz and a1' first contribute through the δ³ term.
+    let eta_zz = c[2].scale(2.0).add(&c[3].scale(6.0).mul(&zc)); // 2c2 + 6c3 z
+    let q_zz = add_const(&eta_z.mul(&eta_z).add(&eta.mul(&eta_zz)), 1.0);
+    let a1p = nz(2).scale(-1.0).sub(&q_zz);
+    // g_zz/g = b2 = a1' + a1².
     let b2 = a1p.add(&a1.mul(&a1));
     let g_zz = b2.mul(&g);
+    let d3 = d2.mul(&delta);
+    sliver = sliver.add(&g_zz.mul(&d3).scale(1.0 / 6.0));
+    if J::ORDER == 3 {
+        return Some(sliver);
+    }
+
+    // The fourth-order quotient is the only one that can observe g_zzz·δ⁴.
+    assert_eq!(
+        J::ORDER,
+        4,
+        "edge sliver supports derivative orders 1 through 4"
+    );
+    let eta_zzz = c[3].scale(6.0); // 6c3
+    let q_zzz = eta_z.scale(3.0).mul(&eta_zz).add(&eta.mul(&eta_zzz));
+    let a1pp = nz(3).scale(2.0).sub(&q_zzz);
+    // g_zzz/g = b2' + a1 b2, b2' = a1'' + 2 a1 a1'.
     let b2p = a1pp.add(&a1.mul(&a1p).scale(2.0));
     let g_zzz = b2p.add(&a1.mul(&b2)).mul(&g);
-    // δ-power jets (δ value 0).
-    let delta = tangent_jet(z_e);
-    let d2 = delta.mul(&delta);
-    let d3 = d2.mul(&delta);
     let d4 = d3.mul(&delta);
-    Some(
-        g.mul(&delta)
-            .add(&g_z.mul(&d2).scale(0.5))
-            .add(&g_zz.mul(&d3).scale(1.0 / 6.0))
-            .add(&g_zzz.mul(&d4).scale(1.0 / 24.0)),
-    )
+    Some(sliver.add(&g_zzz.mul(&d4).scale(1.0 / 24.0)))
 }
 
 /// #932 item-2 STEP 3c: the GENERIC-order timepoint `(eta, chi, d)` builder over
@@ -2367,6 +2602,80 @@ impl SurvivalMarginalSlopeFamily {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// #932 nested-dual ORACLE instantiation of the single-source flex geometry.
+//
+// `gam_math::nested_dual::Dual22 = Dual2<Dual2<f64>>` carries a truncation-FREE
+// forward-over-forward derivative in TWO independent scalar directions `(s, t)`,
+// each to 2nd order (2 + 2 = 4th-order bidirectional). Instantiating the SAME
+// `flex_timepoint_inputs_generic` geometry over it — with every primary seeded
+// as `base_i + s·d1_i + t·d2_i` — makes the `∂²_s ∂²_t` channel (`channels()[8]`)
+// equal to the full arbitrary-weight bidirectional contraction
+//   Σ_abcd ℓ_abcd · d1_a d1_b d2_c d2_d
+// via a DIFFERENT composition ordering than the production p-primary `Jet4`.
+// This is the truncation-free replacement for the flex jet4 bidirectional's
+// scalar-FD sanity gate (the last FD-limited seam in the #932 tower). It is an
+// ORACLE only — never used on the production sweep — so it lives beside, not
+// inside, the p-primary jet types.
+use gam_math::nested_dual::{Dual22, JetField};
+
+impl FlexJet for Dual22 {
+    // The 2+2 nesting auto-zeros `s³`/`t³`, so the highest represented order in
+    // EITHER direction is 2 — but the mixed tower reaches `∂²_s ∂²_t` (order 4).
+    // `base_moment_jets`' `e^{−Δq}` truncation stops at `(−Δq)^{ORDER}`; ORDER=4
+    // makes it exact for every channel this dual represents. The scalar-field
+    // algebra (value / add / sub / mul / neg / scale / compose_unary) is inherited
+    // directly from the shared `JetField` base impl on `Dual2<S>` — no local
+    // re-declaration, the whole point of the unified algebra base.
+    const ORDER: usize = 4;
+}
+
+impl MomentTerm for Dual22 {
+    fn moment_term(&self, m: &Self) -> Self {
+        // The layout-independent Leibniz-weighted moving-boundary residual term
+        // (same math as the `Jet2` impl, re-expressed in the two-direction
+        // `(s, t)` channel layout). `self` = c_k (coefficient jet, value
+        // stripped), `m` = M_k (moment jet). For a target channel of order
+        // `α = (a in s, b in t)`, sum over every split that puts `(j, l)` of the
+        // derivatives on `c` (the rest on `M`), excluding the pure-`M` split
+        // `(0, 0)` (c's value is carried by the scalar seed, not here). Each
+        // split's weight is `|β| / |α| = (j + l) / (a + b)`, times the
+        // multinomial multiplicity `C(a, j)·C(b, l)` for choosing which
+        // same-direction derivatives land on `c`.
+        let c = self.channels();
+        let mm = m.channels();
+        // `(s-order, t-order) → channels() index`, keyed to `Dual22::channels`:
+        //   [v.v, g.v, v.g, h.v, g.g, v.h, h.g, g.h, h.h]
+        //  = [(0,0),(1,0),(0,1),(2,0),(1,1),(0,2),(2,1),(1,2),(2,2)].
+        const IDX: [[usize; 3]; 3] = [[0, 2, 5], [1, 4, 7], [3, 6, 8]];
+        // Binomial C(n, k) for n, k ∈ {0, 1, 2}.
+        const BINOM: [[f64; 3]; 3] =
+            [[1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 2.0, 1.0]];
+        let mut out = [0.0f64; 9];
+        for a in 0..=2usize {
+            for b in 0..=2usize {
+                let total = a + b;
+                if total == 0 {
+                    continue; // value channel: stripped.
+                }
+                let mut acc = 0.0;
+                for j in 0..=a {
+                    for l in 0..=b {
+                        if j + l == 0 {
+                            continue; // pure-M split dropped.
+                        }
+                        let w = BINOM[a][j] * BINOM[b][l] * ((j + l) as f64)
+                            / (total as f64);
+                        acc += w * c[IDX[j][l]] * mm[IDX[a - j][b - l]];
+                    }
+                }
+                out[IDX[a][b]] = acc;
+            }
+        }
+        Dual22::from_channels(out)
+    }
+}
+
 #[cfg(test)]
 mod moment_engine_tests {
     use super::*;
@@ -2374,6 +2683,56 @@ mod moment_engine_tests {
     use crate::marginal_slope_shared::eval_coeff4_at;
     use gam_math::jet_scalar::{Order2, filtered_implicit_solve_scalar};
     use gam_math::jet_tower::Tower2;
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    /// Test-only execution policy that runs the historical order-four moment
+    /// construction over a lower-order algebra. The wrapped arithmetic is
+    /// unchanged, so this is an exact pre-optimization timing baseline rather
+    /// than a separately re-derived moment formula.
+    #[derive(Clone)]
+    struct ForcedOrder4<J>(J);
+
+    impl<J: FlexJet> JetField for ForcedOrder4<J> {
+        #[inline(always)]
+        fn value(&self) -> f64 {
+            self.0.value()
+        }
+
+        #[inline(always)]
+        fn add(&self, other: &Self) -> Self {
+            Self(self.0.add(&other.0))
+        }
+
+        #[inline(always)]
+        fn sub(&self, other: &Self) -> Self {
+            Self(self.0.sub(&other.0))
+        }
+
+        #[inline(always)]
+        fn mul(&self, other: &Self) -> Self {
+            Self(self.0.mul(&other.0))
+        }
+
+        #[inline(always)]
+        fn neg(&self) -> Self {
+            Self(self.0.neg())
+        }
+
+        #[inline(always)]
+        fn scale(&self, scale: f64) -> Self {
+            Self(self.0.scale(scale))
+        }
+
+        #[inline(always)]
+        fn compose_unary(&self, derivatives: [f64; 5]) -> Self {
+            Self(self.0.compose_unary(derivatives))
+        }
+    }
+
+    impl<J: FlexJet> FlexJet for ForcedOrder4<J> {
+        const ORDER: usize = 4;
+    }
 
     // #932-2 cutover: the hand IFT intercept-Hessian lift (`lift_flex_intercept_hessian`
     // + its `lift_intercept_order2` Order2 dispatch) is consumed only by the hand
@@ -3007,12 +3366,216 @@ mod moment_engine_tests {
         }
     }
 
+    /// The order-aware nilpotent schedule must preserve every represented
+    /// channel while eliminating the historical order-four work from Jet1/2.
+    /// `ForcedOrder4` delegates to the identical underlying arithmetic and only
+    /// overrides the execution order, making it an exact pre-change baseline.
+    #[test]
+    fn measure_base_moment_instantiated_order_vs_forced_four_932() {
+        use crate::cubic_cell_kernel::evaluate_cell_moments;
+
+        let cell = DenestedCubicCell {
+            left: -1.2,
+            right: 1.7,
+            c0: 0.25,
+            c1: -0.35,
+            c2: 0.4,
+            c3: 0.15,
+        };
+        let numeric = evaluate_cell_moments(cell, 28)
+            .expect("numeric cell moments")
+            .moments
+            .into_vec();
+        let p = 6usize;
+        let gradient = |scale: f64| -> Vec<f64> {
+            (0..p)
+                .map(|axis| scale * (axis as f64 + 1.0) / p as f64)
+                .collect()
+        };
+        let hessian = |scale: f64| -> Vec<f64> {
+            let mut out = vec![0.0; p * p];
+            for i in 0..p {
+                for j in 0..p {
+                    out[i * p + j] = scale * (i + j + 1) as f64 / (p * p) as f64;
+                }
+            }
+            out
+        };
+
+        let c1: [Jet1; 4] = [
+            Jet1 {
+                v: cell.c0,
+                g: gradient(0.13),
+            },
+            Jet1 {
+                v: cell.c1,
+                g: gradient(-0.21),
+            },
+            Jet1 {
+                v: cell.c2,
+                g: gradient(0.17),
+            },
+            Jet1 {
+                v: cell.c3,
+                g: gradient(0.09),
+            },
+        ];
+        let left1 = Jet1 {
+            v: cell.left,
+            g: gradient(-0.23),
+        };
+        let right1 = Jet1 {
+            v: cell.right,
+            g: gradient(0.31),
+        };
+        let forced_c1 = c1.clone().map(ForcedOrder4);
+        let forced_left1 = ForcedOrder4(left1.clone());
+        let forced_right1 = ForcedOrder4(right1.clone());
+
+        let c2: [Jet2; 4] = [
+            Jet2::from_parts(cell.c0, &gradient(0.13), &hessian(0.017)),
+            Jet2::from_parts(cell.c1, &gradient(-0.21), &hessian(-0.011)),
+            Jet2::from_parts(cell.c2, &gradient(0.17), &hessian(0.019)),
+            Jet2::from_parts(cell.c3, &gradient(0.09), &hessian(-0.007)),
+        ];
+        let left2 = Jet2::from_parts(cell.left, &gradient(-0.23), &hessian(0.013));
+        let right2 = Jet2::from_parts(cell.right, &gradient(0.31), &hessian(-0.015));
+        let forced_c2 = c2.clone().map(ForcedOrder4);
+        let forced_left2 = ForcedOrder4(left2.clone());
+        let forced_right2 = ForcedOrder4(right2.clone());
+
+        let native1 = base_moment_jets(&c1, &left1, true, &right1, true, &numeric);
+        let historical1 = base_moment_jets(
+            &forced_c1,
+            &forced_left1,
+            true,
+            &forced_right1,
+            true,
+            &numeric,
+        );
+        let native2 = base_moment_jets(&c2, &left2, true, &right2, true, &numeric);
+        let historical2 = base_moment_jets(
+            &forced_c2,
+            &forced_left2,
+            true,
+            &forced_right2,
+            true,
+            &numeric,
+        );
+        let close = |got: f64, want: f64, label: &str| {
+            let tolerance = 1e-12 * got.abs().max(want.abs()).max(1.0);
+            assert!((got - want).abs() <= tolerance, "{label}: {got} != {want}");
+        };
+        for n in 0..5 {
+            close(
+                native1[n].v,
+                historical1[n].0.v,
+                &format!("Jet1 M{n} value"),
+            );
+            for i in 0..p {
+                close(
+                    native1[n].g[i],
+                    historical1[n].0.g[i],
+                    &format!("Jet1 M{n} gradient[{i}]"),
+                );
+            }
+            close(
+                native2[n].v,
+                historical2[n].0.v,
+                &format!("Jet2 M{n} value"),
+            );
+            for i in 0..p {
+                close(
+                    native2[n].g[i],
+                    historical2[n].0.g[i],
+                    &format!("Jet2 M{n} gradient[{i}]"),
+                );
+                for j in 0..p {
+                    close(
+                        native2[n].h[i * p + j],
+                        historical2[n].0.h[i * p + j],
+                        &format!("Jet2 M{n} Hessian[{i},{j}]"),
+                    );
+                }
+            }
+        }
+
+        let iterations = if cfg!(debug_assertions) { 4 } else { 5_000 };
+        let mut native1_best = f64::INFINITY;
+        let mut historical1_best = f64::INFINITY;
+        let mut native2_best = f64::INFINITY;
+        let mut historical2_best = f64::INFINITY;
+        for _ in 0..5 {
+            let start = Instant::now();
+            for _ in 0..iterations {
+                black_box(base_moment_jets(
+                    black_box(&c1),
+                    black_box(&left1),
+                    true,
+                    black_box(&right1),
+                    true,
+                    black_box(&numeric),
+                ));
+            }
+            native1_best = native1_best.min(start.elapsed().as_secs_f64());
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                black_box(base_moment_jets(
+                    black_box(&forced_c1),
+                    black_box(&forced_left1),
+                    true,
+                    black_box(&forced_right1),
+                    true,
+                    black_box(&numeric),
+                ));
+            }
+            historical1_best = historical1_best.min(start.elapsed().as_secs_f64());
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                black_box(base_moment_jets(
+                    black_box(&c2),
+                    black_box(&left2),
+                    true,
+                    black_box(&right2),
+                    true,
+                    black_box(&numeric),
+                ));
+            }
+            native2_best = native2_best.min(start.elapsed().as_secs_f64());
+
+            let start = Instant::now();
+            for _ in 0..iterations {
+                black_box(base_moment_jets(
+                    black_box(&forced_c2),
+                    black_box(&forced_left2),
+                    true,
+                    black_box(&forced_right2),
+                    true,
+                    black_box(&numeric),
+                ));
+            }
+            historical2_best = historical2_best.min(start.elapsed().as_secs_f64());
+        }
+        let to_ns = |seconds: f64| seconds * 1e9 / iterations as f64;
+        let native1_ns = to_ns(native1_best);
+        let historical1_ns = to_ns(historical1_best);
+        let native2_ns = to_ns(native2_best);
+        let historical2_ns = to_ns(historical2_best);
+        eprintln!(
+            "FLEX-MOMENT-ORDER-932 jet1={native1_ns:.2} ns historical-order4-jet1={historical1_ns:.2} ns speedup1={:.3}x jet2={native2_ns:.2} ns historical-order4-jet2={historical2_ns:.2} ns speedup2={:.3}x",
+            historical1_ns / native1_ns,
+            historical2_ns / native2_ns,
+        );
+    }
+
     /// #932 item-2 Phase B-base: the base-moment jet builder `base_moment_jets`
     /// must reproduce the FIRST θ-derivatives of the normalization base moments
     /// `M_0..M_4` (interior `Σ_m S_m M_{n+m}` + moving-edge sliver flux) against a
     /// central finite difference of `evaluate_cell_moments` on a smooth one-
     /// parameter cell family `c_k(θ)=c_k0+θ·dc_k`, `z_{L,R}(θ)=z0+θ·v`. The
-    /// gradient channel of the `Jet2` (seeded with `dc`/`v` in primary slot 0) is
+    /// gradient channel of the order-exact `Jet1` (seeded with `dc`/`v` in primary slot 0) is
     /// the analytic `dM_n/dθ`; the value channel is the numeric `M_n`.
     #[test]
     fn base_moment_jets_first_derivative_matches_fd_932() {
@@ -3048,7 +3611,7 @@ mod moment_engine_tests {
         let seeded = |x: f64, vel: f64| {
             let mut g = vec![0.0; p];
             g[0] = vel;
-            Jet2::from_parts(x, &g, &[])
+            Jet1 { v: x, g }
         };
         let c_jets = [
             seeded(c0[0], dc[0]),
@@ -3106,13 +3669,11 @@ mod moment_engine_tests {
             c2: c0[2] + theta * dc[2],
             c3: c0[3] + theta * dc[3],
         };
-        // The `e^{−Δq}` interior closure expands `S(z)=Σ_{k≤4}(−Δq)^k/k!`; for the
-        // SECOND θ-derivative the `(−Δq)²` term (degree-12 in z, since η is cubic so
-        // `−Δq=½(η²−η₀²)` is degree-6) reaches `M_{n+12}` (up to `M_16` for `n≤4`). A
-        // `max_degree` of 12 silently `unwrap_or(0.0)`s those high-degree moments,
-        // truncating the analytic second derivative (~1.5% on `M_1`). Production
-        // builds the cached moments to order 27 (`build_cached_partition`); match it
-        // so the moment dot is complete to every order the Jet2 Hessian reads.
+        // The order-two `e^{−Δq}` interior closure retains
+        // `S(z)=Σ_{k≤2}(−Δq)^k/k!`. Its `(−Δq)²` term is degree 12 in z (η is
+        // cubic, hence Δq degree 6) and reaches `M_{n+12}`, up to `M_16` for
+        // n≤4. Production builds cached moments beyond that; match the complete
+        // budget so every Jet2 Hessian channel is exact.
         let max_degree = 27usize;
         let moments_at = |theta: f64| -> Vec<f64> {
             evaluate_cell_moments(cell_at(theta), max_degree)
@@ -3465,7 +4026,7 @@ mod moment_engine_tests {
         // Jet build: single primary (slot 0) = the intercept axis, velocity 1.
         let seeded = |x: f64, vel: f64| {
             let g = vec![vel];
-            Jet2::from_parts(x, &g, &[])
+            Jet1 { v: x, g }
         };
         let cell0 = cell_at(0.0);
         let c_jets = [
@@ -3604,7 +4165,11 @@ mod moment_engine_tests {
             c2: 0.15,
             c3: 0.05,
         };
-        let numeric = evaluate_cell_moments(cell, 9)
+        // Jet2 carries an exact order-two moment polynomial, whose cubic η
+        // requires M_0..M_16 even though this witness only reads the lifted
+        // intercept gradient. Supplying the complete algebra avoids silently
+        // constructing a truncated Hessian behind that gradient check.
+        let numeric = evaluate_cell_moments(cell, 16)
             .expect("numeric moments")
             .moments
             .into_vec();
@@ -4474,6 +5039,147 @@ mod moment_engine_tests {
         cmp_mat("d_uv_uv", &dnorm.eps_del.h, &hand.d_uv_uv);
     }
 
+    /// #932 item-2 STEP 4 (TRUNCATION-FREE gate): the nested-dual ORACLE `Dual22`
+    /// instantiation of `flex_timepoint_inputs_generic` reproduces the production
+    /// p-primary `Jet4` instantiation's mixed 4th-order bidirectional contraction
+    /// EXACTLY, via an INDEPENDENT `2 + 2` composition order (not `2 + 1 + 1`).
+    ///
+    /// `Dual22` seeds two scalar directions `s = d1`, `t = d2` (each to 2nd order)
+    /// and reads the `∂²_s ∂²_t` channel `= Σ_abcd ℓ_abcd d1_a d1_b d2_c d2_d`.
+    /// The `Jet4` path seeds `eps = del = d2` — matrix `Σ_cd ℓ_uvcd d2_c d2_d` —
+    /// then contracts both free axes by `d1`; the same scalar by ℓ's symmetry.
+    /// Neither path uses a finite difference nor the incomplete §D hand oracle, so
+    /// this replaces the flex jet4 bidirectional's 1e-3 scalar-FD sanity (the last
+    /// FD-limited seam in the #932 tower) with a machine-precision independent
+    /// check. Several random `(d1, d2)` pin the whole tensor, not one slice.
+    #[test]
+    fn flex_timepoint_inputs_nested_dual_matches_jet4_contraction_932() {
+        let n = 16usize;
+        let family = make_ghw_flex_family(n);
+        let primary = flex_primary_slices(&family);
+        let p = primary.total;
+        let row = 6usize;
+        let g = 0.2_f64;
+
+        let h_len = primary.h.as_ref().map(|r| r.len()).unwrap_or(0);
+        let w_len = primary.w.as_ref().map(|r| r.len()).unwrap_or(0);
+        let beta_h = Array1::from_iter(
+            (0..h_len).map(|i| 0.1 + 0.05 * (i as f64) - 0.02 * ((i % 2) as f64)),
+        );
+        let beta_w = Array1::from_iter(
+            (0..w_len).map(|i| -0.08 + 0.04 * (i as f64) + 0.01 * ((i % 3) as f64)),
+        );
+        let bh = Some(&beta_h);
+        let bw = Some(&beta_w);
+
+        let m_beta = 0.15_f64;
+        let q1 = family.offset_exit[row] + family.marginal_design.to_dense()[[row, 0]] * m_beta;
+        let o_infl = 0.0_f64;
+        let solved = family
+            .solve_row_survival_intercept_with_slot(
+                q1,
+                g,
+                bh,
+                bw,
+                Some((row, SurvivalInterceptSlotKind::Exit)),
+            )
+            .expect("intercept solve");
+        let a1 = solved.0;
+        let cached = family
+            .build_cached_partition(&primary, a1, g, bh, bw)
+            .expect("cached partition");
+        let (obs_coeff, obs_fixed) =
+            observed_fixed_for(&family, &primary, row, a1, g, bh, bw).expect("obs fixed");
+        let cells = cells_from_cached(&cached);
+        let z_obs = family.observed_score_projection(row);
+        let d_check = family
+            .evaluate_survival_denom_d(a1, g, bh, bw)
+            .expect("denom");
+
+        for trial in 0..4usize {
+            let f = trial as f64;
+            let d1 = Array1::from_iter((0..p).map(|c| {
+                0.11 + 0.03 * (c as f64) - 0.02 * (((c + trial) % 2) as f64) + 0.01 * f
+            }));
+            let d2 = Array1::from_iter((0..p).map(|c| {
+                -0.06 + 0.045 * (((c + trial) % 3) as f64) + 0.02 * (c as f64) - 0.015 * f
+            }));
+
+            // Production p-primary Jet4: eps = del = d2 ⇒ matrix Σ_cd ℓ_uvcd d2_c d2_d.
+            let tpl4 = Jet4::primary(0.0, usize::MAX, p, 0.0, 0.0);
+            let b4 = Jet4::primary(g, primary.g, p, d2[primary.g], d2[primary.g]);
+            let du4: Vec<Jet4> = (0..p)
+                .map(|u| Jet4::primary(0.0, u, p, d2[u], d2[u]))
+                .collect();
+            let (eta4, chi4, d4) = flex_timepoint_inputs_generic(
+                &tpl4,
+                &b4,
+                &du4,
+                a1,
+                d_check,
+                primary.g,
+                primary.infl,
+                primary.q1,
+                q1,
+                z_obs,
+                o_infl,
+                obs_coeff,
+                &obs_fixed,
+                &cells,
+            )
+            .expect("generic jet4");
+            let contract = |m: &Vec<f64>| -> f64 {
+                let mut s = 0.0;
+                for u in 0..p {
+                    for v in 0..p {
+                        s += d1[u] * d1[v] * m[u * p + v];
+                    }
+                }
+                s
+            };
+            let eta_ref = contract(&eta4.eps_del.h);
+            let chi_ref = contract(&chi4.eps_del.h);
+            let d_ref = contract(&d4.eps_del.h);
+
+            // Nested-dual ORACLE: s = d1, t = d2 ⇒ channel ∂²_s ∂²_t.
+            let tpl2 = Dual22::seed_directional(0.0, 0.0, 0.0);
+            let b2 = Dual22::seed_directional(g, d1[primary.g], d2[primary.g]);
+            let du2: Vec<Dual22> = (0..p)
+                .map(|u| Dual22::seed_directional(0.0, d1[u], d2[u]))
+                .collect();
+            let (eta2, chi2, d2n) = flex_timepoint_inputs_generic(
+                &tpl2,
+                &b2,
+                &du2,
+                a1,
+                d_check,
+                primary.g,
+                primary.infl,
+                primary.q1,
+                q1,
+                z_obs,
+                o_infl,
+                obs_coeff,
+                &obs_fixed,
+                &cells,
+            )
+            .expect("generic dual22");
+            let eta_got = eta2.channels()[8];
+            let chi_got = chi2.channels()[8];
+            let d_got = d2n.channels()[8];
+
+            let check = |label: &str, got: f64, refv: f64| {
+                assert!(
+                    (got - refv).abs() <= 1e-9 * (1.0 + refv.abs()),
+                    "trial {trial} {label}: nested-dual {got} != jet4 contraction {refv}"
+                );
+            };
+            check("eta_uv_uv", eta_got, eta_ref);
+            check("chi_uv_uv", chi_got, chi_ref);
+            check("d_uv_uv", d_got, d_ref);
+        }
+    }
+
     // ── §3c h/w channels: g+h+w directional/bidirectional gate ──────────────────
     //
     // With score-warp(`h`) AND link-dev(`w`) active, the OBSERVED eta/chi carry the
@@ -4883,13 +5589,11 @@ mod moment_engine_tests {
 }
 
 #[cfg(test)]
-mod fused_jet2_oracle_tests {
-    //! Gate: the fused single-allocation Jet2 row-NLL evaluator
-    //! ([`fused_row_nll_jet2`]) is `f64::to_bits`-identical to the generic
-    //! single-source [`flex_row_nll`] instantiated at [`Jet2`] — value, gradient,
-    //! and Hessian, channel-for-channel — over ≥2000 random inputs at several
-    //! primary counts `p`. This pins the production fast path used by
-    //! `flex_row_nll_value_grad_hess` (`want_hess`) to the doctrine single source.
+mod compiled_order2_oracle_tests {
+    //! Gate: the two-output-allocation order-two lowering of [`FlexOuterPlan`]
+    //! agrees to `1e-12` with the same plan evaluated through generic [`Jet2`]
+    //! — value, gradient, and Hessian, channel-for-channel — over ≥2000 random
+    //! inputs at several primary counts `p`.
     use super::*;
 
     fn xorshift(state: &mut u64) -> f64 {
@@ -4917,7 +5621,7 @@ mod fused_jet2_oracle_tests {
     }
 
     #[test]
-    fn fused_jet2_row_nll_is_bit_identical_to_generic() {
+    fn compiled_order2_row_nll_matches_generic_plan() {
         for &p in &[3usize, 6, 9, 12, 20] {
             let mut st = 0x5DEE_CE66_D9C7_F123u64 ^ (p as u64).wrapping_mul(0x9E3779B97F4A7C15);
             for _ in 0..2200 {
@@ -4950,64 +5654,50 @@ mod fused_jet2_oracle_tests {
                     di,
                 );
 
-                // Fused production path.
-                let zero_h = vec![0.0; p * p];
-                let mut qg = vec![0.0; p];
-                qg[qax] = 1.0;
-                let mut qdg = vec![0.0; p];
-                qdg[qdax] = 1.0;
-                let f_out = fused_row_nll_jet2(
-                    &FusedSrc {
-                        v: e0v,
-                        g: &e0g,
-                        h: &e0h,
+                // Production compiled lowering of that exact plan.
+                let plan = FlexOuterPlan::new(cv, dv, qd1v, surv0, surv1, wi, di);
+                let (f_value, f_gradient, f_hessian) = lower_flex_outer_plan_order2(
+                    &plan,
+                    FlexOrder2Inputs {
+                        eta0: FlexOrder2View {
+                            value: e0v,
+                            gradient: ndarray::ArrayView1::from(&e0g),
+                            hessian: ndarray::ArrayView2::from_shape((p, p), &e0h).unwrap(),
+                        },
+                        eta1: FlexOrder2View {
+                            value: e1v,
+                            gradient: ndarray::ArrayView1::from(&e1g),
+                            hessian: ndarray::ArrayView2::from_shape((p, p), &e1h).unwrap(),
+                        },
+                        q1: (q1v, qax),
+                        chi1: FlexOrder2View {
+                            value: cv,
+                            gradient: ndarray::ArrayView1::from(&cg),
+                            hessian: ndarray::ArrayView2::from_shape((p, p), &ch).unwrap(),
+                        },
+                        d1: FlexOrder2View {
+                            value: dv,
+                            gradient: ndarray::ArrayView1::from(&dg),
+                            hessian: ndarray::ArrayView2::from_shape((p, p), &dh).unwrap(),
+                        },
+                        qd1: (qd1v, qdax),
                     },
-                    &FusedSrc {
-                        v: e1v,
-                        g: &e1g,
-                        h: &e1h,
-                    },
-                    &FusedSrc {
-                        v: cv,
-                        g: &cg,
-                        h: &ch,
-                    },
-                    &FusedSrc {
-                        v: dv,
-                        g: &dg,
-                        h: &dh,
-                    },
-                    &FusedSrc {
-                        v: q1v,
-                        g: &qg,
-                        h: &zero_h,
-                    },
-                    &FusedSrc {
-                        v: qd1v,
-                        g: &qdg,
-                        h: &zero_h,
-                    },
-                    surv0,
-                    surv1,
-                    wi,
-                    di,
                     p,
                 );
 
-                assert_eq!(g_out.v.to_bits(), f_out.v.to_bits(), "value p={p}");
-                for i in 0..p {
-                    assert_eq!(
-                        g_out.g[i].to_bits(),
-                        f_out.g[i].to_bits(),
-                        "grad[{i}] p={p}"
+                let close = |left: f64, right: f64, channel: &str| {
+                    let tolerance = 1e-12 * left.abs().max(right.abs()).max(1.0);
+                    assert!(
+                        (left - right).abs() <= tolerance,
+                        "{channel} p={p}: generic={left:+.16e} compiled={right:+.16e}"
                     );
+                };
+                close(g_out.v, f_value, "value");
+                for i in 0..p {
+                    close(g_out.g[i], f_gradient[i], &format!("grad[{i}]"));
                 }
                 for k in 0..p * p {
-                    assert_eq!(
-                        g_out.h[k].to_bits(),
-                        f_out.h[k].to_bits(),
-                        "hess[{k}] p={p}"
-                    );
+                    close(g_out.h[k], f_hessian[k], &format!("hess[{k}]"));
                 }
             }
         }
@@ -5016,14 +5706,18 @@ mod fused_jet2_oracle_tests {
 
 #[cfg(test)]
 mod hand_vs_jet_bench_tests {
-    //! #932 SPEED AUDIT: shipped jet value/grad/Hessian (`fused_row_nll_jet2` +
-    //! the `fused_inputs_from_view` input copies the production
-    //! `flex_row_nll_value_grad_hess` pays) vs the ORIGINAL HAND probit-chain +
+    //! #932 SPEED AUDIT: shipped value/grad/Hessian (the compiled
+    //! [`FlexOuterPlan`] order-two lowering on production ndarray views) vs the
+    //! ORIGINAL HAND probit-chain +
     //! quotient-rule assembly it replaced (recovered verbatim from the pre-cutover
     //! commit `b17785d2a~1`, `flex_sensitivity.rs`). Measures ns/row at
     //! p∈{6,12,24}, asserts ≤1e-12 channel agreement, and quantifies the
     //! transcendental fraction (the 2×logΦ + 2×neglog-deriv calls both paths share).
     use super::*;
+    // Test-only oracle imports live INSIDE the test module — `#[cfg(test)]`
+    // on file-level use statements is scanner-banned (conditional imports).
+    use crate::bms::signed_probit_neglog_derivatives_up_to_fourth;
+    use crate::inference::probability::signed_probit_logcdf_and_mills_ratio;
     use ndarray::{Array1, Array2};
     use std::hint::black_box;
     use std::time::Instant;
@@ -5127,8 +5821,8 @@ mod hand_vs_jet_bench_tests {
         (row_nll, grad, hess)
     }
 
-    /// The SHIPPED JET path: surv stacks + the `fused_inputs_from_view` contiguous
-    /// copies + `fused_row_nll_jet2` (the exact body of the `want_hess` branch of
+    /// The shipped path: survival stacks plus direct-view compiled lowering of
+    /// the exact [`FlexOuterPlan`] used by the `want_hess` branch of
     /// `flex_row_nll_value_grad_hess`).
     fn jet_vgh(row: &Row, p: usize) -> (f64, Array1<f64>, Array2<f64>) {
         let Row {
@@ -5156,59 +5850,38 @@ mod hand_vs_jet_bench_tests {
         let (q1_idx, qd1_idx) = (*q1_idx, *qd1_idx);
         let surv0 = surv_stack(eta0).unwrap();
         let surv1 = surv_stack(eta1).unwrap();
-        let (e0g, e0h) = fused_inputs_from_view(eta0_u.view(), eta0_uv.view(), p);
-        let (e1g, e1h) = fused_inputs_from_view(eta1_u.view(), eta1_uv.view(), p);
-        let (cg, ch) = fused_inputs_from_view(chi1_u.view(), chi1_uv.view(), p);
-        let (dg, dh) = fused_inputs_from_view(d1_u.view(), d1_uv.view(), p);
-        let zero_h = vec![0.0; p * p];
-        let mut q1_g = vec![0.0; p];
-        if q1_idx < p {
-            q1_g[q1_idx] = 1.0;
-        }
-        let mut qd1_g = vec![0.0; p];
-        if qd1_idx < p {
-            qd1_g[qd1_idx] = 1.0;
-        }
-        let out = fused_row_nll_jet2(
-            &FusedSrc {
-                v: eta0,
-                g: &e0g,
-                h: &e0h,
+        let plan = FlexOuterPlan::new(chi1, d1, qd1, surv0, surv1, wi, di);
+        let (row_value, row_gradient, row_hessian) = lower_flex_outer_plan_order2(
+            &plan,
+            FlexOrder2Inputs {
+                eta0: FlexOrder2View {
+                    value: eta0,
+                    gradient: eta0_u.view(),
+                    hessian: eta0_uv.view(),
+                },
+                eta1: FlexOrder2View {
+                    value: eta1,
+                    gradient: eta1_u.view(),
+                    hessian: eta1_uv.view(),
+                },
+                q1: (q1, q1_idx),
+                chi1: FlexOrder2View {
+                    value: chi1,
+                    gradient: chi1_u.view(),
+                    hessian: chi1_uv.view(),
+                },
+                d1: FlexOrder2View {
+                    value: d1,
+                    gradient: d1_u.view(),
+                    hessian: d1_uv.view(),
+                },
+                qd1: (qd1, qd1_idx),
             },
-            &FusedSrc {
-                v: eta1,
-                g: &e1g,
-                h: &e1h,
-            },
-            &FusedSrc {
-                v: chi1,
-                g: &cg,
-                h: &ch,
-            },
-            &FusedSrc {
-                v: d1,
-                g: &dg,
-                h: &dh,
-            },
-            &FusedSrc {
-                v: q1,
-                g: &q1_g,
-                h: &zero_h,
-            },
-            &FusedSrc {
-                v: qd1,
-                g: &qd1_g,
-                h: &zero_h,
-            },
-            surv0,
-            surv1,
-            wi,
-            di,
             p,
         );
-        let value = out.v + wi * di * std::f64::consts::TAU.ln();
-        let grad = Array1::from(out.g);
-        let hess = Array2::from_shape_vec((p, p), out.h).unwrap();
+        let value = row_value + wi * di * std::f64::consts::TAU.ln();
+        let grad = Array1::from(row_gradient);
+        let hess = Array2::from_shape_vec((p, p), row_hessian).unwrap();
         (value, grad, hess)
     }
 

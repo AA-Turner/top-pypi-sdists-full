@@ -832,6 +832,228 @@ fn survival_marginal_slope_rejects_zero_event_data_before_fit() {
     assert!(err.to_string().contains("at least one target event"));
 }
 
+/// #2276: the fittability gate must weigh events. `workflow_test_dataset` has
+/// events at rows 0 and 2; a weight column that is zero on exactly those rows
+/// leaves an empty *weighted* event score (every kernel drops `weight <= 0`
+/// rows), so the fit would spin on a flat landscape. The gate must reject it up
+/// front — the raw event-code count alone was weight-blind.
+#[test]
+fn survival_all_events_zero_weighted_rejected_before_fit_issue_2276() {
+    let data = workflow_dataset_with_weight([0.0, 1.0, 0.0, 1.0]);
+    let config = FitConfig {
+        weight_column: Some("w".to_string()),
+        ..FitConfig::default()
+    };
+
+    let err = materialize("Surv(age_entry, age_exit, event) ~ bmi", &data, &config)
+        .err()
+        .expect("all-events-zero-weighted survival data must fail before optimization");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("at least one target event with positive weight"),
+        "unexpected error: {msg}"
+    );
+}
+
+/// #2276 control: a single event row with positive weight yields a positive
+/// weighted event score, so the fittability gate must NOT trip (the fit may
+/// still fail downstream for unrelated reasons, but never on the gate).
+#[test]
+fn survival_one_positive_weight_event_passes_fittability_gate_issue_2276() {
+    let data = workflow_dataset_with_weight([1.0, 0.0, 0.0, 0.0]);
+    let config = FitConfig {
+        weight_column: Some("w".to_string()),
+        ..FitConfig::default()
+    };
+
+    if let Err(err) = materialize("Surv(age_entry, age_exit, event) ~ bmi", &data, &config) {
+        assert!(
+            !err.to_string().contains("target event"),
+            "a positive-weight event must not trip the fittability gate: {err}"
+        );
+    }
+}
+
+/// #2276 hardening: per-cause identifiability for competing risks. Codes
+/// `{0, 1, 2}` with cause 1 carrying a positive-weight event but cause 2's only
+/// event zero-weighted: the TOTAL weighted event mass is positive (cause 1), so
+/// the total gate passes, yet cause 2's cause-specific hazard block is
+/// unidentifiable and must be rejected before the fit.
+#[test]
+fn competing_risks_zero_weight_cause_rejected_before_fit_issue_2276() {
+    let data = competing_risks_weighted_dataset([1.0, 2.0, 1.0, 0.0], [1.0, 0.0, 1.0, 1.0]);
+    let config = FitConfig {
+        survival_likelihood: "transformation".to_string(),
+        weight_column: Some("w".to_string()),
+        ..FitConfig::default()
+    };
+
+    let err = materialize("Surv(age_entry, age_exit, event) ~ bmi", &data, &config)
+        .err()
+        .expect("a competing-risks cause with only zero-weight events must fail before fit");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("cause 2 of 2") && msg.contains("positive weight"),
+        "unexpected error: {msg}"
+    );
+}
+
+/// #2276 hardening control: when EVERY modeled cause carries a positive-weight
+/// event, the per-cause gate must not trip (the fit may still fail downstream
+/// for unrelated reasons, but never with the unidentifiable-cause message).
+#[test]
+fn competing_risks_all_causes_weighted_passes_per_cause_gate_issue_2276() {
+    let data = competing_risks_weighted_dataset([1.0, 2.0, 1.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
+    let config = FitConfig {
+        survival_likelihood: "transformation".to_string(),
+        weight_column: Some("w".to_string()),
+        ..FitConfig::default()
+    };
+
+    if let Err(err) = materialize("Surv(age_entry, age_exit, event) ~ bmi", &data, &config) {
+        assert!(
+            !err.to_string().contains("unidentifiable"),
+            "all causes carrying a positive-weight event must not trip the per-cause gate: {err}"
+        );
+    }
+}
+
+/// Two-cause competing-risks dataset (`event` codes `{0, 1, 2}`) with a weight
+/// column `w`, parallel to `codes`/`weights`.
+fn competing_risks_weighted_dataset(codes: [f64; 4], weights: [f64; 4]) -> Dataset {
+    let continuous = |name: &str| SchemaColumn {
+        name: name.to_string(),
+        kind: ColumnKindTag::Continuous,
+        levels: vec![],
+    };
+    let entry = [40.0, 41.0, 42.0, 44.0];
+    let exit = [43.0, 46.0, 47.0, 49.0];
+    let bmi = [22.0, 24.0, 27.0, 29.0];
+    let mut values = Array2::<f64>::zeros((4, 5));
+    for i in 0..4 {
+        values[[i, 0]] = entry[i];
+        values[[i, 1]] = exit[i];
+        values[[i, 2]] = codes[i];
+        values[[i, 3]] = bmi[i];
+        values[[i, 4]] = weights[i];
+    }
+    Dataset {
+        headers: vec![
+            "age_entry".to_string(),
+            "age_exit".to_string(),
+            "event".to_string(),
+            "bmi".to_string(),
+            "w".to_string(),
+        ],
+        values,
+        schema: DataSchema {
+            columns: vec![
+                continuous("age_entry"),
+                continuous("age_exit"),
+                continuous("event"),
+                continuous("bmi"),
+                continuous("w"),
+            ],
+        },
+        column_kinds: vec![ColumnKindTag::Continuous; 5],
+    }
+}
+
+/// #2277: a bracketed interval-censored row (`event >= 1`) whose right boundary
+/// equals its left boundary is a zero-width interval; the kernel term
+/// `log[S(L) − S(R)] = log 0 = −∞` would poison the whole fit. Materialization
+/// must reject it and name the offending row instead.
+#[test]
+fn surv_interval_rejects_degenerate_zero_width_bracket_issue_2277() {
+    let data = surv_interval_degenerate_bracket_dataset();
+    let config = FitConfig {
+        survival_likelihood: "latent".to_string(),
+        ..FitConfig::default()
+    };
+
+    let err = materialize("SurvInterval(left, right, event) ~ bmi", &data, &config)
+        .err()
+        .expect("a zero-width interval bracket (R == L) must be rejected at materialization");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("requires a finite R > L"),
+        "unexpected error: {msg}"
+    );
+    assert!(
+        msg.contains("row 1"),
+        "the error must name the offending 1-based row: {msg}"
+    );
+}
+
+/// `workflow_test_dataset` extended with a continuous weight column `w`.
+fn workflow_dataset_with_weight(weights: [f64; 4]) -> Dataset {
+    let mut data = workflow_test_dataset();
+    let base_cols = data.values.ncols();
+    let n = data.values.nrows();
+    let mut values = Array2::<f64>::zeros((n, base_cols + 1));
+    for i in 0..n {
+        for j in 0..base_cols {
+            values[[i, j]] = data.values[[i, j]];
+        }
+        values[[i, base_cols]] = weights[i];
+    }
+    data.headers.push("w".to_string());
+    data.schema.columns.push(SchemaColumn {
+        name: "w".to_string(),
+        kind: ColumnKindTag::Continuous,
+        levels: vec![],
+    });
+    data.column_kinds.push(ColumnKindTag::Continuous);
+    data.values = values;
+    data
+}
+
+/// Interval-censored dataset whose first bracketed row has `R == L` (a degenerate
+/// zero-width interval). The remaining rows are well-formed so only the
+/// degenerate row 0 (reported 1-based as "row 1") can trip the validator.
+fn surv_interval_degenerate_bracket_dataset() -> Dataset {
+    let continuous = |name: &str| SchemaColumn {
+        name: name.to_string(),
+        kind: ColumnKindTag::Continuous,
+        levels: vec![],
+    };
+    Dataset {
+        headers: vec![
+            "left".to_string(),
+            "right".to_string(),
+            "event".to_string(),
+            "bmi".to_string(),
+        ],
+        values: Array2::from_shape_vec(
+            (3, 4),
+            vec![
+                5.0, 5.0, 1.0, 22.0, // L == R == 5 : degenerate bracket, event = 1
+                6.0, 9.0, 1.0, 24.0, // valid bracket
+                7.0, 10.0, 0.0, 27.0, // right-censored beyond last inspection
+            ],
+        )
+        .expect("interval bracket test data shape"),
+        schema: DataSchema {
+            columns: vec![
+                continuous("left"),
+                continuous("right"),
+                SchemaColumn {
+                    name: "event".to_string(),
+                    kind: ColumnKindTag::Binary,
+                    levels: vec![],
+                },
+                continuous("bmi"),
+            ],
+        },
+        column_kinds: vec![
+            ColumnKindTag::Continuous,
+            ColumnKindTag::Continuous,
+            ColumnKindTag::Binary,
+            ColumnKindTag::Continuous,
+        ],
+    }
+}
+
 fn workflow_test_outer_result(converged: bool, rho: Array1<f64>) -> OuterResult {
     let mut result = OuterResult::new(
         rho,

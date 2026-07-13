@@ -40,11 +40,9 @@
 //!   [`e_benjamini_hochberg`] over the atoms' peak birth e-values is the
 //!   cross-atom multiple-testing wrapper. A confirmed positive jump is a BIRTH.
 
-use gam_terms::inference::structure_evidence::{
-    ClaimKind, StructureLedger, e_benjamini_hochberg, log_e_from_p_calibrator,
-};
+use gam_math::probability::normal_logsf;
+use gam_terms::inference::structure_evidence::{ClaimKind, StructureLedger, e_benjamini_hochberg};
 use ndarray::{Array2, ArrayView2, ArrayView4};
-use statrs::distribution::{ContinuousCDF, Normal};
 
 use super::wbic_audit::{ReconSpectrum, recon_spectrum};
 use crate::inference::layer_transport::{ChartTopology, LayerTransportReport, fit_layer_transport};
@@ -105,8 +103,11 @@ pub struct AtomLambdaTrajectory {
     pub lambda: Vec<f64>,
     /// WBIC tempered soft rank count at every checkpoint.
     pub rank_soft: Vec<f64>,
-    /// Hard Marchenko–Pastur rank count at every checkpoint (integer-valued).
-    pub rank_hard: Vec<f64>,
+    /// Hard Marchenko–Pastur reconstruction-rank count at every checkpoint.
+    pub mp_reconstruction_rank: Vec<usize>,
+    /// Rank the production criterion charges at every checkpoint, including the
+    /// #2258 promotion of an alive decoder below the MP reconstruction-rank edge.
+    pub production_chargeable_rank: Vec<usize>,
     /// Consecutive-step jumps with their birth evidence.
     pub jumps: Vec<LambdaJump>,
     /// Per-atom anytime-valid ledger: one calibrated e-value per step under the
@@ -138,25 +139,37 @@ impl AtomLambdaTrajectory {
     /// survives the `1/S` dilution and still clears e-BH; a never-born atom sums
     /// to 0 (`log −∞`) and cannot be selected. Computed by log-sum-exp for
     /// overflow safety.
-    pub fn peak_birth_log_e(&self) -> f64 {
+    pub fn peak_birth_log_e(&self) -> Result<f64, String> {
         let n_steps = self.jumps.len();
         if n_steps == 0 {
-            return f64::NEG_INFINITY;
+            return Ok(f64::NEG_INFINITY);
         }
-        let positive: Vec<f64> = self
-            .jumps
-            .iter()
-            .filter(|j| j.delta_lambda > 0.0)
-            .map(|j| j.log_e)
-            .collect();
+        let mut positive = Vec::new();
+        for jump in self.jumps.iter().filter(|jump| jump.delta_lambda > 0.0) {
+            if jump.log_e.is_nan() || jump.log_e == f64::INFINITY {
+                return Err(format!(
+                    "atom {} has invalid positive-jump log-e value {} at step {}→{}",
+                    self.atom_name, jump.log_e, jump.from_ckpt, jump.to_ckpt
+                ));
+            }
+            positive.push(jump.log_e);
+        }
         let max = positive.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        if !max.is_finite() {
+        if max == f64::NEG_INFINITY {
             // No positive jump ⇒ the mixture is exactly 0 ⇒ log −∞.
-            return f64::NEG_INFINITY;
+            return Ok(f64::NEG_INFINITY);
         }
         // log( (1/S)·Σ_{Δλ>0} exp(log_e) ) = logsumexp − ln S, overflow-safe.
         let sumexp: f64 = positive.iter().map(|&l| (l - max).exp()).sum();
-        max + sumexp.ln() - (n_steps as f64).ln()
+        let peak = max + sumexp.ln() - (n_steps as f64).ln();
+        if peak.is_finite() {
+            Ok(peak)
+        } else {
+            Err(format!(
+                "atom {} peak birth log-e mixture is non-finite: {peak}",
+                self.atom_name
+            ))
+        }
     }
 }
 
@@ -230,7 +243,8 @@ pub fn wbic_lambda_dynamics(input: &WbicDynamicsInput<'_>) -> Result<WbicDynamic
         // --- λ_k(step) time series: the WBIC learning coefficient per checkpoint.
         let mut lambda = Vec::with_capacity(n_checkpoints);
         let mut rank_soft = Vec::with_capacity(n_checkpoints);
-        let mut rank_hard = Vec::with_capacity(n_checkpoints);
+        let mut mp_reconstruction_rank = Vec::with_capacity(n_checkpoints);
+        let mut production_chargeable_rank = Vec::with_capacity(n_checkpoints);
         let mut lambda_se = Vec::with_capacity(n_checkpoints);
         for c in 0..n_checkpoints {
             let curve = input.decoder_grid.slice(ndarray::s![c, atom, .., ..]);
@@ -242,7 +256,8 @@ pub fn wbic_lambda_dynamics(input: &WbicDynamicsInput<'_>) -> Result<WbicDynamic
             })?;
             lambda.push(spec.learning_coefficient());
             rank_soft.push(spec.rank_soft());
-            rank_hard.push(spec.rank_hard());
+            mp_reconstruction_rank.push(spec.mp_reconstruction_rank());
+            production_chargeable_rank.push(spec.production_chargeable_rank());
             lambda_se.push(lambda_jackknife_se(curve, input.r_floor));
         }
 
@@ -287,7 +302,9 @@ pub fn wbic_lambda_dynamics(input: &WbicDynamicsInput<'_>) -> Result<WbicDynamic
         }
 
         // Per-atom e-BH over the steps: a confirmed POSITIVE jump is a birth.
-        let cert = birth_evidence.certify(input.birth_alpha);
+        let cert = birth_evidence
+            .certify(input.birth_alpha)
+            .map_err(|error| error.to_string())?;
         for (jump, entry) in jumps.iter_mut().zip(cert.entries.iter()) {
             jump.born = entry.confirmed && jump.delta_lambda > 0.0;
         }
@@ -296,7 +313,8 @@ pub fn wbic_lambda_dynamics(input: &WbicDynamicsInput<'_>) -> Result<WbicDynamic
             atom_name,
             lambda,
             rank_soft,
-            rank_hard,
+            mp_reconstruction_rank,
+            production_chargeable_rank,
             jumps,
             birth_evidence,
             transports,
@@ -308,18 +326,12 @@ pub fn wbic_lambda_dynamics(input: &WbicDynamicsInput<'_>) -> Result<WbicDynamic
     // be selected.
     let peak_log_e: Vec<f64> = atoms
         .iter()
-        .map(|a| {
-            let p = a.peak_birth_log_e();
-            if p.is_finite() { p } else { f64::NEG_INFINITY }
-        })
-        .collect();
-    // e-BH expects finite inputs; map a never-born −∞ to a large negative so its
-    // e-value is ~0 (never confirmed) without polluting the ordering.
-    let finite_log_e: Vec<f64> = peak_log_e
-        .iter()
-        .map(|&v| if v.is_finite() { v } else { -1.0e300 })
-        .collect();
-    let cross_atom_born = e_benjamini_hochberg(&finite_log_e, input.birth_alpha);
+        .map(AtomLambdaTrajectory::peak_birth_log_e)
+        .collect::<Result<Vec<_>, _>>()?;
+    // e-BH natively accepts −∞ as exact zero e-value, so a never-born atom is
+    // represented exactly rather than by an arbitrary finite sentinel.
+    let cross_atom_born =
+        e_benjamini_hochberg(&peak_log_e, input.birth_alpha).map_err(|error| error.to_string())?;
 
     Ok(WbicDynamicsReport {
         atoms,
@@ -346,7 +358,7 @@ fn atom_learning_spectrum(
     let (n_grid, ambient) = curve.dim();
     let gram = Array2::<f64>::eye(n_grid);
     let decoder = curve.to_owned();
-    let mut spec = recon_spectrum(
+    recon_spectrum(
         &gram,
         &decoder,
         n_grid as f64,
@@ -354,10 +366,9 @@ fn atom_learning_spectrum(
         r_floor,
         0.0,
         None,
-    )?;
+    )?
     // Grid-interpolation basis: one graded unit per reconstruction direction.
-    spec.basis_edf = 1.0;
-    Ok(spec)
+    .with_audit_basis_edf(1.0)
 }
 
 /// Grid-node delete-one jackknife SE of `λ = ½·rank_soft` at one checkpoint. Each
@@ -444,17 +455,29 @@ fn best_effort_transport(
 /// Mirrors [`super::super::inference::checkpoint_dynamics`]: the in-sample ratio
 /// `exp(½ z²)` is NOT an e-value (its H0 expectation diverges), so we map the jump
 /// to its two-sided normal p-value `p = 2(1 − Φ(|z|))` and route it through the
-/// frozen κ = ½ p→e calibrator [`log_e_from_p_calibrator`], which satisfies
+/// frozen κ = ½ p→e calibrator `log e = log(1/2) - 1/2 log p`, which satisfies
 /// `E_{H0}[e(P)] ≤ 1` for any superuniform p — a genuine e-value that compounds
 /// validly into the atom's birth e-process.
 fn no_jump_log_e_value(z: f64) -> Result<f64, String> {
     if !z.is_finite() {
-        return Ok(0.0);
+        return Err(format!(
+            "no-jump evidence requires a finite studentized jump; got {z}"
+        ));
     }
-    let normal =
-        Normal::new(0.0, 1.0).map_err(|e| format!("standard normal construction failed: {e}"))?;
-    let p: f64 = (2.0 * (1.0 - normal.cdf(z.abs()))).clamp(f64::MIN_POSITIVE, 1.0);
-    log_e_from_p_calibrator(p)
+    let log_p = std::f64::consts::LN_2 + normal_logsf(z.abs());
+    if !(log_p.is_finite() && log_p <= 0.0) {
+        return Err(format!(
+            "two-sided normal log-tail is not representable for studentized jump {z}: log_p={log_p}"
+        ));
+    }
+    let log_e = -std::f64::consts::LN_2 - 0.5 * log_p;
+    if log_e.is_finite() {
+        Ok(log_e)
+    } else {
+        Err(format!(
+            "no-jump calibrated log-e is not representable for studentized jump {z}: {log_e}"
+        ))
+    }
 }
 
 /// Render the `λ_k(step)` trajectories to a plain-text block (for the demo / test
@@ -492,6 +515,16 @@ pub fn render_lambda_dynamics(report: &WbicDynamicsReport, checkpoint_ids: &[Str
 mod tests {
     use super::*;
     use ndarray::Array4;
+
+    #[test]
+    fn no_jump_log_e_remains_representable_beyond_probability_underflow() {
+        let moderate = no_jump_log_e_value(8.0).unwrap();
+        let deep = no_jump_log_e_value(40.0).unwrap();
+        assert!(moderate.is_finite() && deep.is_finite() && deep > moderate);
+        assert_eq!(deep, no_jump_log_e_value(-40.0).unwrap());
+        assert!(no_jump_log_e_value(f64::NAN).is_err());
+        assert!(no_jump_log_e_value(f64::INFINITY).is_err());
+    }
 
     fn lcg(s: &mut u64) -> f64 {
         *s = s
@@ -694,6 +727,7 @@ mod tests {
         let total_log_e = |a: &AtomLambdaTrajectory| -> f64 {
             a.birth_evidence
                 .certify(0.05)
+                .unwrap()
                 .entries
                 .iter()
                 .map(|e| e.log_e)

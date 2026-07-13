@@ -30,6 +30,7 @@ class TestTaskWebsite:
         assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
         assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
         assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         # Additional manual validation
         if res.artifact_path and res.artifact_path.is_dir():
@@ -44,9 +45,10 @@ class TestTaskWebsite:
         res, verify = run_test_with_verification("sms", req, MODEL)
         
         assert res.exit_code == 0
-        assert verify.install_ok  # Auto-pass for vanilla HTML
-        assert verify.build_ok    # Auto-pass for vanilla HTML
-        assert verify.run_ok      # Should find index.html
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
         
         if res.artifact_path and res.artifact_path.is_dir():
             index = res.artifact_path / "index.html"
@@ -60,9 +62,10 @@ class TestTaskWebsite:
         res, verify = run_test_with_verification("web", req, MODEL)
         
         assert res.exit_code == 0
-        assert verify.install_ok
-        assert verify.build_ok
-        assert verify.run_ok
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
 
     def test_cli_advertisement_platform(self):
         req = {
@@ -75,6 +78,7 @@ class TestTaskWebsite:
         assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
         assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
         assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"
 
     def test_cli_faceless_video_platform(self):
         req = {
@@ -87,3 +91,4 @@ class TestTaskWebsite:
         assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
         assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
         assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+        assert verify.tests_ok, f"Tests failed: {verify.details.get('tests')}"

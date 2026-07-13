@@ -1506,7 +1506,7 @@ def _pick_build_model(current_model_id: str) -> tuple[str, str | None]:
     the fastest available local model and returns a short user-facing
     explanation.
     """
-    from sage.cli_core import _ollama_local_models
+    from sage.core.session_helpers import _ollama_local_models
     if not current_model_id.startswith("ollama:"):
         return current_model_id, None
     bare = current_model_id.split(":", 1)[1]

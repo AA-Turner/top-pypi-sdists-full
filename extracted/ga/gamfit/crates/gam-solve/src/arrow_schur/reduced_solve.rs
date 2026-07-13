@@ -145,8 +145,7 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
             // GEMM floor the launch/staging tax loses to the CPU, so we keep the
             // deterministic CPU rayon fold there. Small K (e.g. K=8) never clears
             // the floor and stays on the CPU — magic-by-default crossover, no flag.
-            let engage =
-                tiles.len() > 1 || assembly_work >= rt.policy().gemm_min_flops as u128;
+            let engage = tiles.len() > 1 || assembly_work >= rt.policy().gemm_min_flops as u128;
             (engage && !tiles.is_empty()).then_some(tiles)
         })
     };
@@ -494,7 +493,7 @@ pub(crate) fn matrix_inf_norm(a: &Array2<f64>) -> f64 {
 /// caller keeps the strict refusal.
 ///
 /// Mirrors the per-row evidence floor
-/// [`super::factorization::factor_spectral_deflated_evidence_row`]; the only
+/// [`super::factorization::factor_spectral_deflated_criterion_row`]; the only
 /// difference is the floored VALUE — a small positive `floor·max λ` (Tikhonov,
 /// for an accurate solve) here, vs unit stiffness `+1` (`log 1 = 0`) there (for
 /// the quotient log-det).
@@ -638,17 +637,87 @@ fn spectral_qr_cholesky_factor(weighted_vt: &Array2<f64>) -> Option<Array2<f64>>
     Some(l)
 }
 
+/// Jacobi/Van der Sluis diagonal equilibration scale for a symmetric matrix
+/// (#2015): `d_a = sqrt(schur[a,a])`, floored at `√JACOBI_DIAGONAL_PD_FLOOR` so
+/// a numerically-empty diagonal entry never divides by ~0. This is a PURE
+/// numerical-conditioning aid for [`factor_dense_reduced_schur`] below — it is
+/// never returned or exposed, and it changes no value any caller of that
+/// function sees, only the accuracy of computing it.
+fn jacobi_diagonal_scale(schur: &Array2<f64>) -> Array1<f64> {
+    let n = schur.nrows();
+    let floor_sqrt = JACOBI_DIAGONAL_PD_FLOOR.sqrt();
+    let mut d = Array1::<f64>::zeros(n);
+    for a in 0..n {
+        let diag = schur[[a, a]];
+        d[a] = if diag.is_finite() && diag > JACOBI_DIAGONAL_PD_FLOOR {
+            diag.sqrt()
+        } else {
+            floor_sqrt
+        };
+    }
+    d
+}
+
+/// Factor the dense reduced Schur complement `S`, returning its lower Cholesky
+/// factor (or, when `S` is not PD, the spectrally-floored reconstruction and
+/// ITS factor).
+///
+/// #2015 — SOLVER-LEVEL conditioning fix (design: issue 2015 comment
+/// 4949898801). A real activation+behavior augmented target can carry output
+/// column-norm spreads of ~1e4 (joint Hessian condition number ≈ 1e8), which a
+/// PLAIN `cholesky_lower(schur)` is not designed to survive: the recursive
+/// `L_ii = sqrt(S_ii − Σ_{j<i} L_ij²)` step loses precision (or falsely
+/// refuses a genuinely PD matrix) when the diagonal spans many orders of
+/// magnitude. Equilibrate FIRST: `D = diag(d)` with `d_a = sqrt(S_aa)`
+/// ([`jacobi_diagonal_scale`] — Van der Sluis equilibration, provably within a
+/// factor of `n` of the OPTIMAL diagonal preconditioner for a symmetric
+/// matrix), factor `S̃ = D⁻¹SD⁻¹` (unit diagonal by construction) with the
+/// EXACT SAME Cholesky/spectral-floor logic below, then undo the equilibration
+/// on the way out.
+///
+/// This is NOT a reparametrization of any objective or estimand (contrast the
+/// REVERTED #2015 attempt that divided the FIT TARGET's columns, which
+/// changed what "best fit" means for a homoscedastic residual). `D` is
+/// diagonal, so `L := D·L̃` is STILL lower-triangular, and
+/// `L·Lᵀ = D·S̃·Dᵀ = D·(D⁻¹SD⁻¹)·D = S` exactly — `L` is a bit-exact valid
+/// Cholesky factor of the CALLER'S ORIGINAL `schur`, just computed via a
+/// numerically superior route. Undoing the scale is one exact elementwise
+/// multiply (`factor[i,j] *= d[i]`, `floored[i,j] *= d[i]*d[j]`) — no further
+/// precision is lost recovering original units. Consequently this function's
+/// signature, return values, and units are UNCHANGED from before the fix, and
+/// every one of its ~15 callers across `newton_step.rs` / `reduced_solve.rs`
+/// (the direct solve, `mixed_precision_reduced_beta`'s certified refinement,
+/// `try_mixed_precision_arrow_solve`'s kappa gate, the evidence log-det
+/// diagonal sum, the Takahashi selected-inverse, `steihaug_dense_system`'s
+/// trust-region fallback) needs no change: they already operate on whatever
+/// `(factor, floored_schur)` this function hands back, in the SAME original
+/// units as always.
+///
+/// GPU cross-reference: the device/GPU dense-reference path
+/// (`gam_solve::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference`)
+/// factors the full joint `(t, β)` system independently of this function and
+/// does NOT yet get this equilibration. Both paths are exact; the GPU path is
+/// simply not yet as well-conditioned on an ill-scaled system. Porting the
+/// same technique there is a deliberate follow-up, not part of this change.
 pub(crate) fn factor_dense_reduced_schur(
     schur: &Array2<f64>,
     schur_pd_floor: Option<f64>,
     unit_deflate_null_directions: bool,
 ) -> Result<(Array2<f64>, Option<Array2<f64>>), ArrowSchurError> {
-    let (factor, floored_schur) = match cholesky_lower(schur) {
+    let n = schur.nrows();
+    let d = jacobi_diagonal_scale(schur);
+    let mut schur_scaled = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        for j in 0..n {
+            schur_scaled[[i, j]] = schur[[i, j]] / (d[i] * d[j]);
+        }
+    }
+    let (factor_scaled, floored_scaled) = match cholesky_lower(&schur_scaled) {
         Ok(factor) => (factor, None),
         Err(e) => {
             // #1026/#1038 — every dense reduced-Schur factorization in the SAE
             // path must honor the same opt-in spectral floor. Otherwise
-            // auxiliary entry points (mixed precision and cross-row IBP
+            // auxiliary entry points (mixed precision and cross-row ordered Beta--Bernoulli
             // preconditioning) can reject the collapsed dead-atom subspace even
             // though the main direct solve would floor it and continue.
             //
@@ -658,11 +727,18 @@ pub(crate) fn factor_dense_reduced_schur(
             // quotient/null directions to unit stiffness so they contribute the
             // ρ-independent `log 1 = 0` to the Laplace normaliser rather than a
             // ρ-dependent Occam reward for collapsed decoders.
+            //
+            // #2015 — this spectral floor runs on the EQUILIBRATED `schur_scaled`,
+            // so `relative_floor` (a FRACTION of the operator's own max
+            // eigenvalue) reads a numerically trustworthy spectrum instead of one
+            // dominated by the raw column-scale spread; the floored
+            // reconstruction is undone back to original units below exactly like
+            // the plain factor.
             match schur_pd_floor {
                 Some(relative_floor) => match if unit_deflate_null_directions {
-                    spectral_unit_deflated_schur(schur, relative_floor)
+                    spectral_unit_deflated_schur(&schur_scaled, relative_floor)
                 } else {
-                    spectral_pd_floored_schur(schur, relative_floor)
+                    spectral_pd_floored_schur(&schur_scaled, relative_floor)
                 } {
                     Some((floored, floored_factor)) => (floored_factor, Some(floored)),
                     None => {
@@ -678,6 +754,23 @@ pub(crate) fn factor_dense_reduced_schur(
             }
         }
     };
+    // Undo the equilibration exactly: L = D·L̃ (row i scaled by d_i); the
+    // floored reconstruction (when present) scales back as D·S̃_floor·D.
+    let mut factor = factor_scaled;
+    for i in 0..n {
+        let di = d[i];
+        for j in 0..=i {
+            factor[[i, j]] *= di;
+        }
+    }
+    let floored_schur = floored_scaled.map(|mut floored| {
+        for i in 0..n {
+            for j in 0..n {
+                floored[[i, j]] *= d[i] * d[j];
+            }
+        }
+        floored
+    });
     Ok((factor, floored_schur))
 }
 
@@ -1212,88 +1305,49 @@ pub(crate) fn schur_matvec<B: BatchedBlockSolver + Sync>(
     // The reduced-Schur point-elimination term: `out -= Σ_i H_βt^(i) (H_tt^(i))⁻¹
     // H_tβ^(i) x`. Each row contributes an independent length-`K` vector, so for
     // the SAE LLM shape (#1017) this is the matvec's whole cost and is
-    // embarrassingly parallel. Run it under rayon over fixed row chunks, summing
-    // the per-chunk partials in chunk order so the f64 reduction is bit-identical
-    // run-to-run regardless of thread scheduling (the #1017 verification gate).
-    // This is deterministic and within the chunk-reassociation margin of serial,
-    // so the criterion ranking is stable except for candidates that tie inside
-    // that f64 margin — not an exact no-move guarantee (#1211). Stay
-    // sequential when already inside a rayon worker (the topology race fans
-    // candidates with `run_topology_race_parallel`) to avoid nested-rayon
-    // oversubscription — the same guard `HyperOperator::mul_mat` uses. The
-    // `parallel` gate above authorizes this loop too.
+    // embarrassingly parallel — reduced below through the deterministic pairwise
+    // tree (see the block-fold comment) rather than a chunk-order fold.
     let p = resident.map(|r| r.p).unwrap_or(0);
-    if parallel {
-        use rayon::prelude::*;
-        const CHUNK: usize = 64;
-        let n = sys.rows.len();
-        let partials: Vec<Array1<f64>> = (0..n)
-            .into_par_iter()
-            .chunks(CHUNK)
-            .map(|idxs| {
-                let mut acc = Array1::<f64>::zeros(k);
-                if let Some(res) = resident {
-                    // Resident path: each matvec is gather → factored di×p GEMVs
-                    // → scatter, reading only the pre-staged `(L_i, Y_i)` (no
-                    // per-iteration solve, no dense p×p block).
-                    let mut gather = vec![0.0_f64; p];
-                    let mut prod = vec![0.0_f64; p];
-                    let mut w = vec![0.0_f64; res.max_di()];
-                    for i in idxs {
-                        res.row_into(i, x, &mut acc, &mut gather, &mut prod, &mut w);
-                    }
-                } else {
-                    let mut local = Array1::<f64>::zeros(sys.d);
-                    for i in idxs {
-                        schur_matvec_row_into(
-                            sys,
-                            htt_factors,
-                            x,
-                            backend,
-                            i,
-                            &mut local,
-                            &mut acc,
-                        );
-                    }
+    // #2228 determinism: the per-row length-`k` contributions
+    // (`Σ_i H_βt^(i)(H_tt^(i))⁻¹ H_tβ^(i) x`) are reduced through the length-only
+    // pairwise tree so the result is bit-identical across thread count AND to the
+    // sequential fold — parallel and nested-serial evaluation agree to the last
+    // bit, removing the #1017/#1211 chunk-reassociation margin that let the
+    // criterion ranking depend on the driver. The tree self-serializes below
+    // `BASE_CHUNK` rows (a base block is folded directly with no `rayon::join`),
+    // so small systems and nested topology-race calls stay single-threaded
+    // without a separate branch that could associate the round-off differently.
+    // The resident path gathers → factored `di×p` GEMVs → scatter; the direct
+    // path does a per-row block solve — both ADD their row's contribution into a
+    // block-local accumulator, so splitting the row sum across the tree is exact.
+    let n_rows = sys.rows.len();
+    let contribution = gam_linalg::pairwise_reduce::par_deterministic_block_fold(
+        n_rows,
+        |range: core::ops::Range<usize>| {
+            let mut acc = Array1::<f64>::zeros(k);
+            if let Some(res) = resident {
+                let mut gather = vec![0.0_f64; p];
+                let mut prod = vec![0.0_f64; p];
+                let mut w = vec![0.0_f64; res.max_di()];
+                for i in range {
+                    res.row_into(i, x, &mut acc, &mut gather, &mut prod, &mut w);
                 }
-                acc
-            })
-            .collect();
-        // Deterministic ordered reduction: fold chunk partials left-to-right.
-        for acc in &partials {
-            for a in 0..k {
-                out[a] -= acc[a];
+            } else {
+                let mut local = Array1::<f64>::zeros(sys.d);
+                for i in range {
+                    schur_matvec_row_into(sys, htt_factors, x, backend, i, &mut local, &mut acc);
+                }
             }
-        }
-    } else if let Some(res) = resident {
-        let mut acc = Array1::<f64>::zeros(k);
-        let mut gather = vec![0.0_f64; p];
-        let mut prod = vec![0.0_f64; p];
-        let mut w = vec![0.0_f64; res.max_di()];
-        for i in 0..sys.rows.len() {
-            res.row_into(i, x, &mut acc, &mut gather, &mut prod, &mut w);
-        }
+            acc
+        },
+        |mut a: Array1<f64>, b: Array1<f64>| {
+            a += &b;
+            a
+        },
+    );
+    if let Some(acc) = contribution {
         for a in 0..k {
             out[a] -= acc[a];
-        }
-    } else {
-        // Allocate scratch at max_d; per-row slice is `..di`.
-        let mut local = Array1::<f64>::zeros(sys.d);
-        let mut neg_contrib = Array1::<f64>::zeros(k);
-        for i in 0..sys.rows.len() {
-            neg_contrib.fill(0.0);
-            schur_matvec_row_into(
-                sys,
-                htt_factors,
-                x,
-                backend,
-                i,
-                &mut local,
-                &mut neg_contrib,
-            );
-            for a in 0..k {
-                out[a] -= neg_contrib[a];
-            }
         }
     }
 }
@@ -1594,6 +1648,23 @@ pub(crate) fn maybe_build_evidence_gpu_matvec(
         return None;
     }
     gam_gpu::device_runtime::GpuRuntime::global()?;
+    // #1017: framed matrix-free system with resident device operands — prefer the
+    // device-resident DETERMINISTIC reduced-Schur apply (upload operands once,
+    // cross only x/out per apply, atomics-free so the SLQ log|S| determinism
+    // contract holds) over the CPU row-procedural closure `gpu_schur_matvec_backend`
+    // returns for `htbeta_matvec` systems. Declines (no device / shape / non-PD at
+    // this ridge) fall through to the backend/CPU path. Non-Linux/CPU: this always
+    // returns `None` (no `device_sae_pcg`), so the lane is byte-identical.
+    if sys.device_sae_pcg.is_some() {
+        if let Some(matvec) = crate::gpu_kernels::arrow_schur::build_framed_resident_evidence_matvec(
+            sys,
+            ridge_t,
+            ridge_beta,
+            apply_budget.max(1),
+        ) {
+            return Some(matvec);
+        }
+    }
     crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()
 }
 
@@ -2292,14 +2363,11 @@ fn validate_matrix_free_arrow_pair(
             ),
         });
     }
-    if !sys.cross_row_penalties.is_empty()
-        || sys.ibp_cross_row.is_some()
-        || cache.cross_row_woodbury.is_some()
-    {
+    if !sys.cross_row_penalties.is_empty() {
         return Err(ArrowSchurError::SchurFactorFailed {
             reason: format!(
-                "{operation} supports the row-block bordered arrow only; cross-row latent or \
-                 IBP-Woodbury curvature requires its own matrix-free inverse carrier"
+                "{operation} supports the row-block bordered arrow only; cross-row latent \
+                 curvature requires its own matrix-free inverse carrier"
             ),
         });
     }
@@ -2384,9 +2452,7 @@ pub fn matrix_free_arrow_operator_apply(
         let mut cross = Array1::<f64>::zeros(dim);
         if !cache.apply_htbeta_row(row, vector_beta, &mut cross) {
             return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "matrix_free_arrow_operator_apply H_tbeta row {row} apply failed"
-                ),
+                reason: format!("matrix_free_arrow_operator_apply H_tbeta row {row} apply failed"),
             });
         }
         for axis in 0..dim {
@@ -2394,9 +2460,7 @@ pub fn matrix_free_arrow_operator_apply(
         }
         if !cache.apply_htbeta_row_transpose(row, row_vector, &mut out_beta, None) {
             return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "matrix_free_arrow_operator_apply H_betat row {row} apply failed"
-                ),
+                reason: format!("matrix_free_arrow_operator_apply H_betat row {row} apply failed"),
             });
         }
 
@@ -2468,9 +2532,7 @@ pub fn matrix_free_arrow_inverse_apply(
             && !cache.apply_htbeta_row_transpose(row, solved.view(), &mut eliminated, None)
         {
             return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "matrix_free_arrow_inverse_apply H_betat row {row} apply failed"
-                ),
+                reason: format!("matrix_free_arrow_inverse_apply H_betat row {row} apply failed"),
             });
         }
     }
@@ -2512,9 +2574,7 @@ pub fn matrix_free_arrow_inverse_apply(
         let mut cross = Array1::<f64>::zeros(dim);
         if !cache.apply_htbeta_row(row, solved_beta.view(), &mut cross) {
             return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "matrix_free_arrow_inverse_apply H_tbeta row {row} apply failed"
-                ),
+                reason: format!("matrix_free_arrow_inverse_apply H_tbeta row {row} apply failed"),
             });
         }
         let correction = cholesky_solve_vector(cache.undamped_factor(row), cross.view());
@@ -5306,9 +5366,7 @@ pub(crate) fn cholesky_lower(a: &Array2<f64>) -> Result<Array2<f64>, String> {
     const FAER_CHOLESKY_MIN: usize = 128;
     if n >= FAER_CHOLESKY_MIN {
         let view = gam_linalg::faer_ndarray::FaerArrayView::new(a);
-        if let Ok(llt) =
-            gam_linalg::faer_ndarray::FaerLlt::new(view.as_ref(), faer::Side::Lower)
-        {
+        if let Ok(llt) = gam_linalg::faer_ndarray::FaerLlt::new(view.as_ref(), faer::Side::Lower) {
             let l_faer = llt.L();
             let mut l = Array2::<f64>::zeros((n, n));
             for i in 0..n {

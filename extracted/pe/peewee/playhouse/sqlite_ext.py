@@ -1,33 +1,23 @@
 import json
 import re
-import sys
-import warnings
 
 from peewee import *
 from peewee import ColumnBase
 from peewee import EnclosedNodeList
 from peewee import Entity
 from peewee import Expression
-from peewee import Insert
 from peewee import Node
 from peewee import NodeList
 from peewee import OP
 from peewee import VirtualField
 from peewee import merge_dict
 from peewee import sqlite3
-from playhouse.sqlite_udf import JSON
-from playhouse.sqlite_udf import RANK
-from playhouse.sqlite_udf import register_udf_groups
 
 
 
 FTS3_MATCHINFO = 'pcx'
 FTS4_MATCHINFO = 'pcnalx'
-if sqlite3 is not None:
-    FTS_VERSION = 4 if sqlite3.sqlite_version_info[:3] >= (3, 7, 4) else 3
-else:
-    FTS_VERSION = 3
-
+FTS_VERSION = 4
 FTS5_MIN_SQLITE_VERSION = (3, 9, 0)
 
 
@@ -165,7 +155,6 @@ class JSONBPath(JSONPath):
 
 class JSONField(TextField):
     field_type = 'TEXT'
-    unpack = False
     Path = JSONPath
 
     def __init__(self, json_dumps=None, json_loads=None, **kwargs):
@@ -384,7 +373,6 @@ class BaseFTSModel(VirtualModel):
         content = options.get('content')
         prefix = options.get('prefix')
         tokenize = options.get('tokenize')
-        content_rowid = options.get('content_rowid')
 
         if isinstance(content, str) and content == '':
             # Special-case content-less full-text search tables.
@@ -393,9 +381,6 @@ class BaseFTSModel(VirtualModel):
             # Special-case to ensure fields are fully-qualified.
             options['content'] = Entity(content.model._meta.table_name,
                                         content.column_name)
-
-        if content_rowid is not None:
-            options['content_rowid'] = content_rowid
 
         if prefix:
             if isinstance(prefix, (list, tuple)):
@@ -412,9 +397,8 @@ class BaseFTSModel(VirtualModel):
 
 class FTSModel(BaseFTSModel):
     """
-    VirtualModel class for creating tables that use either the FTS3 or FTS4
-    search extensions. Peewee automatically determines which version of the
-    FTS extension is supported and will use FTS4 if possible.
+    VirtualModel class for creating tables that use the FTS4 search
+    extension. To use FTS3, set ``Meta.extension_module = 'FTS3'``.
     """
     # FTS3/4 uses "docid" in the same way a normal table uses "rowid".
     docid = DocIDField()

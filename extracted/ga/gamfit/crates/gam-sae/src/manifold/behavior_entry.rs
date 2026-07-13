@@ -4,7 +4,7 @@
 //! the activation matrix is the anchor and the nats-unit sphere-tangent image of
 //! the row-aligned probability distributions is the sole non-anchor block.  The
 //! existing crosscoder outer objective therefore selects `log(lambda_y)` in the
-//! same converged REML/LAML run that selects every other variance component.
+//! same converged penalized quasi-Laplace run that selects every other variance component.
 //! There is no binding-owned fit fork and no bounded inner-only fit object.
 
 use std::sync::Arc;
@@ -32,7 +32,7 @@ pub struct BehaviorWeightIdentifiability {
     pub identifiable: bool,
     pub activation_residual_variance: f64,
     pub behavior_residual_variance: f64,
-    /// Conditional observed curvature of the profiled two-block REML criterion
+    /// Conditional observed curvature of the profiled two-block penalized quasi-Laplace criterion
     /// with respect to `log(lambda_y)`. It is strictly positive exactly when
     /// both response blocks retain residual variance.
     pub log_lambda_curvature: f64,
@@ -169,7 +169,9 @@ fn weight_identifiability(
     let n = activation_target.nrows();
     let px = activation_target.ncols();
     let py = behavior_target.ncols();
-    let lambda = log_lambda_y.exp();
+    let lambda = gam_problem::checked_exp_log_strength(log_lambda_y).map_err(|error| {
+        format!("behavior identifiability received an invalid log strength: {error}")
+    })?;
     let denominator = rx + lambda * ry;
     let curvature = if rx > 0.0 && ry > 0.0 && denominator.is_finite() && denominator > 0.0 {
         0.5 * (n * (px + py)) as f64 * lambda * rx * ry / denominator.powi(2)
@@ -215,7 +217,7 @@ fn kl_summary(target: &Array2<f64>, fitted: &Array2<f64>) -> Result<BehaviorKlSu
 }
 
 /// Fit activations and behavioral distributions through one converged outer
-/// REML/LAML objective and one shared latent/routing state.
+/// penalized quasi-Laplace objective and one shared latent/routing state.
 pub fn run_auto_sae_behavior_fit(
     request: SaeBehaviorAutoFitRequest,
 ) -> Result<SaeBehaviorFitReport, SaeFitError> {
@@ -291,13 +293,13 @@ pub fn run_auto_sae_behavior_fit(
 impl SaeBehaviorFitReport {
     /// Materialize the stable behavior report shared unchanged by bindings.
     pub fn wire_report(&self) -> Result<SaeBehaviorWireReport, String> {
-        let log_lambda_y = self.behavior_block.log_lambda_y;
+        let log_lambda_y = self.behavior_block.log_lambda_y();
         Ok(SaeBehaviorWireReport {
             crosscoder: self
                 .crosscoder
                 .wire_report(SaeCrosscoderEvaluationConfig::default())?,
             log_lambda_y,
-            lambda_y: log_lambda_y.exp(),
+            lambda_y: self.behavior_block.lambda_y(),
             weight_identifiability: self.weight_identifiability.clone(),
             target_probabilities: array2_to_nested(&self.target_probabilities),
             fitted_probabilities: array2_to_nested(&self.fitted_probabilities),

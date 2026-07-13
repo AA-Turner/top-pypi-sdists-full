@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.18.0.0
-Summary: Type annotations for SciPy
-Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
+Version: 1.18.0.1
+Summary: The official type stubs for SciPy
+Keywords: scipy,typing,stubs,type-stubs,type-hints,type-checking,static-typing,shape-typing,pep561
 Author: Joren Hammudoglu
 Author-email: Joren Hammudoglu <jhammudoglu@gmail.com>
 License-Expression: BSD-3-Clause
@@ -17,8 +17,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Stubs Only
-Requires-Dist: optype[numpy]>=0.14.0,<0.19
-Requires-Dist: scipy>=1.18.0rc2,<1.19 ; extra == 'scipy'
+Requires-Dist: optype[numpy]>=0.15.0,<0.20
+Requires-Dist: scipy>=1.18.0,<1.19 ; extra == 'scipy'
 Maintainer: Joren Hammudoglu, SciPy Developers
 Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>
 Requires-Python: >=3.12
@@ -47,7 +47,7 @@ Description-Content-Type: text/markdown
 - **Shape- and dtype-aware**: array shapes and dtypes are tracked where applicable.
 - **Generics**: subscriptable types for sparse arrays, distributions, splines, and linear operators.
 - **No configuration**: works on install, affects type checking only, with no runtime impact.
-- **Broad checker support**: tested against mypy, pyright, basedpyright, pyrefly, and ty.
+- **Broad checker support**: tested against mypy, pyright, basedpyright, pyrefly, ty, and zuban.
 - **Thoroughly tested**: `stubtest` against the runtime, [`assert_type` tests][TYPETESTS] for inference, and [mypy_primer][PRIMER] for regressions.
 
 [TYPETESTS]: https://github.com/scipy/scipy-stubs/tree/master/tests
@@ -151,6 +151,7 @@ The speed gap exists mainly because `scipy-stubs` doesn’t require compilation 
 - [BasedPyright](https://github.com/detachhead/basedpyright),
 - [Pyrefly](https://github.com/facebook/pyrefly), and
 - [ty](https://github.com/astral-sh/ty) (currently in beta, so it may not always work as expected).
+- [Zuban](https://github.com/zubanls/zuban) (currently in beta, so it may not always work as expected).
 
 ### Q: Do I need to change my existing code?
 
@@ -225,32 +226,39 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 
 ### `scipy.interpolate`
 
-| generic type                                       | `scipy-stubs` | `scipy`  |                                                                                                                |
-| -------------------------------------------------- | ------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
-| `AAA[T: inexact]`                                  | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.AAA.html)                        |
-| `BarycentricInterpolator[T: f64 \| c128]`          | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BarycentricInterpolator.html)    |
-| `BPoly[T: f64 \| c128]`                            | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BPoly.html)                      |
-| `BSpline[T: f64 \| c128]`                          | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BSpline.html)                    |
-| `CubicHermiteSpline[T: f64 \| c128]`               | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)         |
-| `CubicSpline[T: f64 \| c128]`                      | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html)                |
-| `FloaterHormannInterpolator[T: f64 \| c128]`       | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.FloaterHormannInterpolator.html) |
-| `KroghInterpolator[T: f64 \| c128, S: (int, ...)]` | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.KroghInterpolator.html)          |
-| `LinearNDInterpolator[T: f64 \| c128]`             | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LinearNDInterpolator.html)       |
-| `NdBSpline[T: f64 \| c128]`                        | `>=1.15.2.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdBSpline.html)                  |
-| `NdPPoly[T: f64 \| c128]`                          | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdPPoly.html)                    |
-| `NearestNDInterpolator[T: f64 \| c128]`            | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NearestNDInterpolator.html)      |
-| `PPoly[T: f64 \| c128]`                            | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PPoly.html)                      |
-| `RBFInterpolator[T: f64 \| c128, S: (int, ...)]`   | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RBFInterpolator.html)            |
-| `RegularGridInterpolator[T: f64 \| c128]`          | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html)    |
+| generic type                                        | `scipy-stubs` | `scipy`  |                                                                                                                |
+| --------------------------------------------------- | ------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `AAA[T: inexact]`                                   | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.AAA.html)                        |
+| `Akima1DInterpolator[S: (int, ...)]`                | `>=1.18.0.1`  | `>=1.19` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html)        |
+| `BarycentricInterpolator[T: f64 \| c128]`           | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BarycentricInterpolator.html)    |
+| *`BPoly[T: f64 \| c128]`*                           | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BPoly.html)                      |
+| `BPoly[T: f64 \| c128, S: (int, ...)]`              | `>=1.18.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BPoly.html)                      |
+| `BSpline[T: f64 \| c128]`                           | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BSpline.html)                    |
+| *`CubicHermiteSpline[T: f64 \| c128]`*              | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)         |
+| `CubicHermiteSpline[T: f64 \| c128, S: (int, ...)]` | `>=1.18.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)         |
+| *`CubicSpline[T: f64 \| c128]`*                     | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html)                |
+| `CubicSpline[T: f64 \| c128, S: (int, ...)]`        | `>=1.18.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html)                |
+| `FloaterHormannInterpolator[T: f64 \| c128]`        | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.FloaterHormannInterpolator.html) |
+| `KroghInterpolator[T: f64 \| c128, S: (int, ...)]`  | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.KroghInterpolator.html)          |
+| `LinearNDInterpolator[T: f64 \| c128]`              | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LinearNDInterpolator.html)       |
+| `NdBSpline[T: f64 \| c128]`                         | `>=1.15.2.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdBSpline.html)                  |
+| `NdPPoly[T: f64 \| c128]`                           | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdPPoly.html)                    |
+| `NearestNDInterpolator[T: f64 \| c128]`             | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NearestNDInterpolator.html)      |
+| `PchipInterpolator[S: (int, ...)]`                  | `>=1.18.0.1`  | `>=1.19` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html)          |
+| *`PPoly[T: f64 \| c128]`*                           | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PPoly.html)                      |
+| `PPoly[T: f64 \| c128, S: (int, ...)]`              | `>=1.18.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PPoly.html)                      |
+| `RBFInterpolator[T: f64 \| c128, S: (int, ...)]`    | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RBFInterpolator.html)            |
+| `RegularGridInterpolator[T: f64 \| c128]`           | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html)    |
 
 ### `scipy.optimize`
 
-| generic type                            | `scipy-stubs` | `scipy`  |                                                                                                  |
-| --------------------------------------- | ------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `BroydenFirst[T: inexact]`              | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.BroydenFirst.html)    |
-| `InverseJacobian[T: inexact]`           | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.InverseJacobian.html) |
-| `KrylovJacobian[T: inexact]`            | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.KrylovJacobian.html)  |
-| `Bounds[S: (int, int, ...), T: scalar]` | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.Bounds.html)          |
+| generic type                                        | `scipy-stubs` | `scipy`  |                                                                                                      |
+| --------------------------------------------------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `BroydenFirst[T: inexact]`                          | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.BroydenFirst.html)        |
+| `InverseJacobian[T: inexact]`                       | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.InverseJacobian.html)     |
+| `KrylovJacobian[T: inexact]`                        | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.KrylovJacobian.html)      |
+| `Bounds[S: (int, int, ...), T: scalar]`             | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.Bounds.html)              |
+| `NonlinearConstraint[B: float scalar/1d, K = bool]` | `>=1.18.0.1`  | `>=1.19` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.NonlinearConstraint.html) |
 
 ### `scipy.signal`
 
@@ -308,7 +316,7 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 | `Covariance[T: real]`                                                          | `>=1.14.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Covariance.html)                     |
 | `Uniform[S: (int, ...), T: floating]`                                          | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Uniform.html)                        |
 | `Normal[S: (int, ...), T: floating]`                                           | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Normal.html)                         |
-| `Binomial[S: (int, ...), T: floating]`                                         | `>=1.16.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Binomial.html)                       |
+| `Binomial[S: (int, ...)]`                                                      | `>=1.16.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Binomial.html)                       |
 | `Mixture[T: floating]`                                                         | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Mixture.html)                        |
 | `rv_frozen[D: rv_generic, T: scalar or array]`                                 | `>=1.14.0.0`  | `>=1.17` |                                                                                                              |
 | `multi_rv_frozen[D: rv_generic]`                                               | `>=1.14.0.0`  | `>=1.17` |                                                                                                              |
@@ -317,7 +325,7 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 | `FitResult[F: (float, *) -> f64]`                                              | `>=1.15.0.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.FitResult.html)      |
 | `DunnettResult[T: f64 \| ld]`                                                  | `>=1.17.1.4`  | `>=1.18` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.DunnettResult.html)  |
 | `PearsonRResult[T: floating scalar/array, P: f64 scalar/array]`                | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.PearsonRResult.html) |
-| `TtestResult[T: floating scalar/array]`                                        | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.TtestResult.html)    |
+| `TtestResult[T: floating scalar/array, D: real scalar/array = T]`              | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.TtestResult.html)    |
 
 #### `scipy.stats.contingency`
 
@@ -405,6 +413,7 @@ PyMC ([PyTensor](https://github.com/pymc-devs/pytensor)) |
 [scikit-fingerprints](https://github.com/scikit-fingerprints/scikit-fingerprints) |
 [scqubits](https://github.com/scqubits/scqubits) |
 scverse ([PyDESeq2](https://github.com/scverse/PyDESeq2), [scanpy](https://github.com/scverse/scanpy)) |
+[seaborn](https://github.com/mwaskom/seaborn) |
 [SeQUeNCe](https://github.com/sequence-toolbox/SeQUeNCe) |
 [Skore](https://github.com/probabl-ai/skore) |
 [Splipy](https://github.com/SINTEF/Splipy) |

@@ -65,7 +65,7 @@ fn augmented_circle_atom(
 ) -> (SaeManifoldAtom, Array2<f64>) {
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let m = phi.ncols();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "b0",
         SaeAtomBasisKind::Periodic,
         1,
@@ -354,7 +354,7 @@ fn reml_fitted_defect(uneven: bool) -> (f64, bool, bool, f64) {
     );
     // The λ_y that came back is what the term actually holds — the coupling the
     // defect above was measured under.
-    let installed = fitted_block.log_lambda_y;
+    let installed = fitted_block.log_lambda_y();
     assert!(
         (installed - report.log_lambda_y).abs() < 1e-12,
         "installed λ_y {installed} disagrees with report {}",

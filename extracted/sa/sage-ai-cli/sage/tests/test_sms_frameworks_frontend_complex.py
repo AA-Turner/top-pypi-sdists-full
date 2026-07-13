@@ -1,6 +1,13 @@
 import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
+
 FRAMEWORKS_FRONTEND_TASKS = [
     ("TS-REACT-01", "React Redux Toolkit charts dashboard with dark mode for TS-REACT-01"),
     ("TS-NG-02", "Angular Kanban Board drag and drop layout with RxJS for TS-NG-02"),

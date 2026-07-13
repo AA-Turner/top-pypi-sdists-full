@@ -32,6 +32,7 @@ mod block_scoring_gpu;
 mod block_stream;
 mod codes;
 mod cofit;
+mod cofit_arrow;
 mod coordinate;
 mod scoring;
 #[cfg(target_os = "linux")]
@@ -44,11 +45,12 @@ mod update;
 mod tests;
 
 pub use block::{
-    BlockSparseConfig, BlockSparseConvergence, BlockSparseFit, BlockSparseFitError, block_gates,
-    block_projections_row, block_sparse_dictionary_block_coords,
+    BlockSeedPolicy, BlockSparseConfig, BlockSparseConvergence, BlockSparseFit,
+    BlockSparseFitError, block_gates, block_projections_row, block_sparse_dictionary_block_coords,
     block_sparse_dictionary_lift_block, block_sparse_dictionary_project_residual,
-    block_sparse_dictionary_transform, fit_block_sparse_dictionary, reconstruct_block_sparse_rows,
-    reconstruct_row, route_row_blocks, row_loss,
+    block_sparse_dictionary_transform, coordinate_partition_frames, fit_block_sparse_dictionary,
+    fit_block_sparse_dictionary_best_effort_with_seed, fit_block_sparse_dictionary_with_seed,
+    reconstruct_block_sparse_rows, reconstruct_row, route_row_blocks, row_loss,
 };
 pub use block_chart::{
     BlockChartComposeConfig, BlockChartComposeResult, BlockChartRecord, BlockSeedManifest,
@@ -66,6 +68,9 @@ pub use block_stream::{
 };
 pub use codes::SparseCode;
 pub use cofit::{CofitConfig, CofitReport, CofitRound, cofit_block_and_curved};
+pub use cofit_arrow::{
+    ArrowCofitConfig, ArrowCofitReport, cofit_composed_via_arrow, cofit_linear_via_arrow,
+};
 pub use coordinate::{
     BlockCoordinateReport, BlockMeasureCoordinateReport, FiringCoordinate, MeasureSpikeCoordinate,
     MeasureValuedCode, block_firing_coordinates, block_measure_valued_codes,

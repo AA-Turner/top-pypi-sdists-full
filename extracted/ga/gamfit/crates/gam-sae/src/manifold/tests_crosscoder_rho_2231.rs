@@ -46,7 +46,7 @@ fn build_k1_circle(
     let n = coords.nrows();
     let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
     let m = phi.ncols();
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "cc2231",
         SaeAtomBasisKind::Periodic,
         1,
@@ -308,7 +308,7 @@ fn block_gradient_matches_central_difference_of_cost_2231() {
     let h = 0.05_f64;
     // High inner budget so the SINGLE-SHOT gradient lane certifies at the probe
     // points. The cost lane certifies at a modest budget via its two-stage
-    // basin/envelope path; the raw `reml_criterion_with_cache` the gradient
+    // basin/envelope path; the raw `penalized_quasi_laplace_criterion_with_cache` the gradient
     // lane calls has no such multi-start, so it simply needs enough inner
     // Newton room to reach the same optimum from a warm continuation. The exact
     // block-gradient VALUE is independently pinned to 1e-6 by the pure-math

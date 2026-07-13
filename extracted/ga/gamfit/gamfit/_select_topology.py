@@ -4,7 +4,7 @@ Two public selectors are exposed:
 
 * :func:`select_topology` builds candidate formulas around an
   ``s(..., type=AUTO)`` smooth and ranks fitted models by evidence-like scores.
-* :class:`TopologyAutoSelector` is a descriptor-style helper for selecting the
+* :class:`TopologyAutoSelector` is a multi-fit orchestrator for selecting the
   topology of one :class:`gamfit.LatentCoord` block while preserving the rest
   of the caller's fit configuration.
 """
@@ -857,22 +857,22 @@ def _centers_dim(centers: Any) -> int | None:
 
 def _infer_candidate_name(topo: Smooth) -> str | None:
     if isinstance(topo, PeriodicSplineCurve):
-        return "Circle"
+        return "circle"
     if isinstance(topo, Sphere):
-        return "Sphere"
+        return "sphere"
     if isinstance(topo, TensorBSpline):
         periodic = tuple(bool(marginal.periodic) for marginal in topo.marginals)
         if periodic == (True, False):
-            return "Cylinder"
+            return "cylinder"
         if periodic == (True, True):
-            return "Torus"
+            return "torus"
     if isinstance(topo, Duchon):
         periodic = tuple(bool(v) for v in topo.periodic_per_axis or ())
         if periodic == (True, False):
-            return "Cylinder"
+            return "cylinder"
         if periodic == (True, True):
-            return "Torus"
-        return "EuclideanPatch"
+            return "torus"
+        return "euclidean"
     return None
 
 
@@ -1072,20 +1072,6 @@ class TopologyAutoSelector:
         self.latent = str(latent)
         return self
 
-    def to_rust_descriptor(self) -> dict[str, Any]:
-        """Serialize selector configuration for composition-engine hosts."""
-        payload: dict[str, Any] = {"score_scale": self.score_scale}
-        if self.candidates is not None:
-            payload["candidates"] = [
-                _candidate_from_item(item, 1, idx)[0]
-                for idx, item in enumerate(self.candidates)
-            ]
-        if self.latent is not None:
-            payload["latent"] = self.latent
-        return payload
-
-    _to_rust_payload = to_rust_descriptor
-
     def fit(
         self,
         data: Any,
@@ -1281,7 +1267,7 @@ def _normalize_selector_candidates(
     seen: set[str] = set()
     for idx, item in enumerate(raw):
         name, smooth = _candidate_from_item(item, latent_dim, idx)
-        key = name.lower()
+        key = name
         if key in seen:
             raise ValueError(f"duplicate topology candidate {name!r}")
         seen.add(key)
@@ -1309,22 +1295,12 @@ def _candidate_from_item(
 
 
 def _normalize_topology_name(name: str) -> str:
-    normalized = name.strip().lower().replace("-", "_")
-    aliases = {
-        "flat": "euclidean",
-        "euclideanpatch": "euclidean",
-        "euclidean_patch": "euclidean",
-        "periodic": "circle",
-        "s1": "circle",
-        "s2": "sphere",
-    }
-    normalized = aliases.get(normalized, normalized)
-    if normalized not in _DEFAULT_TOPOLOGY_NAMES:
+    if name not in _DEFAULT_TOPOLOGY_NAMES:
         raise ValueError(
-            "topology candidate must be one of: "
+            "topology candidate must be an exact canonical name: "
             + ", ".join(_DEFAULT_TOPOLOGY_NAMES)
         )
-    return normalized
+    return name
 
 
 def _latent_for_topology(latent: LatentCoord, name: str) -> LatentCoord:

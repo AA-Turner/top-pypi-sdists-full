@@ -11,6 +11,7 @@ from upath import UPath
 
 from .artifact import Artifact, track_run_input
 from .collection import Collection, _load_concat_artifacts
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -30,7 +31,6 @@ UNORDERED_WARNING = (
 )
 
 
-# maybe make this abstract
 class ArtifactSet(Iterable):
     """Abstract class representing sets of artifacts returned by queries.
 
@@ -145,18 +145,36 @@ class RecordSet(Iterable):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        limit: int | None = 20,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
+        use_export_run: bool = False,
         _record_type: Record | None = None,
     ) -> DataFrame:
+        """Export records in the queryset to a pandas DataFrame.
+
+        Run-input linking is only performed when feature export is requested,
+        i.e., `include="features"` (or `include` contains `"features"`).
+        If features are not included, the method falls back to the generic
+        queryset export path and does not link inputs.
+
+        Args:
+            include: Fields to include. Pass `"features"` (or include it in a
+              list) for sheet-style export and optional run-input linking.
+            features: Feature names to include when exporting features.
+            limit: Maximum number of records to export.
+            order_by: Ordering for exported records.
+            record_metadata: Whether to include encoded record metadata columns.
+            is_run_input: Whether to link exported records as run inputs.
+            link_individual_inputs: Whether to link each exported record as an input.
+            use_export_run: Whether to use a dedicated internal export run.
+        """
         import pandas as pd
 
         from .feature import convert_to_pandas_dtype
         from .query_set import (
-            SEARCH_QUERY_DEFAULT_LIMIT,
             BasicQuerySet,
             encode_lamindb_fields_as_columns,
             reorder_subset_columns_in_df,
@@ -169,6 +187,8 @@ class RecordSet(Iterable):
         )
 
         qs = cast(BasicQuerySet, self)
+        qs._record_export_type = None
+        qs._record_export_run = None
 
         include_features = include == "features" or (
             isinstance(include, list) and "features" in include
@@ -193,6 +213,8 @@ class RecordSet(Iterable):
                     "falling back to generic Record queryset export because the queryset "
                     "does not resolve to exactly one non-null `type_id`"
                 )
+                qs._record_export_type = None
+                qs._record_export_run = None
                 return BasicQuerySet.to_dataframe(
                     qs,
                     include=include,
@@ -204,6 +226,7 @@ class RecordSet(Iterable):
 
             # `type_id` points to record types (`is_type=True`) by model design.
             record_type = Record.get(id=type_ids[0])
+        qs._record_export_type = record_type
 
         logger.important(f"exporting {qs.count()} records of '{record_type.name}'")
 
@@ -279,20 +302,81 @@ class RecordSet(Iterable):
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
 
-        record_type._set_export_run(is_run_input=is_run_input)
-        export_run = record_type._export_run
-        if export_run is not None:
-            export_run.input_records.add(record_type)
+        record_type._set_export_run(
+            is_run_input=is_run_input,
+            use_export_run=use_export_run,
+        )
+        run_for_input_linking = record_type._export_run
+        if run_for_input_linking is not None:
+            run_for_input_linking.input_records.add(record_type)
             if link_individual_inputs:
                 input_record_ids = qs.values_list("id", flat=True)
-                export_run.input_records.add(*input_record_ids)
+                run_for_input_linking.input_records.add(*input_record_ids)
+        if use_export_run and run_for_input_linking is not None:
             from datetime import datetime, timezone
 
-            export_run.finished_at = datetime.now(timezone.utc)
-            export_run._status_code = 0
-            export_run.save()
-        qs._record_export_run = export_run
+            run_for_input_linking.finished_at = datetime.now(timezone.utc)
+            run_for_input_linking._status_code = 0
+            run_for_input_linking.save()
+        qs._record_export_run = run_for_input_linking if use_export_run else None
         return df.sort_index()
+
+    def to_artifact(
+        self,
+        key: str | None = None,
+        suffix: str | None = None,
+        is_run_input: bool | Run | None = None,
+        link_individual_inputs: bool = True,
+        **kwargs,
+    ) -> Artifact:
+        """Calls `to_dataframe()` to create an artifact.
+
+        The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
+
+        The `key` defaults to `record_exports/{type_name}_subset{suffix}` unless a
+        `key` is passed.
+
+        Args:
+            key: The artifact key.
+            suffix: The suffix to append to the default key if no key is passed.
+            is_run_input: Whether to track records as run inputs.
+            link_individual_inputs: Whether to link all exported records as
+                inputs of the export run. If `False`, only links the record type.
+            **kwargs: Keyword arguments passed to :meth:`~lamindb.models.RecordSet.to_dataframe`.
+        """
+        from .query_set import BasicQuerySet
+
+        assert key is None or suffix is None, "Only one of key or suffix can be passed."
+        qs = cast(BasicQuerySet, self)
+        kwargs.setdefault("include", "features")
+        df = self.to_dataframe(
+            is_run_input=is_run_input,
+            link_individual_inputs=link_individual_inputs,
+            use_export_run=True,
+            **kwargs,
+        )
+        record_type = getattr(qs, "_record_export_type", None)
+        export_run = getattr(qs, "_record_export_run", None)
+        if export_run is None and record_type is not None:
+            export_run = getattr(record_type, "_export_run", None)
+        if key is None:
+            suffix = ".csv" if suffix is None else suffix
+            type_name = record_type.name if record_type is not None else "record"
+            key = f"record_exports/{type_name}_subset{suffix}"
+        schema = record_type.schema if record_type is not None else None
+        return Artifact.from_dataframe(
+            df,
+            key=key,
+            description=(
+                f"Export of {record_type.name} subset"
+                if record_type is not None
+                else "Export of record subset"
+            ),
+            schema=schema,
+            csv_kwargs={"index": schema is not None and schema.index is not None},
+            run=export_run,
+            space=record_type.space if record_type is not None else None,
+        ).save()
 
 
 def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet:

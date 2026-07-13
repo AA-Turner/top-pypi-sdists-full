@@ -49,9 +49,9 @@
 //!
 //! # Production scalars and the test-only all-channels oracle
 //!
-//! The `JetScalar` trait below is production: it is the bound on
-//! [`crate::jet_tower::RowNllProgramGeneric::row_nll_generic`], the seam a family
-//! row loss is written against. The order-specific scalars that *consume* it —
+//! The `JetScalar` trait below is production: it is the bound on the canonical
+//! [`crate::jet_tower::RowProgram::eval`] seam a family row loss is written
+//! against. The order-specific scalars that *consume* it —
 //! [`Order2`] (value/grad/Hessian), [`OneSeed`] (contracted third) and
 //! [`TwoSeed`] (contracted fourth) — are production: the survival location-scale
 //! `RowKernel<9>` builds its joint Hessian / directional derivatives through them
@@ -105,22 +105,11 @@ pub trait JetScalar<const K: usize>: Copy {
     /// array makes that windowing total, no length guard required.
     fn compose_unary(&self, d: [f64; 5]) -> Self;
 
-    /// Compose with a unary special-function whose derivative STACK is built
-    /// from the scalar base value through `stack_fn` — the generic-over-`Lane`
-    /// seam that lets a single-sourced row program instantiate at BOTH the scalar
-    /// `f64` jets and the SIMD `f64x4` batch towers from ONE expression.
-    ///
-    /// On a scalar jet this evaluates `stack_fn(self.value())` ONCE and forwards
-    /// to [`compose_unary`](Self::compose_unary), so it is BIT-IDENTICAL to the
-    /// hand-written `self.compose_unary(stack_fn(self.value()))` (default body
-    /// below). The lever is that the SAME call shape exists on
-    /// [`crate::jet_tower::Tower3Lane`] / [`crate::jet_tower::Tower4Lane`], where
-    /// the four lanes carry FOUR DISTINCT base values, so the batch
-    /// implementation re-runs `stack_fn` per lane — a thing the old
-    /// `compose_unary(stack_from(self.value()))` shape could not express on a
-    /// batch type (it has no single scalar `.value()`). Writing a row program
-    /// against this method instead of the explicit two-step is what makes it
-    /// instantiate, unchanged, at `f64x4` for the 4-rows-per-pass batch path.
+    /// Compose with a unary special-function whose derivative stack is built from
+    /// the scalar base value through `stack_fn`. This evaluates
+    /// `stack_fn(self.value())` once and forwards to
+    /// [`compose_unary`](Self::compose_unary), so it is bit-identical to the
+    /// explicit `self.compose_unary(stack_fn(self.value()))` form.
     fn compose_unary_with(&self, stack_fn: impl Fn(f64) -> [f64; 5]) -> Self {
         self.compose_unary(stack_fn(self.value()))
     }
@@ -1037,6 +1026,250 @@ pub fn filtered_implicit_solve_scalar<const K: usize, S: JetScalar<K>>(
     a
 }
 
+// ── PatternedOrder2<P, K, H>: compile-time sparse Hessian ───────────────
+
+/// Compile-time upper-triangle Hessian pattern for [`PatternedOrder2`].
+///
+/// `PAIRS` contains exactly the `(row, column)` channels a row program can
+/// produce, with `row <= column`.  Pointwise Taylor algebra never couples one
+/// Hessian pair through another: output `H[i,j]` depends only on the two input
+/// `H[i,j]` channels and their `g[i]`/`g[j]` channels.  It is therefore exact to
+/// omit structurally impossible pairs rather than multiplying their zeros.
+pub trait HessianPattern<const K: usize, const H: usize> {
+    const PAIRS: [(usize, usize); H];
+    const PAIR_BITS: [[u128; K]; K];
+}
+
+/// Build the symmetric axis-pair → patterned-slot lookup used by dependency
+/// propagation in [`PatternedOrder2`].
+pub const fn hessian_pair_bits<const K: usize, const H: usize>(
+    pairs: [(usize, usize); H],
+) -> [[u128; K]; K] {
+    let mut table = [[0u128; K]; K];
+    let mut slot = 0;
+    while slot < H {
+        let (i, j) = pairs[slot];
+        let bit = 1u128 << slot;
+        table[i][j] = bit;
+        table[j][i] = bit;
+        slot += 1;
+    }
+    table
+}
+
+/// Exact order-two jet with a dense gradient and a compile-time patterned
+/// upper-triangle Hessian.
+///
+/// This carries `1 + K + H` scalars instead of `1 + K + K²`.  Its arithmetic is
+/// the same Leibniz/Faà-di-Bruno algebra as [`Order2`], evaluated only for the
+/// Hessian pairs declared by `P`.  A family row NLL remains written once over
+/// [`JetScalar`]; the pattern is an execution schedule, not a second derivative
+/// formula.
+#[derive(Debug)]
+pub struct PatternedOrder2<P, const K: usize, const H: usize> {
+    v: f64,
+    g: [f64; K],
+    h: [f64; H],
+    gradient_mask: u128,
+    hessian_mask: u128,
+    pattern: std::marker::PhantomData<fn() -> P>,
+}
+
+impl<P, const K: usize, const H: usize> Copy for PatternedOrder2<P, K, H> {}
+
+impl<P, const K: usize, const H: usize> Clone for PatternedOrder2<P, K, H> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<P, const K: usize, const H: usize> PatternedOrder2<P, K, H>
+where
+    P: HessianPattern<K, H>,
+{
+    #[inline]
+    #[must_use]
+    pub fn g(&self) -> [f64; K] {
+        self.g
+    }
+
+    /// Expand the patterned upper triangle into the dense symmetric shape
+    /// required by the existing `RowKernel` interface. Missing pairs are exact
+    /// structural zeros.
+    #[inline]
+    #[must_use]
+    pub fn h(&self) -> [[f64; K]; K] {
+        let mut dense = [[0.0; K]; K];
+        for (slot, &(i, j)) in P::PAIRS.iter().enumerate() {
+            dense[i][j] = self.h[slot];
+            dense[j][i] = self.h[slot];
+        }
+        dense
+    }
+
+    #[inline]
+    fn pair_mask_between(left: u128, right: u128) -> u128 {
+        let mut result = 0u128;
+        let mut left_axes = left;
+        while left_axes != 0 {
+            let i = left_axes.trailing_zeros() as usize;
+            left_axes &= left_axes - 1;
+            let mut right_axes = right;
+            while right_axes != 0 {
+                let j = right_axes.trailing_zeros() as usize;
+                right_axes &= right_axes - 1;
+                result |= P::PAIR_BITS[i][j];
+            }
+        }
+        result
+    }
+}
+
+impl<P, const K: usize, const H: usize> JetScalar<K> for PatternedOrder2<P, K, H>
+where
+    P: HessianPattern<K, H>,
+{
+    #[inline]
+    fn constant(c: f64) -> Self {
+        Self {
+            v: c,
+            g: [0.0; K],
+            h: [0.0; H],
+            gradient_mask: 0,
+            hessian_mask: 0,
+            pattern: std::marker::PhantomData,
+        }
+    }
+
+    #[inline]
+    fn variable(x: f64, axis: usize) -> Self {
+        let mut out = Self::constant(x);
+        if axis < K {
+            out.g[axis] = 1.0;
+            out.gradient_mask = 1u128 << axis;
+        }
+        out
+    }
+
+    #[inline]
+    fn value(&self) -> f64 {
+        self.v
+    }
+
+    #[inline]
+    fn add(&self, other: &Self) -> Self {
+        let mut out = Self::constant(self.v + other.v);
+        out.gradient_mask = self.gradient_mask | other.gradient_mask;
+        let mut gradient_mask = out.gradient_mask;
+        while gradient_mask != 0 {
+            let i = gradient_mask.trailing_zeros() as usize;
+            gradient_mask &= gradient_mask - 1;
+            out.g[i] = self.g[i] + other.g[i];
+        }
+        out.hessian_mask = self.hessian_mask | other.hessian_mask;
+        let mut hessian_mask = out.hessian_mask;
+        while hessian_mask != 0 {
+            let slot = hessian_mask.trailing_zeros() as usize;
+            hessian_mask &= hessian_mask - 1;
+            out.h[slot] = self.h[slot] + other.h[slot];
+        }
+        out
+    }
+
+    #[inline]
+    fn sub(&self, other: &Self) -> Self {
+        let mut out = Self::constant(self.v - other.v);
+        out.gradient_mask = self.gradient_mask | other.gradient_mask;
+        let mut gradient_mask = out.gradient_mask;
+        while gradient_mask != 0 {
+            let i = gradient_mask.trailing_zeros() as usize;
+            gradient_mask &= gradient_mask - 1;
+            out.g[i] = self.g[i] - other.g[i];
+        }
+        out.hessian_mask = self.hessian_mask | other.hessian_mask;
+        let mut hessian_mask = out.hessian_mask;
+        while hessian_mask != 0 {
+            let slot = hessian_mask.trailing_zeros() as usize;
+            hessian_mask &= hessian_mask - 1;
+            out.h[slot] = self.h[slot] - other.h[slot];
+        }
+        out
+    }
+
+    #[inline]
+    fn mul(&self, other: &Self) -> Self {
+        let mut out = Self::constant(self.v * other.v);
+        out.gradient_mask = self.gradient_mask | other.gradient_mask;
+        let mut gradient_mask = out.gradient_mask;
+        while gradient_mask != 0 {
+            let i = gradient_mask.trailing_zeros() as usize;
+            gradient_mask &= gradient_mask - 1;
+            out.g[i] = self.v * other.g[i] + self.g[i] * other.v;
+        }
+        out.hessian_mask = self.hessian_mask
+            | other.hessian_mask
+            | Self::pair_mask_between(self.gradient_mask, other.gradient_mask);
+        let mut hessian_mask = out.hessian_mask;
+        while hessian_mask != 0 {
+            let slot = hessian_mask.trailing_zeros() as usize;
+            hessian_mask &= hessian_mask - 1;
+            let (i, j) = P::PAIRS[slot];
+            out.h[slot] = self.v * other.h[slot]
+                + self.g[i] * other.g[j]
+                + self.g[j] * other.g[i]
+                + self.h[slot] * other.v;
+        }
+        out
+    }
+
+    #[inline]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
+
+    #[inline]
+    fn scale(&self, scale: f64) -> Self {
+        let mut out = Self::constant(self.v * scale);
+        out.gradient_mask = self.gradient_mask;
+        let mut gradient_mask = out.gradient_mask;
+        while gradient_mask != 0 {
+            let i = gradient_mask.trailing_zeros() as usize;
+            gradient_mask &= gradient_mask - 1;
+            out.g[i] = self.g[i] * scale;
+        }
+        out.hessian_mask = self.hessian_mask;
+        let mut hessian_mask = out.hessian_mask;
+        while hessian_mask != 0 {
+            let slot = hessian_mask.trailing_zeros() as usize;
+            hessian_mask &= hessian_mask - 1;
+            out.h[slot] = self.h[slot] * scale;
+        }
+        out
+    }
+
+    #[inline]
+    fn compose_unary(&self, derivatives: [f64; 5]) -> Self {
+        let mut out = Self::constant(derivatives[0]);
+        out.gradient_mask = self.gradient_mask;
+        let mut gradient_mask = out.gradient_mask;
+        while gradient_mask != 0 {
+            let i = gradient_mask.trailing_zeros() as usize;
+            gradient_mask &= gradient_mask - 1;
+            out.g[i] = derivatives[1] * self.g[i];
+        }
+        out.hessian_mask =
+            self.hessian_mask | Self::pair_mask_between(self.gradient_mask, self.gradient_mask);
+        let mut hessian_mask = out.hessian_mask;
+        while hessian_mask != 0 {
+            let slot = hessian_mask.trailing_zeros() as usize;
+            hessian_mask &= hessian_mask - 1;
+            let (i, j) = P::PAIRS[slot];
+            out.h[slot] = derivatives[2] * self.g[i] * self.g[j] + derivatives[1] * self.h[slot];
+        }
+        out
+    }
+}
+
 // ── Order2<K>: value / gradient / Hessian (doc §A.1) ────────────────────
 
 /// Truncated SECOND-order scalar: value `v`, gradient `g_a`, Hessian `H_{ab}`.
@@ -1096,6 +1329,348 @@ impl<const K: usize> JetScalar<K> for Order2<K> {
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         // Order-≤2 reads only [f, f', f''] of the stack.
         Order2(self.0.compose_unary([d[0], d[1], d[2]]))
+    }
+}
+
+/// Static lowering target for a sum of composed, low-dimensional row atoms.
+///
+/// A row likelihood often depends on a large global primary vector only through
+/// a few small independent indices.  Evaluating the whole expression in an
+/// `Order2<K>` then pays dense `K²` arithmetic at every intermediate; carrying
+/// runtime dependency masks replaces that arithmetic with branches and bit
+/// scans.  This accumulator provides the ahead-of-time alternative: evaluate
+/// each index once in its natural local dimension `N`, then scatter the exact
+/// second-order composition into the global `K` channels through a fixed axis
+/// map.  The family still owns only its scalar index expression and certified
+/// unary derivative stack; this type owns the universal chain rule.
+///
+/// For an atom `q(x_local)` and outer stack `[f(q), f'(q), f''(q)]`, the lowered
+/// channels are
+///
+/// ```text
+/// g[a_i]       += f' q_i
+/// H[a_i, a_j] += f' q_ij + f'' q_i q_j.
+/// ```
+///
+/// Only the local upper triangle is evaluated, then mirrored into the global
+/// symmetric output.  With literal `axes` and fixed `N`, LLVM unrolls this into
+/// straight-line arithmetic: no dependency masks, sparse-pair lookups, or jet
+/// temporaries survive into the generated schedule.
+#[derive(Clone, Copy, Debug)]
+pub struct MappedOrder2Accumulator<const K: usize> {
+    value: f64,
+    gradient: [f64; K],
+    hessian: [[f64; K]; K],
+}
+
+/// Compile-time-symbolic value/gradient/Hessian of one local row atom.
+///
+/// The Hessian stores only its upper triangle, in row-major triangular order.
+/// Instances are emitted by `gam-row-macros`; unlike a runtime forward jet,
+/// they contain only final live channels and therefore introduce no seeded
+/// identity arrays, dependency masks, or zero arithmetic.
+#[derive(Clone, Copy, Debug)]
+pub struct StaticOrder2Atom<
+    const N: usize,
+    const H: usize,
+    const GRADIENT_BITS: u128,
+    const HESSIAN_BITS: u128,
+> {
+    value: f64,
+    gradient: [f64; N],
+    hessian: [f64; H],
+}
+
+impl<const N: usize, const H: usize, const G: u128, const Q: u128> StaticOrder2Atom<N, H, G, Q> {
+    /// Construct a generated atom. `H` must equal `N(N+1)/2`.
+    #[inline(always)]
+    #[must_use]
+    pub fn new(value: f64, gradient: [f64; N], hessian: [f64; H]) -> Self {
+        assert!(H == N * (N + 1) / 2, "invalid packed order-two shape");
+        assert!(N <= 128 && H <= 128, "static atom sparsity mask overflow");
+        Self {
+            value,
+            gradient,
+            hessian,
+        }
+    }
+
+    /// Scalar value of the generated atom.
+    #[inline(always)]
+    #[must_use]
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    /// Generated local gradient.
+    #[inline(always)]
+    #[must_use]
+    pub fn gradient(&self) -> [f64; N] {
+        self.gradient
+    }
+
+    /// Generated local Hessian entry. The matrix is symmetric.
+    #[inline(always)]
+    #[must_use]
+    pub fn hessian_at(&self, row: usize, column: usize) -> f64 {
+        assert!(
+            row < N && column < N,
+            "static atom Hessian axis out of range"
+        );
+        let (row, column) = if row <= column {
+            (row, column)
+        } else {
+            (column, row)
+        };
+        let index = row * (2 * N - row + 1) / 2 + column - row;
+        self.hessian[index]
+    }
+}
+
+/// Order-two channel reader accepted by [`MappedOrder2Accumulator`].
+///
+/// Both ordinary forward jets and build-time-symbolic atoms implement this
+/// interface. The accumulator owns the only global scatter/chain rule.
+pub trait Order2AtomChannels<const N: usize> {
+    /// Structurally live local gradient channels.
+    const GRADIENT_BITS: u128;
+    /// Structurally live packed upper-Hessian channels.
+    const HESSIAN_BITS: u128;
+    /// Local gradient entry.
+    fn gradient_at(&self, axis: usize) -> f64;
+    /// Local Hessian entry.
+    fn hessian_at(&self, row: usize, column: usize) -> f64;
+}
+
+impl<const N: usize> Order2AtomChannels<N> for Order2<N> {
+    const GRADIENT_BITS: u128 = low_mask(N);
+    const HESSIAN_BITS: u128 = low_mask(N * (N + 1) / 2);
+
+    #[inline(always)]
+    fn gradient_at(&self, axis: usize) -> f64 {
+        self.0.g[axis]
+    }
+
+    #[inline(always)]
+    fn hessian_at(&self, row: usize, column: usize) -> f64 {
+        self.0.h[row][column]
+    }
+}
+
+impl<const N: usize, const H: usize, const G: u128, const Q: u128> Order2AtomChannels<N>
+    for StaticOrder2Atom<N, H, G, Q>
+{
+    const GRADIENT_BITS: u128 = G;
+    const HESSIAN_BITS: u128 = Q;
+
+    #[inline(always)]
+    fn gradient_at(&self, axis: usize) -> f64 {
+        self.gradient[axis]
+    }
+
+    #[inline(always)]
+    fn hessian_at(&self, row: usize, column: usize) -> f64 {
+        StaticOrder2Atom::hessian_at(self, row, column)
+    }
+}
+
+const fn low_mask(channels: usize) -> u128 {
+    if channels >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << channels) - 1
+    }
+}
+
+impl<const K: usize> MappedOrder2Accumulator<K> {
+    /// Empty additive accumulator.
+    #[inline(always)]
+    #[must_use]
+    pub fn zero() -> Self {
+        Self {
+            value: 0.0,
+            gradient: [0.0; K],
+            hessian: [[0.0; K]; K],
+        }
+    }
+
+    /// Scatter `f(atom)` using the exact order-two Faà di Bruno rule.
+    ///
+    /// `axes[i]` maps local derivative axis `i` to its global primary axis. The
+    /// map must be injective. Repeated axes describe a non-injective linear
+    /// pullback whose identified cross terms need multiplicity that this simple
+    /// scatter deliberately does not represent.
+    #[inline(always)]
+    pub fn add_composed<const N: usize, const H: usize, A: Order2AtomChannels<N>>(
+        &mut self,
+        atom: &A,
+        axes: [usize; N],
+        derivatives: [f64; 3],
+        value_add: bool,
+        gradient_add: [bool; N],
+        hessian_add: [bool; H],
+    ) {
+        assert!(H == N * (N + 1) / 2, "invalid mapped Hessian write shape");
+        assert!(N <= 128 && H <= 128, "mapped atom sparsity mask overflow");
+        assert!(
+            axes.iter().all(|&axis| axis < K),
+            "mapped atom axis must be within the global primary dimension"
+        );
+        assert!(
+            axes.iter()
+                .enumerate()
+                .all(|(i, axis)| !axes[..i].contains(axis)),
+            "mapped atom axes must be injective"
+        );
+
+        if value_add {
+            self.value += derivatives[0];
+        } else {
+            self.value = derivatives[0];
+        }
+        let mut packed = 0;
+        for local_i in 0..N {
+            let global_i = axes[local_i];
+            if A::GRADIENT_BITS & (1u128 << local_i) != 0 {
+                let channel = derivatives[1] * atom.gradient_at(local_i);
+                if gradient_add[local_i] {
+                    self.gradient[global_i] += channel;
+                } else {
+                    self.gradient[global_i] = channel;
+                }
+            }
+            for local_j in local_i..N {
+                let global_j = axes[local_j];
+                let inner_live = A::HESSIAN_BITS & (1u128 << packed) != 0;
+                let outer_live = A::GRADIENT_BITS & (1u128 << local_i) != 0
+                    && A::GRADIENT_BITS & (1u128 << local_j) != 0;
+                let channel = if inner_live {
+                    let inner = derivatives[1] * atom.hessian_at(local_i, local_j);
+                    if outer_live {
+                        inner
+                            + derivatives[2] * atom.gradient_at(local_i) * atom.gradient_at(local_j)
+                    } else {
+                        inner
+                    }
+                } else if outer_live {
+                    derivatives[2] * atom.gradient_at(local_i) * atom.gradient_at(local_j)
+                } else {
+                    packed += 1;
+                    continue;
+                };
+                if hessian_add[packed] {
+                    self.hessian[global_i][global_j] += channel;
+                    if global_i != global_j {
+                        self.hessian[global_j][global_i] += channel;
+                    }
+                } else {
+                    self.hessian[global_i][global_j] = channel;
+                    if global_i != global_j {
+                        self.hessian[global_j][global_i] = channel;
+                    }
+                }
+                packed += 1;
+            }
+        }
+    }
+
+    /// Finish the lowering in the standard row-kernel channel layout.
+    #[inline(always)]
+    #[must_use]
+    pub fn into_channels(self) -> (f64, [f64; K], [[f64; K]; K]) {
+        (self.value, self.gradient, self.hessian)
+    }
+}
+
+/// One inner scalar in a runtime-width additive order-two composition.
+///
+/// Implementors expose only the inner gradient and Hessian. The corresponding
+/// outer function's first and second derivatives live beside the source in the
+/// caller's term type, so several terms that share an inner scalar may be fused
+/// before entering [`DynamicOrder2Accumulator`].
+pub trait DynamicOrder2Term {
+    /// Outer first derivative `f'(q)` for this already-fused source.
+    fn outer_first(&self) -> f64;
+
+    /// Outer second derivative `f''(q)` for this already-fused source.
+    fn outer_second(&self) -> f64;
+
+    /// Inner first derivative `q_i`.
+    fn inner_gradient(&self, axis: usize) -> f64;
+
+    /// Inner second derivative `q_ij`.
+    fn inner_hessian(&self, row: usize, column: usize) -> f64;
+}
+
+/// Allocation-minimal runtime-width lowering of an additive order-two program.
+///
+/// This is the dynamic-width sibling of [`MappedOrder2Accumulator`]. A caller
+/// first reduces its mathematical row program to a scalar value plus `N`
+/// independent composed sources. This accumulator then performs the universal
+/// chain rule
+///
+/// ```text
+/// g_i  = sum_t (f_t' q_t,i)
+/// H_ij = sum_t (f_t'' q_t,i q_t,j + f_t' q_t,ij)
+/// ```
+///
+/// in one gradient pass and one upper-triangular Hessian pass. It owns exactly
+/// the two buffers that become the returned gradient and Hessian; no per-term
+/// derivative buffer or jet temporary is allocated. `N` is const-generic so a
+/// small fixed source set is visible to LLVM and can be unrolled.
+#[derive(Debug)]
+pub struct DynamicOrder2Accumulator {
+    value: f64,
+    gradient: Vec<f64>,
+    hessian: Vec<f64>,
+}
+
+impl DynamicOrder2Accumulator {
+    /// Lower a fused additive source set at runtime primary width `dimension`.
+    #[inline(always)]
+    #[must_use]
+    pub fn from_composed_sum<T: DynamicOrder2Term, const N: usize>(
+        dimension: usize,
+        value: f64,
+        terms: &[T; N],
+    ) -> Self {
+        let mut gradient = vec![0.0; dimension];
+        let mut hessian = vec![0.0; dimension * dimension];
+
+        for axis in 0..dimension {
+            let mut channel = 0.0;
+            for term in terms {
+                channel += term.outer_first() * term.inner_gradient(axis);
+            }
+            gradient[axis] = channel;
+        }
+
+        for row in 0..dimension {
+            for column in row..dimension {
+                let mut channel = 0.0;
+                for term in terms {
+                    let row_gradient = term.inner_gradient(row);
+                    let column_gradient = term.inner_gradient(column);
+                    channel += term.outer_second() * row_gradient * column_gradient
+                        + term.outer_first() * term.inner_hessian(row, column);
+                }
+                hessian[row * dimension + column] = channel;
+                hessian[column * dimension + row] = channel;
+            }
+        }
+
+        Self {
+            value,
+            gradient,
+            hessian,
+        }
+    }
+
+    /// Finish the lowering as `(value, gradient, row-major symmetric Hessian)`.
+    #[inline(always)]
+    #[must_use]
+    pub fn into_channels(self) -> (f64, Vec<f64>, Vec<f64>) {
+        (self.value, self.gradient, self.hessian)
     }
 }
 
@@ -1160,18 +1735,6 @@ pub trait Lane: Copy {
     /// evaluated per lane (bit-identically to the scalar path); the subsequent
     /// tensor composition is vectorised.
     fn unary5(self, stack: impl Fn(f64) -> [f64; 5]) -> [Self; 5];
-    /// The general-`N` sibling of [`unary3`](Lane::unary3) / [`unary5`](Lane::unary5):
-    /// build an `N`-wide derivative stack **per lane** from the lane value, via
-    /// the SAME scalar `stack` closure the per-row path runs, then pack the `N`
-    /// columns lane-wise. This is the lane primitive the compose-with-stack seam
-    /// ([`crate::jet_tower::Tower4Lane::compose_unary_with`] and its `Tower3`
-    /// sibling) routes through: it evaluates `stack` once per lane at that lane's
-    /// OWN base value (each of the four rows in an `f64x4` carries a distinct
-    /// base), so lane `i` of the packed result equals the scalar `stack(value_i)`
-    /// bit-for-bit (only the cheap pack is vectorised; the closure body is the
-    /// identical scalar code). With `N = 3` / `N = 5` it is `to_bits`-identical to
-    /// [`unary3`](Lane::unary3) / [`unary5`](Lane::unary5).
-    fn unary_with<const N: usize>(self, stack: impl Fn(f64) -> [f64; N]) -> [Self; N];
 }
 
 impl Lane for f64 {
@@ -1201,11 +1764,6 @@ impl Lane for f64 {
     }
     #[inline]
     fn unary5(self, stack: impl Fn(f64) -> [f64; 5]) -> [Self; 5] {
-        stack(self)
-    }
-    #[inline]
-    fn unary_with<const N: usize>(self, stack: impl Fn(f64) -> [f64; N]) -> [Self; N] {
-        // One row: the packed result IS the scalar stack ([Self; N] = [f64; N]).
         stack(self)
     }
 }
@@ -1266,21 +1824,6 @@ impl Lane for wide::f64x4 {
             wide::f64x4::new(d[3]),
             wide::f64x4::new(d[4]),
         ]
-    }
-    #[inline]
-    fn unary_with<const N: usize>(self, stack: impl Fn(f64) -> [f64; N]) -> [Self; N] {
-        // Evaluate the scalar stack PER LANE at that lane's own base value, then
-        // pack the N derivative columns lane-wise (the same shape `unary5` uses,
-        // generalised to N). Lane `i` of column `k` is `stack(base_i)[k]`.
-        let a = self.to_array();
-        let mut cols = [[0.0_f64; 4]; N];
-        for (i, &base) in a.iter().enumerate() {
-            let s = stack(base);
-            for (k, sk) in s.iter().enumerate() {
-                cols[k][i] = *sk;
-            }
-        }
-        std::array::from_fn(|k| wide::f64x4::new(cols[k]))
     }
 }
 
@@ -2427,7 +2970,7 @@ impl<const K: usize> JetScalar<K> for crate::jet_tower::Tower4<K> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jet_tower::{RowNllProgram, Tower4, evaluate_program};
+    use crate::jet_tower::{RowProgram, Tower4, program_full_tower};
 
     /// A small polynomial-plus-unary row expression written ONCE, generically
     /// over `S: JetScalar<2>`, so it can be evaluated against every scalar:
@@ -2440,11 +2983,11 @@ mod tests {
         inner.mul(&radic).sub(&p[1].mul(&p[1]).scale(0.5))
     }
 
-    /// The same expression as a Tower4 `RowNllProgram`, the ground-truth tower.
+    /// The same expression exposed through the canonical generic row-program seam.
     struct ExprProgram {
         p: [f64; 2],
     }
-    impl RowNllProgram<2> for ExprProgram {
+    impl RowProgram<2> for ExprProgram {
         fn n_rows(&self) -> usize {
             1
         }
@@ -2454,7 +2997,7 @@ mod tests {
             }
             Ok(self.p)
         }
-        fn row_nll(&self, row: usize, p: &[Tower4<2>; 2]) -> Result<Tower4<2>, String> {
+        fn eval<S: JetScalar<2>>(&self, row: usize, p: &[S; 2]) -> Result<S, String> {
             if row >= self.n_rows() {
                 return Err(format!("ExprProgram: row {row} out of range"));
             }
@@ -2476,7 +3019,7 @@ mod tests {
     }
 
     fn tower() -> Tower4<2> {
-        evaluate_program(&ExprProgram { p: SEED }, 0).expect("tower")
+        program_full_tower(&ExprProgram { p: SEED }, 0).expect("tower")
     }
 
     /// Order2 reproduces Tower4's value/grad/Hessian channels exactly.
@@ -2494,10 +3037,205 @@ mod tests {
         }
     }
 
-    /// The `compose_unary_with` seam on a scalar jet is `to_bits`-identical to
-    /// the explicit `compose_unary(stack_fn(value))` — the contract the batch
-    /// arm (`Tower{3,4}Lane::compose_unary_with`) lane-matches. Exercised on
-    /// [`Order2`] across `K ∈ {2,3,4,9}`, ≥ 4000 random seeded inputs.
+    #[test]
+    fn mapped_order2_accumulator_matches_dense_overlapping_atoms() {
+        const K: usize = 4;
+        let p = [0.2_f64, 0.7, -0.4, 0.3];
+        let dense_vars: [Order2<K>; K] =
+            std::array::from_fn(|axis| Order2::variable(p[axis], axis));
+        let dense_q0 = dense_vars[3].mul(&dense_vars[1]).add(&dense_vars[3].exp());
+        let dense_q1 = dense_vars[1].mul(&dense_vars[2]).sub(&dense_vars[2]);
+        let dense = dense_q0.ln().add(&dense_q1.exp());
+
+        let local_q0_vars: [Order2<2>; 2] =
+            std::array::from_fn(|axis| Order2::variable(p[[3, 1][axis]], axis));
+        let local_q0 = local_q0_vars[0]
+            .mul(&local_q0_vars[1])
+            .add(&local_q0_vars[0].exp());
+        let local_q1_vars: [Order2<2>; 2] =
+            std::array::from_fn(|axis| Order2::variable(p[[1, 2][axis]], axis));
+        let local_q1 = local_q1_vars[0]
+            .mul(&local_q1_vars[1])
+            .sub(&local_q1_vars[1]);
+
+        let q0 = local_q0.value();
+        let q1_exp = local_q1.value().exp();
+        let mut lowered = MappedOrder2Accumulator::<K>::zero();
+        lowered.add_composed(
+            &local_q0,
+            [3, 1],
+            [q0.ln(), q0.recip(), -1.0 / (q0 * q0)],
+            false,
+            [false, false],
+            [false, false, false],
+        );
+        lowered.add_composed(
+            &local_q1,
+            [1, 2],
+            [q1_exp, q1_exp, q1_exp],
+            true,
+            [true, false],
+            [true, false, false],
+        );
+        let (value, gradient, hessian) = lowered.into_channels();
+
+        close(value, dense.value(), "mapped value");
+        for i in 0..K {
+            close(gradient[i], dense.g()[i], &format!("mapped gradient[{i}]"));
+            for j in 0..K {
+                close(
+                    hessian[i][j],
+                    dense.h()[i][j],
+                    &format!("mapped Hessian[{i},{j}]"),
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "mapped atom axes must be injective")]
+    fn mapped_order2_accumulator_rejects_duplicate_axes() {
+        let vars: [Order2<2>; 2] = std::array::from_fn(|axis| Order2::variable(0.2, axis));
+        let atom = vars[0].add(&vars[1]);
+        let mut lowered = MappedOrder2Accumulator::<2>::zero();
+        lowered.add_composed(
+            &atom,
+            [1, 1],
+            [0.4, 1.0, 0.0],
+            false,
+            [false, false],
+            [false, false, false],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "mapped atom axis must be within")]
+    fn mapped_order2_accumulator_rejects_out_of_range_axes() {
+        let atom = Order2::<1>::variable(0.2, 0);
+        let mut lowered = MappedOrder2Accumulator::<2>::zero();
+        lowered.add_composed(&atom, [2], [0.2, 1.0, 0.0], false, [false], [false]);
+    }
+
+    #[test]
+    fn dynamic_order2_accumulator_matches_dense_composed_sum() {
+        const K: usize = 4;
+
+        struct Term {
+            first: f64,
+            second: f64,
+            gradient: [f64; K],
+            hessian: [[f64; K]; K],
+        }
+
+        impl DynamicOrder2Term for Term {
+            fn outer_first(&self) -> f64 {
+                self.first
+            }
+
+            fn outer_second(&self) -> f64 {
+                self.second
+            }
+
+            fn inner_gradient(&self, axis: usize) -> f64 {
+                self.gradient[axis]
+            }
+
+            fn inner_hessian(&self, row: usize, column: usize) -> f64 {
+                self.hessian[row][column]
+            }
+        }
+
+        let p = [0.7, -0.3, 0.2, 0.8];
+        let vars: [Order2<K>; K] = std::array::from_fn(|axis| Order2::variable(p[axis], axis));
+        let first_atom = vars[0]
+            .mul(&vars[1])
+            .add(&vars[2].exp())
+            .add(&Order2::constant(1.5));
+        let second_atom = vars[1].mul(&vars[3]).sub(&vars[0]);
+        let first_value = first_atom.value();
+        let second_exp = second_atom.value().exp();
+        let first_stack = [
+            first_value.ln(),
+            first_value.recip(),
+            -1.0 / (first_value * first_value),
+            0.0,
+            0.0,
+        ];
+        let second_stack = [second_exp, second_exp, second_exp, second_exp, second_exp];
+        let dense = first_atom
+            .compose_unary(first_stack)
+            .add(&second_atom.compose_unary(second_stack));
+        let terms = [
+            Term {
+                first: first_stack[1],
+                second: first_stack[2],
+                gradient: first_atom.g(),
+                hessian: first_atom.h(),
+            },
+            Term {
+                first: second_stack[1],
+                second: second_stack[2],
+                gradient: second_atom.g(),
+                hessian: second_atom.h(),
+            },
+        ];
+        let (value, gradient, hessian) = DynamicOrder2Accumulator::from_composed_sum(
+            K,
+            first_stack[0] + second_stack[0],
+            &terms,
+        )
+        .into_channels();
+
+        close(value, dense.value(), "dynamic value");
+        for row in 0..K {
+            close(
+                gradient[row],
+                dense.g()[row],
+                &format!("dynamic gradient[{row}]"),
+            );
+            for column in 0..K {
+                close(
+                    hessian[row * K + column],
+                    dense.h()[row][column],
+                    &format!("dynamic Hessian[{row},{column}]"),
+                );
+            }
+        }
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    struct FullTwoPattern;
+
+    impl HessianPattern<2, 3> for FullTwoPattern {
+        const PAIRS: [(usize, usize); 3] = [(0, 0), (0, 1), (1, 1)];
+        const PAIR_BITS: [[u128; 2]; 2] = hessian_pair_bits(Self::PAIRS);
+    }
+
+    /// Patterned order-two arithmetic is channel-identical to dense `Order2`
+    /// when the pattern covers the expression's complete Hessian support.
+    #[test]
+    fn patterned_order2_matches_dense_order2() {
+        type Sparse = PatternedOrder2<FullTwoPattern, 2, 3>;
+        let dense_vars: [Order2<2>; 2] = std::array::from_fn(|a| Order2::variable(SEED[a], a));
+        let sparse_vars: [Sparse; 2] = std::array::from_fn(|a| Sparse::variable(SEED[a], a));
+        let dense = row_expr(&dense_vars);
+        let sparse = row_expr(&sparse_vars);
+        close(sparse.value(), dense.value(), "patterned value");
+        for i in 0..2 {
+            close(sparse.g()[i], dense.g()[i], &format!("patterned grad[{i}]"));
+            for j in 0..2 {
+                close(
+                    sparse.h()[i][j],
+                    dense.h()[i][j],
+                    &format!("patterned hess[{i}][{j}]"),
+                );
+            }
+        }
+    }
+
+    /// `compose_unary_with` is `to_bits`-identical to the explicit
+    /// `compose_unary(stack_fn(value))` form. Exercised on [`Order2`] across
+    /// `K ∈ {2,3,4,9}`, ≥ 4000 random seeded inputs.
     #[test]
     fn compose_unary_with_scalar_seam_bit_identical() {
         fn rand_unit(state: &mut u64) -> f64 {
@@ -2649,11 +3387,9 @@ mod tests {
     /// The (test-only) `Tower4: JetScalar` impl is the all-channels oracle scalar:
     /// evaluating the SAME generic `row_expr` at `S = Tower4` (through the
     /// `JetScalar` trait ops) must reproduce, channel-for-channel, the `Tower4`
-    /// obtained from the `RowNllProgram` / inherent-operator path
-    /// (`evaluate_program`). This pins that the trait impl delegates faithfully to
-    /// the inherent `Tower4` arithmetic (so the contracted-scalar oracles above,
-    /// which compare against `evaluate_program`'s tower, are comparing against the
-    /// same algebra the `JetScalar` interface exposes).
+    /// obtained through the canonical `RowProgram` path (`program_full_tower`).
+    /// This pins that the full-tower scalar and the contracted scalar oracles above
+    /// all execute the same generic algebra surface.
     #[test]
     fn tower4_as_jetscalar_matches_program_tower_all_channels() {
         let t = tower();

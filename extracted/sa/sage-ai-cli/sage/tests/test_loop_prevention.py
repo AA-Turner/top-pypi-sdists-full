@@ -51,7 +51,7 @@ class DummyClassification:
 
 def test_agent_execution_ledger_initialization(monkeypatch):
     """Verify that SAGEAgent.execution_ledger is correctly initialized and reset."""
-    import sage.main as sage_main
+    import sage.cli_core as cli_core
     
     dummy_renderer = DummyRenderer()
     dummy_engine = DummyEngine()
@@ -76,8 +76,8 @@ def test_agent_execution_ledger_initialization(monkeypatch):
     agent.execution_ledger.files_read.append("test.py")
     
     # Patch dependencies
-    monkeypatch.setattr(sage_main, "_classify_and_store_request", lambda prompt: DummyClassification())
-    monkeypatch.setattr(sage_main, "_check_context_relevance", lambda p1, p2: True)
+    monkeypatch.setattr(cli_core, "_classify_and_store_request", lambda prompt: DummyClassification())
+    monkeypatch.setattr(cli_core, "_check_context_relevance", lambda p1, p2: True)
     
     def raise_on_send(prompt, *args, **kwargs):
         raise RuntimeError("Stop execution path")
@@ -95,7 +95,7 @@ def test_agent_execution_ledger_initialization(monkeypatch):
 
 def test_repetition_loop_prevention(monkeypatch):
     """Verify that process_response stops execution when all commands have already failed."""
-    import sage.main as sage_main
+    import sage.cli_core as cli_core
     
     dummy_renderer = DummyRenderer()
     dummy_engine = DummyEngine()
@@ -126,7 +126,7 @@ def test_repetition_loop_prevention(monkeypatch):
     )
 
     # Call process_response and ensure it returns early with the loop warning
-    monkeypatch.setattr(sage_main, "_get_current_classification", lambda: DummyClassification())
+    monkeypatch.setattr(cli_core, "_get_current_classification", lambda: DummyClassification())
     
     written, final_response = agent.process_response(
         duplicate_failed_response,

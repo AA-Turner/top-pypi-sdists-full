@@ -221,6 +221,40 @@ pub trait RiemannianManifold: Send + Sync {
         Ok(b.dot(&c))
     }
 
+    /// Take one metric-correct Riemannian gradient-descent step.
+    ///
+    /// `euclidean_grad` is the ambient Euclidean differential supplied by an
+    /// external objective (for example, PyTorch). This method raises that
+    /// differential through the manifold metric, scales the resulting tangent
+    /// vector by `-learning_rate`, and retracts from `point`. Keeping the whole
+    /// operation in the geometry layer prevents callers from accidentally
+    /// retracting a merely projected Euclidean differential on manifolds whose
+    /// metric is not the embedded Euclidean metric.
+    fn riemannian_gradient_step(
+        &self,
+        point: ArrayView1<'_, f64>,
+        euclidean_grad: ArrayView1<'_, f64>,
+        learning_rate: f64,
+    ) -> GeometryResult<Array1<f64>> {
+        if !learning_rate.is_finite() || learning_rate <= 0.0 {
+            return Err(GeometryError::InvalidPoint(
+                "Riemannian gradient-step learning rate must be finite and positive",
+            ));
+        }
+        // `euclidean_grad` is a differential/covector.  Raise it through the
+        // metric first, then retract the resulting tangent vector:
+        //
+        //   e = df/dx,
+        //   grad f = Raise_x(e),
+        //   x_next = Retr_x(-eta grad f).
+        //
+        // Projecting e and retracting it directly is correct only for an
+        // induced Euclidean metric, not for affine-SPD or canonical Stiefel.
+        let gradient = self.riemannian_gradient(point, euclidean_grad)?;
+        let step = gradient.mapv(|value| -learning_rate * value);
+        self.retract(point, step.view())
+    }
+
     fn retract(
         &self,
         point: ArrayView1<'_, f64>,

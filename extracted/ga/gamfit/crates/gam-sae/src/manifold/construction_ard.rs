@@ -1,9 +1,37 @@
 //! ARD (automatic relevance determination) coordinate-precision + latent-block
-//! helpers for `SaeManifoldTerm`, moved verbatim out of construction.rs to keep it
-//! under the 10k-line ban gate. Pure code move, no logic change.
+//! helpers for `SaeManifoldTerm`, split out of `construction.rs` to keep that
+//! file under the 10k-line ban gate.
 use super::*;
+use gam_math::special::bessel_i0_centered_terms_from_log_abs;
 
 impl SaeManifoldTerm {
+    /// Validate the ARD table against this term's atom geometry and materialize
+    /// each physical precision exactly once. This is the structural choke point
+    /// shared by assembly, value, traces, exact-Hessian, and IFT channels.
+    pub(crate) fn validated_ard_precisions(
+        &self,
+        rho: &SaeManifoldRho,
+    ) -> Result<Vec<Array1<f64>>, String> {
+        if rho.log_ard.len() != self.k_atoms() {
+            return Err(format!(
+                "ARD rho has {} atom blocks but term has {} atoms",
+                rho.log_ard.len(),
+                self.k_atoms()
+            ));
+        }
+        for (atom, coordinate) in self.assignment.coords.iter().enumerate() {
+            let stored = rho.log_ard[atom].len();
+            let dimension = coordinate.latent_dim();
+            if stored != 0 && stored != dimension {
+                return Err(format!(
+                    "ARD rho atom {atom} has {stored} axes; expected 0 (disabled) or \
+                     latent dimension {dimension}"
+                ));
+            }
+        }
+        rho.ard_precisions()
+    }
+
     /// Per-atom, per-axis coordinate sum-of-squares `‖t_kj‖² = Σ_i t_{i,k,j}²`.
     ///
     /// This is the data-fit sufficient statistic for the ARD precision update
@@ -47,15 +75,15 @@ impl SaeManifoldTerm {
     ///
     /// `cache.latent_block_inverse_diagonal()` returns the diagonal of the
     /// latent block `(H⁻¹)_tt` in the cache's compact per-row `delta_t`
-    /// layout (length `row_offsets[N]`); each per-row block is laid out as
-    /// `[logit scalars…, then per-active-atom coord axes…]`. This routine
+    /// layout (length `row_offsets[N]`). A compact hard-TopK row contains only
+    /// the selected atoms' coordinate axes; a dense row contains assignment
+    /// coordinates followed by all atom-coordinate axes. This routine
     /// sums those diagonal entries over the coord positions belonging to each
     /// `(atom k, axis j)` across all observation rows where atom `k` is active.
     ///
     /// `self.last_row_layout` must be the layout from the *same* assemble that
     /// produced `cache`:
-    /// - `Some(layout)`: compact active-set mode (JumpReLU / large-K
-    ///   softmax-IBP truncation). For row `i`, atom `k`'s position in the
+    /// - `Some(layout)`: compact exact hard-TopK support. For row `i`, atom `k`'s position in the
     ///   active list gives its compact coord-block start `coord_starts[i][pos]`;
     ///   inactive atoms contribute 0 (the prior dominates there anyway).
     /// - `None`: dense full-support layout, uniform row dim
@@ -314,6 +342,8 @@ impl SaeManifoldTerm {
         residual: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
     ) -> Result<f64, String> {
+        self.assignment.validate_rho_domain(rho)?;
+        let ard_precisions = self.validated_ard_precisions(rho)?;
         let n = self.n_obs();
         let p = self.output_dim();
         if residual.dim() != (n, p) {
@@ -366,11 +396,10 @@ impl SaeManifoldTerm {
                     return;
                 }
                 for axis in 0..d {
-                    let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
+                    let alpha = ard_precisions[k][axis];
                     let t = coord.row(row)[axis];
                     let v_pp = ArdAxisPrior::eval(alpha, t, ard_axis_periods[k][axis])
-                        .hess
-                        .max(0.0);
+                        .psd_majorizer_hess();
                     // GN coordinate curvature htt = a_k²·(g')ᵀ M g'.
                     self.atoms[k].fill_decoded_derivative_row(row, axis, g1.as_mut_slice());
                     let htt = if whitens {
@@ -430,8 +459,9 @@ impl SaeManifoldTerm {
     /// natural soft-vs-hard scale (a uniform `K`-way split gives `1/K` per atom, so
     /// a winner far above `1−1/K` is saturated); a fixed `0.9` is robust across `K`
     /// and conservative (it EXCLUDES ambiguous soft rows, never over-shooting). The
-    /// hard gate families (TopK / ThresholdGate / IBP-MAP) are discrete by
-    /// construction and bypass this threshold.
+    /// TopK is discrete by construction and bypasses this threshold. The
+    /// independent ordered Beta--Bernoulli and threshold-centered logistic
+    /// gates are smooth and therefore carry no selection-boundary charge.
     pub(crate) const SOFTMAX_HARD_SELECTION_MIN_TOP_WEIGHT: f64 = 0.9;
 
     /// #2133 — basin-SELECTION (search) deflation dof: the second Stein term the
@@ -452,7 +482,7 @@ impl SaeManifoldTerm {
     /// `Δ_i = ‖δ‖²_M − 2⟨r, δ⟩_M`.
     ///
     /// The charge fires ONLY on effectively-discrete selection — TopK (the
-    /// `k`-th↔`(k+1)`-th support swap), ThresholdGate / IBP-MAP hard gates, and
+    /// `k`-th↔`(k+1)`-th support swap) and
     /// SATURATED softmax rows (`a_max ≥ SOFTMAX_HARD_SELECTION_MIN_TOP_WEIGHT`);
     /// genuinely-soft softmax rows contribute 0 (their selection smoothness is
     /// already in the within-basin edf — charging them double-counts). It is also
@@ -571,15 +601,10 @@ impl SaeManifoldTerm {
                     }
                     (top, ranked[1], a_top)
                 }
-                // Per-atom hard gates (IBP-MAP indicator, ThresholdGate hard
-                // sigmoid): discrete by construction. Dominant-pair approximation —
-                // the top-mass gated atom vs its nearest competitor (the exact
-                // multi-gate boundary enumeration is the documented follow-up, and
-                // like the within-basin term this dominant piece never over-counts).
-                AssignmentMode::IBPMap { .. } | AssignmentMode::ThresholdGate { .. } => {
-                    let top = ranked[0];
-                    (top, ranked[1], assignments[top])
-                }
+                // Independent logistic gates are smooth everywhere, so their
+                // within-basin Jacobian already carries the complete response.
+                AssignmentMode::OrderedBetaBernoulli { .. }
+                | AssignmentMode::ThresholdGate { .. } => continue,
             };
             if w == r || !(a_w > 0.0) {
                 continue;
@@ -651,10 +676,9 @@ impl SaeManifoldTerm {
     /// `t`-block — so the Hadamard product `z ⊙ u_t` has expectation exactly
     /// `diag((H⁻¹)_tt)` (off-diagonal `i≠j` terms are mean-zero under
     /// `E[z_i z_j] = 0`). Averaging over probes gives the unbiased diagonal. Each
-    /// probe is ONE [`ArrowFactorCache::full_inverse_apply`] (per-row solves + a
-    /// SINGLE Schur solve + the rank-`R` cross-row Woodbury correction — the same
-    /// `H_full` the exact path inverts), so the IBP curvature is included
-    /// identically.
+    /// probe is one [`ArrowFactorCache::full_inverse_apply`] (per-row solves, one
+    /// Schur solve, and any gauge-deflation correction), so it applies the same
+    /// assembled curvature operator as the exact path.
     ///
     /// Probes run serially and accumulate in a fixed order, so for a fixed
     /// `(seed, num_probes)` the estimate is bit-reproducible (the REML determinism
@@ -686,7 +710,7 @@ impl SaeManifoldTerm {
                 remaining -= 1;
             }
             // u_t = (H⁻¹)_tt z (w_β = 0 ⇒ the border coupling drops from the
-            // t-block); this is the FULL H_full inverse incl. cross-row Woodbury.
+            // t-block); this applies the full assembled inverse.
             let (u_t, _u_beta) = cache.full_inverse_apply(z.view(), w_beta_zero.view())?;
             for i in 0..total_len {
                 out[i] += z[i] * u_t[i];
@@ -703,13 +727,8 @@ impl SaeManifoldTerm {
         &self,
         rho: &SaeManifoldRho,
     ) -> Result<Vec<Array1<f64>>, String> {
-        if rho.log_ard.len() != self.k_atoms() {
-            return Err(format!(
-                "ARD rho has {} atoms but term has {}",
-                rho.log_ard.len(),
-                self.k_atoms()
-            ));
-        }
+        self.assignment.validate_rho_domain(rho)?;
+        let ard_precisions = self.validated_ard_precisions(rho)?;
         let n = self.n_obs() as f64;
         // HT row weighting: this is the ρ-derivative of `ard_value` (the `explicit`
         // outer-gradient channel), so it carries the identical per-row inclusion
@@ -726,15 +745,10 @@ impl SaeManifoldTerm {
                 out.push(atom_out);
                 continue;
             }
-            if rho.log_ard[atom_idx].len() != d {
-                return Err(format!(
-                    "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
-                    rho.log_ard[atom_idx].len()
-                ));
-            }
             let periods = coord.effective_axis_periods();
             for axis in 0..d {
-                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom_idx][axis]);
+                let log_alpha = rho.log_ard[atom_idx][axis];
+                let alpha = ard_precisions[atom_idx][axis];
                 let period = periods[axis];
                 let mut energy_deriv = 0.0_f64;
                 for row in 0..coord.n_obs() {
@@ -745,14 +759,13 @@ impl SaeManifoldTerm {
                 let normalizer_deriv = match period {
                     None => -0.5 * n_eff,
                     Some(p) => {
-                        let kappa = std::f64::consts::TAU / p;
-                        let eta = alpha / (kappa * kappa);
-                        // d/d(log α) of `n[-η + log I0(η)]` = `n η (I1/I0 - 1)`.
-                        // The ratio is computed without forming `e^{η}`, so it
-                        // stays finite for large `η` instead of the `inf/inf =
-                        // NaN` that `bessel_i1(η)/bessel_i0(η)` produces (#1113).
-                        let ratio = bessel_i0_log_and_ratio(eta).1;
-                        n_eff * eta * (-1.0 + ratio)
+                        let log_eta = log_alpha + 2.0 * (p.ln() - std::f64::consts::TAU.ln());
+                        // d/d(log α) of `n[-η + log I0(η)]` is
+                        // `n·η·(I1/I0−1)`. The centered primitive evaluates the
+                        // complete product, so its `−½` large-η limit survives
+                        // after the ordinary ratio has rounded to one and even
+                        // when η itself is not representable.
+                        n_eff * bessel_i0_centered_terms_from_log_abs(log_eta).2
                     }
                 };
                 atom_out[axis] = energy_deriv + normalizer_deriv;
@@ -768,6 +781,12 @@ impl SaeManifoldTerm {
         cache: &ArrowFactorCache,
         solver: &DeflatedArrowSolver<'_>,
     ) -> Result<Vec<Array1<f64>>, ArrowSchurError> {
+        self.assignment
+            .validate_rho_domain(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
+        let ard_precisions = self
+            .validated_ard_precisions(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         // RAW selected-inverse diagonal: the per-axis diagonal contraction uses
         // the DEFLATED inverse; the full kept-subspace + rotation deflation
         // correction `tr(inv_vv·(D − DΦ[D]))` is subtracted per (row, axis)
@@ -866,10 +885,10 @@ impl SaeManifoldTerm {
                         let d = coord.latent_dim();
                         let block_start = starts[pos];
                         for axis in 0..d {
-                            let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
+                            let alpha = ard_precisions[k][axis];
                             let t = coord.row(row)[axis];
                             let prior = ArdAxisPrior::eval(alpha, t, ard_axis_periods[k][axis]);
-                            let hess = w_row * prior.hess.max(0.0);
+                            let hess = w_row * prior.psd_majorizer_hess();
                             let s = block_start + axis;
                             traces[k][axis] += 0.5 * inv_diag[row_base + s] * hess;
                             traces[k][axis] -= 0.5 * slot_correction(s, hess);
@@ -885,10 +904,10 @@ impl SaeManifoldTerm {
                         let d = coord.latent_dim();
                         let block_start = coord_offsets[k];
                         for axis in 0..d {
-                            let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
+                            let alpha = ard_precisions[k][axis];
                             let t = coord.row(row)[axis];
                             let prior = ArdAxisPrior::eval(alpha, t, ard_axis_periods[k][axis]);
-                            let hess = w_row * prior.hess.max(0.0);
+                            let hess = w_row * prior.psd_majorizer_hess();
                             let s = block_start + axis;
                             traces[k][axis] += 0.5 * inv_diag[row_base + s] * hess;
                             traces[k][axis] -= 0.5 * slot_correction(s, hess);
@@ -914,6 +933,12 @@ impl SaeManifoldTerm {
         rho: &SaeManifoldRho,
         cache: &ArrowFactorCache,
     ) -> Result<Vec<Array1<f64>>, ArrowSchurError> {
+        self.assignment
+            .validate_rho_domain(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
+        let ard_precisions = self
+            .validated_ard_precisions(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let row_weights = self.row_loss_weights.as_deref();
         let coord_offsets = self.assignment.coord_offsets();
         let periods: Vec<Vec<Option<f64>>> = self
@@ -960,10 +985,10 @@ impl SaeManifoldTerm {
                 .and_then(Option::as_ref);
             let row_weight = row_weights.map_or(1.0, |weights| weights[row]);
             let mut accumulate = |atom: usize, axis: usize, slot: usize| {
-                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[atom][axis]);
+                let alpha = ard_precisions[atom][axis];
                 let t = self.assignment.coords[atom].row(row)[axis];
                 let prior = ArdAxisPrior::eval(alpha, t, periods[atom][axis]);
-                let curvature = row_weight * prior.hess.max(0.0);
+                let curvature = row_weight * prior.psd_majorizer_hess();
                 let mut trace = inverse[[slot, slot]] * curvature;
                 if !directions.is_empty() && curvature != 0.0 {
                     let mut derivative = Array2::<f64>::zeros((q, q));
@@ -1051,6 +1076,12 @@ impl SaeManifoldTerm {
         probes: &[Array1<f64>],
         sinv_probes: &[Array1<f64>],
     ) -> Result<Vec<Array1<f64>>, ArrowSchurError> {
+        self.assignment
+            .validate_rho_domain(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
+        let ard_precisions = self
+            .validated_ard_precisions(rho)
+            .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
         let m = probes.len();
         if m == 0 || sinv_probes.len() != m {
             return Err(ArrowSchurError::SchurFactorFailed {
@@ -1168,10 +1199,10 @@ impl SaeManifoldTerm {
                 let coord = &self.assignment.coords[k];
                 let d = coord.latent_dim();
                 for axis in 0..d {
-                    let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
+                    let alpha = ard_precisions[k][axis];
                     let t = coord.row(row)[axis];
                     let prior = ArdAxisPrior::eval(alpha, t, ard_axis_periods[k][axis]);
-                    let hess = w_row * prior.hess.max(0.0);
+                    let hess = w_row * prior.psd_majorizer_hess();
                     let s = block_start + axis;
                     traces[k][axis] += 0.5 * inv_diag_local[s] * hess;
                 }

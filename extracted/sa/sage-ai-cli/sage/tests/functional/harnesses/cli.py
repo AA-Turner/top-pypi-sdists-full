@@ -12,10 +12,16 @@ def execute(request: dict, model: str) -> TestResult:
     test_home = Path(tempfile.mkdtemp(prefix="sage-home-"))
     (test_home / ".sage").mkdir(parents=True, exist_ok=True)
     
-    import shlex
-    cmd = shlex.split(prompt)
-    if "ask" in cmd and "--model" not in cmd:
-        cmd.extend(["--model", model, "--agent"])
+    # The sage package must be installed in the environment running the tests
+    if "ask" not in prompt:
+        # Wrap the whole prompt in quotes so it's a single argument for the PROMPT parameter
+        full_cmd = ["sage", "ask", prompt, "--model", model]
+    else:
+        import shlex
+        cmd = shlex.split(prompt)
+        if "ask" in cmd and "--model" not in cmd:
+            cmd.extend(["--model", model, "--agent"])
+        full_cmd = ["sage", *cmd]
         
     import sys
     real_home = Path.home().resolve()

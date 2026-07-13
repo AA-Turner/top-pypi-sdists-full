@@ -109,9 +109,9 @@ class OpenCage(Geocoder):
             Might be a Python list of strings.
         :type country: str or list
 
-        :param str language: an IETF format language code (such as `es`
-            for Spanish or pt-BR for Brazilian Portuguese); if this is
-            omitted a code of `en` (English) will be assumed by the remote
+        :param str language: an IETF-format language code (such as ``es``
+            for Spanish or ``pt-BR`` for Brazilian Portuguese); if this is
+            omitted, a code of ``en`` (English) will be assumed by the remote
             service.
 
         :param bool annotations: Enable
@@ -206,7 +206,7 @@ class OpenCage(Geocoder):
         '''Returns location, (latitude, longitude) from json feed.'''
 
         places = page.get('results', [])
-        if not len(places):
+        if not places:
             self._check_status(page.get('status'))
             return None
 

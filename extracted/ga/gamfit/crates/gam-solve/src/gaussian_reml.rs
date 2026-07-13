@@ -447,10 +447,11 @@ pub fn gaussian_reml_point_eval_at_rho(
     weights: Option<ArrayView1<'_, f64>>,
     rho: f64,
 ) -> Result<GaussianRemlPointEval, EstimationError> {
+    let lambda = gam_problem::checked_exp_log_strength(rho)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     let y2 = y.insert_axis(Axis(1));
     let prepared = prepare_gaussian_reml(x, y2.view(), penalty, nullspace_dim, weights, None)?;
     let eval = prepared.evaluate(rho);
-    let lambda = rho.exp();
     let coefficients = prepared.coefficients(lambda).column(0).to_owned();
     let sigma2 = prepared.sigma2(lambda)[0];
     Ok(GaussianRemlPointEval {
@@ -685,7 +686,8 @@ pub fn gaussian_reml_multi_closed_form_with_cache_no_alloc(
         d,
         rho,
     );
-    let lambda = rho.exp();
+    let lambda = gam_problem::checked_exp_log_strength(rho)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     fill_coefficients_no_alloc(eigen_cache, workspace, lambda, coefficients.view_mut());
     fill_fitted_no_alloc(x, coefficients.view(), fitted.view_mut());
     fill_sigma2_no_alloc(
@@ -800,7 +802,8 @@ fn block_orthogonal_eval(
     penalty: &Array2<f64>,
     rho: f64,
 ) -> Result<BlockOrthogonalEval, EstimationError> {
-    let lambda = rho.exp();
+    let lambda = gam_problem::checked_exp_log_strength(rho)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     validate_initial_lambda(lambda)?;
     let scaled_penalty = penalty * lambda;
     let hessian = canonicalize_penalty((gram + &scaled_penalty).view());
@@ -1101,8 +1104,7 @@ fn block_orthogonal_profile_curvature(
     ranks: &[usize],
     nu: f64,
 ) -> Result<BlockOrthogonalProfileCurvature, EstimationError> {
-    let hessian =
-        block_orthogonal_profile_hessian(evals, rhos, scale_precision, ranks, nu)?;
+    let hessian = block_orthogonal_profile_hessian(evals, rhos, scale_precision, ranks, nu)?;
     let blocks = hessian.nrows();
     let eigenvalues = hessian
         .eigh(Side::Lower)
@@ -1366,7 +1368,9 @@ fn gaussian_reml_blocks_orthogonal_shared_scale_with_controls(
             condition_number: f64::INFINITY,
         });
     }
-    let lambdas = rhos.mapv(f64::exp);
+    let lambdas = Array1::from_vec(gam_problem::checked_exp_log_strengths(
+        rhos.iter().copied(),
+    )?);
     let edf = Array1::from_iter(evals.iter().map(|eval| eval.edf));
     let logdet_term = evals
         .iter()
@@ -1405,7 +1409,8 @@ fn gaussian_reml_multi_closed_form_from_parts(
         .map(f64::ln);
     let rho = optimize_rho(&prepared, init_rho)?;
     let eval = prepared.evaluate(rho);
-    let lambda = rho.exp();
+    let lambda = gam_problem::checked_exp_log_strength(rho)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     let coefficients = prepared.coefficients(lambda);
     let fitted = dense_ab(x, coefficients.view());
     let sigma2 = prepared.sigma2(lambda);
@@ -1435,10 +1440,8 @@ pub fn gaussian_reml_free_b_score(
     penalty: ArrayView2<'_, f64>,
     weights: Option<ArrayView1<'_, f64>>,
 ) -> Result<GaussianRemlFreeBScore, EstimationError> {
-    if !log_lambda.is_finite() {
-        crate::bail_invalid_estim!("Gaussian REML log_lambda must be finite; got {log_lambda}");
-    }
-    let lambda = log_lambda.exp();
+    let lambda = gam_problem::checked_exp_log_strength(log_lambda)
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
     let penalty_owned = canonicalize_penalty(penalty);
     let penalty = penalty_owned.view();
     let n = x.nrows();
@@ -3162,7 +3165,9 @@ pub fn gaussian_reml_cyclic_multi_lambda_rho(
             let mut a = xtwx.clone();
             for (j, s_j) in s_full.iter().enumerate() {
                 if j != kk {
-                    a.scaled_add(rho[j].exp(), s_j);
+                    let lambda = gam_problem::checked_exp_log_strength(rho[j])
+                        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+                    a.scaled_add(lambda, s_j);
                 }
             }
             // Diagonalise the (S_k, A_k) pencil; a non-PD metric (singular
@@ -3994,9 +3999,18 @@ mod tests {
 
     #[test]
     fn block_orthogonal_profile_hessian_matches_the_profiled_objective() {
-        let grams = [array![[3.0, 0.4], [0.4, 2.0]], array![[2.5, -0.2], [-0.2, 1.8]]];
-        let rhs = [array![[1.2, -0.3], [0.6, 0.9]], array![[0.5, 0.8], [-0.4, 0.7]]];
-        let penalties = [array![[1.0, 0.2], [0.2, 0.8]], array![[0.9, -0.1], [-0.1, 1.1]]];
+        let grams = [
+            array![[3.0, 0.4], [0.4, 2.0]],
+            array![[2.5, -0.2], [-0.2, 1.8]],
+        ];
+        let rhs = [
+            array![[1.2, -0.3], [0.6, 0.9]],
+            array![[0.5, 0.8], [-0.4, 0.7]],
+        ];
+        let penalties = [
+            array![[1.0, 0.2], [0.2, 0.8]],
+            array![[0.9, -0.1], [-0.1, 1.1]],
+        ];
         let ranks = [2_usize, 2_usize];
         let ywy = array![8.0, 9.0];
         let nu = 7.0;
@@ -4020,32 +4034,20 @@ mod tests {
             let determinant_term = evals
                 .iter()
                 .enumerate()
-                .map(|(block, eval)| {
-                    eval.logdet - ranks[block] as f64 * candidate_rhos[block]
-                })
+                .map(|(block, eval)| eval.logdet - ranks[block] as f64 * candidate_rhos[block])
                 .sum::<f64>();
             0.5 * 2.0 * determinant_term + 0.5 * nu * q.iter().map(|value| value.ln()).sum::<f64>()
         };
         let evals = (0..2)
             .map(|block| {
-                block_orthogonal_eval(
-                    &grams[block],
-                    &rhs[block],
-                    &penalties[block],
-                    rhos[block],
-                )
-                .unwrap()
+                block_orthogonal_eval(&grams[block], &rhs[block], &penalties[block], rhos[block])
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         let scale = block_orthogonal_conditional_scale(&evals, ywy.view(), nu).unwrap();
-        let analytic = block_orthogonal_profile_hessian(
-            &evals,
-            rhos.view(),
-            scale.view(),
-            &ranks,
-            nu,
-        )
-        .unwrap();
+        let analytic =
+            block_orthogonal_profile_hessian(&evals, rhos.view(), scale.view(), &ranks, nu)
+                .unwrap();
         let step = 1.0e-4;
         let center = profile_value(rhos.view());
         let mut numerical = Array2::<f64>::zeros((2, 2));
@@ -4054,9 +4056,9 @@ mod tests {
             let mut minus = rhos.clone();
             plus[coordinate] += step;
             minus[coordinate] -= step;
-            numerical[[coordinate, coordinate]] =
-                (profile_value(plus.view()) - 2.0 * center + profile_value(minus.view()))
-                    / (step * step);
+            numerical[[coordinate, coordinate]] = (profile_value(plus.view()) - 2.0 * center
+                + profile_value(minus.view()))
+                / (step * step);
         }
         let mut plus_plus = rhos.clone();
         let mut plus_minus = rhos.clone();
@@ -5603,9 +5605,10 @@ pub fn gaussian_reml_fit_blocks_backward_analytic(
     let mut ranks = Vec::with_capacity(f_blocks);
     let mut pinvs = Vec::with_capacity(f_blocks);
     for penalty in &penalties {
-        let (rank, pinv) = gam_linalg::utils::block_penalty_rank_and_pinv(penalty)?;
-        ranks.push(rank);
-        pinvs.push(pinv);
+        let geometry =
+            gam_linalg::utils::rank_certified_psd_pseudoinverse(penalty, 1.0e-10)?;
+        ranks.push(geometry.rank());
+        pinvs.push(geometry.into_pseudoinverse());
     }
 
     let lambdas = Array1::from_iter(rhos.iter().map(|rho| rho.exp()));
@@ -5629,7 +5632,16 @@ pub fn gaussian_reml_fit_blocks_backward_analytic(
             }
         }
     }
-    let r = gam_linalg::utils::invert_spd_with_ridge(&k_matrix, 0.0)?;
+    let r = gam_linalg::utils::certified_spd_inverse(
+        &k_matrix,
+        "block Gaussian REML penalized normal matrix",
+    )
+    .map(gam_linalg::utils::CertifiedSpdInverse::into_inverse)
+    .map_err(|error| {
+        EstimationError::InvalidInput(format!(
+            "block Gaussian REML requires an exact SPD penalized normal matrix: {error}"
+        ))
+    })?;
 
     let mut xtwy = Array1::<f64>::zeros(p_total);
     for row in 0..n {
@@ -5824,8 +5836,9 @@ pub fn gaussian_reml_fit_blocks_backward_analytic(
             }
         }
         // `outer_h` is the Jacobian of the negative profiled REML estimating
-        // equation. Preserve signed curvature directions while flooring
-        // near-zero modes; flipping negative eigenvalues would change the VJP.
+        // equation. Preserve every signed curvature direction exactly; a
+        // singular Jacobian means this VJP is not identified and must fail,
+        // rather than silently replacing its spectrum with a floored one.
         gam_linalg::matrix::symmetrize_in_place(&mut outer_h);
         if let Some(((row, col), value)) =
             outer_h.indexed_iter().find(|(_, value)| !value.is_finite())
@@ -5834,8 +5847,17 @@ pub fn gaussian_reml_fit_blocks_backward_analytic(
                 "outer rho curvature entry ({row},{col}) is non-finite: {value}"
             )));
         }
-        let rho_adj =
-            gam_linalg::utils::solve_symmetric_vector_with_floor(&outer_h, &alpha, 1.0e-10)?;
+        let rho_adj = gam_linalg::utils::certified_symmetric_solve(
+            &outer_h,
+            &alpha,
+            "block Gaussian REML outer-rho adjoint",
+        )
+        .map(gam_linalg::utils::CertifiedSymmetricSolution::into_solution)
+        .map_err(|error| {
+            EstimationError::InvalidInput(format!(
+                "block Gaussian REML outer-rho adjoint is not exactly solvable: {error}"
+            ))
+        })?;
         if let Some((block, value)) = rho_adj
             .iter()
             .enumerate()

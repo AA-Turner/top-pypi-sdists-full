@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-afat
-Version: 6.1.0
+Version: 6.1.1
 Summary: Another Fleet Activity Tracking tool for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/allianceauth-afat/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/allianceauth-afat
@@ -849,7 +849,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth install
 Then install the latest version:
 
 ```shell
-pip install allianceauth-afat==6.1.0
+pip install allianceauth-afat==6.1.1
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -914,7 +914,7 @@ python manage.py esde_load_sde
 Add the app to your `conf/requirements.txt`:
 
 ```text
-allianceauth-afat==6.1.0
+allianceauth-afat==6.1.1
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings-1"></a>
@@ -989,7 +989,7 @@ To update your existing installation of AFAT, first enable your
 virtual environment (venv) of your Alliance Auth installation.
 
 ```shell
-pip install allianceauth-afat==6.1.0
+pip install allianceauth-afat==6.1.1
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1005,7 +1005,7 @@ To update your existing installation of AFAT, all you need to do is to update th
 respective line in your `conf/requirements.txt` file to the latest version.
 
 ```text
-allianceauth-afat==6.1.0
+allianceauth-afat==6.1.1
 ```
 
 Now rebuild your containers:
@@ -1083,7 +1083,7 @@ To keep track of all changes, please read the
 
 ## Translation Status<a name="translation-status"></a>
 
-[![Translation status](https://weblate.ppfeufer.de/widget/alliance-auth-apps/allianceauth-afat/multi-auto.svg)](https://weblate.ppfeufer.de/engage/alliance-auth-apps/)
+[![Translation status](https://weblate.ppfeufer.de/widget/alliance-auth-apps/allianceauth-afat/matrix-auto.svg)](https://weblate.ppfeufer.de/engage/alliance-auth-apps/)
 
 Do you want to help translate this app into your language or improve the existing
 translation? - [Join our team of translators][weblate engage]!

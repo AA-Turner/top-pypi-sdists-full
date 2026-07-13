@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for cloud:* model profiles in the swarm orchestrator.
 
 The existing ``ModelProfile.from_model_id`` uses generic substring
@@ -9,9 +11,16 @@ We add explicit profiles for each of the 8 sage-hosted models so the
 swarm router picks the right one for each task type.
 """
 
-from __future__ import annotations
+import pytest
 
 from sage.core.swarm import ModelProfile, TaskType
+
+# Real cloud API calls — integration only.
+pytestmark = [
+    pytest.mark.timeout(900),
+    pytest.mark.integration,
+]
+
 
 
 class TestCloudModelProfiles:

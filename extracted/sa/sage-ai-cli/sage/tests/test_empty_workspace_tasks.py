@@ -33,6 +33,8 @@ def test_empty_workspace_is_detected_as_greenfield():
         assert phases[1][0] == "implementation"
         assert "BRAND-NEW GREENFIELD PROJECT" in phases[0][1]
 
+@pytest.mark.integration
+@pytest.mark.timeout(900)
 def test_multimedia_task_in_empty_workspace_execution():
     """Verify that SAGE executing in an empty workspace executes the greenfield workflow without failing."""
     runner = CliRunner()
@@ -53,6 +55,8 @@ def test_multimedia_task_in_empty_workspace_execution():
         mp4_files = list(Path(".").glob("*.mp4"))
         assert len(mp4_files) > 0, f"No MP4 file was generated. Output: {result.output}"
 
+@pytest.mark.integration
+@pytest.mark.timeout(900)
 def test_healing_loop_functional_no_mocks():
     """Verify that SAGE's self-healing loop successfully repairs a compilation error in a Python project using the real LLM end-to-end without mocks."""
     runner = CliRunner()

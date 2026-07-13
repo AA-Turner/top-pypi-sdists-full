@@ -101,7 +101,7 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
                 "Expose get_settings() function."
             ),
             language="python",
-            must_contain=["BaseSettings", "get_settings", "lru_cache", "database_url"],
+            must_contain=["BaseSettings", "get_settings", "lru_cache", "DATABASE_URL"],
         ),
         FileSlot(
             path="backend/app/core/logging.py",

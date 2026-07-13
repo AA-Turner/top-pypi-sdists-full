@@ -38,7 +38,7 @@ pub(crate) fn euclidean_line_contract_fixture() -> (SaeManifoldTerm, Array2<f64>
     let m = phi.ncols();
     let smooth_penalty =
         gam_terms::basis::create_difference_penalty_matrix(m, 2, None).expect("penalty");
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "contract-line",
         SaeAtomBasisKind::EuclideanPatch,
         1,
@@ -286,7 +286,7 @@ fn amortized_encoder_is_faithful_on_known_manifold() {
         let scale = 1.0 / (1.0 + b as f64);
         scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
     });
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic_truth",
         SaeAtomBasisKind::Periodic,
         1,
@@ -538,7 +538,7 @@ fn sae_isometry_assembled_curvature_is_decoder_scale_invariant() {
 
     let isometry_curvature_norm = |lambda: f64| -> f64 {
         let decoder = &base_decoder * lambda;
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "iso_scale",
             SaeAtomBasisKind::Periodic,
             1,
@@ -646,7 +646,7 @@ fn sae_isometry_joint_fit_is_physical_coscale_invariant_2099() {
     let fit_at_scale = |physical_scale: f64| -> ScaleFit {
         let scale_sq = physical_scale * physical_scale;
         let decoder = &base_decoder * physical_scale;
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "iso_converge",
             SaeAtomBasisKind::Periodic,
             1,
@@ -893,19 +893,19 @@ fn sae_single_planted_circle_embedded_isometry_fit_converges_795() {
     );
 }
 
-/// #2226 — `reml_criterion` must RANK the K=1 planted-circle inner fixed point
+/// #2226 — `penalized_quasi_laplace_criterion` must RANK the K=1 planted-circle inner fixed point
 /// (return a finite Laplace value), not hard-refuse it. The inner solve reaches
 /// its numerical fixed point where the objective can no longer decrease, but the
 /// raw KKT gradient plateaus a couple of digits above the absolute iterate-scaled
 /// tolerance on some SIMD targets (NEON/arm64 vs AVX/x86 diverge on the float
 /// summation order). Before the affine-invariant Newton-decrement stationarity
 /// certificate, that plateau exhausted the refine budget and returned
-/// `reml_criterion: inner solve did not converge at fixed ρ` — the exact refusal
+/// `penalized_quasi_laplace_criterion: inner solve did not converge at fixed ρ` — the exact refusal
 /// reported for `sae_manifold_fit(K=1, atom_topology="circle")` on macOS arm64.
 /// The Newton decrement ½λ² = −½gᵀΔ is affine-invariant, so the shared fixed
 /// point is accepted on both architectures.
 #[test]
-fn sae_k1_circle_reml_criterion_ranks_fixed_point_2226() {
+fn sae_k1_circle_penalized_quasi_laplace_criterion_ranks_fixed_point_2226() {
     use super::tests::{
         PlantedCircleAssignmentMode, planted_circle_embedded, planted_circle_seed_term,
     };
@@ -922,7 +922,7 @@ fn sae_k1_circle_reml_criterion_ranks_fixed_point_2226() {
         planted_circle_seed_term(z.view(), PlantedCircleAssignmentMode::Softmax);
 
     // Isometry gauge ON — the same fixture as `..._795`, but exercised through
-    // the ρ-ranking `reml_criterion` (the path `sae_manifold_fit`'s outer BFGS
+    // the ρ-ranking `penalized_quasi_laplace_criterion` (the path `sae_manifold_fit`'s outer BFGS
     // drives) rather than a single joint fit.
     let mut registry = AnalyticPenaltyRegistry::new();
     registry.push(AnalyticPenaltyKind::Isometry(Arc::new(
@@ -935,10 +935,18 @@ fn sae_k1_circle_reml_criterion_ranks_fixed_point_2226() {
     // criterion must rank that stationary iterate instead of hard-refusing on an
     // absolute raw-gradient tolerance that is not reachable on every SIMD target.
     let (value, loss, _cache) = term
-        .reml_criterion_with_cache(z.view(), &rho, Some(&registry), 200, 0.04, 1.0e-6, 1.0e-6)
+        .penalized_quasi_laplace_criterion_with_cache(
+            z.view(),
+            &rho,
+            Some(&registry),
+            200,
+            0.04,
+            1.0e-6,
+            1.0e-6,
+        )
         .expect(
             "#2226: the K=1 planted-circle inner solve reaches a numerical fixed point; \
-             reml_criterion must rank that stationary iterate (affine-invariant Newton \
+             penalized_quasi_laplace_criterion must rank that stationary iterate (affine-invariant Newton \
              decrement) instead of refusing on an unreachable absolute gradient tolerance",
         );
     assert!(
@@ -952,7 +960,7 @@ fn sae_k1_circle_reml_criterion_ranks_fixed_point_2226() {
 /// The amortized-encoder consistency diagnostic `c(ρ)` has no analytic
 /// derivative, so it cannot rank `f+c` while BFGS descends `f`: the selected fit
 /// would not be stationary for its selection criterion. Both lanes therefore
-/// report their matched pure-REML value, while encoder consistency and the
+/// report their matched pure-penalized quasi-Laplace value, while encoder consistency and the
 /// fitted-data collapse ledger remain read-only diagnostics.
 #[test]
 fn ranking_and_gradient_lanes_match_bare_reml() {
@@ -963,7 +971,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
     // cross-seed ranking.
     let value_lane = objective
         .eval_cost(&rho_flat)
-        .expect("value-probe lane evaluates pure REML");
+        .expect("value-probe lane evaluates penalized quasi-Laplace");
 
     // Gradient lane: the cost an ACCEPTED iterate reports, paired with the
     // analytic ∇f the BFGS Armijo test consumes. A fresh objective so the two
@@ -992,7 +1000,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
     let bare_value = {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
-        let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
+        let rho_state = probe.baseline_rho.from_flat(rho_flat.view()).unwrap();
         // Warm-start identically to the value lane.
         probe
             .term
@@ -1000,7 +1008,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
             .ok();
         let (reml, _loss) = probe
             .term
-            .reml_criterion_with_refine_policy(
+            .penalized_quasi_laplace_criterion_with_refine_policy(
                 target.view(),
                 &rho_state,
                 None,
@@ -1010,7 +1018,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
                 probe.ridge_beta,
                 false,
             )
-            .expect("bare value-lane REML criterion evaluates");
+            .expect("bare value-lane penalized quasi-Laplace criterion evaluates");
         reml
     };
     let value_vs_bare = (value_lane - bare_value).abs();
@@ -1022,7 +1030,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
     );
 
     // Bare REML for the GRADIENT lane, computed on the SAME full-refine path
-    // (`reml_criterion_with_cache`, i.e. `refine_progress_extension = true`)
+    // (`penalized_quasi_laplace_criterion_with_cache`, i.e. `refine_progress_extension = true`)
     // the gradient lane uses. The gradient lane must EQUAL this (it carries NO
     // consistency or collapse fold), so its (cost, ∇f) pair
     // describes one function — the #1206 contract for BFGS Armijo. (The
@@ -1031,7 +1039,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
     let bare_grad = {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
-        let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
+        let rho_state = probe.baseline_rho.from_flat(rho_flat.view()).unwrap();
         // Warm-start identically to the gradient lane.
         probe
             .term
@@ -1039,7 +1047,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
             .ok();
         let (reml, _loss, _cache) = probe
             .term
-            .reml_criterion_with_cache(
+            .penalized_quasi_laplace_criterion_with_cache(
                 target.view(),
                 &rho_state,
                 None,
@@ -1048,7 +1056,7 @@ fn ranking_and_gradient_lanes_match_bare_reml() {
                 probe.ridge_ext_coord,
                 probe.ridge_beta,
             )
-            .expect("bare gradient-lane REML criterion evaluates");
+            .expect("bare gradient-lane penalized quasi-Laplace criterion evaluates");
         reml
     };
     let gradient_vs_bare = (gradient_lane - bare_grad).abs();
@@ -1086,7 +1094,7 @@ fn amortized_warm_start_matches_or_beats_cold_inner_solve_on_known_manifold() {
         let scale = 1.0 / (1.0 + b as f64);
         scale * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
     });
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "periodic_truth",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1172,7 +1180,7 @@ fn amortized_warm_start_matches_or_beats_cold_inner_solve_on_known_manifold() {
 /// planted periodic dictionary; they differ only in HOW ρ is ranked and how
 /// the inner solve is seeded:
 ///
-///   * sequential — rank ρ by the BARE REML criterion, fit cold (chart-center
+///   * sequential — rank ρ by the BARE penalized quasi-Laplace criterion, fit cold (chart-center
 ///     inner solve), then distill the amortized encoder once from the frozen
 ///     fitted dictionary (the #357 / #1026-ladder post-hoc path);
 ///   * co-trained (Design A) — rank ρ by the co-trained criterion (REML + the
@@ -1233,7 +1241,7 @@ fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() 
         .collect();
 
     let build_term = || {
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "periodic_truth",
             SaeAtomBasisKind::Periodic,
             1,
@@ -1320,9 +1328,15 @@ fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() 
     let mut best_seq_cost = f64::INFINITY;
     for rho in &rho_grid {
         let mut probe = build_term();
-        let Ok((reml, _loss)) =
-            probe.reml_criterion(target.view(), rho, None, 12, 1.0, 1.0e-4, 1.0e-4)
-        else {
+        let Ok((reml, _loss)) = probe.penalized_quasi_laplace_criterion(
+            target.view(),
+            rho,
+            None,
+            12,
+            1.0,
+            1.0e-4,
+            1.0e-4,
+        ) else {
             continue;
         };
         if reml < best_seq_cost {
@@ -1353,8 +1367,16 @@ fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() 
         probe
             .warm_start_latents_from_amortized_encoder(target.view(), rho)
             .ok();
-        let Ok((cotrained, _loss, _consistency)) =
-            probe.reml_criterion_cotrained(target.view(), rho, None, 64, 1.0, 1.0e-4, 1.0e-4)
+        let Ok((cotrained, _loss, _consistency)) = probe
+            .penalized_quasi_laplace_criterion_cotrained(
+                target.view(),
+                rho,
+                None,
+                64,
+                1.0,
+                1.0e-4,
+                1.0e-4,
+            )
         else {
             continue;
         };
@@ -1442,7 +1464,7 @@ fn sae_1026_curved_beats_linear_reconstruction_through_solver() {
 
     // CURVED arm: one periodic atom on the circle.
     let curved_ev = {
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "circle",
             SaeAtomBasisKind::Periodic,
             1,
@@ -1473,7 +1495,7 @@ fn sae_1026_curved_beats_linear_reconstruction_through_solver() {
         let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 1).unwrap());
         let (phi_l, jet_l) = evaluator.evaluate(coords.view()).unwrap();
         let ml = phi_l.ncols();
-        let atom = SaeManifoldAtom::new(
+        let atom = SaeManifoldAtom::new_with_provided_function_gram(
             "linear",
             SaeAtomBasisKind::EuclideanPatch,
             1,
@@ -1529,7 +1551,7 @@ fn sae_1026_full_encode_decode_heldout_curved_certifies() {
     let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
         (1.0 / (1.0 + b as f64)) * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
     });
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "circle",
         SaeAtomBasisKind::Periodic,
         1,
@@ -1635,7 +1657,7 @@ fn sae_1026_solver_recovers_separable_superposition_but_not_below_2k() {
         let (pa, ja) = periodic_basis(&seed_a);
         let (pb, jb) = periodic_basis(&seed_b);
         let m = pa.ncols();
-        let a0 = SaeManifoldAtom::new(
+        let a0 = SaeManifoldAtom::new_with_provided_function_gram(
             "cA",
             SaeAtomBasisKind::Periodic,
             1,
@@ -1646,7 +1668,7 @@ fn sae_1026_solver_recovers_separable_superposition_but_not_below_2k() {
         )
         .unwrap()
         .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
-        let a1 = SaeManifoldAtom::new(
+        let a1 = SaeManifoldAtom::new_with_provided_function_gram(
             "cB",
             SaeAtomBasisKind::Periodic,
             1,
@@ -1665,7 +1687,7 @@ fn sae_1026_solver_recovers_separable_superposition_but_not_below_2k() {
                 LatentManifold::Circle { period: 1.0 },
                 LatentManifold::Circle { period: 1.0 },
             ],
-            AssignmentMode::ibp_map(0.5, 1.0, false),
+            AssignmentMode::ordered_beta_bernoulli(0.5, 1.0, false),
         )
         .unwrap();
         let mut term = SaeManifoldTerm::new(vec![a0, a1], assignment).unwrap();
@@ -1891,7 +1913,7 @@ pub(crate) fn planted_low_rank_frame_recovered_by_polar() {
     }
 }
 
-/// Regression test for #1415: the JumpReLU third derivative consumed by the
+/// Regression test for #1415: the smooth-threshold third derivative consumed by the
 /// log-determinant θ-adjoint (`assignment_prior_hdiag_derivative_entry`) must be
 /// the EXACT derivative of the (separately certified) Hessian diagonal
 /// `P''(ℓ)=(λ/τ²)s(1−2a)`, namely `P'''(ℓ)=(λ/τ³)s(1−6a+6a²)`. The historical
@@ -1903,14 +1925,14 @@ pub(crate) fn planted_low_rank_frame_recovered_by_polar() {
 /// form). Also pins the exact threshold value `−λ/(8τ³)` and asserts the
 /// production entry is strictly negative there (the old formula returned 0).
 #[test]
-fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
+fn smooth_threshold_hdiag_third_derivative_matches_central_difference_1415() {
     use ndarray::{Array1, Array2, Array3};
     let n = 6usize;
     let k = 2usize;
     let p = 3usize;
     let temperature = 0.35_f64;
     let threshold = 0.1_f64;
-    // Include the exact threshold (logit == θ ⇒ a = 1/2) plus in-band points.
+    // Include the exact threshold (logit == θ ⇒ a = 1/2) plus points on both sides.
     let logits = Array2::<f64>::from_shape_vec(
         (n, k),
         vec![
@@ -1920,7 +1942,7 @@ fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
     .expect("valid logit grid");
     let atoms: Vec<SaeManifoldAtom> = (0..k)
         .map(|i| {
-            SaeManifoldAtom::new(
+            SaeManifoldAtom::new_with_provided_function_gram(
                 &format!("atom{i}"),
                 SaeAtomBasisKind::EuclideanPatch,
                 1,
@@ -1940,20 +1962,14 @@ fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
         manifolds,
         AssignmentMode::threshold_gate(temperature, threshold),
     )
-    .expect("valid JumpReLU assignment");
+    .expect("valid smooth threshold assignment");
     let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
     let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
 
     let inv_tau = 1.0 / temperature;
-    let sparsity = rho.log_lambda_sparse.exp();
-    let in_band = |logit: f64| {
-        crate::assignment::jumprelu_in_optimization_band(logit, threshold, temperature)
-    };
+    let sparsity = rho.lambda_sparse().unwrap();
     // Exact, separately-certified Hessian diagonal P''(ℓ) as a function of ℓ.
     let p2 = |logit: f64| -> f64 {
-        if !in_band(logit) {
-            return 0.0;
-        }
         let a = gam_linalg::utils::stable_logistic((logit - threshold) * inv_tau);
         let s = a * (1.0 - a);
         sparsity * s * (1.0 - 2.0 * a) * inv_tau * inv_tau
@@ -1963,11 +1979,8 @@ fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
     for row in 0..n {
         for atom in 0..k {
             let logit = logits[[row, atom]];
-            if !in_band(logit) {
-                continue;
-            }
             let entry = term.assignment_prior_hdiag_derivative_entry(
-                &rho,
+                sparsity,
                 row,
                 atom,
                 SaeLocalRowVar::Logit { atom },
@@ -2028,7 +2041,7 @@ fn encode_grad_hess_and_beta_eta_match_finite_differences() {
     let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
         (1.0 / (1.0 + b as f64)) * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
     });
-    let atom = SaeManifoldAtom::new(
+    let atom = SaeManifoldAtom::new_with_provided_function_gram(
         "circle",
         SaeAtomBasisKind::Periodic,
         1,

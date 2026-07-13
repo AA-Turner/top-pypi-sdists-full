@@ -13,10 +13,8 @@ use super::binomial_q_derivs::{
     binomial_neglog_q_fourth_derivative_logit_closed_form,
     binomial_neglog_q_fourth_derivative_probit_closed_form,
 };
-use super::dispersion_family::{
-    DISPERSION_ETA_CLAMP, DISPERSION_MIN_CURVATURE, DispersionRowKernel, dispersion_row_kernel,
-};
-use super::test_support::dispersion_tweedie_nll_generic;
+use super::dispersion_family::{DispersionRowKernel, dispersion_row_kernel};
+use super::test_support::{binomial_location_scale_nll_tower, dispersion_tweedie_nll_generic};
 use crate::fit_orchestration::{FitConfig, FitResult, fit_from_formula};
 
 /// Dense `Tower4<2>` Tweedie row NLL oracle: the #932 all-channels instantiation
@@ -126,7 +124,10 @@ pub(crate) fn logb_dlog_sigma_deta_preserves_negative_tail_precision() {
         logb_dlog_sigma_deta(sigma, d1) > 0.0,
         "d_sigma_deta / sigma must preserve the remaining tail derivative"
     );
-    assert_eq!(logb_dlog_sigma_deta(f64::INFINITY, f64::INFINITY), 1.0);
+    assert!(
+        logb_dlog_sigma_deta(f64::INFINITY, f64::INFINITY).is_nan(),
+        "an unrepresentable link must be certified by its caller, not projected to an analytic limit"
+    );
 }
 
 pub(crate) fn assert_rel_close(label: &str, actual: f64, expected: f64, tol: f64) {
@@ -593,13 +594,13 @@ pub(crate) fn hand_dispersion_row_kernel(
     eta_d: f64,
     prior_weight: f64,
 ) -> DispersionRowKernel {
-    let wi = prior_weight.max(0.0);
-    let em = eta_mu.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
-    let ed = eta_d.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
+    let wi = prior_weight;
+    let em = eta_mu;
+    let ed = eta_d;
     match kind {
         DispersionFamilyKind::NegativeBinomial => {
-            let mu = em.exp().max(1e-300);
-            let theta = ed.exp().max(1e-12);
+            let mu = em.exp();
+            let theta = ed.exp();
             let tpm = theta + mu;
             let tpy = theta + yi;
             let loglik = wi
@@ -626,25 +627,24 @@ pub(crate) fn hand_dispersion_row_kernel(
             // exact score, so the optimum is identical). `tpy` is retained only
             // for the score; the observed-curvature terms are dropped.
             let info_theta = hand_trigamma(theta) - hand_trigamma(tpm) - 1.0 / theta + 1.0 / tpm;
-            let info_pos = info_theta.max(DISPERSION_MIN_CURVATURE);
             DispersionRowKernel {
                 loglik,
                 mean_weight,
                 mean_response,
-                disp_weight: wi * theta * theta * info_pos,
-                disp_response: ed + s_theta / (theta * info_pos),
+                disp_weight: wi * theta * theta * info_theta,
+                disp_response: ed + s_theta / (theta * info_theta),
             }
         }
         DispersionFamilyKind::Gamma => {
-            let mu = em.exp().max(1e-300);
-            let nu = ed.exp().max(1e-12);
-            let y_pos = yi.max(1e-300);
+            let mu = em.exp();
+            let nu = ed.exp();
+            let y_pos = yi;
             let loglik = wi
                 * (nu * nu.ln() - nu * mu.ln() - ln_gamma(nu) + (nu - 1.0) * y_pos.ln()
                     - nu * yi / mu);
             let s_nu = nu.ln() + 1.0 - mu.ln() - statrs::function::gamma::digamma(nu) + y_pos.ln()
                 - yi / mu;
-            let info_nu = (hand_trigamma(nu) - 1.0 / nu).max(DISPERSION_MIN_CURVATURE);
+            let info_nu = hand_trigamma(nu) - 1.0 / nu;
             DispersionRowKernel {
                 loglik,
                 mean_weight: wi * nu,
@@ -654,10 +654,11 @@ pub(crate) fn hand_dispersion_row_kernel(
             }
         }
         DispersionFamilyKind::Beta => {
-            let mu = (1.0 / (1.0 + (-em).exp())).clamp(1e-12, 1.0 - 1e-12);
-            let phi = ed.exp().max(1e-12);
-            let q = (mu * (1.0 - mu)).max(1e-12);
-            let yc = yi.clamp(1e-12, 1.0 - 1e-12);
+            let logit = gam_solve::mixture_link::logit_inverse_link_jet5(em);
+            let mu = logit.mu;
+            let phi = ed.exp();
+            let q = logit.d1;
+            let yc = yi;
             let a = mu * phi;
             let b = (1.0 - mu) * phi;
             let loglik = wi
@@ -668,17 +669,14 @@ pub(crate) fn hand_dispersion_row_kernel(
                 * (statrs::function::gamma::digamma(b) - statrs::function::gamma::digamma(a)
                     + yc.ln()
                     - (1.0 - yc).ln());
-            let info_mu =
-                (phi * phi * (hand_trigamma(a) + hand_trigamma(b))).max(DISPERSION_MIN_CURVATURE);
+            let info_mu = phi * phi * (hand_trigamma(a) + hand_trigamma(b));
             let s_phi = statrs::function::gamma::digamma(phi)
                 - mu * statrs::function::gamma::digamma(a)
                 - (1.0 - mu) * statrs::function::gamma::digamma(b)
                 + mu * yc.ln()
                 + (1.0 - mu) * (1.0 - yc).ln();
-            let info_phi = (mu * mu * hand_trigamma(a)
-                + (1.0 - mu) * (1.0 - mu) * hand_trigamma(b)
-                - hand_trigamma(phi))
-            .max(DISPERSION_MIN_CURVATURE);
+            let info_phi = mu * mu * hand_trigamma(a) + (1.0 - mu) * (1.0 - mu) * hand_trigamma(b)
+                - hand_trigamma(phi);
             DispersionRowKernel {
                 loglik,
                 mean_weight: wi * q * q * info_mu,
@@ -696,8 +694,8 @@ pub(crate) fn hand_dispersion_row_kernel(
             // information `∂²NLL/∂η_d²` is used uniformly (the same Newton
             // curvature the production arm reads off `tower.h[1][1]`), matching
             // the NB/Gamma/Beta dispersion arms.
-            let mu = em.exp().max(1e-300);
-            let phi = (-ed).exp().max(1e-12);
+            let mu = em.exp();
+            let phi = (-ed).exp();
             let two_minus_p = 2.0 - p;
             let one_minus_p = 1.0 - p;
             let mean_weight = wi * mu.powf(two_minus_p) / phi;
@@ -723,7 +721,7 @@ pub(crate) fn hand_dispersion_row_kernel(
                 let info_eta = c / phi;
                 (loglik, s_eta, info_eta)
             };
-            let curvature_eta = info_eta.max(DISPERSION_MIN_CURVATURE);
+            let curvature_eta = if yi > 0.0 { 0.5 } else { info_eta };
             DispersionRowKernel {
                 loglik,
                 mean_weight,
@@ -745,7 +743,7 @@ pub(crate) fn dispersion_row_towers_match_hand_witnesses() {
             -25.0,
             0.7,
         ),
-        (DispersionFamilyKind::NegativeBinomial, 6.0, 2.0, 25.0, 1.3),
+        (DispersionFamilyKind::NegativeBinomial, 6.0, 2.0, 3.0, 1.3),
         (DispersionFamilyKind::Gamma, 0.2, -2.0, -25.0, 0.9),
         (DispersionFamilyKind::Gamma, 9.0, 1.7, 25.0, 1.1),
         (DispersionFamilyKind::Beta, 0.02, -3.0, -20.0, 0.8),
@@ -3485,7 +3483,7 @@ pub(crate) fn zeroweightrows_stay_inactive_in_builtin_diagonal_families() {
 }
 
 #[test]
-pub(crate) fn hard_clamped_poisson_and_gammarows_stay_locally_flat() {
+pub(crate) fn log_link_rows_remain_exact_beyond_former_clamp() {
     let poisson = PoissonLogFamily {
         y: Array1::from_vec(vec![1.0, 2.0, 3.0]),
         weights: Array1::from_vec(vec![1.0, 1.0, 1.0]),
@@ -3502,11 +3500,11 @@ pub(crate) fn hard_clamped_poisson_and_gammarows_stay_locally_flat() {
             working_response,
             working_weights,
         } => {
-            assert_eq!(working_weights[0], 0.0);
-            assert_eq!(working_response[0], poisson_eta[0]);
+            assert_eq!(working_weights[0], poisson_eta[0].exp());
+            assert_ne!(working_response[0], poisson_eta[0]);
             assert!(working_weights[1] > 0.0);
-            assert_eq!(working_weights[2], 0.0);
-            assert_eq!(working_response[2], poisson_eta[2]);
+            assert_eq!(working_weights[2], poisson_eta[2].exp());
+            assert_ne!(working_response[2], poisson_eta[2]);
         }
         BlockWorkingSet::ExactNewton { .. } => panic!("expected diagonal Poisson block"),
     }
@@ -3528,11 +3526,11 @@ pub(crate) fn hard_clamped_poisson_and_gammarows_stay_locally_flat() {
             working_response,
             working_weights,
         } => {
-            assert_eq!(working_weights[0], 0.0);
-            assert_eq!(working_response[0], gamma_eta[0]);
+            assert!(working_weights[0] > 0.0);
+            assert_ne!(working_response[0], gamma_eta[0]);
             assert!(working_weights[1] > 0.0);
-            assert_eq!(working_weights[2], 0.0);
-            assert_eq!(working_response[2], gamma_eta[2]);
+            assert!(working_weights[2] > 0.0);
+            assert_ne!(working_response[2], gamma_eta[2]);
         }
         BlockWorkingSet::ExactNewton { .. } => panic!("expected diagonal Gamma block"),
     }
@@ -3805,7 +3803,7 @@ pub(crate) fn gaussian_diagonal_log_sigma_block_uses_fisher_score_step_in_far_ta
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let eta_mu = array![0.0];
-    let eta_ls0 = 701.0_f64;
+    let eta_ls0 = 350.0_f64;
     let states_at = |eta_ls: f64| {
         vec![
             ParameterBlockState {
@@ -3830,7 +3828,7 @@ pub(crate) fn gaussian_diagonal_log_sigma_block_uses_fisher_score_step_in_far_ta
             // f64 precision and the IRLS step matches the pure-exp Fisher
             // step. Compute the expectation explicitly from the new link.
             let sigma = logb_sigma_from_eta_scalar(eta_ls0);
-            let inv_s2 = (sigma * sigma).recip();
+            let inv_s2 = sigma.recip() * sigma.recip();
             let dlog = logb_dlog_sigma_deta(sigma, logb_sigma_jet1_scalar(eta_ls0).d1);
             let residual = family.y[0] - eta_mu[0];
             let expected_score = family.weights[0] * (residual * residual * inv_s2 - 1.0) * dlog;
@@ -3868,7 +3866,7 @@ pub(crate) fn gaussian_diagonal_log_sigma_block_uses_fisher_score_step_in_far_ta
 }
 
 #[test]
-pub(crate) fn gaussian_exact_joint_path_stays_finite_in_exp_link_far_tail() {
+pub(crate) fn gaussian_exact_joint_path_refuses_unrepresentable_scale_atomically() {
     let mu_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]]));
     let log_sigma_design =
         DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]]));
@@ -3893,23 +3891,87 @@ pub(crate) fn gaussian_exact_joint_path_stays_finite_in_exp_link_far_tail() {
         },
     ];
 
-    let hessian = family
+    let err = family
         .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected Gaussian exact joint hessian");
+        .expect_err("overflowing Gaussian scale must be refused");
     assert!(
-        hessian.iter().all(|value| value.is_finite()),
-        "far-tail Gaussian exact Hessian should stay finite; got {hessian:?}"
+        err.contains("row 0") && err.contains("Gaussian scale link"),
+        "typed row refusal should identify the first row and quantity: {err}"
     );
+}
 
-    let direction = array![0.25, -0.5];
-    let dh = family
-        .exact_newton_joint_hessian_directional_derivative(&states, &direction)
-        .expect("joint dH")
-        .expect("expected Gaussian exact joint hessian directional derivative");
+#[test]
+pub(crate) fn gaussian_diagonal_geometry_preserves_representable_tiny_fisher_weights() {
+    let family = GaussianLocationScaleFamily {
+        y: array![0.0, 0.0],
+        weights: array![1.0, 1.0],
+        mu_design: None,
+        log_sigma_design: None,
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
+        cached_row_scalars: std::sync::RwLock::new(None),
+    };
+    let states = vec![
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: array![0.0, 0.0],
+        },
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: array![200.0, -20.0],
+        },
+    ];
+    let eval = family
+        .evaluate(&states)
+        .expect("representable tiny geometry");
+    let location = match &eval.blockworking_sets[GaussianLocationScaleFamily::BLOCK_MU] {
+        BlockWorkingSet::Diagonal {
+            working_weights, ..
+        } => working_weights,
+        _ => panic!("expected diagonal location block"),
+    };
+    let scale = match &eval.blockworking_sets[GaussianLocationScaleFamily::BLOCK_LOG_SIGMA] {
+        BlockWorkingSet::Diagonal {
+            working_weights, ..
+        } => working_weights,
+        _ => panic!("expected diagonal scale block"),
+    };
+    assert!(location[0] > 0.0 && location[0] < 1.0e-12);
+    assert!(scale[1] > 0.0 && scale[1] < 1.0e-12);
+    let sigma0 = logb_sigma_from_eta_scalar(200.0);
+    let expected_location = sigma0.recip() * sigma0.recip();
+    assert!((location[0] / expected_location - 1.0).abs() <= 4.0 * f64::EPSILON);
+    let jet1 = logb_sigma_jet1_scalar(-20.0);
+    let kappa1 = jet1.d1 / jet1.sigma;
+    let expected_scale = 2.0 * kappa1 * kappa1;
+    assert!((scale[1] / expected_scale - 1.0).abs() <= 4.0 * f64::EPSILON);
+}
+
+#[test]
+pub(crate) fn gaussian_batch_certification_reports_smallest_unrepresentable_row() {
+    let family = GaussianLocationScaleFamily {
+        y: Array1::zeros(3),
+        weights: Array1::ones(3),
+        mu_design: None,
+        log_sigma_design: None,
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
+        cached_row_scalars: std::sync::RwLock::new(None),
+    };
+    let states = vec![
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: Array1::zeros(3),
+        },
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: array![0.0, -400.0, 710.0],
+        },
+    ];
+    let err = family
+        .evaluate(&states)
+        .expect_err("unrepresentable row geometry must be refused");
     assert!(
-        dh.iter().all(|value| value.is_finite()),
-        "far-tail Gaussian exact Hessian directional derivative should stay finite; got {dh:?}"
+        err.contains("row 1") && err.contains("log-scale Fisher information"),
+        "parallel certification must report the smallest failing row: {err}"
     );
 }
 
@@ -3939,11 +4001,11 @@ pub(crate) fn gaussian_location_scale_hotloop_optimized_matches_legacy_and_is_fa
                 wmu[i] = 0.0;
                 zmu[i] = mu[i];
             } else {
-                wmu[i] = floor_positiveweight(w * inv_s2, MIN_WEIGHT);
+                wmu[i] = w * inv_s2;
                 zmu[i] = mu[i] + r;
             }
             let dlogsigma_du = logb_dlog_sigma_deta(sigma, d1);
-            let info_u = floor_positiveweight(2.0 * w * dlogsigma_du * dlogsigma_du, MIN_WEIGHT);
+            let info_u = 2.0 * w * dlogsigma_du * dlogsigma_du;
             if info_u == 0.0 {
                 wls[i] = 0.0;
                 zls[i] = eta;
@@ -3973,11 +4035,11 @@ pub(crate) fn gaussian_location_scale_hotloop_optimized_matches_legacy_and_is_fa
                 wmu[i] = 0.0;
                 zmu[i] = mu[i];
             } else {
-                wmu[i] = floor_positiveweight(w * inv_s2, MIN_WEIGHT);
+                wmu[i] = w * inv_s2;
                 zmu[i] = mu[i] + r;
             }
             let dlogsigma_du = logb_dlog_sigma_deta(sigma, d1);
-            let info_u = floor_positiveweight(2.0 * w * dlogsigma_du * dlogsigma_du, MIN_WEIGHT);
+            let info_u = 2.0 * w * dlogsigma_du * dlogsigma_du;
             if info_u == 0.0 {
                 wls[i] = 0.0;
                 zls[i] = eta;
@@ -7522,7 +7584,7 @@ pub(crate) fn wiggle_geometry_and_generative_use_same_sigma_link_as_core() {
 }
 
 #[test]
-pub(crate) fn poisson_extreme_eta_stays_finite_with_safe_exp() {
+pub(crate) fn poisson_extreme_eta_uses_exact_exp_and_refuses_only_unrepresentable_geometry() {
     use crate::custom_family::{CustomFamily, ParameterBlockState};
     let poisson = PoissonLogFamily {
         y: Array1::from_vec(vec![1.0, 2.0, 3.0]),
@@ -7534,7 +7596,7 @@ pub(crate) fn poisson_extreme_eta_stays_finite_with_safe_exp() {
         eta: extreme_eta,
     }]);
     let eval =
-        eval_result.expect("Poisson evaluate must succeed (finite, saturated) at extreme eta");
+        eval_result.expect("Poisson evaluate must succeed while exact geometry is representable");
     match &eval.blockworking_sets[0] {
         crate::custom_family::BlockWorkingSet::Diagonal {
             working_response,
@@ -7552,6 +7614,15 @@ pub(crate) fn poisson_extreme_eta_stays_finite_with_safe_exp() {
         }
         _ => panic!("expected Diagonal block"),
     }
+
+    let refused = match poisson.evaluate(&[ParameterBlockState {
+        beta: Array1::zeros(0),
+        eta: Array1::from_vec(vec![0.5, 710.0, -0.3]),
+    }]) {
+        Ok(_) => panic!("overflowing exact exp geometry must be refused"),
+        Err(err) => err,
+    };
+    assert!(refused.contains("row 1"), "unexpected refusal: {refused}");
 }
 
 /// The batched outer-gradient override on `BinomialLocationScaleFamily`
@@ -8728,8 +8799,8 @@ pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_
 // cause: the NB dispersion (log-θ) block assembled its IRLS curvature from the
 // per-row OBSERVED Hessian channel `−∂²ℓ/∂θ²`, which carries the row-specific
 // `ψ′(θ+y)` term and goes NEGATIVE for every row whose count sits below its
-// current fitted precision. Flooring each negative row at
-// `DISPERSION_MIN_CURVATURE≈0` then divides the exact score by ~0 in the
+// current fitted precision. Replacing each negative row by an arbitrary
+// epsilon then divides the exact score by ~0 in the
 // working response, producing O(1e10) IRLS targets that explode the dispersion
 // step and stall the inner block-cyclic solve, whose non-convergence is then
 // escalated to a hard error. The fix switches the dispersion curvature to the
@@ -8742,8 +8813,8 @@ pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_
 // heteroscedastic iterate whose fitted precision sits ABOVE the data's true
 // overdispersion (the regime the inner solve traverses), the NB dispersion
 // working set must stay well-conditioned. With the pre-fix OBSERVED curvature
-// the per-row information is negative for these rows, gets floored to
-// `DISPERSION_MIN_CURVATURE`, and the working response `disp_response` blows up
+// the per-row information is negative for these rows, gets epsilon-clamped,
+// and the working response `disp_response` blows up
 // to O(1e9)+ (the exact score divided by ~0). With the EXPECTED (Fisher)
 // curvature the response stays O(1) and the per-row IRLS weight reflects
 // genuine positive curvature. This asserts the bounded, well-conditioned

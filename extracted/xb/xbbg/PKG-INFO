@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.4.3
+Version: 1.4.4
 Summary: Independent client for Bloomberg-connected data workflows
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
@@ -70,7 +70,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.4.2 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.2))
+Latest release: xbbg==1.4.4 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.4))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/xbbg-org/xbbg/tree/release/0.x).
@@ -86,6 +86,7 @@ Latest release: xbbg==1.4.2 (release: [notes](https://github.com/xbbg-org/xbbg/r
 - [JavaScript and Node](#javascript-and-node)
 - [Configuration and engines](#configuration-and-engines)
 - [Common API surface](#common-api-surface)
+- [Entitlement IDs](#entitlement-ids)
 - [Output backends](#output-backends)
 - [Async usage](#async-usage)
 - [Subscriptions: raw, tick mode, and all fields](#subscriptions-raw-tick-mode-and-all-fields)
@@ -344,6 +345,40 @@ Use `Engine(...)` when an application needs a scoped engine with its own connect
 
 Most sync helpers have async counterparts with an `a` prefix: `bdp` → `abdp`, `bdh` → `abdh`, `bdib` → `abdib`, `request` → `arequest`.
 
+## Entitlement IDs
+
+Bloomberg can return entitlement IDs only for these four request operations. Opt in with `return_eids=True`:
+
+| Bloomberg operation | Python routes |
+| --- | --- |
+| `ReferenceDataRequest` | `blp.bdp`, `blp.bds` (BDS uses the reference-data operation) |
+| `HistoricalDataRequest` | `blp.bdh` |
+| `IntradayBarRequest` | `blp.bdib` |
+| `IntradayTickRequest` | `blp.bdtick` |
+
+For example, request EIDs with intraday ticks and check them against the default `//blp/refdata` service:
+
+```python
+from xbbg import blp
+
+ticks = blp.bdtick(
+    "AAPL US Equity",
+    "2024-01-15T09:30:00",
+    "2024-01-15T10:00:00",
+    return_eids=True,
+    backend="native",
+)
+
+eid_data = ticks.eid_data or {}
+eids = sorted({eid for security_eids in eid_data.values() for eid in security_eids})
+if eids:
+    print(blp.check_entitlements(eids))
+```
+
+EID metadata remains available through the native `ArrowTable.eid_data` property, pandas `attrs["xbbg_eid_data"]`, or PyArrow schema metadata under `xbbg.eid_data`. Polars and DuckDB do not provide a stable entitlement-metadata side channel; use the native, PyArrow, or pandas backend when EIDs are required.
+
+This opt-in request metadata is separate from a subscription message's top-level `EID` field.
+
 ## Output backends
 
 xbbg defaults to a Narwhals DataFrame. When PyArrow is installed, the Narwhals frame is backed by a real `pyarrow.Table`; otherwise xbbg falls back through available dataframe libraries and finally to its native Arrow carrier.
@@ -384,7 +419,7 @@ async def main():
 result = asyncio.run(main())
 ```
 
-In Jupyter and VS Code Interactive, one-shot sync calls such as `blp.bdp(...)` and `blp.bdh(...)` use a notebook-only bridge when an IPykernel event loop is already running. Generic async applications such as FastAPI or ASGI services should still use the async APIs directly.
+In Jupyter, VS Code Interactive, and marimo, one-shot sync calls such as `blp.bdp(...)` and `blp.bdh(...)` use a notebook-only bridge when the notebook event loop is already running. Generic async applications such as FastAPI or ASGI services should still use the async APIs directly.
 
 ## Subscriptions: raw, tick mode, and all fields
 
