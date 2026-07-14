@@ -115,6 +115,8 @@ __all__ = [
     'BackendServiceTlsSettingsArgsDict',
     'BackendServiceTlsSettingsSubjectAltNameArgs',
     'BackendServiceTlsSettingsSubjectAltNameArgsDict',
+    'BulkPerInstanceConfigInstanceArgs',
+    'BulkPerInstanceConfigInstanceArgsDict',
     'DiskAsyncPrimaryDiskArgs',
     'DiskAsyncPrimaryDiskArgsDict',
     'DiskAsyncReplicationSecondaryDiskArgs',
@@ -145,6 +147,10 @@ __all__ = [
     'FirewallLogConfigArgsDict',
     'FirewallParamsArgs',
     'FirewallParamsArgsDict',
+    'FirewallPolicyIamBindingConditionArgs',
+    'FirewallPolicyIamBindingConditionArgsDict',
+    'FirewallPolicyIamMemberConditionArgs',
+    'FirewallPolicyIamMemberConditionArgsDict',
     'FirewallPolicyRuleMatchArgs',
     'FirewallPolicyRuleMatchArgsDict',
     'FirewallPolicyRuleMatchLayer4ConfigArgs',
@@ -653,6 +659,10 @@ __all__ = [
     'NetworkAttachmentConnectionEndpointArgsDict',
     'NetworkEndpointListNetworkEndpointArgs',
     'NetworkEndpointListNetworkEndpointArgsDict',
+    'NetworkFirewallPolicyIamBindingConditionArgs',
+    'NetworkFirewallPolicyIamBindingConditionArgsDict',
+    'NetworkFirewallPolicyIamMemberConditionArgs',
+    'NetworkFirewallPolicyIamMemberConditionArgsDict',
     'NetworkFirewallPolicyPacketMirroringRuleMatchArgs',
     'NetworkFirewallPolicyPacketMirroringRuleMatchArgsDict',
     'NetworkFirewallPolicyPacketMirroringRuleMatchLayer4ConfigArgs',
@@ -1015,6 +1025,10 @@ __all__ = [
     'RegionNetworkEndpointGroupPscDataArgsDict',
     'RegionNetworkEndpointGroupServerlessDeploymentArgs',
     'RegionNetworkEndpointGroupServerlessDeploymentArgsDict',
+    'RegionNetworkFirewallPolicyIamBindingConditionArgs',
+    'RegionNetworkFirewallPolicyIamBindingConditionArgsDict',
+    'RegionNetworkFirewallPolicyIamMemberConditionArgs',
+    'RegionNetworkFirewallPolicyIamMemberConditionArgsDict',
     'RegionNetworkFirewallPolicyRuleMatchArgs',
     'RegionNetworkFirewallPolicyRuleMatchArgsDict',
     'RegionNetworkFirewallPolicyRuleMatchLayer4ConfigArgs',
@@ -1043,6 +1057,8 @@ __all__ = [
     'RegionNetworkFirewallPolicyWithRulesRuleMatchSrcSecureTagArgsDict',
     'RegionNetworkFirewallPolicyWithRulesRuleTargetSecureTagArgs',
     'RegionNetworkFirewallPolicyWithRulesRuleTargetSecureTagArgsDict',
+    'RegionNetworkPolicyAssociationArgs',
+    'RegionNetworkPolicyAssociationArgsDict',
     'RegionPerInstanceConfigPreservedStateArgs',
     'RegionPerInstanceConfigPreservedStateArgsDict',
     'RegionPerInstanceConfigPreservedStateDiskArgs',
@@ -1853,6 +1869,12 @@ __all__ = [
     'WireGroupWirePropertiesArgsDict',
     'WireGroupWireWirePropertyArgs',
     'WireGroupWireWirePropertyArgsDict',
+    'ZoneVmExtensionPolicyExtensionPolicyArgs',
+    'ZoneVmExtensionPolicyExtensionPolicyArgsDict',
+    'ZoneVmExtensionPolicyInstanceSelectorArgs',
+    'ZoneVmExtensionPolicyInstanceSelectorArgsDict',
+    'ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs',
+    'ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict',
 ]
 
 class AutoscalerAutoscalingPolicyArgsDict(TypedDict):
@@ -6939,6 +6961,34 @@ class BackendServiceTlsSettingsSubjectAltNameArgs:
         pulumi.set(self, "uniform_resource_identifier", value)
 
 
+class BulkPerInstanceConfigInstanceArgsDict(TypedDict):
+    name: pulumi.Input[_builtins.str]
+    """
+    The name for this per-instance config and its corresponding instance.
+    """
+
+@pulumi.input_type
+class BulkPerInstanceConfigInstanceArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] name: The name for this per-instance config and its corresponding instance.
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name for this per-instance config and its corresponding instance.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "name", value)
+
+
 class DiskAsyncPrimaryDiskArgsDict(TypedDict):
     disk: pulumi.Input[_builtins.str]
     """
@@ -7906,6 +7956,94 @@ class FirewallParamsArgs:
     @resource_manager_tags.setter
     def resource_manager_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "resource_manager_tags", value)
+
+
+class FirewallPolicyIamBindingConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class FirewallPolicyIamBindingConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
+class FirewallPolicyIamMemberConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class FirewallPolicyIamMemberConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
 
 
 class FirewallPolicyRuleMatchArgsDict(TypedDict):
@@ -32443,6 +32581,94 @@ class NetworkEndpointListNetworkEndpointArgs:
         pulumi.set(self, "port", value)
 
 
+class NetworkFirewallPolicyIamBindingConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class NetworkFirewallPolicyIamBindingConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
+class NetworkFirewallPolicyIamMemberConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class NetworkFirewallPolicyIamMemberConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
 class NetworkFirewallPolicyPacketMirroringRuleMatchArgsDict(TypedDict):
     layer4_configs: pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyPacketMirroringRuleMatchLayer4ConfigArgsDict']]]
     """
@@ -49939,6 +50165,94 @@ class RegionNetworkEndpointGroupServerlessDeploymentArgs:
         pulumi.set(self, "version", value)
 
 
+class RegionNetworkFirewallPolicyIamBindingConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class RegionNetworkFirewallPolicyIamBindingConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
+class RegionNetworkFirewallPolicyIamMemberConditionArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    title: pulumi.Input[_builtins.str]
+    description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class RegionNetworkFirewallPolicyIamMemberConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
 class RegionNetworkFirewallPolicyRuleMatchArgsDict(TypedDict):
     layer4_configs: pulumi.Input[Sequence[pulumi.Input['RegionNetworkFirewallPolicyRuleMatchLayer4ConfigArgsDict']]]
     """
@@ -52280,6 +52594,55 @@ class RegionNetworkFirewallPolicyWithRulesRuleTargetSecureTagArgs:
     @state.setter
     def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
+
+
+class RegionNetworkPolicyAssociationArgsDict(TypedDict):
+    attachment_target: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The target that the network policy is attached to.
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    User-provided name of the Network policy. The name should be unique in the project in which the policy is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
+    """
+
+@pulumi.input_type
+class RegionNetworkPolicyAssociationArgs:
+    def __init__(__self__, *,
+                 attachment_target: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] attachment_target: The target that the network policy is attached to.
+        :param pulumi.Input[_builtins.str] name: User-provided name of the Network policy. The name should be unique in the project in which the policy is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
+        """
+        if attachment_target is not None:
+            pulumi.set(__self__, "attachment_target", attachment_target)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="attachmentTarget")
+    def attachment_target(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The target that the network policy is attached to.
+        """
+        return pulumi.get(self, "attachment_target")
+
+    @attachment_target.setter
+    def attachment_target(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "attachment_target", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        User-provided name of the Network policy. The name should be unique in the project in which the policy is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
 
 
 class RegionPerInstanceConfigPreservedStateArgsDict(TypedDict):
@@ -89273,5 +89636,134 @@ class WireGroupWireWirePropertyArgs:
     @fault_response.setter
     def fault_response(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fault_response", value)
+
+
+class ZoneVmExtensionPolicyExtensionPolicyArgsDict(TypedDict):
+    extension_name: pulumi.Input[_builtins.str]
+    """
+    The identifier for this object. Format specified above.
+    """
+    pinned_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The specific version of the extension to install.
+    """
+    string_config: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    String-based configuration data for the extension.
+    """
+
+@pulumi.input_type
+class ZoneVmExtensionPolicyExtensionPolicyArgs:
+    def __init__(__self__, *,
+                 extension_name: pulumi.Input[_builtins.str],
+                 pinned_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 string_config: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] extension_name: The identifier for this object. Format specified above.
+        :param pulumi.Input[_builtins.str] pinned_version: The specific version of the extension to install.
+        :param pulumi.Input[_builtins.str] string_config: String-based configuration data for the extension.
+        """
+        pulumi.set(__self__, "extension_name", extension_name)
+        if pinned_version is not None:
+            pulumi.set(__self__, "pinned_version", pinned_version)
+        if string_config is not None:
+            pulumi.set(__self__, "string_config", string_config)
+
+    @_builtins.property
+    @pulumi.getter(name="extensionName")
+    def extension_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "extension_name")
+
+    @extension_name.setter
+    def extension_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "extension_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pinnedVersion")
+    def pinned_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The specific version of the extension to install.
+        """
+        return pulumi.get(self, "pinned_version")
+
+    @pinned_version.setter
+    def pinned_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "pinned_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stringConfig")
+    def string_config(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        String-based configuration data for the extension.
+        """
+        return pulumi.get(self, "string_config")
+
+    @string_config.setter
+    def string_config(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "string_config", value)
+
+
+class ZoneVmExtensionPolicyInstanceSelectorArgsDict(TypedDict):
+    label_selector: NotRequired[pulumi.Input[Optional['ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict']]]
+    """
+    LabelSelector matches VM labels.
+    Structure is documented below.
+    """
+
+@pulumi.input_type
+class ZoneVmExtensionPolicyInstanceSelectorArgs:
+    def __init__(__self__, *,
+                 label_selector: pulumi.Input[Optional['ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs']] = None):
+        """
+        :param pulumi.Input['ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs'] label_selector: LabelSelector matches VM labels.
+               Structure is documented below.
+        """
+        if label_selector is not None:
+            pulumi.set(__self__, "label_selector", label_selector)
+
+    @_builtins.property
+    @pulumi.getter(name="labelSelector")
+    def label_selector(self) -> pulumi.Input[Optional['ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs']]:
+        """
+        LabelSelector matches VM labels.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "label_selector")
+
+    @label_selector.setter
+    def label_selector(self, value: pulumi.Input[Optional['ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs']]):
+        pulumi.set(self, "label_selector", value)
+
+
+class ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict(TypedDict):
+    inclusion_labels: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    A map of key-value pairs representing VM labels.
+    """
+
+@pulumi.input_type
+class ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs:
+    def __init__(__self__, *,
+                 inclusion_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] inclusion_labels: A map of key-value pairs representing VM labels.
+        """
+        if inclusion_labels is not None:
+            pulumi.set(__self__, "inclusion_labels", inclusion_labels)
+
+    @_builtins.property
+    @pulumi.getter(name="inclusionLabels")
+    def inclusion_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        A map of key-value pairs representing VM labels.
+        """
+        return pulumi.get(self, "inclusion_labels")
+
+    @inclusion_labels.setter
+    def inclusion_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "inclusion_labels", value)
 
 

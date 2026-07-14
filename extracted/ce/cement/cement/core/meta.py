@@ -1,9 +1,9 @@
 """Cement core meta functionality."""
 
-from typing import Any, Dict
+from typing import Any
 
 
-class Meta(object):
+class Meta:
 
     """
     Container class for meta attributes of a larger class. Keyword arguments
@@ -11,15 +11,20 @@ class Meta(object):
 
     """
 
+    # D-09: Meta classes carry user-arbitrary attributes by design
+    # (config_defaults, extensions, handlers, hooks, ...). The wide kwargs
+    # type IS the public Meta contract (D-12). `_merge` is internal but the
+    # dict it merges has the same arbitrary-value contract.
     def __init__(self, **kwargs: Any) -> None:
         self._merge(kwargs)
 
-    def _merge(self, dict_obj: Dict[str, Any]) -> None:
+    # D-09: same arbitrary-value contract as `__init__` above.
+    def _merge(self, dict_obj: dict[str, Any]) -> None:
         for key in dict_obj.keys():
             setattr(self, key, dict_obj[key])
 
 
-class MetaMixin(object):
+class MetaMixin:
 
     """
     Mixin that provides the meta class support to add settings to instances
@@ -27,6 +32,8 @@ class MetaMixin(object):
 
     """
 
+    # D-09: same Meta arbitrary-attribute contract — `*args` accepts any
+    # positional cooperative-multi-inheritance super() chain payload.
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Get a List of all the Classes we in our MRO, find any attribute named
         #     Meta on them, and then merge them together in order of MRO
@@ -47,4 +54,4 @@ class MetaMixin(object):
         self._meta = Meta(**final_meta)
 
         # FIX ME: object.__init__() doesn't take params without exception
-        super(MetaMixin, self).__init__()
+        super().__init__()

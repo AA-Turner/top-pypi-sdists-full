@@ -27,9 +27,12 @@ from cms.test_utils.testcases import CMSTestCase, TransactionCMSTestCase
 from cms.utils.conf import get_cms_setting
 from cms.utils.page import (
     get_available_slug,
-    get_current_site,
     get_page_from_request,
 )
+
+
+def _get_current_site():
+    return Site.objects.get_current()
 
 
 class PageMigrationTestCase(CMSTestCase):
@@ -197,7 +200,7 @@ class PagesTestCase(TransactionCMSTestCase):
 
     def test_get_available_slug_recursion(self):
         """Checks cms.utils.page.get_available_slug for infinite recursion"""
-        site = get_current_site()
+        site = _get_current_site()
         for x in range(0, 12):
             create_page("test-page", "nav_playground.html", "en")
         new_slug = get_available_slug(site, "test-page", "en")
@@ -223,7 +226,7 @@ class PagesTestCase(TransactionCMSTestCase):
 
     def test_path_collisions_api_3(self):
         """Checks for slug collisions on children of a non root page - uses API to create pages"""
-        site = get_current_site()
+        site = _get_current_site()
         page1 = create_page("test page 1", "nav_playground.html", "en")
         page1_1 = create_page("test page 1_1", "nav_playground.html", "en", parent=page1, slug="foo")
         create_page("test page 1_1_1", "nav_playground.html", "en", parent=page1_1, slug="bar")
@@ -277,7 +280,7 @@ class PagesTestCase(TransactionCMSTestCase):
         """
         from django.utils.safestring import SafeString
 
-        site = get_current_site()
+        site = _get_current_site()
         evil = "<script>alert('xss')</script>"
 
         # Page A: the existing page that owns the conflicting slug. Its title
@@ -654,7 +657,7 @@ class PagesTestCase(TransactionCMSTestCase):
 
     def test_slug_url_overwrite_clash(self):
         """Tests if a URL-Override clashes with a normal page url"""
-        site = get_current_site()
+        site = _get_current_site()
         with self.settings(CMS_PERMISSION=False):
             create_page("home", "nav_playground.html", "en")
             bar = create_page("bar", "nav_playground.html", "en")
@@ -875,6 +878,47 @@ class PagesTestCase(TransactionCMSTestCase):
             resp = self.client.get(page.get_absolute_url("en"))
             self.assertEqual(resp.get("X-Frame-Options"), None)
 
+    def test_xframe_options_inherit_with_cms_page_cache_and_clickjacking_middleware(self):
+        # A cached "Inherit" page must still receive the clickjacking
+        # middleware's X-Frame-Options header. Regression: the cached copy used
+        # to be served with xframe_options_exempt=True, which suppressed the
+        # middleware and dropped the header, leaving cached inherit pages
+        # framable while the uncached copy was protected.
+        if getattr(settings, "MIDDLEWARE", None):
+            override = {
+                "MIDDLEWARE": settings.MIDDLEWARE
+                + [
+                    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+                ]
+            }
+        else:
+            override = {
+                "MIDDLEWARE_CLASSES": settings.MIDDLEWARE_CLASSES
+                + [
+                    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+                ]
+            }
+
+        override["CMS_PAGE_CACHE"] = True
+        override["X_FRAME_OPTIONS"] = "SAMEORIGIN"
+
+        with self.settings(**override):
+            page = create_page(
+                "inherit page",
+                "nav_playground.html",
+                "en",
+                xframe_options=constants.X_FRAME_OPTIONS_INHERIT,
+            )
+
+            # Fresh response from render_page: the middleware adds the site
+            # default because the page defers to it (inherit).
+            resp = self.client.get(page.get_absolute_url("en"))
+            self.assertEqual(resp.get("X-Frame-Options"), "SAMEORIGIN")
+
+            # Response from page cache must carry the same protection.
+            resp = self.client.get(page.get_absolute_url("en"))
+            self.assertEqual(resp.get("X-Frame-Options"), "SAMEORIGIN")
+
     def test_page_cache_basic(self):
         """
         Test that the page cache works in its basic form
@@ -890,7 +934,7 @@ class PagesTestCase(TransactionCMSTestCase):
         self.assertIsNotNone(cached_data)
 
         # Verify cache contents
-        cached_content, cached_headers, expires = cached_data
+        cached_content, cached_headers, expires, xframe_options_exempt = cached_data
         self.assertEqual(cached_content, response.content)
 
     def test_page_cache_language_handling(self):

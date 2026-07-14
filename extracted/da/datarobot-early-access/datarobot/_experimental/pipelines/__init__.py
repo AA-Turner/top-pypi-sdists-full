@@ -51,6 +51,7 @@ from datarobot._experimental.pipelines.enums import PipelineInputState as Pipeli
 from datarobot._experimental.pipelines.enums import PipelineMode as PipelineMode  # noqa: E402
 from datarobot._experimental.pipelines.enums import PipelineScheduleStatus as PipelineScheduleStatus  # noqa: E402
 from datarobot._experimental.pipelines.enums import PipelineVersionStatus as PipelineVersionStatus  # noqa: E402
+from datarobot._experimental.pipelines.enums import TaskExecutionStatus as TaskExecutionStatus  # noqa: E402
 from datarobot._experimental.pipelines.models import Pipeline as Pipeline  # noqa: E402
 from datarobot._experimental.pipelines.models import PipelineTask as PipelineTask  # noqa: E402
 from datarobot._experimental.pipelines.models import PipelineVersion as PipelineVersion  # noqa: E402
@@ -62,4 +63,7 @@ from datarobot._experimental.pipelines.pipeline_image import (
 )  # noqa: E402, E501
 from datarobot._experimental.pipelines.pipeline_input import PipelineInput as PipelineInput  # noqa: E402
 from datarobot._experimental.pipelines.pipeline_schedule import PipelineSchedule as PipelineSchedule  # noqa: E402
+from datarobot._experimental.pipelines.pipeline_task_execution import (
+    PipelineTaskExecution as PipelineTaskExecution,
+)  # noqa: E402, E501
 from datarobot._experimental.pipelines.pipelines import Pipelines as Pipelines  # noqa: E402

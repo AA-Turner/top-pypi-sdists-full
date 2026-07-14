@@ -1,6 +1,6 @@
 [project]
 name = "pyone"
-version = "7.2.0"
+version = "7.3.80"
 description = "Python Bindings for OpenNebula XML-RPC API"
 readme = "LICENSE"
 license = {text = "Apache-2.0"}
@@ -9,6 +9,7 @@ dependencies = [
     "lxml",
     "dict2xml",
     "xmltodict",
+    "six",
     "tblib",
     "requests",
     "grpcio",

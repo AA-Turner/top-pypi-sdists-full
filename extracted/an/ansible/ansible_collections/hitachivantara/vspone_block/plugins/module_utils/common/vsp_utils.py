@@ -1046,9 +1046,8 @@ class VSPParametersManager:
         elif state == StateValue.ABSENT:
             delete_keys = [
                 "primary_volume_mirrors",
-                # commenting out delete_mode and allow_volume_access_after_force_delete: UCA-5762
-                # "delete_mode",
-                # "allow_volume_access_after_force_delete",
+                "delete_mode",
+                "allow_volume_access_after_force_delete",
             ]
             filtered = {k: v for k, v in spec_data.items() if k in delete_keys}
             return VspOneDeleteGadSpec(**filtered)
@@ -5669,7 +5668,6 @@ class VSPGADArguments:
             "type": "str",
             "choices": [
                 "present",
-                "forced_present",
                 "absent",
                 "split",
                 "resync",
@@ -6116,10 +6114,6 @@ class VSPGADArguments:
             "virtual_storage_serial_number": {
                 "required": False,
                 "type": "str",
-            },
-            "force_create": {
-                "required": False,
-                "type": "bool",
             },
         }
         args = copy.deepcopy(cls.common_arguments)
@@ -8108,15 +8102,14 @@ class VSPOneGadArguments:
                 "type": "str",
             },
             # Delete parameters
-            # commenting out delete_mode and allow_volume_access_after_force_delete: UCA-5762
-            # "delete_mode": {
-            #     "required": False,
-            #     "type": "str",
-            # },
-            # "allow_volume_access_after_force_delete": {
-            #     "required": False,
-            #     "type": "bool",
-            # },
+            "delete_mode": {
+                "required": False,
+                "type": "str",
+            },
+            "allow_volume_access_after_force_delete": {
+                "required": False,
+                "type": "bool",
+            },
         }
 
         args = copy.deepcopy(cls.common_arguments)

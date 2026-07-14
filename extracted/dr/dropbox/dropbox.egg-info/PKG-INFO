@@ -1,41 +1,42 @@
 Metadata-Version: 2.4
 Name: dropbox
-Version: 12.1.0
+Version: 12.2.0
 Summary: Official Dropbox API Client
-Home-page: http://www.dropbox.com/developers
-Author: Dropbox
-Author-email: dev-platform@dropbox.com
-License: MIT License
+Author-email: Dropbox <dev-platform@dropbox.com>
+License-Expression: MIT
+Project-URL: Homepage, http://www.dropbox.com/developers
 Project-URL: Source, https://github.com/dropbox/dropbox-sdk-python
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=2.16.2
-Requires-Dist: six>=1.12.0
-Requires-Dist: stone<=3.3.9,>=2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: stone<4,>=3.5.1
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: mock; extra == "test"
+Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: stone<4,>=3.5.1; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: summary
 
 **Important: Use v12.0.2 or newer of this SDK for compatibility with the Dropbox API servers. Older versions stopped working in January 2026. Please refer to this blog post for more information: https://dropbox.tech/developers/api-server-certificate-changes**
 
@@ -55,6 +56,13 @@ The official Dropbox SDK for Python.
 
 Documentation can be found on `Read The Docs`_.
 
+Requirements
+============
+
+This SDK requires **Python 3.11 or newer**. Earlier versions of Python, including
+Python 2.7 and Python 3.4 through 3.10, are not supported, as they have reached end
+of life and are no longer maintained upstream.
+
 Installation
 ============
 
@@ -72,7 +80,7 @@ Install from source:
 
     $ git clone git://github.com/dropbox/dropbox-sdk-python.git
     $ cd dropbox-sdk-python
-    $ python setup.py install
+    $ pip install .
 
 After installation, follow one of our `Examples`_ or read the documentation on `Read The Docs`_.
 

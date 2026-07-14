@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pipecatcloud
-Version: 1.0.0
+Version: 1.0.1
 Summary: Cloud hosting for Pipecat AI applications
 License: BSD 2-Clause License
-Project-URL: Website, https://docs.pipecat.daily.co/
+Project-URL: Website, https://docs.pipecat.ai/pipecat-cloud
 Keywords: pipecat,pipecat-ai,voice,ai,llm
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
@@ -25,7 +25,7 @@ Dynamic: license-file
  <img alt="pipecat cloud" width="500px" height="auto" src="https://raw.githubusercontent.com/daily-co/pipecat-cloud/main/pipecat-cloud.png">
 </div></h1>
 
-[![Docs](https://img.shields.io/badge/documentation-blue)](https://docs.pipecat.daily.co)
+[![Docs](https://img.shields.io/badge/documentation-blue)](https://docs.pipecat.ai/pipecat-cloud)
 [![PyPI](https://img.shields.io/pypi/v/pipecatcloud)](https://pypi.org/project/pipecatcloud)
 
 # Pipecat Cloud
@@ -41,7 +41,7 @@ Python module and CLI for interacting with [Pipecat Cloud](https://pipecat.daily
 
 ### Documentation
 
-Documentation for Pipecat Cloud is available [here](https://docs.pipecat.daily.co).
+Documentation for Pipecat Cloud is available [here](https://docs.pipecat.ai/pipecat-cloud).
 
 ### Installation
 

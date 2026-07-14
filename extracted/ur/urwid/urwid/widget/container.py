@@ -14,11 +14,17 @@ if typing.TYPE_CHECKING:
     _KT_contra = typing.TypeVar("_KT_contra", contravariant=True)
 
     class WidgetContainerProto(typing.Protocol[_KT_contra]):
-        def __getitem__(self, index: _KT_contra) -> tuple[Widget, typing.Unpack[tuple[typing.Any, ...]] | None]: ...
+        def __getitem__(
+            self,
+            index: _KT_contra,
+        ) -> tuple[Widget, typing.Unpack[tuple[typing.Any, ...]] | None]: ...
 
     class WidgetContainerMixinProto(typing.Protocol[_KT_contra]):
         @property
         def contents(self) -> WidgetContainerProto[_KT_contra]: ...
+
+        @property
+        def focus(self) -> Widget: ...
 
         @property
         def focus_position(self) -> int | str: ...
@@ -32,7 +38,7 @@ else:
     _KT_contra = typing.TypeVar("_KT_contra", contravariant=True)
 
     class WidgetContainerMixinProto(typing.Generic[_KT_contra]):
-        pass
+        """Generic protocol support."""
 
 
 _WidgetParams = typing.TypeVar("_WidgetParams", bound=tuple[typing.Any, ...])

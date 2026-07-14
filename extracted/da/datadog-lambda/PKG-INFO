@@ -1,9 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: datadog_lambda
-Version: 8.125.0
+Version: 8.126.0
 Summary: The Datadog AWS Lambda Library
-Home-page: https://github.com/DataDog/datadog-lambda-python
 License: Apache-2.0
+License-File: LICENSE
+License-File: LICENSE-3rdparty.csv
+License-File: NOTICE
 Keywords: datadog,aws,lambda,layer
 Author: Datadog, Inc.
 Author-email: dev@datadoghq.com

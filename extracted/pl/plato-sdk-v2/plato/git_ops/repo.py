@@ -26,14 +26,26 @@ def trust_git_directory(path: str | Path) -> None:
     with _TRUSTED_DIRECTORIES_LOCK:
         if resolved_path in _TRUSTED_DIRECTORIES:
             return
-        Git().config("--global", "--add", "safe.directory", resolved_path)
+        try:
+            Git().config("--global", "--add", "safe.directory", resolved_path)
+        except GitCommandError as exc:
+            # The in-process lock above only serializes THIS process. Separate
+            # processes (e.g. pytest-xdist workers, concurrent agent VMs) all
+            # write the same ~/.gitconfig and collide on git's own config lock
+            # ("could not lock config file ...: File exists"). A concurrent
+            # writer setting the same safe.directory is harmless, so treat a
+            # lock collision as success rather than propagating it.
+            if "could not lock config file" not in str(exc).lower():
+                raise
         _TRUSTED_DIRECTORIES.add(resolved_path)
 
 
 def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     """Refresh the repo/ working tree from the bare repo's main branch.
 
-    If worktree_path is a git clone (has .git), fetches from the bare repo
+    If worktree_path is a git clone (a ``.git`` directory, or a ``.git``
+    gitfile pointing at an off-FUSE git dir — see
+    ``GitTransport._setup_worktree_git_off_fuse``), fetches from the bare repo
     and resets to match main. Otherwise falls back to bare checkout.
     """
     from pathlib import Path
@@ -42,7 +54,7 @@ def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     trust_git_directory(worktree_path)
 
     git_dir = Path(worktree_path) / ".git"
-    if git_dir.is_dir():
+    if git_dir.exists():
         repo = Repo(worktree_path)
         repo.git.config("core.logAllRefUpdates", "false")
         try:

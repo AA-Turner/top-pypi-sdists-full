@@ -70,7 +70,7 @@ class NetworksSwitchStacksRoutingInterfacesDhcp(object):
             dhcpOptions=params.get("dhcpOptions"),
             reservedIpRanges=params.get("reservedIpRanges"),
             fixedIpAssignments=params.get("fixedIpAssignments"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             switch_stack_id=params.get("switchStackId"),
             interface_id=params.get("interfaceId"),
         )
@@ -213,7 +213,9 @@ class NetworksSwitchStacksRoutingInterfacesDhcp(object):
             ("bootFileName", "bootFileName"),
             ("dhcpOptions", "dhcpOptions"),
             ("reservedIpRanges", "reservedIpRanges"),
-            ("fixedIpAssignments", "fixedIpAssignments"), ("switchStackId", "switchStackId"),
+            ("fixedIpAssignments", "fixedIpAssignments"),
+            ("networkId", "networkId"),
+            ("switchStackId", "switchStackId"),
             ("interfaceId", "interfaceId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params

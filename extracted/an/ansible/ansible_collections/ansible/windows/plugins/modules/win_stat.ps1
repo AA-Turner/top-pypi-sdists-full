@@ -43,13 +43,11 @@ function Get-FileInfo {
     $info = Get-AnsibleItem -Path $Path -ErrorAction SilentlyContinue
     $link_info = $null
     if ($null -ne $info) {
-        if ($IsWindows -or $PSVersionTable.PSVersion -lt '6.0') {
-            try {
-                $link_info = Get-Link -link_path $info.FullName
-            }
-            catch {
-                $module.Warn("Failed to check/get link info for file: $($_.Exception.Message)")
-            }
+        try {
+            $link_info = Get-Link -link_path $info.FullName
+        }
+        catch {
+            $module.Warn("Failed to check/get link info for file: $($_.Exception.Message)")
         }
 
         # If follow=true we want to follow the link all the way back to root object
@@ -83,12 +81,10 @@ $follow = $module.Params.follow
 $module.Result.stat = @{ exists = $false }
 
 # https://github.com/ansible-collections/ansible.windows/issues/297
-if ($IsWindows -or $PSVersionTable.PSVersion -lt '6.0') {
-    $oldLib = $env:LIB
-    $env:LIB = $null
-    Load-LinkUtils
-    $env:LIB = $oldLib
-}
+$oldLib = $env:LIB
+$env:LIB = $null
+Load-LinkUtils
+$env:LIB = $oldLib
 
 $info, $link_info = Get-FileInfo -Path $path -Follow:$follow
 If ($null -ne $info) {
@@ -143,15 +139,10 @@ If ($null -ne $info) {
     # values that are set according to the type of file
     if ($info.Attributes.HasFlag([System.IO.FileAttributes]::Directory)) {
         $stat.isdir = $true
-        try {
-            $share_info = Get-CimInstance -ClassName Win32_Share -Filter "Path='$($stat.path -replace "(\\|')", '\$1')'"
-            if ($null -ne $share_info) {
-                $stat.isshared = $true
-                $stat.sharename = $share_info.Name
-            }
-        }
-        catch {
-            $module.Warn("Failed to check share info for '$($stat.path)': $($_.Exception.Message)")
+        $share_info = Get-CimInstance -ClassName Win32_Share -Filter "Path='$($stat.path -replace "(\\|')", '\$1')'"
+        if ($null -ne $share_info) {
+            $stat.isshared = $true
+            $stat.sharename = $share_info.Name
         }
 
         if ($get_size) {

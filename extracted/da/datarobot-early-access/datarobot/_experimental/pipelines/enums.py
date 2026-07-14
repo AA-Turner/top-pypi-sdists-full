@@ -27,7 +27,18 @@ class PipelineVersionStatus(StrEnum):
 
 class PipelineDispatchStatus(StrEnum):
     PENDING = "PENDING"
+    PREPARING = "PREPARING"
     RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    ERRORED = "ERRORED"
+
+
+class TaskExecutionStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    RETRYING = "RETRYING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"

@@ -2,23 +2,23 @@
 Cement alarm extension module.
 """
 
-from __future__ import annotations
 import signal
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
 
-def alarm_handler(app: App, signum: int, frame: Any) -> None:
+def alarm_handler(app: "App", signum: int, frame: Any) -> None:
     if signum == signal.SIGALRM:
         app.log.error(app.alarm.msg)
 
 
-class AlarmManager(object):
+class AlarmManager:
     """
     Lets the developer easily set and stop an alarm.  If the
     alarm exceeds the given time it will raise ``signal.SIGALRM``.
@@ -26,7 +26,7 @@ class AlarmManager(object):
     """
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(AlarmManager, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.msg: str = None  # type: ignore
 
     def set(self, time: int, msg: str) -> None:
@@ -51,7 +51,7 @@ class AlarmManager(object):
         signal.alarm(0)
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.catch_signal(signal.SIGALRM)
     app.extend('alarm', AlarmManager())
     app.hook.register('signal', alarm_handler)

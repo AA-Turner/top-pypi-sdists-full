@@ -20,7 +20,8 @@ from mindroom import response_runner
 from mindroom.background_tasks import wait_for_background_tasks
 from mindroom.constants import STREAM_STATUS_KEY, STREAM_STATUS_PENDING
 from mindroom.conversation_resolver import ConversationResolver, MessageContext
-from mindroom.delivery_gateway import DeliveryGateway
+from mindroom.delivery_gateway import DeliveryGateway, SendTextRequest
+from mindroom.dispatch_source import ScheduledHistoryBudget
 from mindroom.final_delivery import FinalDeliveryOutcome, StreamTransportOutcome
 from mindroom.history.turn_recorder import TurnRecorder
 from mindroom.logging_config import get_logger
@@ -28,13 +29,25 @@ from mindroom.matrix.cache import ThreadHistoryResult
 from mindroom.post_response_effects import PostResponseEffectsDeps, ResponseOutcome, apply_post_response_effects
 from mindroom.response_attempt import ResponseAttemptDeps, ResponseAttemptRequest, ResponseAttemptRunner
 from mindroom.response_lifecycle import ResponseLifecycleCoordinator
-from mindroom.response_payload_preparation import DispatchPayloadInputs, ResponsePayloadPreparation
-from mindroom.response_runner import ResponseRequest, _ResponseGenerationOutcome
+from mindroom.response_payload_preparation import (
+    DispatchPayloadInputs,
+    ResponsePayloadPreparation,
+    ResponsePayloadPreparer,
+)
+from mindroom.response_runner import (
+    PostLockRequestPreparationError,
+    ResponseRequest,
+    ResponseRunner,
+    _ResponseGenerationOutcome,
+    prepare_memory_and_model_context,
+)
 from mindroom.stop import StopManager
 from mindroom.streaming import StreamingDeliveryError
+from mindroom.thread_summary import thread_summary_message_count_hint
 from mindroom.turn_policy import PreparedDispatch
 from tests.conftest import (
     make_matrix_client_mock,
+    make_visible_message,
     patch_response_runner_module,
     replace_response_runner_deps,
     request_envelope,
@@ -171,6 +184,12 @@ async def test_concurrent_requests_serialize_and_refresh_history_under_lock(tmp_
         prepare_history_by_turn[turn] = request.thread_history
         return replace(request, payload_preparation=None, requires_model_history_refresh=False)
 
+    async def fake_send_placeholder(request: SendTextRequest) -> str:
+        assert request.target.reply_to_event_id is not None
+        turn = request.target.reply_to_event_id[-1]
+        events.append(f"placeholder:{turn}")
+        return f"$placeholder{turn}"
+
     async def fake_run_cancellable_response(**kwargs: object) -> str:
         response_function = kwargs["response_function"]
         await response_function(None)  # type: ignore[operator]
@@ -200,6 +219,10 @@ async def test_concurrent_requests_serialize_and_refresh_history_under_lock(tmp_
     with (
         patch.object(ConversationResolver, "fetch_thread_history", new=AsyncMock(side_effect=fake_fetch)),
         patch.object(bot._request_payload_preparer, "prepare", new=AsyncMock(side_effect=spy_prepare)),
+        patch(
+            "mindroom.delivery_gateway.DeliveryGateway.send_text",
+            new=AsyncMock(side_effect=fake_send_placeholder),
+        ),
         patch.object(
             coordinator,
             "run_cancellable_response",
@@ -224,11 +247,13 @@ async def test_concurrent_requests_serialize_and_refresh_history_under_lock(tmp_
 
     assert events == [
         "lock:1",
+        "placeholder:1",
         "refresh:1",
         "prepare:1",
         "respond_start:1",
         "respond_end:1",
         "lock:2",
+        "placeholder:2",
         "refresh:2",
         "prepare:2",
         "respond_start:2",
@@ -237,6 +262,183 @@ async def test_concurrent_requests_serialize_and_refresh_history_under_lock(tmp_
     # Each turn's payload preparation consumed the history refreshed under its own lock.
     assert prepare_history_by_turn[1] is refreshed[0]
     assert prepare_history_by_turn[2] is refreshed[1]
+
+
+@pytest.mark.asyncio
+async def test_begin_locked_turn_excludes_early_placeholder_from_refreshed_history(tmp_path: Path) -> None:
+    """The early placeholder must not re-enter payload, memory, or summary inputs through refresh."""
+    bot = _bot(tmp_path)
+    target = _target(thread_id="$thread", reply_to_event_id="$event")
+    envelope = _envelope(target, source_event_id="$event")
+    refreshed_history = ThreadHistoryResult(
+        [
+            make_visible_message(sender="@user:localhost", body="history", event_id="$history"),
+            make_visible_message(
+                sender="@agent:localhost",
+                body="Thinking...",
+                event_id="$placeholder",
+                content={STREAM_STATUS_KEY: STREAM_STATUS_PENDING},
+            ),
+        ],
+        is_full_history=True,
+        diagnostics={"cache_status": "fresh"},
+    )
+    resolver = MagicMock(spec=ConversationResolver)
+    resolver.fetch_thread_history = AsyncMock(return_value=refreshed_history)
+    request_preparer = MagicMock(spec=ResponsePayloadPreparer)
+    request_preparer.prepare = AsyncMock(side_effect=lambda request: replace(request, payload_preparation=None))
+    delivery_gateway = MagicMock(spec=DeliveryGateway)
+    delivery_gateway.send_text = AsyncMock(return_value="$placeholder")
+    runner = ResponseRunner(
+        replace(
+            unwrap_extracted_collaborator(bot._response_runner).deps,
+            resolver=resolver,
+            request_preparer=request_preparer,
+            delivery_gateway=delivery_gateway,
+        ),
+    )
+    request = ResponseRequest(
+        thread_history=[],
+        prompt="hello",
+        user_id="@user:localhost",
+        response_envelope=envelope,
+        payload_preparation=_preparation(target, envelope),
+    )
+
+    prepared_request = await runner._begin_locked_turn(
+        request,
+        resolved_target=target,
+        history_scope=runner.deps.state_writer.history_scope(),
+        execution_identity=runner.deps.tool_runtime.build_execution_identity(
+            target=target,
+            user_id=request.user_id,
+        ),
+        placeholder_message="Thinking...",
+    )
+
+    assert prepared_request is not None
+    assert isinstance(prepared_request.thread_history, ThreadHistoryResult)
+    assert [message.event_id for message in prepared_request.thread_history] == ["$history"]
+    assert prepared_request.thread_history.is_full_history is True
+    assert prepared_request.thread_history.diagnostics == {"cache_status": "fresh"}
+    assert prepared_request.existing_event_id == "$placeholder"
+    assert prepared_request.existing_event_is_placeholder is True
+
+
+@pytest.mark.asyncio
+async def test_setup_cancellation_preserves_cancel_when_placeholder_cleanup_fails(tmp_path: Path) -> None:
+    """Placeholder cleanup failure must not replace the original setup cancellation."""
+    bot = _bot(tmp_path)
+    coordinator = unwrap_extracted_collaborator(bot._response_runner)
+    setup_started = asyncio.Event()
+
+    async def blocked_streaming_check(*_args: object, **_kwargs: object) -> bool:
+        setup_started.set()
+        await asyncio.Event().wait()
+        return False
+
+    cancelled_note = AsyncMock(side_effect=RuntimeError("Matrix unavailable"))
+    with (
+        patch(
+            "mindroom.delivery_gateway.DeliveryGateway.send_text",
+            new=AsyncMock(return_value="$placeholder"),
+        ),
+        patch_response_runner_module(should_use_streaming=AsyncMock(side_effect=blocked_streaming_check)),
+        patch(
+            "mindroom.delivery_gateway.DeliveryGateway.deliver_cancelled_visible_note",
+            new=cancelled_note,
+        ),
+    ):
+        response = asyncio.create_task(coordinator.generate_response(_plain_request(_target())))
+        await asyncio.wait_for(setup_started.wait(), timeout=1.0)
+        response.cancel("sync_restart")
+        with pytest.raises(asyncio.CancelledError, match="sync_restart"):
+            await response
+
+    cancelled_note.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_early_placeholder_failure_preserves_non_preparation_error_cause(tmp_path: Path) -> None:
+    """Only the preparation wrapper is unwrapped when linking an early placeholder failure."""
+    runner = unwrap_extracted_collaborator(_bot(tmp_path)._response_runner)
+    underlying_error = ValueError("underlying failure")
+    proximate_error = RuntimeError("proximate setup failure")
+    proximate_error.__cause__ = underlying_error
+
+    async def fail_after_placeholder(
+        _target: MessageTarget,
+        early_placeholder: response_runner._EarlyPlaceholderState,
+    ) -> str | None:
+        early_placeholder.placeholder_event_id = "$placeholder"
+        raise proximate_error
+
+    with pytest.raises(PostLockRequestPreparationError) as exc_info:
+        await runner._run_locked_response_lifecycle(
+            _plain_request(_target()),
+            response_kind="agent",
+            locked_operation=fail_after_placeholder,
+        )
+
+    assert exc_info.value.placeholder_event_id == "$placeholder"
+    assert exc_info.value.__cause__ is proximate_error
+    assert exc_info.value.__cause__.__cause__ is underlying_error
+
+
+@pytest.mark.asyncio
+async def test_scheduled_history_limit_keeps_refreshed_history_for_payload_and_side_effects(tmp_path: Path) -> None:
+    """The runner keeps full history until execution preparation builds model context."""
+    bot = _bot(tmp_path)
+    refreshed = ThreadHistoryResult(
+        [
+            make_visible_message(sender="@user:localhost", body=f"message {index}", event_id=f"$m{index}")
+            for index in range(4)
+        ],
+        is_full_history=True,
+    )
+    prepared_histories: list[object] = []
+
+    async def spy_prepare(request: ResponseRequest) -> ResponseRequest:
+        prepared_histories.append(request.thread_history)
+        return replace(request, payload_preparation=None, requires_model_history_refresh=False)
+
+    resolver = MagicMock(spec=ConversationResolver)
+    resolver.fetch_thread_history = AsyncMock(return_value=refreshed)
+    request_preparer = MagicMock(spec=ResponsePayloadPreparer)
+    request_preparer.prepare = AsyncMock(side_effect=spy_prepare)
+    coordinator = ResponseRunner(
+        replace(
+            unwrap_extracted_collaborator(bot._response_runner).deps,
+            resolver=resolver,
+            request_preparer=request_preparer,
+        ),
+    )
+
+    target = _target(thread_id="$thread", reply_to_event_id="$event1")
+    envelope = _envelope(target, source_event_id="$event1")
+    request = ResponseRequest(
+        thread_history=[],
+        prompt="poll the queue",
+        user_id="@user:localhost",
+        response_envelope=envelope,
+        payload_preparation=_preparation(target, envelope),
+        scheduled_history_budget=ScheduledHistoryBudget(limit=2, source_event_id="$event1"),
+    )
+    prepared_request = await coordinator._prepare_request_after_lock(request)
+    _memory_prompt, memory_history, _model_prompt, _model_history = prepare_memory_and_model_context(
+        prepared_request.prompt,
+        prepared_request.thread_history,
+        config=coordinator.deps.runtime.config,
+        runtime_paths=coordinator.deps.runtime_paths,
+        model_prompt=prepared_request.model_prompt,
+    )
+
+    assert len(prepared_histories) == 1
+    assert prepared_histories == [refreshed]
+    assert prepared_request.thread_history is refreshed
+    assert prepared_request.scheduled_history_budget is request.scheduled_history_budget
+    assert memory_history is refreshed
+    assert thread_summary_message_count_hint(prepared_request.thread_history) == 5
 
 
 # ---------------------------------------------------------------------------

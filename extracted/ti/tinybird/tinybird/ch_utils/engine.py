@@ -121,6 +121,12 @@ class TableDetails:
     def is_mergetree_family(self) -> bool:
         return self.engine is not None and "mergetree" in self.engine.lower()
 
+    def is_view(self) -> bool:
+        return self.original_engine == "View"
+
+    def is_merge_final_engine(self) -> bool:
+        return self.original_engine == "MergeFinal"
+
     def supports_alter_add_column(self) -> bool:
         return self.is_mergetree_family() or (self.engine is not None and self.engine.lower() == "null")
 

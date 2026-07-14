@@ -3105,7 +3105,7 @@ class QueryCountSeries(SeriesBase):
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QueryCountSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -3138,7 +3138,7 @@ class QueryCountSeries(SeriesBase):
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QueryCountSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -3228,7 +3228,7 @@ class QueryLatencySeries(SeriesBase):
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QueryLatencySeries":
         """Attaches a filter to your `Series` instance.
 
@@ -3261,7 +3261,7 @@ class QueryLatencySeries(SeriesBase):
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QueryLatencySeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -3350,7 +3350,7 @@ class QuerySuccessRatioSeries(SeriesBase):
         self,
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QuerySuccessRatioSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -3379,7 +3379,7 @@ class QuerySuccessRatioSeries(SeriesBase):
         self,
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         query_name: Optional[Union[List[str], str]] = None,
-        computation_context: [Union[List[str], str]] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
     ) -> "QuerySuccessRatioSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -3625,11 +3625,14 @@ class CpuUtilizationPercentSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "CpuUtilizationPercentSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -3643,11 +3646,14 @@ class CpuUtilizationPercentSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "CpuUtilizationPercentSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -3694,11 +3700,14 @@ class MemoryUsageBytesSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "MemoryUsageBytesSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -3712,11 +3721,14 @@ class MemoryUsageBytesSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "MemoryUsageBytesSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -3763,11 +3775,14 @@ class TotalMemoryAvailableBytesSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "TotalMemoryAvailableBytesSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -3781,11 +3796,14 @@ class TotalMemoryAvailableBytesSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "TotalMemoryAvailableBytesSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4765,11 +4783,14 @@ class ContainerMemoryBytesSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ContainerMemoryBytesSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4783,11 +4804,14 @@ class ContainerMemoryBytesSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ContainerMemoryBytesSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4834,11 +4858,14 @@ class HostMemoryBytesSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "HostMemoryBytesSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4852,11 +4879,14 @@ class HostMemoryBytesSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "HostMemoryBytesSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4903,11 +4933,14 @@ class ContainerCpuUtilizationSeries(SeriesBase):
 
     def where(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ContainerCpuUtilizationSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -4921,11 +4954,14 @@ class ContainerCpuUtilizationSeries(SeriesBase):
 
     def where_not(
         self,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ContainerCpuUtilizationSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -5605,6 +5641,7 @@ class ReplicaCountSeries(SeriesBase):
     def where(
         self,
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ReplicaCountSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -5612,6 +5649,8 @@ class ReplicaCountSeries(SeriesBase):
         ----------
         resolver_type:
             Filters for resolvers by type 'online', 'offline' or 'stream'.
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -5627,6 +5666,7 @@ class ReplicaCountSeries(SeriesBase):
     def where_not(
         self,
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
+        service_kind: Optional[Union[List[str], str]] = None,
     ) -> "ReplicaCountSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -5634,6 +5674,8 @@ class ReplicaCountSeries(SeriesBase):
         ----------
         resolver_type:
             Filters for resolvers by type 'online', 'offline' or 'stream'.
+        service_kind:
+            Filters by service kind, e.g. 'engine', 'engine-grpc' or 'branch'.
 
         Returns
         -------
@@ -6034,12 +6076,15 @@ class FunctionCallEnqueuedSeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
     ) -> "FunctionCallEnqueuedSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6056,12 +6101,15 @@ class FunctionCallEnqueuedSeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
     ) -> "FunctionCallEnqueuedSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6111,12 +6159,15 @@ class FunctionCallEnqueueLatencySeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
     ) -> "FunctionCallEnqueueLatencySeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6133,12 +6184,15 @@ class FunctionCallEnqueueLatencySeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
     ) -> "FunctionCallEnqueueLatencySeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6188,11 +6242,14 @@ class FunctionCallOpenConnectionsSeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallOpenConnectionsSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6206,11 +6263,14 @@ class FunctionCallOpenConnectionsSeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallOpenConnectionsSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6245,6 +6305,7 @@ class FunctionCallDequeuedSeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallDequeuedSeries":
@@ -6252,6 +6313,8 @@ class FunctionCallDequeuedSeries(SeriesBase):
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6269,6 +6332,7 @@ class FunctionCallDequeuedSeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallDequeuedSeries":
@@ -6276,6 +6340,8 @@ class FunctionCallDequeuedSeries(SeriesBase):
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6338,6 +6404,7 @@ class FunctionCallProcessingLatencySeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallProcessingLatencySeries":
@@ -6345,6 +6412,8 @@ class FunctionCallProcessingLatencySeries(SeriesBase):
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6362,6 +6431,7 @@ class FunctionCallProcessingLatencySeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         query_status: Optional[Literal["success", "failure"]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallProcessingLatencySeries":
@@ -6369,6 +6439,8 @@ class FunctionCallProcessingLatencySeries(SeriesBase):
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
         query_status:
             Filters for successes/failures of queries.
 
@@ -6431,11 +6503,14 @@ class FunctionCallQueueDepthSeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallQueueDepthSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6449,11 +6524,14 @@ class FunctionCallQueueDepthSeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallQueueDepthSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6488,12 +6566,15 @@ class FunctionCallInflightSeries(SeriesBase):
 
     def where(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallInflightSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6508,12 +6589,15 @@ class FunctionCallInflightSeries(SeriesBase):
 
     def where_not(
         self,
+        function_name: Optional[Union[List[str], str]] = None,
         operation_id: Optional[Union[List[str], str]] = None,
     ) -> "FunctionCallInflightSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        function_name:
+            Filters for function call metrics by function name.
 
         Returns
         -------
@@ -6906,11 +6990,14 @@ class ScheduledQuerySuccessRatioSeries(SeriesBase):
 
     def where(
         self,
+        query_name: Optional[Union[List[str], str]] = None,
     ) -> "ScheduledQuerySuccessRatioSeries":
         """Attaches a filter to your `Series` instance.
 
         Parameters
         ----------
+        query_name:
+            Filters for queries matching the given name(s).
 
         Returns
         -------
@@ -6918,16 +7005,20 @@ class ScheduledQuerySuccessRatioSeries(SeriesBase):
             A copy of your `Series` with the new filter.
         """
         return self._where(
+            query_name=query_name,
             equals=True,
         )
 
     def where_not(
         self,
+        query_name: Optional[Union[List[str], str]] = None,
     ) -> "ScheduledQuerySuccessRatioSeries":
         """Attaches a negative filter to your `Series` instance.
 
         Parameters
         ----------
+        query_name:
+            Filters for queries matching the given name(s).
 
         Returns
         -------
@@ -6935,6 +7026,7 @@ class ScheduledQuerySuccessRatioSeries(SeriesBase):
             A copy of your `Series` with the new filter.
         """
         return self._where(
+            query_name=query_name,
             equals=False,
         )
 
@@ -6973,8 +7065,8 @@ class TopicMessagesProcessedSeries(SeriesBase):
 
     def where(
         self,
-        topic_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        topic_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "TopicMessagesProcessedSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -6998,8 +7090,8 @@ class TopicMessagesProcessedSeries(SeriesBase):
 
     def where_not(
         self,
-        topic_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        topic_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "TopicMessagesProcessedSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -7056,8 +7148,9 @@ class TopicOffsetLagSeries(SeriesBase):
 
     def where(
         self,
-        topic_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        topic_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
+        consumer_group: Optional[Union[List[str], str]] = None,
     ) -> "TopicOffsetLagSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -7067,6 +7160,8 @@ class TopicOffsetLagSeries(SeriesBase):
             Filters for SQS topics.
         partition_name:
             Filters for pub/sub or topic partitions.
+        consumer_group:
+            Filters for stream consumer groups.
 
         Returns
         -------
@@ -7082,8 +7177,9 @@ class TopicOffsetLagSeries(SeriesBase):
 
     def where_not(
         self,
-        topic_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        topic_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
+        consumer_group: Optional[Union[List[str], str]] = None,
     ) -> "TopicOffsetLagSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -7093,6 +7189,8 @@ class TopicOffsetLagSeries(SeriesBase):
             Filters for SQS topics.
         partition_name:
             Filters for pub/sub or topic partitions.
+        consumer_group:
+            Filters for stream consumer groups.
 
         Returns
         -------
@@ -7153,8 +7251,8 @@ class SubscriptionOldestUnackedMessageAgeSeries(SeriesBase):
 
     def where(
         self,
-        subscription_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        subscription_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "SubscriptionOldestUnackedMessageAgeSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -7178,8 +7276,8 @@ class SubscriptionOldestUnackedMessageAgeSeries(SeriesBase):
 
     def where_not(
         self,
-        subscription_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        subscription_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "SubscriptionOldestUnackedMessageAgeSeries":
         """Attaches a negative filter to your `Series` instance.
 
@@ -7236,8 +7334,8 @@ class SubscriptionNumUnackedMessagesSeries(SeriesBase):
 
     def where(
         self,
-        subscription_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        subscription_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "SubscriptionNumUnackedMessagesSeries":
         """Attaches a filter to your `Series` instance.
 
@@ -7261,8 +7359,8 @@ class SubscriptionNumUnackedMessagesSeries(SeriesBase):
 
     def where_not(
         self,
-        subscription_name: [Union[List[str], str]] = None,
-        partition_name: [Union[List[str], str]] = None,
+        subscription_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
     ) -> "SubscriptionNumUnackedMessagesSeries":
         """Attaches a negative filter to your `Series` instance.
 

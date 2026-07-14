@@ -1,7 +1,9 @@
 import warnings
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
 from django.core.exceptions import ImproperlyConfigured
 from django.template import Template, TemplateSyntaxError, engines
 from django.template.loader import get_template
@@ -14,13 +16,10 @@ from sekizai.context import SekizaiContext
 from cms import constants
 from cms.api import add_plugin, create_page, create_page_content
 from cms.exceptions import DuplicatePlaceholderWarning, PlaceholderNotFound
-from cms.models.fields import PlaceholderField
 from cms.models.placeholdermodel import Placeholder
 from cms.models.pluginmodel import CMSPlugin
 from cms.models.settingmodels import UserSettings
 from cms.plugin_pool import plugin_pool
-from cms.test_utils.fixtures.fakemlng import FakemlngFixtures
-from cms.test_utils.project.fakemlng.models import Translations
 from cms.test_utils.project.placeholder_relation_field_app.models import (
     FancyPoll,
 )
@@ -40,8 +39,6 @@ from cms.toolbar.utils import (
     get_toolbar_from_request,
 )
 from cms.utils.placeholder import (
-    MLNGPlaceholderActions,
-    PlaceholderNoAction,
     _get_nodelist,
     _scan_placeholders,
     get_placeholder_conf,
@@ -144,6 +141,39 @@ class PlaceholderTestCase(TransactionCMSTestCase):
         t = Template('{% include "placeholder_tests/outside_nested_sekizai.html" %}')
         phs = sorted(node.get_declaration().slot for node in _scan_placeholders(t.nodelist))
         self.assertListEqual(phs, sorted(["two", "new_one", "base_outside"]))
+
+    def test_placeholder_scanning_unresolvable_extends_variable(self):
+        """
+        Test that _scan_placeholders gracefully handles extends tags with
+        unresolvable variables (like CMS_TEMPLATE without a default).
+        Issue #8334.
+        """
+        # Template with an extends tag using a variable that won't be in the context
+        template_str = (
+            '{% extends CMS_TEMPLATE %}{% load cms_tags %}{% block content %}{% placeholder "slot" %}{% endblock %}'
+        )
+        tpl = Template(template_str)
+
+        # Should not raise TemplateSyntaxError, just return empty list
+        nodes = _scan_placeholders(tpl.nodelist)
+        slots = [node.get_declaration().slot for node in nodes]
+        self.assertEqual(slots, [])
+
+    def test_placeholder_scanning_nonexistent_template_extends(self):
+        """
+        Test that _scan_placeholders gracefully handles extends tags pointing
+        to nonexistent templates.
+        Regression test for issue #8334.
+        """
+        # Template extending a nonexistent template
+        t = Template(
+            '{% extends "nonexistent_template.html" %}{% load cms_tags %}'
+            '{% block content %}{% placeholder "test_slot" %}{% endblock %}'
+        )
+        # Should not raise TemplateDoesNotExist, just return empty list
+        nodes = _scan_placeholders(t.nodelist)
+        slots = [node.get_declaration().slot for node in nodes]
+        self.assertEqual(slots, [])
 
     def test_placeholder_scanning_no_object(self):
         """Placeholder scanning for a template without a toolbar object raises PlaceholderNotFound"""
@@ -658,6 +688,43 @@ class PlaceholderTestCase(TransactionCMSTestCase):
             returned = get_placeholder_conf("default_plugins", "layout/other.html main")
             self.assertEqual(returned, TEST_CONF["main"]["default_plugins"])
 
+    def test_get_placeholder_conf_chained_inheritance(self):
+        """
+        A two-level ``inherit`` chain resolves transitively without leaking
+        unrelated top-level conf keys into the slot config and without
+        mutating the inherited-from slot's own configuration.
+
+        Regression test for resolve_inheritance merging the whole top-level
+        CMS_PLACEHOLDER_CONF dict instead of the inherited slot's config, and
+        for the resolved base config being updated in place.
+        """
+        TEST_CONF = {
+            "base": {"plugins": ["TextPlugin"], "name": "Base"},
+            "middle": {"inherit": "base", "limits": {"global": 5}},
+            "leaf": {"inherit": "middle", "name": "Leaf"},
+        }
+        pristine = {
+            "base": {"plugins": ["TextPlugin"], "name": "Base"},
+            "middle": {"inherit": "base", "limits": {"global": 5}},
+            "leaf": {"inherit": "middle", "name": "Leaf"},
+        }
+
+        with override_placeholder_conf(CMS_PLACEHOLDER_CONF=TEST_CONF):
+            # leaf inherits base's plugins through middle
+            self.assertEqual(get_placeholder_conf("plugins", "leaf"), ["TextPlugin"])
+            # leaf inherits middle's own limits
+            self.assertEqual(get_placeholder_conf("limits", "leaf"), {"global": 5})
+            # leaf keeps its own name
+            self.assertEqual(get_placeholder_conf("name", "leaf"), "Leaf")
+            # middle resolves to base's plugins plus its own limits
+            self.assertEqual(get_placeholder_conf("plugins", "middle"), ["TextPlugin"])
+            self.assertEqual(get_placeholder_conf("name", "middle"), "Base")
+            # base itself is untouched by the inheritance resolution
+            self.assertEqual(get_placeholder_conf("name", "base"), "Base")
+            self.assertIsNone(get_placeholder_conf("limits", "base"))
+            # resolution must not write into the user's settings dict
+            self.assertEqual(TEST_CONF, pristine)
+
     def test_placeholder_name_conf(self):
         page_en = create_page("page_en", "col_two.html", "en")
         placeholder_1 = page_en.get_placeholders("en").get(slot="col_left")
@@ -696,9 +763,6 @@ class PlaceholderTestCase(TransactionCMSTestCase):
         placeholders = _get_placeholder_slots("placeholder_tests/nested_super_level1.html")
         self.assertEqual(sorted(placeholders), sorted(["level1", "level2", "level3", "level4"]))
 
-    def test_placeholder_field_no_related_name(self):
-        self.assertRaises(ValueError, PlaceholderField, "placeholder", related_name="+")
-
     def test_placeholder_field_db_table(self):
         """
         Test for leaking Model._meta.db_table monkeypatching on SQLite (#3891).
@@ -709,9 +773,6 @@ class PlaceholderTestCase(TransactionCMSTestCase):
             depth=1,
         )
         self.assertEqual(example.description._get_attached_model(), Category)
-
-    def test_placeholder_field_valid_slotname(self):
-        self.assertRaises(ImproperlyConfigured, PlaceholderField, 10)
 
     def test_placeholder_field_dynamic_slot_generation(self):
         instance = DynamicPlaceholderSlotExample.objects.create(char_1="slot1", char_2="slot2")
@@ -878,7 +939,7 @@ class PlaceholderTestCase(TransactionCMSTestCase):
         # reload instance from database
         ex = Example1.objects.get(pk=ex.pk)
         # get languages
-        langs = [lang["code"] for lang in ex.placeholder.get_filled_languages()]
+        langs = [lang["code"] for lang in ex.placeholder.get_filled_languages(Site.objects.get_current().pk)]
         self.assertEqual(avail_langs, set(langs))
 
     def test_placeholder_languages_page(self):
@@ -901,7 +962,7 @@ class PlaceholderTestCase(TransactionCMSTestCase):
         # reload placeholder from database
         placeholder = page.get_placeholders("en").get(slot="col_sidebar")
         # get languages
-        langs = [lang["code"] for lang in placeholder.get_filled_languages()]
+        langs = [lang["code"] for lang in placeholder.get_filled_languages(Site.objects.get_current().pk)]
         self.assertEqual(avail_langs, set(langs))
 
     @override_settings(
@@ -1104,77 +1165,6 @@ class PlaceholderTestCase(TransactionCMSTestCase):
         self.assertEqual(slot_1, get_placeholder_from_slot(poll.placeholders, "slot_1"))  # Still the first slot
 
 
-class PlaceholderActionTests(FakemlngFixtures, CMSTestCase):
-    def test_placeholder_no_action(self):
-        actions = PlaceholderNoAction()
-        self.assertEqual(actions.get_copy_languages(), [])
-        self.assertFalse(actions.copy())
-
-    def test_mlng_placeholder_actions_get_copy_languages(self):
-        actions = MLNGPlaceholderActions()
-        fr = Translations.objects.get(language_code="fr")
-        de = Translations.objects.get(language_code="de")
-        en = Translations.objects.get(language_code="en")
-        fieldname = "placeholder"
-        fr_copy_languages = actions.get_copy_languages(fr.placeholder, Translations, fieldname)
-        de_copy_languages = actions.get_copy_languages(de.placeholder, Translations, fieldname)
-        en_copy_languages = actions.get_copy_languages(en.placeholder, Translations, fieldname)
-        EN = ("en", "English")
-        FR = ("fr", "French")
-        self.assertEqual(set(fr_copy_languages), {EN})
-        self.assertEqual(set(de_copy_languages), {EN, FR})
-        self.assertEqual(set(en_copy_languages), {FR})
-
-    def test_mlng_placeholder_actions_copy(self):
-        actions = MLNGPlaceholderActions()
-        fr = Translations.objects.get(language_code="fr")
-        de = Translations.objects.get(language_code="de")
-        self.assertEqual(fr.placeholder.get_plugins().count(), 1)
-        self.assertEqual(de.placeholder.get_plugins().count(), 0)
-
-        new_plugins = actions.copy(de.placeholder, "fr", "placeholder", Translations, "de")
-        self.assertEqual(len(new_plugins), 1)
-
-        de = self.reload(de)
-        fr = self.reload(fr)
-
-        self.assertEqual(fr.placeholder.get_plugins().count(), 1)
-        self.assertEqual(de.placeholder.get_plugins().count(), 1)
-
-    def test_mlng_placeholder_actions_empty_copy(self):
-        actions = MLNGPlaceholderActions()
-        fr = Translations.objects.get(language_code="fr")
-        de = Translations.objects.get(language_code="de")
-        self.assertEqual(fr.placeholder.get_plugins().count(), 1)
-        self.assertEqual(de.placeholder.get_plugins().count(), 0)
-
-        new_plugins = actions.copy(fr.placeholder, "de", "placeholder", Translations, "fr")
-        self.assertEqual(len(new_plugins), 0)
-
-        de = self.reload(de)
-        fr = self.reload(fr)
-
-        self.assertEqual(fr.placeholder.get_plugins().count(), 1)
-        self.assertEqual(de.placeholder.get_plugins().count(), 0)
-
-    def test_mlng_placeholder_actions_no_placeholder(self):
-        actions = MLNGPlaceholderActions()
-        Translations.objects.filter(language_code="nl").update(placeholder=None)
-        de = Translations.objects.get(language_code="de")
-        nl = Translations.objects.get(language_code="nl")
-        self.assertEqual(nl.placeholder, None)
-        self.assertEqual(de.placeholder.get_plugins().count(), 0)
-
-        okay = actions.copy(de.placeholder, "nl", "placeholder", Translations, "de")
-        self.assertEqual(okay, False)
-
-        de = self.reload(de)
-        nl = self.reload(nl)
-
-        nl = Translations.objects.get(language_code="nl")
-        de = Translations.objects.get(language_code="de")
-
-
 @override_settings(CMS_PERMISSION=False)
 class PlaceholderModelTests(ToolbarTestBase, CMSTestCase):
     def get_mock_user(self, superuser):
@@ -1274,7 +1264,7 @@ class PlaceholderConfTests(TestCase):
         }
         LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
         with override_placeholder_conf(CMS_PLACEHOLDER_CONF=conf):
-            plugins = list(plugin_pool.get_all_plugins(placeholder, page))
+            plugins = list(plugin_pool.get_all_plugins(placeholder.slot, placeholder.source))
             self.assertEqual(len(plugins), 1, plugins)
             self.assertEqual(plugins[0], LinkPlugin)
 
@@ -1292,9 +1282,63 @@ class PlaceholderConfTests(TestCase):
         }
         LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
         with override_placeholder_conf(CMS_PLACEHOLDER_CONF=conf):
-            plugins = list(plugin_pool.get_all_plugins(placeholder, page))
+            plugins = list(plugin_pool.get_all_plugins(placeholder.slot, placeholder.source, root_plugin=True))
             self.assertEqual(len(plugins), 1, plugins)
             self.assertEqual(plugins[0], LinkPlugin)
+
+    def test_is_allowed_in_slot(self):
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+
+        # No restriction (default): allowed everywhere, including unbound (None) queries.
+        self.assertTrue(LinkPlugin.is_allowed_in_slot("content"))
+        self.assertTrue(LinkPlugin.is_allowed_in_slot(None))
+
+        with patch.object(LinkPlugin, "allowed_slots", ["content", "footer_*"]):
+            # Exact match and glob match are allowed; an unlisted slot is not.
+            self.assertTrue(LinkPlugin.is_allowed_in_slot("content"))
+            self.assertTrue(LinkPlugin.is_allowed_in_slot("footer_left"))
+            self.assertFalse(LinkPlugin.is_allowed_in_slot("sidebar"))
+            # An unbound query is always allowed, even with a restriction set.
+            self.assertTrue(LinkPlugin.is_allowed_in_slot(None))
+
+        with patch.object(LinkPlugin, "allowed_slots", []):
+            # An empty list forbids every slot.
+            self.assertFalse(LinkPlugin.is_allowed_in_slot("content"))
+
+        with patch.object(LinkPlugin, "allowed_slots", "content"):
+            # A bare string is treated as a single pattern, not iterated per character.
+            self.assertTrue(LinkPlugin.is_allowed_in_slot("content"))
+            self.assertFalse(LinkPlugin.is_allowed_in_slot("sidebar"))
+            self.assertFalse(LinkPlugin.is_allowed_in_slot("c"))
+
+    def test_get_all_plugins_respects_allowed_slots(self):
+        page = create_page("page", "col_two.html", "en")
+        placeholder = page.get_placeholders("en").get(slot="col_left")
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+
+        with patch.object(LinkPlugin, "allowed_slots", ["col_right"]):
+            available = list(plugin_pool.get_all_plugins(placeholder.slot, placeholder.source))
+            self.assertNotIn(LinkPlugin, available)
+            # The plugin is available in a slot it allows.
+            allowed = list(plugin_pool.get_all_plugins("col_right", placeholder.source))
+            self.assertIn(LinkPlugin, allowed)
+
+    def test_get_plugin_disallowed_in_slot(self):
+        from cms.utils.plugins import get_plugin_disallowed_in_slot
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            # The offending plugin type is returned for a disallowed slot.
+            self.assertEqual(
+                get_plugin_disallowed_in_slot(["LinkPlugin"], "sidebar"), "LinkPlugin"
+            )
+            # Every plugin is allowed -> nothing is reported.
+            self.assertIsNone(get_plugin_disallowed_in_slot(["LinkPlugin"], "content"))
+            # Unregistered plugin types are skipped (treated as allowed).
+            self.assertIsNone(
+                get_plugin_disallowed_in_slot(["DoesNotExistPlugin"], "sidebar")
+            )
 
 
 class PlaceholderPluginTestsBase(CMSTestCase):
@@ -1638,20 +1682,22 @@ class PlaceholderNestedPluginTests(PlaceholderFlatPluginTests):
         Test that _scan_placeholders finds placeholders in included templates.
         """
 
-        django_engine = engines['django']
+        django_engine = engines["django"]
         tpl_main = django_engine.from_string('{% load cms_tags %}{% include "included_template.html" %}')
         tpl_included = django_engine.from_string('{% load cms_tags %}{% placeholder "included_slot" %}')
         # Patch get_template to return our included template
         import cms.utils.placeholder as placeholder_utils
+
         orig_get_template = placeholder_utils.get_template
 
         def fake_get_template(name):
             if name == "included_template.html":
                 return tpl_included
             return orig_get_template(name)
+
         try:
             placeholder_utils.get_template = fake_get_template
-            nodelist = getattr(tpl_main, 'nodelist', getattr(tpl_main, 'template', tpl_main).nodelist)
+            nodelist = getattr(tpl_main, "nodelist", getattr(tpl_main, "template", tpl_main).nodelist)
             nodes = _scan_placeholders(nodelist)
             slots = [node.get_declaration().slot for node in nodes]
             self.assertEqual(slots, ["included_slot"])
@@ -1662,18 +1708,23 @@ class PlaceholderNestedPluginTests(PlaceholderFlatPluginTests):
         """
         Test that _scan_placeholders finds placeholders in extended templates and blocks.
         """
-        django_engine = engines['django']
-        tpl_base = django_engine.from_string('{% load cms_tags %}{% block content %}{% placeholder "base_slot" %}{% endblock %}')
-        tpl_child = django_engine.from_string('{% extends "base_template.html" %}{% load cms_tags %}{% block content %}{% placeholder "child_slot" %}{{ block.super }}{% endblock %}')
+        django_engine = engines["django"]
+        tpl_base = django_engine.from_string(
+            '{% load cms_tags %}{% block content %}{% placeholder "base_slot" %}{% endblock %}'
+        )
+        tpl_child = django_engine.from_string(
+            '{% extends "base_template.html" %}{% load cms_tags %}{% block content %}{% placeholder "child_slot" %}{{ block.super }}{% endblock %}'
+        )
         orig_find_template = django_engine.engine.find_template
 
         def fake_find_template(name, skip=None):
             if name == "base_template.html":
                 return tpl_base, None
             return orig_find_template(name, skip=skip)
+
         try:
             django_engine.engine.find_template = fake_find_template
-            nodelist = getattr(tpl_child, 'nodelist', getattr(tpl_child, 'template', tpl_child).nodelist)
+            nodelist = getattr(tpl_child, "nodelist", getattr(tpl_child, "template", tpl_child).nodelist)
             nodes = _scan_placeholders(nodelist)
             slots = [node.get_declaration().slot for node in nodes]
             self.assertEqual(sorted(slots), ["base_slot", "child_slot"])
@@ -1686,7 +1737,7 @@ class PlaceholderNestedPluginTests(PlaceholderFlatPluginTests):
         """
         template_str = '{% load cms_tags %}{% include some_var %}{% placeholder "slotA" %}'
         tpl = Template(template_str)
-        nodes = _scan_placeholders(getattr(tpl, 'nodelist', getattr(tpl, 'template', tpl).nodelist))
+        nodes = _scan_placeholders(getattr(tpl, "nodelist", getattr(tpl, "template", tpl).nodelist))
         slots = [node.get_declaration().slot for node in nodes]
         assert slots == ["slotA"]
 
@@ -1697,12 +1748,14 @@ class PlaceholderNestedPluginTests(PlaceholderFlatPluginTests):
         template_str = '{% load cms_tags %}{% placeholder "dup_slot" %}{% placeholder "dup_slot" %}'
         tpl_dup = Template(template_str)
         import cms.utils.placeholder as placeholder_utils
+
         orig_get_template = placeholder_utils.get_template
 
         def fake_get_template(name):
             if name == "duplicate_test.html":
                 return tpl_dup
             return orig_get_template(name)
+
         try:
             placeholder_utils.get_template = fake_get_template
             with warnings.catch_warnings(record=True) as w:
@@ -1714,3 +1767,13 @@ class PlaceholderNestedPluginTests(PlaceholderFlatPluginTests):
                 self.assertTrue(any(isinstance(warn.message, DuplicatePlaceholderWarning) for warn in w))
         finally:
             placeholder_utils.get_template = orig_get_template
+
+    def test_placeholder_adds_itself_to_added_plugins(self):
+        """
+        When using `Placeholder.add_plugin(p)`, `p.placeholder` should be set as a side effect.
+        """
+        placeholder = Placeholder.objects.create(slot="placeholder")
+        plugin = CMSPlugin()
+
+        placeholder.add_plugin(plugin)
+        self.assertEqual(plugin.placeholder, placeholder)

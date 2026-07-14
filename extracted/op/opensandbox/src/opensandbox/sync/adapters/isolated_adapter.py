@@ -35,6 +35,7 @@ from opensandbox.models.isolated import (
     IsolatedRunOpts,
     IsolatedSessionInfo,
     IsolatedSessionState,
+    IsolatedSessionSummary,
 )
 from opensandbox.models.sandboxes import SandboxEndpoint
 from opensandbox.sync.adapters.converter.execution_event_dispatcher import (
@@ -42,6 +43,7 @@ from opensandbox.sync.adapters.converter.execution_event_dispatcher import (
 )
 from opensandbox.sync.services.isolated import (
     IsolationServiceSync,
+    IsolationServiceSyncMixin,
     IsolationSessionSync,
 )
 
@@ -60,7 +62,7 @@ def _decode_sse_event_line(line: str) -> EventNode | None:
         event_dict = json.loads(data)
         return EventNode(**event_dict)
     except Exception as e:
-        logger.error("Failed to parse SSE line: %s", line, exc_info=e)
+        logger.error(f"Failed to parse SSE line: {line}", exc_info=e)
         return None
 
 
@@ -78,7 +80,9 @@ def _infer_exit_code(execution: Execution) -> int | None:
 class IsolationSessionHandleSync(IsolationSessionSync):
     """Sync handle to a single isolated session."""
 
-    def __init__(self, info: IsolatedSessionInfo, adapter: "IsolatedSessionsAdapterSync"):
+    def __init__(
+        self, info: IsolatedSessionInfo, adapter: "IsolatedSessionsAdapterSync"
+    ):
         self._info = info
         self._adapter = adapter
         self._files = None
@@ -97,6 +101,7 @@ class IsolationSessionHandleSync(IsolationSessionSync):
             from opensandbox.sync.adapters.isolated_filesystem_adapter import (
                 IsolatedFilesystemAdapterSync,
             )
+
             self._files = IsolatedFilesystemAdapterSync(
                 self._adapter.connection_config,
                 self._adapter.execd_endpoint,
@@ -111,7 +116,9 @@ class IsolationSessionHandleSync(IsolationSessionSync):
         opts: IsolatedRunOpts | None = None,
         handlers: ExecutionHandlersSync | None = None,
     ) -> Execution:
-        return self._adapter._run(self._info.session_id, code, opts=opts, handlers=handlers)
+        return self._adapter._run(
+            self._info.session_id, code, opts=opts, handlers=handlers
+        )
 
     def get(self) -> IsolatedSessionState:
         return self._adapter._get(self._info.session_id)
@@ -120,12 +127,17 @@ class IsolationSessionHandleSync(IsolationSessionSync):
         return self._adapter._delete(self._info.session_id)
 
 
-class IsolatedSessionsAdapterSync(IsolationServiceSync):
-    """Synchronous adapter for isolated session endpoints."""
+class IsolatedSessionsAdapterSync(IsolationServiceSyncMixin, IsolationServiceSync):
+    """Synchronous adapter for isolated session endpoints.
+
+    ``run_once``/``session`` are inherited from
+    :class:`IsolationServiceSyncMixin`.
+    """
 
     CREATE_PATH = "/v1/isolated/session"
     SESSION_PATH = "/v1/isolated/session/{session_id}"
     RUN_PATH = "/v1/isolated/session/{session_id}/run"
+    SESSIONS_PATH = "/v1/isolated/sessions"
     CAPABILITIES_PATH = "/v1/isolated/capabilities"
 
     def __init__(
@@ -170,7 +182,9 @@ class IsolatedSessionsAdapterSync(IsolationServiceSync):
         )
 
     def _get_url(self, path: str) -> str:
-        return f"{self.connection_config.protocol}://{self.execd_endpoint.endpoint}{path}"
+        return (
+            f"{self.connection_config.protocol}://{self.execd_endpoint.endpoint}{path}"
+        )
 
     def create(
         self, request: CreateIsolatedSessionRequest
@@ -264,6 +278,23 @@ class IsolatedSessionsAdapterSync(IsolationServiceSync):
                     status_code=response.status_code,
                     request_id=extract_request_id(response.headers),
                 )
+        except Exception as e:
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    def list(self) -> list[IsolatedSessionSummary]:
+        try:
+            url = self._get_url(self.SESSIONS_PATH)
+            response = self._httpx_client.get(url)
+            if response.status_code != 200:
+                raise SandboxApiException(
+                    message=f"list isolated sessions failed. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    request_id=extract_request_id(response.headers),
+                )
+            data = response.json()
+            return [
+                IsolatedSessionSummary(**item) for item in data.get("sessions", [])
+            ]
         except Exception as e:
             raise ExceptionConverter.to_sandbox_exception(e) from e
 

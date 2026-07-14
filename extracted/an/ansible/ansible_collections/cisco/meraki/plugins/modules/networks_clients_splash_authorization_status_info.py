@@ -2,19 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_clients_splash_authorization_status_info
-short_description: Information module for networks _clients _splash _authorization
-  _status
+short_description: Information module for networks _clients _splashauthorizationstatus
 description:
-  - Get all networks _clients _splash _authorization _status. - > Return the splash
-    authorization for a client, for each SSID they've associated with through splash.
-    Only enabled SSIDs with Click-through splash enabled will be included. Clients
-    can be identified by a client key or either the MAC or IP depending on whether
-    the network uses Track-by-IP.
+  - Information module for Networks Clients Splashauthorizationstatus Info.
+  - Get all networks _clients _splashauthorizationstatus.
+  - >
+    Return the splash authorization for a client, for each SSID they've associated
+    with through splash. Only enabled SSIDs with Click-through splash enabled will
+    be included. Clients can be identified by a client key or either the MAC or IP
+    depending on whether the network uses Track-by-IP.
 version_added: '1.0.0'
 extends_documentation_fragment:
   - cisco.meraki.module_info
@@ -25,10 +25,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Clients Splashauthorizationstatus Info.
       - NetworkId path parameter. Network ID.
     type: str
   clientId:
     description:
+      - Information module for Networks Clients Splashauthorizationstatus Info.
       - ClientId path parameter. Client ID.
     type: str
 requirements:
@@ -47,7 +49,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _clients _splash _authorization _status
+- name: Get all networks _clients _splashauthorizationstatus
   cisco.meraki.networks_clients_splash_authorization_status_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -79,12 +81,6 @@ meraki_response:
   description: A dictionary or list with the response returned by the Cisco Meraki Python SDK
   returned: always
   type: dict
-  sample: >
-    {
-      "0": {
-        "isAuthorized": true,
-        "authorizedAt": "string",
-        "expiresAt": "string"
-      }
-    }
+  sample:
+  - {}
 """

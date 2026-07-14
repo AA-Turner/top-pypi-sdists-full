@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Literal, TypedDict
 
 __all__ = ["RuleListParams"]
 
 
 class RuleListParams(TypedDict, total=False):
-    zone_id: Required[str]
-    """Identifier."""
+    account_id: str
+    """The Account ID to use for this endpoint. Mutually exclusive with the Zone ID."""
+
+    zone_id: str
+    """The Zone ID to use for this endpoint. Mutually exclusive with the Account ID."""
 
     enabled: Literal[True, False]
     """Filter by enabled routing rules."""

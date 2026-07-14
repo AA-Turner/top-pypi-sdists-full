@@ -1,6 +1,5 @@
 import datetime
 import unittest
-import pytz
 
 from wsme import utils
 
@@ -27,11 +26,14 @@ class TestUtils(unittest.TestCase):
         good_times = [
             ('12:03:54', datetime.time(12, 3, 54)),
             ('23:59:59.000004', datetime.time(23, 59, 59, 4)),
-            ('01:02:03+00:00', datetime.time(1, 2, 3, 0, pytz.UTC)),
-            ('01:02:03+23:59', datetime.time(1, 2, 3, 0,
-                                             pytz.FixedOffset(1439))),
-            ('01:02:03-23:59', datetime.time(1, 2, 3, 0,
-                                             pytz.FixedOffset(-1439))),
+            ('01:02:03+00:00', datetime.time(
+                1, 2, 3, 0, datetime.timezone.utc)),
+            ('01:02:03+23:59', datetime.time(
+                1, 2, 3, 0,
+                datetime.timezone(datetime.timedelta(minutes=1439)))),
+            ('01:02:03-23:59', datetime.time(
+                1, 2, 3, 0,
+                datetime.timezone(datetime.timedelta(minutes=-1439)))),
         ]
         ill_formatted_times = [
             '24-12-2004'
@@ -54,13 +56,16 @@ class TestUtils(unittest.TestCase):
             ('2012-05-14T23:59:59.000004',
              datetime.datetime(2012, 5, 14, 23, 59, 59, 4)),
             ('1856-07-10T01:02:03+00:00',
-             datetime.datetime(1856, 7, 10, 1, 2, 3, 0, pytz.UTC)),
+             datetime.datetime(1856, 7, 10, 1, 2, 3, 0,
+                               datetime.timezone.utc)),
             ('1856-07-10T01:02:03+23:59',
-             datetime.datetime(1856, 7, 10, 1, 2, 3, 0,
-                               pytz.FixedOffset(1439))),
+             datetime.datetime(
+                1856, 7, 10, 1, 2, 3, 0,
+                datetime.timezone(datetime.timedelta(minutes=1439)))),
             ('1856-07-10T01:02:03-23:59',
-             datetime.datetime(1856, 7, 10, 1, 2, 3, 0,
-                               pytz.FixedOffset(-1439))),
+             datetime.datetime(
+                1856, 7, 10, 1, 2, 3, 0,
+                datetime.timezone(datetime.timedelta(minutes=-1439)))),
         ]
         ill_formatted_datetimes = [
             '24-32-2004',

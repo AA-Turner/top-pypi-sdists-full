@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_vlan_profiles_info
-short_description: Information module for networks _vlan _profiles
+short_description: Information module for networks _vlanprofiles
 description:
-  - Get all networks _vlan _profiles.
-  - Get networks _vlan _profiles by name.
+  - Information module for Networks Vlanprofiles Info.
+  - Get all networks _vlanprofiles.
+  - Get networks _vlanprofiles by name.
   - Get an existing VLAN profile of a network.
   - List VLAN profiles for a network.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Vlanprofiles Info.
       - NetworkId path parameter. Network ID.
     type: str
   iname:
     description:
+      - Information module for Networks Vlanprofiles Info.
       - Iname path parameter.
     type: str
 requirements:
@@ -49,7 +51,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _vlan _profiles
+- name: Get all networks _vlanprofiles
   cisco.meraki.networks_vlan_profiles_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -74,7 +76,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
   register: result
-- name: Get networks _vlan _profiles by name
+- name: Get networks _vlanprofiles by name
   cisco.meraki.networks_vlan_profiles_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

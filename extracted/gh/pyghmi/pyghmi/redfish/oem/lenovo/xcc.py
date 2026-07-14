@@ -1893,7 +1893,7 @@ class OEMHandler(generic.OEMHandler):
                     for umd in adp.get('unmanagedDisks', []):
                         yield 'Disk {0}'.format(umd['slotNo']), bdata
 
-    def _get_cpu_inventory(self):
+    def _get_cpu_inventory(self, onlynames=False, withids=False, urls=None):
         procdata = self.get_cached_data('lenovo_cached_proc')
         if not procdata:
             if self.wc:
@@ -1910,7 +1910,7 @@ class OEMHandler(generic.OEMHandler):
                 yield ('Processor {0}'.format(proc['processors_name']),
                        procinfo)
 
-    def _get_mem_inventory(self):
+    def _get_mem_inventory(self, onlyname=False, withids=False, urls=None):
         memdata = self.get_cached_data('lenovo_cached_memory')
         if not memdata:
             if self.wc:

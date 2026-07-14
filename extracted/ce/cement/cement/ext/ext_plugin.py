@@ -2,20 +2,19 @@
 Cement plugin extension module.
 """
 
-from __future__ import annotations
-import os
-import sys
-import importlib
-import importlib.util
 import importlib.machinery
+import importlib.util
+import os
 import re
-from typing import List, TYPE_CHECKING
-from ..core import plugin, exc
-from ..utils.misc import is_true, minimal_logger
+import sys
+from typing import TYPE_CHECKING
+
+from ..core import exc, plugin
 from ..utils.fs import abspath
+from ..utils.misc import is_true, minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -42,11 +41,11 @@ class CementPluginHandler(plugin.PluginHandler):
 
     def __init__(self) -> None:
         super().__init__()
-        self._loaded_plugins: List[str] = []
-        self._enabled_plugins: List[str] = []
-        self._disabled_plugins: List[str] = []
+        self._loaded_plugins: list[str] = []
+        self._enabled_plugins: list[str] = []
+        self._disabled_plugins: list[str] = []
 
-    def _setup(self, app_obj: App) -> None:
+    def _setup(self, app_obj: "App") -> None:
         super()._setup(app_obj)
         self._enabled_plugins = []
         self._disabled_plugins = []
@@ -67,15 +66,15 @@ class CementPluginHandler(plugin.PluginHandler):
             if is_true(self.app.config.get(plugin_section, 'enabled')):
                 LOG.debug(f"enabling plugin '{plugin}' per application config")
                 if plugin not in self._enabled_plugins:
-                    self._enabled_plugins.append(plugin)  # pragma: nocover
+                    self._enabled_plugins.append(plugin)  # pragma: nocover  # defensive: unreachable  # noqa: E501
                 if plugin in self._disabled_plugins:
-                    self._disabled_plugins.remove(plugin)  # pragma: nocover
+                    self._disabled_plugins.remove(plugin)  # pragma: nocover  # defensive: unreachable  # noqa: E501
             else:
                 LOG.debug(f"disabling plugin '{plugin}' per application config")
                 if plugin not in self._disabled_plugins:
-                    self._disabled_plugins.append(plugin)  # pragma: nocover
+                    self._disabled_plugins.append(plugin)  # pragma: nocover  # defensive: unreachable  # noqa: E501
                 if plugin in self._enabled_plugins:
-                    self._enabled_plugins.remove(plugin)  # pragma: nocover
+                    self._enabled_plugins.remove(plugin)  # pragma: nocover  # defensive: unreachable  # noqa: E501
 
     def _load_plugin_from_dir(self, plugin_name: str, plugin_dir: str) -> bool:
         """
@@ -151,7 +150,7 @@ class CementPluginHandler(plugin.PluginHandler):
         # FIXME: not sure how to test/cover this
         if full_module not in sys.modules:
             __import__(full_module,
-                       globals(), locals(), [], 0)  # pragma: nocover
+                       globals(), locals(), [], 0)  # pragma: nocover  # untestable: dynamic import
 
         if hasattr(sys.modules[full_module], 'load'):
             sys.modules[full_module].load(self.app)
@@ -193,7 +192,7 @@ class CementPluginHandler(plugin.PluginHandler):
         if plugin_name not in self._loaded_plugins:
             raise exc.FrameworkError(f"Unable to load plugin '{plugin_name}'.")
 
-    def load_plugins(self, plugin_list: List[str]) -> None:
+    def load_plugins(self, plugin_list: list[str]) -> None:
         """
         Load a list of plugins.  Each plugin name is passed to
         ``self.load_plugin()``.
@@ -205,18 +204,18 @@ class CementPluginHandler(plugin.PluginHandler):
         for plugin_name in plugin_list:
             self.load_plugin(plugin_name)
 
-    def get_loaded_plugins(self) -> List[str]:
+    def get_loaded_plugins(self) -> list[str]:
         """List of plugins that have been loaded."""
         return self._loaded_plugins
 
-    def get_enabled_plugins(self) -> List[str]:
+    def get_enabled_plugins(self) -> list[str]:
         """List of plugins that are enabled (not necessary loaded yet)."""
         return self._enabled_plugins
 
-    def get_disabled_plugins(self) -> List[str]:
+    def get_disabled_plugins(self) -> list[str]:
         """List of disabled plugins"""
         return self._disabled_plugins
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(CementPluginHandler)

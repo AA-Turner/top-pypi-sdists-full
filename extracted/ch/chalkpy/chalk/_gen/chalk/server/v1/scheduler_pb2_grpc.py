@@ -25,6 +25,11 @@ class SchedulerServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.FromString,
         )
+        self.ManualTriggerScheduledAggregateBackfill = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/ManualTriggerScheduledAggregateBackfill",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillResponse.FromString,
+        )
         self.GetScheduledResolverRun = channel.unary_unary(
             "/chalk.server.v1.SchedulerService/GetScheduledResolverRun",
             request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunRequest.SerializeToString,
@@ -72,6 +77,12 @@ class SchedulerServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ManualTriggerScheduledQuery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ManualTriggerScheduledAggregateBackfill(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -131,6 +142,11 @@ def add_SchedulerServiceServicer_to_server(servicer, server):
             servicer.ManualTriggerScheduledQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.SerializeToString,
+        ),
+        "ManualTriggerScheduledAggregateBackfill": grpc.unary_unary_rpc_method_handler(
+            servicer.ManualTriggerScheduledAggregateBackfill,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillResponse.SerializeToString,
         ),
         "GetScheduledResolverRun": grpc.unary_unary_rpc_method_handler(
             servicer.GetScheduledResolverRun,
@@ -224,6 +240,35 @@ class SchedulerService(object):
             "/chalk.server.v1.SchedulerService/ManualTriggerScheduledQuery",
             chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ManualTriggerScheduledAggregateBackfill(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/ManualTriggerScheduledAggregateBackfill",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledAggregateBackfillResponse.FromString,
             options,
             channel_credentials,
             insecure,

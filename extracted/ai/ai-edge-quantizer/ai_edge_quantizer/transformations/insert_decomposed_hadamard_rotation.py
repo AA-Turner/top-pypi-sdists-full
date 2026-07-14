@@ -87,7 +87,7 @@ def _update_fully_connected_consumers(
 
 
 def _make_hadamard_matrix(size: int):
-  """Generates an unnormalized integer Hadamard matrix of the given size.
+  """Generates a Hadamard matrix of the given size.
 
   Args:
     size: The size of the Hadamard matrix. Must be a power of 2. This represents
@@ -102,12 +102,12 @@ def _make_hadamard_matrix(size: int):
   """
   if size <= 0 or (size & (size - 1)) != 0:
     raise ValueError('Hadamard matrix size must be a power of 2. ')
-  h = h2 = np.array([[1, 1], [1, -1]], dtype=np.int8)
+  h = h2 = np.array([[1, 1], [1, -1]])
   current_size = 2
   while current_size < size:
     h = np.kron(h, h2)
     current_size *= 2
-  return h
+  return h / np.sqrt(size)
 
 
 def insert_decomposed_hadamard_rotation(
@@ -190,23 +190,17 @@ def insert_decomposed_hadamard_rotation(
   prerorate_reshape_op.outputs = [prerotate_reshape_output_tensor_id]
 
   # Generate hadamard_matrix(hadamard_size).
-  # We quantize the Hadamard matrix to INT4 for better memory efficiency, but
-  # for large models the memory overhead is not significant, and floating point
-  # computation does seem to result in better accuracy.
+  # We could quantize this to INT2 for better memory efficiency. This would
+  # represent the matrix losslessly, but would then invoke the DRQ kernel and
+  # dynamically quantize the incoming activation, degrading quality.
   hadamard_matrix = _make_hadamard_matrix(hadamard_size)
   hadamard_matrix_tensor_id = transformation_utils.add_new_constant_tensor(
       tensor_name=tensor.name + b'_hadamard_matrix',
-      data=transformation_utils.pack_data(
-          bitwidth=4, flattened_data=np.ravel(hadamard_matrix)
-      ),
-      tensor_type=qtyping.TensorType.INT4,
+      data=hadamard_matrix.astype(np.float32),
+      tensor_type=qtyping.TensorType.FLOAT32,
       subgraph=transformation_input.subgraph,
       model=transformation_input.model,
-      tensor_shape=hadamard_matrix.shape,
-      quantization=qtyping.QuantizationParametersT(
-          scale=np.array([1.0 / np.sqrt(hadamard_size)], dtype=np.float32),
-          zeroPoint=[0],
-      ),
+      allow_tensor_sharing=True,
   )
 
   # Insert x' = tfl.fully_connected(x', hadamard_matrix)
@@ -269,6 +263,11 @@ def insert_decomposed_hadamard_rotation(
     _update_embedding_lookup_consumers(
         transformation_input, post_reshape_output_tensor_id
     )
+    # For embedding_lookup, the newly created tensor is the un-rotated result,
+    # so if it is a graph output, we need to output the new tensor.
+    for i, output in enumerate(transformation_input.subgraph.outputs):
+      if output == transformation_input.tensor_id:
+        transformation_input.subgraph.outputs[i] = post_reshape_output_tensor_id
   elif not _update_fully_connected_consumers(
       transformation_input, post_reshape_output_tensor_id
   ):
@@ -276,12 +275,6 @@ def insert_decomposed_hadamard_rotation(
         'The Hadamard rotation op supports embedding lookup and fully connected'
         ' ops only, but no such ops were found.'
     )
-
-  # If the tensor is a graph output, we need to replace the tensor with the
-  # new tensor.
-  for i, output in enumerate(transformation_input.subgraph.outputs):
-    if output == transformation_input.tensor_id:
-      transformation_input.subgraph.outputs[i] = post_reshape_output_tensor_id
 
   # Find the actual insertion point. The insertion point should be after the
   # producer op and before the first consumer op. The max() operation ensures

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.58
+Version: 0.0.61
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -49,6 +49,23 @@ raindrop.track_ai(
 )
 ```
 
+Track a plain, non-AI event through the same local queue and batched
+`events/track` transport:
+
+```python
+raindrop.track(
+    user_id="user-123",
+    event="cache-hit",
+    properties={"region": "us-east-1", "tags": ["hot", "shared"]},
+    event_id="event-456",       # optional; generated when omitted
+    timestamp="2026-07-13T18:00:00Z",
+    convo_id="conv-789",
+    attachments=[
+        raindrop.Attachment(type="text", value="cached response", role="output")
+    ],
+)
+```
+
 ## Instance-based clients (multiple projects in one process)
 
 `raindrop.Raindrop` is the instance-shaped counterpart of the module API —
@@ -63,6 +80,7 @@ rd_support = Raindrop(api_key=KEY, project_id="support-agent", tracing_enabled=T
 rd_billing = Raindrop(api_key=KEY, project_id="billing-agent", tracing_enabled=True)
 
 # Everything hangs off the instance — same method names as the module API.
+rd_support.track(user_id="u1", event="session-started", properties={"plan": "pro"})
 interaction = rd_billing.begin(user_id="u1", event="billing-chat", input="...")
 interaction.track_tool(name="invoice_lookup", input=..., output=...)
 interaction.finish(output="...")
@@ -331,7 +349,7 @@ raindrop.init(
 
 ## Buffering and Performance
 
-All event-tracking calls (`track_ai`, `identify`, `track_signal`, and
+All event-tracking calls (`track`, `track_ai`, `identify`, `track_signal`, and
 `Interaction.set_input` / `set_properties` / `add_attachments` / `finish`) are
 non-blocking from the caller's perspective. They append to an in-memory buffer
 that a background daemon thread drains every second by POSTing to the Raindrop
@@ -340,7 +358,12 @@ these from a request hot path.
 
 `shutdown()` is registered via `atexit` and drains any still-pending events
 before the process exits. Call `flush()` explicitly if you need to force a
-drain at a known point.
+drain at a known point. `flush()` is a Class-2 operation and may block on
+network delivery. Plain `track()` batches use the bounded delivery policy on
+the caller thread (up to three attempts with backoff), while other event
+batches retain a single attempt during explicit flush. Do not call `flush()`
+from a latency-sensitive hot path. All delivery paths treat non-429 4xx
+responses as permanent rejections and do not retry them.
 
 ```python
 # Tune the in-memory buffer size (default 10_000 events)

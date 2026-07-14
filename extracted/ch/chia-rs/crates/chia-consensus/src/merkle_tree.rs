@@ -31,7 +31,10 @@ pub enum ArrayTypes {
 
 // represents a MerkleSet by putting all the nodes in a vec. Root is the last entry.
 #[derive(PartialEq, Debug, Clone, Default)]
-#[cfg_attr(feature = "py-bindings", pyclass(frozen, name = "MerkleSet"))]
+#[cfg_attr(
+    feature = "py-bindings",
+    pyclass(frozen, name = "MerkleSet", from_py_object)
+)]
 pub struct MerkleSet {
     nodes_vec: Vec<(ArrayTypes, [u8; 32])>,
     // This is true if the tree was built from a proof. This means the tree may
@@ -469,7 +472,7 @@ impl MerkleSet {
                 // duplicate values are collapsed (since this is a set)
                 // so just return one of the duplicates as if there was only one
                 debug_assert!(range.len() > 1);
-                debug_assert!(range[0] == range[1]);
+                debug_assert_eq!(range[0], range[1]);
                 self.nodes_vec.push((ArrayTypes::Leaf, range[0]));
                 (range[0], NodeType::Term)
             } else {

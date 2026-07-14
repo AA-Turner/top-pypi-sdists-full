@@ -24,7 +24,8 @@ class BrowserPoolCreateParams(TypedDict, total=False):
 
     Keys are Chrome enterprise policy names; values must match their expected types.
     Blocked: kernel-managed policies (extensions, proxy, CDP/automation). See
-    https://chromeenterprise.google/policies/
+    https://chromeenterprise.google/policies/ The serialized JSON payload is capped
+    at 5 MiB.
     """
 
     extensions: Iterable[BrowserExtension]
@@ -46,7 +47,7 @@ class BrowserPoolCreateParams(TypedDict, total=False):
     kiosk_mode: bool
     """
     If true, launches the browser in kiosk mode to hide address bar and tabs in live
-    view.
+    view. Defaults to false.
     """
 
     name: str
@@ -70,8 +71,8 @@ class BrowserPoolCreateParams(TypedDict, total=False):
     refresh_on_profile_update: bool
     """
     When true, flush idle browsers when the profile the pool uses is updated, so
-    pool browsers pick up the latest profile data. Requires a profile to be set on
-    the pool.
+    pool browsers pick up the latest profile data. When a profile is provided during
+    creation, this defaults to true. Requires a profile to be set on the pool.
     """
 
     start_url: str
@@ -86,7 +87,7 @@ class BrowserPoolCreateParams(TypedDict, total=False):
     stealth: bool
     """
     If true, launches the browser in stealth mode to reduce detection by anti-bot
-    mechanisms.
+    mechanisms. Defaults to false.
     """
 
     timeout_seconds: int

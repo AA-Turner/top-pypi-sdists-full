@@ -6,9 +6,10 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 import pyarrow as pa
 
-from chalk.features import Features, TPrimitive, ensure_feature
+from chalk.client.models import FeatureReference
+from chalk.features import Features, FeatureWrapper, TPrimitive, ensure_feature, unwrap_feature
 from chalk.features._encoding.json import FeatureEncodingOptions, unstructure_primitive_to_json
-from chalk.features.feature_field import FeatureNotFoundException
+from chalk.features.feature_field import Feature, FeatureNotFoundException
 from chalk.utils.json import TJSON
 
 
@@ -29,6 +30,124 @@ class InputEncodeOptions:
 
 HTTP_ENCODE_OPTIONS = InputEncodeOptions(json_encode=True, encode_structs_as_objects=False)
 GRPC_ENCODE_OPTIONS = InputEncodeOptions(json_encode=False, encode_structs_as_objects=True)
+
+InputSchemaHint = Mapping[FeatureReference, Union[FeatureReference, Sequence[FeatureReference]]]
+"""
+Specifies the expected type of an input column to hint the type when it cannot be inferred
+from the value of the column.
+
+For example, the schema of a has_many input can be specified to have a consistent value
+even when the provided input is an empty collection of rows, e.g.
+```
+# Specify the columns as a sequence
+input_schema_hint = { User.transactions: [Transaction.id, Transaction.amount] }
+# Specify the columns as a projection of the has-many itself
+input_schema_hint = { User.transactions: User.transactions[Transaction.id, Transaction.amount] }
+# Specify with strings
+input_schema_hint = { "user.transactions": ["transaction.id", "transaction.amount"] }
+```
+"""
+
+
+def resolve_input_schema_hint(input_schema_hint: InputSchemaHint) -> Dict[str, Feature]:
+    """
+    Canonicalizes a user-provided `InputSchemaHint` into a mapping of projected features.
+
+    For input `{User.txns: [Txn.id, Txn.amount]}`, resolves to a mapping of
+    `{"user.txns": User.txns: [Txn.id, Txn.amount]}`.
+
+    Support string inputs and recursive column projections.
+
+    Without a hint for a column, empty collections like `[]` will typically be inferred to have
+    a type like `list<null>` or fall back to a generic "all scalar columns in namespace".
+
+    This ensures that the inferred schema is consistent across queries, allowing query plans
+    to be re-used across queries which only differ in the number of items in input.
+    """
+    resolved: Dict[str, Feature] = {}
+    for feature_ref, hint_value in input_schema_hint.items():
+        feature = ensure_feature(feature_ref)
+        if not feature.is_has_many:
+            raise TypeError(
+                f"input_schema_hint entry '{feature.root_fqn}' is not a has-many feature; "
+                + "schema hints may only be provided for has-many inputs"
+            )
+        if feature.joined_class is None:
+            raise ValueError(f"A has_many feature `{feature.root_fqn}` must have an associated joined class")
+        foreign_namespace = feature.joined_class.namespace
+        if isinstance(hint_value, collections.abc.Sequence) and not isinstance(hint_value, str):
+            column_refs: Sequence[Any] = hint_value
+        else:
+            # A single reference to a projection of the has-many itself, e.g.
+            # `{User.transactions: User.transactions[Transaction.id, Transaction.amount]}`.
+            projection = ensure_feature(hint_value)
+            if projection.root_fqn != feature.root_fqn:
+                raise TypeError(
+                    f"input_schema_hint value for '{feature.root_fqn}' references '{projection.root_fqn}'; "
+                    + f"expected either a projection of '{feature.root_fqn}' itself or a sequence of its columns"
+                )
+            column_refs = _hint_columns(projection)
+        column_features: List[Feature] = []
+        for column_ref in column_refs:
+            column = ensure_feature(column_ref)
+            if column.namespace != foreign_namespace:
+                raise TypeError(
+                    f"input_schema_hint column '{column.root_fqn}' for has-many '{feature.root_fqn}' "
+                    + f"must be a feature of its foreign namespace '{foreign_namespace}'"
+                )
+            column_features.append(column)
+        resolved[feature.root_fqn] = unwrap_feature(FeatureWrapper(feature)[tuple(column_features)])
+    return resolved
+
+
+def input_schema_hint_to_projection_strings(input_schema_hint: InputSchemaHint) -> Dict[str, str]:
+    """
+    Serialize an input schema hint for the HTTP JSON payload, mapping each hinted input column
+    to a projection string like `{"user.txns": "user.txns[txn.id,txn.amount]"}`.
+    Only feature names are sent, the server has the authoritative datatype for each feature.
+    Old Chalk servers that predate this field ignore it.
+    """
+    resolved = resolve_input_schema_hint(input_schema_hint)
+    return {fqn: _projection_string(feature) for fqn, feature in resolved.items()}
+
+
+def _projection_string(feature: Feature) -> str:
+    if not feature.is_has_many:
+        return feature.root_fqn
+    columns = ",".join(_projection_string(column) for column in _hint_columns(feature))
+    return f"{feature.root_fqn}[{columns}]"
+
+
+def _hint_columns(feature: Feature) -> Sequence[Feature]:
+    dataframe_typ = feature.typ.as_dataframe()
+    assert dataframe_typ is not None, f"has-many feature '{feature.root_fqn}' must have a DataFrame annotation"
+    return dataframe_typ.columns
+
+
+def _validate_rows_against_hint(rows: Sequence[Mapping[str, Any]], columns: Sequence[Feature], has_many_fqn: str):
+    """Raise if any row carries a column absent from the hinted projection.
+
+    pyarrow silently drops dict keys that are not struct fields, which would let a caller bug
+    (or a hint that drifted from the call site) silently discard data; missing hinted columns are
+    fine and are null-filled by arrow.
+    """
+    allowed = {column.root_fqn: column for column in columns}
+    for row in rows:
+        for key, value in row.items():
+            if key not in allowed:
+                raise TypeError(
+                    f"Input for has-many feature '{has_many_fqn}' contains column '{key}', which is not in "
+                    + f"its input_schema_hint columns {sorted(allowed)}"
+                )
+            column = allowed[key]
+            # Only a has-many column contains rows to recurse into; a scalar column may share the
+            # same list-of-struct arrow shape (e.g. `List[SomeDataclass]`) but is opaque here.
+            if column.is_has_many and isinstance(value, list):
+                _validate_rows_against_hint(
+                    [nested_row for nested_row in value if isinstance(nested_row, Mapping)],
+                    _hint_columns(column),
+                    has_many_fqn=column.root_fqn,
+                )
 
 
 def _recursive_unstructure_primitive_to_json(val: TPrimitive) -> TJSON:
@@ -82,10 +201,17 @@ def validate_iterable_values_in_mapping(inputs: Mapping[str, Sequence[Any]], met
 
 
 def recursive_encode_bulk_inputs(
-    inputs: Mapping[str, Sequence[Any]], options: InputEncodeOptions
+    inputs: Mapping[str, Sequence[Any]],
+    options: InputEncodeOptions,
+    input_schema_hint: Optional[InputSchemaHint] = None,
 ) -> Tuple[Dict[str, Union[List[TJSON], pa.Array]], List[str]]:
     all_warnings: List[str] = []
     validate_iterable_values_in_mapping(inputs)
+    if input_schema_hint and options.json_encode:
+        # JSON-encoded values (datetimes as strings, ...) cannot be converted by arrow to the
+        # hinted types, and the JSON wire format has no place to carry a schema yet.
+        raise ValueError("input_schema_hint is currently only supported by the GRPC client")
+    resolved_hint = resolve_input_schema_hint(input_schema_hint) if input_schema_hint else {}
     encoded_inputs: Dict[str, Union[List[TJSON], pa.Array]] = collections.defaultdict(list)
     for wrapped_feature, vv in inputs.items():
         try:
@@ -130,6 +256,18 @@ def recursive_encode_bulk_inputs(
                     has_many_result.append(result)
 
                 encoded_inputs[feature.root_fqn].append(has_many_result)
+
+            hint_feature = resolved_hint.get(feature.root_fqn)
+            if hint_feature is not None:
+                column_rows = encoded_inputs[feature.root_fqn]
+                assert isinstance(column_rows, list)
+                for rows in column_rows:
+                    _validate_rows_against_hint(
+                        cast(List[Dict[str, TJSON]], rows), _hint_columns(hint_feature), feature.root_fqn
+                    )
+                # An explicitly-typed array pins the wire schema regardless of the row data, so
+                # e.g. all-empty inputs don't degenerate to list<null>.
+                encoded_inputs[feature.root_fqn] = pa.array(column_rows, type=hint_feature.converter.pyarrow_dtype)
         elif feature.is_has_one:
             assert feature.joined_class is not None
             foreign_namespace = feature.joined_class.namespace

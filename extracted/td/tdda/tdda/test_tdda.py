@@ -11,6 +11,12 @@ from tdda.referencetest import ReferenceTestCase
 from tdda.constraints.testconstraints import *
 from tdda.testexamples import *
 from tdda.rexpy.testrexpy import *
+from tdda.rexpy.testrexquality import *
+from tdda.rexpy.testrexquality import full_postcode_data_available
+from tdda.rexpy.testxerpy import *
+
+if not full_postcode_data_available():
+    del TestConcreteRexMetricFullPostcodes
 from tdda.referencetest.tests.alltests import *
 from tdda.referencetest.testtddadiff import *
 from tdda.referencetest.testgentest import *

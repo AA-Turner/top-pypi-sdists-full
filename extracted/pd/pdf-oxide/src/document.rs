@@ -1200,7 +1200,7 @@ impl PdfDocument {
         // Some PDFs store /O, /U, /V, /R, /P as indirect references (e.g., `7 0 R`).
         let encrypt_obj = if let Some(dict) = encrypt_obj.as_dict() {
             let mut resolved_dict = dict.clone();
-            for (_key, value) in resolved_dict.iter_mut() {
+            for value in resolved_dict.values_mut() {
                 if let Object::Reference(obj_ref) = value {
                     match self.load_object(*obj_ref) {
                         Ok(resolved) => *value = resolved,
@@ -1501,13 +1501,43 @@ impl PdfDocument {
             })
             .count();
         let garbled_ratio = bad as f32 / total as f32;
-        let words: Vec<&str> = text.split_whitespace().collect();
+        // Word-boundary signals (fragmentation, consecutive-repeat) need
+        // real words, not one token per span. Each span above is a raw
+        // content-stream text-showing run; in math typesetting every atom
+        // ((, ∞, ), a subscript, an operator) is its own span, so joining
+        // spans with a forced space makes every span boundary look like a
+        // word boundary and inflates the fragmented-word ratio on ordinary
+        // dense LaTeX pages until the text-quality gate mistakes them for
+        // scans. `extract_words` already does the real glyph/span
+        // clustering (adaptive gap thresholds, same-line merge, backtrack
+        // guard) that `extract_text` relies on — reuse its output here
+        // instead of re-deriving word boundaries from span punctuation.
+        let word_text: String = self
+            .extract_words(page)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|w| w.text)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let words: Vec<&str> = word_text.split_whitespace().collect();
         let (fragmented_word_ratio, consecutive_repeat_ratio) = if words.is_empty() {
             (0.0, 0.0)
         } else {
             let frag =
                 words.iter().filter(|w| w.chars().count() <= 2).count() as f32 / words.len() as f32;
             let rep = words.windows(2).filter(|w| w[0] == w[1]).count() as f32 / words.len() as f32;
+            // CJK/Hangul text has no inter-word spaces, so glyph-adjacency
+            // clustering naturally produces short (often 1-2 character)
+            // tokens — `frag` here is calibrated for space-separated Latin
+            // text and would otherwise read ordinary dense CJK prose as
+            // fragmented (this ratio directly gates `usable_text` in
+            // `classify_from_signals`). The repeat ratio is script-agnostic
+            // and stays as computed.
+            let frag = if crate::extractors::auto::is_cjk_dominant_text(&word_text) {
+                0.0
+            } else {
+                frag
+            };
             (frag, rep)
         };
 
@@ -1652,7 +1682,10 @@ impl PdfDocument {
             producer_prior,
             page_is_empty,
         };
-        let gate = crate::extractors::auto::text_quality_gate(&text);
+        // `text_quality_gate` does its own word-splitting internally; feed
+        // it the same word-clustered text as `fragmented_word_ratio` above
+        // (not the raw span-joined `text`), for the same reason.
+        let gate = crate::extractors::auto::text_quality_gate(&word_text);
         Ok((signals, gate))
     }
 
@@ -3010,7 +3043,7 @@ impl PdfDocument {
                 }
             },
             Object::Dictionary(dict) => {
-                for (_, value) in dict.iter_mut() {
+                for value in dict.values_mut() {
                     Self::decrypt_strings_in_object(handler, value, obj_num, gen_num);
                 }
             },
@@ -3018,7 +3051,7 @@ impl PdfDocument {
                 // Stream *data* is decrypted separately in
                 // `decode_stream_with_encryption`. Its dict may still
                 // contain encrypted strings (e.g., /Metadata).
-                for (_, value) in dict.iter_mut() {
+                for value in dict.values_mut() {
                     Self::decrypt_strings_in_object(handler, value, obj_num, gen_num);
                 }
             },
@@ -5267,8 +5300,84 @@ impl PdfDocument {
         if let Some(vertical) = Self::try_assemble_vertical_cjk(&base_spans) {
             return Ok(vertical);
         }
+        // Dominant text-matrix rotation (a landscape table typeset on a
+        // portrait page): the row-major assembler groups lines
+        // in the portrait frame and interleaves every rotated row. Assemble
+        // such pages in their rotated reading frame instead.
+        let base_spans = match self.map_dominant_rotation_into_reading_frame(page_index, base_spans)
+        {
+            Ok(mapped) => mapped,
+            Err(original) => original,
+        };
         let text = self.assemble_text_from_spans(page_index, base_spans, options)?;
         Ok(Self::apply_mixed_rtl_line_pass(text))
+    }
+
+    /// Map a dominant-rotation page's spans into their rotated reading
+    /// frame so the standard horizontal assembler applies.
+    ///
+    /// Returns `Ok(mapped)` when the page is unrotated (`/Rotate 0` — on
+    /// rotated pages `postprocess_spans` already handles content rotation,
+    ///) and at least half its non-whitespace spans share one
+    /// quadrant text rotation; the mapped spans are horizontal in the
+    /// frame a reader turns the page into, with `rotation_degrees` cleared
+    /// so downstream passes treat them as the upright text they now are.
+    /// Returns `Err(spans)` — the input unchanged — on every other page,
+    /// keeping output byte-identical there.
+    ///
+    /// Only used for plain-text assembly, where no coordinates leak to the
+    /// caller; coordinate-bearing APIs (`extract_words`) reorder in the
+    /// rotated frame but report true page-space bboxes instead (see
+    /// `crate::pipeline::page_reading_order`).
+    fn map_dominant_rotation_into_reading_frame(
+        &self,
+        page_index: usize,
+        spans: Vec<crate::layout::TextSpan>,
+    ) -> std::result::Result<Vec<crate::layout::TextSpan>, Vec<crate::layout::TextSpan>> {
+        if self.get_page_rotation(page_index).unwrap_or(0) != 0 {
+            return Err(spans);
+        }
+        let Some(deg) = crate::utils::dominant_rotation(&spans) else {
+            return Err(spans);
+        };
+        // Same quadrant mapping as the word path: 90° text reads upright
+        // under a /Rotate-90-style display transform, -90° under 270,
+        // 180° under 180. Mirrored / free-angle runs have no frame.
+        let rot = if (deg - 90.0).abs() < 0.5 {
+            90
+        } else if (deg - 180.0).abs() < 0.5 {
+            180
+        } else if (deg + 90.0).abs() < 0.5 {
+            270
+        } else {
+            return Err(spans);
+        };
+        log::debug!(
+            "page {page_index}: dominant text rotation {deg}° — assembling text in rotated frame"
+        );
+        let (llx, lly, urx, ury) = self
+            .get_page_media_box(page_index)
+            .unwrap_or((0.0, 0.0, 612.0, 792.0));
+        let (w, h) = (urx - llx, ury - lly);
+        let mut spans = spans;
+        // Rotated spans store TEXT-LOCAL extents (origin + advance-along-
+        // the-run as `width` + font size as `height`): rotate the ORIGIN
+        // as a point and keep the extents, which already describe the run
+        // in its own upright frame (same convention as
+        // `order_rotated_blocks`).
+        for s in &mut spans {
+            let (rx, ry) = (s.bbox.x - llx, s.bbox.y - lly);
+            let (mx, my) = match rot {
+                90 => (ry, w - rx),
+                180 => (w - rx, h - ry),
+                270 => (h - ry, rx),
+                _ => (rx, ry),
+            };
+            s.bbox.x = llx + mx;
+            s.bbox.y = lly + my;
+            s.rotation_degrees = 0.0;
+        }
+        Ok(spans)
     }
 
     /// Assemble page text from the page's native spans **plus** caller-supplied
@@ -6060,6 +6169,30 @@ impl PdfDocument {
                             // one as a newline, which the downstream join /
                             // `normalize_text` collapses to a space and
                             // de-hyphenates.
+                            if !hangul_midword_wrap && !text.ends_with('\n') {
+                                text.push('\n');
+                            }
+                        } else if y_diff > 1.0
+                            && delta_x <= 0.5
+                            && gap < -fs
+                            && !prev.rtl_draw_logical
+                            && !span.rtl_draw_logical
+                            && !crate::text::bidi::looks_rtl(&prev.text)
+                            && !crate::text::bidi::looks_rtl(&span.text)
+                        {
+                            // Backtracking span with a real baseline offset,
+                            // under the soft-wrap thresholds above: displayed
+                            // math draws a fraction's denominator AFTER the
+                            // relation sign that follows the numerator, so
+                            // the next span starts at-or-left-of the previous
+                            // span's ORIGIN with an overlap far beyond
+                            // kerning (a denominator sits ~2 em back at a
+                            // ~0.3 em baseline offset; stacked column cells
+                            // land at delta_x ≈ 0 a row-pitch down). Bare
+                            // concatenation fused these into tokens like
+                            // "=dt" — break the line instead. Same-baseline
+                            // kerned runs (y_diff ≈ 0) and forward-advancing
+                            // subscripts (gap > -1 em) never reach here.
                             if !hangul_midword_wrap && !text.ends_with('\n') {
                                 text.push('\n');
                             }
@@ -7525,6 +7658,47 @@ impl PdfDocument {
             }
         }
         gap > space_threshold
+    }
+
+    /// Stacked two-line column/table-header cell detector, applied ONLY on the
+    /// structure-tree (tagged-content) assembly path — never the main flow.
+    ///
+    /// A tagged table can draw a header cell as two stacked rows ("Comparison"
+    /// over "rate"). When the structure-tree assembler linearizes the cell's
+    /// spans it sees them as consecutive, horizontally OVERLAPPING (negative
+    /// gap) spans whose baseline drop stayed just under `same_line_threshold`,
+    /// so it treats them as one line and — because the gap is negative —
+    /// `should_insert_space` returns false and they fuse ("Comparisonrate").
+    /// A negative gap combined with a genuine baseline shift is two stacked
+    /// tokens, never intra-word kerning (which shares a baseline), so a space
+    /// is warranted.
+    ///
+    /// This deliberately lives OUTSIDE `should_insert_space`: the main flow
+    /// (untagged PDFs, e.g. LaTeX math) already routes backtracking
+    /// baseline-shifted runs — a fraction's numerator over its denominator —
+    /// through dedicated newline branches before the space decision, and adding
+    /// this rule there fragments equations. Scoping it to the tagged path keeps
+    /// those inputs byte-identical while fixing stacked header cells.
+    fn stacked_cell_needs_space(prev: &TextSpan, current: &TextSpan) -> bool {
+        let font_size = prev.font_size.max(current.font_size).max(1.0);
+        let y_diff = (prev.bbox.y - current.bbox.y).abs();
+        let gap = current.bbox.x - (prev.bbox.x + prev.bbox.width);
+        // Under the caller's same-line band (else the caller line-breaks), a
+        // real baseline shift (> 0.5 em) with horizontal overlap (negative gap)
+        // is a stacked cell. Both sides must be alphanumeric word content, not
+        // punctuation/symbol runs.
+        gap < -0.5
+            && y_diff > font_size * 0.5
+            && prev
+                .text
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric())
+            && current
+                .text
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_alphanumeric())
     }
 
     /// Detect a span whose text is `N.M` (all-digit groups around one dot) and whose
@@ -9070,8 +9244,11 @@ impl PdfDocument {
         // Create a temporary text extractor for this AP stream
         let mut extractor = TextExtractor::new();
 
-        // Load fonts from the AP/N stream's own /Resources
-        if let Some(resources) = n_dict.get("Resources") {
+        // Load fonts from the AP/N stream's own /Resources. No resources on
+        // the AP stream — try the annotation's /DR or parent page resources
+        // — means we can't decode fonts, so bail.
+        {
+            let resources = n_dict.get("Resources")?;
             let res_obj = if let Some(r) = resources.as_reference() {
                 self.load_object(r)
                     .ok()
@@ -9082,10 +9259,6 @@ impl PdfDocument {
             extractor.set_resources(res_obj.clone());
             extractor.set_document(self);
             let _ = self.load_fonts(&res_obj, &mut extractor);
-        } else {
-            // No resources on the AP stream — try the annotation's /DR or parent page resources
-            // For now, skip if no resources (can't decode fonts)
-            return None;
         }
 
         // Extract text spans from the AP stream
@@ -9728,7 +9901,9 @@ impl PdfDocument {
                                 y_diff,
                                 content.in_table && prev_in_table,
                             );
-                        } else if Self::should_insert_space(prev, span) {
+                        } else if Self::should_insert_space(prev, span)
+                            || Self::stacked_cell_needs_space(prev, span)
+                        {
                             text.push(' ');
                         }
                     }
@@ -10868,7 +11043,9 @@ impl PdfDocument {
                                     content.in_table && prev_in_table,
                                 );
                             }
-                        } else if Self::should_insert_space(prev, span) {
+                        } else if Self::should_insert_space(prev, span)
+                            || Self::stacked_cell_needs_space(prev, span)
+                        {
                             text.push(' ');
                         }
                     }
@@ -11051,7 +11228,9 @@ impl PdfDocument {
     /// grouped by rotation (first-seen group order preserved); within a group
     /// each span's origin is rotated back into an upright frame and the standard
     /// row-aware comparator (top→bottom, left→right) is applied there.
-    fn order_rotated_blocks(spans: Vec<crate::layout::TextSpan>) -> Vec<crate::layout::TextSpan> {
+    pub(crate) fn order_rotated_blocks(
+        spans: Vec<crate::layout::TextSpan>,
+    ) -> Vec<crate::layout::TextSpan> {
         let mut groups: Vec<(f32, Vec<crate::layout::TextSpan>)> = Vec::new();
         for s in spans {
             let key = s.rotation_degrees;
@@ -14433,38 +14612,64 @@ impl PdfDocument {
             }
             false
         };
-        let mut visited = vec![false; nb];
+        // Kahn's algorithm over the `before` relation. The previous
+        // iterative DFS re-pushed every unvisited predecessor each time a
+        // node was expanded (no on-stack marking), which is exponential in
+        // stack growth on block graphs with heavy fan-in — a dense
+        // equation page produced tens of gigabytes of stack and an OOM
+        // kill. Kahn's is O(V^2) for the edge scan and O(V+E) after,
+        // visits each block exactly once, and terminates unconditionally;
+        // ready blocks are drained in reading order (top-left first) for
+        // a stable result, matching the old seed order.
         let mut result_blocks: Vec<usize> = Vec::with_capacity(nb);
-        // Seed in reading order (top-left first) for a stable result.
-        let mut seeds: Vec<usize> = (0..nb).collect();
-        seeds.sort_by(|&a, &b| {
+        let mut preds: Vec<Vec<usize>> = vec![Vec::new(); nb];
+        let mut indegree: Vec<usize> = vec![0; nb];
+        for a in 0..nb {
+            for b in 0..nb {
+                if a != b && before(&blocks[a], &blocks[b]) {
+                    // a must come before b.
+                    preds[a].push(b);
+                    indegree[b] += 1;
+                }
+            }
+        }
+        let seed_order = |a: usize, b: usize| {
             safe_float_cmp(blocks[b].y_hi, blocks[a].y_hi)
                 .then_with(|| safe_float_cmp(blocks[a].x0, blocks[b].x0))
-        });
-        // Iterative DFS to avoid recursion limits on pathological pages.
-        for &s in &seeds {
-            if visited[s] {
+        };
+        // Kept sorted in REVERSE reading order so pop() takes the
+        // top-left-most ready block.
+        let mut ready: Vec<usize> = (0..nb).filter(|&i| indegree[i] == 0).collect();
+        ready.sort_by(|&a, &b| seed_order(b, a));
+        let mut emitted = vec![false; nb];
+        while let Some(bi) = ready.pop() {
+            // `ready` is kept sorted with the NEXT block last (reverse
+            // reading order), so pop() takes the top-left-most.
+            if emitted[bi] {
                 continue;
             }
-            let mut stack = vec![(s, false)];
-            while let Some((bi, processed)) = stack.pop() {
-                if processed {
-                    if !visited[bi] {
-                        visited[bi] = true;
-                        result_blocks.push(bi);
-                    }
-                    continue;
-                }
-                if visited[bi] {
-                    continue;
-                }
-                stack.push((bi, true));
-                for (k, blk) in blocks.iter().enumerate() {
-                    if k != bi && !visited[k] && before(blk, &blocks[bi]) {
-                        stack.push((k, false));
-                    }
+            emitted[bi] = true;
+            result_blocks.push(bi);
+            let mut newly_ready = false;
+            for &succ in &preds[bi] {
+                indegree[succ] -= 1;
+                if indegree[succ] == 0 {
+                    ready.push(succ);
+                    newly_ready = true;
                 }
             }
+            if newly_ready {
+                ready.sort_by(|&a, &b| seed_order(b, a));
+            }
+        }
+        // The `before` relation is acyclic by construction (edges strictly
+        // decrease y within a band or strictly increase x across columns),
+        // but guard against float pathologies leaving blocks unemitted:
+        // append any remainder in reading order rather than dropping text.
+        if result_blocks.len() < nb {
+            let mut rest: Vec<usize> = (0..nb).filter(|&i| !emitted[i]).collect();
+            rest.sort_by(|&a, &b| seed_order(a, b));
+            result_blocks.extend(rest);
         }
 
         // --- Emit: each block's spans in reading order (y desc, x asc). ---
@@ -16080,6 +16285,24 @@ impl PdfDocument {
         // Merge condition: same line (y_diff ≤ 0.5 × max line height) AND
         // horizontal gap ≤ 0.15 × font_size (same threshold as should_insert_space).
         // Skip merge when the current word index is a split boundary.
+        //
+        // `gap` has no lower bound above, so a word that BACKTRACKS far behind
+        // the previous word's origin also satisfies `gap ≤ 0.15 × font_size`
+        // (a large negative number is always ≤ a small positive one). Displayed
+        // math draws a fraction's denominator AFTER the relation sign that
+        // follows the numerator (`dx/dt = …` → the `=` is emitted, then `dt`
+        // starts ~2em further left at a small baseline offset) — this is the
+        // exact geometry `assemble_text_from_spans`'s backtrack branch breaks
+        // the line on, just reached here through word bboxes instead of span
+        // bboxes. Left unguarded, this loop fuses the pair into `"=dt"`, and
+        // because the merge is incremental (`prev` grows to the union bbox),
+        // a chain of such backtracks collapses into one word spanning an
+        // entire equation — the far worse case reported against `main`.
+        // Mirror the emitter's guard: a word that starts at-or-left of the
+        // previous word's ORIGIN (not just its end), with a real baseline
+        // offset and an overlap far beyond ordinary kerning, is a backtrack,
+        // not a same-line neighbour — never merge across it. Gated off for
+        // RTL text, whose leftward flow is ordinary reading order.
         let mut merged: Vec<Word> = Vec::with_capacity(words.len());
         let mut prev_rotated = false;
         for (idx, word) in words.into_iter().enumerate() {
@@ -16088,9 +16311,31 @@ impl PdfDocument {
                 if let Some(prev) = merged.last_mut() {
                     let gap = word.bbox.x - (prev.bbox.x + prev.bbox.width);
                     let y_diff = (word.bbox.y - prev.bbox.y).abs();
+                    let delta_x = word.bbox.x - prev.bbox.x;
                     let line_h = prev.bbox.height.max(word.bbox.height);
                     let font_size = prev.avg_font_size.max(word.avg_font_size).max(1.0);
-                    if y_diff <= line_h * 0.5 && gap <= font_size * 0.15 {
+                    let not_rtl = !crate::text::bidi::looks_rtl(&prev.text)
+                        && !crate::text::bidi::looks_rtl(&word.text);
+                    let is_math_backtrack =
+                        y_diff > 1.0 && delta_x <= 0.5 && gap < -font_size && not_rtl;
+                    // A LINE WRAP can land at nearly the same y as the line
+                    // above it (some producers emit sub-1pt baseline drift
+                    // between consecutive lines, so `y_diff > 1.0` above
+                    // doesn't always hold), but it always resets x back
+                    // toward the page's left margin — an order of magnitude
+                    // further than any real same-line construct (ordinary
+                    // kerning is near 0; the math backtrack above is ~1-2em).
+                    // A multi-em backtrack this large can only be two
+                    // different lines, never a genuine adjacency — reject it
+                    // regardless of y_diff, or a wrapped line's tail gets
+                    // fused onto its own next line's head (e.g. "of whom" +
+                    // "tered with books" → "whomteredwithbooks").
+                    let is_line_wrap_reset = delta_x < -5.0 * font_size && not_rtl;
+                    if y_diff <= line_h * 0.5
+                        && gap <= font_size * 0.15
+                        && !is_math_backtrack
+                        && !is_line_wrap_reset
+                    {
                         // Incremental merge — O(k) per merge, O(total_chars) overall.
                         // Avoids the O(n²) clone+from_chars pattern that caused
                         // catastrophic slowdown on TOC dot-leader pages.
@@ -17087,7 +17332,15 @@ impl PdfDocument {
             })
             .collect();
 
-        Ok(detect_tables_with_lines(&spans, &lines, &config))
+        // Same prose-rejection filter `extract_page_tables` applies to the
+        // extract_text/to_markdown/to_html path — this public API called
+        // `detect_tables_with_lines` directly with no post-filter at all, so
+        // it was already able to fabricate/garble tables on any prose-shaped
+        // spatial candidate, independent of anything else in this function.
+        Ok(detect_tables_with_lines(&spans, &lines, &config)
+            .into_iter()
+            .filter(|t| t.is_real_grid() && !looks_like_prose_table(t))
+            .collect())
     }
 
     /// Process paths from a Form XObject.
@@ -17493,10 +17746,14 @@ impl PdfDocument {
     ) -> Result<Vec<crate::elements::PathContent>> {
         let paths = self.extract_paths(page_index)?;
 
-        // Filter paths by region intersection
+        // Filter paths by region intersection against RENDERED extents: a
+        // region query answers "what does the reader see here", so a rule
+        // whose drawn bar crosses the region must match even when its
+        // geometric bbox is a distant speck. Identical to the
+        // geometric test for unstroked paths.
         Ok(paths
             .into_iter()
-            .filter(|path| path.bbox.intersects(&region))
+            .filter(|path| path.rendered_bbox().intersects(&region))
             .collect())
     }
 
@@ -17629,9 +17886,10 @@ impl PdfDocument {
         region: crate::geometry::Rect,
     ) -> Result<Vec<crate::elements::PathContent>> {
         let rects = self.extract_rects(page_index)?;
+        // Rendered extents, matching `extract_paths_in_rect`.
         Ok(rects
             .into_iter()
-            .filter(|p| p.bbox.intersects(&region))
+            .filter(|p| p.rendered_bbox().intersects(&region))
             .collect())
     }
 
@@ -17642,9 +17900,12 @@ impl PdfDocument {
         region: crate::geometry::Rect,
     ) -> Result<Vec<crate::elements::PathContent>> {
         let lines = self.extract_lines(page_index)?;
+        // Rendered extents, matching `extract_paths_in_rect`: a
+        // stroke-width-encoded rule must match region queries over its drawn
+        // bar, not only over its geometric speck.
         Ok(lines
             .into_iter()
-            .filter(|p| p.bbox.intersects(&region))
+            .filter(|p| p.rendered_bbox().intersects(&region))
             .collect())
     }
 
@@ -18969,13 +19230,21 @@ impl PdfDocument {
             let fallback_spans: &[crate::layout::TextSpan] = {
                 let v_lines: Vec<_> = paths.iter().filter(|p| p.is_vertical_line(2.0)).collect();
                 if !v_lines.is_empty() {
+                    // Rendered extents: a stroke-width-encoded column rule's
+                    // drawn bar spans the table height while its geometric
+                    // bbox is a ~0pt speck at the midline —
+                    // banding on the speck would filter out the table's own
+                    // spans.
                     let vline_y_min = v_lines
                         .iter()
-                        .map(|p| p.bbox.y)
+                        .map(|p| p.rendered_bbox().y)
                         .fold(f32::INFINITY, f32::min);
                     let vline_y_max = v_lines
                         .iter()
-                        .map(|p| p.bbox.y + p.bbox.height)
+                        .map(|p| {
+                            let r = p.rendered_bbox();
+                            r.y + r.height
+                        })
                         .fold(f32::NEG_INFINITY, f32::max);
                     // Small margin to include spans whose centres just touch the frame.
                     const V_MARGIN: f32 = 5.0;
@@ -21790,10 +22059,9 @@ impl PdfDocument {
                 for (i, val) in array.iter().take(6).enumerate() {
                     let num = if let Some(f) = val.as_real() {
                         f as f32
-                    } else if let Some(i_val) = val.as_integer() {
-                        i_val as f32
                     } else {
-                        return None;
+                        let i_val = val.as_integer()?;
+                        i_val as f32
                     };
                     values[i] = num;
                 }
@@ -24406,6 +24674,39 @@ mod tests {
         // spans without a separator and `3.80%` + `4.41%` came out as
         // `3.80%4.41%`. Large gap = different column = still a space.
         assert!(PdfDocument::should_insert_space(&prev, &current));
+    }
+
+    /// Stacked two-line column/table-header cell: `Comparison` drawn over
+    /// `rate` at a baseline drop that stays just under `same_line_threshold`,
+    /// so the caller treats them as one line and defers here. The two spans
+    /// horizontally OVERLAP (negative gap), which the positive-gap test would
+    /// reject — fusing them into `Comparisonrate`. A negative gap combined with
+    /// a real baseline shift is two stacked tokens (never intra-word kerning,
+    /// which shares a baseline), so a space must be inserted.
+    #[test]
+    fn test_stacked_cell_needs_space_overlapping_rows() {
+        // fs=12 → same_line_threshold = max(14.4, 3.6) = 14.4; y_diff = 8 stays
+        // under it (one line), gap = 20 - 60 = -40 (overlap).
+        let upper = make_test_span("Comparison", 0.0, 108.0, 60.0, 12.0);
+        let lower = make_test_span("rate", 20.0, 100.0, 25.0, 12.0);
+        assert!(
+            PdfDocument::stacked_cell_needs_space(&upper, &lower),
+            "stacked overlapping cells with a baseline shift must be separated by a space"
+        );
+    }
+
+    /// Guard: two spans on the SAME baseline that overlap by a couple points
+    /// (real intra-word kerning, e.g. `eigen`+`value` split by a font's tight
+    /// side-bearings) must NOT be flagged — the baseline shift is what
+    /// distinguishes a stacked cell from kerning.
+    #[test]
+    fn test_stacked_cell_same_baseline_overlap_is_kerning() {
+        let prev = make_test_span("eigen", 0.0, 100.0, 30.0, 12.0);
+        let current = make_test_span("value", 28.0, 100.0, 30.0, 12.0);
+        assert!(
+            !PdfDocument::stacked_cell_needs_space(&prev, &current),
+            "same-baseline overlap is intra-word kerning, not a word boundary"
+        );
     }
 
     /// Two glyphs of the same complex Brahmic script with an intra-word

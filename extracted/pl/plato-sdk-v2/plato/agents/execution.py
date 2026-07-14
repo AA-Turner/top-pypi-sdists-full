@@ -6,11 +6,11 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
-from plato.agents.warmpool import WarmPool
+from plato.agents.warmpool import AgentVMBudget, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
 from plato.runtimes.base import Runtime, RuntimeInfo
@@ -25,6 +25,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _WARM_POOL_RUN_ATTEMPTS = 2
+# Bound on the best-effort salvage git-over-SSH work when unwinding under
+# cancellation (timeout/hard-cancel), so a wedged salvage cannot delay the
+# VM teardown that must follow it.
+_SALVAGE_TIMEOUT_S = 60
 
 
 def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
@@ -46,6 +50,7 @@ class AgentExecutionManager:
         primary_mount: AgentWorkspaceMount | None = None,
         total_agents: int | None = None,
         min_warmpool_timeout: int = 43200,
+        vm_budget: AgentVMBudget | None = None,
     ) -> None:
         if agent_config.max_parallel is None:
             raise ValueError("AgentExecutionManager requires agent_config.max_parallel")
@@ -63,6 +68,7 @@ class AgentExecutionManager:
                 vm_timeout = agent_config.runtime.vm.timeout * total_agents
             vm_timeout = max(vm_timeout or 0, min_warmpool_timeout) if min_warmpool_timeout > 0 else vm_timeout
 
+        self._salvage_timeout = _SALVAGE_TIMEOUT_S
         self._warm_pool = WarmPool(
             runtime_factory=runtime_factory,
             image=agent_config.image,
@@ -72,6 +78,7 @@ class AgentExecutionManager:
             health_check_attempts=agent_config.ssh_probe_retries,
             reset_attempts=agent_config.ssh_probe_retries,
             vm_timeout=vm_timeout,
+            vm_budget=vm_budget,
         )
         self._integration_lock = asyncio.Lock()
 
@@ -127,13 +134,35 @@ class AgentExecutionManager:
                 successful_runtime = pooled_runtime
                 break
             except Exception as exc:
-                await self._warm_pool.release(
-                    pooled_runtime,
-                    workspace_paths=[mount.agent_path for mount in run_mounts],
-                    destroy=True,
-                )
+                giving_up = attempt >= _WARM_POOL_RUN_ATTEMPTS or not _is_retryable_warm_pool_run_error(exc)
+                # Salvage the failed agent's git state (committed + dirty +
+                # untracked) to a hidden ref BEFORE the VM is destroyed — but
+                # only when we are actually giving up, not between retries of a
+                # transient SSH error (the agent has not produced work yet).
+                # Time-bounded, and teardown is guaranteed by the ``finally``:
+                # a CancelledError raised while awaiting salvage inside this
+                # handler CANNOT be caught by the sibling BaseException handler
+                # below, so without the finally it would skip the release and
+                # leave the pool slot stuck in ``_in_use``.
+                try:
+                    if giving_up:
+                        with suppress(Exception):
+                            await asyncio.wait_for(
+                                self._salvage_failed_agent(
+                                    task, published_transport, run_mounts, pooled_runtime.runtime_info
+                                ),
+                                timeout=self._salvage_timeout,
+                            )
+                finally:
+                    await asyncio.shield(
+                        self._warm_pool.release(
+                            pooled_runtime,
+                            workspace_paths=[mount.agent_path for mount in run_mounts],
+                            destroy=True,
+                        )
+                    )
                 last_error = exc
-                if attempt >= _WARM_POOL_RUN_ATTEMPTS or not _is_retryable_warm_pool_run_error(exc):
+                if giving_up:
                     raise
                 logger.warning(
                     "Warm-pooled agent run failed with transient SSH error on %s "
@@ -143,6 +172,36 @@ class AgentExecutionManager:
                     _WARM_POOL_RUN_ATTEMPTS,
                 )
                 continue
+            except BaseException:
+                # CancelledError (asyncio.wait_for timeout on runner.run, or a
+                # workflow/task cancel) is NOT an Exception: without this
+                # handler the checked-out VM would stay in ``_in_use`` forever
+                # while its agent keeps running. Salvage the git state (shielded
+                # + time-bounded, since we are unwinding under cancellation),
+                # then destroy it; shield the teardown so a second cancellation
+                # cannot abandon it mid-release. The finally guarantees the
+                # release even if that second cancellation lands during salvage
+                # (CancelledError is not suppressed by suppress(Exception)).
+                try:
+                    with suppress(Exception):
+                        await asyncio.wait_for(
+                            asyncio.shield(
+                                self._salvage_failed_agent(
+                                    task, published_transport, run_mounts, pooled_runtime.runtime_info
+                                )
+                            ),
+                            timeout=self._salvage_timeout,
+                        )
+                finally:
+                    with suppress(Exception):
+                        await asyncio.shield(
+                            self._warm_pool.release(
+                                pooled_runtime,
+                                workspace_paths=[mount.agent_path for mount in run_mounts],
+                                destroy=True,
+                            )
+                        )
+                raise
         else:
             if last_error is not None:
                 raise last_error
@@ -151,9 +210,14 @@ class AgentExecutionManager:
         if agent_id is None or successful_runtime is None:
             raise RuntimeError(f"Agent task {task_name} did not produce a result")
 
-        await self._warm_pool.release(
-            successful_runtime,
-            workspace_paths=[mount.agent_path for mount in run_mounts],
+        # Shielded: a cancellation landing exactly during the success-path
+        # release must not abandon the VM half-returned (neither idle nor
+        # destroyed).
+        await asyncio.shield(
+            self._warm_pool.release(
+                successful_runtime,
+                workspace_paths=[mount.agent_path for mount in run_mounts],
+            )
         )
 
         # Only auto-merge if no review gate handled it AND the mount opts in.
@@ -272,6 +336,30 @@ class AgentExecutionManager:
             raise_on_conflict=False,
         )
         return _git_transport_from_mount(mounts[0])
+
+    async def _salvage_failed_agent(
+        self,
+        task: AgentTask,
+        transport: GitTransport | None,
+        run_mounts: list[AgentWorkspaceMount],
+        runtime_info: RuntimeInfo,
+    ) -> None:
+        """Best-effort capture of a failed agent's git state before VM teardown.
+
+        Records the resulting salvage ref/SHA on ``task`` (read back by the
+        workflow backend). NEVER raises: a salvage failure must not mask the
+        original agent error the caller is about to re-raise.
+        """
+        if transport is None or not run_mounts:
+            return
+        try:
+            salvaged = await transport.salvage_sync(runtime_info.hostname, run_mounts[0])
+        except Exception:
+            logger.warning("Salvage attempt raised for %s (best-effort)", runtime_info.runtime_id, exc_info=True)
+            return
+        if salvaged is not None:
+            task.salvage_ref = salvaged.ref
+            task.salvage_commit = salvaged.commit_sha
 
     async def _integrate_published_ref(
         self,

@@ -76,9 +76,7 @@ instance:
           "size": 42949672960,
           "sr": "Local storage",
           "sr_uuid": "0af1245e-bdb0-ba33-1446-57a962ec4075",
-          "uuid": "3f98b388-b2c0-4355-9a01-15c0e61b5a76",
-          "vbd_userdevice": "0",
-          "vdi_type": "vhd"
+          "vbd_userdevice": "0"
         },
         {
           "name": "testvm_11-1",
@@ -87,9 +85,7 @@ instance:
           "size": 42949672960,
           "sr": "Local storage",
           "sr_uuid": "0af1245e-bdb0-ba33-1446-57a962ec4075",
-          "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-          "vbd_userdevice": "1",
-          "vdi_type": "vhd"
+          "vbd_userdevice": "1"
         }
       ],
       "domid": "56",

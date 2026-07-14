@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.851
+Version: 0.4.852
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -209,6 +209,10 @@ experiments.run(cfg_geocif, n_trials=30)
 from geocif import yield_outlook
 yield_outlook.run(cfg_geocif)  # uses config defaults (10 years, mean)
 # yield_outlook.run(cfg_geocif, current_year=2026, n_years=10, aggregation="median")
+# Set [ML] report_lite = True (with make_maps = True) to also emit one
+# lightweight per-country PDF per run: cover + clickable TOC + "About GEOCIF" +
+# per-crop accuracy (rRMSEp scorecard, scatter), predicted-yield table, and
+# predicted/outlook maps for the best model by rRMSEp, plus references.
 ```
 
 ### Cropmask optimizers

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-documentai-toolbox
-Version: 0.17.0
+Version: 0.17.1
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-documentai-toolbox
 Author: Google LLC
 Author-email: googleapis-packages@google.com
@@ -34,7 +34,7 @@ Requires-Dist: numpy<3.0.0,>=1.23.5
 Requires-Dist: intervaltree>=3.0.0
 Requires-Dist: pikepdf<11.0.0,>=8.0.0
 Requires-Dist: immutabledict<5.0.0,>=2.0.0
-Requires-Dist: Pillow<12.0.0,>=10.0.0
+Requires-Dist: Pillow<13.0.0,>=10.0.0
 Requires-Dist: Jinja2<4.0.0,>=3.1.0
 Dynamic: author
 Dynamic: author-email

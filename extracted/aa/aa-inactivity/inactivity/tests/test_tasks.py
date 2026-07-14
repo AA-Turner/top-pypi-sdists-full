@@ -13,13 +13,8 @@ from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase
 
+from inactivity import tasks
 from inactivity.models import InactivityPing, Webhook
-from inactivity.tasks import (
-    check_inactivity,
-    check_inactivity_for_user,
-    send_inactivity_ping,
-    send_message_to_webhook,
-)
 from inactivity.tests.factories import (
     InactivityPingConfigFactory,
     InactivityPingFactory,
@@ -45,8 +40,12 @@ class TestSendInactivityPing(NoSocketsTestCase):
             ping_configs=[config],
             notification_types=[Webhook.NotificationType.INACTIVE_USER],
         )
+
         # when
-        send_inactivity_ping(user_pk=user.pk, config_pk=config.pk, last_login_at=now())
+        tasks.send_inactivity_ping(
+            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
+        )
+
         # then
         args, _ = mock_notify_user.call_args
         self.assertEqual(args[0], user)
@@ -93,8 +92,12 @@ class TestSendInactivityPing(NoSocketsTestCase):
             is_active=False,
             notification_types=[Webhook.NotificationType.INACTIVE_USER],
         )
+
         # when
-        send_inactivity_ping(user_pk=user.pk, config_pk=config.pk, last_login_at=now())
+        tasks.send_inactivity_ping(
+            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
+        )
+
         # then
         called_webhook_pks = {
             x[1]["kwargs"]["webhook_pk"]
@@ -108,8 +111,12 @@ class TestSendInactivityPing(NoSocketsTestCase):
         # given
         config = InactivityPingConfigFactory()
         user = UserMainRequestorFactory()
+
         # when
-        send_inactivity_ping(user_pk=user.pk, config_pk=config.pk, last_login_at=now())
+        tasks.send_inactivity_ping(
+            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
+        )
+
         # then
         args, _ = mock_notify_user.call_args
         self.assertEqual(args[0], user)
@@ -129,8 +136,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
             last_logout=last_login + dt.timedelta(hours=4),
         )
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertTrue(mock_send_inactivity_ping.apply_async.called)
 
@@ -145,8 +154,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
             last_logout=last_login + dt.timedelta(hours=4),
         )
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertFalse(mock_send_inactivity_ping.apply_async.called)
 
@@ -156,8 +167,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
         # given
         user = UserMainRequestorFactory()
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertFalse(mock_send_inactivity_ping.apply_async.called)
 
@@ -178,8 +191,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
             is_approved=True,
         )
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertFalse(mock_send_inactivity_ping.apply_async.called)
 
@@ -195,8 +210,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
         )
         config = InactivityPingConfigFactory(days=3)
         InactivityPingFactory(user=user, config=config)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertFalse(mock_send_inactivity_ping.apply_async.called)
 
@@ -217,8 +234,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
             is_approved=True,
         )
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertTrue(mock_send_inactivity_ping.apply_async.called)
 
@@ -239,8 +258,10 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
             is_approved=False,
         )
         InactivityPingConfigFactory(days=3)
+
         # when
-        check_inactivity_for_user(user_pk=user.pk)
+        tasks.check_inactivity_for_user(user_pk=user.pk)
+
         # then
         self.assertTrue(mock_send_inactivity_ping.apply_async.called)
 
@@ -255,8 +276,10 @@ class TestCheckInactivity(NoSocketsTestCase):
         user = UserMainRequestorFactory()
         CharacterFactory(user=user)
         UserMainRequestorFactory()  # will not be checked
+
         # when
-        check_inactivity()
+        tasks.check_inactivity()
+
         # then
         users_pks_checked = {
             obj[1]["kwargs"]["user_pk"]
@@ -269,8 +292,10 @@ class TestCheckInactivity(NoSocketsTestCase):
         user = UserMainRequestorFactory()
         CharacterFactory(user=user)
         UserMainRequestorFactory()  # will not be checked
+
         # when
-        check_inactivity()
+        tasks.check_inactivity()
+
         # then
         users_pks_checked = {
             obj[1]["kwargs"]["user_pk"]
@@ -294,8 +319,10 @@ class TestSendMessageToWebhook(NoSocketsTestCase):
     def test_send_message(self, mock_send, mock_cache_lock):
         # given
         webhook = WebhookFactory()
+
         # when
-        send_message_to_webhook(webhook.pk, "dummy")
+        tasks.send_message_to_webhook(webhook.pk, "dummy")
+
         # then
         self.assertTrue(mock_send.called)
 
@@ -310,9 +337,10 @@ class TestSendMessageToWebhook(NoSocketsTestCase):
         )
         mock_send.side_effect = my_exception
         webhook = WebhookFactory()
+
         # when/then
         with self.assertRaises(CeleryRetry):
-            send_message_to_webhook(webhook.pk, "dummy")
+            tasks.send_message_to_webhook(webhook.pk, "dummy")
 
     def test_raise_error_when_other_http_error(self, mock_send, mock_cache_lock):
         # given
@@ -322,6 +350,7 @@ class TestSendMessageToWebhook(NoSocketsTestCase):
         )
         mock_send.side_effect = my_exception
         webhook = WebhookFactory()
+
         # when/then
         with self.assertRaises(discord.HTTPException):
-            send_message_to_webhook(webhook.pk, "dummy")
+            tasks.send_message_to_webhook(webhook.pk, "dummy")

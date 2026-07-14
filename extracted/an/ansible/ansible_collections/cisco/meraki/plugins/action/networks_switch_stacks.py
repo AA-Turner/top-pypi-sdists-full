@@ -52,7 +52,7 @@ class NetworksSwitchStacks(object):
         self.new_object = dict(
             name=params.get("name"),
             serials=params.get("serials"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             switch_stack_id=params.get("switchStackId"),
         )
 
@@ -175,7 +175,9 @@ class NetworksSwitchStacks(object):
 
         obj_params = [
             ("name", "name"),
-            ("serials", "serials"), ("switchStackId", "switchStackId"),
+            ("serials", "serials"),
+            ("networkId", "networkId"),
+            ("switchStackId", "switchStackId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

@@ -1003,13 +1003,20 @@ class Book:
         )
         await self.flush()
 
-    async def load(self) -> Book:
-        """Loads the book's current data from Excel on demand.
+    async def load(self, values: bool | None = None) -> Book:
+        """(Re)loads the book's data from Excel on demand.
+
+        On an async book (see `xw.BookAsync`), this loads only *metadata*
+        (tables, pictures, names) by default — not cell values — since
+        bulk-loading values would defeat the point of the async API. Pass
+        `values=True` to also snapshot all cell values, after which sync
+        `.value` reads work again. On a regular book, everything including
+        values is loaded regardless.
 
         Requires xlwings Lite.
 
         """
-        await self.impl.load()
+        await self.impl.load(values=values)
         return self
 
     def __eq__(self, other: object) -> bool:
@@ -1347,6 +1354,30 @@ class Book:
         self.close()
 
 
+class BookAsync(Book):
+    """Type hint for the async API in xlwings Lite scripts.
+
+    Annotate a script's `book` parameter with `xw.BookAsync` to opt into the
+    async, on-demand API --- no cell values are pre-loaded, and you read them via
+    `await myrange.get_value()`:
+
+    ```python
+    import xlwings as xw
+    from xlwings import script
+
+    @script
+    async def myfunc(book: xw.BookAsync):
+        data = await book.sheets[0]["A1:B2"].get_value()
+    ```
+
+    At runtime it's a plain `Book`; the annotation only signals
+    xlwings Lite to skip loading the values of the entire book up front.
+
+    ```{versionadded} 0.36.9
+    ```
+    """
+
+
 class Sheet:
     """A sheet object is a member of the `sheets` collection:
 
@@ -1488,13 +1519,17 @@ class Sheet:
         self.book.activate()
         return self.impl.activate()
 
-    async def load(self) -> Sheet:
-        """Loads the sheet's current data from Excel on demand.
+    async def load(self, values: bool | None = None) -> Sheet:
+        """(Re)loads the sheet's data from Excel on demand.
+
+        Like `Book.load`, this loads only *metadata* by default on an async book
+        and everything (including values) on a regular book. Pass `values=True`
+        to also load this sheet's cell values.
 
         Requires xlwings Lite.
 
         """
-        await self.impl.load()
+        await self.impl.load(values=values)
         return self
 
     def select(self) -> None:
@@ -4885,8 +4920,10 @@ class Books(Collection[Book]):
         return Book(impl=self.impl.active)
 
     async def get_active(self) -> Book:
-        """Returns the active Book without pre-loading values (lazy loading).
+        """Returns the active Book without pre-loading values.
 
+        This is the entry point to the async API, which reads on demand
+        (lazy loading) instead of snapshotting the whole workbook up front.
         Requires xlwings Lite.
 
         Use `await myrange.get_value()` to read cell values on demand.

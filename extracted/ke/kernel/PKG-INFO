@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kernel
-Version: 0.76.0
+Version: 0.78.0
 Summary: The official Python library for the kernel API
 Project-URL: Homepage, https://github.com/kernel/kernel-python-sdk
 Project-URL: Repository, https://github.com/kernel/kernel-python-sdk

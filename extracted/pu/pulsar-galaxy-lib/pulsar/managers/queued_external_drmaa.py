@@ -5,10 +5,7 @@ from .base.base_drmaa import BaseDrmaaManager
 from .util.sudo import sudo_popen
 from ..managers import status
 
-try:
-    from galaxy.tools.deps.commands import which
-except ImportError:
-    from galaxy.tool_util.deps.commands import which
+from galaxy.util import which
 
 from logging import getLogger
 
@@ -32,7 +29,7 @@ class ExternalDrmaaQueueManager(BaseDrmaaManager):
         self.drmaa_launch_script = _handle_default(kwds.get('drmaa_launch_script', None), "drmaa_launch")
         self.production = str(kwds.get('production', "true")).lower() != "false"
         self.reclaimed = {}
-        self.user_map = {}
+        self.user_map: dict[str, str] = {}
 
     def launch(self, job_id, command_line, submit_params={}, dependencies_description=None, env=[], setup_params=None):
         self._check_execution_with_tool_file(job_id, command_line)
@@ -69,7 +66,7 @@ class ExternalDrmaaQueueManager(BaseDrmaaManager):
             self.__change_ownership(job_id, getuser())
         return external_status
 
-    def __launch(self, job_attributes, user):
+    def __launch(self, job_attributes, user) -> str:
         return self.__sudo(self.drmaa_launch_script, "--job_attributes", str(job_attributes), user=user)
 
     def __change_ownership(self, job_id, username):
@@ -84,7 +81,7 @@ class ExternalDrmaaQueueManager(BaseDrmaaManager):
         # TODO: Verify ownership change.
         self.__sudo(*cmds)
 
-    def __sudo(self, *cmds, **kwargs):
+    def __sudo(self, *cmds, **kwargs) -> str:
         p = sudo_popen(*cmds, **kwargs)
         stdout, stderr = p.communicate()
         assert p.returncode == 0, "{}, {}".format(stdout, stderr)

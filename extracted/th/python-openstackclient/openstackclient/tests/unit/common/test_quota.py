@@ -135,10 +135,7 @@ class TestQuotaList(TestQuota):
             self.network_quotas[0].networks,
             self.network_quotas[0].ports,
             self.network_quotas[0].rbac_policies,
-            # TODO(ralonsoh): restore once [1] is merged and released.
-            # [1]https://review.opendev.org/c/openstack/openstacksdk/+/991063
-            # self.network_quotas[0].router_routes,
-            getattr(self.network_quotas[0], 'router_routes', ''),
+            self.network_quotas[0].router_routes,
             self.network_quotas[0].routers,
             self.network_quotas[0].security_groups,
             self.network_quotas[0].security_group_rules,
@@ -154,7 +151,7 @@ class TestQuotaList(TestQuota):
             _volume_quota_set.QuotaSet
         )
         # the defaults are global hence use of return_value here
-        self.volume_sdk_client.get_quota_set_defaults.return_value = (
+        self.volume_client.get_quota_set_defaults.return_value = (
             self.default_volume_quotas
         )
         self.volume_reference_data = (
@@ -340,7 +337,7 @@ class TestQuotaList(TestQuota):
 
     def test_quota_list_volume(self):
         # Two projects with non-default quotas
-        self.volume_sdk_client.get_quota_set.side_effect = self.volume_quotas
+        self.volume_client.get_quota_set.side_effect = self.volume_quotas
 
         arglist = [
             '--volume',
@@ -359,7 +356,7 @@ class TestQuotaList(TestQuota):
 
     def test_quota_list_volume_default(self):
         # Two projects with non-default quotas
-        self.volume_sdk_client.get_quota_set.side_effect = [
+        self.volume_client.get_quota_set.side_effect = [
             self.volume_quotas[0],
             self.default_volume_quotas,
         ]
@@ -511,7 +508,7 @@ class TestQuotaSet(TestQuota):
             'per_volume_gigabytes': per_volume_gigabytes,
         }
 
-        self.volume_sdk_client.update_quota_set.assert_called_once_with(
+        self.volume_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs
         )
 
@@ -568,7 +565,7 @@ class TestQuotaSet(TestQuota):
             'per_volume_gigabytes': per_volume_gigabytes,
         }
 
-        self.volume_sdk_client.update_quota_set.assert_called_once_with(
+        self.volume_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs
         )
         self.assertIsNone(result)
@@ -735,7 +732,7 @@ class TestQuotaSet(TestQuota):
         self.compute_client.update_quota_class_set.assert_called_with(
             self.projects[0].name, **kwargs_compute
         )
-        self.volume_sdk_client.update_quota_class_set.assert_called_with(
+        self.volume_client.update_quota_class_set.assert_called_with(
             self.projects[0].name, **kwargs_volume
         )
         self.assertNotCalled(self.network_client.update_quota)
@@ -833,7 +830,7 @@ class TestQuotaSet(TestQuota):
         self.compute_client.update_quota_class_set.assert_called_with(
             'default', **kwargs_compute
         )
-        self.volume_sdk_client.update_quota_class_set.assert_called_with(
+        self.volume_client.update_quota_class_set.assert_called_with(
             'default', **kwargs_volume
         )
         self.assertNotCalled(self.network_client.update_quota)
@@ -890,7 +887,7 @@ class TestQuotaSet(TestQuota):
         self.compute_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs_compute
         )
-        self.volume_sdk_client.update_quota_set.assert_called_once_with(
+        self.volume_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs_volume
         )
         self.network_client.update_quota.assert_called_once_with(
@@ -933,7 +930,7 @@ class TestQuotaSet(TestQuota):
         self.compute_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs_compute
         )
-        self.volume_sdk_client.update_quota_set.assert_called_once_with(
+        self.volume_client.update_quota_set.assert_called_once_with(
             self.projects[0].id, **kwargs_volume
         )
         self.network_client.update_quota.assert_called_once_with(
@@ -976,13 +973,13 @@ class TestQuotaShow(TestQuota):
             self.default_compute_quotas
         )
 
-        self.volume_sdk_client.get_quota_set.return_value = (
+        self.volume_client.get_quota_set.return_value = (
             sdk_fakes.generate_fake_resource(_volume_quota_set.QuotaSet)
         )
         self.default_volume_quotas = sdk_fakes.generate_fake_resource(
             _volume_quota_set.QuotaSet
         )
-        self.volume_sdk_client.get_quota_set_defaults.return_value = (
+        self.volume_client.get_quota_set_defaults.return_value = (
             self.default_volume_quotas
         )
 
@@ -1020,7 +1017,7 @@ class TestQuotaShow(TestQuota):
             self.projects[0].id,
             usage=False,
         )
-        self.volume_sdk_client.get_quota_set.assert_called_once_with(
+        self.volume_client.get_quota_set.assert_called_once_with(
             self.projects[0].id,
             usage=False,
         )
@@ -1047,7 +1044,7 @@ class TestQuotaShow(TestQuota):
         self.cmd.take_action(parsed_args)
 
         self.compute_client.get_quota_set.assert_not_called()
-        self.volume_sdk_client.get_quota_set.assert_not_called()
+        self.volume_client.get_quota_set.assert_not_called()
         self.network_client.get_quota.assert_not_called()
 
     def test_quota_show__with_compute(self):
@@ -1067,7 +1064,7 @@ class TestQuotaShow(TestQuota):
             self.projects[0].id,
             usage=False,
         )
-        self.volume_sdk_client.get_quota_set.assert_not_called()
+        self.volume_client.get_quota_set.assert_not_called()
         self.network_client.get_quota.assert_not_called()
 
     def test_quota_show__with_volume(self):
@@ -1084,7 +1081,7 @@ class TestQuotaShow(TestQuota):
         self.cmd.take_action(parsed_args)
 
         self.compute_client.get_quota_set.assert_not_called()
-        self.volume_sdk_client.get_quota_set.assert_called_once_with(
+        self.volume_client.get_quota_set.assert_called_once_with(
             self.projects[0].id,
             usage=False,
         )
@@ -1104,7 +1101,7 @@ class TestQuotaShow(TestQuota):
         self.cmd.take_action(parsed_args)
 
         self.compute_client.get_quota_set.assert_not_called()
-        self.volume_sdk_client.get_quota_set.assert_not_called()
+        self.volume_client.get_quota_set.assert_not_called()
         self.network_client.get_quota.assert_called_once_with(
             self.projects[0].id,
             details=False,
@@ -1163,7 +1160,7 @@ class TestQuotaShow(TestQuota):
         )
 
         self.compute_client.get_quota_set.assert_not_called()
-        self.volume_sdk_client.get_quota_set.assert_not_called()
+        self.volume_client.get_quota_set.assert_not_called()
         self.network_client.get_quota.assert_called_once_with(
             self.projects[0].id,
             details=True,
@@ -1186,7 +1183,7 @@ class TestQuotaShow(TestQuota):
         self.compute_client.get_quota_set_defaults.assert_called_once_with(
             self.projects[0].id,
         )
-        self.volume_sdk_client.get_quota_set_defaults.assert_called_once_with(
+        self.volume_client.get_quota_set_defaults.assert_called_once_with(
             self.projects[0].id,
         )
         self.network_client.get_quota_default.assert_called_once_with(
@@ -1211,7 +1208,7 @@ class TestQuotaShow(TestQuota):
             self.projects[0].id,
             usage=True,
         )
-        self.volume_sdk_client.get_quota_set.assert_called_once_with(
+        self.volume_client.get_quota_set.assert_called_once_with(
             self.projects[0].id,
             usage=True,
         )
@@ -1219,6 +1216,22 @@ class TestQuotaShow(TestQuota):
             self.projects[0].id,
             details=True,
         )
+
+    def test_quota_show__keypairs_usage_is_always_na(self):
+        """Verify that key-pair usage is overridden to N/A for project views."""
+        arglist = [
+            '--usage',
+            self.projects[0].name,
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, [('usage', True)])
+
+        _, data = self.cmd.take_action(parsed_args)
+
+        keypair_row = [row for row in data if row[0] == 'key-pairs']
+
+        self.assertTrue(keypair_row, "key-pairs row was missing from output")
+        # Ensure the third column (In Use / Usage) is exactly "N/A"
+        self.assertEqual("N/A", keypair_row[0][2])
 
     def test_quota_show__no_project(self):
         arglist = []
@@ -1232,7 +1245,7 @@ class TestQuotaShow(TestQuota):
         self.compute_client.get_quota_set.assert_called_once_with(
             self.projects[1].id, usage=False
         )
-        self.volume_sdk_client.get_quota_set.assert_called_once_with(
+        self.volume_client.get_quota_set.assert_called_once_with(
             self.projects[1].id, usage=False
         )
         self.network_client.get_quota.assert_called_once_with(
@@ -1250,7 +1263,7 @@ class TestQuotaDelete(TestQuota):
         self.identity_sdk_client.find_project.return_value = self.projects[0]
 
         self.compute_client.revert_quota_set.return_value = None
-        self.volume_sdk_client.revert_quota_set.return_value = None
+        self.volume_client.revert_quota_set.return_value = None
         self.network_client.delete_quota.return_value = None
 
         self.cmd = quota.DeleteQuota(self.app, None)
@@ -1276,7 +1289,7 @@ class TestQuotaDelete(TestQuota):
         self.compute_client.revert_quota_set.assert_called_once_with(
             self.projects[0].id,
         )
-        self.volume_sdk_client.revert_quota_set.assert_called_once_with(
+        self.volume_client.revert_quota_set.assert_called_once_with(
             self.projects[0].id,
         )
         self.network_client.delete_quota.assert_called_once_with(
@@ -1305,7 +1318,7 @@ class TestQuotaDelete(TestQuota):
         self.compute_client.revert_quota_set.assert_called_once_with(
             self.projects[0].id,
         )
-        self.volume_sdk_client.revert_quota_set.assert_not_called()
+        self.volume_client.revert_quota_set.assert_not_called()
         self.network_client.delete_quota.assert_not_called()
 
     def test_delete__volume(self):
@@ -1328,7 +1341,7 @@ class TestQuotaDelete(TestQuota):
             self.projects[0].id, ignore_missing=False
         )
         self.compute_client.revert_quota_set.assert_not_called()
-        self.volume_sdk_client.revert_quota_set.assert_called_once_with(
+        self.volume_client.revert_quota_set.assert_called_once_with(
             self.projects[0].id,
         )
         self.network_client.delete_quota.assert_not_called()
@@ -1353,7 +1366,7 @@ class TestQuotaDelete(TestQuota):
             self.projects[0].id, ignore_missing=False
         )
         self.compute_client.revert_quota_set.assert_not_called()
-        self.volume_sdk_client.revert_quota_set.assert_not_called()
+        self.volume_client.revert_quota_set.assert_not_called()
         self.network_client.delete_quota.assert_called_once_with(
             self.projects[0].id,
         )

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 from arelle import ViewWinTree, XbrlConst, Locale
 from arelle.ModelInstanceObject import ModelFact
@@ -29,7 +29,7 @@ _: TypeGetText
 def viewRelationshipSet(
     modelXbrl: ModelXbrl,
     tabWin: Notebook,
-    arcrole: str | list[Any] | tuple[Any, ...],
+    arcrole: str | tuple[str, Sequence[str]],
     linkrole: str | None = None,
     linkqname: QName | None = None,
     arcqname: QName | None = None,
@@ -42,8 +42,8 @@ def viewRelationshipSet(
     hasTableIndex: bool = False,
     noRelationshipsMsg: bool = True,
 ) -> bool:
-    arcroleName = groupRelationshipLabel(arcrole)  # type: ignore[no-untyped-call]
-    relationshipSet = groupRelationshipSet(modelXbrl, arcrole, linkrole, linkqname, arcqname)  # type: ignore[no-untyped-call]
+    arcroleName = groupRelationshipLabel(arcrole)
+    relationshipSet = groupRelationshipSet(modelXbrl, arcrole, linkrole, linkqname, arcqname)
     if not relationshipSet:
         if noRelationshipsMsg:
             modelXbrl.modelManager.addToLog(_("no relationships for {0}").format(arcroleName))
@@ -74,7 +74,7 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
         self,
         modelXbrl: ModelXbrl,
         tabWin: Notebook,
-        arcrole: str | list[Any] | tuple[Any, ...],
+        arcrole: str | tuple[str, Sequence[str]],
         linkrole: str | None = None,
         linkqname: QName | None = None,
         arcqname: QName | None = None,
@@ -110,15 +110,15 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
         self.tag_has: defaultdict[str, list[str]] = defaultdict(list) # temporary until Tk 8.6
         # relationship set based on linkrole parameter, to determine applicable linkroles
         if relationshipSet is None:
-            relationshipSet = groupRelationshipSet(self.modelXbrl, self.arcrole, self.linkrole, self.linkqname, self.arcqname)  # type: ignore[no-untyped-call]
+            relationshipSet = groupRelationshipSet(self.modelXbrl, self.arcrole, self.linkrole, self.linkqname, self.arcqname)
         if not relationshipSet:
-            self.modelXbrl.modelManager.addToLog(_("no relationships for {0}").format(groupRelationshipLabel(self.arcrole)))  # type: ignore[no-untyped-call]
+            self.modelXbrl.modelManager.addToLog(_("no relationships for {0}").format(groupRelationshipLabel(self.arcrole)))
             return False
 
         if firstTime:
             self.showReferences = False
             # set up treeView widget and tabbed pane
-            hdr = self.treeColHdr if self.treeColHdr else _("{0} Relationships").format(groupRelationshipLabel(self.arcrole))  # type: ignore[no-untyped-call]
+            hdr = self.treeColHdr if self.treeColHdr else _("{0} Relationships").format(groupRelationshipLabel(self.arcrole))
             self.treeView.heading("#0", text=hdr)
             if self.showColumns:
                 if self.arcrole == XbrlConst.parentChild: # extra columns
@@ -196,7 +196,7 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
             if modelRoleTypes:
                 roledefinition = ((self.hasTableIndex and getattr(modelRoleTypes[0], "_tableIndex", False)) or
                                   self.modelXbrl.roleTypeDefinition(linkroleUri, self.lang))
-                roleId = modelRoleTypes[0].objectId(self.id)  # type: ignore[arg-type]
+                roleId = modelRoleTypes[0].objectId(self.id)
                 if (self.hasTableIndex and hasattr(modelRoleTypes[0], "_tableChildren")):
                     linkroleUriChildren[linkroleUri] = [roleType.roleURI
                                                         for roleType in modelRoleTypes[0]._tableChildren]
@@ -244,9 +244,9 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
             else:
                 linknode = ""
             if self.showRelationships:
-                linkRelationshipSet = groupRelationshipSet(self.modelXbrl, self.arcrole, linkroleUri, self.linkqname, self.arcqname)  # type: ignore[no-untyped-call]
+                linkRelationshipSet = groupRelationshipSet(self.modelXbrl, self.arcrole, linkroleUri, self.linkqname, self.arcqname)
                 for rootConcept in linkRelationshipSet.rootConcepts:
-                    self.viewConcept(rootConcept, rootConcept, "", self.labelrole, linknode, 1, linkRelationshipSet, set())
+                    self.viewConcept(rootConcept, rootConcept, "", self.labelrole, linknode, 1, linkRelationshipSet, set())  # type: ignore[arg-type]
                     self.tag_has[linkroleUri].append(linknode)
 
         if self.expandAllOnFirstDisplay:
@@ -294,7 +294,7 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
                 # add recognized attributes
                 if concept.localName == "enumeration" and concept.get("value"):
                     text += ' {}="{}"'.format("value", concept.get("value"))
-            childnode = self.treeView.insert(parentnode, "end", modelObject.objectId(self.id), text=text, tags=("odd" if n & 1 else "even",))  # type: ignore[arg-type]
+            childnode = self.treeView.insert(parentnode, "end", modelObject.objectId(self.id), text=text, tags=("odd" if n & 1 else "even",))
             childRelationshipSet = relationshipSet
             if self.arcrole == XbrlConst.parentChild: # extra columns
                 if isRelation:
@@ -303,7 +303,7 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
                         preferredLabel = os.path.basename(preferredLabel)
                     self.treeView.set(childnode, "preferredLabel", preferredLabel)
                 self.treeView.set(childnode, "type", concept.niceType)  # type: ignore[union-attr]
-                self.treeView.set(childnode, "references", viewReferences(concept))  # type: ignore[no-untyped-call]
+                self.treeView.set(childnode, "references", viewReferences(concept))  # type: ignore[arg-type]
             elif hasCalcArcrole(self.arcrole):  # type: ignore[arg-type]
                 if isRelation:
                     self.treeView.set(childnode, "weight", "{:+0g} ".format(modelObject.weight))  # type: ignore[attr-defined]
@@ -367,7 +367,7 @@ class ViewRelationshipSet(ViewWinTree.ViewTree):
                         fallbackToQname=False,
                     )
                 )
-                self.treeView.set(childnode, "references", viewReferences(concept))  # type: ignore[no-untyped-call]
+                self.treeView.set(childnode, "references", viewReferences(concept))  # type: ignore[arg-type]
             elif self.isResourceArcrole: # resource columns
                 if isRelation:
                     self.treeView.set(childnode, "arcrole", os.path.basename(modelObject.arcrole))  # type: ignore[attr-defined]

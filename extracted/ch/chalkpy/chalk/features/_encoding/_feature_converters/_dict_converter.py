@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from typing import (
     Any,
     ClassVar,
@@ -12,7 +11,6 @@ from typing import (
 )
 
 import pyarrow as pa
-import pyarrow.feather as pf
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -27,6 +25,7 @@ from chalk.features._encoding.pyarrow import (
     pyarrow_to_primitive,
     rich_to_pyarrow,
 )
+from chalk.utils.df_utils import table_from_arrow_ipc, table_to_arrow_ipc
 from chalk.utils.json import TJSON
 
 from ._base import (
@@ -524,15 +523,15 @@ class DictFeatureConverter(FeatureConverter["dict[str, Any]", "dict[str, Any]"])
             return pb.ScalarValue(null_value=self._null_proto)
         values = value.values  # backing StructArray of [{"key": k, "value": v}, ...]
         table = pa.Table.from_arrays([values], names=["values"])
-        buf = BytesIO()
-        pf.write_feather(table, dest=buf, compression=None)
         return pb.ScalarValue(
-            map_value=pb.ScalarListValue(arrow_data=buf.getvalue(), schema=self._pb_schema)
+            map_value=pb.ScalarListValue(
+                arrow_data=table_to_arrow_ipc(table, compression="lz4"), schema=self._pb_schema
+            )
         )
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
             return pa.nulls(1, type=self._pa_map_type)[0]
         value = pb_value.map_value
-        arr = pf.read_table(BytesIO(value.arrow_data)).column(0).combine_chunks()
+        arr = table_from_arrow_ipc(value.arrow_data).column(0).combine_chunks()
         return pa.scalar(arr.to_pylist(), self._pa_map_type)

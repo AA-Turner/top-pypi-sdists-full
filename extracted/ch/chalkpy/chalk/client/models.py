@@ -543,6 +543,23 @@ class OnlineQueryRequest(BaseModel):
     query_context: Optional[ContextJsonDict] = None
     value_metrics_tag_by_features: Tuple[str, ...] = ()
     overlay_graph: Optional[str] = None  # base64-encoded chalk.graph.v1.OverlayGraph proto
+    input_schema_hint: Optional[Mapping[str, str]] = None
+    """
+    This is an optional mapping used to specify the intended schema of a has_many input,
+    which is used in cases where the schema cannot be inferred from the values (e.g. if the input is empty).
+
+    It maps the name of an input column to a projection string describing its columns. Example:
+    ```
+    input_schema_hint = { "user.txns": "user.txns[txn.id,txn.amount]" }
+    ```
+    specifies that the input `user.txns` has schema `User.txns[Txn.id, Txn.amount]`.
+
+    The has_many value itself is passed as a list-of-structs like `User.txns: [Txn(id=1, amount=123)]`,
+    which means that if it's empty as in `User.txns: []` the "set of passed columns" is ambiguous.
+
+    This schema ambiguity causes the server to guess the schema of the has_many, which will impact
+    whether we can re-use a cached query plan or need to construct a new query plan.
+    """
 
 
 @dataclasses.dataclass
@@ -592,6 +609,8 @@ class OnlineQueryManyRequest(BaseModel):
     encoding_options: FeatureEncodingOptions = FeatureEncodingOptions()
     value_metrics_tag_by_features: Tuple[str, ...] = ()
     overlay_graph: Optional[str] = None
+    input_schema_hint: Optional[Mapping[str, str]] = None
+    """See `OnlineQueryRequest.input_schema_hint`."""
 
 
 class MultiUploadFeaturesRequest(ByteBaseModel):

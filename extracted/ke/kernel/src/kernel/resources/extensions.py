@@ -62,6 +62,7 @@ class ExtensionsResource(SyncAPIResource):
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -77,9 +78,15 @@ class ExtensionsResource(SyncAPIResource):
         Args:
           limit: Limit the number of extensions to return.
 
+          name: Exact-match filter on extension name using the database collation. In
+              production, matching is case- and accent-insensitive. During the default-project
+              migration, unscoped requests prefer a concrete default-project extension over a
+              legacy unscoped extension with the same name.
+
           offset: Offset the number of extensions to return.
 
-          query: Search extensions by name or ID.
+          query: Case-insensitive substring match against extension name. IDs match by exact
+              value.
 
           extra_headers: Send extra headers
 
@@ -100,6 +107,7 @@ class ExtensionsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },
@@ -338,6 +346,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -353,9 +362,15 @@ class AsyncExtensionsResource(AsyncAPIResource):
         Args:
           limit: Limit the number of extensions to return.
 
+          name: Exact-match filter on extension name using the database collation. In
+              production, matching is case- and accent-insensitive. During the default-project
+              migration, unscoped requests prefer a concrete default-project extension over a
+              legacy unscoped extension with the same name.
+
           offset: Offset the number of extensions to return.
 
-          query: Search extensions by name or ID.
+          query: Case-insensitive substring match against extension name. IDs match by exact
+              value.
 
           extra_headers: Send extra headers
 
@@ -376,6 +391,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },

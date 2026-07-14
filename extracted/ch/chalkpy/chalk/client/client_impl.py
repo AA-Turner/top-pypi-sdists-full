@@ -45,7 +45,6 @@ from typing import (
 from urllib.parse import urljoin
 
 import pyarrow as pa
-import pyarrow.feather
 import requests
 import requests.structures
 from requests import HTTPError
@@ -181,7 +180,12 @@ from chalk.features import (
     live_updates,
     unwrap_feature,
 )
-from chalk.features._encoding.inputs import recursive_encode_inputs, validate_iterable_values_in_mapping
+from chalk.features._encoding.inputs import (
+    InputSchemaHint,
+    input_schema_hint_to_projection_strings,
+    recursive_encode_inputs,
+    validate_iterable_values_in_mapping,
+)
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features._encoding.outputs import encode_outputs, encode_partition_expr
 from chalk.features.feature_set import Features, is_feature_set_class
@@ -205,7 +209,7 @@ from chalk.scalinggroup.spec import (
 )
 from chalk.utils import notebook
 from chalk.utils.collections import FrozenOrderedSet
-from chalk.utils.df_utils import chunk_table, pa_table_to_pl_df
+from chalk.utils.df_utils import chunk_table, pa_table_to_pl_df, table_from_arrow_ipc, table_to_arrow_ipc
 from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration, translate_windowed_fqn
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
@@ -229,6 +233,7 @@ if TYPE_CHECKING:
     from chalk.client._chalkdf_import import ChalkDfDataFrame
     from chalk.client._internal_models.check import Result
     from chalk.client.client_grpc import ChalkGRPCClient
+    from chalk.queries.named_query import NamedQuery
     from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
 
     QueryInput = Union[Mapping[FeatureReference, Any], pd.DataFrame, pl.DataFrame, DataFrame]
@@ -1946,7 +1951,7 @@ https://docs.chalk.ai/cli/apply
         correlation_id: Optional[str] = None,
         meta: Optional[Mapping[str, str]] = None,
     ) -> Optional[List[ChalkError]]:
-        table_compression = "uncompressed"
+        table_compression: Literal["lz4", "zstd", "uncompressed"] = "uncompressed"
         try:
             tables = to_multi_upload_inputs(input)
         except ChalkBaseException as e:
@@ -1964,18 +1969,13 @@ https://docs.chalk.ai/cli/apply
                 )
             ]
 
-        import pyarrow.feather
-
         errors: List[ChalkError] = []
         for table in tables:
             features: List[str] = [field.name for field in table.schema]
-            table_buffer = BytesIO()
-            pyarrow.feather.write_feather(table, dest=table_buffer, compression=table_compression)
-            table_buffer.seek(0)
             request = MultiUploadFeaturesRequest(
                 features=features,
                 table_compression=table_compression,
-                table_bytes=table_buffer.getvalue(),
+                table_bytes=table_to_arrow_ipc(table, compression=table_compression),
             )
             resp = self._request(
                 method="POST",
@@ -2213,6 +2213,7 @@ https://docs.chalk.ai/cli/apply
         trace: bool = False,
         translate_fqns: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> OnlineQueryResponseImpl:
         trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("query"):
@@ -2273,6 +2274,13 @@ https://docs.chalk.ai/cli/apply
                 value_metrics_tag_by_features=tuple(encoded_value_metrics_tag_by_features),
                 query_context=_validate_context_dict(query_context),
                 overlay_graph=_get_overlay_graph_b64(),
+                # Servers that predate this field ignore it (and then cannot pin the schema of
+                # empty has-many givens, exactly as before).
+                input_schema_hint=(
+                    input_schema_hint_to_projection_strings(input_schema_hint)
+                    if input_schema_hint is not None
+                    else None
+                ),
             )
 
             resp = self._request(
@@ -2387,7 +2395,7 @@ https://docs.chalk.ai/cli/apply
                     else None
                 )
                 if single_feather_result.has_data:
-                    scalars_pa = pyarrow.feather.read_table(BytesIO(single_feather_result.scalar_data))
+                    scalars_pa = table_from_arrow_ipc(single_feather_result.scalar_data)
                     scalars_pl = pa_table_to_pl_df(scalars_pa)
                     scalars_df = scalars_pl
 
@@ -2396,7 +2404,7 @@ https://docs.chalk.ai/cli/apply
                         feature_name,
                         feature_results_bytes,
                     ) in single_feather_result.groups_data.items():
-                        feature_pa = pyarrow.feather.read_table(BytesIO(feature_results_bytes))
+                        feature_pa = table_from_arrow_ipc(feature_results_bytes)
                         feature_pl = pa_table_to_pl_df(feature_pa)
                         groups_dfs[feature_name] = feature_pl
 
@@ -2521,7 +2529,6 @@ https://docs.chalk.ai/cli/apply
         )
 
         import polars as pl
-        import pyarrow.feather
 
         assert (
             resp.headers.get("Content-Type") == "application/octet-stream"
@@ -2543,7 +2550,7 @@ https://docs.chalk.ai/cli/apply
                 else None
             )
             if single_feather_result.has_data:
-                scalars_pa = pyarrow.feather.read_table(BytesIO(single_feather_result.scalar_data))
+                scalars_pa = table_from_arrow_ipc(single_feather_result.scalar_data)
                 scalars_pl = pa_table_to_pl_df(scalars_pa)
                 assert isinstance(scalars_pl, pl.DataFrame)
                 scalars_df = scalars_pl
@@ -2553,7 +2560,7 @@ https://docs.chalk.ai/cli/apply
                     feature_name,
                     feature_results_bytes,
                 ) in single_feather_result.groups_data.items():
-                    feature_pa = pyarrow.feather.read_table(BytesIO(feature_results_bytes))
+                    feature_pa = table_from_arrow_ipc(feature_results_bytes)
                     feature_pl = pa_table_to_pl_df(feature_pa)
                     groups_dfs[feature_name] = feature_pl
 
@@ -5126,8 +5133,8 @@ https://docs.chalk.ai/cli/apply
     @override
     def plan_query(
         self,
-        input: Sequence[FeatureReference],
-        output: Sequence[FeatureReference],
+        input: Optional[Sequence[FeatureReference]] = None,
+        output: Optional[Sequence[FeatureReference]] = None,
         staleness: Optional[Mapping[FeatureReference, str]] = None,
         environment: Optional[EnvironmentId] = None,
         tags: Optional[List[str]] = None,
@@ -5141,7 +5148,50 @@ https://docs.chalk.ai/cli/apply
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
         planner_options: Mapping[str, Any] | None = None,
+        named_query: Optional[NamedQuery] = None,
     ) -> PlanQueryResponse:
+        if named_query is not None:
+            if named_query.errors:
+                errors_str = "\n".join(str(e) for e in named_query.errors)
+                raise ValueError(f"Cannot plan named query '{named_query.name}' because it has errors:\n{errors_str}")
+            # A `named_query` is the complete source of truth for these fields, and takes
+            # precedence over any overlapping arguments that were also passed. Warn about
+            # ignored arguments so the caller isn't surprised that their values had no effect.
+            ignored_args = [
+                name
+                for name, value in (
+                    ("input", input),
+                    ("output", output),
+                    ("staleness", staleness),
+                    ("tags", tags),
+                    ("query_name", query_name),
+                    ("query_name_version", query_name_version),
+                    ("meta", meta),
+                    ("planner_options", planner_options),
+                )
+                if value is not None
+            ]
+            if ignored_args:
+                warnings.warn(
+                    f"`plan_query` received a `named_query` along with the argument(s): {', '.join(ignored_args)}. "
+                    + "These values are ignored because the provided `NamedQuery` object takes precedence.",
+                    stacklevel=2,
+                )
+            input = named_query.input
+            output = named_query.output
+            staleness = named_query.staleness
+            tags = named_query.tags
+            query_name = named_query.name
+            query_name_version = named_query.version
+            meta = named_query.meta
+            planner_options = named_query.planner_options
+
+        if input is None or output is None:
+            raise ValueError(
+                "`plan_query` requires both `input` and `output` to be specified, "
+                + "either directly or via a `named_query`."
+            )
+
         encoded_inputs = encode_outputs(input).string_outputs
         outputs = encode_outputs(output).string_outputs
         if branch is ...:
@@ -5251,11 +5301,6 @@ https://docs.chalk.ai/cli/apply
         OnlineQueryResult
             The query result
         """
-        try:
-            import pyarrow.feather as feather
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[runtime]")
-
         # Convert input to PyArrow table if needed
         if isinstance(input, Mapping):
             # Convert mapping to PyArrow table
@@ -5302,9 +5347,7 @@ https://docs.chalk.ai/cli/apply
         header_json = json.dumps(header_dict).encode("utf-8")
 
         # Serialize the input table to feather format
-        feather_buffer = BytesIO()
-        feather.write_feather(input_table, feather_buffer)
-        feather_bytes = feather_buffer.getvalue()
+        feather_bytes = table_to_arrow_ipc(input_table, compression="lz4")
 
         # Build the request body:
         # 1. First 8 bytes: int64 (big-endian) - length of serialized plan
@@ -5347,7 +5390,7 @@ https://docs.chalk.ai/cli/apply
         # Convert feather bytes back to a dataframe
         scalars_df = None
         if result.scalar_data:
-            scalars_table = feather.read_table(BytesIO(result.scalar_data))
+            scalars_table = table_from_arrow_ipc(result.scalar_data)
             scalars_df = pa_table_to_pl_df(scalars_table)
 
         # Parse errors from JSON strings back to ChalkError objects

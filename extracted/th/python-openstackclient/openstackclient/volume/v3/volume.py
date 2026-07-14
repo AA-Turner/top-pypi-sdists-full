@@ -16,7 +16,6 @@
 
 import argparse
 from collections.abc import Iterable, Sequence
-import copy
 import functools
 import logging
 from typing import Any
@@ -333,7 +332,7 @@ class CreateVolume(command.ShowOne):
         size = parsed_args.size
 
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
         image_client = self.app.client_manager.image
 
@@ -552,7 +551,7 @@ class DeleteVolume(command.Command):
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
         result = 0
 
@@ -652,66 +651,62 @@ class ListVolume(command.Lister):
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
-        volume_client = self.app.client_manager.volume
-        identity_client = self.app.client_manager.identity
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.volume, '3'
+        )
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
+        columns: tuple[str, ...] = ('id', 'name', 'status', 'size')
+        column_headers: tuple[str, ...] = ('ID', 'Name', 'Status', 'Size')
         if parsed_args.long:
-            columns = [
-                'ID',
-                'Name',
-                'Status',
-                'Size',
-                'Volume Type',
-                'Bootable',
-                'Attachments',
-                'Metadata',
-            ]
-            column_headers = copy.deepcopy(columns)
-            column_headers[4] = 'Type'
-            column_headers[6] = 'Attached to'
-            column_headers[7] = 'Properties'
-        else:
-            columns = [
-                'ID',
-                'Name',
-                'Status',
-                'Size',
-                'Attachments',
-            ]
-            column_headers = copy.deepcopy(columns)
-            column_headers[4] = 'Attached to'
+            columns += ('volume_type', 'is_bootable')
+            column_headers += ('Type', 'Bootable')
+        columns += ('attachments',)
+        column_headers += ('Attached to',)
+        if parsed_args.long:
+            columns += ('metadata',)
+            column_headers += ('Properties',)
 
-        project_id = None
+        kwargs = {}
+
+        if parsed_args.name:
+            kwargs['name'] = parsed_args.name
+
+        if parsed_args.status:
+            kwargs['status'] = parsed_args.status
+
+        if parsed_args.limit:
+            kwargs['limit'] = parsed_args.limit
+
+        if parsed_args.marker:
+            kwargs['marker'] = parsed_args.marker
+
         if parsed_args.project:
-            project_id = identity_common.find_project(
+            project_id = identity_common.find_project_id_sdk(
                 identity_client,
                 parsed_args.project,
                 parsed_args.project_domain,
-            ).id
+            )
+            kwargs['project_id'] = project_id
 
         user_id = None
         if parsed_args.user:
-            user_id = identity_common.find_user(
+            user_id = identity_common.find_user_id_sdk(
                 identity_client, parsed_args.user, parsed_args.user_domain
-            ).id
+            )
+            kwargs['user_id'] = user_id
+
+        if parsed_args.properties:
+            # yes, cinder really does expect a stringified dict...
+            kwargs['properties'] = str(parsed_args.properties)
 
         # set value of 'all_tenants' when using project option
         all_projects = bool(parsed_args.project) or parsed_args.all_projects
+        kwargs['all_projects'] = all_projects
 
-        search_opts = {
-            'all_tenants': all_projects,
-            'project_id': project_id,
-            'user_id': user_id,
-            'name': parsed_args.name,
-            'status': parsed_args.status,
-            'metadata': parsed_args.properties,
-        }
-
-        data = volume_client.volumes.list(
-            search_opts=search_opts,
-            marker=parsed_args.marker,
-            limit=parsed_args.limit,
-        )
+        data = list(volume_client.volumes(**kwargs))
 
         do_server_list = False
 
@@ -730,12 +725,9 @@ class ListVolume(command.Lister):
             except sdk_exceptions.SDKException:
                 # Just forget it if there's any trouble
                 pass
+
         AttachmentsColumnWithCache = functools.partial(
             AttachmentsColumn, server_cache=server_cache
-        )
-
-        column_headers = utils.backward_compat_col_lister(
-            column_headers, parsed_args.columns, {'Display Name': 'Name'}
         )
 
         return (
@@ -745,8 +737,8 @@ class ListVolume(command.Lister):
                     s,
                     columns,
                     formatters={
-                        'Metadata': format_columns.DictColumn,
-                        'Attachments': AttachmentsColumnWithCache,
+                        'metadata': format_columns.DictColumn,
+                        'attachments': AttachmentsColumnWithCache,
                     },
                 )
                 for s in data
@@ -801,7 +793,7 @@ class MigrateVolume(command.Command):
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
         volume = volume_client.find_volume(
             parsed_args.volume, ignore_missing=False
@@ -982,8 +974,12 @@ class SetVolume(command.Command):
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
-        volume_client = self.app.client_manager.volume
-        volume = utils.find_resource(volume_client.volumes, parsed_args.volume)
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.volume, '3'
+        )
+        volume = volume_client.find_volume(
+            parsed_args.volume, ignore_missing=False
+        )
 
         result = 0
         if parsed_args.retype_policy:
@@ -1013,31 +1009,31 @@ class SetVolume(command.Command):
                     raise exceptions.CommandError(msg)
                 if (
                     volume.status == 'in-use'
-                    and not volume_client.api_version.matches('3.42')
+                    and not sdk_utils.supports_microversion(
+                        volume_client, '3.42'
+                    )
                 ):
                     msg = _(
                         "--os-volume-api-version 3.42 or greater is "
                         "required to extend in-use volumes."
                     )
                     raise exceptions.CommandError(msg)
-                volume_client.volumes.extend(volume.id, parsed_args.size)
+                volume_client.extend_volume(volume, parsed_args.size)
             except Exception as e:
                 LOG.error(_("Failed to set volume size: %s"), e)
                 result += 1
 
         if parsed_args.no_property:
             try:
-                volume_client.volumes.delete_metadata(
-                    volume.id, volume.metadata.keys()
-                )
+                volume_client.delete_volume_metadata(volume)
             except Exception as e:
                 LOG.error(_("Failed to clean volume properties: %s"), e)
                 result += 1
 
         if parsed_args.properties:
             try:
-                volume_client.volumes.set_metadata(
-                    volume.id, parsed_args.properties
+                volume_client.set_volume_metadata(
+                    volume, **parsed_args.properties
                 )
             except Exception as e:
                 LOG.error(_("Failed to set volume properties: %s"), e)
@@ -1045,8 +1041,8 @@ class SetVolume(command.Command):
 
         if parsed_args.image_properties:
             try:
-                volume_client.volumes.set_image_metadata(
-                    volume.id, parsed_args.image_properties
+                volume_client.set_volume_image_metadata(
+                    volume, **parsed_args.image_properties
                 )
             except Exception as e:
                 LOG.error(_("Failed to set image properties: %s"), e)
@@ -1054,15 +1050,17 @@ class SetVolume(command.Command):
 
         if parsed_args.state:
             try:
-                volume_client.volumes.reset_state(volume.id, parsed_args.state)
+                volume_client.reset_volume_status(
+                    volume, status=parsed_args.state
+                )
             except Exception as e:
                 LOG.error(_("Failed to set volume state: %s"), e)
                 result += 1
 
         if parsed_args.attached:
             try:
-                volume_client.volumes.reset_state(
-                    volume.id, state=None, attach_status="attached"
+                volume_client.reset_volume_status(
+                    volume, attach_status="attached"
                 )
             except Exception as e:
                 LOG.error(_("Failed to set volume attach-status: %s"), e)
@@ -1070,8 +1068,8 @@ class SetVolume(command.Command):
 
         if parsed_args.detached:
             try:
-                volume_client.volumes.reset_state(
-                    volume.id, state=None, attach_status="detached"
+                volume_client.reset_volume_status(
+                    volume, attach_status="detached"
                 )
             except Exception as e:
                 LOG.error(_("Failed to set volume attach-status: %s"), e)
@@ -1079,8 +1077,8 @@ class SetVolume(command.Command):
 
         if parsed_args.bootable is not None:
             try:
-                volume_client.volumes.set_bootable(
-                    volume.id, parsed_args.bootable
+                volume_client.set_volume_bootable_status(
+                    volume, parsed_args.bootable
                 )
             except Exception as e:
                 LOG.error(_("Failed to set volume bootable property: %s"), e)
@@ -1088,8 +1086,8 @@ class SetVolume(command.Command):
 
         if parsed_args.read_only is not None:
             try:
-                volume_client.volumes.update_readonly_flag(
-                    volume.id, parsed_args.read_only
+                volume_client.set_volume_readonly(
+                    volume, parsed_args.read_only
                 )
             except Exception as e:
                 LOG.error(
@@ -1106,12 +1104,12 @@ class SetVolume(command.Command):
                 migration_policy = policy
             try:
                 # find the volume type
-                volume_type = utils.find_resource(
-                    volume_client.volume_types, parsed_args.type
+                volume_type = volume_client.find_type(
+                    parsed_args.type, ignore_missing=False
                 )
                 # reset to the new volume type
-                volume_client.volumes.retype(
-                    volume.id, volume_type.id, migration_policy
+                volume_client.retype_volume(
+                    volume, volume_type, migration_policy
                 )
             except Exception as e:
                 LOG.error(_("Failed to set volume type: %s"), e)
@@ -1129,12 +1127,12 @@ class SetVolume(command.Command):
 
         kwargs = {}
         if parsed_args.name:
-            kwargs['display_name'] = parsed_args.name
+            kwargs['name'] = parsed_args.name
         if parsed_args.description:
-            kwargs['display_description'] = parsed_args.description
+            kwargs['description'] = parsed_args.description
         if kwargs:
             try:
-                volume_client.volumes.update(volume.id, **kwargs)
+                volume_client.update_volume(volume, **kwargs)
             except Exception as e:
                 LOG.error(
                     _(
@@ -1167,7 +1165,7 @@ class ShowVolume(command.ShowOne):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
         volume = volume_client.find_volume(
             parsed_args.volume, ignore_missing=False
@@ -1211,14 +1209,18 @@ class UnsetVolume(command.Command):
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
-        volume_client = self.app.client_manager.volume
-        volume = utils.find_resource(volume_client.volumes, parsed_args.volume)
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.volume, '3'
+        )
+        volume = volume_client.find_volume(
+            parsed_args.volume, ignore_missing=False
+        )
 
         result = 0
         if parsed_args.properties:
             try:
-                volume_client.volumes.delete_metadata(
-                    volume.id, parsed_args.properties
+                volume_client.delete_volume_metadata(
+                    volume.id, keys=parsed_args.properties
                 )
             except Exception as e:
                 LOG.error(_("Failed to unset volume properties: %s"), e)
@@ -1226,8 +1228,8 @@ class UnsetVolume(command.Command):
 
         if parsed_args.image_properties:
             try:
-                volume_client.volumes.delete_image_metadata(
-                    volume.id, parsed_args.image_properties
+                volume_client.delete_volume_image_metadata(
+                    volume.id, keys=parsed_args.image_properties
                 )
             except Exception as e:
                 LOG.error(_("Failed to unset image properties: %s"), e)
@@ -1256,7 +1258,7 @@ class VolumeSummary(command.ShowOne):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
 
         if not sdk_utils.supports_microversion(volume_client, '3.12'):
@@ -1310,7 +1312,7 @@ class VolumeRevertToSnapshot(command.Command):
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
 
         if not sdk_utils.supports_microversion(volume_client, '3.40'):

@@ -84,6 +84,14 @@ from .devtools.devtools import (
     DevtoolsResourceWithStreamingResponse,
     AsyncDevtoolsResourceWithStreamingResponse,
 )
+from .accessibility_tree import (
+    AccessibilityTreeResource,
+    AsyncAccessibilityTreeResource,
+    AccessibilityTreeResourceWithRawResponse,
+    AsyncAccessibilityTreeResourceWithRawResponse,
+    AccessibilityTreeResourceWithStreamingResponse,
+    AsyncAccessibilityTreeResourceWithStreamingResponse,
+)
 
 __all__ = ["BrowserRenderingResource", "AsyncBrowserRenderingResource"]
 
@@ -120,6 +128,10 @@ class BrowserRenderingResource(SyncAPIResource):
     @cached_property
     def markdown(self) -> MarkdownResource:
         return MarkdownResource(self._client)
+
+    @cached_property
+    def accessibility_tree(self) -> AccessibilityTreeResource:
+        return AccessibilityTreeResource(self._client)
 
     @cached_property
     def crawl(self) -> CrawlResource:
@@ -181,6 +193,10 @@ class AsyncBrowserRenderingResource(AsyncAPIResource):
     @cached_property
     def markdown(self) -> AsyncMarkdownResource:
         return AsyncMarkdownResource(self._client)
+
+    @cached_property
+    def accessibility_tree(self) -> AsyncAccessibilityTreeResource:
+        return AsyncAccessibilityTreeResource(self._client)
 
     @cached_property
     def crawl(self) -> AsyncCrawlResource:
@@ -247,6 +263,10 @@ class BrowserRenderingResourceWithRawResponse:
         return MarkdownResourceWithRawResponse(self._browser_rendering.markdown)
 
     @cached_property
+    def accessibility_tree(self) -> AccessibilityTreeResourceWithRawResponse:
+        return AccessibilityTreeResourceWithRawResponse(self._browser_rendering.accessibility_tree)
+
+    @cached_property
     def crawl(self) -> CrawlResourceWithRawResponse:
         return CrawlResourceWithRawResponse(self._browser_rendering.crawl)
 
@@ -290,6 +310,10 @@ class AsyncBrowserRenderingResourceWithRawResponse:
     @cached_property
     def markdown(self) -> AsyncMarkdownResourceWithRawResponse:
         return AsyncMarkdownResourceWithRawResponse(self._browser_rendering.markdown)
+
+    @cached_property
+    def accessibility_tree(self) -> AsyncAccessibilityTreeResourceWithRawResponse:
+        return AsyncAccessibilityTreeResourceWithRawResponse(self._browser_rendering.accessibility_tree)
 
     @cached_property
     def crawl(self) -> AsyncCrawlResourceWithRawResponse:
@@ -337,6 +361,10 @@ class BrowserRenderingResourceWithStreamingResponse:
         return MarkdownResourceWithStreamingResponse(self._browser_rendering.markdown)
 
     @cached_property
+    def accessibility_tree(self) -> AccessibilityTreeResourceWithStreamingResponse:
+        return AccessibilityTreeResourceWithStreamingResponse(self._browser_rendering.accessibility_tree)
+
+    @cached_property
     def crawl(self) -> CrawlResourceWithStreamingResponse:
         return CrawlResourceWithStreamingResponse(self._browser_rendering.crawl)
 
@@ -380,6 +408,10 @@ class AsyncBrowserRenderingResourceWithStreamingResponse:
     @cached_property
     def markdown(self) -> AsyncMarkdownResourceWithStreamingResponse:
         return AsyncMarkdownResourceWithStreamingResponse(self._browser_rendering.markdown)
+
+    @cached_property
+    def accessibility_tree(self) -> AsyncAccessibilityTreeResourceWithStreamingResponse:
+        return AsyncAccessibilityTreeResourceWithStreamingResponse(self._browser_rendering.accessibility_tree)
 
     @cached_property
     def crawl(self) -> AsyncCrawlResourceWithStreamingResponse:

@@ -1,30 +1,32 @@
 """Cement core hooks module."""
 
-from __future__ import annotations
+import builtins
 import operator
 import types
-from typing import Any, Callable, Dict, List, Generator, TYPE_CHECKING
+from collections.abc import Callable, Generator
+from typing import TYPE_CHECKING, Any
+
 from ..core import exc
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
 
-class HookManager(object):
+class HookManager:
     """
     Manages the hook system to define, get, run, etc hooks within the
     the Cement Framework and applications Built on Cement (tm).
 
     """
 
-    def __init__(self, app: App) -> None:
+    def __init__(self, app: "App") -> None:
         self.app = app
-        self.__hooks__: Dict[str, list] = {}
+        self.__hooks__: dict[str, list] = {}
 
-    def list(self) -> List[str]:
+    def list(self) -> builtins.list[str]:
         """
         List all defined hooks.
 
@@ -124,13 +126,15 @@ class HookManager(object):
             LOG.debug(f"hook name '{name}' is not defined! ignoring...")
             return False
 
-        LOG.debug("registering hook '%s' from %s into hooks['%s']" %
-                  (func.__name__, func.__module__, name))
+        LOG.debug(f"registering hook '{func.__name__}' from {func.__module__} into hooks['{name}']")
 
         # Hooks are as follows: (weight, name, func)
         self.__hooks__[name].append((int(weight), func.__name__, func))
         return True
 
+    # D-09: hook payload is user-arbitrary by design — extensions register
+    # callbacks that receive whatever the framework passes at the hook site.
+    # Public HookManager API — wide types are the contract (D-12).
     def run(self, name: str, *args: Any, **kwargs: Any) -> Generator:
         """
         Run all defined hooks in the namespace.
@@ -179,7 +183,6 @@ class HookManager(object):
             # Check if result is a nested generator - needed to support e.g.
             # asyncio
             if isinstance(res, types.GeneratorType):
-                for _res in res:
-                    yield _res
+                yield from res
             else:
                 yield res

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-edge-quantizer
-Version: 0.7.0
+Version: 0.8.0
 Summary: A quantizer for advanced developers to quantize converted AI Edge models.
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/google-ai-edge/ai-edge-quantizer
@@ -27,8 +27,10 @@ License-File: LICENSE
 Requires-Dist: absl-py
 Requires-Dist: immutabledict
 Requires-Dist: numpy
+Requires-Dist: scipy
 Requires-Dist: ml_dtypes
-Requires-Dist: ai-edge-litert==2.1.5
+Requires-Dist: ai-edge-litert==2.1.6
+Requires-Dist: litert-lm-builder
 Dynamic: license-file
 
 # AI Edge Quantizer

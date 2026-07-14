@@ -78,12 +78,16 @@ from connector_sdk_types.generated import (
     ListApplicationsResourcesRequest,
     ListApplicationsResourcesResponse,
     ListApplicationsResponse,
+    ListCredentialsRequest,
+    ListCredentialsResponse,
     ListCustomAttributesSchemaRequest,
     ListCustomAttributesSchemaResponse,
     ListEntitlementsRequest,
     ListEntitlementsResponse,
     ListExpensesRequest,
     ListExpensesResponse,
+    ListNonHumanAccountsRequest,
+    ListNonHumanAccountsResponse,
     ListResourcesRequest,
     ListResourcesResponse,
     ListUpdatedAccountsRequest,
@@ -799,6 +803,18 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.LIST_RESOURCES: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=ListResourcesRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=ListResourcesResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_CREDENTIALS: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=ListCredentialsRequest, is_request=True),
+        output_payload=_payload_type_data(envelope_type=ListCredentialsResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_NON_HUMAN_ACCOUNTS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListNonHumanAccountsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListNonHumanAccountsResponse, is_request=False
+        ),
     ),
     StandardCapabilityName.LIST_ENTITLEMENTS: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=ListEntitlementsRequest, is_request=True),

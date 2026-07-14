@@ -23,6 +23,7 @@ from datarobot._experimental.pipelines.pipeline_dispatch import PipelineDispatch
 from datarobot._experimental.pipelines.pipeline_image import PipelineImage
 from datarobot._experimental.pipelines.pipeline_input import PipelineInput
 from datarobot._experimental.pipelines.pipeline_schedule import PipelineSchedule
+from datarobot._experimental.pipelines.pipeline_task_execution import PipelineTaskExecution
 
 
 class TaskParameterDict(TypedDict):
@@ -56,10 +57,9 @@ class Pipelines:
     -----
     >>> import datarobot as dr
     >>> image_id = dr.Pipelines.create_image(packages=["numpy", "scipy"])
-    >>> pipeline_id = dr.Pipelines.create(file="/home/user/workflow.py")
-    >>> dr.Pipelines.lock(pipeline_id=pipeline_id)
+    >>> pipeline_id = dr.Pipelines.create(file="/home/user/workflow.py", image_id=image_id)
     >>> input_id = dr.Pipelines.create_input(pipeline_id=pipeline_id, data={"x": 1})
-    >>> dr.Pipelines.run(pipeline_id=pipeline_id, input_id=input_id, version=1)
+    >>> dr.Pipelines.run(pipeline_id=pipeline_id, input_id=input_id, image_id=image_id)
     """
 
     # ------------------------------------------------------------------
@@ -71,10 +71,12 @@ class Pipelines:
         cls,
         file: str,
         description: Optional[str] = None,
+        name: Optional[str] = None,
+        image_id: Optional[str] = None,
     ) -> str:
         """Upload a .py workflow file to create a pipeline.
 
-        Pipelines are always created in draft mode. Call ``promote`` to
+        Pipelines are always created in draft mode. Call ``lock`` to
         lock the pipeline and cut a version.
 
         Parameters
@@ -83,6 +85,11 @@ class Pipelines:
             Path to the .py file containing @task and @pipeline decorated functions.
         description : str, optional
             Description of the pipeline.
+        name : str, optional
+            Human-readable display name. Defaults to the title-cased
+            ``@pipeline`` function name when omitted.
+        image_id : str, optional
+            Execution image to associate with the pipeline.
 
         Returns
         -------
@@ -102,7 +109,7 @@ class Pipelines:
                 description="Daily training run",
             )
         """
-        p = Pipeline.create(file_path=file, description=description)
+        p = Pipeline.create(file_path=file, description=description, name=name, image_id=image_id)
         return p.pipeline_id
 
     @classmethod
@@ -166,6 +173,9 @@ class Pipelines:
             "version": p.version,
             "status": p.status,
             "is_active": p.is_active,
+            "image_id": p.image_id,
+            "linked_image": p.linked_image,
+            "input_set_template": p.input_set_template,
             "versions": [
                 {
                     "version": v.version,
@@ -180,15 +190,32 @@ class Pipelines:
         }
 
     @classmethod
-    def update(cls, pipeline_id: str, file: str) -> Dict[str, Any]:
-        """Update a draft pipeline by re-uploading the .py file.
+    def update(
+        cls,
+        pipeline_id: str,
+        file: Optional[str] = None,
+        image_id: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a draft pipeline.
+
+        All fields are optional and independent -- re-upload the ``.py`` file,
+        rename the pipeline, change its description, (re-)link an execution
+        image, or any combination.
 
         Parameters
         ----------
         pipeline_id : str
             The pipeline ID.
-        file : str
-            Path to the updated .py file.
+        file : str, optional
+            Path to the updated .py file. When omitted, the source is unchanged.
+        image_id : str, optional
+            Execution image to (re)link to the pipeline.
+        name : str, optional
+            New human-readable display name.
+        description : str, optional
+            New pipeline description.
 
         Returns
         -------
@@ -196,7 +223,7 @@ class Pipelines:
             Updated pipeline metadata.
         """
         p = Pipeline.get(pipeline_id)
-        p.update(file_path=file)
+        p.update(file_path=file, image_id=image_id, name=name, description=description)
         return {
             "pipeline_id": p.pipeline_id,
             "name": p.name,
@@ -366,6 +393,31 @@ class Pipelines:
             "task_group_id": task.task_group_id,
         }
 
+    @classmethod
+    def get_source(
+        cls,
+        pipeline_id: str,
+        version: Optional[int] = None,
+    ) -> str:
+        """Get the raw source code of a pipeline.
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        version : int, optional
+            The version number. If None, returns the draft source.
+
+        Returns
+        -------
+        source : str
+            The full ``source.py``.
+        """
+        p = Pipeline.get(pipeline_id)
+        if version is not None:
+            return p.get_version_source(version)
+        return p.get_source()
+
     # ------------------------------------------------------------------
     # Inputs
     # ------------------------------------------------------------------
@@ -534,6 +586,7 @@ class Pipelines:
         cls,
         pipeline_id: str,
         input_id: str,
+        image_id: str,
         version: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Execute a pipeline.
@@ -544,6 +597,8 @@ class Pipelines:
             The pipeline ID.
         input_id : str
             The input set ID to use.
+        image_id : str
+            The execution image ID to run the dispatch on (required).
         version : int, optional
             The locked version to dispatch. If None, dispatches the draft.
 
@@ -560,7 +615,9 @@ class Pipelines:
 
             import datarobot as dr
 
-            dispatch = dr.Pipelines.run(pipeline_id=pipeline_id, input_id=input_id)
+            dispatch = dr.Pipelines.run(
+                pipeline_id=pipeline_id, input_id=input_id, image_id=image_id
+            )
             print(dispatch["dispatch_id"], dispatch["status"])
 
         Dispatch a specific locked version:
@@ -570,18 +627,22 @@ class Pipelines:
             dispatch = dr.Pipelines.run(
                 pipeline_id=pipeline_id,
                 input_id=input_id,
+                image_id=image_id,
                 version=2,
             )
         """
         d = PipelineDispatch.create(
             pipeline_id=pipeline_id,
             input_id=input_id,
+            image_id=image_id,
             version_id=version,
         )
         return {
             "dispatch_id": d.dispatch_id,
             "status": d.status,
             "triggered_by": d.triggered_by,
+            "image_id": d.image_id,
+            "image_version": d.image_version,
         }
 
     @classmethod
@@ -614,8 +675,11 @@ class Pipelines:
         return [
             {
                 "dispatch_id": d.dispatch_id,
+                "pipeline_id": d.pipeline_id,
                 "status": d.status,
                 "input_id": d.input_id,
+                "image_id": d.image_id,
+                "image_version": d.image_version,
                 "triggered_by": d.triggered_by,
                 "created_at": d.created_at,
             }
@@ -696,6 +760,202 @@ class Pipelines:
         d.cancel()
 
     # ------------------------------------------------------------------
+    # Task executions
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def list_tasks(
+        cls,
+        pipeline_id: str,
+        dispatch_id: str,
+    ) -> List[Dict[str, Any]]:
+        """List the per-task execution records for a dispatch.
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        dispatch_id : str
+            The dispatch ID.
+
+        Returns
+        -------
+        tasks : list of dict
+            Each dict contains task_id, name, status, started_at,
+            completed_at, and error_detail.
+        """
+        results = PipelineTaskExecution.list(pipeline_id=pipeline_id, dispatch_id=dispatch_id)
+        return [
+            {
+                "task_id": tk.task_id,
+                "name": tk.name,
+                "status": tk.status,
+                "started_at": tk.started_at,
+                "completed_at": tk.completed_at,
+                "error_detail": tk.error_detail,
+            }
+            for tk in results
+        ]
+
+    @classmethod
+    def get_task_execution(
+        cls,
+        pipeline_id: str,
+        dispatch_id: str,
+        task_id: int,
+    ) -> Dict[str, Any]:
+        """Get the execution record for a single task in a dispatch.
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        dispatch_id : str
+            The dispatch ID.
+        task_id : int
+            The public sequential task number.
+
+        Returns
+        -------
+        task : dict
+        """
+        tk = PipelineTaskExecution.get(
+            pipeline_id=pipeline_id,
+            dispatch_id=dispatch_id,
+            task_id=task_id,
+        )
+        return {
+            "task_id": tk.task_id,
+            "name": tk.name,
+            "status": tk.status,
+            "started_at": tk.started_at,
+            "completed_at": tk.completed_at,
+            "error_detail": tk.error_detail,
+        }
+
+    @classmethod
+    def get_task_result(
+        cls,
+        pipeline_id: str,
+        dispatch_id: str,
+        task_id: int,
+    ) -> Dict[str, Any]:
+        """Get a completed task's result (presigned URL + JSON preview).
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        dispatch_id : str
+            The dispatch ID.
+        task_id : int
+            The public sequential task number.
+
+        Returns
+        -------
+        result : dict
+            Contains url, expires_in, content_type, value, value_available,
+            and value_unavailable_reason.
+        """
+        r = PipelineTaskExecution.get_result(
+            pipeline_id=pipeline_id,
+            dispatch_id=dispatch_id,
+            task_id=task_id,
+        )
+        return {
+            "url": r.url,
+            "expires_in": r.expires_in,
+            "content_type": r.content_type,
+            "value": r.value,
+            "value_available": r.value_available,
+            "value_unavailable_reason": r.value_unavailable_reason,
+        }
+
+    @classmethod
+    def get_task_logs(
+        cls,
+        pipeline_id: str,
+        dispatch_id: str,
+        task_id: int,
+        tail_lines: Optional[int] = None,
+        verbosity: str = "user",
+    ) -> str:
+        """Read the live K8s pod logs for a task execution.
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        dispatch_id : str
+            The dispatch ID.
+        task_id : int
+            The public sequential task number.
+        tail_lines : int, optional
+            Cap on the number of trailing log lines returned.
+        verbosity : str, optional
+            'user' (default) hides the electron runner's own structured JSON log
+            lines; 'all' returns every line unfiltered.
+
+        Returns
+        -------
+        logs : str
+        """
+        logs = PipelineTaskExecution.get_logs(
+            pipeline_id=pipeline_id,
+            dispatch_id=dispatch_id,
+            task_id=task_id,
+            tail_lines=tail_lines,
+            verbosity=verbosity,
+        )
+        return logs.logs
+
+    @classmethod
+    def get_task_durable_log(
+        cls,
+        pipeline_id: str,
+        dispatch_id: str,
+        task_id: int,
+        stream: str = "stdout",
+        verbosity: str = "user",
+    ) -> Dict[str, Any]:
+        """Read a task's durable (S3-uploaded) stdout/stderr log content.
+
+        Parameters
+        ----------
+        pipeline_id : str
+            The pipeline ID.
+        dispatch_id : str
+            The dispatch ID.
+        task_id : int
+            The public sequential task number.
+        stream : str, optional
+            Which stream to read: ``'stdout'`` (default) or ``'stderr'``.
+        verbosity : str, optional
+            'user' (default) hides the electron runner's own structured JSON log
+            lines; 'all' returns every line unfiltered.
+
+        Returns
+        -------
+        log : dict
+            Contains content, content_type, total_bytes, truncated, and
+            filtered_line_count.
+        """
+        log = PipelineTaskExecution.get_durable_log(
+            pipeline_id=pipeline_id,
+            dispatch_id=dispatch_id,
+            task_id=task_id,
+            stream=stream,
+            verbosity=verbosity,
+        )
+        return {
+            "content": log.content,
+            "content_type": log.content_type,
+            "total_bytes": log.total_bytes,
+            "truncated": log.truncated,
+            "filtered_line_count": log.filtered_line_count,
+        }
+
+    # ------------------------------------------------------------------
     # Schedules
     # ------------------------------------------------------------------
 
@@ -706,6 +966,8 @@ class Pipelines:
         version_id: int,
         cron_expression: str,
         input_id: str,
+        image_id: str,
+        image_version: int,
         timezone: str = "UTC",
     ) -> Dict[str, Any]:
         """Create a recurring schedule for a locked pipeline version.
@@ -720,6 +982,10 @@ class Pipelines:
             Cron expression (e.g., '0 9 * * *').
         input_id : str
             The input set ID for each scheduled run.
+        image_id : str
+            The execution image ID the scheduled dispatch runs on.
+        image_version : int
+            The execution image version to snapshot for the schedule.
         timezone : str, optional
             Timezone. Default 'UTC'.
 
@@ -740,6 +1006,8 @@ class Pipelines:
                 version_id=1,
                 cron_expression="0 9 * * MON-FRI",
                 input_id=input_id,
+                image_id=image_id,
+                image_version=1,
                 timezone="America/New_York",
             )
             print(schedule["schedule_id"], schedule["status"])
@@ -749,10 +1017,15 @@ class Pipelines:
             version_id=version_id,
             cron_expression=cron_expression,
             pipeline_input_id=input_id,
+            image_id=image_id,
+            image_version=image_version,
             timezone=timezone,
         )
         return {
             "schedule_id": s.schedule_id,
+            "version": s.version,
+            "image_id": s.image_id,
+            "image_version": s.image_version,
             "cron_expression": s.cron_expression,
             "timezone": s.timezone,
             "status": s.status,
@@ -762,18 +1035,15 @@ class Pipelines:
     def list_schedules(
         cls,
         pipeline_id: str,
-        version_id: int,
         offset: int = 0,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """List schedules for a locked pipeline version.
+        """List schedules for a pipeline (across all versions).
 
         Parameters
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int
-            The version number.
 
         Returns
         -------
@@ -781,13 +1051,15 @@ class Pipelines:
         """
         results = PipelineSchedule.list(
             pipeline_id=pipeline_id,
-            version_id=version_id,
             offset=offset,
             limit=limit,
         )
         return [
             {
                 "schedule_id": s.schedule_id,
+                "version": s.version,
+                "image_id": s.image_id,
+                "image_version": s.image_version,
                 "cron_expression": s.cron_expression,
                 "timezone": s.timezone,
                 "status": s.status,
@@ -799,7 +1071,6 @@ class Pipelines:
     def delete_schedule(
         cls,
         pipeline_id: str,
-        version_id: int,
         schedule_id: str,
     ) -> None:
         """Delete a schedule.
@@ -808,14 +1079,11 @@ class Pipelines:
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int
-            The version number.
         schedule_id : str
             The schedule ID.
         """
         s = PipelineSchedule.get(
             pipeline_id=pipeline_id,
-            version_id=version_id,
             schedule_id=schedule_id,
         )
         s.delete()
@@ -829,6 +1097,7 @@ class Pipelines:
         cls,
         packages: List[str],
         name: Optional[str] = None,
+        python_base_image: Optional[str] = None,
         description: Optional[str] = None,
     ) -> str:
         """Create an execution image.
@@ -839,6 +1108,8 @@ class Pipelines:
             Pip package specifiers (e.g., ['numpy>=1.24', 'pandas']).
         name : str, optional
             Image name. If None, auto-generated.
+        python_base_image : str, optional
+            Base Docker image to build on top of.
         description : str, optional
             Description.
 
@@ -864,6 +1135,7 @@ class Pipelines:
         image = PipelineImage.create(
             name=image_name,
             packages=packages,
+            python_base_image=python_base_image,
             description=description,
         )
         return image.image_id
@@ -897,22 +1169,31 @@ class Pipelines:
         cls,
         image_id: str,
         packages: List[str],
+        name: Optional[str] = None,
+        python_base_image: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Add packages to an image (creates a new version).
+        """Create a new immutable version of an image.
+
+        The update is a complete redefinition (not a merge): the new version
+        carries exactly the definition supplied here.
 
         Parameters
         ----------
         image_id : str
             The image ID.
         packages : list of str
-            Pip package specifiers to add.
+            Pip package specifiers for the new version.
+        name : str, optional
+            Image name. Defaults to the image's current name.
+        python_base_image : str, optional
+            Base Docker image to build on top of.
 
         Returns
         -------
         image : dict
         """
         image = PipelineImage.get(image_id=image_id)
-        image.update(packages=packages)
+        image.update(packages=packages, name=name, python_base_image=python_base_image)
         return {
             "image_id": image.image_id,
             "name": image.name,
@@ -930,3 +1211,26 @@ class Pipelines:
         """
         image = PipelineImage.get(image_id=image_id)
         image.delete()
+
+    @classmethod
+    def get_image_logs(
+        cls,
+        image_id: str,
+        version: int,
+    ) -> str:
+        """Get the raw build logs for a specific image version.
+
+        Parameters
+        ----------
+        image_id : str
+            The image ID.
+        version : int
+            The image version number.
+
+        Returns
+        -------
+        logs : str
+            The raw build output.
+        """
+        image = PipelineImage.get(image_id=image_id)
+        return image.get_version_logs(version)

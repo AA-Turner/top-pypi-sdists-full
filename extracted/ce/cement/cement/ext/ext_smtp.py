@@ -2,27 +2,34 @@
 Cement smtp extension module.
 """
 
-from __future__ import annotations
 import os
-from datetime import datetime, timezone
 import smtplib
-from email.header import Header
-from email.charset import Charset, BASE64, QP
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
+from datetime import datetime, timezone
 from email import encoders
+from email.charset import BASE64, QP, Charset
+from email.header import Header
+from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import format_datetime, make_msgid
-from typing import Any, Optional, Dict, Union, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..core import mail
+from ..core.deprecations import deprecate
 from ..utils import fs
-from ..utils.misc import minimal_logger, is_true
+from ..utils.misc import is_true, minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
+
+# Public message-body shapes accepted by ``send()`` and the internal
+# ``_build_body_parts`` / ``_make_message`` helpers. The dict form
+# (``{'text': ..., 'html': ...}``) is accepted at runtime by
+# ``_build_body_parts`` but was previously absent from the type alias.
+_BodyType = str | tuple[str, str] | dict[str, str]
 
 
 class SMTPMailHandler(mail.MailHandler):
@@ -70,7 +77,7 @@ class SMTPMailHandler(mail.MailHandler):
 
     _meta: Meta  # type: ignore
 
-    def _get_params(self, **kw: Any) -> Dict[str, Any]:
+    def _get_params(self, **kw: Any) -> dict[str, Any]:
         params = dict()
 
         # some keyword args override configuration defaults
@@ -92,19 +99,21 @@ class SMTPMailHandler(mail.MailHandler):
         # some are only set by message
         for item in ['date', 'message_id', 'return_path', 'reply_to']:
             value = kw.get(item, None)
-            if value is not None and str.strip(f'{value}') != '':
-                params[item] = kw.get(item, config_item)
+            if value is not None and f'{value}'.strip() != '':
+                params[item] = value
 
-        # take all X-headers as is
+        # take all X-headers, normalizing the prefix to 'X-' and
+        # converting underscores to hyphens in the header name
         for item in kw.keys():
             if len(item) > 2 and item.startswith(('x-', 'X-', 'x_', 'X_')):
                 value = kw.get(item, None)
                 if value is not None:
-                    params[f'X-{item[2:]}'] = value
+                    header_name = f'X-{item[2:].replace("_", "-")}'
+                    params[header_name] = value
 
         return params
 
-    def send(self, body: Union[str, Tuple[str, str]], **kw: Any) -> bool:
+    def send(self, body: _BodyType, **kw: Any) -> bool:
         """
         Send an email message via SMTP.  Keyword arguments override
         configuration defaults (cc, bcc, etc).
@@ -129,7 +138,12 @@ class SMTPMailHandler(mail.MailHandler):
                 ``[ ('alt-name.ext', '/path/to/file.ext'), ...]``
 
         Returns:
-            bool:``True`` if message is sent successfully, ``False`` otherwise
+            bool: ``True`` if message is sent successfully, ``False`` otherwise
+
+        .. deprecated:: 3.0.16
+            The ``bool`` return is deprecated and will change to the
+            ``smtplib`` senderrs ``dict`` in Cement v3.2.0. See
+            ``DEPRECATIONS['3.0.16-1']``.
 
         Example:
 
@@ -152,117 +166,123 @@ class SMTPMailHandler(mail.MailHandler):
         if is_true(params['ssl']):
             server = smtplib.SMTP_SSL(params['host'],
                                       params['port'],
-                                      params['timeout'])
+                                      timeout=params['timeout'])
             LOG.debug(f"{self._meta.label} : initiating smtp over ssl")
 
         else:
             server = smtplib.SMTP(params['host'],  # type: ignore
                                   params['port'],
-                                  params['timeout'])
+                                  timeout=params['timeout'])
             LOG.debug(f"{self._meta.label} : initiating smtp")
 
-        if self.app.debug is True:
-            server.set_debuglevel(9)
+        try:
+            if self.app.debug is True:
+                server.set_debuglevel(9)
 
-        if is_true(params['tls']):
-            LOG.debug(f"{self._meta.label} : initiating tls")
-            server.starttls()
+            if is_true(params['tls']):
+                LOG.debug(f"{self._meta.label} : initiating tls")
+                server.starttls()
 
-        if is_true(params['auth']):
-            server.login(params['username'], params['password'])
+            if is_true(params['auth']):
+                server.login(params['username'], params['password'])
 
-        msg = self._make_message(body, **params)
-        res = server.send_message(msg)
+            msg = self._make_message(body, **params)
+            res = server.send_message(msg)
+        finally:
+            server.quit()
 
-        server.quit()
-
-        # FIXME: should deprecate for 3.0 and change in 3.2
-        # For smtplib this would be "senderrs" (dict), but for backward compat
-        # we need to return bool
+        # Deprecation: bool return will change to senderrs dict
         # https://github.com/python/cpython/blob/3.13/Lib/smtplib.py#L899
-        self.app.log.error(f"SMTPHandler Errors: {res}")
-        if len(res) > 0:
-            # this will be difficult to test with Mailpit as it accepts everything... no cover
-            return False  # pragma: nocover
+        deprecate('3.0.16-1')
+
+        if len(res) > 0:  # pragma: nocover  # defensive: unreachable - Mailpit accepts everything
+            self.app.log.error(f"SMTPHandler Errors: {res}")
+            return False
         else:
             return True
 
-    def _header(self, value: Optional[str] = None, _charset: Optional[Charset] = None,
-                **params: Dict[str, Any]) -> Header:
+    def _header(self, value: str | None = None, _charset: Charset | None = None,
+                **params: Any) -> Header:
         header = Header(value, charset=_charset) if params['header_encoding'] else value
         return header  # type: ignore
 
-    def _make_message(self, body: Union[str, Tuple[str, str]], **params: Dict[str, Any]) \
-                      -> MIMEMultipart:
-        # use encoding for header parts
-        cs_header = Charset(params['charset'])  # type: ignore
+    def _build_charsets(self, **params: Any) -> tuple[Charset, Charset]:
+        """Build charset objects for header and body encoding."""
+        cs_header = Charset(params['charset'])
         if params['header_encoding'] == 'base64':
             cs_header.header_encoding = BASE64
-        elif params['header_encoding'] == 'qp' or params['body_encoding'] == 'quoted-printable':
+        elif params['header_encoding'] == 'qp' or params['header_encoding'] == 'quoted-printable':
             cs_header.header_encoding = QP
 
-        # use encoding for body parts
-        cs_body = Charset(params['charset'])  # type: ignore
+        cs_body = Charset(params['charset'])
         if params['body_encoding'] == 'base64':
             cs_body.body_encoding = BASE64
         elif params['body_encoding'] == 'qp' or params['body_encoding'] == 'quoted-printable':
             cs_body.body_encoding = QP
 
-        # setup body parts
-        partText = None
-        partHtml = None
+        return cs_header, cs_body
 
-        if type(body) not in [str, tuple, dict]:
-            error_msg = "Message body must be string, " \
-                        "tuple ('<text>', '<html>') or " \
-                        "dict {'text': '<text>', 'html': '<html>'}"
-            raise TypeError(error_msg)
+    def _build_body_parts(self, body: _BodyType,
+                          cs_body: Charset) -> tuple[MIMEText | None, MIMEText | None]:
+        """Parse body into text and html MIME parts."""
+        part_text = None
+        part_html = None
 
         if isinstance(body, str):
-            partText = MIMEText(body, 'plain', _charset=cs_body)  # type: ignore
+            part_text = MIMEText(body, 'plain', _charset=cs_body)  # type: ignore
         elif isinstance(body, tuple):
-            # handle plain text
-            if len(body) >= 1 and body[0] and str.strip(body[0]) != '':
-                partText = MIMEText(str.strip(body[0]),
-                                    'plain',
-                                    _charset=cs_body)  # type: ignore
-            # handle html
-            if len(body) >= 2 and body[1] and str.strip(body[1]) != '':
-                partHtml = MIMEText(str.strip(body[1]),
-                                    'html',
-                                    _charset=cs_body)  # type: ignore
+            if len(body) >= 1 and body[0] and body[0].strip() != '':
+                part_text = MIMEText(body[0].strip(),
+                                     'plain',
+                                     _charset=cs_body)  # type: ignore
+            if len(body) >= 2 and body[1] and body[1].strip() != '':
+                part_html = MIMEText(body[1].strip(),
+                                     'html',
+                                     _charset=cs_body)  # type: ignore
         elif isinstance(body, dict):
-            # handle plain text
-            if 'text' in body and str.strip(body['text']) != '':
-                partText = MIMEText(str.strip(body['text']),
-                                              'plain',
-                                              _charset=cs_body)
-            # handle html
-            if 'html' in body and str.strip(body['html']) != '':
-                partHtml = MIMEText(str.strip(body['html']), 'html', _charset=cs_body)
+            if 'text' in body and body['text'].strip() != '':
+                part_text = MIMEText(body['text'].strip(),
+                                     'plain',
+                                     _charset=cs_body)  # type: ignore
+            if 'html' in body and body['html'].strip() != '':
+                part_html = MIMEText(body['html'].strip(), 'html', _charset=cs_body)  # type: ignore
+        else:
+            raise TypeError(
+                "Message body must be string, "
+                "tuple ('<text>', '<html>') or "
+                "dict {'text': '<text>', 'html': '<html>'}"
+            )
 
-        # To define the correct message content-type
-        # we need to indentify the content of this mail.
+        return part_text, part_html
+
+    def _build_mime_structure(self, part_text: MIMEText | None,
+                              part_html: MIMEText | None,
+                              cs_body: Charset,
+                              **params: Any) -> MIMEMultipart:
+        """Select the correct MIME container based on content and attachments."""
         # If only "text" exists => text/plain, if only
         # "html" exists => text/html, if "text" and
         # "html" exists => multipart/alternative. In
         # any case that files exists => multipart/mixed.
-        # Set message charset and encoding based on parts
         if params['files']:
             msg = MIMEMultipart('mixed')
-            msg.set_charset(params['charset'])  # type: ignore
-        elif partText and partHtml:
+            msg.set_charset(params['charset'])
+        elif part_text and part_html:
             msg = MIMEMultipart('alternative')
-            msg.set_charset(params['charset'])  # type: ignore
-        elif partHtml:
+            msg.set_charset(params['charset'])
+        elif part_html:
             msg = MIMEBase('text', 'html')  # type: ignore
             msg.set_charset(cs_body)
         else:
             msg = MIMEBase('text', 'plain')  # type: ignore
             msg.set_charset(cs_body)
 
-        # create message
-        msg['From'] = params['from_addr']  # type: ignore
+        return msg
+
+    def _set_headers(self, msg: MIMEMultipart, cs_header: Charset,
+                     **params: Any) -> None:
+        """Set all message headers including addresses, dates, and X-headers."""
+        msg['From'] = params['from_addr']
         msg['To'] = ', '.join(params['to'])
         if params['cc']:
             msg['Cc'] = ', '.join(params['cc'])
@@ -270,133 +290,133 @@ class SMTPMailHandler(mail.MailHandler):
             msg['Bcc'] = ', '.join(params['bcc'])
         if params['subject_prefix'] not in [None, '']:
             msg['Subject'] = self._header(f"{params['subject_prefix']} {params['subject']}",
-                                          _charset=cs_header, **params)  # type: ignore
+                                          _charset=cs_header, **params)  # type: ignore[assignment]
         else:
-            msg['Subject'] = self._header(params['subject'],  # type: ignore
+            msg['Subject'] = self._header(params['subject'],  # type: ignore[assignment]
                                           _charset=cs_header,
                                           **params)
 
-        # check for date
+        # auto-generate date and message-id if enforced and not provided
         if is_true(params['date_enforce']) and not params.get('date', None):
-            params['date'] = format_datetime(datetime.now(timezone.utc))  # type: ignore
-        # check for message-id
+            params['date'] = format_datetime(datetime.now(timezone.utc))
         if is_true(params['msgid_enforce']) and not params.get('message_id', None):
-            params['message_id'] = make_msgid(params['msgid_str'],  # type: ignore
-                                              params['msgid_domain'])  # type: ignore
+            params['message_id'] = make_msgid(params['msgid_str'],
+                                              params['msgid_domain'])
 
-        # check for message headers
         if params.get('date', None):
-            msg['Date'] = params['date']  # type: ignore
+            msg['Date'] = params['date']
         if params.get('message_id', None):
-            msg['Message-Id'] = params['message_id']  # type: ignore
+            msg['Message-Id'] = params['message_id']
         if params.get('return_path', None):
-            msg['Return-Path'] = params['return_path']  # type: ignore
+            msg['Return-Path'] = params['return_path']
         if params.get('reply_to', None):
-            msg['Reply-To'] = params['reply_to']  # type: ignore
+            msg['Reply-To'] = params['reply_to']
 
-        # check for X-headers
+        # X-headers
         for item in params.keys():
             if item.startswith('X-'):
-                msg.add_header(item.title(),
+                msg.add_header(item,
                                self._header(f'{params[item]}',  # type: ignore
                                             _charset=cs_header, **params))
 
-        # append the body parts
+    def _attach_body(self, msg: MIMEMultipart, part_text: MIMEText | None,
+                     part_html: MIMEText | None, cs_body: Charset,
+                     **params: Any) -> None:
+        """Attach body parts to the message with correct MIME structure."""
         if params['files']:
             # multipart/mixed
-            if partHtml:
-                # when html exists, create always a related part to include
+            if part_html:
+                # when html exists, create a related part to include
                 # the body alternatives and eventually files as related
                 # attachments (e.g. images).
                 rel = MIMEMultipart('related')
-                # create an alternative part to include bodies for text and html
                 alt = MIMEMultipart('alternative')
-                # body text and body html
-                if partText:
-                    alt.attach(partText)
-                alt.attach(partHtml)
+                if part_text:
+                    alt.attach(part_text)
+                alt.attach(part_html)
                 rel.attach(alt)
                 msg.attach(rel)
             else:
-                # only body text or no body
-                if partText:
-                    msg.attach(partText)
+                if part_text:
+                    msg.attach(part_text)
                 else:
-                    # no body no files = empty message = just headers
-                    pass  # pragma: no cover
+                    pass  # pragma: no cover  # defensive: unreachable
         else:
-            # multipart/alternative
-            if partText and partHtml:
-                # plain/text and plain/html
-                msg.attach(partText)
-                msg.attach(partHtml)
+            if part_text and part_html:
+                msg.attach(part_text)
+                msg.attach(part_html)
             else:
-                # plain/text or plain/html only so just append payload
-                if partText:
-                    msg.set_payload(partText.get_payload(), charset=cs_body)
-                elif partHtml:
-                    msg.set_payload(partHtml.get_payload(), charset=cs_body)
+                if part_text:
+                    msg.set_payload(part_text.get_payload(), charset=cs_body)
+                elif part_html:
+                    msg.set_payload(part_html.get_payload(), charset=cs_body)
                 else:
-                    # no body no files = empty message = just headers
-                    pass  # pragma: no cover
+                    pass  # pragma: no cover  # defensive: unreachable
 
-        # attach files
-        if params['files']:
-            for in_path in params['files']:
-                # support for alternative file name if its tuple or dict
-                # like [
-                #       'path/simple.ext',
-                #       ('altname.ext', 'path/filename.ext'),
-                #       ('altname.ext', 'path/filename.ext', 'content_id'),
-                #       {'name': 'altname', 'path': 'path/filename.ext', cid: 'cidname'},
-                #      ]
-                if isinstance(in_path, tuple):
-                    altname = os.path.basename(in_path[0])
-                    path = in_path[1]
-                    cid = in_path[2] if len(in_path) >= 3 else None
-                elif isinstance(in_path, dict):
-                    altname = os.path.basename(in_path.get('name', None))
-                    path = in_path.get('path')
-                    cid = in_path.get('cid', None)
-                else:
-                    altname = None
-                    path = in_path
-                    cid = None
+    def _attach_files(self, msg: MIMEMultipart, **params: Any) -> None:
+        """Attach file attachments to the message."""
+        if not params['files']:
+            return
 
-                path = fs.abspath(path)
-                if not altname:
-                    altname = os.path.basename(path)
+        for in_path in params['files']:
+            # support for alternative file name if its tuple or dict
+            # like [
+            #       'path/simple.ext',
+            #       ('altname.ext', 'path/filename.ext'),
+            #       ('altname.ext', 'path/filename.ext', 'content_id'),
+            #       {'name': 'altname', 'path': 'path/filename.ext', cid: 'cidname'},
+            #      ]
+            if isinstance(in_path, tuple):
+                altname = os.path.basename(in_path[0])
+                path = in_path[1]
+                cid = in_path[2] if len(in_path) >= 3 else None
+            elif isinstance(in_path, dict):
+                altname = os.path.basename(in_path.get('name', None))  # type: ignore[arg-type]
+                path = in_path.get('path')
+                cid = in_path.get('cid', None)
+            else:
+                altname = None
+                path = in_path
+                cid = None
 
-                # add attachment payload from file
-                with open(path, 'rb') as file:
-                    # check for embedded image or regular attachments
-                    if cid:
-                        part = MIMEImage(file.read())
-                    else:
-                        part = MIMEBase('application', 'octet-stream')
-                        part.set_payload(file.read())
+            path = fs.abspath(path)
+            if not altname:
+                altname = os.path.basename(path)
 
-                # encoder
-                encoders.encode_base64(part)
-
-                # embedded inline or attachment
+            # add attachment payload from file
+            part: MIMEBase
+            with open(path, 'rb') as file:
                 if cid:
-                    part.add_header(
-                        'Content-Disposition',
-                        f'inline; filename={altname}',
-                    )
-                    part.add_header('Content-ID', f'<{cid}>')
-                    msg.attach(part)
+                    part = MIMEImage(file.read())
                 else:
-                    # altname header
-                    part.add_header(
-                        'Content-Disposition',
-                        f'attachment; filename={altname}',
-                    )
-                    msg.attach(part)
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(file.read())
 
+            encoders.encode_base64(part)
+
+            if cid:
+                part.add_header(
+                    'Content-Disposition',
+                    f'inline; filename={altname}',
+                )
+                part.add_header('Content-ID', f'<{cid}>')
+            else:
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename={altname}',
+                )
+            msg.attach(part)
+
+    def _make_message(self, body: _BodyType, **params: Any) \
+                      -> MIMEMultipart:
+        cs_header, cs_body = self._build_charsets(**params)
+        part_text, part_html = self._build_body_parts(body, cs_body)
+        msg = self._build_mime_structure(part_text, part_html, cs_body, **params)
+        self._set_headers(msg, cs_header, **params)
+        self._attach_body(msg, part_text, part_html, cs_body, **params)
+        self._attach_files(msg, **params)
         return msg
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(SMTPMailHandler)

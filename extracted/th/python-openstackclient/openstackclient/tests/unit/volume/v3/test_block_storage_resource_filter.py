@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from openstack.block_storage.v3 import resource_filter as _filters
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 
@@ -17,14 +18,29 @@ from openstackclient.tests.unit.volume.v3 import fakes as volume_fakes
 from openstackclient.volume.v3 import block_storage_resource_filter
 
 
-class TestBlockStorageResourceFilterList(volume_fakes.TestVolume):
-    # The resource filters to be listed
-    fake_resource_filters = volume_fakes.create_resource_filters()
+def _create_fake_resource_filter():
+    return _filters.ResourceFilter(
+        filters=[
+            'name',
+            'status',
+            'image_metadata',
+            'bootable',
+            'migration_status',
+        ],
+        resource='volume',
+    )
 
+
+class TestBlockStorageResourceFilterList(volume_fakes.TestVolume):
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.resource_filters.return_value = (
+        self.fake_resource_filters = [
+            _create_fake_resource_filter(),
+            _create_fake_resource_filter(),
+            _create_fake_resource_filter(),
+        ]
+        self.volume_client.resource_filters.return_value = (
             self.fake_resource_filters
         )
 
@@ -56,7 +72,7 @@ class TestBlockStorageResourceFilterList(volume_fakes.TestVolume):
         self.assertEqual(expected_data, tuple(data))
 
         # checking if proper call was made to list clusters
-        self.volume_sdk_client.resource_filters.assert_called_with()
+        self.volume_client.resource_filters.assert_called_with()
 
     def test_resource_filter_list_pre_v333(self):
         self.set_volume_api_version('3.32')
@@ -74,13 +90,11 @@ class TestBlockStorageResourceFilterList(volume_fakes.TestVolume):
 
 
 class TestBlockStorageResourceFilterShow(volume_fakes.TestVolume):
-    # The resource filters to be listed
-    fake_resource_filter = volume_fakes.create_one_resource_filter()
-
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.resource_filters.return_value = iter(
+        self.fake_resource_filter = _create_fake_resource_filter()
+        self.volume_client.resource_filters.return_value = iter(
             [self.fake_resource_filter]
         )
 
@@ -113,7 +127,7 @@ class TestBlockStorageResourceFilterShow(volume_fakes.TestVolume):
         self.assertEqual(expected_data, data)
 
         # checking if proper call was made to list clusters
-        self.volume_sdk_client.resource_filters.assert_called_with(
+        self.volume_client.resource_filters.assert_called_with(
             resource='volume'
         )
 

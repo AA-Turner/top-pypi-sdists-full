@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefb_tz
 version_added: '1.10.0'
-short_description: Configure Everpure FlashBlade timezone
+short_description: Configure Pure Storage FlashBlade timezone
 description:
-- Configure the timezone for a Everpure FlashBlade.
+- Configure the timezone for a Pure Storage FlashBlade.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   timezone:
     description:
@@ -43,11 +43,11 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient import flashblade
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 HAS_PYTZ = True
 try:
@@ -66,10 +66,13 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    _findstr,
-    get_error_message,
-)
+
+
+def _findstr(text, match):
+    for line in text.splitlines():
+        if match in line:
+            found = line
+    return found
 
 
 def _get_local_tz(module, timezone="UTC"):
@@ -152,7 +155,7 @@ def set_timezone(module, blade):
         res = blade.patch_arrays(flashblade.Array(time_zone=module.params["timezone"]))
         if res.status_code != 200:
             module.fail_json(
-                msg="Failed to timezone. Error: {0}".format(get_error_message(res))
+                msg="Failed to timezone. Error: {0}".format(res.errors[0].message)
             )
 
     module.exit_json(changed=changed)
@@ -168,7 +171,7 @@ def main():
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURESTORAGE:
         module.fail_json(msg="py-pure-client sdk is required for this module")
     if not HAS_PYTZ:
         module.fail_json(msg="pytz is required for this module")

@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
     from chalk.client._chalkdf_import import ChalkDfDataFrame
+    from chalk.features._encoding.inputs import InputSchemaHint
+    from chalk.queries.named_query import NamedQuery
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame | str
 
@@ -168,6 +170,8 @@ class AsyncChalkClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
         translate_fqns: bool = False,
+        value_metrics_tag_by_features: Sequence[FeatureReference] = (),
+        input_schema_hint: InputSchemaHint | None = None,
     ) -> OnlineQueryResult:
         """Compute features values using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information.
@@ -247,6 +251,17 @@ class AsyncChalkClient:
             Force tracing on the query. Requests using `trace=True` will be slower
             than requests using `trace=False`. Requires Datadog tracing to be installed
             for this to have any effect
+        value_metrics_tag_by_features
+            If your environment has feature value metrics enabled, this parameter specifies a list
+            of features by which to tag these metrics. For example, if
+            `value_metrics_tag_by_features=["user.category_id"]`, then the feature value metrics
+            stored for this query will be tagged with the corresponding user's category_id.
+        input_schema_hint
+            An optional mapping specifying the intended columns of has-many inputs, e.g.
+            `{User.transactions: [Transaction.id, Transaction.amount]}`. This pins the
+            input's schema even when it cannot be inferred from the values themselves
+            (e.g. an empty list of rows), which keeps the schema consistent across
+            queries so the server can re-use cached query plans.
 
         Other Parameters
         ----------------
@@ -478,8 +493,8 @@ class AsyncChalkClient:
 
     async def plan_query(
         self,
-        input: Sequence[FeatureReference],
-        output: Sequence[FeatureReference],
+        input: Sequence[FeatureReference] | None = None,
+        output: Sequence[FeatureReference] | None = None,
         staleness: Mapping[FeatureReference, str] | None = None,
         environment: EnvironmentId | None = None,
         tags: list[str] | None = None,
@@ -493,6 +508,7 @@ class AsyncChalkClient:
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
         planner_options: Mapping[str, Any] | None = None,
+        named_query: NamedQuery | None = None,
     ) -> PlanQueryResponse:
         """Plan a query without executing it.
 
@@ -501,10 +517,14 @@ class AsyncChalkClient:
         input
             The features for which there are known values, mapped to those values.
             For example, `{User.id: 1234}`. Features can also be expressed as snakecased strings,
-            e.g. `{"user.id": 1234}`
+            e.g. `{"user.id": 1234}`.
+            Optional if a `named_query` is provided; if both are provided, the value from
+            the `named_query` is used and this argument is ignored (with a warning).
         output
             Outputs are the features that you'd like to compute from the inputs.
             For example, `[User.age, User.name, User.email]`.
+            Optional if a `named_query` is provided; if both are provided, the value from
+            the `named_query` is used and this argument is ignored (with a warning).
         staleness
             Maximum staleness overrides for any output features or intermediate features.
             See https://docs.chalk.ai/docs/query-caching for more information.
@@ -546,6 +566,10 @@ class AsyncChalkClient:
             Dictionary of additional options to pass to the Chalk query engine.
             Values may be provided as part of conversations with Chalk support
             to enable or disable specific functionality.
+        named_query
+            A `NamedQuery` to plan. When provided, the `NamedQuery` takes precedence
+            over `input`, `output`, `staleness`, `tags`, `query_name`, `query_name_version`,
+            `meta`, and `planner_options`.
 
         Returns
         -------
@@ -563,6 +587,14 @@ class AsyncChalkClient:
         ... )
         >>> result.rendered_plan
         >>> result.output_schema
+
+        You can also plan a `NamedQuery` directly:
+
+        >>> from chalk import NamedQuery
+        >>> from chalk.client import AsyncChalkClient
+        >>> nq = NamedQuery(name="fraud_model", input=[User.id], output=[User.fico_score])
+        >>> result = await AsyncChalkClient().plan_query(named_query=nq)
+        >>> result.errors
         """
         ...
 

@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from plato.agents.execution import AgentExecutionManager
     from plato.agents.mounts import AgentWorkspaceMount
     from plato.agents.task import AgentTask
-    from plato.agents.warmpool import WarmPool
+    from plato.agents.warmpool import AgentVMBudget, WarmPool
     from plato.llm import LLMClient
     from plato.worlds.result_store import ResultStore
 
@@ -163,6 +163,13 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         self._state: StateT | None = None
         self._workspaces: dict[str, Workspace] = {}
         self._agent_execution_managers: dict[str, AgentExecutionManager] = {}
+        # Optional session-wide cap on live agent VMs shared by EVERY execution
+        # manager/warm pool this world creates. Per-manager max_parallel bounds
+        # each pool individually, but managers are keyed per config/mount shape,
+        # so without a shared budget the SUM of retained idle VMs across pools
+        # can exceed the session env limit. Worlds that fan out across multiple
+        # shapes (e.g. the workflow world) set this in reset().
+        self._agent_vm_budget: AgentVMBudget | None = None
 
     @property
     def state(self) -> StateT:
@@ -338,6 +345,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                     primary_mount=primary_mount,
                     total_agents=total_agents,
                     min_warmpool_timeout=self.config.min_warmpool_timeout,
+                    vm_budget=self._agent_vm_budget,
                 )
                 self._agent_execution_managers[manager_key] = manager
             elif total_agents is not None:
@@ -648,17 +656,35 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
         await self._finalize(run_error)
 
+    def extra_workspace_markers(self) -> dict[str, WorkspaceMarker]:
+        """Dynamic workspaces to register alongside the config's marker fields.
+
+        Override to contribute config-driven workspaces (e.g. a dict of named
+        datasets) that cannot be declared as static ``Annotated`` fields. Each
+        entry rides the exact same pipeline as a marker field: repo resolve,
+        ``state.workspaces`` restore (key ``<world>/<name>``), FUSE mount, and
+        transport setup (including per-export NFS ``readonly``). Names must not
+        collide with marker field names; there is no ``config.<name>`` attribute
+        for dynamic workspaces — use ``self.workspace(name).path``.
+        """
+        return {}
+
     async def _init_declared_workspaces(self) -> None:
         """Auto-discover Workspace markers on config and set everything up."""
-        annotations = self.config.get_field_annotations()
+        annotations: dict[str, Any] = dict(self.config.get_field_annotations())
+        for extra_name, extra_marker in self.extra_workspace_markers().items():
+            if extra_name in annotations:
+                raise ValueError(f"extra_workspace_markers(): '{extra_name}' collides with a config marker field")
+            annotations[extra_name] = extra_marker
         state_root = Path(self.config.state.path)
+        config_fields = set(type(self.config).model_fields)
 
         for field_name, marker in annotations.items():
             if not isinstance(marker, WorkspaceMarker):
                 continue
 
-            # Resolve path
-            configured_path = getattr(self.config, field_name, None)
+            # Resolve path (dynamic workspaces have no config attribute)
+            configured_path = getattr(self.config, field_name, None) if field_name in config_fields else None
             if configured_path and str(configured_path) not in (".", ""):
                 ws_path = Path(configured_path)
             else:
@@ -700,7 +726,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
             self._workspaces[field_name] = workspace
             # workspace.path is the content directory (data/ for tracked, root otherwise)
-            object.__setattr__(self.config, field_name, workspace.path)
+            if field_name in config_fields:
+                object.__setattr__(self.config, field_name, workspace.path)
             self.logger.info(
                 f"Workspace '{field_name}' at {ws_path} "
                 f"(tracked={marker.tracked}, mount_path={workspace._mount_path}, repo={repo_info.repo_name})"
@@ -721,12 +748,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             return
 
         runtime_info = self._runtime_info
-        annotations = self.config.get_field_annotations()
+        annotations = {**self.config.get_field_annotations(), **self.extra_workspace_markers()}
 
         # Separate workspaces by transport type so git/rsync/sshfs transports can
         # init in parallel while NFS workspaces share a single server
         # (sequential add_export).
-        nfs_ws: list[Workspace] = []
+        nfs_ws: list[tuple[Workspace, WorkspaceMarker | None]] = []
         git_ws: list[tuple[Workspace, WorkspaceMarker]] = []
         rsync_ws: list[Workspace] = []
         sshfs_ws: list[Workspace] = []
@@ -741,7 +768,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             elif self.config.transport_mode == "sshfs" and marker_transport != "git":
                 sshfs_ws.append(ws)
             else:
-                nfs_ws.append(ws)
+                nfs_ws.append((ws, marker if isinstance(marker, WorkspaceMarker) else None))
 
         # Git transports init in parallel (each has its own bare repo)
         async def _setup_git(ws: Workspace, marker: WorkspaceMarker) -> None:
@@ -770,12 +797,13 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
         # NFS: first workspace creates server, rest add exports (sequential)
         nfs_server = None
-        for i, ws in enumerate(nfs_ws):
+        for i, (ws, ws_marker) in enumerate(nfs_ws):
             nfs_server = await ws.setup_transport(
                 self._runtime_info,
                 transport_mode="nfs_kernel",
                 nfs_server=nfs_server,
                 export_fsid=i,
+                readonly=ws_marker.readonly if ws_marker is not None else False,
             )
 
         # Run NFS refresh + git/sshfs inits in parallel

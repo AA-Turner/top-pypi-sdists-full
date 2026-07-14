@@ -9,4 +9,9 @@ __all__ = ["ProfileCreateParams"]
 
 class ProfileCreateParams(TypedDict, total=False):
     name: str
-    """Optional name of the profile. Must be unique within the project."""
+    """Optional name of the profile.
+
+    Must be unique within the logical project; during the default-project migration,
+    unscoped profiles and profiles in the org default project are treated as the
+    same project.
+    """

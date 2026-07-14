@@ -1,0 +1,38 @@
+name: CI
+on:
+  pull_request:
+
+jobs:
+  CI:
+    continue-on-error: true
+    runs-on: ${{ matrix.os }}
+    # Supported Versions:
+    # https://github.com/actions/python-versions/blob/main/versions-manifest.json
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Requirements
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install flake8==7.3.0 pylint pytest
+          pip install -r requirements.txt
+          pip install -r test/requirements.txt
+          pip install .
+      - name: Run Linter
+        run: |
+          flake8 setup.py example stone test
+          pylint --rcfile=.pylintrc setup.py example stone test
+      - name: Run Unit Tests
+        run: |
+          pytest
+      - name: Run MyPy
+        run: |
+          pip install mypy
+          ./mypy-run.sh

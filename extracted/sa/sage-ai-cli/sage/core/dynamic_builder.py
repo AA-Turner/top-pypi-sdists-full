@@ -287,17 +287,26 @@ def _verify_iterate_until_green(
     *,
     generate: GenerateFn,
     log: ProgressFn,
-    stuck_threshold: int = 2,  # exit faster when no progress — was 3
+    stuck_threshold: int = 3,  # exit after 3 flat rounds
 ) -> list[VerifyReport]:
     """Run install+test on every discovered project; on failure regenerate
-    the offending files and re-run. Uses progress-stuck detection to prevent
-    infinite loops. stuck_threshold=2 means exit after 2 rounds with no improvement.
+    the offending files and re-run.
+
+    Improvements over the original:
+    - Per-file quarantine: after 3 failed attempts on the same file, skip it
+    - Cloud API failures don't count as repair rounds (no wasted iterations)
+    - Smarter stuck detection: compares unique failing files, not just count
+    - Higher MAX_ROUNDS (12) since quarantine prevents true infinite loops
     """
     rounds = 0
     last_fail_count: int | None = None
     flat_rounds = 0
-    _MAX_ROUNDS = 8  # hard safety cap — prevents truly infinite loops on cloud models
+    _MAX_ROUNDS = 12  # higher cap — quarantine prevents infinite loops
     reports: list[VerifyReport] = []
+
+    # Per-file failure tracking for quarantine
+    file_fail_counts: dict[str, int] = {}  # "path" -> consecutive fail count
+    quarantined_files: set[str] = set()
 
     while rounds < _MAX_ROUNDS:
         rounds += 1
@@ -306,9 +315,25 @@ def _verify_iterate_until_green(
         if all(r.all_ok for r in reports):
             return reports
 
-        # Count failing steps across all projects
-        fail_count = sum(1 for r in reports for s in r.steps if not s.ok)
-        log(f"[verify] round {rounds}: {fail_count} failing steps")
+        # Count failing steps, excluding quarantined files
+        fail_count = 0
+        failing_files: set[str] = set()
+        for r in reports:
+            for s in r.steps:
+                if not s.ok:
+                    step_files = set()
+                    for match in re.finditer(
+                        r"(?P<path>(?:[\w\-./])+\.(?:py|tsx|ts|jsx|js))",
+                        s.log or "",
+                    ):
+                        step_files.add(match.group("path"))
+                    # Only count non-quarantined failures
+                    non_q = step_files - quarantined_files
+                    if non_q or not step_files:
+                        fail_count += 1
+                        failing_files.update(step_files)
+
+        log(f"[verify] round {rounds}: {fail_count} failing steps ({len(quarantined_files)} quarantined)")
 
         # Stuck detection: exit if no progress for stuck_threshold rounds
         if last_fail_count is not None:
@@ -324,12 +349,43 @@ def _verify_iterate_until_green(
                 flat_rounds = 0
         last_fail_count = fail_count
 
-        # Try to repair each failing step
+        # Try to repair each failing step, with quarantine
+        repairs_attempted = 0
         for report in reports:
             for step in report.steps:
                 if step.ok:
                     continue
-                _attempt_repair(report.project, step, generate=generate, log=log)
+
+                # Check quarantine status for files in this step
+                step_files_in_log = set()
+                for match in re.finditer(
+                    r"(?P<path>(?:[\w\-./])+\.(?:py|tsx|ts|jsx|js))",
+                    step.log or "",
+                ):
+                    step_files_in_log.add(match.group("path"))
+
+                if step_files_in_log and step_files_in_log.issubset(quarantined_files):
+                    log(f"[verify] skipping {step.name} — all files quarantined")
+                    continue
+
+                try:
+                    _attempt_repair(report.project, step, generate=generate, log=log)
+                    repairs_attempted += 1
+                except Exception as exc:
+                    log(f"[verify] repair exception: {exc}")
+
+                # Track failures per file for quarantine
+                for fpath in step_files_in_log:
+                    if fpath not in quarantined_files:
+                        file_fail_counts[fpath] = file_fail_counts.get(fpath, 0) + 1
+                        if file_fail_counts[fpath] >= 3:
+                            quarantined_files.add(fpath)
+                            log(f"[verify] QUARANTINED {fpath} after 3 failed repair attempts")
+
+        # If no repairs were attempted (all quarantined), stop early
+        if repairs_attempted == 0:
+            log(f"[verify] all failing files quarantined — stopping auto-repair")
+            return reports
 
     return reports
 

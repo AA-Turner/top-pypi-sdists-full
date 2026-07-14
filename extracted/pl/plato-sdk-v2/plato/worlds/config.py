@@ -249,6 +249,19 @@ class GitTransportConfig(BaseModel):
         description="Timeout in seconds for seeding the bare repo with initial workspace contents. "
         "Increase for large workspaces (e.g., 1000+ files over FUSE).",
     )
+    worktree_git_off_fuse: bool = Field(
+        default=False,
+        description="Keep the repo/ working tree's git dir on local VM disk (a .git gitfile "
+        "pointing at /tmp/plato-git/<digest>/.repo-git) instead of a .git directory inside "
+        "the FUSE workspace mount. Git pack writes through the FUSE overlay (post-receive "
+        "fetches, post-merge worktree refreshes) get truncated when the workspace-commit "
+        "machinery runs concurrently — same overlay bug as plato.workflows.journal — and the "
+        "corrupt pack is then persisted by the checkpoint and re-served on every restore. "
+        "With this on, only checked-out tree files traverse FUSE; git object/ref/index I/O "
+        "stays on local disk, and a restored legacy in-FUSE .git dir is discarded and "
+        "rebuilt from the local bare (healing any corruption persisted by old checkpoints). "
+        "Off by default: existing worlds (e.g. webclone) tune around the in-FUSE layout.",
+    )
 
 
 class WorkspaceSourceSpec(BaseModel):

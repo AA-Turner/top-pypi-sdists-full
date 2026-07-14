@@ -1,7 +1,7 @@
 [project]
 name = "pyStrich"
-version = "0.16"
-description = "PyStrich is a Python module to generate 1D and 2D barcodes: Code 39, Code 128 (including GS1-128), EAN-13, ITF-14, Data Matrix (including GS1 Data Matrix), QR Code, PDF417 and Aztec Code."
+version = "0.17"
+description = "PyStrich is a fast pure-Python module to generate 1D and 2D barcodes: Code 39, Code 128 (including GS1-128), EAN-13, ITF-14, Data Matrix (including GS1 Data Matrix), QR Code, PDF417 and Aztec Code."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -34,8 +34,8 @@ classifiers = [
 ]
 dependencies = [
     # Pillow is needed only for PNG output and is also offered as the ``png``
-    # extra. It stays a hard dependency until 0.17, when these two lines are
-    # removed to make it opt-in.
+    # extra. It stays a hard dependency until a future release, when these two
+    # lines are removed to make it opt-in.
     "pillow>=10.3; python_version < '3.11'",
     "pillow>=12.2; python_version >= '3.11'",
     "typing-extensions>=4.15.0",
@@ -66,7 +66,7 @@ dev = [
     "zxing-cpp>=2.2",
     "hypothesis>=6.155.2",
     # Tests need Pillow for the png-marked cases; kept here so they still run
-    # once Pillow leaves the core dependencies in 0.17.
+    # once Pillow leaves the core dependencies.
     "pillow>=10.3; python_version < '3.11'",
     "pillow>=12.2; python_version >= '3.11'",
 ]
@@ -77,6 +77,8 @@ docs = [
     "sphinx-argparse>=0.5",
     "sphinxext-opengraph>=0.13.0",
     "sphinx-sitemap>=2.9.0",
+    "sphinx-intl>=2.3.2",
+    "polib>=1.2.0",
 ]
 
 [build-system]

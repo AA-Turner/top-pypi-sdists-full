@@ -8,7 +8,7 @@
   block:
     - name: Ensure disk files exists
       ansible.builtin.command:
-        cmd: "truncate -s 256M {{ item }}"
+        cmd: "dd if=/dev/zero of={{ item }} bs=1M count=256 conv=fsync"
         creates: "{{ item }}"
       loop: "{{ zpool_disk_configs }}"
 

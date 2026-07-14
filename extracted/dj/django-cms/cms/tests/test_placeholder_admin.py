@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import connection
 from django.forms.models import model_to_dict
@@ -25,6 +27,48 @@ class PlaceholderAdminTestCase(CMSTestCase):
         with self.login_user_context(superuser):
             data = {"name": "A Link", "external_link": "https://www.django-cms.org"}
             response = self.client.post(uri, data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(plugins.count(), 1)
+
+    def test_add_plugin_rejected_in_disallowed_slot(self):
+        """A plugin with allowed_slots cannot be added to a slot it does not allow."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        placeholder = Placeholder.objects.create(slot="sidebar")
+        plugins = placeholder.get_plugins("en").filter(plugin_type="LinkPlugin")
+        uri = self.get_add_plugin_uri(
+            placeholder=placeholder,
+            plugin_type="LinkPlugin",
+            language="en",
+        )
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            with self.login_user_context(superuser):
+                data = {"name": "A Link", "external_link": "https://www.django-cms.org"}
+                response = self.client.post(uri, data)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(plugins.count(), 0)
+
+    def test_add_plugin_allowed_in_listed_slot(self):
+        """A plugin with allowed_slots can be added to a slot it allows."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        placeholder = Placeholder.objects.create(slot="content")
+        plugins = placeholder.get_plugins("en").filter(plugin_type="LinkPlugin")
+        uri = self.get_add_plugin_uri(
+            placeholder=placeholder,
+            plugin_type="LinkPlugin",
+            language="en",
+        )
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            with self.login_user_context(superuser):
+                data = {"name": "A Link", "external_link": "https://www.django-cms.org"}
+                response = self.client.post(uri, data)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(plugins.count(), 1)
@@ -68,6 +112,57 @@ class PlaceholderAdminTestCase(CMSTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(source_placeholder.get_plugins("en").filter(pk=source_plugin.pk).exists())
         self.assertTrue(target_placeholder.get_plugins("en").filter(plugin_type=source_plugin.plugin_type).exists())
+
+    def test_copy_plugins_rejected_into_disallowed_slot(self):
+        """A plugin with allowed_slots cannot be copied into a slot it does not allow."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        source_placeholder = Placeholder.objects.create(slot="content")
+        target_placeholder = Placeholder.objects.create(slot="sidebar")
+        source_plugin = self._add_plugin_to_placeholder(source_placeholder)
+        endpoint = self.get_copy_plugin_uri(source_plugin)
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            with self.login_user_context(superuser):
+                data = {
+                    "source_language": "en",
+                    "source_placeholder_id": source_placeholder.pk,
+                    "target_language": "en",
+                    "target_placeholder_id": target_placeholder.pk,
+                }
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 400)
+        # Nothing was copied into the disallowed target slot.
+        self.assertFalse(target_placeholder.get_plugins("en").exists())
+
+    def test_copy_plugins_allowed_into_listed_slot(self):
+        """A plugin with allowed_slots can be copied into a slot it allows."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        source_placeholder = Placeholder.objects.create(slot="content")
+        target_placeholder = Placeholder.objects.create(slot="sidebar")
+        source_plugin = self._add_plugin_to_placeholder(source_placeholder)
+        endpoint = self.get_copy_plugin_uri(source_plugin)
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        with patch.object(LinkPlugin, "allowed_slots", ["content", "sidebar"]):
+            with self.login_user_context(superuser):
+                data = {
+                    "source_language": "en",
+                    "source_placeholder_id": source_placeholder.pk,
+                    "target_language": "en",
+                    "target_placeholder_id": target_placeholder.pk,
+                }
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            target_placeholder.get_plugins("en").filter(plugin_type="LinkPlugin").exists()
+        )
 
     def test_copy_plugins_to_clipboard(self):
         """
@@ -127,6 +222,105 @@ class PlaceholderAdminTestCase(CMSTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(source_placeholder.get_plugins("en").filter(pk=source_plugin.pk).exists())
         self.assertTrue(user_settings.clipboard.get_plugins("en").filter(plugin_type="PlaceholderPlugin").exists())
+
+    def _create_clipboard_with_placeholder(self, user, language="en"):
+        """Puts a PlaceholderPlugin with one LinkPlugin (``language``) on the
+        user's clipboard, as "Copy all" does, and returns the PlaceholderPlugin."""
+        user_settings = UserSettings.objects.create(
+            language=language,
+            user=user,
+            clipboard=Placeholder.objects.create(slot="clipboard"),
+        )
+        placeholder_plugin = add_plugin(user_settings.clipboard, "PlaceholderPlugin", language)
+        add_plugin(
+            placeholder_plugin.placeholder_ref,
+            "LinkPlugin",
+            language,
+            name="Pasted Link",
+            external_link="https://www.django-cms.org",
+        )
+        return placeholder_plugin
+
+    def test_paste_placeholder_shifts_positions_of_target_language(self):
+        """
+        Pasting a placeholder from the clipboard shifts the positions of the
+        existing plugins in the *target* language, even when the clipboard
+        content was copied in a different language.
+
+        Regression test for issue 09: ``_paste_placeholder`` computed the
+        position offset from the clipboard plugin's language instead of the
+        target language. With existing plugins only in the target language,
+        no shift happened and the pasted plugins collided with the existing
+        positions (IntegrityError on the placeholder/language/position
+        unique constraint).
+        """
+        superuser = self.get_superuser()
+        # Clipboard content was copied while working in "en".
+        placeholder_plugin = self._create_clipboard_with_placeholder(superuser, language="en")
+        # The paste target already holds two "de" plugins (positions 1 and 2).
+        target_placeholder = Placeholder.objects.create(slot="target")
+        for name in ("Existing 1", "Existing 2"):
+            add_plugin(
+                target_placeholder,
+                "LinkPlugin",
+                "de",
+                name=name,
+                external_link="https://www.django-cms.org",
+            )
+
+        endpoint = self.get_move_plugin_uri(placeholder_plugin, language="de")
+        with self.login_user_context(superuser):
+            data = {
+                "plugin_id": placeholder_plugin.pk,
+                "placeholder_id": target_placeholder.pk,
+                "move_a_copy": "true",
+                "target_language": "de",
+                "target_position": 1,  # paste before the existing plugins
+            }
+            response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 200)
+        plugins = list(target_placeholder.get_plugins("de").order_by("position"))
+        self.assertEqual(len(plugins), 3)
+        positions = [plugin.position for plugin in plugins]
+        self.assertEqual(len(set(positions)), len(positions), f"Plugin positions collide: {positions}")
+        # The pasted plugin sits before the pre-existing plugins.
+        names = [plugin.get_bound_plugin().name for plugin in plugins]
+        self.assertEqual(names, ["Pasted Link", "Existing 1", "Existing 2"])
+
+    def test_paste_placeholder_clears_cache_of_target_language(self):
+        """
+        Pasting a placeholder from the clipboard invalidates the target
+        placeholder's cache for the *target* language.
+
+        Regression test for issue 09: ``_paste_placeholder`` cleared the
+        cache for the clipboard plugin's language, so the target language
+        kept serving stale content.
+        """
+        superuser = self.get_superuser()
+        # Clipboard content was copied while working in "en", pasted into "de".
+        placeholder_plugin = self._create_clipboard_with_placeholder(superuser, language="en")
+        target_placeholder = Placeholder.objects.create(slot="target")
+
+        endpoint = self.get_move_plugin_uri(placeholder_plugin, language="de")
+        with self.login_user_context(superuser):
+            data = {
+                "plugin_id": placeholder_plugin.pk,
+                "placeholder_id": target_placeholder.pk,
+                "move_a_copy": "true",
+                "target_language": "de",
+                "target_position": 1,
+            }
+            with patch.object(Placeholder, "clear_cache", autospec=True) as mocked_clear_cache:
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 200)
+        cleared_languages = [
+            call.args[1]
+            for call in mocked_clear_cache.call_args_list
+            if call.args[0] == target_placeholder
+        ]
+        self.assertEqual(cleared_languages, ["de"])
 
     def test_edit_plugin_endpoint(self):
         """
@@ -251,8 +445,8 @@ class PlaceholderAdminTestCase(CMSTestCase):
         # 6. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date", "cms_placeholder"."id", "cms_placeholder"."slot", "cms_placeholder"."default_width", "cms_placeholder"."content_type_id", "cms_placeholder"."object_id" FROM "cms_cmsplugin" INNER JOIN "cms_placeholder" ON ("cms_cmsplugin"."placeholder_id" = "cms_placeholder"."id") WHERE "cms_cmsplugin"."placeholder_id" = 2 ORDER BY "cms_cmsplugin"."position" ASC LIMIT 1
         # 7. SELECT 1 AS "a" FROM "cms_pagepermission" INNER JOIN "cms_page" ON ("cms_pagepermission"."page_id" = "cms_page"."id") WHERE (("cms_pagepermission"."page_id" = 1 AND ("cms_pagepermission"."grant_on" = 5 OR "cms_pagepermission"."grant_on" = 3 OR "cms_pagepermission"."grant_on" = 1)) AND "cms_pagepermission"."can_view") LIMIT 1
         # 8. SELECT "cms_pagecontent"."id", "cms_pagecontent"."language", "cms_pagecontent"."title", "cms_pagecontent"."page_title", "cms_pagecontent"."menu_title", "cms_pagecontent"."meta_description", "cms_pagecontent"."redirect", "cms_pagecontent"."page_id", "cms_pagecontent"."creation_date", "cms_pagecontent"."created_by", "cms_pagecontent"."changed_by", "cms_pagecontent"."changed_date", "cms_pagecontent"."in_navigation", "cms_pagecontent"."soft_root", "cms_pagecontent"."template", "cms_pagecontent"."limit_visibility_in_menu", "cms_pagecontent"."xframe_options" FROM "cms_pagecontent" WHERE "cms_pagecontent"."page_id" = 1
-        # 9. SELECT "extensionapp_mypagecontentextension"."id", "extensionapp_mypagecontentextension"."public_extension_id", "extensionapp_mypagecontentextension"."extended_object_id", "extensionapp_mypagecontentextension"."extra_title" FROM "extensionapp_mypagecontentextension" WHERE "extensionapp_mypagecontentextension"."extended_object_id" = 1 LIMIT 21
-        # 10. SELECT "extensionapp_mypageextension"."id", "extensionapp_mypageextension"."public_extension_id", "extensionapp_mypageextension"."extended_object_id", "extensionapp_mypageextension"."extra" FROM "extensionapp_mypageextension" WHERE "extensionapp_mypageextension"."extended_object_id" = 1 LIMIT 21
+        # 9. SELECT "extensionapp_mypagecontentextension"."id", "extensionapp_mypagecontentextension"."extended_object_id", "extensionapp_mypagecontentextension"."extra_title" FROM "extensionapp_mypagecontentextension" WHERE "extensionapp_mypagecontentextension"."extended_object_id" = 1 LIMIT 21
+        # 10. SELECT "extensionapp_mypageextension"."id", "extensionapp_mypageextension"."extended_object_id", "extensionapp_mypageextension"."extra" FROM "extensionapp_mypageextension" WHERE "extensionapp_mypageextension"."extended_object_id" = 1 LIMIT 21
         # 11. SELECT "cms_placeholder"."id", "cms_placeholder"."slot", "cms_placeholder"."default_width", "cms_placeholder"."content_type_id", "cms_placeholder"."object_id" FROM "cms_placeholder" WHERE ("cms_placeholder"."content_type_id" = 18 AND "cms_placeholder"."object_id" = 1)
         # 12. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date" FROM "cms_cmsplugin" WHERE ("cms_cmsplugin"."language" = 'en' AND "cms_cmsplugin"."placeholder_id" IN (1)) ORDER BY "cms_cmsplugin"."position" ASC
         # 13. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date", "multicolumn_multicolumns"."cmsplugin_ptr_id" FROM "multicolumn_multicolumns" INNER JOIN "cms_cmsplugin" ON ("multicolumn_multicolumns"."cmsplugin_ptr_id" = "cms_cmsplugin"."id") WHERE "multicolumn_multicolumns"."cmsplugin_ptr_id" IN (1, 4) ORDER BY "cms_cmsplugin"."position" ASC
@@ -298,8 +492,8 @@ class PlaceholderAdminTestCase(CMSTestCase):
         # 7. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date", "cms_placeholder"."id", "cms_placeholder"."slot", "cms_placeholder"."default_width", "cms_placeholder"."content_type_id", "cms_placeholder"."object_id" FROM "cms_cmsplugin" INNER JOIN "cms_placeholder" ON ("cms_cmsplugin"."placeholder_id" = "cms_placeholder"."id") WHERE "cms_cmsplugin"."placeholder_id" = 2 ORDER BY "cms_cmsplugin"."position" ASC LIMIT 1
         # 8. SELECT 1 AS "a" FROM "cms_pagepermission" INNER JOIN "cms_page" ON ("cms_pagepermission"."page_id" = "cms_page"."id") WHERE (("cms_pagepermission"."page_id" = 1 AND ("cms_pagepermission"."grant_on" = 5 OR "cms_pagepermission"."grant_on" = 3 OR "cms_pagepermission"."grant_on" = 1)) AND "cms_pagepermission"."can_view") LIMIT 1
         # 9. SELECT "cms_pagecontent"."id", "cms_pagecontent"."language", "cms_pagecontent"."title", "cms_pagecontent"."page_title", "cms_pagecontent"."menu_title", "cms_pagecontent"."meta_description", "cms_pagecontent"."redirect", "cms_pagecontent"."page_id", "cms_pagecontent"."creation_date", "cms_pagecontent"."created_by", "cms_pagecontent"."changed_by", "cms_pagecontent"."changed_date", "cms_pagecontent"."in_navigation", "cms_pagecontent"."soft_root", "cms_pagecontent"."template", "cms_pagecontent"."limit_visibility_in_menu", "cms_pagecontent"."xframe_options" FROM "cms_pagecontent" WHERE "cms_pagecontent"."page_id" = 1
-        # 10. SELECT "extensionapp_mypagecontentextension"."id", "extensionapp_mypagecontentextension"."public_extension_id", "extensionapp_mypagecontentextension"."extended_object_id", "extensionapp_mypagecontentextension"."extra_title" FROM "extensionapp_mypagecontentextension" WHERE "extensionapp_mypagecontentextension"."extended_object_id" = 1 LIMIT 21
-        # 11. SELECT "extensionapp_mypageextension"."id", "extensionapp_mypageextension"."public_extension_id", "extensionapp_mypageextension"."extended_object_id", "extensionapp_mypageextension"."extra" FROM "extensionapp_mypageextension" WHERE "extensionapp_mypageextension"."extended_object_id" = 1 LIMIT 21
+        # 10. SELECT "extensionapp_mypagecontentextension"."id", "extensionapp_mypagecontentextension"."extended_object_id", "extensionapp_mypagecontentextension"."extra_title" FROM "extensionapp_mypagecontentextension" WHERE "extensionapp_mypagecontentextension"."extended_object_id" = 1 LIMIT 21
+        # 11. SELECT "extensionapp_mypageextension"."id", "extensionapp_mypageextension"."extended_object_id", "extensionapp_mypageextension"."extra" FROM "extensionapp_mypageextension" WHERE "extensionapp_mypageextension"."extended_object_id" = 1 LIMIT 21
         # 12. SELECT "cms_placeholder"."id", "cms_placeholder"."slot", "cms_placeholder"."default_width", "cms_placeholder"."content_type_id", "cms_placeholder"."object_id" FROM "cms_placeholder" WHERE ("cms_placeholder"."content_type_id" = 18 AND "cms_placeholder"."object_id" = 1)
         # 13. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date" FROM "cms_cmsplugin" WHERE ("cms_cmsplugin"."language" = 'en' AND "cms_cmsplugin"."placeholder_id" IN (1)) ORDER BY "cms_cmsplugin"."position" ASC
         # 14. SELECT "cms_cmsplugin"."id", "cms_cmsplugin"."placeholder_id", "cms_cmsplugin"."parent_id", "cms_cmsplugin"."position", "cms_cmsplugin"."language", "cms_cmsplugin"."plugin_type", "cms_cmsplugin"."creation_date", "cms_cmsplugin"."changed_date", "multicolumn_multicolumns"."cmsplugin_ptr_id" FROM "multicolumn_multicolumns" INNER JOIN "cms_cmsplugin" ON ("multicolumn_multicolumns"."cmsplugin_ptr_id" = "cms_cmsplugin"."id") WHERE "multicolumn_multicolumns"."cmsplugin_ptr_id" IN (1, 4) ORDER BY "cms_cmsplugin"."position" ASC
@@ -362,6 +556,86 @@ class PlaceholderAdminSecurityTestCase(CMSTestCase):
         # No cycle: parent stays at the root, child stays under parent.
         self.assertIsNone(parent.parent_id)
         self.assertEqual(child.parent_id, parent.pk)
+
+    def test_move_plugin_rejected_into_disallowed_slot(self):
+        """A plugin with allowed_slots cannot be moved into a slot it does not allow."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        source = Placeholder.objects.create(slot="content")
+        target = Placeholder.objects.create(slot="sidebar")
+        plugin = add_plugin(source, "LinkPlugin", "en", name="link", external_link="https://example.com")
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        endpoint = self.get_move_plugin_uri(plugin)
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            with self.login_user_context(superuser):
+                data = {
+                    "plugin_id": plugin.pk,
+                    "placeholder_id": target.pk,
+                    "target_language": "en",
+                    "target_position": 1,
+                }
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 400)
+        plugin.refresh_from_db()
+        # The plugin stays in its original placeholder.
+        self.assertEqual(plugin.placeholder_id, source.pk)
+
+    def test_move_plugin_rejected_when_descendant_disallowed_in_slot(self):
+        """Moving a subtree is rejected if any descendant is disallowed in the target slot."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        source = Placeholder.objects.create(slot="content")
+        target = Placeholder.objects.create(slot="sidebar")
+        # The moved (root) plugin is allowed in every slot, but its child is restricted.
+        parent = add_plugin(source, "StylePlugin", "en", label="wrap")
+        add_plugin(source, "LinkPlugin", "en", name="link", external_link="https://example.com", target=parent)
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        endpoint = self.get_move_plugin_uri(parent)
+        with patch.object(LinkPlugin, "allowed_slots", ["content"]):
+            with self.login_user_context(superuser):
+                data = {
+                    "plugin_id": parent.pk,
+                    "placeholder_id": target.pk,
+                    "target_language": "en",
+                    "target_position": 1,
+                }
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 400)
+        parent.refresh_from_db()
+        # The subtree stays in its original placeholder.
+        self.assertEqual(parent.placeholder_id, source.pk)
+
+    def test_move_plugin_allowed_into_listed_slot(self):
+        """A plugin with allowed_slots can be moved into a slot it allows."""
+        from cms.plugin_pool import plugin_pool
+
+        superuser = self.get_superuser()
+        source = Placeholder.objects.create(slot="content")
+        target = Placeholder.objects.create(slot="sidebar")
+        plugin = add_plugin(source, "LinkPlugin", "en", name="link", external_link="https://example.com")
+
+        LinkPlugin = plugin_pool.get_plugin("LinkPlugin")
+        endpoint = self.get_move_plugin_uri(plugin)
+        with patch.object(LinkPlugin, "allowed_slots", ["content", "sidebar"]):
+            with self.login_user_context(superuser):
+                data = {
+                    "plugin_id": plugin.pk,
+                    "placeholder_id": target.pk,
+                    "target_language": "en",
+                    "target_position": 1,
+                }
+                response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 200)
+        plugin.refresh_from_db()
+        # The plugin moved into the allowed target placeholder.
+        self.assertEqual(plugin.placeholder_id, target.pk)
 
     def test_copy_plugin_to_clipboard_requires_source_permission(self):
         """Copying a plugin to the clipboard must check source-side permission.
@@ -430,6 +704,80 @@ class PlaceholderAdminSecurityTestCase(CMSTestCase):
             data = {
                 "source_language": "en",
                 "source_placeholder_id": victim_placeholder.pk,
+                "target_language": "en",
+                "target_placeholder_id": user_settings.clipboard.pk,
+            }
+            response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(user_settings.clipboard.get_plugins("en").exists())
+
+    def test_copy_plugin_to_clipboard_requires_add_permission(self):
+        """Copying a plugin to the clipboard must check add permission for the
+        plugin type.
+
+        A staff user who is missing the plugin's add permission must not be
+        able to copy it into their own clipboard, even when the plugin lives
+        in a placeholder they would otherwise be allowed to read.
+        """
+        # No plugin permissions at all: cannot add a LinkPlugin anywhere.
+        user = self._create_user("editor", is_staff=True, is_superuser=False)
+        user_settings = UserSettings.objects.create(
+            language="en",
+            user=user,
+            clipboard=Placeholder.objects.create(),
+        )
+        user_settings.clipboard.source = user_settings
+        user_settings.clipboard.save()
+
+        source_placeholder = Placeholder.objects.create(slot="source")
+        source_plugin = add_plugin(
+            source_placeholder,
+            "LinkPlugin",
+            "en",
+            name="A Link",
+            external_link="https://www.django-cms.org",
+        )
+        endpoint = self.get_copy_plugin_uri(source_plugin)
+        with self.login_user_context(user):
+            data = {
+                "source_language": "en",
+                "source_placeholder_id": source_placeholder.pk,
+                "source_plugin_id": source_plugin.pk,
+                "target_language": "en",
+                "target_placeholder_id": user_settings.clipboard.pk,
+            }
+            response = self.client.post(endpoint, data)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(user_settings.clipboard.get_plugins("en").exists())
+
+    def test_copy_placeholder_to_clipboard_requires_add_permission(self):
+        """Copying a whole placeholder to the clipboard must check add
+        permission for the contained plugin types as well."""
+        # No plugin permissions at all: cannot add a LinkPlugin anywhere.
+        user = self._create_user("editor", is_staff=True, is_superuser=False)
+        user_settings = UserSettings.objects.create(
+            language="en",
+            user=user,
+            clipboard=Placeholder.objects.create(),
+        )
+        user_settings.clipboard.source = user_settings
+        user_settings.clipboard.save()
+
+        source_placeholder = Placeholder.objects.create(slot="source")
+        add_plugin(
+            source_placeholder,
+            "LinkPlugin",
+            "en",
+            name="A Link",
+            external_link="https://www.django-cms.org",
+        )
+        endpoint = self.get_copy_placeholder_uri(source_placeholder)
+        with self.login_user_context(user):
+            data = {
+                "source_language": "en",
+                "source_placeholder_id": source_placeholder.pk,
                 "target_language": "en",
                 "target_placeholder_id": user_settings.clipboard.pk,
             }

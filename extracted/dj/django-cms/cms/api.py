@@ -62,12 +62,10 @@ from cms.models.placeholdermodel import Placeholder
 from cms.models.pluginmodel import CMSPlugin
 from cms.plugin_base import CMSPluginBase
 from cms.plugin_pool import plugin_pool
-from cms.utils import get_current_site
-from cms.utils.compat.warnings import RemovedInDjangoCMS51Warning
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_language_list
 from cms.utils.page import get_available_slug, get_clean_username
-from cms.utils.permissions import _thread_locals
+from cms.utils.permissions import _current_user
 from cms.utils.plugins import copy_plugins_to_placeholder
 from menus.menu_pool import menu_pool
 
@@ -204,18 +202,23 @@ def create_page(
         assert template in [tpl[0] for tpl in get_cms_setting("TEMPLATES")]
         get_template(template)
 
-    # validate site
-    if not site:
-        site = get_current_site()
-    else:
-        assert isinstance(site, Site)
-
-    # validate language:
-    assert language in get_language_list(site), get_cms_setting("LANGUAGES").get(site.pk)
-
     # validate parent
     if parent:
         assert isinstance(parent, Page)
+
+    # validate site
+    if not site:
+        if parent:
+            site = parent.site
+        else:
+            site = Site.objects.get_current()  # Get the current site from settings
+    else:
+        assert isinstance(site, Site)
+        if parent:
+            assert parent.site == site, "Parent page must be on the same site as the new page"
+
+    # validate language:
+    assert language in get_language_list(site), get_cms_setting("LANGUAGES").get(site.pk)
 
     if navigation_extenders:
         raw_menus = menu_pool.get_menus_by_attribute("cms_enabled", True)
@@ -235,51 +238,57 @@ def create_page(
     else:
         application_urls = None
 
-    # ugly permissions hack
+    # ugly permissions hack: expose the creator through the _current_user
+    # context variable for the duration of the creation, then restore the
+    # previous value. Capturing the token and resetting (instead of blindly
+    # setting None at the end) avoids clobbering a user set by
+    # CurrentUserMiddleware and prevents leaking the creator into the next
+    # operation on the same thread. See cms.utils.permissions.reset_current_user.
     if created_by and isinstance(created_by, get_user_model()):
-        _thread_locals.user = created_by
+        user_token = _current_user.set(created_by)
         created_by = get_clean_username(created_by)
     else:
-        _thread_locals.user = None
+        user_token = _current_user.set(None)
 
-    if reverse_id:
-        if Page.objects.filter(reverse_id=reverse_id, site=site).exists():
-            raise FieldError('A page with the reverse_id="%s" already exist.' % reverse_id)
+    try:
+        if reverse_id:
+            if Page.objects.filter(reverse_id=reverse_id, site=site).exists():
+                raise FieldError('A page with the reverse_id="%s" already exist.' % reverse_id)
 
-    page = Page(
-        parent=parent,
-        created_by=created_by,
-        changed_by=created_by,
-        reverse_id=reverse_id,
-        navigation_extenders=navigation_extenders,
-        application_urls=application_urls,
-        application_namespace=apphook_namespace,
-        login_required=login_required,
-        site=site,
-    )
-    page.add_to_tree(position=position)
-    page.save()
+        page = Page(
+            parent=parent,
+            created_by=created_by,
+            changed_by=created_by,
+            reverse_id=reverse_id,
+            navigation_extenders=navigation_extenders,
+            application_urls=application_urls,
+            application_namespace=apphook_namespace,
+            login_required=login_required,
+            site=site,
+        )
+        page.add_to_tree(position=position)
+        page.save()
 
-    create_page_content(
-        language=language,
-        title=title,
-        menu_title=menu_title,
-        page_title=page_title,
-        slug=slug,
-        created_by=created_by,
-        redirect=redirect,
-        meta_description=meta_description,
-        page=page,
-        overwrite_url=overwrite_url,
-        soft_root=soft_root,
-        in_navigation=in_navigation,
-        template=template,
-        limit_visibility_in_menu=limit_visibility_in_menu,
-        xframe_options=xframe_options,
-    )
-
-    del _thread_locals.user
-    return page
+        create_page_content(
+            language=language,
+            title=title,
+            menu_title=menu_title,
+            page_title=page_title,
+            slug=slug,
+            created_by=created_by,
+            redirect=redirect,
+            meta_description=meta_description,
+            page=page,
+            overwrite_url=overwrite_url,
+            soft_root=soft_root,
+            in_navigation=in_navigation,
+            template=template,
+            limit_visibility_in_menu=limit_visibility_in_menu,
+            xframe_options=xframe_options,
+        )
+        return page
+    finally:
+        _current_user.reset(user_token)
 
 
 @transaction.atomic
@@ -346,98 +355,61 @@ def create_page_content(
     elif path is None:
         path = page.get_path_for_slug(slug, language)
 
+    # When called directly (not via create_page) with a user instance, expose
+    # it through the _current_user context variable so signal handlers and
+    # PageContent.objects.with_user() attribute the creation correctly. Capture
+    # the token so we can restore the previous value at the end -- otherwise the
+    # user leaks into the next operation on the same thread when
+    # CurrentUserMiddleware is not installed (it only resets at the request
+    # boundary). See cms.utils.permissions.reset_current_user.
+    user_token = None
     if created_by and isinstance(created_by, get_user_model()):
-        _thread_locals.user = created_by
+        user_token = _current_user.set(created_by)
         created_by = get_clean_username(created_by)
 
     try:
-        from cms.forms.validators import validate_url_uniqueness
+        try:
+            from cms.forms.validators import validate_url_uniqueness
 
-        validate_url_uniqueness(page.site, path, language, exclude_page=page.parent)
-    except ValidationError as e:
-        raise IntegrityError(e)
+            validate_url_uniqueness(page.site, path, language, exclude_page=page.parent)
+        except ValidationError as e:
+            raise IntegrityError(e)
 
-    page.urls.update_or_create(
-        page=page,
-        language=language,
-        defaults=dict(
-            slug=slug,
-            path=path,
-            managed=not bool(overwrite_url),
-        ),
-    )
+        page.urls.update_or_create(
+            page=page,
+            language=language,
+            defaults=dict(
+                slug=slug,
+                path=path,
+                managed=not bool(overwrite_url),
+            ),
+        )
 
-    # E.g., djangocms-versioning needs an User object to be passed when creating a versioned Object
-    user = getattr(_thread_locals, "user", "unknown user")
-    page_content = PageContent.objects.with_user(user).create(
-        language=language,
-        title=title,
-        menu_title=menu_title,
-        page_title=page_title,
-        redirect=redirect,
-        meta_description=meta_description,
-        page=page,
-        created_by=created_by,
-        changed_by=created_by,
-        soft_root=soft_root,
-        in_navigation=in_navigation,
-        template=template,
-        limit_visibility_in_menu=limit_visibility_in_menu,
-        xframe_options=xframe_options,
-    )
-    page_content.rescan_placeholders()
-    page._clear_internal_cache()
+        # E.g., djangocms-versioning needs an User object to be passed when creating a versioned Object
+        user = _current_user.get(None)
+        page_content = PageContent.objects.with_user(user).create(
+            language=language,
+            title=title,
+            menu_title=menu_title,
+            page_title=page_title,
+            redirect=redirect,
+            meta_description=meta_description,
+            page=page,
+            created_by=created_by,
+            changed_by=created_by,
+            soft_root=soft_root,
+            in_navigation=in_navigation,
+            template=template,
+            limit_visibility_in_menu=limit_visibility_in_menu,
+            xframe_options=xframe_options,
+        )
+        page_content.rescan_placeholders()
+        page._clear_internal_cache()
 
-    return page_content
-
-
-def create_title(
-    language,
-    title,
-    page,
-    menu_title=None,
-    slug=None,
-    redirect=None,
-    meta_description=None,
-    parent=None,
-    overwrite_url=None,
-    page_title=None,
-    path=None,
-    created_by="python-api",
-    soft_root=False,
-    in_navigation=False,
-    template=TEMPLATE_INHERITANCE_MAGIC,
-    limit_visibility_in_menu=constants.VISIBILITY_ALL,
-    xframe_options=constants.X_FRAME_OPTIONS_INHERIT,
-):
-    """
-    .. warning ::
-        ``create_title`` has been renamed to ``create_page_content`` as of django CMS version 4.
-    """
-    warnings.warn(
-        "cms.api.create_title has been renamed to cms.api.create_page_content().",
-        RemovedInDjangoCMS51Warning,
-        stacklevel=2,
-    )
-    return create_page_content(
-        language,
-        title,
-        page,
-        menu_title=menu_title,
-        slug=slug,
-        redirect=redirect,
-        meta_description=meta_description,
-        parent=parent,
-        overwrite_url=overwrite_url,
-        page_title=page_title,
-        path=path,
-        created_by=created_by,
-        soft_root=soft_root,
-        in_navigation=in_navigation,
-        template=template,
-        limit_visibility_in_menu=limit_visibility_in_menu,
-        xframe_options=xframe_options,
-    )
+        return page_content
+    finally:
+        if user_token is not None:
+            _current_user.reset(user_token)
 
 
 @transaction.atomic
@@ -606,7 +578,7 @@ def assign_user_to_page(
     if global_permission:
         page_permission = GlobalPagePermission(user=user, can_recover_page=can_recover_page, **data)
         page_permission.save()
-        page_permission.sites.add(get_current_site())
+        page_permission.sites.add(page.site)
     return page_permission
 
 

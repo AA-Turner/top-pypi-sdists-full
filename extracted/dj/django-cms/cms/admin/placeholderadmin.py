@@ -3,7 +3,6 @@ import uuid
 import warnings
 from urllib.parse import parse_qsl, urlparse
 
-from django import forms
 from django.contrib import admin
 from django.contrib.admin.helpers import AdminForm
 from django.contrib.admin.utils import flatten_fieldsets, get_deleted_objects
@@ -39,12 +38,12 @@ from cms.plugin_pool import plugin_pool
 from cms.signals import post_placeholder_operation, pre_placeholder_operation
 from cms.toolbar.utils import create_child_plugin_references, get_plugin_content, get_plugin_tree
 from cms.utils import get_current_site
-from cms.utils.compat.warnings import RemovedInDjangoCMS51Warning
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_language_code, get_language_list
 from cms.utils.plugins import (
     copy_plugins_to_placeholder,
     downcast_plugins,
+    get_plugin_disallowed_in_slot,
     has_reached_plugin_limit,
 )
 from cms.views import (
@@ -171,7 +170,7 @@ class FrontendEditableAdminMixin(BaseEditableAdminMixin):
     def _get_model_admin_and_permission(self, request, obj: models.Model) -> tuple[admin.ModelAdmin, bool]:
         # FrontendEditableAdminMixin needs to be added to the model's model admin class.
         # Hence, the relevant admin is the model admin itself.
-        change_permission =  request.user.has_perm(f"{obj._meta.app_label}.change_{obj._meta.model_name}")
+        change_permission =  request.user.has_perm(f"{obj._meta.app_label}.change_{obj._meta.model_name}", obj=obj)
         return self, change_permission
 
     def _get_object_for_single_field(self, object_id: int, language: str) -> models.Model:
@@ -187,30 +186,6 @@ class FrontendEditableAdminMixin(BaseEditableAdminMixin):
             return manager.language(language).get(pk=object_id)
         except AttributeError:
             return manager.get(pk=object_id)
-
-
-class PlaceholderAdminMixinBase(forms.MediaDefiningClass):
-    def __new__(cls, name, bases, attrs):
-        super_new = super().__new__
-        parents = [b for b in bases if isinstance(b, PlaceholderAdminMixinBase)]
-
-        if not parents:
-            return super_new(cls, name, bases, attrs)
-        warnings.warn(
-            "PlaceholderAdminMixin is no longer needed and thus will be removed in django CMS 5.0",
-            RemovedInDjangoCMS51Warning,
-            stacklevel=2,
-        )
-        return super_new(cls, name, bases, attrs)
-
-
-class PlaceholderAdminMixin(metaclass=PlaceholderAdminMixinBase):
-    """
-    .. warning::
-
-        PlaceholderAdminMixin is deprecated. It is no longer needed and thus will be removed
-    """
-    pass
 
 
 @admin.register(Placeholder)
@@ -286,7 +261,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         # has a special meaning on the CMS.
         # It allows users to see another language while maintaining
         # the same url. This complicates language detection.
-        site = get_current_site()
+        site = get_current_site(request)
         parsed_url = urlparse(request.GET['cms_path'])
         queries = dict(parse_qsl(parsed_url.query))
         language = queries.get('language')
@@ -405,6 +380,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             - plugin_parent (optional)
         """
         form = PluginAddValidationForm(request.GET)
+        form._request = request
 
         if not form.is_valid():
             # list() is necessary for python 3 compatibility.
@@ -467,12 +443,17 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         plugin = getattr(plugin_instance, 'saved_object', None)
 
         if plugin_instance._operation_token:
+            tree_order = plugin.placeholder.get_plugin_tree_order(
+                plugin.language,
+                plugin.parent_id,
+            )
             self._send_post_placeholder_operation(
                 request,
                 operation=operations.ADD_PLUGIN,
                 token=plugin_instance._operation_token,
                 plugin=plugin,
                 placeholder=plugin.placeholder,
+                tree_order=tree_order,
             )
         return response
 
@@ -496,7 +477,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         source_placeholder = get_object_or_404(Placeholder, pk=source_placeholder_id)
         target_placeholder = get_object_or_404(Placeholder, pk=target_placeholder_id)
 
-        if not target_language or target_language not in get_language_list():
+        if not target_language or target_language not in get_language_list(site_id=get_current_site(request).pk):
             return HttpResponseBadRequest(_("Language must be set to a supported language!"))
 
         copy_to_clipboard = target_placeholder.pk == request.toolbar.clipboard.pk
@@ -516,6 +497,16 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             )
             new_plugins = [new_plugin]
         else:
+            source_language = request.POST['source_language']
+            source_plugins = source_placeholder.get_plugins_list(language=source_language)
+            disallowed = get_plugin_disallowed_in_slot(
+                (plugin.plugin_type for plugin in source_plugins),
+                target_placeholder.slot,
+            )
+            if disallowed:
+                return HttpResponseBadRequest(
+                    f"Plugin {disallowed} is not allowed in placeholder '{target_placeholder.slot}'."
+                )
             new_plugins = self._add_plugins_from_placeholder(
                 request,
                 source_placeholder,
@@ -661,6 +652,10 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
 
         new_plugins = CMSPlugin.objects.filter(pk__in=new_plugin_ids)
         new_plugins = list(new_plugins)
+        target_tree_order = target_placeholder.get_plugin_tree_order(
+            language=target_language,
+            parent_id=None,
+        )
 
         self._send_post_placeholder_operation(
             request,
@@ -760,6 +755,15 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         source_placeholder = plugin.placeholder
 
         if placeholder and placeholder != source_placeholder:
+            if not move_to_clipboard:
+                # The whole subtree moves with the plugin, so every descendant must
+                # also be allowed in the target slot, not just the moved plugin itself.
+                moved_types = [plugin.plugin_type, *plugin.get_descendants().values_list("plugin_type", flat=True)]
+                disallowed = get_plugin_disallowed_in_slot(moved_types, placeholder.slot)
+                if disallowed:
+                    return HttpResponseBadRequest(
+                        f"Plugin {disallowed} is not allowed in placeholder '{placeholder.slot}'."
+                    )
             try:
                 template = self.get_placeholder_template(request, placeholder)
                 has_reached_plugin_limit(placeholder, plugin.plugin_type,
@@ -984,6 +988,8 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
     def _move_plugin(self, request, plugin, target_position, target_placeholder=None, target_parent=None):
         language = plugin.language
         source_placeholder = plugin.placeholder
+        source_language = plugin.language
+        source_parent_id = plugin.parent_id
 
         if not self.has_move_plugin_permission(request, plugin, source_placeholder):
             message = _("You have no permission to move this plugin")
@@ -1010,9 +1016,9 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             request,
             operation=operations.MOVE_PLUGIN,
             plugin=plugin,
-            source_language=plugin.language,
+            source_language=source_language,
             source_placeholder=source_placeholder,
-            source_parent_id=plugin.parent_id,
+            source_parent_id=source_parent_id,
             target_language=language,
             target_placeholder=(target_placeholder or source_placeholder),
             target_parent_id=target_parent_id,
@@ -1036,9 +1042,9 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             operation=operations.MOVE_PLUGIN,
             plugin=updated_plugin.get_bound_plugin(),
             token=action_token,
-            source_language=language,
+            source_language=source_language,
             source_placeholder=source_placeholder,
-            source_parent_id=updated_plugin.parent_id,
+            source_parent_id=source_parent_id,
             target_language=language,
             target_placeholder=(target_placeholder or source_placeholder),
             target_parent_id=target_parent_id,
@@ -1047,6 +1053,8 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
 
     def _cut_plugin(self, request, plugin, target_language, target_placeholder):
         source_placeholder = plugin.placeholder
+        source_language = plugin.language
+        source_parent_id = plugin.parent_id
 
         if not self.has_move_plugin_permission(request, plugin, source_placeholder):
             message = _("You have no permission to cut this plugin")
@@ -1056,16 +1064,21 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             message = _("You have no permission to cut this plugin")
             raise PermissionDenied(message)
 
+        source_order = source_placeholder.get_plugin_tree_order(
+            source_language,
+            source_parent_id,
+        )
+
         action_token = self._send_pre_placeholder_operation(
             request,
             operation=operations.CUT_PLUGIN,
             plugin=plugin,
             clipboard=target_placeholder,
             clipboard_language=target_language,
-            source_language=plugin.language,
+            source_language=source_language,
             source_placeholder=source_placeholder,
-            source_parent_id=plugin.parent_id,
-            source_order=[],
+            source_parent_id=source_parent_id,
+            source_order=source_order,
         )
 
         # Empty the clipboard
@@ -1078,6 +1091,10 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         )
         source_placeholder.clear_cache(plugin.language)
         updated_plugin = plugin.reload()
+        source_order = source_placeholder.get_plugin_tree_order(
+            source_language,
+            source_parent_id,
+        )
 
         self._send_post_placeholder_operation(
             request,
@@ -1086,10 +1103,10 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             plugin=updated_plugin.get_bound_plugin(),
             clipboard=target_placeholder,
             clipboard_language=target_language,
-            source_language=plugin.language,
+            source_language=source_language,
             source_placeholder=source_placeholder,
-            source_parent_id=plugin.parent_id,
-            source_order=[],
+            source_parent_id=source_parent_id,
+            source_order=source_order,
         )
         return updated_plugin
 
@@ -1130,6 +1147,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             )
             placeholder.delete_plugin(plugin)
             placeholder.clear_cache(plugin.language)
+            plugin_tree_order = placeholder.get_plugin_tree_order(language=plugin.language)
 
             self.message_user(request, _('The %(name)s plugin "%(obj)s" was deleted successfully.') % {
                 'name': force_str(opts.verbose_name), 'obj': force_str(obj_display)})
@@ -1226,7 +1244,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             )
 
             placeholder.clear(language)
-            placeholder.clear_cache(language)
+            placeholder.clear_cache(language, site_id=get_current_site(request).pk)
 
             self.message_user(request, _('The placeholder "%(obj)s" was cleared successfully.') % {
                 'obj': obj_display})

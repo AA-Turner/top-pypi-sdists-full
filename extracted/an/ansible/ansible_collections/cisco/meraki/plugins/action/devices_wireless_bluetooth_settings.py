@@ -135,7 +135,9 @@ class DevicesWirelessBluetoothSettings(object):
         obj_params = [
             ("uuid", "uuid"),
             ("major", "major"),
-            ("minor", "minor"),]
+            ("minor", "minor"),
+            ("serial", "serial"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

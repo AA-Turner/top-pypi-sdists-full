@@ -8,8 +8,22 @@ import warnings
 from pathlib import Path
 from typing import Any, TextIO
 
-from .chain_analysis import build_chronological_frames
-from .trace import build_chain_header, chainmsg, extract_chain, symbols, symdesc
+from .trace.core import (
+    EMPHASIS_BEG,
+    EMPHASIS_FIN,
+    chainmsg,
+    symbols,
+    symdesc,
+)
+from .trace.finalize import (
+    build_chain_header,
+    call_run_ranges,
+    exception_info,
+    extract_chain,
+    extract_chain_exceptions,
+    function_display,
+    normalize_variable,
+)
 
 __all__ = ["load", "unload", "tty_traceback"]
 
@@ -99,6 +113,9 @@ def _display_width(s: str) -> int:
     return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in plain)
 
 
+_LINE_PREFIX_WIDTH = _display_width(LINE_PREFIX)
+
+
 def tty_traceback(
     exc: BaseException | None = None,
     chain: list[dict[str, Any]] | None = None,
@@ -117,14 +134,15 @@ def tty_traceback(
 
     Args:
         exc: The exception to format. If None, uses the current exception.
-        chain: Pre-extracted exception chain. If provided, exc is ignored.
+        chain: Pre-extracted chronological frame list. If provided, exc is ignored.
         file: Output file. Defaults to sys.stderr.
         msg: Header message. If None, builds from exception chain.
         tag: Optional tag to display after the message (e.g., "#TR1").
         term_width: Terminal width. Auto-detected if None.
         **extract_args: Additional arguments passed to extract_chain().
     """
-    chain = chain or extract_chain(exc=exc, **extract_args)
+    if chain is None:
+        chain = extract_chain(exc=exc, **extract_args)
 
     # Build header message if not provided
     if msg is None and chain:
@@ -163,9 +181,21 @@ def tty_traceback(
         if term_width < 40:
             term_width = 80
 
-    chrono_output, last_banner_start = _print_chronological(
-        chain, term_width, no_inspector
-    )
+    if not chain and exc is not None:
+        # Exception with no frames: build banners into chrono_output so
+        # last_banner_start stays relative to chrono_output, just like the
+        # normal path.
+        chrono_output = ""
+        last_banner_start = 0
+        for exc_dict in extract_chain_exceptions(exc):
+            last_banner_start = len(chrono_output)
+            chrono_output += _build_exception_banner(
+                exception_info(exc_dict), term_width
+            )
+    else:
+        chrono_output, last_banner_start = _print_chronological(
+            chain, term_width, no_inspector
+        )
     if last_banner_start is not None:
         last_banner_start += len(output)
     output += chrono_output
@@ -206,37 +236,26 @@ def tty_traceback(
 def _find_all_inspector_frames(
     frame_info_list: list[dict[str, Any]],
 ) -> list[int]:
-    """Find all non-call frames that have variables to show.
-
-    Returns list of frame indices with variables.
-    """
-    result = []
-    for i, info in enumerate(frame_info_list):
-        if info["relevance"] != "call" and info["frinfo"].get("variables"):
-            result.append(i)
-    return result
+    """Find all non-call frames that have variables to show."""
+    return [
+        i
+        for i, info in enumerate(frame_info_list)
+        if info["relevance"] != "call" and info["frinfo"].get("variables")
+    ]
 
 
 def _find_frame_line_range(
     output_lines: list[tuple[str, int, int, bool]], inspector_frame_idx: int
 ) -> tuple[int, int]:
-    """Find the line range for the inspector frame in output_lines.
-
-    Returns (frame_line_start, frame_line_end) - both are valid indices.
-    The caller guarantees inspector_frame_idx exists in output_lines.
-    """
-    frame_line_start = -1
-    frame_line_end = -1
-
-    for li, (_, _, fidx, _) in enumerate(output_lines):
-        if fidx == inspector_frame_idx:
-            if frame_line_start == -1:
-                frame_line_start = li
-            frame_line_end = li
-
+    """Find the line range for the inspector frame in output_lines."""
+    indices = [
+        li
+        for li, (_, _, fidx, _) in enumerate(output_lines)
+        if fidx == inspector_frame_idx
+    ]
     # By contract, the frame must exist in output_lines
-    assert frame_line_start >= 0 and frame_line_end >= 0
-    return frame_line_start, frame_line_end
+    assert indices
+    return indices[0], indices[-1]
 
 
 def _find_last_marked_line(
@@ -244,48 +263,25 @@ def _find_last_marked_line(
     frame_line_start: int,
     frame_line_end: int,
 ) -> int:
-    """Find the last marked line within the frame range.
-
-    Returns the line index of the last marked line, or frame_line_end if none are marked.
-    """
-    last_marked = frame_line_end  # Fallback to last line of frame
-
-    for li in range(frame_line_start, frame_line_end + 1):
-        _, _, _, is_marked = output_lines[li]
-        if is_marked:
-            last_marked = li
-
-    return last_marked
+    """Find the last marked line within the frame range."""
+    return max(
+        (
+            li
+            for li in range(frame_line_start, frame_line_end + 1)
+            if output_lines[li][3]
+        ),
+        default=frame_line_end,
+    )
 
 
 def _find_collapsible_call_runs(
     frame_info_list: list[dict[str, Any]], min_run_length: int = 10
 ) -> list[tuple[int, int]]:
-    """Find consecutive runs of 'call' frames that should be collapsed.
-
-    Returns list of (start_idx, end_idx) tuples for runs of consecutive
-    call frames with length >= min_run_length. end_idx is inclusive.
-    """
-    runs = []
-    run_start = None
-
-    for i, info in enumerate(frame_info_list):
-        if info["relevance"] == "call":
-            if run_start is None:
-                run_start = i
-        else:
-            # End of a call run
-            if run_start is not None:
-                run_length = i - run_start
-                # Only collapse when there is at least one frame to skip.
-                if run_length >= min_run_length and run_length > 2:
-                    runs.append((run_start, i - 1))
-                run_start = None
-
+    """Find consecutive runs of 'call' frames that should be collapsed."""
+    runs = call_run_ranges(frame_info_list, min_run_length)
     # Chronological frames always end with a non-call (error) frame, so any
     # call run should have been closed above.
-    assert run_start is None
-
+    assert not runs or runs[-1][1] < len(frame_info_list) - 1
     return runs
 
 
@@ -297,37 +293,19 @@ def _print_chronological(
     """Print frames in chronological order; returns ``(output, last_banner_start)``."""
     output = ""
     last_banner_start = None
-    chrono_frames = build_chronological_frames(chain)
+    chrono_frames = chain
     if not chrono_frames:
-        # No frames, but still show exception banners for any exceptions in chain
-        for exc in chain:
-            exc_info = {
-                "type": exc.get("type"),
-                "message": exc.get("message"),
-                "summary": exc.get("summary"),
-                "from": exc.get("from"),
-            }
-            last_banner_start = len(output)
-            output += _build_exception_banner(exc_info, term_width)
         return output, last_banner_start
 
     # Build frame info list for all chronological frames
-    frame_info_list = []
-    for frinfo in chrono_frames:
-        info = _get_chrono_frame_info(frinfo)
-        frame_info_list.append(info)
+    frame_info_list = [_get_chrono_frame_info(frinfo) for frinfo in chrono_frames]
 
     # Find collapsible call runs
     collapse_ranges = _find_collapsible_call_runs(frame_info_list, min_run_length=10)
 
     # Build set of frame indices to skip
-    skip_indices = set()
-    ellipsis_after = {}
-    for start_idx, end_idx in collapse_ranges:
-        skipped_count = end_idx - start_idx - 1
-        for i in range(start_idx + 1, end_idx):
-            skip_indices.add(i)
-        ellipsis_after[start_idx] = skipped_count
+    skip_indices = {i for start, end in collapse_ranges for i in range(start + 1, end)}
+    ellipsis_after = {start: end - start - 1 for start, end in collapse_ranges}
 
     # Calculate max location and function widths for alignment
     location_widths = [
@@ -354,7 +332,6 @@ def _print_chronological(
         lines = _build_chrono_frame_lines(
             info, location_width, function_width, term_width
         )
-        len(output_lines)
         for line, plain_len, is_marked in lines:
             output_lines.append((line, plain_len, i, is_marked))
 
@@ -374,7 +351,6 @@ def _print_chronological(
 
         # Check if this frame has exception info to print after it
         exc_info = info["frinfo"].get("exception")
-        info["relevance"]
         if exc_info:
             # Record that we need to insert exception banner after this frame's lines
             banner = _build_exception_banner(exc_info, term_width)
@@ -533,19 +509,23 @@ def _build_exception_banner(exc_info: dict[str, Any], term_width: int) -> str:
     type_prefix_width = _display_width(type_prefix)
 
     # First banner line pays the border; continuations also pay the half-block.
-    first_line_width = max(1, term_width - _display_width(LINE_PREFIX))
-    cont_width = max(1, term_width - _display_width(LINE_PREFIX) - _display_width("▐ "))
+    first_line_width = max(1, term_width - _LINE_PREFIX_WIDTH)
+    cont_width = max(1, term_width - _LINE_PREFIX_WIDTH - _display_width("▐ "))
 
     summary_lines: list[str] = []
-    title_width = type_prefix_width + _display_width(summary)
-
-    if title_width <= first_line_width:
-        summary_lines.append(f"{type_prefix_colored}{BOLD}{summary}{RESET}")
+    if summary:
+        # Keep the type prefix on the first line and wrap the summary after it;
+        # continuation lines are indented by the half-block marker.
+        first_summary_width = max(1, first_line_width - type_prefix_width)
+        wrapped_summary = _wrap_text(summary, first_summary_width)
+        summary_lines.append(f"{type_prefix_colored}{BOLD}{wrapped_summary[0]}{RESET}")
+        if len(wrapped_summary) > 1:
+            remaining = summary[len(wrapped_summary[0]) :]
+            summary_lines.extend(
+                f"{BOLD}{line}{RESET}" for line in _wrap_text(remaining, cont_width)
+            )
     else:
         summary_lines.append(type_prefix_colored)
-        summary_lines.extend(
-            f"{BOLD}{line}{RESET}" for line in _wrap_text(summary, cont_width)
-        )
 
     body_lines_raw: list[str] = []
     if summary != message:
@@ -578,7 +558,7 @@ def _build_subexception_summaries(
 ) -> str:
     """Build one-line summaries for each subexception branch."""
     output = ""
-    border_width = _display_width(LINE_PREFIX)  # "│ "
+    border_width = _LINE_PREFIX_WIDTH  # "│ "
     marker = f"{DIM}▐{RESET} "
     marker_width = _display_width(marker)
 
@@ -592,11 +572,7 @@ def _build_subexception_summaries(
 
 
 def _get_branch_summary(branch: list[dict[str, Any]], max_width: int) -> str:
-    """Get a one-line summary for a subexception branch.
-
-    Returns something like "file.py:10 func: ValueError: message"
-    Truncates at the end if needed to fit max_width.
-    """
+    """Get a one-line summary for a subexception branch."""
     if not branch:
         return f"{EXC}(empty){RESET}"
 
@@ -682,26 +658,16 @@ def _get_frame_label(frinfo: dict[str, Any]) -> tuple[str, str]:
     # Build label with colors: green filename, dark grey :lineno, light blue function
     # Location comes first, then function (if present)
     # Colon goes after function if present, otherwise after location
-    function_name = frinfo["function"]
-    function_suffix = frinfo["function_suffix"]
-    if function_name:
-        function_display = f"{function_name}{function_suffix}"
-    elif function_suffix:
-        function_display = function_suffix
-    else:
-        function_display = None
+    function_label = function_display(frinfo["function"], frinfo["function_suffix"])
 
     # Build the location text with colors
-    if notebook_cell:
-        location_text = location
-        location_suffix = "" if function_display else ":"
-        location_part = f"{LOCFN}{location_text}{location_suffix}{RESET}"
-    else:
-        location_text = f"{location}{LOC_LINENO}:{cursor_line}{RESET}"
-        location_suffix = "" if function_display else ":"
-        location_part = f"{LOCFN}{location_text}{location_suffix}{RESET}"
+    location_text = (
+        location if notebook_cell else f"{location}{LOC_LINENO}:{cursor_line}{RESET}"
+    )
+    location_suffix = "" if function_label else ":"
+    location_part = f"{LOCFN}{location_text}{location_suffix}{RESET}"
 
-    function_part = f"{FUNC}{function_display}{RESET}:" if function_display else ""
+    function_part = f"{FUNC}{function_label}{RESET}:" if function_label else ""
 
     return location_part, function_part
 
@@ -755,7 +721,7 @@ def _build_chrono_frame_lines(
     desc = symdesc[relevance]
 
     # Width available for the content after the left border "│ "
-    content_width = max(1, term_width - _display_width(LINE_PREFIX))
+    content_width = max(1, term_width - _LINE_PREFIX_WIDTH)
     single_marked = len(info["marked_lines"]) == 1
 
     raw_lines: list[tuple[str, bool, bool]] = []
@@ -783,11 +749,11 @@ def _build_chrono_frame_lines(
                         colored = _format_fragment_call(fragment)
                         plain = fragment["code"].rstrip("\n\r")
                         # Track em ranges
-                        if em in ("solo", "beg"):
+                        if em in EMPHASIS_BEG:
                             em_start = plain_len
                         code_parts.append(colored)
                         plain_len += len(plain)
-                        if em in ("solo", "fin") and em_start is not None:
+                        if em in EMPHASIS_FIN and em_start is not None:
                             em_ranges.append((em_start, plain_len))
                             em_start = None
                 # Add space between marked regions from different lines
@@ -891,10 +857,7 @@ def _find_call_line_ranges(
     output_lines: list[tuple[str, int, int, bool]],
     frame_info_list: list[dict[str, Any]],
 ) -> list[tuple[int, int]]:
-    """Find line ranges for call frames that can be used for inspector expansion.
-
-    Returns list of (start_line, end_line) tuples for call frames.
-    """
+    """Find line ranges for call frames that can be used for inspector expansion."""
     call_ranges = []
     current_start = None
 
@@ -920,15 +883,7 @@ def _compute_inspector_positions(
     inspector_data: list[tuple[InspectorLines, int]],  # [(lines, error_line), ...]
     frame_info_list: list[dict[str, Any]],
 ) -> tuple[list[int], int]:
-    """Compute vertical positions for all inspectors, avoiding overlap.
-
-    Positioning rules:
-    1. Ideally stay within own frame
-    2. If needed, expand to surrounding call lines
-    3. If still not enough, add empty lines after the frame
-
-    Returns (list of inspector_start positions, total_extra_lines needed).
-    """
+    """Compute vertical positions for all inspectors, avoiding overlap."""
     if not inspector_frames:  # pragma: no cover
         return [], 0
 
@@ -1025,20 +980,7 @@ def _compute_inspector_positions(
 def _truncate_inspector_line(
     insp_line: str, insp_width: int, value_start: int, available_for_content: int
 ) -> str:
-    """Truncate an inspector line to fit the space available at render time.
-
-    The prefix (variable name/type/alignment) is preserved with its existing
-    colouring; only the value portion is shortened, and a plain ellipsis is
-    appended when truncation occurs.  All width calculations are done in
-    terminal display columns, so wide characters are accounted for.
-
-    Values produced by ``prettyvalue`` for long inline strings already contain
-    a middle ellipsis (`` … ``).  When such a value must be shortened further,
-    characters are removed from the right-hand side of that marker first so the
-    end of the string is preserved.  If the right side is completely removed
-    and the result still does not fit, characters are stripped from the left
-    side as well, keeping the ellipsis at the end.
-    """
+    """Truncate an inspector line to fit the space available at render time."""
     if available_for_content <= 0:
         return "…"
     if insp_width <= available_for_content:
@@ -1122,18 +1064,7 @@ def _merge_chrono_output(
     exception_banners: list[tuple[int, str]],
     frame_info_list: list[dict[str, Any]],
 ) -> tuple[str, int | None]:
-    """Merge chronological output with multiple inspectors and exception banners.
-
-    Args:
-        output_lines: List of (line, plain_len, frame_idx, is_marked) tuples
-        all_inspector_lines: List of inspector line lists, one per inspector frame
-            Each line is (colored_line, plain_width, value_start_col)
-        all_inspector_min_widths: Minimum required widths for each inspector
-        term_width: Terminal width
-        inspector_frame_indices: List of frame indices that have inspectors
-        exception_banners: List of (insert_pos, banner) tuples
-        frame_info_list: Frame info for all frames
-    """
+    """Merge chronological output with multiple inspectors and exception banners."""
     if not inspector_frame_indices:  # pragma: no cover
         # No inspectors, just output lines and banners
         output = ""
@@ -1215,7 +1146,7 @@ def _merge_chrono_output(
 
         min_content_width = max(20, term_width // 3)
         max_inspector_col = max(
-            _display_width(LINE_PREFIX) + 2,
+            _LINE_PREFIX_WIDTH + 2,
             term_width - min_content_width - 4,
         )
         inspector_col = min(max_line_len + 2, max_inspector_col)
@@ -1348,22 +1279,22 @@ def _format_fragment(fragment: dict[str, Any]) -> str:
     colored_parts = []
 
     # Open mark if starting
-    if mark in ("solo", "beg"):
+    if mark in EMPHASIS_BEG:
         colored_parts.append(MARK_BG + MARK_TEXT)
 
     # Open em if starting (red text within the mark)
-    if em in ("solo", "beg"):
+    if em in EMPHASIS_BEG:
         colored_parts.append(EM)
 
     # Add the code
     colored_parts.append(code)
 
     # Close em if ending
-    if em in ("fin", "solo") and mark not in ("fin", "solo"):
+    if em in EMPHASIS_FIN and mark not in EMPHASIS_FIN:
         colored_parts.append(MARK_TEXT)
 
     # Close mark if ending
-    if mark in ("fin", "solo"):
+    if mark in EMPHASIS_FIN:
         colored_parts.append(RESET)
 
     return "".join(colored_parts)
@@ -1377,14 +1308,14 @@ def _format_fragment_call(fragment: dict[str, Any]) -> str:
     colored_parts = []
 
     # Open em if starting (yellow text)
-    if em in ("solo", "beg"):
+    if em in EMPHASIS_BEG:
         colored_parts.append(EM_CALL)
 
     # Add the code
     colored_parts.append(code)
 
     # Close em if ending
-    if em in ("fin", "solo"):
+    if em in EMPHASIS_FIN:
         colored_parts.append(RESET)
 
     return "".join(colored_parts)
@@ -1393,34 +1324,14 @@ def _format_fragment_call(fragment: dict[str, Any]) -> str:
 def _build_variable_inspector(
     variables: list[Any], term_width: int
 ) -> tuple[InspectorLines, int]:
-    """Build variable inspector lines.
-
-    Returns:
-        tuple: (list of (colored_line, plain_width, value_start_col), min_required_width)
-            - list of lines for the inspector with metadata for smart truncation
-            - minimum width needed to display "name: type = " + some value chars
-
-    Uses simple left-side vertical bar only, no top/bottom borders.
-    Multi-line string values are rendered with continuation lines properly indented.
-    Variable names are right-aligned so that = signs line up.
-    """
+    """Build variable inspector lines."""
     if not variables:
         return [], 0
 
     # First pass: collect variable info and filter out non-displayable values
     var_data = []  # [(name, typename, val_str, fmt_hint), ...]
     for var_info in variables:
-        # Handle both old tuple format and new VarInfo namedtuple
-        if hasattr(var_info, "name"):
-            name, typename, value, fmt_hint = (
-                var_info.name,
-                var_info.typename,
-                var_info.value,
-                var_info.format_hint,
-            )
-        else:
-            name, typename, value = var_info
-            fmt_hint = "inline"
+        name, typename, value, fmt_hint = normalize_variable(var_info)
 
         # Format the value as a string
         if isinstance(value, str):

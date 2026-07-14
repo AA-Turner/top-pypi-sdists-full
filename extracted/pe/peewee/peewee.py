@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.2.1'
+__version__ = '4.2.2'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -2007,19 +2007,20 @@ Tuple = lambda *a: EnclosedNodeList(a)
 
 
 class QualifiedNames(WrappedNode):
+    def __init__(self, node, scope=SCOPE_COLUMN):
+        super(QualifiedNames, self).__init__(node)
+        self._scope = scope
+
     def __sql__(self, ctx):
-        with ctx.scope_column():
+        with ctx(scope=self._scope):
             return ctx.sql(self.node)
 
 
 def qualify_names(node):
-    # Search a node heirarchy to ensure that any column-like objects are
-    # referenced using fully-qualified names.
-    if isinstance(node, Expression):
-        return node.__class__(qualify_names(node.lhs), node.op,
-                              qualify_names(node.rhs), node.flat)
-    elif isinstance(node, ColumnBase):
-        return QualifiedNames(node)
+    # SCOPE_NORMAL, not SCOPE_COLUMN, so a nested subquery renders in full
+    # rather than collapsing to its alias.
+    if isinstance(node, ColumnBase):
+        return QualifiedNames(node, SCOPE_NORMAL)
     return node
 
 
@@ -2542,6 +2543,7 @@ class Select(SelectBase):
     def distinct(self, *columns):
         if len(columns) == 1 and (columns[0] is True or columns[0] is False):
             self._simple_distinct = columns[0]
+            self._distinct = None
         else:
             self._simple_distinct = False
             self._distinct = columns
@@ -2775,7 +2777,7 @@ class Insert(_WriteQuery):
                              else None)
 
     def _simple_insert(self, ctx):
-        if not self._insert:
+        if not self._insert and not self.get_default_data():
             raise self.DefaultValuesException('Error: no data to insert.')
         return self._generate_insert((self._insert,), ctx)
 
@@ -2941,7 +2943,8 @@ class Insert(_WriteQuery):
             if self._on_conflict is not None:
                 update = self._on_conflict.get_conflict_update(ctx, self)
                 if update is not None:
-                    ctx.literal(' ').sql(update)
+                    with ctx(subquery=True):
+                        ctx.literal(' ').sql(update)
 
             return self.apply_returning(ctx)
 
@@ -3821,7 +3824,7 @@ class Database(_callable_context_manager):
                 else:
                     v = Value(v, unpack=False)
             elif qualify:
-                v = QualifiedNames(v)
+                v = qualify_names(v)
             items.append(NodeList((ensure_entity(k), SQL('='), v)))
         return items
 
@@ -3855,7 +3858,7 @@ class Database(_callable_context_manager):
 
         parts = [stmt, target, SQL('DO UPDATE SET'), CommaNodeList(updates)]
         if on_conflict._where:
-            parts.extend((SQL('WHERE'), QualifiedNames(on_conflict._where)))
+            parts.extend((SQL('WHERE'), qualify_names(on_conflict._where)))
 
         return NodeList(parts)
 
@@ -4655,10 +4658,10 @@ class PostgresqlDatabase(Database):
         query = """
             SELECT
                 i.relname, idxs.indexdef, idx.indisunique,
-                array_to_string(ARRAY(
+                ARRAY(
                     SELECT pg_get_indexdef(idx.indexrelid, k + 1, TRUE)
                     FROM generate_subscripts(idx.indkey, 1) AS k
-                    ORDER BY k), ',')
+                    ORDER BY k)
             FROM pg_catalog.pg_class AS t
             INNER JOIN pg_catalog.pg_namespace AS n ON t.relnamespace = n.oid
             INNER JOIN pg_catalog.pg_index AS idx ON t.oid = idx.indrelid
@@ -4670,7 +4673,7 @@ class PostgresqlDatabase(Database):
             WHERE t.relname = %s AND t.relkind = %s AND n.nspname = %s
             ORDER BY idx.indisunique DESC, i.relname;"""
         cursor = self.execute_sql(query, (table, 'r', schema or 'public'))
-        unesc = lambda cols: [unqesc(c) for c in cols.split(',')]
+        unesc = lambda cols: [unqesc(c) for c in cols]
         return [IndexMetadata(name, sql.rstrip(' ;'), unesc(cols), unique,
                               table)
                 for name, sql, unique, cols in cursor.fetchall()]
@@ -5316,7 +5319,8 @@ class NamedTupleCursorWrapper(CursorWrapper):
     def initialize(self):
         identifiers = self.dedupe_columns(
             [col_spec[0] for col_spec in self.cursor.description])
-        self.tuple_class = collections.namedtuple('Row', identifiers)
+        self.tuple_class = collections.namedtuple('Row', identifiers,
+                                                  rename=True)
 
     def process_row(self, row):
         return self.tuple_class(*row)
@@ -5489,9 +5493,8 @@ class Field(ColumnBase):
         self._sort_key = (self.primary_key and 1 or 2), self._order
 
     def __hash__(self):
-        # Coexisting same-named models are distinguished by their tables.
-        return hash((self.model._meta.schema, self.model._meta.table_name,
-                     self.name))
+        # Same-named models are distinguished by class identity, not table.
+        return hash((self.model, self.name))
 
     def __repr__(self):
         if hasattr(self, 'model') and getattr(self, 'name', None):
@@ -7218,9 +7221,12 @@ class Metadata(object):
     def remove_ref(self, field):
         rel = field.rel_model
         del self.refs[field]
-        self.model_refs[rel].remove(field)
+        self.model_refs[rel] = [f for f in self.model_refs[rel]
+                                if f is not field]
         del rel._meta.backrefs[field]
-        rel._meta.model_backrefs[self.model].remove(field)
+        model_backrefs = rel._meta.model_backrefs
+        model_backrefs[self.model] = [f for f in model_backrefs[self.model]
+                                      if f is not field]
 
     def add_manytomany(self, field):
         self.manytomany[field.name] = field
@@ -8326,9 +8332,11 @@ class ModelSelect(BaseModelSelect, Select):
         return self
 
     def select_extend(self, *columns):
-        self._is_default = False
         fields = _normalize_model_select(columns)
-        return super(ModelSelect, self).select_extend(*fields)
+        # Flag the clone, not the receiver, as having a projection.
+        clone = super(ModelSelect, self).select_extend(*fields)
+        clone._is_default = False
+        return clone
 
     def switch(self, ctx=None):
         self._join_ctx = self.model if ctx is None else ctx
@@ -8966,7 +8974,7 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
                         key,
                         src_ctor is not None and not src_ctor[1],
                         join_type,
-                        join_type.endswith('OUTER')))
+                        'LEFT' in join_type or 'FULL' in join_type))
 
                     accum.append(key)
 

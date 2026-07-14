@@ -357,9 +357,9 @@ _STRINGS = {
         "zh": "✅ 检测到Tor — 自动应用IP轮换",
         "en": "✅ Tor detected — applying IP rotation automatically"},
     "waf_tor_not_running": {
-        "ko": "❌ Tor 미실행 — brew install tor && tor 실행 필요",
-        "zh": "❌ Tor未运行 — 需要运行: brew install tor && tor",
-        "en": "❌ Tor not running — run: brew install tor && tor"},
+        "ko": "❌ Tor 미실행 — {cmd} 실행 필요",
+        "zh": "❌ Tor未运行 — 需要运行: {cmd}",
+        "en": "❌ Tor not running — run: {cmd}"},
     "waf_ip_rotation_ok": {
         "ko": "✅ IP 로테이션으로 WAF 우회 성공!",
         "zh": "✅ IP轮换成功绕过WAF！",
@@ -8373,6 +8373,127 @@ _STRINGS.update({
         "ko": "💰 가격·쿠폰 조작 자동 탐지",
         "zh": "💰 价格/优惠券篡改自动检测",
         "en": "💰 Price/Coupon Manipulation Auto-Test",
+    },
+    # ── v6.2.122 API 동적 탐지 ────────────────────────────────────────────────
+    "api_full_scan_start": {
+        "ko": "🔍 API 3-레이어 탐지 시작 (정적문서 → JS분석 → 동적캡처)",
+        "zh": "🔍 API 三层探测启动（静态文档→JS分析→动态捕获）",
+        "en": "🔍 API 3-Layer Discovery starting (docs → JS → dynamic)",
+    },
+    "api_full_scan_done": {
+        "ko": "✅ API 탐지 완료 — 총 {count}개 고유 엔드포인트 발견",
+        "zh": "✅ API探测完成 — 共发现 {count} 个唯一端点",
+        "en": "✅ API discovery done — {count} unique endpoints found",
+    },
+    "api_dyn_start": {
+        "ko": "🌐 Playwright 동적 API 캡처 시작",
+        "zh": "🌐 Playwright动态API捕获启动",
+        "en": "🌐 Playwright dynamic API capture starting",
+    },
+    "api_dyn_done": {
+        "ko": "✅ 동적 캡처 완료 — {count}개 요청 / {uniq}개 템플릿 캡처",
+        "zh": "✅ 动态捕获完成 — 捕获 {count} 个请求 / {uniq} 个模板",
+        "en": "✅ Dynamic capture done — {count} requests / {uniq} templates",
+    },
+    "api_dyn_playwright_missing": {
+        "ko": "⚠️ Playwright 미설치 — 동적 캡처 건너뜀 (pip install playwright && playwright install chromium)",
+        "zh": "⚠️ Playwright未安装 — 跳过动态捕获（pip install playwright && playwright install chromium）",
+        "en": "⚠️ Playwright not installed — skipping dynamic capture (pip install playwright && playwright install chromium)",
+    },
+    "api_dyn_unauth": {
+        "ko": "🔓 미인증 API 접근 확인: {path} → HTTP {status} (JSON 데이터 노출)",
+        "zh": "🔓 未授权API访问确认: {path} → HTTP {status}（JSON数据泄露）",
+        "en": "🔓 Unauthenticated API access: {path} → HTTP {status} (JSON data exposed)",
+    },
+    "api_param_test_start": {
+        "ko": "🔧 파라미터 추론 테스트 — {count}개 템플릿 테스트 중",
+        "zh": "🔧 参数推断测试 — 测试 {count} 个模板",
+        "en": "🔧 Parameter inference testing — {count} templates",
+    },
+    "api_param_found": {
+        "ko": "  ✓ {method} {path} [{status}] {size}B{flag}",
+        "zh": "  ✓ {method} {path} [{status}] {size}B{flag}",
+        "en": "  ✓ {method} {path} [{status}] {size}B{flag}",
+    },
+    "api_js_found": {
+        "ko": "📦 JS 분석 결과 — 엔드포인트 {ep}개 / 시크릿 {sec}개 / 관리자경로 {adm}개",
+        "zh": "📦 JS分析结果 — 端点 {ep} 个 / 密钥 {sec} 个 / 管理路径 {adm} 个",
+        "en": "📦 JS analysis — endpoints {ep} / secrets {sec} / admin paths {adm}",
+    },
+    "api_swagger_found": {
+        "ko": "📄 API 문서 발견: {type} — {url} ({count}개 엔드포인트)",
+        "zh": "📄 发现API文档: {type} — {url} （{count} 个端点）",
+        "en": "📄 API doc found: {type} — {url} ({count} endpoints)",
+    },
+    "api_no_doc": {
+        "ko": "  ℹ Swagger/OpenAPI 문서 없음",
+        "zh": "  ℹ 未发现Swagger/OpenAPI文档",
+        "en": "  ℹ No Swagger/OpenAPI docs found",
+    },
+    "api_interesting": {
+        "ko": "⚠️ 고가치 엔드포인트: {path}",
+        "zh": "⚠️ 高价值端点: {path}",
+        "en": "⚠️ High-value endpoint: {path}",
+    },
+    # ── v6.2.128 Tor 자동 설치 + 프록시 자동 수집 ────────────────────────────
+    "tor_ready_notice": {
+        "ko": (
+            "✅ [TOR_READY] 백그라운드 Tor 설치 완료! 이제 Tor 프록시(socks5://127.0.0.1:9050) 사용 가능.\n"
+            "   다음 요청부터 /proxy tor 또는 sqli_with_ip_rotation에 Tor 프록시를 우선 사용하세요."
+        ),
+        "zh": (
+            "✅ [TOR_READY] 后台Tor安装完成！现在可使用Tor代理(socks5://127.0.0.1:9050)。\n"
+            "   下次请求请优先使用 /proxy tor 或在 sqli_with_ip_rotation 中使用Tor代理。"
+        ),
+        "en": (
+            "✅ [TOR_READY] Background Tor install complete! Tor proxy (socks5://127.0.0.1:9050) now available.\n"
+            "   Use /proxy tor or sqli_with_ip_rotation with Tor proxy from next request."
+        ),
+    },
+    "tor_auto_already":    {"ko": "✅ Tor 이미 실행 중", "zh": "✅ Tor 已在运行", "en": "✅ Tor already running"},
+    "tor_auto_installed":  {"ko": "✅ Tor 자동 설치 및 시작 완료 (포트 9050)", "zh": "✅ Tor 自动安装并启动成功 (端口 9050)", "en": "✅ Tor auto-installed and started (port 9050)"},
+    "tor_auto_timeout":    {"ko": "⚠️ Tor 시작 대기 시간 초과 — 수동 실행 필요", "zh": "⚠️ 等待Tor启动超时 — 请手动运行", "en": "⚠️ Tor start timeout — manual run required"},
+    "tor_auto_fail":       {"ko": "❌ Tor 설치 실패: {err}", "zh": "❌ Tor安装失败: {err}", "en": "❌ Tor install failed: {err}"},
+    "tor_auto_win":        {"ko": "⚠️ Windows 자동 설치 미지원 — 수동 설치 필요", "zh": "⚠️ Windows 不支持自动安装 — 请手动安装", "en": "⚠️ Windows auto-install not supported — manual install required"},
+    "proxy_hunt_done":     {"ko": "🌐 무료 프록시 {n}개 자동 수집됨", "zh": "🌐 自动收集 {n} 个免费代理", "en": "🌐 {n} free proxies auto-collected"},
+    "proxy_hunt_fail":     {"ko": "⚠️ 프록시 수집 실패: {err}", "zh": "⚠️ 代理收集失败: {err}", "en": "⚠️ Proxy hunt failed: {err}"},
+    # ── v6.2.125 루프/추출 자동교정기 ─────────────────────────────────────────
+    "tilde_loop_stop": {
+        "ko": (
+            "⛔ [TILDE_LOOP_STOP] 틸드(~) 이진 추출 무한루프 감지 — 즉시 중단!\n"
+            "원인: WAF가 모든 비교 쿼리 차단 → TRUE/FALSE 동일 → 항상 '~'(chr 126)으로 수렴.\n"
+            "⛔ run_python/run_bash 커스텀 이진 탐색 즉시 종료.\n"
+            "✅ Time-based 맹주입 또는 OOB DNS 또는 다른 공격면으로 전환."
+        ),
+        "zh": (
+            "⛔ [TILDE_LOOP_STOP] 检测到波浪号(~)二分搜索无限循环 — 立即停止！\n"
+            "原因：WAF拦截所有比较查询 → TRUE/FALSE相同 → 始终收敛到'~'(chr 126)。\n"
+            "⛔ 立即终止 run_python/run_bash 自定义二分搜索。\n"
+            "✅ 切换到时间盲注、OOB DNS 或其他攻击面。"
+        ),
+        "en": (
+            "⛔ [TILDE_LOOP_STOP] Tilde (~) binary extraction infinite loop detected — STOP!\n"
+            "Cause: WAF blocks all comparisons → TRUE/FALSE identical → always converges to '~' (chr 126).\n"
+            "⛔ Stop custom binary search in run_python/run_bash immediately.\n"
+            "✅ Switch to time-based blind injection, OOB DNS, or other attack surface."
+        ),
+    },
+    "loop_limit_stop": {
+        "ko": (
+            "⛔ [LOOP_LIMIT_STOP] 루프 {count}회 도달 — 동일 접근 반복 감지, 자동 중단.\n"
+            "✅ 지금까지 발견한 내용을 정리하고 TASK_COMPLETE 후 보고서를 생성하세요.\n"
+            "   또는 완전히 다른 공격 벡터(Actuator/JS분석/IDOR)로 전환하세요."
+        ),
+        "zh": (
+            "⛔ [LOOP_LIMIT_STOP] 已达第 {count} 次循环 — 检测到重复相同操作，自动停止。\n"
+            "✅ 请汇总已发现内容，执行 TASK_COMPLETE 并生成报告。\n"
+            "   或切换到完全不同的攻击向量（Actuator/JS分析/IDOR）。"
+        ),
+        "en": (
+            "⛔ [LOOP_LIMIT_STOP] Loop #{count} reached — repeated approach detected, auto-stopping.\n"
+            "✅ Summarize findings so far, then TASK_COMPLETE and generate report.\n"
+            "   Or switch to a completely different attack vector (Actuator/JS/IDOR)."
+        ),
     },
 })
 

@@ -40,10 +40,15 @@ from opensandbox.models.isolated import (
     IsolatedRunOpts,
     IsolatedSessionInfo,
     IsolatedSessionState,
+    IsolatedSessionSummary,
 )
 from opensandbox.models.sandboxes import SandboxEndpoint
 from opensandbox.services.filesystem import Filesystem
-from opensandbox.services.isolated import IsolationService, IsolationSession
+from opensandbox.services.isolated import (
+    IsolationService,
+    IsolationServiceMixin,
+    IsolationSession,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +65,7 @@ def _decode_sse_event_line(line: str) -> EventNode | None:
         event_dict = json.loads(data)
         return EventNode(**event_dict)
     except Exception as e:
-        logger.error("Failed to parse SSE line: %s", line, exc_info=e)
+        logger.error(f"Failed to parse SSE line: {line}", exc_info=e)
         return None
 
 
@@ -108,7 +113,9 @@ class IsolationSessionHandle(IsolationSession):
         opts: IsolatedRunOpts | None = None,
         handlers: ExecutionHandlers | None = None,
     ) -> Execution:
-        return await self._adapter._run(self._info.session_id, code, opts=opts, handlers=handlers)
+        return await self._adapter._run(
+            self._info.session_id, code, opts=opts, handlers=handlers
+        )
 
     async def get(self) -> IsolatedSessionState:
         return await self._adapter._get(self._info.session_id)
@@ -117,12 +124,16 @@ class IsolationSessionHandle(IsolationSession):
         return await self._adapter._delete(self._info.session_id)
 
 
-class IsolatedSessionsAdapter(IsolationService):
-    """Async adapter for isolated session endpoints (/v1/isolated/*)."""
+class IsolatedSessionsAdapter(IsolationServiceMixin, IsolationService):
+    """Async adapter for isolated session endpoints (/v1/isolated/*).
+
+    ``run_once``/``session`` are inherited from :class:`IsolationServiceMixin`.
+    """
 
     CREATE_PATH = "/v1/isolated/session"
     SESSION_PATH = "/v1/isolated/session/{session_id}"
     RUN_PATH = "/v1/isolated/session/{session_id}/run"
+    SESSIONS_PATH = "/v1/isolated/sessions"
     CAPABILITIES_PATH = "/v1/isolated/capabilities"
 
     def __init__(
@@ -194,9 +205,7 @@ class IsolatedSessionsAdapter(IsolationService):
         if not (session_id and session_id.strip()):
             raise InvalidArgumentException("session_id cannot be empty")
         try:
-            url = self._get_url(
-                self.SESSION_PATH.format(session_id=session_id)
-            )
+            url = self._get_url(self.SESSION_PATH.format(session_id=session_id))
             response = await self._httpx_client.get(url)
             if response.status_code != 200:
                 raise SandboxApiException(
@@ -232,9 +241,7 @@ class IsolatedSessionsAdapter(IsolationService):
         url = self._get_url(self.RUN_PATH.format(session_id=session_id))
 
         try:
-            execution = Execution(
-                id=None, execution_count=None, result=[], error=None
-            )
+            execution = Execution(id=None, execution_count=None, result=[], error=None)
             client = self._sse_client
 
             async with client.stream("POST", url, json=json_body) as response:
@@ -262,9 +269,7 @@ class IsolatedSessionsAdapter(IsolationService):
         if not (session_id and session_id.strip()):
             raise InvalidArgumentException("session_id cannot be empty")
         try:
-            url = self._get_url(
-                self.SESSION_PATH.format(session_id=session_id)
-            )
+            url = self._get_url(self.SESSION_PATH.format(session_id=session_id))
             response = await self._httpx_client.delete(url)
             if response.status_code not in (200, 204):
                 raise SandboxApiException(
@@ -272,6 +277,23 @@ class IsolatedSessionsAdapter(IsolationService):
                     status_code=response.status_code,
                     request_id=extract_request_id(response.headers),
                 )
+        except Exception as e:
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def list(self) -> list[IsolatedSessionSummary]:
+        try:
+            url = self._get_url(self.SESSIONS_PATH)
+            response = await self._httpx_client.get(url)
+            if response.status_code != 200:
+                raise SandboxApiException(
+                    message=f"list isolated sessions failed. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    request_id=extract_request_id(response.headers),
+                )
+            data = response.json()
+            return [
+                IsolatedSessionSummary(**item) for item in data.get("sessions", [])
+            ]
         except Exception as e:
             raise ExceptionConverter.to_sandbox_exception(e) from e
 

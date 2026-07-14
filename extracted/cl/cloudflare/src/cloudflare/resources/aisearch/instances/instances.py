@@ -123,11 +123,13 @@ class InstancesResource(SyncAPIResource):
         embedding_model: Optional[
             Literal[
                 "@cf/qwen/qwen3-embedding-0.6b",
+                "@cf/qwen/qwen3-vl-embedding-2b",
                 "@cf/baai/bge-m3",
                 "@cf/baai/bge-large-en-v1.5",
                 "@cf/google/embeddinggemma-300m",
                 "google-ai-studio/gemini-embedding-001",
                 "google-ai-studio/gemini-embedding-2-preview",
+                "google-ai-studio/gemini-embedding-2",
                 "openai/text-embedding-3-small",
                 "openai/text-embedding-3-large",
                 "",
@@ -320,11 +322,13 @@ class InstancesResource(SyncAPIResource):
         embedding_model: Optional[
             Literal[
                 "@cf/qwen/qwen3-embedding-0.6b",
+                "@cf/qwen/qwen3-vl-embedding-2b",
                 "@cf/baai/bge-m3",
                 "@cf/baai/bge-large-en-v1.5",
                 "@cf/google/embeddinggemma-300m",
                 "google-ai-studio/gemini-embedding-001",
                 "google-ai-studio/gemini-embedding-2-preview",
+                "google-ai-studio/gemini-embedding-2",
                 "openai/text-embedding-3-small",
                 "openai/text-embedding-3-large",
                 "",
@@ -378,6 +382,7 @@ class InstancesResource(SyncAPIResource):
         | Omit = omit,
         rewrite_query: bool | Omit = omit,
         score_threshold: float | Omit = omit,
+        source: Optional[str] | Omit = omit,
         source_params: Optional[instance_update_params.SourceParams] | Omit = omit,
         summarization: bool | Omit = omit,
         summarization_model: Optional[
@@ -481,6 +486,7 @@ class InstancesResource(SyncAPIResource):
                     "rewrite_model": rewrite_model,
                     "rewrite_query": rewrite_query,
                     "score_threshold": score_threshold,
+                    "source": source,
                     "source_params": source_params,
                     "summarization": summarization,
                     "summarization_model": summarization_model,
@@ -756,6 +762,12 @@ class InstancesResource(SyncAPIResource):
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
 
+          messages: OpenAI-compatible message array. For multimodal queries, set the last user
+              message's `content` to an array of typed parts:
+              `[{type:'text', text:'…'}, {type:'image_url', image_url:{url:'…'}}]`. Image
+              inputs require the RAG's embedding_model to declare 'image' in
+              supported_modalities.
+
           query: A simple text query string. Alternative to 'messages' — provide either this or
               'messages', not both.
 
@@ -910,11 +922,13 @@ class AsyncInstancesResource(AsyncAPIResource):
         embedding_model: Optional[
             Literal[
                 "@cf/qwen/qwen3-embedding-0.6b",
+                "@cf/qwen/qwen3-vl-embedding-2b",
                 "@cf/baai/bge-m3",
                 "@cf/baai/bge-large-en-v1.5",
                 "@cf/google/embeddinggemma-300m",
                 "google-ai-studio/gemini-embedding-001",
                 "google-ai-studio/gemini-embedding-2-preview",
+                "google-ai-studio/gemini-embedding-2",
                 "openai/text-embedding-3-small",
                 "openai/text-embedding-3-large",
                 "",
@@ -1107,11 +1121,13 @@ class AsyncInstancesResource(AsyncAPIResource):
         embedding_model: Optional[
             Literal[
                 "@cf/qwen/qwen3-embedding-0.6b",
+                "@cf/qwen/qwen3-vl-embedding-2b",
                 "@cf/baai/bge-m3",
                 "@cf/baai/bge-large-en-v1.5",
                 "@cf/google/embeddinggemma-300m",
                 "google-ai-studio/gemini-embedding-001",
                 "google-ai-studio/gemini-embedding-2-preview",
+                "google-ai-studio/gemini-embedding-2",
                 "openai/text-embedding-3-small",
                 "openai/text-embedding-3-large",
                 "",
@@ -1165,6 +1181,7 @@ class AsyncInstancesResource(AsyncAPIResource):
         | Omit = omit,
         rewrite_query: bool | Omit = omit,
         score_threshold: float | Omit = omit,
+        source: Optional[str] | Omit = omit,
         source_params: Optional[instance_update_params.SourceParams] | Omit = omit,
         summarization: bool | Omit = omit,
         summarization_model: Optional[
@@ -1268,6 +1285,7 @@ class AsyncInstancesResource(AsyncAPIResource):
                     "rewrite_model": rewrite_model,
                     "rewrite_query": rewrite_query,
                     "score_threshold": score_threshold,
+                    "source": source,
                     "source_params": source_params,
                     "summarization": summarization,
                     "summarization_model": summarization_model,
@@ -1542,6 +1560,12 @@ class AsyncInstancesResource(AsyncAPIResource):
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
+
+          messages: OpenAI-compatible message array. For multimodal queries, set the last user
+              message's `content` to an array of typed parts:
+              `[{type:'text', text:'…'}, {type:'image_url', image_url:{url:'…'}}]`. Image
+              inputs require the RAG's embedding_model to declare 'image' in
+              supported_modalities.
 
           query: A simple text query string. Alternative to 'messages' — provide either this or
               'messages', not both.

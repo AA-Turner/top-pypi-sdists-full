@@ -321,6 +321,7 @@ def export_from_registries(
             CronQuery(
                 name=cron.name,
                 cron=timedelta_to_duration(cron.cron) if isinstance(cron.cron, timedelta) else cron.cron,
+                file_name=cron.filename,
                 output=[str(f) for f in cron.output],
                 max_samples=cron.max_samples,
                 recompute=RecomputeSettings(
@@ -343,7 +344,7 @@ def export_from_registries(
                 required_resolver_tags=cron.required_resolver_tags,
                 store_online=cron.store_online,
                 store_offline=cron.store_offline,
-                file_name=cron.filename,
+                incremental_sources=cron.incremental_resolvers,
                 resource_group=cron.resource_group,
                 planner_options=cron.planner_options,
                 completion_deadline=(

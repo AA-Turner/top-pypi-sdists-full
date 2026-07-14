@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: great_expectations
-Version: 1.18.2
+Version: 1.19.0
 Summary: Always know what to expect from your data.
 Home-page: https://greatexpectations.io
 Download-URL: https://github.com/great-expectations/great_expectations
@@ -60,7 +60,7 @@ Provides-Extra: teradata
 Requires-Dist: teradatasqlalchemy==17.0.0.5; extra == "teradata"
 Requires-Dist: sqlalchemy<2.0.0; extra == "teradata"
 Provides-Extra: spark
-Requires-Dist: pyspark<4.0,>=2.3.2; extra == "spark"
+Requires-Dist: pyspark<4.2,>=2.3.2; extra == "spark"
 Provides-Extra: databricks
 Requires-Dist: databricks-sqlalchemy>=1.0.0; extra == "databricks"
 Requires-Dist: sqlalchemy>=1.4.0; extra == "databricks"
@@ -90,6 +90,7 @@ Provides-Extra: spark-connect
 Requires-Dist: googleapis-common-protos>=1.56.4; extra == "spark-connect"
 Requires-Dist: grpcio>=1.48.1; extra == "spark-connect"
 Requires-Dist: grpcio-status>=1.48.1; extra == "spark-connect"
+Requires-Dist: zstandard>=0.25.0; extra == "spark-connect"
 Provides-Extra: vertica
 Requires-Dist: sqlalchemy-vertica-python>=0.5.10; extra == "vertica"
 Requires-Dist: sqlalchemy>=1.4.0; extra == "vertica"

@@ -53,7 +53,7 @@ class NetworksWirelessSsidsTrafficShapingRules(object):
             trafficShapingEnabled=params.get("trafficShapingEnabled"),
             defaultRulesEnabled=params.get("defaultRulesEnabled"),
             rules=params.get("rules"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -146,7 +146,9 @@ class NetworksWirelessSsidsTrafficShapingRules(object):
         obj_params = [
             ("trafficShapingEnabled", "trafficShapingEnabled"),
             ("defaultRulesEnabled", "defaultRulesEnabled"),
-            ("rules", "rules"), ("number", "number"),
+            ("rules", "rules"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

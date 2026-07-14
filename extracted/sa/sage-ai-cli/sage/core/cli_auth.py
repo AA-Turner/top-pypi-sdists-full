@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import stat
 import threading
 import time
+import base64
 from pathlib import Path
 from typing import Optional
+from cryptography.fernet import Fernet
 
 import httpx
 
+logger = logging.getLogger(__name__)
 _auth_lock = threading.Lock()
 
 FIREBASE_API_KEY = os.environ.get(
@@ -124,11 +128,9 @@ def _refresh_token(auth: dict) -> dict:
             timeout=15,
         )
     except httpx.HTTPError as exc:
-        # Network failure (offline, DNS, timeout) — tell the user, don't crash.
-        raise RuntimeError(
-            f"Could not reach the SAGE auth server to refresh your session ({exc}). "
-            "Check your internet connection and try again."
-        ) from exc
+        # Network failure (offline, DNS, timeout) — log warning and fallback to expired token for offline mode
+        logger.warning(f"Could not reach auth server ({exc}). Continuing in offline mode with cached session.")
+        return auth
 
     if r.status_code == 400:
         # Refresh token revoked, expired, or invalid. Wipe the bad credential
@@ -194,7 +196,33 @@ def login() -> dict:
     Supports all sign-in methods: Google, Apple, and email/password.
     The CLI spins up a local callback server, then opens the browser.
     After the user logs in on the website, the token is sent back here.
+
+    If the user already has a valid cached session, returns it immediately
+    without opening the browser — this allows `sage login` to succeed
+    even when offline.
     """
+    # Check for existing valid session first (offline-safe)
+    existing = load_auth()
+    if existing and existing.get("id_token"):
+        # Try to refresh if expired, but don't fail if offline
+        if _is_expired(existing):
+            try:
+                existing = _refresh_token(existing)
+            except RuntimeError:
+                # Token revoked — need fresh login. Fall through to browser flow.
+                existing = None
+        if existing and existing.get("id_token"):
+            email = existing.get("email", "unknown")
+            tier = existing.get("tier", "unknown")
+            print(f"\n  ✓ Already logged in as {email} ({tier} plan).")
+            print(f"    Run `sage logout` to switch accounts.\n")
+            # Best-effort sync
+            try:
+                sync_on_reconnect()
+            except Exception:
+                pass
+            return existing
+
     import secrets
     import socket
     import threading
@@ -308,6 +336,29 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
         auth["tier"] = "unknown"
 
     save_auth(auth)
+
+    # Best-effort device registration (don't block login on failure)
+    try:
+        import platform as _plat
+        import socket as _sock
+        device_platform = {
+            "Darwin": "macos", "Windows": "windows", "Linux": "linux",
+        }.get(_plat.system(), "linux")
+        device_name = f"{_sock.gethostname()} — CLI"
+        httpx.post(
+            f"{get_api_base()}/devices/register",
+            json={
+                "name": device_name,
+                "platform": device_platform,
+                "client": "cli",
+                "capabilities": ["chat", "terminal", "code_exec"],
+            },
+            headers={"Authorization": f"Bearer {auth['id_token']}"},
+            timeout=5,
+        )
+    except Exception:
+        pass  # device registration is optional — don't break login
+
     return auth
 
 
@@ -387,29 +438,246 @@ def check_cli_access() -> None:
         )
 
 
+# ── Offline Usage Tracking (hardened) ────────────────────────────────────────
+
+import hashlib
+import hmac as _hmac_mod
+import subprocess as _sp
+
+
+def _get_machine_id() -> str:
+    """Get a stable machine identifier. Uses hardware UUID on macOS/Linux,
+    MachineGuid on Windows. Falls back to hostname + username hash if
+    hardware ID is unavailable (VMs, containers).
+    """
+    import platform
+    system = platform.system()
+
+    try:
+        if system == "Darwin":
+            out = _sp.run(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in out.stdout.splitlines():
+                if "IOPlatformUUID" in line:
+                    return line.split('"')[-2]
+        elif system == "Linux":
+            for path in ("/etc/machine-id", "/sys/class/dmi/id/product_uuid"):
+                p = Path(path)
+                if p.exists():
+                    try:
+                        return p.read_text().strip()
+                    except PermissionError:
+                        continue
+        elif system == "Windows":
+            out = _sp.run(
+                ["reg", "query",
+                 "HKLM\\SOFTWARE\\Microsoft\\Cryptography",
+                 "/v", "MachineGuid"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in out.stdout.splitlines():
+                if "MachineGuid" in line:
+                    parts = line.strip().split()
+                    return parts[-1] if parts else ""
+    except Exception:
+        pass
+
+    # Fallback: hash of hostname + username — not perfect but stable per-user-per-machine
+    import socket, getpass
+    return hashlib.sha256(f"{socket.gethostname()}:{getpass.getuser()}".encode()).hexdigest()
+
+
+def _derive_key(uid: str = "") -> bytes:
+    """Derive a Fernet key from the machine ID + user UID.
+    
+    This ensures:
+    1. usage.enc can't be copied to another machine (different machine ID)
+    2. usage.enc can't be shared between users (different UID)
+    3. The key is deterministic — no .ukey file to delete
+    """
+    machine_id = _get_machine_id()
+    auth = load_auth() or {}
+    effective_uid = uid or auth.get("uid", "")
+    salt = f"sage-usage-v2:{machine_id}:{effective_uid}"
+    key_bytes = hashlib.pbkdf2_hmac("sha256", salt.encode(), b"sage-hardened", 100_000)
+    # Fernet needs a url-safe base64-encoded 32-byte key
+    return base64.urlsafe_b64encode(key_bytes[:32])
+
+
+def _get_fernet() -> Fernet:
+    return Fernet(_derive_key())
+
+
+def _usage_hmac(data: bytes) -> bytes:
+    """Compute HMAC-SHA256 for integrity verification of usage.enc."""
+    machine_id = _get_machine_id()
+    key = hashlib.sha256(f"sage-hmac:{machine_id}".encode()).digest()
+    return _hmac_mod.new(key, data, hashlib.sha256).digest()
+
+
+def _get_offline_tokens() -> int:
+    usage_path = AUTH_FILE.parent / "usage.enc"
+    hmac_path = AUTH_FILE.parent / "usage.hmac"
+    watermark_path = AUTH_FILE.parent / "usage.watermark"
+
+    if not usage_path.exists():
+        # If the file was deleted but we had a watermark, the user tampered.
+        # Return the watermark value so they can't reset to 0.
+        if watermark_path.exists():
+            try:
+                return int(watermark_path.read_text().strip())
+            except Exception:
+                return 0
+        return 0
+
+    try:
+        enc_data = usage_path.read_bytes()
+
+        # HMAC integrity check
+        if hmac_path.exists():
+            stored_hmac = hmac_path.read_bytes()
+            expected_hmac = _usage_hmac(enc_data)
+            if not _hmac_mod.compare_digest(stored_hmac, expected_hmac):
+                logger.warning("usage.enc HMAC mismatch — possible tampering. Using watermark.")
+                if watermark_path.exists():
+                    return int(watermark_path.read_text().strip())
+                return 0
+
+        f = _get_fernet()
+        data = f.decrypt(enc_data).decode("utf-8")
+        return int(data)
+    except Exception:
+        # Decryption failed (wrong machine, corrupted) — use watermark
+        if watermark_path.exists():
+            try:
+                return int(watermark_path.read_text().strip())
+            except Exception:
+                pass
+        return 0
+
+
+def _add_offline_tokens(tokens: int) -> None:
+    usage_path = AUTH_FILE.parent / "usage.enc"
+    hmac_path = AUTH_FILE.parent / "usage.hmac"
+    watermark_path = AUTH_FILE.parent / "usage.watermark"
+
+    current = _get_offline_tokens()
+    new_total = current + tokens
+    try:
+        AUTH_DIR.mkdir(parents=True, exist_ok=True)
+        f = _get_fernet()
+        enc_data = f.encrypt(str(new_total).encode("utf-8"))
+        usage_path.write_bytes(enc_data)
+        usage_path.chmod(0o600)
+
+        # Write HMAC for integrity
+        hmac_path.write_bytes(_usage_hmac(enc_data))
+        hmac_path.chmod(0o600)
+
+        # Update watermark (plaintext max-ever-seen — prevents delete-to-reset)
+        watermark_path.write_text(str(new_total), encoding="utf-8")
+        watermark_path.chmod(0o600)
+    except Exception as exc:
+        logger.warning("Failed to save offline usage: %s", exc)
+
+
+def _clear_offline_tokens() -> None:
+    """Clear offline tokens after successful sync. Also clears the watermark
+    since the server now has the authoritative count."""
+    for name in ("usage.enc", "usage.hmac", "usage.watermark"):
+        p = AUTH_FILE.parent / name
+        if p.exists():
+            p.unlink(missing_ok=True)
+
+
+def sync_on_reconnect() -> None:
+    """Best-effort sync: fetch latest tier + limits from server and cache locally.
+
+    Called on every CLI invocation. If online, updates the cached token_limit,
+    tokens_used, and tier in auth.json so offline enforcement uses fresh data.
+    If the user upgraded their plan, the new limits take effect immediately.
+    Also syncs any pending offline tokens to the server.
+    """
+    if os.environ.get("SAGE_TESTING") == "1":
+        return
+
+    auth = load_auth()
+    if auth is None:
+        return
+
+    try:
+        token = get_valid_token()
+
+        # First, sync any pending offline usage
+        offline_tokens = _get_offline_tokens()
+        if offline_tokens > 0:
+            try:
+                r = httpx.post(
+                    f"{get_api_base()}/billing/track",
+                    json={"type": "cli", "tokens": 0, "offline_tokens": offline_tokens},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=5,
+                )
+                if r.is_success:
+                    _clear_offline_tokens()
+            except Exception:
+                pass  # Will try again next invocation
+
+        # Then fetch latest billing info (tier, limits, usage)
+        r = httpx.get(
+            f"{get_api_base()}/billing/me",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=8,
+        )
+        if r.is_success:
+            data = r.json()
+            auth["token_limit"] = data.get("token_limit", 0)
+            auth["tokens_used"] = max(0, data.get("tokens_used", 0) - data.get("overage_paid_tokens", 0))
+            auth["tier"] = data.get("tier", "free")
+            save_auth(auth)
+    except Exception:
+        pass  # Offline — will sync next time
+
+
 def track_usage(message_type: str = "cli", response_text: str = "") -> None:
     """Report one CLI AI response to the SAGE backend for token-based tracking.
 
-    Fire-and-forget: never raises, never blocks. Called after each
-    successful AI response in sage run.
+    If offline, tracks the usage locally in an encrypted file.
+    If online, syncs any pending offline usage along with the current usage.
     """
+    tokens = max(1, len(response_text) // 4) if response_text else 500
     try:
         token = get_valid_token()
-        tokens = max(1, len(response_text) // 4) if response_text else 500
-        httpx.post(
+        offline_tokens = _get_offline_tokens()
+        payload = {"type": message_type, "tokens": tokens, "text": response_text[:100]}
+        if offline_tokens > 0:
+            payload["offline_tokens"] = offline_tokens
+
+        r = httpx.post(
             f"{get_api_base()}/billing/track",
-            json={"type": message_type, "tokens": tokens, "text": response_text[:100]},
+            json=payload,
             headers={"Authorization": f"Bearer {token}"},
             timeout=5,
         )
-    except Exception:
-        pass  # tracking failure must never interrupt the user's session
+        r.raise_for_status()
+        if offline_tokens > 0:
+            _clear_offline_tokens()
+    except Exception as exc:
+        # Track offline on network failure
+        logger.debug("Offline usage tracked (%d tokens). Syncing when online. Error: %s", tokens, exc)
+        _add_offline_tokens(tokens)
 
 
 def check_token_quota() -> None:
     """Check if the user still has tokens remaining. Raises with upgrade message if not."""
     if os.environ.get("SAGE_TESTING") == "1":
         return
+
+    auth = load_auth() or {}
+
+    # Try fetching latest usage online (also syncs plan upgrades)
     try:
         token = get_valid_token()
         r = httpx.get(
@@ -417,22 +685,28 @@ def check_token_quota() -> None:
             headers={"Authorization": f"Bearer {token}"},
             timeout=8,
         )
-        if not r.is_success:
-            return  # can't check — allow and let the backend enforce
-        data = r.json()
-        tokens_used = data.get("tokens_used", 0)
-        token_limit = data.get("token_limit", 0)
-        tier = data.get("tier", "free")
-        if token_limit > 0 and tokens_used >= token_limit:
-            remaining = token_limit - tokens_used
-            overage_rates = {"starter": 0.001, "pro": 0.0008, "premium": 0.0005}
-            rate = overage_rates.get(tier, 0.001)
-            raise RuntimeError(
-                f"⚠  Token limit reached: {tokens_used:,} / {token_limit:,} tokens used this month.\n"
-                f"   Overage rate: ${rate}/1K tokens — usage continues and you will be billed.\n"
-                f"   Upgrade for more tokens: {get_api_base()} (Billing tab)"
-            )
-    except RuntimeError:
-        raise
+        if r.is_success:
+            data = r.json()
+            # Cache the latest limit and usage for offline enforcement
+            auth["token_limit"] = data.get("token_limit", 0)
+            auth["tokens_used"] = max(0, data.get("tokens_used", 0) - data.get("overage_paid_tokens", 0))
+            auth["tier"] = data.get("tier", "free")
+            save_auth(auth)
     except Exception:
-        pass  # quota check failure is non-fatal
+        pass
+
+    # Enforce quota (works both online and offline using cached + local offline usage)
+    token_limit = auth.get("token_limit", 0)
+    cached_used = auth.get("tokens_used", 0)
+    offline_used = _get_offline_tokens()
+
+    total_used = cached_used + offline_used
+    tier = auth.get("tier", "free")
+
+    if token_limit > 0 and total_used >= token_limit:
+        raise RuntimeError(
+            f"⚠  Token limit reached for {tier} plan.\n"
+            f"   Total used: {total_used:,} / {token_limit:,} tokens (including {offline_used:,} offline).\n"
+            f"   Usage has been blocked. Please go to your Billing page at {get_api_base()} to pay for overage or upgrade."
+        )
+

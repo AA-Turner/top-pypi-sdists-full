@@ -8,8 +8,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.sites.models import Site
 from django.http import HttpResponse, QueryDict
-from django.template.defaultfilters import truncatewords
+from django.template.defaultfilters import date as date_filter, truncatewords
 from django.test import TestCase
 from django.test.client import RequestFactory
 from django.test.utils import override_settings
@@ -20,22 +21,25 @@ from django.utils.html import escape
 from django.utils.translation import get_language, gettext_lazy as _, override
 
 from cms.admin.forms import RequestToolbarForm
-from cms.api import add_plugin, create_page, create_page_content
+from cms.api import (
+    add_plugin,
+    assign_user_to_page,
+    create_page,
+    create_page_content,
+)
 from cms.cms_toolbars import (
     ADMIN_MENU_IDENTIFIER,
     ADMINISTRATION_BREAK,
+    DEFAULT_HELP_MENU_ITEMS,
+    HELP_MENU_IDENTIFIER,
     LANGUAGE_MENU_IDENTIFIER,
+    PAGE_MENU_IDENTIFIER,
+    PageToolbar,
     get_user_model,
 )
 from cms.models import PagePermission, UserSettings
-from cms.test_utils.project.placeholderapp.models import (
-    CharPksExample,
-    Example1,
-)
-from cms.test_utils.project.placeholderapp.views import (
-    ClassDetail,
-    detail_view,
-)
+from cms.test_utils.project.placeholderapp.models import CharPksExample, Example1
+from cms.test_utils.project.placeholderapp.views import ClassDetail, detail_view
 from cms.test_utils.testcases import URL_CMS_USERSETTINGS, CMSTestCase
 from cms.test_utils.util.context_managers import UserLoginContext, override_placeholder_conf
 from cms.toolbar import utils
@@ -52,11 +56,11 @@ from cms.toolbar.utils import (
     add_live_url_querystring_param,
     get_object_edit_url,
     get_object_for_language,
+    get_object_live_url,
     get_object_preview_url,
     get_object_structure_url,
 )
 from cms.toolbar_pool import toolbar_pool
-from cms.utils.compat import DJANGO_4_2
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_language_tuple
 from cms.utils.urlutils import admin_reverse
@@ -259,6 +263,40 @@ class ToolbarTests(ToolbarTestBase):
         self.assertRedirects(response, "/en/")
         self.assertTrue(settings.SESSION_COOKIE_NAME in response.cookies)
 
+    def test_toolbar_login_error_preserves_query_string(self):
+        # The error flag must be appended without clobbering an existing query.
+        admin = self.get_superuser()
+        endpoint = reverse("cms_login") + "?next=/en/admin/%3Ffoo%3Dbar"
+        username = getattr(admin, get_user_model().USERNAME_FIELD)
+        response = self.client.post(endpoint, data={"username": username, "password": "invalid"})
+        self.assertRedirects(
+            response,
+            "/en/admin/?foo=bar&cms_toolbar_login_error=1",
+            target_status_code=302,
+        )
+        self.assertFalse(settings.SESSION_COOKIE_NAME in response.cookies)
+
+    def test_toolbar_login_unresolvable_redirect_to(self):
+        # A same-host path that does not resolve against the URL configuration
+        # must not be used as a redirect target (open redirect protection).
+        admin = self.get_superuser()
+        endpoint = reverse("cms_login") + "?next=/not-a-language/does-not-resolve@@/"
+        username = getattr(admin, get_user_model().USERNAME_FIELD)
+        password = getattr(admin, get_user_model().USERNAME_FIELD)
+        response = self.client.post(endpoint, data={"username": username, "password": password})
+        self.assertRedirects(response, "/en/")
+        self.assertTrue(settings.SESSION_COOKIE_NAME in response.cookies)
+
+    def test_toolbar_login_resolvable_redirect_to(self):
+        # A same-host path that resolves to a project view is accepted.
+        admin = self.get_superuser()
+        endpoint = reverse("cms_login") + "?next=/en/admin/"
+        username = getattr(admin, get_user_model().USERNAME_FIELD)
+        password = getattr(admin, get_user_model().USERNAME_FIELD)
+        response = self.client.post(endpoint, data={"username": username, "password": password})
+        self.assertRedirects(response, "/en/admin/", target_status_code=200)
+        self.assertTrue(settings.SESSION_COOKIE_NAME in response.cookies)
+
     @override_settings(CMS_TOOLBARS=["cms.test_utils.project.sampleapp.cms_toolbars.ToolbarWithMedia"])
     def test_toolbar_media(self):
         """
@@ -315,6 +353,38 @@ class ToolbarTests(ToolbarTestBase):
                 data={"obj_id": cms_page.pk, "obj_type": "cms.somemodel", "cms_path": cms_page.get_absolute_url("en")},
             )
             self.assertEqual(response.status_code, 400)
+
+    @override_settings(CMS_PERMISSION=True)
+    def test_toolbar_request_endpoint_enforces_object_view_permission(self):
+        # The obj_id/obj_type come straight from the client, so the endpoint
+        # must enforce an object-level view check before rendering a toolbar
+        # (which discloses the object's title/breadcrumb/edit URLs). A staff
+        # user who cannot view a restricted page must be denied.
+        endpoint = self.get_admin_url(UserSettings, "get_toolbar")
+        cms_page = create_page("secret-page", "col_two.html", "en")
+        page_content = self.get_pagecontent_obj(cms_page)
+
+        # Grant view to one user only -> the page is now view-restricted.
+        assign_user_to_page(cms_page, self.get_standard_user(), can_view=True)
+
+        data = {
+            "obj_id": page_content.pk,
+            "obj_type": "cms.pagecontent",
+            "cms_path": get_object_edit_url(page_content),
+        }
+
+        # A staff user without view permission is denied with the same generic
+        # response as an unknown object (no existence oracle).
+        with self.login_user_context(self.get_staff_user_with_no_permissions()):
+            response = self.client.get(endpoint, data=data)
+        self.assertEqual(response.status_code, 400)
+        self.assertNotContains(response, "Clipboard", status_code=400)
+
+        # A superuser can still render the toolbar.
+        with self.login_user_context(self.get_superuser()):
+            response = self.client.get(endpoint, data=data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Clipboard")
 
     def test_toolbar_request_form(self):
         cms_page = create_page("toolbar-page", "col_two.html", "en")
@@ -383,9 +453,8 @@ class ToolbarTests(ToolbarTestBase):
         toolbar.populate()
         toolbar.post_template_populate()
         items = toolbar.get_left_items() + toolbar.get_right_items()
-        # Logo + admin-menu + color scheme + logout
-        self.assertEqual(len(items), 4, items)
-        admin_items = toolbar.get_or_create_menu(ADMIN_MENU_IDENTIFIER, 'Test').get_items()
+        self.assertEqual(len(items), 5, items)
+        admin_items = toolbar.get_or_create_menu(ADMIN_MENU_IDENTIFIER, "Test").get_items()
         self.assertEqual(len(admin_items), 12, admin_items)
 
     def test_no_page_superuser(self):
@@ -394,9 +463,8 @@ class ToolbarTests(ToolbarTestBase):
         toolbar.populate()
         toolbar.post_template_populate()
         items = toolbar.get_left_items() + toolbar.get_right_items()
-        # Logo + edit-mode + admin-menu + color scheme + logout
-        self.assertEqual(len(items), 4)
-        admin_items = toolbar.get_or_create_menu(ADMIN_MENU_IDENTIFIER, 'Test').get_items()
+        self.assertEqual(len(items), 5)
+        admin_items = toolbar.get_or_create_menu(ADMIN_MENU_IDENTIFIER, "Test").get_items()
         self.assertEqual(len(admin_items), 13, admin_items)
 
     def test_anon(self):
@@ -412,7 +480,6 @@ class ToolbarTests(ToolbarTestBase):
         request = self.get_page_request(page, self.get_nonstaff())
         toolbar = CMSToolbar(request)
         items = toolbar.get_left_items() + toolbar.get_right_items()
-        # Logo + edit-mode + logout
         self.assertEqual(len(items), 0)
 
     @override_settings(CMS_PERMISSION=True)
@@ -599,10 +666,10 @@ class ToolbarTests(ToolbarTestBase):
         self.assertEqual(response.status_code, 200)
         response_text = response.render().rendered_content
         self.assertTrue(
-            re.search('edit_plugin.+/en/admin/cms/placeholder/edit-plugin/%s' % plugin_1.pk, response_text),
-            "/en/admin/cms/placeholder/edit-plugin/%s not found in %s" % (plugin_1.pk, response_text)
+            re.search("edit_plugin.+/en/admin/cms/placeholder/edit-plugin/%s" % plugin_1.pk, response_text),
+            f"/en/admin/cms/placeholder/edit-plugin/{plugin_1.pk} not found in {response_text}",
         )
-        self.assertTrue(re.search('move_plugin.+/en/admin/cms/placeholder/move-plugin/', response_text))
+        self.assertTrue(re.search("move_plugin.+/en/admin/cms/placeholder/move-plugin/", response_text))
         self.assertTrue(
             re.search("delete_plugin.+/en/admin/cms/placeholder/delete-plugin/%s/" % plugin_1.pk, response_text)
         )
@@ -654,6 +721,45 @@ class ToolbarTests(ToolbarTestBase):
         self.assertEqual(copy_german.name.lower(), "from german")
         self.assertEqual(
             copy_german_context["action"], admin_reverse("cms_pagecontent_copy_language", args=(german_content.pk,))
+        )
+
+    def _get_delete_page_item(self, toolbar):
+        page_menu = toolbar.get_menu(PAGE_MENU_IDENTIFIER)
+        for item in page_menu.items:
+            if force_str(getattr(item, "name", "")).startswith("Delete page"):
+                return item
+        return None
+
+    def test_delete_redirect_not_computed_when_delete_disabled(self):
+        """
+        Regression test: the on-delete redirect URL was computed on every
+        toolbar render of a page with a parent, issuing two parent-page
+        queries even when the delete item is disabled (e.g. outside edit
+        mode). It must only be computed when the delete action is available.
+        """
+        parent = create_page("parent", "nav_playground.html", "en")
+        child = create_page("child", "nav_playground.html", "en", parent=parent)
+
+        with patch.object(PageToolbar, "get_on_delete_redirect_url", autospec=True) as mocked:
+            # View mode: the delete item is disabled, so no redirect is needed.
+            self.get_page_request(child, self.get_superuser(), child.get_absolute_url())
+
+        mocked.assert_not_called()
+
+    def test_delete_redirect_computed_when_delete_enabled(self):
+        """The redirect URL is still resolved (to the parent) when deletion is possible."""
+        parent = create_page("parent", "nav_playground.html", "en")
+        child = create_page("child", "nav_playground.html", "en", parent=parent)
+        edit_url = get_object_edit_url(child.get_content_obj("en"))
+
+        request = self.get_page_request(child, self.get_superuser(), edit_url)
+
+        delete_item = self._get_delete_page_item(request.toolbar)
+        self.assertIsNotNone(delete_item)
+        self.assertFalse(delete_item.disabled)
+        self.assertEqual(
+            delete_item.on_close,
+            get_object_preview_url(parent.get_admin_content("en")),
         )
 
     def test_show_toolbar_staff(self):
@@ -729,6 +835,36 @@ class ToolbarTests(ToolbarTestBase):
                 response = self.client.post("/en/admin/logout/")
                 self.assertTrue(response.status_code, 200)
 
+    def test_toolbar_hidden_when_admin_not_available(self):
+        """
+        Test that the toolbar is hidden when admin URLs are not available.
+
+        When admin_reverse raises NoReverseMatch (e.g., admin not in urlpatterns),
+        the toolbar should be disabled even for staff users.
+        """
+        from unittest.mock import patch
+
+        from django.urls import NoReverseMatch
+
+        page = create_page("toolbar-page", "nav_playground.html", "en")
+        staff_user = self.get_staff()
+
+        # Create request manually without going through get_page_request
+        request = self.get_request("/", page=page)
+        request.user = staff_user
+        request.session = {}
+        request.current_page = page
+
+        # Mock admin_reverse to raise NoReverseMatch only for 'admin:index'
+        with patch("cms.toolbar.toolbar.admin_reverse") as mock_admin_reverse:
+            mock_admin_reverse.side_effect = NoReverseMatch("No admin URLs")
+
+            # Initialize toolbar - this should catch NoReverseMatch and set show_toolbar=False
+            toolbar = CMSToolbar(request)
+
+        # Toolbar should be hidden because admin is not available
+        self.assertFalse(toolbar.show_toolbar)
+
     def test_show_toolbar_without_edit(self):
         page = create_page("toolbar-page", "nav_playground.html", "en")
         request = self.get_page_request(page, AnonymousUser())
@@ -746,8 +882,7 @@ class ToolbarTests(ToolbarTestBase):
         self.assertFalse(page.has_change_permission(request.user))
 
         items = request.toolbar.get_left_items() + request.toolbar.get_right_items()
-        # Logo + page-menu + admin-menu + color scheme + logout
-        self.assertEqual(len(items), 5, items)
+        self.assertEqual(len(items), 6, items)
         page_items = items[1].get_items()
         # The page menu should only have the "Create page" item enabled.
         self.assertFalse(page_items[0].disabled)
@@ -771,23 +906,22 @@ class ToolbarTests(ToolbarTestBase):
         en_toolbar.set_object(page_content_en)
         en_toolbar.populate()
         en_toolbar.post_template_populate()
-        # Logo + templates + page-menu + admin-menu + color scheme + logout
-        self.assertEqual(len(en_toolbar.get_left_items() + en_toolbar.get_right_items()), 6)
-        de_request = self.get_page_request(cms_page, user, edit_url_de, lang_code='de')
+        self.assertEqual(len(en_toolbar.get_left_items() + en_toolbar.get_right_items()), 7)
+
+        de_request = self.get_page_request(cms_page, user, edit_url_de, lang_code="de")
         de_toolbar = CMSToolbar(de_request)
         de_toolbar.set_object(page_content_de)
         de_toolbar.populate()
         de_toolbar.post_template_populate()
-        # Logo + templates + page-menu + admin-menu + color scheme + logout
-        self.assertEqual(len(de_toolbar.get_left_items() + de_toolbar.get_right_items()), 6)
+        self.assertEqual(len(de_toolbar.get_left_items() + de_toolbar.get_right_items()), 7)
 
     def test_double_menus(self):
         """
         Tests that even called multiple times, admin and language buttons are not duplicated
         """
         user = self.get_staff()
-        page = create_page('test', 'nav_playground.html', 'en')
-        for code, verbose in get_language_tuple():
+        page = create_page("test", "nav_playground.html", "en")
+        for code, verbose in get_language_tuple(Site.objects.get_current().pk):
             if code != "en":
                 create_page_content(code, f"test {code}", page)
         page_content = self.get_pagecontent_obj(page)
@@ -802,11 +936,19 @@ class ToolbarTests(ToolbarTestBase):
         toolbar.populated = False
         toolbar.post_template_populate()
         get_object_for_language(page_content, "de")
-        admin = toolbar.get_left_items()[0]
-        lang = toolbar.get_left_items()[1]
-        self.assertEqual(len(admin.get_items()), 15)
-        self.assertEqual(len(lang.get_items()), len(get_language_tuple(1)))
-        self.assertIn(edit_url, [item.url for item in lang.get_items()])  # Edit urls returned
+        admin_menu = toolbar.get_left_items()[0]
+        help_menu = toolbar.get_left_items()[1]
+        lang_menu = toolbar.get_left_items()[2]
+        self.assertEqual(len(admin_menu.get_items()), 15)
+        self.assertEqual(
+            list(DEFAULT_HELP_MENU_ITEMS),
+            [(item.name, item.url) for item in help_menu.get_items()],
+        )
+        self.assertEqual(
+            [item.name for item in lang_menu.get_items()],
+            [language_name for _, language_name in get_language_tuple(Site.objects.get_current().pk)],
+        )
+        self.assertIn(edit_url, [item.url for item in lang_menu.get_items()])  # Edit urls returned
 
     @override_placeholder_conf(CMS_PLACEHOLDER_CONF={"col_left": {"name": "Charles Babbage"}})
     def test_placeholder_name(self):
@@ -1001,10 +1143,10 @@ class ToolbarTests(ToolbarTestBase):
             return default
 
     def test_toolbar_logout(self):
-        '''
+        """
         Tests that the Logout menu item includes the user's full name, if the
         relevant fields were populated in auth.User, else the user's username.
-        '''
+        """
         superuser = self.get_superuser()
 
         # Ensure that some other test hasn't set the name fields
@@ -1162,6 +1304,28 @@ class ToolbarModeTests(ToolbarTestBase):
         with self.login_user_context(user):
             response = self.client.get(get_object_edit_url(page_content, language="en"))
         self.assertNotContains(response, 'title="Toggle structure"')
+
+    @override_settings(CMS_EXTRA_HELP_MENU_ITEMS=(("google", "www.google.com"),))
+    def test_help_menu(self):
+        page = create_page("help-page", "nav_playground.html", "en")
+        staff = self.get_staff()
+        assert staff.user_permissions.get().name == "Can change page"
+        request = self.get_page_request(page, staff, "/")
+        toolbar = CMSToolbar(request)
+        help_menu = toolbar.get_menu(HELP_MENU_IDENTIFIER)
+        custom_link = help_menu.get_items()[-1]
+        self.assertEqual(custom_link.name, "google")
+        self.assertEqual(custom_link.url, "www.google.com")
+
+    @override_settings(CMS_ENABLE_HELP=False)
+    def test_help_menu_disabled(self):
+        page = create_page("help-page", "nav_playground.html", "en")
+        staff = self.get_staff()
+        assert staff.user_permissions.get().name == "Can change page"
+        request = self.get_page_request(page, staff, "/")
+        toolbar = CMSToolbar(request)
+        help_menu = toolbar.get_menu(HELP_MENU_IDENTIFIER)
+        self.assertIsNone(help_menu)
 
 
 @override_settings(ROOT_URLCONF="cms.test_utils.project.placeholderapp_urls")
@@ -1407,21 +1571,19 @@ class EditModelTemplateTagTest(ToolbarTestBase):
         )
 
     def test_filters_date(self):
-        # Ensure we have a consistent testing env...
-        with self.settings(USE_L10N=False, DATE_FORMAT="M. d, Y"):
-            user = self.get_staff()
-            page = create_page("Test", "col_two.html", "en")
-            page_content = self.get_pagecontent_obj(page)
-            edit_url = get_object_edit_url(page_content)
-            ex1 = Example1(
-                char_1="char_1, <p>hello</p>, <p>hello</p>, <p>hello</p>, <p>hello</p>",
-                char_2="char_2",
-                char_3="char_3",
-                char_4="char_4",
-                date_field=datetime.date(2012, 1, 2),
-            )
-            ex1.save()
-            template_text = """{% extends "base.html" %}
+        user = self.get_staff()
+        page = create_page("Test", "col_two.html", "en")
+        page_content = self.get_pagecontent_obj(page)
+        edit_url = get_object_edit_url(page_content)
+        ex1 = Example1(
+            char_1="char_1, <p>hello</p>, <p>hello</p>, <p>hello</p>, <p>hello</p>",
+            char_2="char_2",
+            char_3="char_3",
+            char_4="char_4",
+            date_field=datetime.date(2012, 1, 2),
+        )
+        ex1.save()
+        template_text = """{% extends "base.html" %}
 {% load cms_tags %}
 
 {% block content %}
@@ -1429,61 +1591,61 @@ class EditModelTemplateTagTest(ToolbarTestBase):
 {% endblock content %}
 """
 
-            request = self.get_page_request(page, user, edit_url)
-            response = detail_view(request, ex1.pk, template_string=template_text)
-            self.assertContains(
-                response,
-                "<h1>"
-                '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "{4}"
-                '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "</h1>".format(
-                    "placeholderapp",
-                    "example1",
-                    "date_field",
-                    ex1.pk,
-                    ex1.date_field.strftime("%b. %d, %Y" if DJANGO_4_2 else "%b. %-d, %Y"),
-                ),
-            )
+        request = self.get_page_request(page, user, edit_url)
+        response = detail_view(request, ex1.pk, template_string=template_text)
+        self.assertContains(
+            response,
+            "<h1>"
+            '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "{4}"
+            '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "</h1>".format(
+                "placeholderapp",
+                "example1",
+                "date_field",
+                ex1.pk,
+                date_filter(ex1.date_field),
+            ),
+        )
 
-            template_text = """{% extends "base.html" %}
+        template_text = """{% extends "base.html" %}
 {% load cms_tags %}
 
 {% block content %}
 <h1>{% render_model instance "date_field" "" "" "safe" %}</h1>
 {% endblock content %}
 """
-            request = self.get_page_request(page, user, edit_url)
-            response = detail_view(request, ex1.pk, template_string=template_text)
-            self.assertContains(
-                response,
-                "<h1>"
-                '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "{4}"
-                '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "</h1>".format(
-                    "placeholderapp", "example1", "date_field", ex1.pk, ex1.date_field.strftime("%Y-%m-%d")
-                ),
-            )
+        request = self.get_page_request(page, user, edit_url)
+        response = detail_view(request, ex1.pk, template_string=template_text)
+        self.assertContains(
+            response,
+            "<h1>"
+            '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "{4}"
+            '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "</h1>".format(
+                "placeholderapp", "example1", "date_field", ex1.pk, ex1.date_field.strftime("%Y-%m-%d")
+            ),
+        )
 
-            template_text = """{% extends "base.html" %}
+        template_text = """{% extends "base.html" %}
 {% load cms_tags %}
 
 {% block content %}
 <h1>{% render_model instance "date_field" "" "" 'date:"Y m d"' %}</h1>
 {% endblock content %}
 """
-            response = detail_view(request, ex1.pk, template_string=template_text)
-            self.assertContains(
-                response,
-                "<h1>"
-                '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "{4}"
-                '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
-                "</h1>".format(
-                    "placeholderapp", "example1", "date_field", ex1.pk, ex1.date_field.strftime("%Y %m %d")
-                ),
-            )
+        response = detail_view(request, ex1.pk, template_string=template_text)
+        self.assertContains(
+            response,
+            "<h1>"
+            '<template class="cms-plugin cms-plugin-start cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "{4}"
+            '<template class="cms-plugin cms-plugin-end cms-plugin-{0}-{1}-{2}-{3} cms-render-model"></template>'
+            "</h1>".format(
+                "placeholderapp", "example1", "date_field", ex1.pk, ex1.date_field.strftime("%Y %m %d")
+            ),
+        )
 
     def test_filters_notoolbar(self):
         user = self.get_staff()
@@ -2248,13 +2410,11 @@ class ToolbarUtilsTestCase(ToolbarTestBase):
     def test_get_object_for_language_multiple_languages(self):
         page = create_page("Test", "col_two.html", "en")
         # Additional pages to ensure not a page content of another page is returned
-        for code, verbose in get_language_tuple():
+        for code, verbose in get_language_tuple(Site.objects.get_current().pk):
             create_page(f"Not this page ({verbose})", "col_two.html", code)
 
-        page_content = {
-            "en": self.get_pagecontent_obj(page, "en")
-        }
-        for code, verbose in get_language_tuple():
+        page_content = {"en": self.get_pagecontent_obj(page, "en")}
+        for code, verbose in get_language_tuple(Site.objects.get_current().pk):
             if code != "en":
                 page_content[code] = create_page_content(code, verbose, page)
 
@@ -2309,6 +2469,7 @@ class ToolbarUtilsTestCase(ToolbarTestBase):
         obj = SimpleNamespace(pk=3)
         url = get_object_structure_url(obj, language="es")
         self.assertIn("?language=es", url)
+
 
     # --- Tests for GET parameter forwarding (params argument) ---
 
@@ -2488,8 +2649,112 @@ class ToolbarUtilsTestCase(ToolbarTestBase):
         self.assertIn("myparam=myval", config["settings"]["structure"])
 
 
-class CharPkFrontendPlaceholderAdminTest(ToolbarTestBase):
+class GetObjectLiveUrlTests(CMSTestCase):
+    """
+    Tests for get_object_live_url:
+    - no prefix if no target site is given
+    - no prefix if target site equals object's site
+    - protocol-relative domain prefix if target site differs from object's site
+    - no prefix if the object has no site information
+    """
 
+    class _Dummy:
+        def __init__(self, url="/en/dummy/", language="en", site=None):
+            self.language = language
+            if site is not None:
+                self.site = site  # optional site attribute
+            self._url = url
+
+        def get_absolute_url(self):
+            return self._url
+
+    def setUp(self):
+        # create two sites with distinct domains
+        Site.objects.all().delete()
+        self.site1 = Site.objects.create(domain="site1.test", name="Site 1")
+        self.site2 = Site.objects.create(domain="site2.test", name="Site 2")
+
+    def test_always_prefix_when_site_argument_is_none(self):
+        obj = self._Dummy(url="/en/dummy/", language="en", site=self.site1)
+        url = get_object_live_url(obj, language="en", site=None)
+        self.assertEqual(url, f"//{self.site1.domain}/en/dummy/")
+
+    def test_no_prefix_when_target_site_equals_object_site(self):
+        obj = self._Dummy(url="/en/dummy/", language="en", site=self.site1)
+        url = get_object_live_url(obj, language="en", site=self.site1)
+        self.assertEqual(url, "/en/dummy/")
+
+    def test_prefix_added_when_target_site_differs_from_object_site(self):
+        obj = self._Dummy(url="/en/dummy/", language="en", site=self.site1)
+        url = get_object_live_url(obj, language="en", site=self.site2)
+        self.assertEqual(url, f"//{self.site1.domain}/en/dummy/")
+
+    def test_no_prefix_when_object_has_no_site_info(self):
+        # No .site attribute and no cms_extension mapping -> site param ignored
+        obj = self._Dummy(url="/en/dummy/", language="en", site=None)
+        # Remove site attribute if present
+        if hasattr(obj, "site"):
+            delattr(obj, "site")
+        url = get_object_live_url(obj, language="en", site=self.site2)
+        self.assertEqual(url, "/en/dummy/")
+
+    def test_grouper_site_is_respected(self):
+        page = create_page("test page", "nav_playground.html", "de", site=self.site1)
+        obj = page.get_content_obj("de")
+
+        url = get_object_live_url(obj, language="de", site=self.site2)
+        self.assertEqual(url, f"//{self.site1.domain}/de/test-page/")
+        url = get_object_live_url(obj, language="de", site=self.site1)
+        self.assertEqual(url, "/de/test-page/")
+
+    def test_get_object_live_url_works_with_grouper(self):
+        page = create_page("test page", "nav_playground.html", "de", site=self.site1)
+
+        url = get_object_live_url(page, language="de", site=self.site2)
+        self.assertEqual(url, f"//{self.site1.domain}/de/test-page/")
+        url = get_object_live_url(page, language="de", site=self.site1)
+        self.assertEqual(url, "/de/test-page/")
+
+    def test_get_object_live_url_includes_querydict_params(self):
+        """
+        Verifies that get_object_live_url includes QueryDict parameters
+        but excludes the ENDPOINT_LIVE_URL_QUERYSTRING_PARAM
+        """
+        from django.http import QueryDict
+
+        page = create_page("test page", "nav_playground.html", "de", site=self.site1)
+
+        # Create a QueryDict with test parameters
+        params = QueryDict(mutable=True)
+        params["param1"] = "value1"
+        params["param2"] = "value2"
+        params[get_cms_setting("ENDPOINT_LIVE_URL_QUERYSTRING_PARAM")] = "should_be_excluded"
+
+        # Test without site argument (should include params)
+        url = get_object_live_url(page, language="de", site=None, params=params)
+        self.assertIn("param1=value1", url)
+        self.assertIn("param2=value2", url)
+        self.assertNotIn("should_be_excluded", url)
+        self.assertIn("?", url)
+
+        # Test with same site (should include params, no domain prefix)
+        url = get_object_live_url(page, language="de", site=self.site1, params=params)
+        self.assertIn("param1=value1", url)
+        self.assertIn("param2=value2", url)
+        self.assertNotIn("should_be_excluded", url)
+        self.assertIn("?", url)
+        self.assertFalse(url.startswith("//"))
+
+        # Test with different site (should include params, with domain prefix)
+        url = get_object_live_url(page, language="de", site=self.site2, params=params)
+        self.assertIn("param1=value1", url)
+        self.assertIn("param2=value2", url)
+        self.assertNotIn("should_be_excluded", url)
+        self.assertTrue(url.startswith(f"//{self.site1.domain}"))
+        self.assertIn("?", url)
+
+
+class CharPkFrontendPlaceholderAdminTest(ToolbarTestBase):
     def get_admin(self):
         admin.autodiscover()
         return admin.site._registry[CharPksExample]
@@ -2566,6 +2831,20 @@ class ToolbarAPITests(TestCase):
         result = api.find_first(LinkItem, name="Test")
         self.assertNotEqual(result, None)
         self.assertEqual(result.index, 0)
+
+    def test_find_item_lazy_matches_source_not_translation(self):
+        # Lazy (gettext_lazy) names are matched by their *source* string, independent of the
+        # active language. Third-party apps must therefore search by the untranslated string.
+        api = ToolbarAPIMixin()
+        with override("de"):
+            label = _("Save")
+            # Sanity check: the German catalog is active, so the label actually translates.
+            self.assertNotEqual(str(label), "Save")
+            api.add_link_item(label, None)
+            # Found by the untranslated source string...
+            self.assertIsNotNone(api.find_first(LinkItem, name="Save"))
+            # ...but not by its translation.
+            self.assertIsNone(api.find_first(LinkItem, name=str(label)))
 
     def test_not_is_staff(self):
         request = RequestFactory().get("/en/")

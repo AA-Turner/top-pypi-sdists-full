@@ -181,7 +181,6 @@ modules:
     exported_workflows:
       description:
         - The workflows exported from the module.
-        - This will not be present if targeting a PowerShell 7 interpreter.
       type: list
       elements: str
     access_mode:

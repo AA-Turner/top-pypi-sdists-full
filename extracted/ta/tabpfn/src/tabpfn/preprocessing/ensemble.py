@@ -742,6 +742,8 @@ def _draw_balanced_from_pool(
 
     When the pool is exhausted it is refilled with ``range(pool_size)`` minus
     any slots already drawn for the current estimator (to avoid duplicates).
+    If every slot has already been drawn (``size > pool_size``), duplicates are
+    unavoidable and the pool is refilled with the full range instead.
 
     Returns:
         (drawn_slots, remaining_pool) so the caller can carry the pool across
@@ -754,6 +756,8 @@ def _draw_balanced_from_pool(
         if len(pool) == 0:
             already_selected = set(slots)
             available = [i for i in range(pool_size) if i not in already_selected]
+            if not available:
+                available = list(range(pool_size))
             rng.shuffle(available)
             pool = available
 
@@ -1012,7 +1016,7 @@ def _compute_feature_importance_order(
     )
 
 
-def generate_classification_ensemble_configs(
+def generate_classification_ensemble_configs(  # noqa: PLR0913
     *,
     num_estimators: int,
     add_fingerprint_feature: bool,
@@ -1024,6 +1028,7 @@ def generate_classification_ensemble_configs(
     random_state: int | np.random.Generator | None,
     num_models: int,
     outlier_removal_std: float | None,
+    passthrough_inf: bool = False,
 ) -> list[ClassifierEnsembleConfig]:
     """Generate ensemble configurations for classification.
 
@@ -1038,6 +1043,7 @@ def generate_classification_ensemble_configs(
         random_state: Random number generator.
         num_models: Number of models to use.
         outlier_removal_std: The standard deviation to remove outliers.
+        passthrough_inf: Whether to pass infinite values through to the model.
 
     Returns:
         List of ensemble configurations.
@@ -1072,6 +1078,7 @@ def generate_classification_ensemble_configs(
             feature_shift_decoder=feature_shift_decoder,
             _model_index=model_index,
             outlier_removal_std=outlier_removal_std,
+            passthrough_inf=passthrough_inf,
         )
         for (
             featshift,
@@ -1099,6 +1106,7 @@ def generate_regression_ensemble_configs(
     random_state: int | np.random.Generator | None,
     num_models: int,
     outlier_removal_std: float | None,
+    passthrough_inf: bool = False,
 ) -> list[RegressorEnsembleConfig]:
     """Generate ensemble configurations for regression.
 
@@ -1112,6 +1120,7 @@ def generate_regression_ensemble_configs(
         random_state: Random number generator.
         num_models: Number of models to use.
         outlier_removal_std: The standard deviation to remove outliers.
+        passthrough_inf: Whether to pass infinite values through to the model.
 
     Returns:
         List of ensemble configurations.
@@ -1143,6 +1152,7 @@ def generate_regression_ensemble_configs(
             target_transform=copy.deepcopy(target_transform),
             outlier_removal_std=outlier_removal_std,
             _model_index=model_index,
+            passthrough_inf=passthrough_inf,
         )
         for featshift, (
             preprocess_config,

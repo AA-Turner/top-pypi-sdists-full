@@ -140,7 +140,9 @@ class OEMHandler(object):
         to apply some transform to some field to suit their conventions.
         """
         event['oem_handler'] = None
-        evdata = event['event_data_bytes']
+        evdata = event.get('event_data_bytes')
+        if not evdata:
+            return
         if evdata[0] & 0b11000000 == 0b10000000:
             event['oem_byte2'] = evdata[1]
         if evdata[0] & 0b110000 == 0b100000:

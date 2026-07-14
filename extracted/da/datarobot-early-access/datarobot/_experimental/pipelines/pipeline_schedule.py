@@ -37,6 +37,10 @@ class PipelineSchedule(APIObject):
         The pipeline this schedule belongs to.
     version : int
         The pipeline version this schedule dispatches.
+    image_id : str
+        The execution image the scheduled dispatch runs on.
+    image_version : int
+        The execution image version snapshotted at create time.
     cron_expression : str
         Cron expression defining the schedule.
     timezone : str
@@ -53,6 +57,8 @@ class PipelineSchedule(APIObject):
         t.Key("id", to_name="schedule_id"): String(),
         t.Key("pipeline_id"): String(),
         t.Key("version"): t.Int(),
+        t.Key("image_id", optional=True, default=None): t.Or(String(), t.Null()),
+        t.Key("image_version", optional=True, default=None): t.Or(t.Int(), t.Null()),
         t.Key("cron_expression"): String(),
         t.Key("timezone"): String(),
         t.Key("status"): t.Enum(*enum_to_list(PipelineScheduleStatus)),
@@ -68,6 +74,8 @@ class PipelineSchedule(APIObject):
         cron_expression: str,
         timezone: str,
         status: PipelineScheduleStatus,
+        image_id: Optional[str] = None,
+        image_version: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         **kwargs: Any,
@@ -75,6 +83,8 @@ class PipelineSchedule(APIObject):
         self.schedule_id = schedule_id
         self.pipeline_id = pipeline_id
         self.version = version
+        self.image_id = image_id
+        self.image_version = image_version
         self.cron_expression = cron_expression
         self.timezone = timezone
         self.status = status
@@ -85,8 +95,10 @@ class PipelineSchedule(APIObject):
         return f"PipelineSchedule(schedule_id={self.schedule_id!r}, cron={self.cron_expression!r})"
 
     @classmethod
-    def _schedules_path(cls, pipeline_id: str, version_id: int) -> str:
-        return f"{_BASE_PATH}{pipeline_id}/versions/{version_id}/schedules/"
+    def _schedules_path(cls, pipeline_id: str) -> str:
+        # Schedules are flat under the pipeline (the version to fire lives in
+        # the schedule row, not the URL).
+        return f"{_BASE_PATH}{pipeline_id}/schedules/"
 
     @classmethod
     def create(
@@ -95,6 +107,8 @@ class PipelineSchedule(APIObject):
         version_id: int,
         cron_expression: str,
         pipeline_input_id: str,
+        image_id: str,
+        image_version: int,
         timezone: str = "UTC",
     ) -> TPipelineSchedule:
         """Create a recurring schedule for a locked pipeline version.
@@ -109,6 +123,10 @@ class PipelineSchedule(APIObject):
             Cron expression (e.g., '0 9 * * *' for daily at 9am).
         pipeline_input_id : str
             The input set ID to use for each scheduled run.
+        image_id : str
+            The execution image ID the scheduled dispatch runs on.
+        image_version : int
+            The execution image version to snapshot for the schedule.
         timezone : str, optional
             Timezone for the cron expression. Default 'UTC'.
 
@@ -116,12 +134,15 @@ class PipelineSchedule(APIObject):
         -------
         schedule : PipelineSchedule
         """
-        path = cls._schedules_path(pipeline_id, version_id)
+        path = cls._schedules_path(pipeline_id)
         response = cls._client.post(
             path,
             data=rawdict({
                 "cron_expression": cron_expression,
+                "pipeline_version_id": version_id,
                 "pipeline_input_id": pipeline_input_id,
+                "image_id": image_id,
+                "image_version": image_version,
                 "timezone": timezone,
             }),
         )
@@ -131,18 +152,15 @@ class PipelineSchedule(APIObject):
     def list(
         cls: Type[TPipelineSchedule],
         pipeline_id: str,
-        version_id: int,
         offset: int = 0,
         limit: int = 50,
     ) -> List[TPipelineSchedule]:
-        """List schedules for a locked pipeline version.
+        """List schedules for a pipeline (across all versions).
 
         Parameters
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int
-            The version number.
         offset : int, optional
             Pagination offset. Default 0.
         limit : int, optional
@@ -152,7 +170,7 @@ class PipelineSchedule(APIObject):
         -------
         schedules : list of PipelineSchedule
         """
-        path = cls._schedules_path(pipeline_id, version_id)
+        path = cls._schedules_path(pipeline_id)
         params: Dict[str, int] = {"offset": offset, "limit": limit}
         response = cls._client.get(path, params=params)
         return [cls.from_server_data(item) for item in response.json().get("data", [])]
@@ -161,7 +179,6 @@ class PipelineSchedule(APIObject):
     def get(
         cls: Type[TPipelineSchedule],
         pipeline_id: str,
-        version_id: int,
         schedule_id: str,
     ) -> TPipelineSchedule:
         """Get a schedule by ID.
@@ -170,8 +187,6 @@ class PipelineSchedule(APIObject):
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int
-            The version number.
         schedule_id : str
             The schedule ID.
 
@@ -179,7 +194,7 @@ class PipelineSchedule(APIObject):
         -------
         schedule : PipelineSchedule
         """
-        path = cls._schedules_path(pipeline_id, version_id)
+        path = cls._schedules_path(pipeline_id)
         response = cls._client.get(f"{path}{schedule_id}/")
         return cls.from_server_data(response.json())
 
@@ -202,7 +217,7 @@ class PipelineSchedule(APIObject):
         schedule : PipelineSchedule
             The updated schedule.
         """
-        path = self._schedules_path(self.pipeline_id, self.version)
+        path = self._schedules_path(self.pipeline_id)
         data: Dict[str, Any] = {}
         if cron_expression is not None:
             data["cron_expression"] = cron_expression
@@ -215,5 +230,5 @@ class PipelineSchedule(APIObject):
 
     def delete(self) -> None:
         """Delete this schedule and its underlying K8s CronJob."""
-        path = self._schedules_path(self.pipeline_id, self.version)
+        path = self._schedules_path(self.pipeline_id)
         self._client.delete(f"{path}{self.schedule_id}/")

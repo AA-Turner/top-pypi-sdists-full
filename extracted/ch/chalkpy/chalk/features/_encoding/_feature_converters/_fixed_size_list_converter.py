@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import typing
-from io import BytesIO
 from typing import (
     Any,
     ClassVar,
@@ -15,7 +14,6 @@ from typing import (
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.feather as pf
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -28,6 +26,7 @@ from chalk.features._encoding.pyarrow import (
     pyarrow_to_polars,
     pyarrow_to_primitive,
 )
+from chalk.utils.df_utils import table_from_arrow_ipc, table_to_arrow_ipc
 from chalk.utils.json import TJSON
 
 from ._base import (
@@ -370,14 +369,14 @@ class FixedSizeListFeatureConverter(FeatureConverter[list, list]):
             return pb.ScalarValue(null_value=self._null_proto)
         values = value.values
         table = pa.Table.from_arrays([values], names=["values"])
-        buf = BytesIO()
-        pf.write_feather(table, dest=buf, compression=None)
         return pb.ScalarValue(
-            fixed_size_list_value=pb.ScalarListValue(arrow_data=buf.getvalue(), schema=self._pb_schema)
+            fixed_size_list_value=pb.ScalarListValue(
+                arrow_data=table_to_arrow_ipc(table, compression="lz4"), schema=self._pb_schema
+            )
         )
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
             return pa.nulls(1, type=self._pa_list_type)[0]
-        arr = pf.read_table(BytesIO(pb_value.fixed_size_list_value.arrow_data)).column(0).combine_chunks()
+        arr = table_from_arrow_ipc(pb_value.fixed_size_list_value.arrow_data).column(0).combine_chunks()
         return pa.scalar(arr.to_pylist(), pa.list_(arr.type, len(arr)))

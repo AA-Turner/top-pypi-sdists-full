@@ -26,11 +26,10 @@ from mujoco_warp import ConeType
 from mujoco_warp import State
 from mujoco_warp import test_data
 from mujoco_warp._src import io
-from mujoco_warp._src import island
-from mujoco_warp._src import solver
 from mujoco_warp._src import support
-from mujoco_warp._src import types
+from mujoco_warp._src.block_cholesky import create_blocked_cholesky_augmented_factorize_solve_func
 from mujoco_warp._src.block_cholesky import create_blocked_cholesky_factorize_solve_func
+from mujoco_warp._src.block_cholesky import create_blocked_cholesky_solve_func
 
 # tolerance for difference between MuJoCo and MJWarp support calculations - mostly
 # due to float precision
@@ -229,6 +228,33 @@ class SupportTest(parameterized.TestCase):
         h_in[worldid], grad_in[worldid], nv_pad, hfactor_in[worldid], Mgrad_out[worldid]
       )
 
+    @wp.kernel(module="unique", enable_backward=False)
+    def augmented_cholesky_kernel(
+      grad_in: wp.array3d[float],
+      h_in: wp.array3d[float],
+      hfactor_in: wp.array3d[float],
+      Mgrad_out: wp.array3d[float],
+    ):
+      worldid = wp.tid()
+      TILE_SIZE = wp.static(16)
+
+      wp.static(create_blocked_cholesky_augmented_factorize_solve_func(TILE_SIZE, nv_pad))(
+        h_in[worldid], grad_in[worldid], nv_pad, hfactor_in[worldid], Mgrad_out[worldid]
+      )
+
+    @wp.kernel(module="unique", enable_backward=False)
+    def augmented_solve_kernel(
+      grad_in: wp.array3d[float],
+      hfactor_in: wp.array3d[float],
+      Mgrad_out: wp.array3d[float],
+    ):
+      worldid = wp.tid()
+      TILE_SIZE = wp.static(16)
+
+      wp.static(create_blocked_cholesky_solve_func(TILE_SIZE, nv_pad))(
+        hfactor_in[worldid], grad_in[worldid], nv_pad, Mgrad_out[worldid]
+      )
+
     # Create test vector and fill the built-in arrays
     b = np.random.randn(nv).astype(np.float32)
 
@@ -331,6 +357,34 @@ class SupportTest(parameterized.TestCase):
       err_msg="Solution mismatch with numpy",
     )
 
+    hfactor_augmented = wp.array(L_init, dtype=float)
+    Mgrad_augmented = wp.zeros((nworld, nv_pad), dtype=float)
+    wp.launch_tiled(
+      augmented_cholesky_kernel,
+      dim=nworld,
+      inputs=[grad.reshape(shape=(nworld, nv_pad, 1)), h, hfactor_augmented],
+      outputs=[Mgrad_augmented.reshape(shape=(nworld, nv_pad, 1))],
+      block_dim=m.block_dim.update_gradient_cholesky,
+    )
+
+    solve_b = np.random.randn(nv).astype(np.float32)
+    solve_grad_np = np.zeros((nworld, nv_pad))
+    solve_grad_np[0, :nv] = solve_b
+    solve_grad = wp.array(solve_grad_np, dtype=float)
+    Mgrad_solve = wp.zeros((nworld, nv_pad), dtype=float)
+    wp.launch_tiled(
+      augmented_solve_kernel,
+      dim=nworld,
+      inputs=[solve_grad.reshape(shape=(nworld, nv_pad, 1)), hfactor_augmented],
+      outputs=[Mgrad_solve.reshape(shape=(nworld, nv_pad, 1))],
+      block_dim=m.block_dim.update_gradient_cholesky,
+    )
+    wp.synchronize()
+
+    np.testing.assert_allclose(hfactor_augmented.numpy()[0, :nv, :nv], U_numpy, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(Mgrad_augmented.numpy()[0, :nv], x_numpy, rtol=1e-3, atol=1e-3)
+    np.testing.assert_allclose(Mgrad_solve.numpy()[0, :nv], np.linalg.solve(SPD_active_hessian, solve_b), rtol=1e-3, atol=1e-3)
+
   @parameterized.parameters(
     ("pendula.xml", 1),
     ("pendula.xml", 2),
@@ -403,64 +457,6 @@ class SupportTest(parameterized.TestCase):
       _assert_eq(jacp_wp.numpy()[w], jacp_mj, f"jacp world {w}")
       _assert_eq(jacr_wp.numpy()[w], jacr_mj, f"jacr world {w}")
 
-  @parameterized.parameters(
-    mujoco.mjtJacobian.mjJAC_SPARSE,
-    mujoco.mjtJacobian.mjJAC_DENSE,
-  )
-  def test_mul_m_island(self, jacobian):
-    """Tests mul_m_island matches mul_m for all islands in parallel."""
-    mjm, mjd, m, d = test_data.fixture(
-      "constraints.xml",
-      overrides={"opt.jacobian": jacobian},
-    )
-    m.opt.disableflags &= ~types.DisableBit.ISLAND
-
-    ctx = solver._create_island_solver_context(m, d)
-    island.compute_island_mapping(m, d, ctx)
-
-    # Random vector in global DOF order
-    np.random.seed(0)
-    vec_np = np.random.randn(1, m.nv).astype(np.float32)
-
-    # Global mul_m
-    vec_global = wp.from_numpy(vec_np, dtype=float)
-    res_global = wp.zeros((1, m.nv), dtype=float)
-    mjwarp.mul_m(m, d, res_global, vec_global)
-    res_global_np = res_global.numpy()[0]
-
-    # Gather vec into island-local order
-    nidof = d.nidof.numpy()[0]
-    map_idof2dof = d.map_idof2dof.numpy()[0]
-    vec_island_np = np.zeros((1, m.nv), dtype=np.float32)
-    for idof in range(nidof):
-      vec_island_np[0, idof] = vec_np[0, map_idof2dof[idof]]
-
-    vec_island = wp.from_numpy(vec_island_np, dtype=float)
-    res_island = wp.zeros((1, m.nv), dtype=float)
-
-    support.mul_m_island(
-      m,
-      d,
-      res_island,
-      vec_island,
-      d.nidof,
-      d.map_idof2dof,
-      d.map_dof2idof,
-      d.dof_islandid,
-    )
-
-    # Scatter result back to global order and compare
-    res_island_np = res_island.numpy()[0]
-    for idof in range(nidof):
-      dof = map_idof2dof[idof]
-      dof_isl = d.dof_island.numpy()[0, dof]
-      if dof_isl >= 0:
-        _assert_eq(
-          res_island_np[idof],
-          res_global_np[dof],
-          f"mul_m_island idof={idof} dof={dof}",
-        )
-
   def test_userdata_get_set_reset(self):
     # XML defining a model with nuserdata=4
     xml = """
@@ -504,6 +500,60 @@ class SupportTest(parameterized.TestCase):
     # Reset data and verify userdata is zeroed
     mjwarp.reset_data(m, d2)
     _assert_eq(d2.userdata.numpy()[0], np.zeros(4), "reset_data userdata")
+
+  @parameterized.parameters(
+    # axis, angle, stretch
+    ([1.0, 0.0, 0.0], 0.0, [1.0, 1.0, 1.0]),  # Identity
+    ([1.0, 0.0, 0.0], np.pi / 2.0, [1.0, 1.0, 1.0]),  # 90 deg around X
+    ([0.0, 1.0, 0.0], -np.pi / 4.0, [1.0, 1.0, 1.0]),  # -45 deg around Y
+    ([0.0, 0.0, 1.0], np.pi * 0.99, [1.0, 1.0, 1.0]),  # 178.2 deg around Z
+    ([1.0, 1.0, 1.0], np.pi / 3.0, [1.0, 1.0, 1.0]),  # arbitrary axis
+    ([1.0, 0.0, 0.0], np.pi / 2.0, [2.0, 0.5, 1.0]),  # stretch along X and Y
+    ([0.0, 1.0, 0.0], -np.pi / 4.0, [1.5, 1.5, 1.5]),  # uniform scaling
+    ([1.0, 2.0, 3.0], np.pi / 6.0, [0.1, 10.0, 2.0]),  # extreme stretch
+  )
+  def test_mat33_to_quat_polar(self, axis, angle, stretch):
+    # Rodrigues' rotation formula
+    axis = np.array(axis, dtype=float) / np.linalg.norm(axis)
+    x, y, z = axis
+    K = np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
+    R = np.eye(3) + np.sin(angle) * K + (1.0 - np.cos(angle)) * np.dot(K, K)
+    U = np.diag(stretch)
+    F = np.dot(R, U)
+
+    q_exp = np.array(
+      [
+        axis[0] * np.sin(angle / 2.0),
+        axis[1] * np.sin(angle / 2.0),
+        axis[2] * np.sin(angle / 2.0),
+        np.cos(angle / 2.0),
+      ]
+    )
+
+    F_wp = wp.array([wp.mat33(F.flatten())], dtype=wp.mat33)
+    q_out_wp = wp.zeros(1, dtype=wp.quat)
+
+    @wp.kernel
+    def test_polar_kernel(
+      F_in: wp.array[wp.mat33],
+      q_out: wp.array[wp.quat],
+    ):
+      q_out[0] = support.mat33_to_quat_polar(F_in[0])
+
+    wp.launch(
+      test_polar_kernel,
+      dim=1,
+      inputs=[F_wp],
+      outputs=[q_out_wp],
+    )
+
+    q_est = q_out_wp.numpy()[0]
+
+    # Align signs (antipodal symmetry)
+    if q_est[3] * q_exp[3] < 0.0:
+      q_est = -q_est
+
+    _assert_eq(q_est, q_exp, "quat")
 
 
 if __name__ == "__main__":

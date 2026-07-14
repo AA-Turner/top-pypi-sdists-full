@@ -56,6 +56,7 @@ class VersionsResource(SyncAPIResource):
         annotations: version_create_params.Annotations | Omit = omit,
         assets: version_create_params.Assets | Omit = omit,
         bindings: Iterable[version_create_params.Binding] | Omit = omit,
+        cache_options: version_create_params.CacheOptions | Omit = omit,
         compatibility_date: str | Omit = omit,
         compatibility_flags: SequenceNotStr[str] | Omit = omit,
         containers: Iterable[version_create_params.Container] | Omit = omit,
@@ -63,6 +64,7 @@ class VersionsResource(SyncAPIResource):
         main_module: str | Omit = omit,
         migrations: version_create_params.Migrations | Omit = omit,
         modules: Iterable[version_create_params.Module] | Omit = omit,
+        package_dependencies: Iterable[version_create_params.PackageDependency] | Omit = omit,
         placement: version_create_params.Placement | Omit = omit,
         usage_model: Literal["standard", "bundled", "unbound"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -97,6 +99,10 @@ class VersionsResource(SyncAPIResource):
               docs:
               https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
 
+          cache_options: Global CacheW configuration for the Worker. When caching is on, the platform
+              provisions a `cloudflare.app` zone for the Worker. A `type: worker` entry in the
+              `exports` map can override this value for a single entrypoint.
+
           compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible
               fixes to the runtime following this date will not affect this Worker.
 
@@ -125,6 +131,9 @@ class VersionsResource(SyncAPIResource):
               [Static Assets](https://developers.cloudflare.com/workers/static-assets/).
               `_headers` and `_redirects` files should be included as modules named `_headers`
               and `_redirects` with content type `text/plain`.
+
+          package_dependencies: The list of npm packages that were installed and used when this Worker version
+              was built.
 
           placement: Configuration for
               [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
@@ -155,6 +164,7 @@ class VersionsResource(SyncAPIResource):
                     "annotations": annotations,
                     "assets": assets,
                     "bindings": bindings,
+                    "cache_options": cache_options,
                     "compatibility_date": compatibility_date,
                     "compatibility_flags": compatibility_flags,
                     "containers": containers,
@@ -162,6 +172,7 @@ class VersionsResource(SyncAPIResource):
                     "main_module": main_module,
                     "migrations": migrations,
                     "modules": modules,
+                    "package_dependencies": package_dependencies,
                     "placement": placement,
                     "usage_model": usage_model,
                 },
@@ -381,6 +392,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         annotations: version_create_params.Annotations | Omit = omit,
         assets: version_create_params.Assets | Omit = omit,
         bindings: Iterable[version_create_params.Binding] | Omit = omit,
+        cache_options: version_create_params.CacheOptions | Omit = omit,
         compatibility_date: str | Omit = omit,
         compatibility_flags: SequenceNotStr[str] | Omit = omit,
         containers: Iterable[version_create_params.Container] | Omit = omit,
@@ -388,6 +400,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         main_module: str | Omit = omit,
         migrations: version_create_params.Migrations | Omit = omit,
         modules: Iterable[version_create_params.Module] | Omit = omit,
+        package_dependencies: Iterable[version_create_params.PackageDependency] | Omit = omit,
         placement: version_create_params.Placement | Omit = omit,
         usage_model: Literal["standard", "bundled", "unbound"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -422,6 +435,10 @@ class AsyncVersionsResource(AsyncAPIResource):
               docs:
               https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
 
+          cache_options: Global CacheW configuration for the Worker. When caching is on, the platform
+              provisions a `cloudflare.app` zone for the Worker. A `type: worker` entry in the
+              `exports` map can override this value for a single entrypoint.
+
           compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible
               fixes to the runtime following this date will not affect this Worker.
 
@@ -450,6 +467,9 @@ class AsyncVersionsResource(AsyncAPIResource):
               [Static Assets](https://developers.cloudflare.com/workers/static-assets/).
               `_headers` and `_redirects` files should be included as modules named `_headers`
               and `_redirects` with content type `text/plain`.
+
+          package_dependencies: The list of npm packages that were installed and used when this Worker version
+              was built.
 
           placement: Configuration for
               [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
@@ -480,6 +500,7 @@ class AsyncVersionsResource(AsyncAPIResource):
                     "annotations": annotations,
                     "assets": assets,
                     "bindings": bindings,
+                    "cache_options": cache_options,
                     "compatibility_date": compatibility_date,
                     "compatibility_flags": compatibility_flags,
                     "containers": containers,
@@ -487,6 +508,7 @@ class AsyncVersionsResource(AsyncAPIResource):
                     "main_module": main_module,
                     "migrations": migrations,
                     "modules": modules,
+                    "package_dependencies": package_dependencies,
                     "placement": placement,
                     "usage_model": usage_model,
                 },

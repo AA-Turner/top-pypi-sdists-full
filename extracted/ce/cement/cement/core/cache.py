@@ -1,9 +1,10 @@
 """Cement core cache module."""
 
 from abc import abstractmethod
-from typing import Any, Optional
-from ..core.interface import Interface
+from typing import Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.misc import minimal_logger
 
 LOG = minimal_logger(__name__)
@@ -25,6 +26,9 @@ class CacheInterface(Interface):
         #: The string identifier of the interface.
         interface = 'cache'
 
+    # D-09: cache values are user-arbitrary; the wide types on `value`,
+    # `fallback`, and the return are part of the public CacheInterface
+    # contract. Tightening would break apps caching dicts/lists/objects.
     @abstractmethod
     def get(self, key: str, fallback: Any = None) -> Any:
         """
@@ -45,10 +49,11 @@ class CacheInterface(Interface):
             Unknown: Whatever the value is in the cache, or the ``fallback``
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
+    # D-09: same user-arbitrary cache value contract as `get` above.
     @abstractmethod
-    def set(self, key: str, value: Any, time: Optional[int] = None) -> None:
+    def set(self, key: str, value: Any, time: int | None = None) -> None:
         """
         Set the key/value in the cache for a set amount of ``time``.
 
@@ -64,7 +69,7 @@ class CacheInterface(Interface):
         Returns: None
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
     def delete(self, key: str) -> bool:
@@ -79,7 +84,7 @@ class CacheInterface(Interface):
             otherwise
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
     def purge(self) -> None:
@@ -87,7 +92,7 @@ class CacheInterface(Interface):
         Clears all data from the cache.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
 
 class CacheHandler(CacheInterface, Handler):
@@ -97,4 +102,4 @@ class CacheHandler(CacheInterface, Handler):
 
     """
     class Meta(Handler.Meta):
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method

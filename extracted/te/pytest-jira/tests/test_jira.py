@@ -1181,6 +1181,31 @@ def test_jira_fixture_run_negative(testdir):
     result.assert_outcomes(0, 0, 1)
 
 
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "jira_issue_scope_class",
+        "jira_issue_scope_module",
+        "jira_issue_scope_package",
+        "jira_issue_scope_session",
+    ],
+)
+def test_jira_fixture_scoped_run_positive(testdir, fixture_name):
+    testdir.makeconftest(CONFTEST)
+    testdir.makepyfile(
+        """
+        import pytest
+
+        def test_pass({fixture_name}):
+            assert {fixture_name}("ORG-1382")
+    """.format(
+            fixture_name=fixture_name
+        )
+    )
+    result = testdir.runpytest(*PLUGIN_ARGS)
+    result.assert_outcomes(1, 0, 0)
+
+
 def test_run_false_for_resolved_issue(testdir):
     testdir.makeconftest(CONFTEST)
     testdir.makepyfile(

@@ -159,7 +159,7 @@ class CreateVolumeSnapshot(command.ShowOne):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '2'
+            self.app.client_manager.volume, '2'
         )
 
         volume = parsed_args.volume
@@ -222,7 +222,7 @@ class DeleteVolumeSnapshot(command.Command):
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '2'
+            self.app.client_manager.volume, '2'
         )
         result = 0
 
@@ -312,9 +312,10 @@ class ListVolumeSnapshot(command.Lister):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '2'
+            self.app.client_manager.volume, '2'
         )
-        identity_client = self.app.client_manager.identity
+        # we don't narrow types here since we want to handle both v2.0 and v3
+        identity_client = self.app.client_manager.sdk_connection.identity
 
         columns: tuple[str, ...] = (
             'id',
@@ -362,11 +363,11 @@ class ListVolumeSnapshot(command.Lister):
 
         project_id = None
         if parsed_args.project:
-            project_id = identity_common.find_project(
+            project_id = identity_common.find_project_id_sdk(
                 identity_client,
                 parsed_args.project,
                 parsed_args.project_domain,
-            ).id
+            )
 
         # set value of 'all_tenants' when using project option
         all_projects = (
@@ -460,7 +461,7 @@ class SetVolumeSnapshot(command.Command):
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '2'
+            self.app.client_manager.volume, '2'
         )
 
         snapshot = volume_client.find_snapshot(
@@ -532,7 +533,7 @@ class ShowVolumeSnapshot(command.ShowOne):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '2'
+            self.app.client_manager.volume, '2'
         )
 
         snapshot = volume_client.find_snapshot(
@@ -568,7 +569,9 @@ class UnsetVolumeSnapshot(command.Command):
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
-        volume_client = self.app.client_manager.sdk_connection.volume
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.volume, '2'
+        )
 
         snapshot = volume_client.find_snapshot(
             parsed_args.snapshot, ignore_missing=False

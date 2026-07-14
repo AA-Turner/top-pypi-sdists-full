@@ -23,9 +23,10 @@ from .Vehicle import Vehicle
 from .utils import (
     bool_or_none,
     get_child_value,
-    normalize_battery_soc,
     get_index_into_hex_temp,
+    normalize_battery_soc,
     parse_datetime,
+    pressure_or_none,
     window_is_open,
 )
 
@@ -486,14 +487,37 @@ class ApiImplType1(ApiImpl):
         # See const.PRESSURE_UNITS / PRESSURE_SCALES. Per-tire *_unit labels are
         # read-only properties on Vehicle deriving from tire_pressure_unit.
         _pu_raw = get_child_value(state, "Chassis.Axle.Tire.PressureUnit")
-        vehicle.tire_pressure_unit = (
-            PressureUnit(_pu_raw) if _pu_raw is not None else None
-        )
+        if _pu_raw is None:
+            vehicle.tire_pressure_unit = None
+        else:
+            try:
+                vehicle.tire_pressure_unit = PressureUnit(_pu_raw)
+            except ValueError:
+                # Some vehicles return a PressureUnit not in the enum (e.g. 3,
+                # see API #1230 / kia_uvo #1784 #1785). Degrade gracefully instead
+                # of crashing the whole vehicle update / integration setup.
+                _LOGGER.warning(
+                    "%s - Unknown tire PressureUnit %r; tire pressure values ignored",
+                    DOMAIN,
+                    _pu_raw,
+                )
+                vehicle.tire_pressure_unit = None
         _scale = PRESSURE_SCALES.get(vehicle.tire_pressure_unit)
-        _pfl = get_child_value(state, "Chassis.Axle.Row1.Left.Tire.Pressure")
-        _pfr = get_child_value(state, "Chassis.Axle.Row1.Right.Tire.Pressure")
-        _prl = get_child_value(state, "Chassis.Axle.Row2.Left.Tire.Pressure")
-        _prr = get_child_value(state, "Chassis.Axle.Row2.Right.Tire.Pressure")
+        # 255 (0xFF) is the TPMS "no reading" sentinel (car off / before
+        # driving) -> pressure_or_none returns None so the entity shows
+        # unavailable instead of an impossible value. See kia_uvo #1783, #1232.
+        _pfl = pressure_or_none(
+            get_child_value(state, "Chassis.Axle.Row1.Left.Tire.Pressure")
+        )
+        _pfr = pressure_or_none(
+            get_child_value(state, "Chassis.Axle.Row1.Right.Tire.Pressure")
+        )
+        _prl = pressure_or_none(
+            get_child_value(state, "Chassis.Axle.Row2.Left.Tire.Pressure")
+        )
+        _prr = pressure_or_none(
+            get_child_value(state, "Chassis.Axle.Row2.Right.Tire.Pressure")
+        )
         vehicle.tire_pressure_front_left = (
             round(_pfl * _scale, 1) if _pfl is not None and _scale is not None else None
         )
@@ -553,12 +577,30 @@ class ApiImplType1(ApiImpl):
             TEMPERATURE_UNITS[0],
         )
 
-        battery_winter_mode = get_child_value(
+        winter_mode = get_child_value(
             state, "Green.BatteryManagement.WinterModeOperation"
         )
-        if battery_winter_mode is not None:
-            vehicle.ev_battery_winter_mode = bool(battery_winter_mode)
-            vehicle.ev_battery_precondition_enabled = bool(battery_winter_mode)
+        if winter_mode is not None:
+            vehicle.ev_battery_winter_mode = bool(winter_mode)
+
+        # EV battery preconditioning toggle.
+        # EV (e.g. IONIQ 5) reports Green.BatteryManagement.BatteryPreCondition.Status
+        # — a configuration setting (stable across ignition/climate state), not a
+        # runtime flag (BatteryConditioning is the runtime flag). HEV (e.g. Santa
+        # Fe) reports only WinterModeOperation; "winter mode" is itself the
+        # battery preconditioning/winter-heating toggle there, so keep it as the
+        # fallback (preserves existing HEV behaviour, no regression).
+        # Status enum confirmed via reporter dumps (kia_uvo #1652, 2026-07-12):
+        #   0 = disabled in vehicle settings, 2 = enabled in vehicle settings.
+        # Pre-#1205 this sensor aliased WinterModeOperation, which is absent on
+        # EVs -> the sensor never appeared (see API #1187).
+        battery_precondition_status = get_child_value(
+            state, "Green.BatteryManagement.BatteryPreCondition.Status"
+        )
+        if battery_precondition_status is not None:
+            vehicle.ev_battery_precondition_enabled = battery_precondition_status != 0
+        elif winter_mode is not None:
+            vehicle.ev_battery_precondition_enabled = bool(winter_mode)
 
         if get_child_value(state, "Green.Electric.SmartGrid.RealTimePower") is not None:
             vehicle.ev_charging_power = get_child_value(

@@ -637,14 +637,8 @@ def pytest_configure(config):
         assert ok
 
 
-@pytest.fixture
-def jira_issue(request):
-    """
-    Returns a bool representing the state of the issue, or None if no
-    connection could be made. See
-    https://github.com/rhevm-qe-automation/pytest_jira#fixture-usage
-    for more details
-    """
+def _jira_issue_checker(request):
+    """Return a callable that reports whether a JIRA issue is still open."""
 
     def wrapper_jira_issue(issue_id):
         jira_plugin = request.config.pluginmanager.getplugin(PLUGIN_NAME)
@@ -662,3 +656,38 @@ def jira_issue(request):
                     raise
 
     return wrapper_jira_issue
+
+
+@pytest.fixture
+def jira_issue(request):
+    """
+    Returns a bool representing the state of the issue, or None if no
+    connection could be made. See
+    https://github.com/rhevm-qe-automation/pytest_jira#fixture-usage
+    for more details
+    """
+    return _jira_issue_checker(request)
+
+
+@pytest.fixture(scope="class")
+def jira_issue_scope_class(request):
+    """Class-scoped variant of :func:`jira_issue`."""
+    return _jira_issue_checker(request)
+
+
+@pytest.fixture(scope="module")
+def jira_issue_scope_module(request):
+    """Module-scoped variant of :func:`jira_issue`."""
+    return _jira_issue_checker(request)
+
+
+@pytest.fixture(scope="package")
+def jira_issue_scope_package(request):
+    """Package-scoped variant of :func:`jira_issue`."""
+    return _jira_issue_checker(request)
+
+
+@pytest.fixture(scope="session")
+def jira_issue_scope_session(request):
+    """Session-scoped variant of :func:`jira_issue`."""
+    return _jira_issue_checker(request)

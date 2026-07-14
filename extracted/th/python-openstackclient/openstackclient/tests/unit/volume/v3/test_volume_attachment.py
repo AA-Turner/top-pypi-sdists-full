@@ -10,27 +10,26 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from openstack.block_storage.v3 import attachment as _attachment
+from openstack.block_storage.v3 import volume as _volume
+from openstack.identity.v3 import project as _project
+from openstack.test import fakes as sdk_fakes
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 
 from openstackclient.tests.unit.compute.v2 import fakes as compute_fakes
-from openstackclient.tests.unit.identity.v3 import fakes as identity_fakes
 from openstackclient.tests.unit.volume.v3 import fakes as volume_fakes
 from openstackclient.volume.v3 import volume_attachment
 
 
-class TestVolumeAttachment(volume_fakes.TestVolume):
-    def setUp(self):
-        super().setUp()
-
-        self.projects_mock = self.identity_client.projects
-
-
-class TestVolumeAttachmentCreate(TestVolumeAttachment):
-    volume = volume_fakes.create_one_volume()
+class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
+    volume = sdk_fakes.generate_fake_resource(_volume.Volume)
     server = compute_fakes.create_one_server()
-    volume_attachment = volume_fakes.create_one_volume_attachment(
-        attrs={'instance': server.id, 'volume_id': volume.id},
+    volume_attachment = sdk_fakes.generate_fake_resource(
+        _attachment.Attachment,
+        instance=server.id,
+        volume_id=volume.id,
+        connection_info={},
     )
 
     columns = (
@@ -57,9 +56,9 @@ class TestVolumeAttachmentCreate(TestVolumeAttachment):
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.find_volume.return_value = self.volume
-        self.volume_sdk_client.create_attachment.return_value = (
-            self.volume_attachment.to_dict()
+        self.volume_client.find_volume.return_value = self.volume
+        self.volume_client.create_attachment.return_value = (
+            self.volume_attachment
         )
         self.compute_client.find_server.return_value = self.server
 
@@ -89,13 +88,13 @@ class TestVolumeAttachmentCreate(TestVolumeAttachment):
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_sdk_client.find_volume.assert_called_once_with(
+        self.volume_client.find_volume.assert_called_once_with(
             self.volume.id, ignore_missing=False
         )
         self.compute_client.find_server.assert_called_once_with(
             self.server.id, ignore_missing=False
         )
-        self.volume_sdk_client.create_attachment.assert_called_once_with(
+        self.volume_client.create_attachment.assert_called_once_with(
             self.volume.id,
             connector={},
             instance=self.server.id,
@@ -156,13 +155,13 @@ class TestVolumeAttachmentCreate(TestVolumeAttachment):
             ]
         )
 
-        self.volume_sdk_client.find_volume.assert_called_once_with(
+        self.volume_client.find_volume.assert_called_once_with(
             self.volume.id, ignore_missing=False
         )
         self.compute_client.find_server.assert_called_once_with(
             self.server.id, ignore_missing=False
         )
-        self.volume_sdk_client.create_attachment.assert_called_once_with(
+        self.volume_client.create_attachment.assert_called_once_with(
             self.volume.id,
             connector=connect_info,
             instance=self.server.id,
@@ -239,13 +238,15 @@ class TestVolumeAttachmentCreate(TestVolumeAttachment):
         )
 
 
-class TestVolumeAttachmentDelete(TestVolumeAttachment):
-    volume_attachment = volume_fakes.create_one_volume_attachment()
+class TestVolumeAttachmentDelete(volume_fakes.TestVolume):
+    volume_attachment = sdk_fakes.generate_fake_resource(
+        _attachment.Attachment
+    )
 
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.delete_attachment.return_value = None
+        self.volume_client.delete_attachment.return_value = None
 
         self.cmd = volume_attachment.DeleteVolumeAttachment(self.app, None)
 
@@ -262,7 +263,7 @@ class TestVolumeAttachmentDelete(TestVolumeAttachment):
 
         result = self.cmd.take_action(parsed_args)
 
-        self.volume_sdk_client.delete_attachment.assert_called_once_with(
+        self.volume_client.delete_attachment.assert_called_once_with(
             self.volume_attachment.id,
         )
         self.assertIsNone(result)
@@ -286,8 +287,10 @@ class TestVolumeAttachmentDelete(TestVolumeAttachment):
         )
 
 
-class TestVolumeAttachmentSet(TestVolumeAttachment):
-    volume_attachment = volume_fakes.create_one_volume_attachment()
+class TestVolumeAttachmentSet(volume_fakes.TestVolume):
+    volume_attachment = sdk_fakes.generate_fake_resource(
+        _attachment.Attachment, connection_info={}
+    )
 
     columns = (
         'ID',
@@ -313,7 +316,7 @@ class TestVolumeAttachmentSet(TestVolumeAttachment):
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.update_attachment.return_value = (
+        self.volume_client.update_attachment.return_value = (
             self.volume_attachment
         )
 
@@ -364,7 +367,7 @@ class TestVolumeAttachmentSet(TestVolumeAttachment):
             ]
         )
 
-        self.volume_sdk_client.update_attachment.assert_called_once_with(
+        self.volume_client.update_attachment.assert_called_once_with(
             self.volume_attachment.id,
             connector=connect_info,
         )
@@ -393,13 +396,15 @@ class TestVolumeAttachmentSet(TestVolumeAttachment):
         )
 
 
-class TestVolumeAttachmentComplete(TestVolumeAttachment):
-    volume_attachment = volume_fakes.create_one_volume_attachment()
+class TestVolumeAttachmentComplete(volume_fakes.TestVolume):
+    volume_attachment = sdk_fakes.generate_fake_resource(
+        _attachment.Attachment
+    )
 
     def setUp(self):
         super().setUp()
 
-        self.volume_sdk_client.complete_attachment.return_value = None
+        self.volume_client.complete_attachment.return_value = None
 
         self.cmd = volume_attachment.CompleteVolumeAttachment(self.app, None)
 
@@ -416,7 +421,7 @@ class TestVolumeAttachmentComplete(TestVolumeAttachment):
 
         result = self.cmd.take_action(parsed_args)
 
-        self.volume_sdk_client.complete_attachment.assert_called_once_with(
+        self.volume_client.complete_attachment.assert_called_once_with(
             self.volume_attachment.id,
         )
         self.assertIsNone(result)
@@ -440,9 +445,12 @@ class TestVolumeAttachmentComplete(TestVolumeAttachment):
         )
 
 
-class TestVolumeAttachmentList(TestVolumeAttachment):
-    project = identity_fakes.FakeProject.create_one_project()
-    volume_attachments = volume_fakes.create_volume_attachments()
+class TestVolumeAttachmentList(volume_fakes.TestVolume):
+    project = sdk_fakes.generate_fake_resource(_project.Project)
+    volume_attachments = [
+        sdk_fakes.generate_fake_resource(_attachment.Attachment),
+        sdk_fakes.generate_fake_resource(_attachment.Attachment),
+    ]
 
     columns = (
         'ID',
@@ -463,10 +471,8 @@ class TestVolumeAttachmentList(TestVolumeAttachment):
     def setUp(self):
         super().setUp()
 
-        self.projects_mock.get.return_value = self.project
-        self.volume_sdk_client.attachments.return_value = (
-            self.volume_attachments
-        )
+        self.identity_sdk_client.find_project.return_value = self.project
+        self.volume_client.attachments.return_value = self.volume_attachments
 
         self.cmd = volume_attachment.ListVolumeAttachment(self.app, None)
 
@@ -486,7 +492,7 @@ class TestVolumeAttachmentList(TestVolumeAttachment):
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_sdk_client.attachments.assert_called_once_with(
+        self.volume_client.attachments.assert_called_once_with(
             search_opts={
                 'all_tenants': False,
                 'project_id': None,
@@ -527,7 +533,7 @@ class TestVolumeAttachmentList(TestVolumeAttachment):
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_sdk_client.attachments.assert_called_once_with(
+        self.volume_client.attachments.assert_called_once_with(
             search_opts={
                 'all_tenants': True,
                 'project_id': self.project.id,

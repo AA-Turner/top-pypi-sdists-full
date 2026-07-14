@@ -7,7 +7,6 @@ from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
-from ..r2.buckets.provider import Provider
 
 __all__ = [
     "InstanceUpdateParams",
@@ -26,7 +25,6 @@ __all__ = [
     "SourceParamsWebCrawler",
     "SourceParamsWebCrawlerParseOptions",
     "SourceParamsWebCrawlerParseOptionsContentSelector",
-    "SourceParamsWebCrawlerStoreOptions",
 ]
 
 
@@ -95,11 +93,13 @@ class InstanceUpdateParams(TypedDict, total=False):
     embedding_model: Optional[
         Literal[
             "@cf/qwen/qwen3-embedding-0.6b",
+            "@cf/qwen/qwen3-vl-embedding-2b",
             "@cf/baai/bge-m3",
             "@cf/baai/bge-large-en-v1.5",
             "@cf/google/embeddinggemma-300m",
             "google-ai-studio/gemini-embedding-001",
             "google-ai-studio/gemini-embedding-2-preview",
+            "google-ai-studio/gemini-embedding-2",
             "openai/text-embedding-3-small",
             "openai/text-embedding-3-large",
             "",
@@ -168,6 +168,8 @@ class InstanceUpdateParams(TypedDict, total=False):
     rewrite_query: bool
 
     score_threshold: float
+
+    source: Optional[str]
 
     source_params: Optional[SourceParams]
 
@@ -290,6 +292,14 @@ class PublicEndpointParams(TypedDict, total=False):
 
     chat_completions_endpoint: PublicEndpointParamsChatCompletionsEndpoint
 
+    custom_domains: Optional[SequenceNotStr[str]]
+    """Custom domain hostnames that alias this public endpoint.
+
+    GET and create responses return the current set; on update (PUT) this field is
+    only echoed back when supplied in the request body, otherwise it is null (omit
+    it to leave domains unchanged).
+    """
+
     enabled: bool
 
     mcp: PublicEndpointParamsMcp
@@ -380,20 +390,10 @@ class SourceParamsWebCrawlerParseOptions(TypedDict, total=False):
     use_browser_rendering: bool
 
 
-class SourceParamsWebCrawlerStoreOptions(TypedDict, total=False):
-    storage_id: Required[str]
-
-    r2_jurisdiction: str
-
-    storage_type: Provider
-
-
 class SourceParamsWebCrawler(TypedDict, total=False):
     parse_options: SourceParamsWebCrawlerParseOptions
 
-    parse_type: Literal["sitemap", "feed-rss", "crawl"]
-
-    store_options: SourceParamsWebCrawlerStoreOptions
+    parse_type: Literal["sitemap", "crawl"]
 
 
 class SourceParams(TypedDict, total=False):

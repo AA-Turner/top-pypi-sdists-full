@@ -2,7 +2,6 @@ import builtins
 import datetime
 import decimal
 from http import client as http_client
-import pytz
 import re
 
 try:
@@ -91,14 +90,15 @@ def parse_isodatetime(value):
 
 def _parse_tzparts(parts):
     if 'tz_z' in parts and parts['tz_z'] == 'Z':
-        return pytz.UTC
+        return datetime.timezone.utc
     if 'tz_min' not in parts or not parts['tz_min']:
         return None
 
     tz_minute_offset = (int(parts['tz_hour']) * 60 + int(parts['tz_min']))
     tz_multiplier = -1 if parts['tz_sign'] == '-' else 1
+    minutes = tz_multiplier * tz_minute_offset
 
-    return pytz.FixedOffset(tz_multiplier * tz_minute_offset)
+    return datetime.timezone(datetime.timedelta(minutes=minutes))
 
 
 def is_valid_code(code_value):
@@ -111,9 +111,3 @@ def is_valid_code(code_value):
 def is_client_error(code):
     """ Checks client error code (RFC 2616)."""
     return 400 <= code < 500
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict  # noqa

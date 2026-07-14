@@ -25,10 +25,8 @@
   assert:
     that:
       - item == "failure"
-  loop: '{{ items | flatten(levels=1) }}'
-  vars:
-    items:
-    - "{{ category.current_audit_policy.values() | list }}"
+  with_items:
+    - "{{ category.current_audit_policy.values() | list | unique }}"
     - "{{ subcategory.current_audit_policy.values() | list }}"
 
 ######################
@@ -57,11 +55,9 @@
   assert:
     that:
       - item == "no auditing"
-  loop: '{{ items | flatten(levels=1) }}'
-  vars:
-    items:
+  with_items:
     - "{{ subcategory.current_audit_policy.values() | list }}"
-    - "{{ category.current_audit_policy.values() | list }}"
+    - "{{ category.current_audit_policy.values() | list | unique }}"
 
 ##########################
 ### idempotent disable ###
@@ -89,8 +85,6 @@
   assert:
     that:
       - item == "no auditing"
-  loop: '{{ items | flatten(levels=1) }}'
-  vars:
-    items:
+  with_items:
     - "{{ subcategory.current_audit_policy.values() | list }}"
-    - "{{ category.current_audit_policy.values() | list }}"
+    - "{{ category.current_audit_policy.values() | list | unique }}"

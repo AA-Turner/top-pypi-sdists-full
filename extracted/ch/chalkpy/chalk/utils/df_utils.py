@@ -694,6 +694,32 @@ def record_batch_to_arrow_ipc(rb: pa.RecordBatch, compression: Literal["lz4", "z
     return feather_bytes
 
 
+def table_to_arrow_ipc(table: pa.Table, compression: Literal["lz4", "zstd", "uncompressed"]) -> bytes:
+    """Serialize a pa.Table to Arrow IPC file (Feather V2) bytes.
+
+    `pyarrow.feather.write_feather`/`read_table` are deprecated as of pyarrow 24.0
+    in favor of using the IPC file APIs directly; Feather V2 is the Arrow IPC file
+    format, so this pairs with `table_from_arrow_ipc` below.
+    """
+    dest = BytesIO()
+    arrow_compression = None if compression == "uncompressed" else compression
+    writer = pa_ipc.RecordBatchFileWriter(
+        dest, table.schema, options=pa_ipc.IpcWriteOptions(compression=arrow_compression)
+    )
+    writer.write_table(table)
+    writer.close()
+    dest.seek(0)
+    return dest.read()
+
+
+def table_from_arrow_ipc(source: "bytes | BinaryIO") -> pa.Table:
+    """Deserialize an Arrow IPC file (Feather V2) buffer to a pa.Table.
+
+    See `table_to_arrow_ipc` above for why this replaces `pyarrow.feather.read_table`.
+    """
+    return pa_ipc.RecordBatchFileReader(source).read_all()
+
+
 def arrow_ipc_to_record_batch(b: bytes) -> pa.RecordBatch:
     bio = io.BytesIO(b)
     reader = pa_ipc.RecordBatchFileReader(bio)

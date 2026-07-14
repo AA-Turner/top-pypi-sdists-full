@@ -2,11 +2,32 @@
 
 from typing import List, Optional
 from datetime import datetime
+from typing_extensions import Literal
 
 from .endpoint import Endpoint
 from ...._models import BaseModel
 
-__all__ = ["Location", "Network"]
+__all__ = ["Location", "MaxTTL", "Network"]
+
+
+class MaxTTL(BaseModel):
+    """
+    Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
+    """
+
+    mode: Literal["inherit", "override", "disabled"]
+    """`inherit` uses the account `max_ttl_secs`.
+
+    `override` uses this location's `ttl_secs`. `disabled` leaves returned TTLs
+    unchanged.
+    """
+
+    ttl_secs: Optional[int] = None
+    """Location-specific cap on DNS response TTLs, in seconds.
+
+    Required when `mode` is `override`. Must be omitted when `mode` is `inherit` or
+    `disabled`.
+    """
 
 
 class Network(BaseModel):
@@ -63,6 +84,13 @@ class Location(BaseModel):
     """
     Show the backup destination IPv4 address from the pair identified
     dns_destination_ips_id. This field read-only.
+    """
+
+    max_ttl: Optional[MaxTTL] = None
+    """
+    Controls how DNS response TTLs are capped for this location relative to the
+    account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to
+    `inherit`.
     """
 
     name: Optional[str] = None

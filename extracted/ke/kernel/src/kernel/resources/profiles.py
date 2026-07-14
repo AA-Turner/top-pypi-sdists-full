@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from ..types import profile_list_params, profile_create_params
+from ..types import profile_list_params, profile_create_params, profile_update_params
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -68,7 +68,9 @@ class ProfilesResource(SyncAPIResource):
         sessions.
 
         Args:
-          name: Optional name of the profile. Must be unique within the project.
+          name: Optional name of the profile. Must be unique within the logical project; during
+              the default-project migration, unscoped profiles and profiles in the org default
+              project are treated as the same project.
 
           extra_headers: Send extra headers
 
@@ -120,10 +122,57 @@ class ProfilesResource(SyncAPIResource):
             cast_to=Profile,
         )
 
+    def update(
+        self,
+        id_or_name: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Profile:
+        """Update a profile's name.
+
+        Names must be unique within the logical project; during
+        the default-project migration, unscoped profiles and profiles in the org default
+        project are treated as the same project. Duplicate-name conflicts are checked
+        before update but are best-effort because there is no backing unique index.
+        Renaming a profile while a browser session references it by name may prevent
+        that session's changes from saving; prefer renaming when the profile is not in
+        use.
+
+        Args:
+          name: New profile name. Must be unique within the logical project; during the
+              default-project migration, unscoped profiles and profiles in the org default
+              project are treated as the same project.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id_or_name:
+            raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
+        return self._patch(
+            path_template("/profiles/{id_or_name}", id_or_name=id_or_name),
+            body=maybe_transform({"name": name}, profile_update_params.ProfileUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Profile,
+        )
+
     def list(
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -139,9 +188,14 @@ class ProfilesResource(SyncAPIResource):
         Args:
           limit: Limit the number of profiles to return.
 
+          name: Exact-match filter on profile name using the database collation. In production,
+              matching is case- and accent-insensitive. During the default-project migration,
+              unscoped requests prefer a concrete default-project profile over a legacy
+              unscoped profile with the same name.
+
           offset: Offset the number of profiles to return.
 
-          query: Search profiles by name or ID.
+          query: Case-insensitive substring match against profile name or ID.
 
           extra_headers: Send extra headers
 
@@ -162,6 +216,7 @@ class ProfilesResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },
@@ -278,7 +333,9 @@ class AsyncProfilesResource(AsyncAPIResource):
         sessions.
 
         Args:
-          name: Optional name of the profile. Must be unique within the project.
+          name: Optional name of the profile. Must be unique within the logical project; during
+              the default-project migration, unscoped profiles and profiles in the org default
+              project are treated as the same project.
 
           extra_headers: Send extra headers
 
@@ -330,10 +387,57 @@ class AsyncProfilesResource(AsyncAPIResource):
             cast_to=Profile,
         )
 
+    async def update(
+        self,
+        id_or_name: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Profile:
+        """Update a profile's name.
+
+        Names must be unique within the logical project; during
+        the default-project migration, unscoped profiles and profiles in the org default
+        project are treated as the same project. Duplicate-name conflicts are checked
+        before update but are best-effort because there is no backing unique index.
+        Renaming a profile while a browser session references it by name may prevent
+        that session's changes from saving; prefer renaming when the profile is not in
+        use.
+
+        Args:
+          name: New profile name. Must be unique within the logical project; during the
+              default-project migration, unscoped profiles and profiles in the org default
+              project are treated as the same project.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id_or_name:
+            raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
+        return await self._patch(
+            path_template("/profiles/{id_or_name}", id_or_name=id_or_name),
+            body=await async_maybe_transform({"name": name}, profile_update_params.ProfileUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Profile,
+        )
+
     def list(
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -349,9 +453,14 @@ class AsyncProfilesResource(AsyncAPIResource):
         Args:
           limit: Limit the number of profiles to return.
 
+          name: Exact-match filter on profile name using the database collation. In production,
+              matching is case- and accent-insensitive. During the default-project migration,
+              unscoped requests prefer a concrete default-project profile over a legacy
+              unscoped profile with the same name.
+
           offset: Offset the number of profiles to return.
 
-          query: Search profiles by name or ID.
+          query: Case-insensitive substring match against profile name or ID.
 
           extra_headers: Send extra headers
 
@@ -372,6 +481,7 @@ class AsyncProfilesResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },
@@ -460,6 +570,9 @@ class ProfilesResourceWithRawResponse:
         self.retrieve = to_raw_response_wrapper(
             profiles.retrieve,
         )
+        self.update = to_raw_response_wrapper(
+            profiles.update,
+        )
         self.list = to_raw_response_wrapper(
             profiles.list,
         )
@@ -481,6 +594,9 @@ class AsyncProfilesResourceWithRawResponse:
         )
         self.retrieve = async_to_raw_response_wrapper(
             profiles.retrieve,
+        )
+        self.update = async_to_raw_response_wrapper(
+            profiles.update,
         )
         self.list = async_to_raw_response_wrapper(
             profiles.list,
@@ -504,6 +620,9 @@ class ProfilesResourceWithStreamingResponse:
         self.retrieve = to_streamed_response_wrapper(
             profiles.retrieve,
         )
+        self.update = to_streamed_response_wrapper(
+            profiles.update,
+        )
         self.list = to_streamed_response_wrapper(
             profiles.list,
         )
@@ -525,6 +644,9 @@ class AsyncProfilesResourceWithStreamingResponse:
         )
         self.retrieve = async_to_streamed_response_wrapper(
             profiles.retrieve,
+        )
+        self.update = async_to_streamed_response_wrapper(
+            profiles.update,
         )
         self.list = async_to_streamed_response_wrapper(
             profiles.list,

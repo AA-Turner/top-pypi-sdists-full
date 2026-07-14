@@ -29,6 +29,7 @@ from ...._wrappers import ResultWrapper
 from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
 from ....types.email_routing import rule_list_params, rule_create_params, rule_update_params
+from ....types.email_routing.account_rule import AccountRule
 from ....types.email_routing.action_param import ActionParam
 from ....types.email_routing.matcher_param import MatcherParam
 from ....types.email_routing.email_routing_rule import EmailRoutingRule
@@ -68,7 +69,9 @@ class RulesResource(SyncAPIResource):
         matchers: Iterable[MatcherParam],
         enabled: Literal[True, False] | Omit = omit,
         name: str | Omit = omit,
+        owner_worker_tag: str | Omit = omit,
         priority: float | Omit = omit,
+        source: Literal["api", "wrangler"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -93,7 +96,14 @@ class RulesResource(SyncAPIResource):
 
           name: Routing rule name.
 
+          owner_worker_tag: Public tag (script_tag) of the Worker that owns this rule. Required when
+              `source` is `wrangler`.
+
           priority: Priority of the routing rule.
+
+          source: Who manages the rule. `api` covers dashboard, generic API, and Terraform;
+              `wrangler` means the rule is managed by a Worker's wrangler.jsonc. Defaults to
+              `api` when omitted on write.
 
           extra_headers: Send extra headers
 
@@ -113,7 +123,9 @@ class RulesResource(SyncAPIResource):
                     "matchers": matchers,
                     "enabled": enabled,
                     "name": name,
+                    "owner_worker_tag": owner_worker_tag,
                     "priority": priority,
+                    "source": source,
                 },
                 rule_create_params.RuleCreateParams,
             ),
@@ -136,7 +148,9 @@ class RulesResource(SyncAPIResource):
         matchers: Iterable[MatcherParam],
         enabled: Literal[True, False] | Omit = omit,
         name: str | Omit = omit,
+        owner_worker_tag: str | Omit = omit,
         priority: float | Omit = omit,
+        source: Literal["api", "wrangler"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -162,7 +176,14 @@ class RulesResource(SyncAPIResource):
 
           name: Routing rule name.
 
+          owner_worker_tag: Public tag (script_tag) of the Worker that owns this rule. Required when
+              `source` is `wrangler`.
+
           priority: Priority of the routing rule.
+
+          source: Who manages the rule. `api` covers dashboard, generic API, and Terraform;
+              `wrangler` means the rule is managed by a Worker's wrangler.jsonc. Defaults to
+              `api` when omitted on write.
 
           extra_headers: Send extra headers
 
@@ -188,7 +209,9 @@ class RulesResource(SyncAPIResource):
                     "matchers": matchers,
                     "enabled": enabled,
                     "name": name,
+                    "owner_worker_tag": owner_worker_tag,
                     "priority": priority,
+                    "source": source,
                 },
                 rule_update_params.RuleUpdateParams,
             ),
@@ -205,7 +228,8 @@ class RulesResource(SyncAPIResource):
     def list(
         self,
         *,
-        zone_id: str,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         enabled: Literal[True, False] | Omit = omit,
         page: float | Omit = omit,
         per_page: float | Omit = omit,
@@ -215,12 +239,14 @@ class RulesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncV4PagePaginationArray[EmailRoutingRule]:
+    ) -> SyncV4PagePaginationArray[AccountRule]:
         """
-        Lists existing routing rules.
+        Lists existing routing rules across all zones in the account or zone.
 
         Args:
-          zone_id: Identifier.
+          account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
+
+          zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
           enabled: Filter by enabled routing rules.
 
@@ -236,11 +262,25 @@ class RulesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        if not zone_id:
-            raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        if account_id and zone_id:
+            raise ValueError("You cannot provide both account_id and zone_id")
+
+        if account_id:
+            account_or_zone = "accounts"
+            account_or_zone_id = account_id
+        else:
+            if not zone_id:
+                raise ValueError("You must provide either account_id or zone_id")
+
+            account_or_zone = "zones"
+            account_or_zone_id = zone_id
         return self._get_api_list(
-            path_template("/zones/{zone_id}/email/routing/rules", zone_id=zone_id),
-            page=SyncV4PagePaginationArray[EmailRoutingRule],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/email/routing/rules",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=SyncV4PagePaginationArray[AccountRule],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -255,7 +295,7 @@ class RulesResource(SyncAPIResource):
                     rule_list_params.RuleListParams,
                 ),
             ),
-            model=EmailRoutingRule,
+            model=AccountRule,
         )
 
     def delete(
@@ -387,7 +427,9 @@ class AsyncRulesResource(AsyncAPIResource):
         matchers: Iterable[MatcherParam],
         enabled: Literal[True, False] | Omit = omit,
         name: str | Omit = omit,
+        owner_worker_tag: str | Omit = omit,
         priority: float | Omit = omit,
+        source: Literal["api", "wrangler"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -412,7 +454,14 @@ class AsyncRulesResource(AsyncAPIResource):
 
           name: Routing rule name.
 
+          owner_worker_tag: Public tag (script_tag) of the Worker that owns this rule. Required when
+              `source` is `wrangler`.
+
           priority: Priority of the routing rule.
+
+          source: Who manages the rule. `api` covers dashboard, generic API, and Terraform;
+              `wrangler` means the rule is managed by a Worker's wrangler.jsonc. Defaults to
+              `api` when omitted on write.
 
           extra_headers: Send extra headers
 
@@ -432,7 +481,9 @@ class AsyncRulesResource(AsyncAPIResource):
                     "matchers": matchers,
                     "enabled": enabled,
                     "name": name,
+                    "owner_worker_tag": owner_worker_tag,
                     "priority": priority,
+                    "source": source,
                 },
                 rule_create_params.RuleCreateParams,
             ),
@@ -455,7 +506,9 @@ class AsyncRulesResource(AsyncAPIResource):
         matchers: Iterable[MatcherParam],
         enabled: Literal[True, False] | Omit = omit,
         name: str | Omit = omit,
+        owner_worker_tag: str | Omit = omit,
         priority: float | Omit = omit,
+        source: Literal["api", "wrangler"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -481,7 +534,14 @@ class AsyncRulesResource(AsyncAPIResource):
 
           name: Routing rule name.
 
+          owner_worker_tag: Public tag (script_tag) of the Worker that owns this rule. Required when
+              `source` is `wrangler`.
+
           priority: Priority of the routing rule.
+
+          source: Who manages the rule. `api` covers dashboard, generic API, and Terraform;
+              `wrangler` means the rule is managed by a Worker's wrangler.jsonc. Defaults to
+              `api` when omitted on write.
 
           extra_headers: Send extra headers
 
@@ -507,7 +567,9 @@ class AsyncRulesResource(AsyncAPIResource):
                     "matchers": matchers,
                     "enabled": enabled,
                     "name": name,
+                    "owner_worker_tag": owner_worker_tag,
                     "priority": priority,
+                    "source": source,
                 },
                 rule_update_params.RuleUpdateParams,
             ),
@@ -524,7 +586,8 @@ class AsyncRulesResource(AsyncAPIResource):
     def list(
         self,
         *,
-        zone_id: str,
+        account_id: str | Omit = omit,
+        zone_id: str | Omit = omit,
         enabled: Literal[True, False] | Omit = omit,
         page: float | Omit = omit,
         per_page: float | Omit = omit,
@@ -534,12 +597,14 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[EmailRoutingRule, AsyncV4PagePaginationArray[EmailRoutingRule]]:
+    ) -> AsyncPaginator[AccountRule, AsyncV4PagePaginationArray[AccountRule]]:
         """
-        Lists existing routing rules.
+        Lists existing routing rules across all zones in the account or zone.
 
         Args:
-          zone_id: Identifier.
+          account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
+
+          zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
 
           enabled: Filter by enabled routing rules.
 
@@ -555,11 +620,25 @@ class AsyncRulesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        if not zone_id:
-            raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        if account_id and zone_id:
+            raise ValueError("You cannot provide both account_id and zone_id")
+
+        if account_id:
+            account_or_zone = "accounts"
+            account_or_zone_id = account_id
+        else:
+            if not zone_id:
+                raise ValueError("You must provide either account_id or zone_id")
+
+            account_or_zone = "zones"
+            account_or_zone_id = zone_id
         return self._get_api_list(
-            path_template("/zones/{zone_id}/email/routing/rules", zone_id=zone_id),
-            page=AsyncV4PagePaginationArray[EmailRoutingRule],
+            path_template(
+                "/{account_or_zone}/{account_or_zone_id}/email/routing/rules",
+                account_or_zone=account_or_zone,
+                account_or_zone_id=account_or_zone_id,
+            ),
+            page=AsyncV4PagePaginationArray[AccountRule],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -574,7 +653,7 @@ class AsyncRulesResource(AsyncAPIResource):
                     rule_list_params.RuleListParams,
                 ),
             ),
-            model=EmailRoutingRule,
+            model=AccountRule,
         )
 
     async def delete(

@@ -1,9 +1,8 @@
 
-from __future__ import annotations
-from typing import Optional, List
 from cement import App, CaughtSignal  # noqa: E402
-from .controllers.base import Base    # noqa: E402
 from cement.core.exc import FrameworkError
+
+from .controllers.base import Base  # noqa: E402
 
 
 class CementApp(App):
@@ -28,29 +27,32 @@ class CementApp(App):
 
 class CementTestApp(CementApp):
     class Meta:
-        argv: List[str] = []
-        config_files: List[str] = []
+        argv: list[str] = []
+        config_files: list[str] = []
         exit_on_close = False
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     # Issue #679: https://github.com/datafolklabs/cement/issues/679
     try:
-        import yaml, jinja2  # type: ignore  # noqa: F401 E401
-    except ModuleNotFoundError:  # pragma: nocover
+        import jinja2  # noqa: F401
+        import yaml  # type: ignore  # noqa: F401
+    except ModuleNotFoundError as e:  # pragma: nocover  # defensive: unreachable
         raise FrameworkError('Cement CLI Dependencies are missing! Install cement[cli] extras ' +
-                             'package to resolve -> pip install cement[cli]')
+                             'package to resolve -> pip install cement[cli]') from e
 
     with CementApp() as app:
         try:
             app.run()
-        except AssertionError as e:                     # pragma: nocover
-            print(f'AssertionError > {e.args[0]}')      # pragma: nocover
-            app.exit_code = 1                           # pragma: nocover
-        except CaughtSignal as e:                       # pragma: nocover
-            print(f'\n{e}')                             # pragma: nocover
-            app.exit_code = 0                           # pragma: nocover
+        except AssertionError as e:  # pragma: nocover  # defensive: unreachable
+            # noqa: T201 - intentional CLI error output
+            print(f'AssertionError > {e.args[0]}')  # pragma: nocover  # defensive: unreachable  # noqa: T201,E501
+            app.exit_code = 1  # pragma: nocover  # defensive: unreachable
+        except CaughtSignal as e:  # pragma: nocover  # defensive: unreachable
+            # noqa: T201 - intentional CLI signal output
+            print(f'\n{e}')  # pragma: nocover  # defensive: unreachable  # noqa: T201
+            app.exit_code = 0  # pragma: nocover  # defensive: unreachable
 
 
 if __name__ == '__main__':
-    main()                                              # pragma: nocover
+    main()                                              # pragma: nocover  # defensive: unreachable

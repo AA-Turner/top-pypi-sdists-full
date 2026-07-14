@@ -6,7 +6,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..types import proxy_list_params, proxy_check_params, proxy_create_params
+from ..types import proxy_list_params, proxy_check_params, proxy_create_params, proxy_update_params
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -22,6 +22,7 @@ from .._base_client import AsyncPaginator, make_request_options
 from ..types.proxy_list_response import ProxyListResponse
 from ..types.proxy_check_response import ProxyCheckResponse
 from ..types.proxy_create_response import ProxyCreateResponse
+from ..types.proxy_update_response import ProxyUpdateResponse
 from ..types.proxy_retrieve_response import ProxyRetrieveResponse
 
 __all__ = ["ProxiesResource", "AsyncProxiesResource"]
@@ -138,10 +139,53 @@ class ProxiesResource(SyncAPIResource):
             cast_to=ProxyRetrieveResponse,
         )
 
+    def update(
+        self,
+        id: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ProxyUpdateResponse:
+        """Update a proxy's name.
+
+        Proxy names are not unique and are not ID-or-name
+        addressable on this endpoint; duplicate names are allowed. Name-based
+        session-create lookups can remain ambiguous until callers resolve proxies by ID
+        or the API adds a stronger uniqueness contract.
+
+        Args:
+          name: New proxy name. Proxy names are trimmed and length-checked only; duplicates are
+              allowed because proxies are updated by ID, not by name.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._patch(
+            path_template("/proxies/{id}", id=id),
+            body=maybe_transform({"name": name}, proxy_update_params.ProxyUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ProxyUpdateResponse,
+        )
+
     def list(
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -157,9 +201,14 @@ class ProxiesResource(SyncAPIResource):
         Args:
           limit: Limit the number of proxies to return.
 
+          name: Exact-match filter on proxy name using the database collation. In production,
+              matching is case- and accent-insensitive. Names are not required to be unique,
+              so multiple proxies may match.
+
           offset: Offset the number of proxies to return.
 
-          query: Search proxies by name, host, IP address, or ID.
+          query: Case-insensitive substring match against proxy name, host, or IP address. IDs
+              match by exact value.
 
           extra_headers: Send extra headers
 
@@ -180,6 +229,7 @@ class ProxiesResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },
@@ -390,10 +440,53 @@ class AsyncProxiesResource(AsyncAPIResource):
             cast_to=ProxyRetrieveResponse,
         )
 
+    async def update(
+        self,
+        id: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ProxyUpdateResponse:
+        """Update a proxy's name.
+
+        Proxy names are not unique and are not ID-or-name
+        addressable on this endpoint; duplicate names are allowed. Name-based
+        session-create lookups can remain ambiguous until callers resolve proxies by ID
+        or the API adds a stronger uniqueness contract.
+
+        Args:
+          name: New proxy name. Proxy names are trimmed and length-checked only; duplicates are
+              allowed because proxies are updated by ID, not by name.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._patch(
+            path_template("/proxies/{id}", id=id),
+            body=await async_maybe_transform({"name": name}, proxy_update_params.ProxyUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ProxyUpdateResponse,
+        )
+
     def list(
         self,
         *,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -409,9 +502,14 @@ class AsyncProxiesResource(AsyncAPIResource):
         Args:
           limit: Limit the number of proxies to return.
 
+          name: Exact-match filter on proxy name using the database collation. In production,
+              matching is case- and accent-insensitive. Names are not required to be unique,
+              so multiple proxies may match.
+
           offset: Offset the number of proxies to return.
 
-          query: Search proxies by name, host, IP address, or ID.
+          query: Case-insensitive substring match against proxy name, host, or IP address. IDs
+              match by exact value.
 
           extra_headers: Send extra headers
 
@@ -432,6 +530,7 @@ class AsyncProxiesResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                     },
@@ -541,6 +640,9 @@ class ProxiesResourceWithRawResponse:
         self.retrieve = to_raw_response_wrapper(
             proxies.retrieve,
         )
+        self.update = to_raw_response_wrapper(
+            proxies.update,
+        )
         self.list = to_raw_response_wrapper(
             proxies.list,
         )
@@ -561,6 +663,9 @@ class AsyncProxiesResourceWithRawResponse:
         )
         self.retrieve = async_to_raw_response_wrapper(
             proxies.retrieve,
+        )
+        self.update = async_to_raw_response_wrapper(
+            proxies.update,
         )
         self.list = async_to_raw_response_wrapper(
             proxies.list,
@@ -583,6 +688,9 @@ class ProxiesResourceWithStreamingResponse:
         self.retrieve = to_streamed_response_wrapper(
             proxies.retrieve,
         )
+        self.update = to_streamed_response_wrapper(
+            proxies.update,
+        )
         self.list = to_streamed_response_wrapper(
             proxies.list,
         )
@@ -603,6 +711,9 @@ class AsyncProxiesResourceWithStreamingResponse:
         )
         self.retrieve = async_to_streamed_response_wrapper(
             proxies.retrieve,
+        )
+        self.update = async_to_streamed_response_wrapper(
+            proxies.update,
         )
         self.list = async_to_streamed_response_wrapper(
             proxies.list,

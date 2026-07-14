@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from io import BytesIO
 from typing import (
     Any,
     Generic,
@@ -19,7 +18,6 @@ from typing import (
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.feather as pf
 from chalk_rs import timezone_from_name as _timezone_from_name
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
@@ -37,7 +35,7 @@ from chalk.features._encoding.pyarrow import (
     pyarrow_to_primitive,
     strip_extension_types,
 )
-from chalk.utils.df_utils import pa_array_to_pl_series
+from chalk.utils.df_utils import pa_array_to_pl_series, table_from_arrow_ipc, table_to_arrow_ipc
 from chalk.utils.json import JSON, TJSON, is_pyarrow_json_type, pyarrow_json_type
 
 from ._base import (
@@ -767,10 +765,7 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         if values is None:
             return pb.ScalarValue(null_value=cls.convert_pa_dtype_to_proto_dtype(value.type))
         table = pa.Table.from_arrays([values], names=["values"])
-
-        arrow_buffer = BytesIO()
-        pf.write_feather(table, dest=arrow_buffer, compression=None)
-        arrow_bytes = arrow_buffer.getvalue()
+        arrow_bytes = table_to_arrow_ipc(table, compression="lz4")
 
         pb_schema = pb.Schema(
             columns=[
@@ -816,8 +811,7 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
             raise TypeError(f"Unsupported list value type: {type(value).__name__}")
 
         if value.arrow_data:
-            arrow_buffer = BytesIO(value.arrow_data)
-            table = pf.read_table(arrow_buffer)
+            table = table_from_arrow_ipc(value.arrow_data)
         else:
             raise ValueError("Missing `arrow_data` attribute in `ScalarListValue`")
 

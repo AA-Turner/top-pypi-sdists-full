@@ -28,13 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            /**
-             * Mark a choice as the selected radio of the group, keeping the
-             * ARIA state, the roving tabindex and the backing <input> in sync.
-             *
-             * @param {HTMLElement} choice the choice element to activate
-             * @param {Boolean} setFocus whether to move focus to the choice
-             */
+            // mark a choice as the selected radio of the group, keeping the
+            // ARIA state, the roving tabindex and the backing <input> in sync
             function activate(choice, setFocus) {
                 var i;
                 var radio;

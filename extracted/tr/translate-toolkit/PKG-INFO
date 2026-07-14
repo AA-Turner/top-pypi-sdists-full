@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translate-toolkit
-Version: 3.19.13
+Version: 3.19.14
 Summary: Tools and API for translation and localization engineering.
 Author-email: Translate <translate-devel@lists.sourceforge.net>
 License-Expression: GPL-2.0-or-later
@@ -46,7 +46,7 @@ Requires-Dist: iniparse==0.5; extra == "ini"
 Provides-Extra: levenshtein
 Requires-Dist: RapidFuzz>=3.14.0; extra == "levenshtein"
 Provides-Extra: markdown
-Requires-Dist: mistletoe<1.6.0,>=1.4.0; extra == "markdown"
+Requires-Dist: mistletoe<1.7.0,>=1.4.0; extra == "markdown"
 Provides-Extra: php
 Requires-Dist: phply<1.3,>=1.2.6; extra == "php"
 Provides-Extra: rc

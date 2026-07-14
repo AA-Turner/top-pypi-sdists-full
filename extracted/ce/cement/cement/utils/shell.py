@@ -1,20 +1,22 @@
 """Common Shell Utilities."""
 
-import os
 import builtins
+import os
+from collections.abc import Callable
 from getpass import getpass
-from subprocess import Popen, PIPE
 from multiprocessing import Process
+from subprocess import PIPE, Popen
 from threading import Thread
-from typing import Any, Tuple, List, Union, Callable, Optional
-from ..core.meta import MetaMixin
+from typing import Any
+
 from ..core.exc import FrameworkError
+from ..core.meta import MetaMixin
 
 
 def cmd(command: str,
         capture: bool = True,
         *args: Any,
-        **kwargs: Any) -> Union[Tuple[str, str, int], int]:
+        **kwargs: Any) -> tuple[bytes, bytes, int] | int:
     """
     Wrapper around ``exec_cmd`` and ``exec_cmd2`` depending on whether
     capturing output is desired.  Defaults to setting the Popen ``shell``
@@ -30,8 +32,11 @@ def cmd(command: str,
         kwargs: Additional keyword arguments are passed to ``Popen()``.
 
     Returns:
-        tuple: When ``capture==True``, returns the ``(stdout, stderror,
-            return_code)`` of the command.
+        tuple: When ``capture==True``, returns ``(stdout, stderr, return_code)``
+            of the command. ``stdout`` and ``stderr`` are ``bytes`` (the
+            ``Popen`` default); decode with the appropriate encoding if string
+            output is needed, or pass ``text=True`` or ``encoding=...`` through
+            ``**kwargs``.
         int: When ``capture==False``, returns only the ``exitcode`` of the
             command.
 
@@ -41,7 +46,7 @@ def cmd(command: str,
 
             from cement.utils import shell
 
-            # execute a command and capture output
+            # execute a command and capture output (bytes)
             stdout, stderr, exitcode = shell.cmd('echo helloworld')
 
             # execute a command but do not capture output
@@ -52,8 +57,8 @@ def cmd(command: str,
     exitcode: int
 
     if capture is True:
-        stdout: str
-        stderr: str
+        stdout: bytes
+        stderr: bytes
         (stdout, stderr, exitcode) = exec_cmd(command, *args, **kwargs)
         return (stdout, stderr, exitcode)
     else:
@@ -61,9 +66,9 @@ def cmd(command: str,
         return exitcode
 
 
-def exec_cmd(cmd_args: Union[str, List[str]],
+def exec_cmd(cmd_args: str | list[str],
              *args: Any,
-             **kwargs: Any) -> Tuple[str, str, int]:
+             **kwargs: Any) -> tuple[bytes, bytes, int]:
     """
     Execute a shell call using Subprocess.  All additional ``*args`` and
     ``**kwargs`` are passed directly to ``subprocess.Popen``.  See
@@ -79,7 +84,11 @@ def exec_cmd(cmd_args: Union[str, List[str]],
         kwargs: Additional keyword arguments are passed to ``Popen()``.
 
     Returns:
-        tuple: The ``(stdout, stderror, return_code)`` of the command.
+        tuple: The ``(stdout, stderr, return_code)`` of the command.
+            ``stdout`` and ``stderr`` are ``bytes`` (the ``Popen``
+            default); decode with the appropriate encoding if string
+            output is needed, or pass ``text=True`` / ``encoding=...``
+            through ``**kwargs``.
 
     Example:
 
@@ -87,6 +96,7 @@ def exec_cmd(cmd_args: Union[str, List[str]],
 
             from cement.utils import shell
 
+            # bytes by default
             stdout, stderr, exitcode = shell.exec_cmd(['echo', 'helloworld'])
 
     """
@@ -101,7 +111,7 @@ def exec_cmd(cmd_args: Union[str, List[str]],
     return (stdout, stderr, proc.returncode)
 
 
-def exec_cmd2(cmd_args: Union[str, List[str]],
+def exec_cmd2(cmd_args: str | list[str],
               *args: Any,
               **kwargs: Any) -> int:
     """
@@ -140,7 +150,7 @@ def spawn(target: Callable,
           join: bool = False,
           thread: bool = False,
           *args: Any,
-          **kwargs: Any) -> Union[Process, Thread]:
+          **kwargs: Any) -> Process | Thread:
     """
     Wrapper around ``spawn_process`` and ``spawn_thread`` depending on
     desired execution model.
@@ -383,11 +393,14 @@ class Prompt(MetaMixin):
         text: str = "Tell me someting interesting:"
 
         #: A default value to use if the user doesn't provide any input
-        default: Optional[str] = None
+        default: str | None = None
 
         #: Options to provide to the user.  If set, the input must match one
-        #: of the items in the options selection.
-        options: Optional[dict] = None
+        #: of the items in the options selection.  Must be a list of strings
+        #: — the runtime iterates, joins via ``options_separator``, indexes
+        #: by integer when ``numbered=True``, and runs ``in``-membership
+        #: checks.
+        options: list[str] | None = None
 
         #: Separator to use within the option selection (non-numbered)
         options_separator: str = ','
@@ -426,32 +439,32 @@ class Prompt(MetaMixin):
         suppress: bool = False
 
     def __init__(self,
-                 text: Optional[str] = None,
+                 text: str | None = None,
                  *args: Any,
                  **kw: Any) -> None:
         if text is not None:
             kw['text'] = text
-        super(Prompt, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
 
-        self.input: Optional[str] = None
+        self.input: str | None = None
         if self._meta.auto:
             self.prompt()
 
     def _get_suppressed_input(self, text: str) -> str:
-        res: str = getpass(text)  # pragma: nocover
-        return res  # pragma: nocover
+        res: str = getpass(text)  # pragma: nocover  # defensive: unreachable
+        return res  # pragma: nocover  # defensive: unreachable
 
     def _get_unsuppressed_input(self, text: str) -> str:
         res: str = builtins.input(text)
-        return res  # pragma: nocover
+        return res  # pragma: nocover  # defensive: unreachable
 
     def _get_input(self, text: str) -> str:
         res: str
         if self._meta.suppress is True:
-            res = self._get_suppressed_input(text)  # pragma: nocover
+            res = self._get_suppressed_input(text)  # pragma: nocover  # defensive: unreachable
         else:
-            res = self._get_unsuppressed_input(text)  # pragma: nocover
-        return res  # pragma: nocover
+            res = self._get_unsuppressed_input(text)  # pragma: nocover  # defensive: unreachable
+        return res  # pragma: nocover  # defensive: unreachable
 
     def _prompt(self) -> None:
         if self._meta.clear:
@@ -479,7 +492,7 @@ class Prompt(MetaMixin):
         elif self.input == '':
             self.input = None
 
-    def prompt(self) -> Optional[str]:
+    def prompt(self) -> str | None:
         """
         Prompt the user, and store their input as ``self.input``.
         """

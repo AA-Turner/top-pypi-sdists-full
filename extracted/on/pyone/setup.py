@@ -26,6 +26,7 @@ install_requires = [
     'lxml',
     'dict2xml',
     'xmltodict',
+    'six',
     'tblib',
     'requests',
     'grpcio',

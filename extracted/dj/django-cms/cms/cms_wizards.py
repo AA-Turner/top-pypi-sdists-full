@@ -10,14 +10,15 @@ from .wizards.wizard_base import Wizard
 class CMSPageWizard(Wizard):
 
     def user_has_add_permission(self, user, page=None, **kwargs):
+        site = kwargs.get("site")
         parent_page = page.parent if page else None
         if page and parent_page:
             # User is adding a page which will be a right
             # sibling to the current page.
-            has_perm = user_can_add_subpage(user, target=parent_page)
-        else:
-            has_perm = user_can_add_page(user)
-        return has_perm
+            return user_can_add_subpage(user, target=parent_page, site=site or parent_page.site)
+        elif page:
+            return user_can_add_page(user, site=site or page.site)
+        return user_can_add_page(user, site=site)
 
     def get_success_url(self, obj, **kwargs):
         page_content = obj.pagecontent_set(manager="admin_manager").first()

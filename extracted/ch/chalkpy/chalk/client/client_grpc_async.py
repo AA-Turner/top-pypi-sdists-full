@@ -50,7 +50,7 @@ from chalk.client.models import (
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
 from chalk.config.auth_config import TokenConfig, load_token
 from chalk.features import live_updates
-from chalk.features._encoding.inputs import GRPC_ENCODE_OPTIONS
+from chalk.features._encoding.inputs import GRPC_ENCODE_OPTIONS, InputSchemaHint
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import is_feature_set_class
@@ -662,6 +662,7 @@ class AsyncChalkGRPCClient:
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> OnlineQueryResponse:
         """Compute feature values using online resolvers.
 
@@ -708,6 +709,11 @@ class AsyncChalkGRPCClient:
             Key-value context propagated to resolvers during this query.
         trace
             If True, enable distributed tracing for this query.
+        input_schema_hint
+            Pins the wire schema of has-many inputs to the listed columns, e.g.
+            ``{User.transactions: [Transaction.id, Transaction.amount]}``, so the schema is
+            identical whether or not the given has rows. See
+            :meth:`ChalkGRPCClient.online_query` for full semantics.
         """
         bulk_response = await self._online_query_grpc_request(
             input=input,
@@ -730,6 +736,7 @@ class AsyncChalkGRPCClient:
             headers=headers,
             query_context=query_context,
             trace=trace,
+            input_schema_hint=input_schema_hint,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode_to_single(bulk_response)
 
@@ -755,6 +762,7 @@ class AsyncChalkGRPCClient:
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> OnlineQueryResponse:
         """A synonym for :meth:`online_query`.
 
@@ -781,6 +789,7 @@ class AsyncChalkGRPCClient:
             headers=headers,
             query_context=query_context,
             trace=trace,
+            input_schema_hint=input_schema_hint,
         )
 
     async def _online_query_grpc_request(
@@ -806,11 +815,13 @@ class AsyncChalkGRPCClient:
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
         trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("_online_query_grpc_request"):
             request = self._make_query_bulk_request(
                 input={k: [v] for k, v in input.items()},
+                input_schema_hint=input_schema_hint,
                 output=output,
                 now=[now] if now is not None else [],
                 staleness=staleness or {},
@@ -860,6 +871,7 @@ class AsyncChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         *,
         input_sql: str | None = None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> BulkOnlineQueryResult:
         """Compute feature values for multiple rows using online resolvers.
 
@@ -922,6 +934,7 @@ class AsyncChalkGRPCClient:
         response, call = await self._online_query_bulk_grpc_request(
             input=input,
             input_sql=input_sql,
+            input_schema_hint=input_schema_hint,
             output=output,
             now=now,
             staleness=staleness,
@@ -968,10 +981,12 @@ class AsyncChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, Any]:
         request = self._make_query_bulk_request(
             input=input,
             input_sql=input_sql,
+            input_schema_hint=input_schema_hint,
             output=output,
             now=now or (),
             staleness=staleness or {},
@@ -1224,6 +1239,7 @@ class AsyncChalkGRPCClient:
         required_resolver_tags: Sequence[str],
         planner_options: Mapping[str, str | int | bool],
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> online_query_pb2.OnlineQueryBulkRequest:
         if input is None and input_sql is None:
             raise TypeError("One of `input` or `input_sql` is required")
@@ -1235,7 +1251,10 @@ class AsyncChalkGRPCClient:
             inputs_feather = None
         else:
             inputs_feather = get_features_feather_bytes(
-                input, self._INPUT_ENCODE_OPTIONS, compression=self._input_compression
+                input,
+                self._INPUT_ENCODE_OPTIONS,
+                compression=self._input_compression,
+                input_schema_hint=input_schema_hint,
             )
 
         encoded_outputs = encode_outputs(output)

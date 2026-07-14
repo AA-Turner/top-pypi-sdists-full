@@ -11,14 +11,15 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
+
 import pylibmc  # type: ignore
-from typing import Any, List, Optional, TYPE_CHECKING
+
 from ..core import cache
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -44,11 +45,11 @@ class MemcachedCacheHandler(cache.CacheHandler):
     _meta: Meta  # type: ignore
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(MemcachedCacheHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.mc = None
 
     def _setup(self, *args: Any, **kw: Any) -> None:
-        super(MemcachedCacheHandler, self)._setup(*args, **kw)
+        super()._setup(*args, **kw)
         self._fix_hosts()
         self.mc = pylibmc.Client(self._config('hosts'))
 
@@ -63,7 +64,7 @@ class MemcachedCacheHandler(cache.CacheHandler):
         :returns: ``None``
 
         """
-        hosts: List[str] = self._config('hosts')
+        hosts: list[str] = self._config('hosts')
         fixed_hosts = []
 
         if type(hosts) is str:
@@ -113,7 +114,7 @@ class MemcachedCacheHandler(cache.CacheHandler):
         """
         return self.app.config.get(self._meta.config_section, key)
 
-    def set(self, key: str, value: Any, time: Optional[int] = None, **kw: Any) -> None:
+    def set(self, key: str, value: Any, time: int | None = None, **kw: Any) -> None:
         """
         Set a value in the cache for the given ``key``.  Any additional
         keyword arguments will be passed directly to the `pylibmc` set
@@ -158,5 +159,5 @@ class MemcachedCacheHandler(cache.CacheHandler):
         self.mc.flush_all(**kw)
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(MemcachedCacheHandler)

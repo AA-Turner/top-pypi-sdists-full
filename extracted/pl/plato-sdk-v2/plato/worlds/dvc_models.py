@@ -441,6 +441,28 @@ async def s3_download_bytes(config: S3Config, key: str) -> bytes:
             pass
 
 
+def dvc_files_size_summary(dvc_files: dict[str, str]) -> tuple[int, int]:
+    """Total (bytes, file_count) across a ref's dvc-yaml pointers.
+
+    Every smart-commit pointer embeds ``size``/``nfiles`` totals, so a
+    workspace ref's full size is known WITHOUT downloading the manifest or
+    listing S3 — use this to pick a transport before restoring (large
+    read-only datasets belong on an NFS-mounted workspace, not rsync).
+    """
+    total_bytes = 0
+    total_files = 0
+    for dvc_yaml in (dvc_files or {}).values():
+        try:
+            parsed = yaml.safe_load(dvc_yaml)
+        except yaml.YAMLError:
+            continue
+        for out in (parsed or {}).get("outs", []) or []:
+            if isinstance(out, dict):
+                total_bytes += int(out.get("size") or 0)
+                total_files += int(out.get("nfiles") or 0)
+    return total_bytes, total_files
+
+
 async def s3_head_size(config: S3Config, key: str) -> int:
     s5cmd_binary = await _ensure_s5cmd()
     s3_url = f"s3://{config.bucket}/{key}"

@@ -45,6 +45,8 @@ base_requirements = {
     # Actual dependencies.
     "pydantic>=2.4.0,<3.0",
     "acryl-datahub[datahub-rest]>=1.5.0.15",
+    # Used for ${VAR:-default} expansion in extra_pip_requirements at executor run time.
+    "expandvars>=0.6.5,<2.0.0",
     "loguru>=0.5.0",
     "anyio>=3.0.0",
     "urllib3>=1.26.0,<3",

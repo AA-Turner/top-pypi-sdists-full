@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-sdk
-Version: 2.64.0
+Version: 2.65.0
 Summary: Python client for Sentry (https://sentry.io)
 Home-page: https://github.com/getsentry/sentry-python
 Author: Sentry Team and Contributors
@@ -193,6 +193,11 @@ sentry_sdk.init(
     # Set traces_sample_rate to 1.0 to capture 100%
     # of traces for performance monitoring.
     traces_sample_rate=1.0,
+
+    # To disable sending user data and HTTP request/response bodies, uncomment
+    # the line below. For more info visit:
+    # https://docs.sentry.io/platforms/python/configuration/options/#data_collection
+    # data_collection={"user_info": False, "http_bodies": []},
 )
 ```
 

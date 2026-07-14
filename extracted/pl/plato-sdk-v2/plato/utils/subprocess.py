@@ -221,12 +221,25 @@ async def run_ssh_streaming(
         *ssh_cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        limit=2**24,
     )
 
     output_lines: list[str] = []
     if process.stdout:
         while True:
-            line = await process.stdout.readline()
+            try:
+                line = await process.stdout.readline()
+            except ValueError:
+                # Line exceeded the StreamReader limit (readline buffers the
+                # oversized chunk and raises). Drain and continue — this
+                # helper streams agent tool-execution spools whose single
+                # JSONL records can exceed any fixed limit; a crash here
+                # took down a live experiment's world step.
+                chunk = await process.stdout.read(2**16)
+                if not chunk:
+                    break
+                output_lines.append(chunk.decode("utf-8", errors="replace").rstrip())
+                continue
             if not line:
                 break
             decoded_line = line.decode("utf-8", errors="replace").rstrip()

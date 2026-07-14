@@ -40,7 +40,6 @@ from cms.models import (
     Page,
     PageContent,
     Placeholder as PlaceholderModel,
-    StaticPlaceholder,
 )
 from cms.plugin_pool import plugin_pool
 from cms.toolbar.utils import get_toolbar_from_request
@@ -51,7 +50,6 @@ from cms.utils.urlutils import admin_reverse
 
 NULL = object()
 DeclaredPlaceholder = namedtuple("DeclaredPlaceholder", ["slot", "inherit"])
-DeclaredStaticPlaceholder = namedtuple("DeclaredStaticPlaceholder", ["slot", "site_bound"])
 
 
 register = template.Library()
@@ -246,7 +244,6 @@ class PageUrl(AsTag):
             return ""
 
     def get_value(self, context, page_lookup, lang, site):
-        site_id = get_site_id(site)
         request = context.get("request", False)
 
         if not request:
@@ -255,6 +252,7 @@ class PageUrl(AsTag):
         if lang is None:
             lang = get_language_from_request(request)
 
+        site_id = get_site_id(site) if site else get_current_site(request).pk
         url = get_page_url_cache(page_lookup, lang, site_id)
         if url is None:
             page = _get_page_by_untyped_arg(page_lookup, request, site_id)
@@ -438,7 +436,8 @@ class PageAttribute(AsTag):
         name = name.lower()
         request = context["request"]
         lang = get_language_from_request(request)
-        page = _get_page_by_untyped_arg(page_lookup, request, get_site_id(None))
+        site = get_current_site(request)
+        page = _get_page_by_untyped_arg(page_lookup, request, site.pk)
         if page and name in self.valid_attributes:
             func = getattr(page, "get_%s" % name)
             ret_val = func(language=lang, fallback=True)
@@ -540,7 +539,7 @@ class CMSEditableObject(InclusionTag):
                 if not context.get("attribute_name", None):
                     # Make sure CMS.Plugin object will not clash in the frontend.
                     extra_context["attribute_name"] = (
-                        "-".join(edit_fields) if not isinstance("edit_fields", str) else edit_fields
+                        "-".join(edit_fields) if edit_fields and not isinstance(edit_fields, str) else edit_fields
                     )
             else:
                 instance.get_plugin_name = lambda: f"{smart_str(_('Add'))} {smart_str(opts.verbose_name)}"
@@ -866,56 +865,6 @@ class CMSEditableObjectBlock(CMSEditableObject):
         return extra_context
 
 
-class StaticPlaceholderNode(Tag):
-    name = "static_placeholder"
-    options = PlaceholderOptions(
-        Argument("code", required=True),
-        MultiValueArgument("extra_bits", required=False, resolve=False),
-        blocks=[
-            ("endstatic_placeholder", "nodelist"),
-        ],
-    )
-
-    def render_tag(self, context, code, extra_bits, nodelist=None):
-        request = context.get("request")
-
-        if not code or not request:
-            # an empty string was passed in or the variable is not available in the context
-            if nodelist:
-                return nodelist.render(context)
-            return ""
-
-        toolbar = get_toolbar_from_request(request)
-        renderer = toolbar.get_content_renderer()
-
-        if isinstance(code, StaticPlaceholder):
-            static_placeholder = code
-        else:
-            kwargs = {"code": code, "defaults": {"creation_method": StaticPlaceholder.CREATION_BY_TEMPLATE}}
-
-            if "site" in extra_bits:
-                kwargs["site"] = get_current_site()
-            else:
-                kwargs["site_id__isnull"] = True
-            static_placeholder = StaticPlaceholder.objects.get_or_create(**kwargs)[0]
-
-        content = renderer.render_static_placeholder(
-            static_placeholder,
-            context=context,
-            nodelist=nodelist,
-        )
-        return content
-
-    def get_declaration(self, context):
-        flags = self.kwargs["extra_bits"]
-        slot = self.kwargs["code"].resolve(context)
-
-        if isinstance(flags, ListValue):
-            site_bound = any(extra.var.value.strip() == "site" for extra in flags)
-            return DeclaredStaticPlaceholder(slot=slot, site_bound=site_bound)
-        return DeclaredStaticPlaceholder(slot=slot, site_bound=False)
-
-
 class RenderPlaceholder(AsTag):
     """
     Render the content of the plugins contained in a placeholder.
@@ -1036,4 +985,3 @@ register.simple_tag(
 register.tag("cms_admin_url", CMSAdminURL)
 register.tag("render_placeholder", RenderPlaceholder)
 register.tag("render_uncached_placeholder", RenderUncachedPlaceholder)
-register.tag("static_placeholder", StaticPlaceholderNode)

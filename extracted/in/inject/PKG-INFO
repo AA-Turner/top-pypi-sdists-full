@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inject
-Version: 5.4.1
+Version: 5.5.0
 Summary: Python dependency injection framework.
 Project-URL: homepage, https://github.com/ivankorobkov/python-inject
 Project-URL: source, https://github.com/ivankorobkov/python-inject
@@ -15,17 +15,16 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
-# python-inject [![Build Status](https://travis-ci.org/ivankorobkov/python-inject.svg?branch=master)](https://travis-ci.org/ivankorobkov/python-inject)
+# python-inject [![Build Status](https://github.com/ivankorobkov/python-inject/actions/workflows/tests.yaml/badge.svg?branch=master)](https://github.com/ivankorobkov/python-inject/actions/workflows/tests.yaml)
 Dependency injection the python way, the good way.
 
 ## Key features
@@ -37,14 +36,14 @@ Dependency injection the python way, the good way.
 * Transparently integrates into tests.
 * Autoparams leveraging type annotations.
 * Supports type hinting in Python 3.5+.
-* Supports Python 3.9+ (`v5.*`), 3.5-3.8 (`v4.*`) and Python 2.7–3.5 (`v3.*`).
 * Supports context managers.
 
 ## Python Support
 
 | Python  | Inject Version |
 |---------|----------------|
-| 3.9+    | 5.0+           |
+| 3.10+   | 5.5+           |
+| 3.9     | 5.0 - 5.4      |
 | 3.6-3.8 | 4.1+, < 5.0    |
 | 3.5     | 4.0            |
 | < 3.5   | 3.*            |
@@ -115,7 +114,7 @@ def bar(foo, cache=None):
 
 
 # `inject.attr` creates properties (descriptors) which request dependencies on access.
-class User(object):
+class User:
     cache = inject.attr(Cache)
             
     def __init__(self, id):
@@ -260,16 +259,16 @@ def config(binder):
 For example, only the `Config` class binding is present, other bindings are runtime:
 
 ```python
-class Config(object):
+class Config:
     pass
 
-class Cache(object):
+class Cache:
     config = inject.attr(Config)
 
-class Db(object):
+class Db:
     config = inject.attr(Config)
 
-class User(object):
+class User:
     cache = inject.attr(Cache)
     db = inject.attr(Db)
     
@@ -299,7 +298,7 @@ import inject
 
 inject.configure(lambda binder: \
     binder.bind('host', 'localhost') \
-    binder.bind('port', 1234))
+          .bind('port', 1234))
 ```
 
 ## Why no scopes?
@@ -319,7 +318,7 @@ import inject
 import threading
 
 # Given a user class.
-class User(object):
+class User:
     pass
 
 # Create a thread-local current user storage.
@@ -345,6 +344,18 @@ def foo(user):
 
 ## License
 Apache License 2.0
+
+## Development
+We use [uv](https://docs.astral.sh/uv/getting-started/installation/) and
+[just](https://github.com/casey/just#installation) for development. Install both,
+then run `just init` to set up the environment.
+
+Useful recipes:
+
+* `just` lists all recipes
+* `just dev` formats, lints, and tests on the default interpreter (the fast loop)
+* `just test 3.12` runs the tests against a specific Python version
+* `just check` runs the full gate before pushing
 
 ## Contributors
 * Ivan Korobkov [@ivankorobkov](https://github.com/ivankorobkov)

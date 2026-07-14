@@ -18,7 +18,6 @@ $spec = @{
         reservation_name = @{ type = "str"; }
         description = @{ type = "str"; }
         state = @{ type = "str"; choices = "absent", "present"; default = "present" }
-        computer_name = @{ type = "str" }
     }
     required_if = @(
         @("state", "present", @("mac", "ip"), $true),
@@ -40,18 +39,6 @@ $dns_regtype = $module.Params.dns_regtype
 $reservation_name = $module.Params.reservation_name
 $description = $module.Params.description
 $state = $module.Params.state
-$dhcp_computer_name = $module.Params.computer_name
-$extra_args = @{}
-if ($null -ne $dhcp_computer_name) {
-    $extra_args.ComputerName = $dhcp_computer_name
-}
-
-# filter to the scope if it was provided
-#Ensure we get the desired lease if mac address is present more than once in all the scopes
-$scope_filter = @{ }
-if ($scope_id) {
-    $scope_filter.ScopeId = $scope_id
-}
 
 Function Convert-MacAddress {
     Param(
@@ -142,13 +129,13 @@ if ($mac) {
         $module.FailJson("The MAC Address is not properly formatted")
     }
     else {
-        $current_lease = Get-DhcpServerv4Scope @scope_filter @extra_args | Get-DhcpServerv4Lease @extra_args | Where-Object ClientId -eq $mac
+        $current_lease = Get-DhcpServerv4Scope | Get-DhcpServerv4Lease | Where-Object ClientId -eq $mac
     }
 }
 
 # Find existing lease by IP address
 if ($ip -and (-not $current_lease)) {
-    $current_lease = Get-DhcpServerv4Scope @scope_filter @extra_args | Get-DhcpServerv4Lease @extra_args | Where-Object IPAddress -eq $ip
+    $current_lease = Get-DhcpServerv4Scope | Get-DhcpServerv4Lease | Where-Object IPAddress -eq $ip
 }
 
 # Did we find a lease/reservation
@@ -181,7 +168,7 @@ if ($state -eq "absent") {
         if ($current_lease_reservation -eq $true) {
             # Try to remove reservation
             Try {
-                $current_lease | Remove-DhcpServerv4Reservation -WhatIf:$check_mode @extra_args
+                $current_lease | Remove-DhcpServerv4Reservation -WhatIf:$check_mode
                 $state_absent_removed = $true
             }
             Catch {
@@ -192,7 +179,7 @@ if ($state -eq "absent") {
         else {
             # Try to remove lease
             Try {
-                $current_lease | Remove-DhcpServerv4Lease -WhatIf:$check_mode @extra_args
+                $current_lease | Remove-DhcpServerv4Lease -WhatIf:$check_mode
                 $state_absent_removed = $true
             }
             Catch {
@@ -249,17 +236,17 @@ if ($state -eq "present") {
                 }
 
                 # Desired type is reservation
-                $current_lease | Add-DhcpServerv4Reservation @params -WhatIf:$check_mode @extra_args
+                $current_lease | Add-DhcpServerv4Reservation -WhatIf:$check_mode
 
                 if (-not $check_mode) {
-                    $current_reservation = Get-DhcpServerv4Lease -ClientId $params.ClientId -ScopeId $current_lease.ScopeId @extra_args
+                    $current_reservation = Get-DhcpServerv4Lease -ClientId $params.ClientId -ScopeId $current_lease.ScopeId
                 }
 
                 # Update the reservation with new values
-                $current_reservation | Set-DhcpServerv4Reservation @params -WhatIf:$check_mode @extra_args
+                $current_reservation | Set-DhcpServerv4Reservation @params -WhatIf:$check_mode
 
                 if (-not $check_mode) {
-                    $updated_reservation = Get-DhcpServerv4Lease -ClientId $params.ClientId -ScopeId $current_reservation.ScopeId @extra_args
+                    $updated_reservation = Get-DhcpServerv4Lease -ClientId $params.ClientId -ScopeId $current_reservation.ScopeId
                 }
 
                 if (-not $check_mode) {
@@ -284,8 +271,7 @@ if ($state -eq "present") {
         if ($type -eq "lease") {
             Try {
                 # Desired type is a lease, remove the reservation
-                $current_lease | Remove-DhcpServerv4Reservation -WhatIf:$check_mode @extra_args
-
+                $current_lease | Remove-DhcpServerv4Reservation -WhatIf:$check_mode
                 # Build a new lease object with remnants of the reservation
                 $lease_params = @{
                     ClientId = $original_lease.ClientId
@@ -297,7 +283,7 @@ if ($state -eq "present") {
 
                 # Create new lease
                 Try {
-                    Add-DhcpServerv4Lease @lease_params -WhatIf:$check_mode @extra_args
+                    Add-DhcpServerv4Lease @lease_params -WhatIf:$check_mode
                 }
                 Catch {
                     $module.FailJson("Unable to convert the reservation to a lease: $_", $_)
@@ -306,7 +292,7 @@ if ($state -eq "present") {
                 # Get the lease we just created
                 if (-not $check_mode) {
                     Try {
-                        $new_lease = Get-DhcpServerv4Lease -ClientId $lease_params.ClientId -ScopeId $lease_params.ScopeId @extra_args
+                        $new_lease = Get-DhcpServerv4Lease -ClientId $lease_params.ClientId -ScopeId $lease_params.ScopeId
                     }
                     Catch {
                         $module.FailJson("Unable to retreive the newly created lease: $_", $_)
@@ -359,10 +345,10 @@ if ($state -eq "present") {
             }
 
             # Update the reservation with new values
-            $current_lease | Set-DhcpServerv4Reservation @params -WhatIf:$check_mode @extra_args
+            $current_lease | Set-DhcpServerv4Reservation @params -WhatIf:$check_mode
 
             if (-not $check_mode) {
-                $reservation = Get-DhcpServerv4Lease -ClientId $current_lease.ClientId -ScopeId $current_lease.ScopeId @extra_args
+                $reservation = Get-DhcpServerv4Lease -ClientId $current_lease.ClientId -ScopeId $current_lease.ScopeId
                 $module.Result.changed = Compare-DhcpLease -Original $original_lease -Updated $reservation
                 $module.Result.lease = Convert-ReturnValue -Object $reservation
             }
@@ -410,11 +396,11 @@ if ($state -eq "present") {
                 }
                 $params.AddressState = 'Active'
                 # Create lease based on parameters
-                Add-DhcpServerv4Lease @params -WhatIf:$check_mode @extra_args
+                Add-DhcpServerv4Lease @params -WhatIf:$check_mode
 
                 # Retreive the lease
                 if (-not $check_mode) {
-                    $new_lease = Get-DhcpServerv4Lease -ClientId $mac -ScopeId $scope_id @extra_args
+                    $new_lease = Get-DhcpServerv4Lease -ClientId $mac -ScopeId $scope_id
                     $module.Result.lease = Convert-ReturnValue -Object $new_lease
                 }
 
@@ -454,11 +440,11 @@ if ($state -eq "present") {
                 Try {
                     if ($check_mode) {
                         # In check mode, a lease won't exist for conversion, make one manually
-                        Add-DhcpServerv4Reservation -ScopeId $scope_id -ClientId $mac -IPAddress $ip -WhatIf:$check_mode @extra_args
+                        Add-DhcpServerv4Reservation -ScopeId $scope_id -ClientId $mac -IPAddress $ip -WhatIf:$check_mode
                     }
                     else {
                         # Convert to Reservation
-                        Add-DhcpServerv4Reservation @params -WhatIf:$check_mode @extra_args
+                        Add-DhcpServerv4Reservation @params -WhatIf:$check_mode
                     }
                 }
                 Catch {
@@ -468,7 +454,7 @@ if ($state -eq "present") {
 
                 if (-not $check_mode) {
                     # Get DHCP reservation object
-                    $new_lease = Get-DhcpServerv4Reservation -ClientId $mac -ScopeId $scope_id @extra_args
+                    $new_lease = Get-DhcpServerv4Reservation -ClientId $mac -ScopeId $scope_id
                     $module.Result.lease = Convert-ReturnValue -Object $new_lease
                 }
 

@@ -19,11 +19,6 @@ else
     echo "tiny_prefix: $tiny_prefix" >> "${BASE_DIR}/integration_config.yml"
 fi
 
-echo "pip freeze"
-pip freeze
-echo ""
-echo ""
-
 echo ""
 echo ""
 echo "******   Starting Eco vCenter tests   ******"
@@ -40,15 +35,7 @@ total=0
     echo "==============="
 } >> "$TEST_OUTPUT_LOG"
 
-if [ -n "${1:-}" ]; then
-    read -ra target_list <<<"$1"
-elif [ -n "${ECO_VCENTER_CI_TARGETS:-}" ]; then
-    read -ra target_list <<<"${ECO_VCENTER_CI_TARGETS}"
-else
-    mapfile -t target_list < <(ansible-test integration --list-target | grep 'vmware_')
-fi
-
-for target in "${target_list[@]}"; do
+for target in $(ansible-test integration --list-target | grep 'vmware_'); do
     echo "Running integration test for $target"
     total=$((total + 1))
     if ansible-test integration $target --skip-tags force-simulator-run; then

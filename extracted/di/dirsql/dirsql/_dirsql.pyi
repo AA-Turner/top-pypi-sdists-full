@@ -39,7 +39,7 @@ class Table:
         *,
         ddl: str,
         glob: str,
-        extract: Callable[[str], list[Row]],
+        on_file: Callable[[str], list[Row]],
         strict: bool = False,
     ) -> None: ...
 
@@ -65,7 +65,7 @@ class DirSQL:
         *,
         tables: list[Table] | None = None,
         ignore: list[str] | None = None,
-        config: str | None = None,
+        config: list[str] | None = None,
         persist: bool = False,
         persist_path: str | PathLike[str] | None = None,
         extensions: list[ExtensionSpec] | None = None,

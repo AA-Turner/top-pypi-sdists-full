@@ -3,6 +3,8 @@
 
 import datetime
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from django.utils.dateparse import parse_duration
 from rest_framework.test import APITestCase
@@ -316,6 +318,97 @@ class TaskTestCase(APITestCase):
         task = factories.TaskFactory()
         request = self.client.get("/api/v1/tasks/%s" % task.id)
         self.assertIn("inventory", request.data["playbook"]["arguments"])
+
+    @staticmethod
+    def _make_task_with_results(playbook, play, task_file, suffix, results=2):
+        # playbook, play and file are passed explicitly so TaskFactory's SubFactories do
+        # not each build their own playbook and create stray playbooks, which would skew
+        # the query-count assertion below.
+        host = factories.HostFactory(playbook=playbook, name="host-%s" % suffix)
+        task = factories.TaskFactory(playbook=playbook, play=play, file=task_file)
+        for _ in range(results):
+            factories.ResultFactory(playbook=playbook, play=play, task=task, host=host)
+        return task
+
+    def test_task_list_items_match_counts(self):
+        playbook = factories.PlaybookFactory()
+        play = factories.PlayFactory(playbook=playbook)
+        task_file = factories.FileFactory(playbook=playbook, path="/tasks.yml", content=factories.FileContentFactory())
+        populated = self._make_task_with_results(playbook, play, task_file, "a", results=3)
+        empty = factories.TaskFactory(playbook=playbook, play=play, file=task_file)
+
+        request = self.client.get("/api/v1/tasks")
+        self.assertEqual(200, request.status_code)
+        items_by_id = {row["id"]: row["items"] for row in request.data["results"]}
+
+        self.assertEqual(items_by_id[populated.id], {"results": populated.results.count()})
+        # Empty relationships must be reported as 0 (Coalesce), not omitted or null
+        self.assertEqual(items_by_id[empty.id], {"results": 0})
+
+    def test_task_list_has_no_n_plus_one_queries(self):
+        # Serializing the task list must take a constant number of queries no matter how
+        # many tasks are returned (see issue #534).
+        playbook = factories.PlaybookFactory()
+        play = factories.PlayFactory(playbook=playbook)
+        task_file = factories.FileFactory(playbook=playbook, path="/tasks.yml", content=factories.FileContentFactory())
+
+        self._make_task_with_results(playbook, play, task_file, "a")
+        with CaptureQueriesContext(connection) as one_task:
+            self.assertEqual(200, self.client.get("/api/v1/tasks").status_code)
+
+        self._make_task_with_results(playbook, play, task_file, "b")
+        with CaptureQueriesContext(connection) as two_tasks:
+            request = self.client.get("/api/v1/tasks")
+        self.assertEqual(2, request.data["count"])
+
+        self.assertEqual(
+            len(one_task.captured_queries),
+            len(two_tasks.captured_queries),
+            "Query count grew with the number of tasks (N+1 regression):\n%s"
+            % "\n".join(query["sql"] for query in two_tasks.captured_queries),
+        )
+
+    def test_status_filtered_task_list_has_cheap_queries(self):
+        # Filtering the task list by status must not degrade the query shapes
+        #   - no SELECT DISTINCT: the status filter used to inherit
+        #     MultipleChoiceFilter's distinct=True, which can never deduplicate a
+        #     scalar column but forces the database to materialize the entire
+        #     matching set (and to compute the per-row count annotations for
+        #     every row) even for a small LIMIT.
+        #   - the pagination COUNT must not drag the relationship-count
+        #     annotations along: without DISTINCT in the way, Django strips
+        #     unused annotations from .count().
+        factories.TaskFactory(status="completed")
+        factories.TaskFactory(status="running")
+
+        with CaptureQueriesContext(connection) as context:
+            request = self.client.get("/api/v1/tasks?status=completed&limit=1")
+        self.assertEqual(1, request.data["count"])
+
+        for query in context.captured_queries:
+            self.assertNotIn(
+                "DISTINCT",
+                query["sql"].upper(),
+                "The status filter must not apply DISTINCT to a scalar column: %s" % query["sql"],
+            )
+        count_queries = [q["sql"] for q in context.captured_queries if "COUNT(*)" in q["sql"].upper()]
+        self.assertTrue(count_queries, "Expected a pagination count query")
+        for sql in count_queries:
+            self.assertNotIn(
+                "annotated_results_count",
+                sql,
+                "The pagination count must not compute per-row annotations: %s" % sql,
+            )
+
+    def test_status_filter_is_case_sensitive_exact(self):
+        # The status filter validates against the model's choices, which are the
+        # exact lowercase strings the server writes, so anything else is rejected
+        # before it reaches the database. This documents that the iexact lookup
+        # the filter used to declare was unreachable (and let it be replaced with
+        # the plain, indexable exact lookup).
+        factories.TaskFactory(status="completed")
+        request = self.client.get("/api/v1/tasks?status=COMPLETED")
+        self.assertEqual(400, request.status_code)
 
 
 class TaskNotesTestCase(APITestCase):

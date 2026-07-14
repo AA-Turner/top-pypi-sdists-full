@@ -23,7 +23,7 @@ description:
 - Set or erase configuration for the DNS settings.
 - Nameservers provided will overwrite any existing nameservers.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -93,23 +93,27 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient.flashblade import Dns, DnsPatch, DnsPost, Reference
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    remove_duplicates,
-    get_error_message,
-)
 
 NON_MGMT_DNS = "2.15"
+
+
+def remove(duplicate):
+    final_list = []
+    for num in duplicate:
+        if num not in final_list:
+            final_list.append(num)
+    return final_list
 
 
 def _get_source(module, blade):
@@ -132,7 +136,7 @@ def delete_dns(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Delete DNS settigs failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -156,7 +160,7 @@ def create_dns(module, blade):
             )
         if res.status_code != 200:
             module.fail_json(
-                msg="Set DNS settings failed. Error: {0}".format(get_error_message(res))
+                msg="Set DNS settings failed. Error: {0}".format(res.errors[0].message)
             )
     module.exit_json(changed=changed)
 
@@ -191,7 +195,7 @@ def update_multi_dns(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Update to DNS configuration {0} failed. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -208,7 +212,7 @@ def delete_multi_dns(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete DNS configuration {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -252,7 +256,7 @@ def create_multi_dns(module, blade):
                 msg="Failed to create {0} DNS configuration {1}. Error: {2}".format(
                     module.params["service"],
                     module.params["name"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -277,13 +281,13 @@ def main():
     blade = get_system(module)
     api_version = list(blade.get_versions().items)
     if module.params["nameservers"]:
-        module.params["nameservers"] = remove_duplicates(module.params["nameservers"])
+        module.params["nameservers"] = remove(module.params["nameservers"])
 
     if NON_MGMT_DNS in api_version:
         configs = list(blade.get_dns().items)
         exists = False
-        for config in configs:
-            if config.name == module.params["name"]:
+        for config in range(len(configs)):
+            if configs[config].name == module.params["name"]:
                 exists = True
         if module.params["source"] and not _get_source(module, blade):
             module.fail_json(

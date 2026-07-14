@@ -1577,6 +1577,11 @@ class ToProtoConverter:
                 pb.DeduplicationStrategy(
                     underscore_expr=cls.convert_underscore(r.deduplication.on),
                     window=timedelta_to_proto_duration(parse_chalk_duration(r.deduplication.within)),
+                    deduplication_stage=(
+                        pb.StreamingDeduplicationStage.STREAMING_DEDUPLICATION_STAGE_PARSED_MESSAGE
+                        if r.deduplication.deduplication_stage == "parsed_message"
+                        else pb.StreamingDeduplicationStage.STREAMING_DEDUPLICATION_STAGE_OUTPUT_FEATURES
+                    ),
                 )
                 if r.deduplication is not None
                 else None

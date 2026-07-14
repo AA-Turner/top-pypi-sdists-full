@@ -23,12 +23,40 @@ import anyio.streams.text
 import pydantic
 import urllib3
 import urllib3.exceptions
+from expandvars import ExpandvarsException, UnboundVariable
+from expandvars import expand as _expandvars_expand
 from loguru import logger
 
 from acryl.executor.cloud_utils.env_utils import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
+
+
+def _expand_pip_req(req: str) -> str:
+    """Expand ${VAR:-default} templates in a pip requirement string.
+
+    Only expands entries that contain ${, so plain pip specs and URLs with bare
+    $ mid-string (e.g. ?sig=$TOKEN) are passed through unchanged.
+
+    Uses nounset semantics — matching config_loader.py's pattern — so that
+    ${VAR} with no default raises a RuntimeError rather than silently expanding
+    to an empty string and producing a blank pip requirement that uv skips.
+    """
+    if "${" not in req:
+        return req
+    try:
+        return _expandvars_expand(req, nounset=True)
+    except UnboundVariable as e:
+        raise RuntimeError(
+            f"pip requirement {req!r} references unset environment variable {e}. "
+            "Set the variable or add a default (e.g. ${VAR:-fallback})."
+        ) from e
+    except ExpandvarsException as e:
+        raise RuntimeError(
+            f"pip requirement {req!r} has invalid environment variable syntax: {e}"
+        ) from e
+
 
 _DEFAULT_MAX_LOG_LINES = 2000
 _DEFAULT_MAX_BYTES_PER_LINE = 2**12  # 4kb
@@ -298,7 +326,13 @@ class VenvConfig(pydantic.BaseModel):
     def set_main_plugin(self, plugin: str) -> None:
         self.main_plugin = plugin
 
-    def get_stable_venv_name(self) -> Union[str, None]:
+    def resolve_pip_requirements(self) -> list[str]:
+        """Expand env-var templates in extra_pip_requirements."""
+        return [_expand_pip_req(r) for r in self.extra_pip_requirements]
+
+    def get_stable_venv_name(
+        self, expanded_pip_reqs: Union[list[str], None] = None
+    ) -> Union[str, None]:
         if self.requirements_file is not None:
             suffix = hashlib.sha256()
             suffix.update(self.requirements_file.read_bytes())
@@ -316,10 +350,19 @@ class VenvConfig(pydantic.BaseModel):
             return None
 
         # Generate a stable name for the venv.
-        # env vars are not included in the hash.
+        # Hash the expanded values so that changing DATAHUB_INTEGRATIONS_PACKAGE_SPEC
+        # (or any other env-var template) forces a new venv rather than reusing a
+        # cached one with the old spec. Callers may pass pre-expanded reqs (from
+        # resolve_pip_requirements()) so that hash time and install time use the same
+        # os.environ snapshot.
         suffix = hashlib.sha256()
         suffix.update(self.version.encode("utf-8"))
-        suffix.update(str(self.extra_pip_requirements).encode("utf-8"))
+        reqs_for_hash = (
+            expanded_pip_reqs
+            if expanded_pip_reqs is not None
+            else self.resolve_pip_requirements()
+        )
+        suffix.update(str(reqs_for_hash).encode("utf-8"))
         suffix.update(str(self.extra_pip_plugins).encode("utf-8"))
 
         return f"{self.main_plugin}-{suffix.digest().hex()[:16]}"
@@ -560,8 +603,14 @@ async def setup_venv(
         )
 
     # Handle dynamic venvs
+    # Expand env-var templates once so that the venv cache key and the
+    # requirements file see the same os.environ snapshot.
+    expanded_pip_reqs = venv_config.resolve_pip_requirements()
+
     # Versions that are "moving targets" get random names, everything else gets a stable name
-    venv_name_candidate = venv_config.get_stable_venv_name()
+    venv_name_candidate = venv_config.get_stable_venv_name(
+        expanded_pip_reqs=expanded_pip_reqs
+    )
     if venv_name_candidate is None:
         venv_name = f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
     else:
@@ -634,9 +683,9 @@ async def setup_venv(
         await runner.execute(install_cmd, env=venv_env)
 
     # Pass 2: Install extra_pip_requirements without constraints.
-    if venv_config.requirements_file is None and venv_config.extra_pip_requirements:
+    if venv_config.requirements_file is None and expanded_pip_reqs:
         extra_req_file = venv_loc / "extra-requirements.txt"
-        extra_req_file.write_text("\n".join(venv_config.extra_pip_requirements))
+        extra_req_file.write_text("\n".join(expanded_pip_reqs))
         runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
         await runner.execute(["cat", str(extra_req_file)])
         await runner.execute(

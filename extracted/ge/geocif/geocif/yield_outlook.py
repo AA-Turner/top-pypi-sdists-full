@@ -196,9 +196,11 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
 
         # "Stage Window Display" is a newer calendar-order label emitted
         # alongside the load-bearing "Stage Name". Older DBs won't have it;
-        # include only when the column exists.
+        # include only when the column exists. "Season" is present only for
+        # multi-season countries (e.g. Somalia: 1=Gu, 2=Deyr); single-season
+        # / older DBs lack it and stay on the pre-season code path.
         optional_cols = [
-            c for c in ("lower CI", "upper CI", "Area (ha)", "Stage Window Display")
+            c for c in ("lower CI", "upper CI", "Area (ha)", "Stage Window Display", "Season")
             if c in table_cols
         ]
         extra_select = (
@@ -238,6 +240,11 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
+        # Season is a small integer label (1=Gu, 2=Deyr, ...). Coerce to a
+        # nullable Int64 so downstream grouping/tokens stay integral even when
+        # the DB stored it as float/text; absent for single-season DBs.
+        if "Season" in df.columns:
+            df["Season"] = pd.to_numeric(df["Season"], errors="coerce").astype("Int64")
     return df
 
 
@@ -255,27 +262,45 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
 
     Returns DataFrame with columns: Country, Region, Country Region,
     current_predicted, hist_predicted, outlook_index.
+
+    Season handling: when the input df carries a "Season" column (multi-season
+    countries such as Somalia — 1=Gu, 2=Deyr), "Season" is added to EVERY
+    grouping key so the result has one row per (Country, Region, Season) plus a
+    "Season" column. When "Season" is absent (single-season / older DBs) the
+    original single-row-per-region path runs unchanged (byte-for-byte).
     """
+    has_season = "Season" in df.columns
+    # Grouping keys gain "Season" only when the column is present, so the
+    # single-season code path is identical to before.
+    latest_keys = (
+        ["Country", "Region", "Season", "Harvest Year"] if has_season
+        else ["Country", "Region", "Harvest Year"]
+    )
+    region_keys = (
+        ["Country", "Region", "Season"] if has_season
+        else ["Country", "Region"]
+    )
+
     if use_latest_stage:
-        # For each region+year, keep only the latest (last) stage prediction
+        # For each region(+season)+year, keep only the latest (last) stage
         df_work = (
             df.sort_values("Stage Name")
-            .groupby(["Country", "Region", "Harvest Year"])
+            .groupby(latest_keys)
             .last()
             .reset_index()
         )
     else:
         df_work = df[df["Stage Name"] == stage_name].copy()
 
-    # Current year predictions per region
+    # Current year predictions per region(+season)
     df_current = df_work[df_work["Harvest Year"] == current_year]
     current_pred = (
-        df_current.groupby(["Country", "Region"])["Predicted Yield (tn per ha)"]
+        df_current.groupby(region_keys)["Predicted Yield (tn per ha)"]
         .mean()
         .rename("current_predicted")
     )
 
-    # Historical years per region
+    # Historical years per region(+season)
     min_year = current_year - n_years
     df_hist = df_work[
         (df_work["Harvest Year"] < current_year)
@@ -283,7 +308,7 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     ]
     agg_func = "median" if aggregation == "median" else "mean"
     hist_agg = (
-        df_hist.groupby(["Country", "Region"])["Predicted Yield (tn per ha)"]
+        df_hist.groupby(region_keys)["Predicted Yield (tn per ha)"]
         .agg(agg_func)
         .rename("hist_predicted")
     )
@@ -298,7 +323,9 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     )
     df_outlook = df_outlook.reset_index()
 
-    # Create merge column (same pattern as analysis.py:1410-1414)
+    # Create merge column (same pattern as analysis.py:1410-1414). Region-only
+    # (NOT season-scoped): shapefile geometry is per region, and both seasons
+    # of a region share the same polygon.
     df_outlook["Country Region"] = (
         df_outlook["Country"].str.lower().str.replace("_", " ")
         + " "
@@ -306,6 +333,35 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     )
 
     return df_outlook
+
+
+def _season_iter(df):
+    """Yield ``(season, sub_df, fname_token, label_suffix)`` per season present.
+
+    Backward-compatible splitter used by every outlook-map block:
+
+    * No "Season" column (or all-NaN) -> a single ``(None, df, "", "")`` tuple,
+      so callers reproduce the pre-season output byte-for-byte (same paths).
+    * Exactly one season present      -> a single ``(s, sub, "", "")`` tuple;
+      still no filename token / label suffix (single-season stays unchanged).
+    * Two or more seasons              -> one tuple per season, each with a
+      ``"_s{n}"`` filename token and a ``" — Season {n}"`` label suffix so the
+      maps are distinguishable (e.g. Somalia 1=Gu, 2=Deyr).
+    """
+    seasons = (
+        sorted(df["Season"].dropna().unique())
+        if "Season" in df.columns else []
+    )
+    if not seasons:
+        yield None, df, "", ""
+        return
+    multi = len(seasons) > 1
+    for s in seasons:
+        sub = df[df["Season"] == s]
+        if multi:
+            yield s, sub, f"_s{int(s)}", f" — Season {int(s)}"
+        else:
+            yield s, sub, "", ""
 
 
 # Default effective parameter counts per model, used by _bma_bic_blend to
@@ -2862,12 +2918,18 @@ def _generate_outlook_map(
     col="outlook_index",
     col_label=None,
     fname_extra="",
+    label_extra="",
 ):
     """Generate a diverging choropleth map of the yield outlook index (or any anomaly column).
 
     ``fname_extra`` is appended before the ``.png`` extension so callers
     can distinguish variants of the same map (e.g. ``_filtered`` for the
     minimal-crop-area filtered anomaly map).
+
+    ``label_extra`` is appended to the colorbar label (whether the label is the
+    computed default or an explicit ``col_label``) so callers can tag a map
+    (e.g. ``" — Season 1"``). Empty by default -> label is byte-for-byte
+    unchanged.
     """
     # [ML] make_maps gate (default False): when figures are disabled this
     # renderer is a no-op, so ensemble/blend computation and the outlook CSV
@@ -2902,6 +2964,8 @@ def _generate_outlook_map(
     friendly = friendly_stage_label(stage_name) if stage_name else ""
     stage_label = f", {friendly}" if friendly else ""
     label = col_label or f"% departure from {n_years}-year hindcast {aggregation}\n{crop.title()}, {current_year}{stage_label}"
+    if label_extra:
+        label = f"{label}{label_extra}"
     plot.plot_map(
         dg,
         df_outlook,
@@ -3547,109 +3611,120 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         dir_model = dir_model / stage_safe
                     os.makedirs(dir_model, exist_ok=True)
                     _countries_str = "_".join(map_countries)
-                    _generate_outlook_map(
-                        dg,
-                        df_outlook,
-                        map_countries,
-                        crop,
-                        model,
-                        year_to_map,
-                        n_years,
-                        aggregation,
-                        dir_model,
-                        stage_name=stage_name,
-                        annotate_regions=False,
-                    )
-                    logger.info(
-                        f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{year_to_map}.png'}"
-                    )
 
-                    # Absolute predicted-yield choropleth (sequential, tn/ha).
-                    # Complements the diverging outlook-index map by showing the
-                    # raw forecast value per region rather than a % departure.
-                    df_pred_map = df_outlook[[
-                        "Country", "Region", "Country Region", "current_predicted",
-                    ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
-                    pred_fname = (
-                        f"predicted_yield_{_countries_str}_{crop}_{model}"
-                        f"_{stage_name}_{year_to_map}.png"
-                    )
-                    plot.plot_map(
-                        dg,
-                        df_pred_map,
-                        merge_col="Country Region",
-                        name_country=[c.title().replace("_", " ") for c in map_countries],
-                        name_col="Predicted Yield (tn per ha)",
-                        dir_out=dir_model,
-                        fname=pred_fname,
-                        label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}",
-                        vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
-                        vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
-                        cmap=pal.scientific.sequential.Bamako_20_r,
-                        series="sequential",
-                        annotate_regions=False,
-                        loc_legend="lower left",
-                    )
-
-                    # Observed-baseline anomaly maps — current year only.
-                    # The reference periods (2013-2017 / 2018-2022 / 10yr from
-                    # today) are anchored to the live forecast; rendering them
-                    # against hindcast predictions would compare a 2010 forecast
-                    # against an observed mean that includes the future.
-                    if year_to_map == current_year:
-                        # Minimal-crop-area filter (opt-in via geocif.txt):
-                        # regions producing < min_share % of national are
-                        # rendered gray on the *_filtered.png variant, so
-                        # tiny-area regions with noisy predictions don't
-                        # visually dominate the map. Computed here (not
-                        # earlier) so it's country-scoped and reflects the
-                        # same df used to build df_outlook.
-                        area_filter_enabled = parser.getboolean(
-                            "ML", "outlook_area_filter_enabled", fallback=True
+                    # Multi-season countries (e.g. Somalia 1=Gu, 2=Deyr) render
+                    # ONE map set per season, each tagged with a "_s{n}" filename
+                    # token + season label. Single-season / no-Season data yields
+                    # a single ("", "") pass, so filenames + maps are unchanged.
+                    for _season, dfo, season_token, season_label in _season_iter(df_outlook):
+                        _generate_outlook_map(
+                            dg,
+                            dfo,
+                            map_countries,
+                            crop,
+                            model,
+                            year_to_map,
+                            n_years,
+                            aggregation,
+                            dir_model,
+                            stage_name=stage_name,
+                            annotate_regions=False,
+                            fname_extra=season_token,
+                            label_extra=season_label,
                         )
-                        min_share = parser.getfloat(
-                            "ML", "outlook_min_production_share", fallback=0.5
+                        logger.info(
+                            f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{year_to_map}{season_token}.png'}"
                         )
-                        prod_pct = {}
-                        if area_filter_enabled:
-                            from .viz import diagnostics as _diag
-                            prod_pct = _diag.compute_production_pct(df, country)
 
-                        for period_label, df_obs in obs_baselines.items():
-                            df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
-                                df_obs, on="Region", how="left"
-                            )
-                            df_anom["obs_anomaly"] = np.where(
-                                df_anom["obs_mean"] != 0,
-                                (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
-                                np.nan,
-                            )
-                            dir_obs = dir_model / "obs_anomaly" / period_label
-                            os.makedirs(dir_obs, exist_ok=True)
-                            _generate_outlook_map(
-                                dg, df_anom, map_countries, crop, model, current_year,
-                                n_years, aggregation, dir_obs,
-                                col="obs_anomaly",
-                                col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
-                            )
+                        # Absolute predicted-yield choropleth (sequential, tn/ha).
+                        # Complements the diverging outlook-index map by showing the
+                        # raw forecast value per region rather than a % departure.
+                        df_pred_map = dfo[[
+                            "Country", "Region", "Country Region", "current_predicted",
+                        ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
+                        pred_fname = (
+                            f"predicted_yield_{_countries_str}_{crop}_{model}"
+                            f"_{stage_name}_{year_to_map}{season_token}.png"
+                        )
+                        plot.plot_map(
+                            dg,
+                            df_pred_map,
+                            merge_col="Country Region",
+                            name_country=[c.title().replace("_", " ") for c in map_countries],
+                            name_col="Predicted Yield (tn per ha)",
+                            dir_out=dir_model,
+                            fname=pred_fname,
+                            label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}{season_label}",
+                            vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
+                            vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
+                            cmap=pal.scientific.sequential.Bamako_20_r,
+                            series="sequential",
+                            annotate_regions=False,
+                            loc_legend="lower left",
+                        )
 
-                            if area_filter_enabled and prod_pct:
-                                df_anom_f = df_anom.copy()
-                                mask_excluded = df_anom_f["Region"].map(
-                                    lambda r: prod_pct.get(r, 0.0) < min_share
+                        # Observed-baseline anomaly maps — current year only.
+                        # The reference periods (2013-2017 / 2018-2022 / 10yr from
+                        # today) are anchored to the live forecast; rendering them
+                        # against hindcast predictions would compare a 2010 forecast
+                        # against an observed mean that includes the future.
+                        if year_to_map == current_year:
+                            # Minimal-crop-area filter (opt-in via geocif.txt):
+                            # regions producing < min_share % of national are
+                            # rendered gray on the *_filtered.png variant, so
+                            # tiny-area regions with noisy predictions don't
+                            # visually dominate the map. Computed here (not
+                            # earlier) so it's country-scoped and reflects the
+                            # same df used to build df_outlook.
+                            area_filter_enabled = parser.getboolean(
+                                "ML", "outlook_area_filter_enabled", fallback=True
+                            )
+                            min_share = parser.getfloat(
+                                "ML", "outlook_min_production_share", fallback=0.5
+                            )
+                            prod_pct = {}
+                            if area_filter_enabled:
+                                from .viz import diagnostics as _diag
+                                prod_pct = _diag.compute_production_pct(df, country)
+
+                            for period_label, df_obs in obs_baselines.items():
+                                df_anom = dfo[["Country", "Region", "Country Region", "current_predicted"]].merge(
+                                    df_obs, on="Region", how="left"
                                 )
-                                df_anom_f.loc[mask_excluded, "obs_anomaly"] = np.nan
+                                df_anom["obs_anomaly"] = np.where(
+                                    df_anom["obs_mean"] != 0,
+                                    (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
+                                    np.nan,
+                                )
+                                dir_obs = dir_model / "obs_anomaly" / period_label
+                                os.makedirs(dir_obs, exist_ok=True)
                                 _generate_outlook_map(
-                                    dg, df_anom_f, map_countries, crop, model, current_year,
+                                    dg, df_anom, map_countries, crop, model, current_year,
                                     n_years, aggregation, dir_obs,
                                     col="obs_anomaly",
-                                    col_label=(
-                                        f"% departure from {period_label} observed mean\n"
-                                        f"{crop.title()}, {current_year}\n"
-                                        f"(regions with <{min_share:g}% national share grayed)"
-                                    ),
-                                    fname_extra="_filtered",
+                                    col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                                    fname_extra=season_token,
+                                    label_extra=season_label,
                                 )
+
+                                if area_filter_enabled and prod_pct:
+                                    df_anom_f = df_anom.copy()
+                                    mask_excluded = df_anom_f["Region"].map(
+                                        lambda r: prod_pct.get(r, 0.0) < min_share
+                                    )
+                                    df_anom_f.loc[mask_excluded, "obs_anomaly"] = np.nan
+                                    _generate_outlook_map(
+                                        dg, df_anom_f, map_countries, crop, model, current_year,
+                                        n_years, aggregation, dir_obs,
+                                        col="obs_anomaly",
+                                        col_label=(
+                                            f"% departure from {period_label} observed mean\n"
+                                            f"{crop.title()}, {current_year}\n"
+                                            f"(regions with <{min_share:g}% national share grayed)"
+                                        ),
+                                        fname_extra=f"{season_token}_filtered",
+                                        label_extra=season_label,
+                                    )
 
             # [ML] make_maps gate: skip per-combo diagnostic plots (forest,
             # yield table, MAPE/RMSE boxes, %-area map). df_pred_store was
@@ -3896,11 +3971,15 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             # maps/{model}/{country}/ after the country-level insertion.
             dir_model = dir_outlook / "maps" / model / "_combined"
             os.makedirs(dir_model, exist_ok=True)
-            _generate_outlook_map(
-                dg, df_group, countries_with_data, crop, model,
-                current_year, n_years, aggregation, dir_model,
-                stage_name="combined", annotate_regions=False,
-            )
+            # Split by season so a multi-season country in the pool doesn't
+            # merge 2 rows/region onto the shapefile (no-Season -> single pass).
+            for _season, dfg, season_token, season_label in _season_iter(df_group):
+                _generate_outlook_map(
+                    dg, dfg, countries_with_data, crop, model,
+                    current_year, n_years, aggregation, dir_model,
+                    stage_name="combined", annotate_regions=False,
+                    fname_extra=season_token, label_extra=season_label,
+                )
 
         # Consolidated multi-country obs_anomaly maps — one per (crop, model, period)
         for (crop_val, model_val), df_group in df_all.groupby(["Crop", "Model"]):
@@ -3909,24 +3988,26 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 continue
             obs_baselines_combined = _load_observed_baselines(countries_with_data, crop_val, parser, current_year=current_year)
             for period_label, df_obs in obs_baselines_combined.items():
-                df_anom = df_group[
-                    ["Country", "Region", "Country Region", "current_predicted"]
-                ].merge(df_obs, on="Region", how="left")
-                df_anom["obs_anomaly"] = np.where(
-                    df_anom["obs_mean"] != 0,
-                    (df_anom["current_predicted"] - df_anom["obs_mean"])
-                    / df_anom["obs_mean"] * 100,
-                    np.nan,
-                )
-                dir_obs_combined = dir_outlook / "maps" / model_val / "_combined" / "obs_anomaly" / period_label
-                os.makedirs(dir_obs_combined, exist_ok=True)
-                _generate_outlook_map(
-                    dg, df_anom, countries_with_data, crop_val, model_val,
-                    current_year, n_years, aggregation, dir_obs_combined,
-                    col="obs_anomaly",
-                    col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
-                    stage_name="combined", annotate_regions=False,
-                )
+                for _season, dfg, season_token, season_label in _season_iter(df_group):
+                    df_anom = dfg[
+                        ["Country", "Region", "Country Region", "current_predicted"]
+                    ].merge(df_obs, on="Region", how="left")
+                    df_anom["obs_anomaly"] = np.where(
+                        df_anom["obs_mean"] != 0,
+                        (df_anom["current_predicted"] - df_anom["obs_mean"])
+                        / df_anom["obs_mean"] * 100,
+                        np.nan,
+                    )
+                    dir_obs_combined = dir_outlook / "maps" / model_val / "_combined" / "obs_anomaly" / period_label
+                    os.makedirs(dir_obs_combined, exist_ok=True)
+                    _generate_outlook_map(
+                        dg, df_anom, countries_with_data, crop_val, model_val,
+                        current_year, n_years, aggregation, dir_obs_combined,
+                        col="obs_anomaly",
+                        col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
+                        stage_name="combined", annotate_regions=False,
+                        fname_extra=season_token, label_extra=season_label,
+                    )
 
         # Ensemble: mean across models (skip when only one model)
         n_models = df_all["Model"].nunique()
@@ -3943,11 +4024,17 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             # the aggregation just skips it. See stages.get_stage_information_dict.
             if "Stage Window Display" in df_all.columns:
                 _agg_map["Stage Window Display"] = "last"
+            # Season-aware grouping: keep Gu/Deyr separate so the ensemble
+            # doesn't average two seasons into one row per region. Falls back
+            # to the original 5-key grouping when there's no Season column.
+            _ens_keys = ["Country", "Region", "Country Region", "Crop", "Forecast Year"]
+            if "Season" in df_all.columns:
+                _ens_keys = [
+                    "Country", "Region", "Country Region", "Season",
+                    "Crop", "Forecast Year",
+                ]
             df_ensemble = (
-                df_all.groupby(
-                    ["Country", "Region", "Country Region", "Crop", "Forecast Year"],
-                    as_index=False,
-                ).agg(_agg_map)
+                df_all.groupby(_ens_keys, as_index=False).agg(_agg_map)
             )
             df_ensemble["Model"] = "ensemble"
 
@@ -3960,22 +4047,26 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 stage_val = df_group["Stage Name"].iloc[0]
                 dir_ens_country = dir_ens / country_val
                 os.makedirs(dir_ens_country, exist_ok=True)
-                _generate_outlook_map(
-                    dg, df_group, map_countries_val, crop_val,
-                    "ensemble", current_year, n_years, aggregation, dir_ens_country,
-                    stage_name=stage_val, annotate_regions=False,
-                )
+                for _season, dfg, season_token, season_label in _season_iter(df_group):
+                    _generate_outlook_map(
+                        dg, dfg, map_countries_val, crop_val,
+                        "ensemble", current_year, n_years, aggregation, dir_ens_country,
+                        stage_name=stage_val, annotate_regions=False,
+                        fname_extra=season_token, label_extra=season_label,
+                    )
 
             # Multi-country ensemble maps — under maps/ensemble/_combined/
             dir_ens_combined = dir_ens / "_combined"
             for crop_val, df_group in df_ensemble.groupby("Crop"):
                 if len(df_group["Country"].unique()) > 1:
                     os.makedirs(dir_ens_combined, exist_ok=True)
-                    _generate_outlook_map(
-                        dg, df_group, df_group["Country"].unique().tolist(), crop_val,
-                        "ensemble", current_year, n_years, aggregation, dir_ens_combined,
-                        stage_name="combined", annotate_regions=False,
-                    )
+                    for _season, dfg, season_token, season_label in _season_iter(df_group):
+                        _generate_outlook_map(
+                            dg, dfg, dfg["Country"].unique().tolist(), crop_val,
+                            "ensemble", current_year, n_years, aggregation, dir_ens_combined,
+                            stage_name="combined", annotate_regions=False,
+                            fname_extra=season_token, label_extra=season_label,
+                        )
 
             # Ensemble observed-baseline anomaly maps — single country goes
             # under maps/ensemble/{country}/obs_anomaly/{period}/, multi-country
@@ -3984,26 +4075,28 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 countries_ens = df_ens_crop["Country"].unique().tolist()
                 obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
                 for period_label, df_obs in obs_baselines_ens.items():
-                    df_ens_anom = df_ens_crop[
-                        ["Country", "Region", "Country Region", "current_predicted"]
-                    ].merge(df_obs, on="Region", how="left")
-                    df_ens_anom["obs_anomaly"] = np.where(
-                        df_ens_anom["obs_mean"] != 0,
-                        (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
-                        / df_ens_anom["obs_mean"] * 100,
-                        np.nan,
-                    )
-                    if len(countries_ens) == 1:
-                        dir_ens_obs = dir_ens / countries_ens[0] / "obs_anomaly" / period_label
-                    else:
-                        dir_ens_obs = dir_ens / "_combined" / "obs_anomaly" / period_label
-                    os.makedirs(dir_ens_obs, exist_ok=True)
-                    _generate_outlook_map(
-                        dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,
-                        n_years, aggregation, dir_ens_obs,
-                        col="obs_anomaly",
-                        col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
-                    )
+                    for _season, dfg, season_token, season_label in _season_iter(df_ens_crop):
+                        df_ens_anom = dfg[
+                            ["Country", "Region", "Country Region", "current_predicted"]
+                        ].merge(df_obs, on="Region", how="left")
+                        df_ens_anom["obs_anomaly"] = np.where(
+                            df_ens_anom["obs_mean"] != 0,
+                            (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
+                            / df_ens_anom["obs_mean"] * 100,
+                            np.nan,
+                        )
+                        if len(countries_ens) == 1:
+                            dir_ens_obs = dir_ens / countries_ens[0] / "obs_anomaly" / period_label
+                        else:
+                            dir_ens_obs = dir_ens / "_combined" / "obs_anomaly" / period_label
+                        os.makedirs(dir_ens_obs, exist_ok=True)
+                        _generate_outlook_map(
+                            dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,
+                            n_years, aggregation, dir_ens_obs,
+                            col="obs_anomaly",
+                            col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
+                            fname_extra=season_token, label_extra=season_label,
+                        )
 
         # Config-gated ensemble blends. Two flavors, both leak-safe (per-
         # region history filtered to Harvest Year < Forecast Year):
@@ -4097,7 +4190,17 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         # Wide-format CSV: one outlook_index column per model + ensemble
         # + one column per active blend
         pivot_cols = ["Country", "Region", "Crop", "Forecast Year"]
-        df_wide = df_all.pivot_table(
+        df_pivot_src = df_all
+        if "Season" in df_all.columns:
+            # Multi-season countries: keep seasons as distinct wide rows so
+            # pivot_table doesn't silently average Gu+Deyr into one value.
+            # Rows from single-season / no-Season DBs (in a mixed run) carry
+            # NaN Season, which pivot_table would drop as a NaN index key —
+            # fill with 0 ("unspecified season") for the pivot so they survive.
+            pivot_cols = pivot_cols + ["Season"]
+            df_pivot_src = df_all.copy()
+            df_pivot_src["Season"] = df_pivot_src["Season"].fillna(0).astype(int)
+        df_wide = df_pivot_src.pivot_table(
             index=pivot_cols, columns="Model", values="outlook_index"
         ).reset_index()
         df_wide.columns.name = None
@@ -4105,11 +4208,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         if len(model_cols) > 1:
             df_wide["ensemble"] = df_wide[model_cols].mean(axis=1)
         for blend_name, df_blend in blends:
+            # Blends may lack a Season column (their internals group on region
+            # only); merge on whatever pivot keys the blend actually has.
+            merge_cols = [c for c in pivot_cols if c in df_blend.columns]
             df_wide = df_wide.merge(
-                df_blend[pivot_cols + ["outlook_index"]].rename(
+                df_blend[merge_cols + ["outlook_index"]].rename(
                     columns={"outlook_index": blend_name}
                 ),
-                on=pivot_cols, how="left",
+                on=merge_cols, how="left",
             )
         csv_wide = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}_wide.csv"
         df_wide.to_csv(csv_wide, index=False)

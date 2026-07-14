@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tempora
-Version: 5.10.0
+Version: 5.12.0
 Author-Email: Jason R. Coombs <jaraco@jaraco.com>
 Summary:
 Requires-Python: >= 3.10
@@ -15,8 +15,8 @@ Requires-Dist: jaraco.functools
 Requires-Dist: typing_extensions
 Requires-Dist: freezegun; extra=="test"
 Requires-Dist: pytest; extra=="test"
-Provides-Extra: test
 Provides-Extra: doc
+Provides-Extra: test
 Project-URL: Source, https://github.com/jaraco/tempora
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable

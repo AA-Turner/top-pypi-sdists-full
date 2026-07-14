@@ -731,17 +731,22 @@ class AgenticFindingType(sgqlc.types.Enum):
 
 
 class AgenticPlatformPipelineStatus(sgqlc.types.Enum):
-    """Lifecycle status of a single pipeline execution.
+    """Lifecycle status of a single pipeline execution.      ``QUEUED →
+    RUNNING → COMPLETED | ERROR``. Only pipelines with a
+    concurrent-run cap (``MAX_CONCURRENT_RUNS_BY_PIPELINE_TYPE`` in
+    the     orchestrator service, ORB-342) ever enter ``QUEUED``;
+    uncapped pipelines     are created directly as ``RUNNING``.
 
     Enumeration Choices:
 
     * `COMPLETED`None
     * `ERROR`None
+    * `QUEUED`None
     * `RUNNING`None
     """
 
     __schema__ = schema
-    __choices__ = ("COMPLETED", "ERROR", "RUNNING")
+    __choices__ = ("COMPLETED", "ERROR", "QUEUED", "RUNNING")
 
 
 class AgenticPlatformPipelineType(sgqlc.types.Enum):
@@ -8278,6 +8283,23 @@ class TsaAnalysisStatusEnum(sgqlc.types.Enum):
     __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED")
 
 
+class TsaAutomationThreshold(sgqlc.types.Enum):
+    """Triage-priority threshold at or above which the troubleshooting
+    agent auto-runs on a triaged alert: OFF (never), HIGH,
+    HIGH_MEDIUM, or ALL.
+
+    Enumeration Choices:
+
+    * `ALL`None
+    * `HIGH`None
+    * `HIGH_MEDIUM`None
+    * `OFF`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALL", "HIGH", "HIGH_MEDIUM", "OFF")
+
+
 class TuningUnavailableReason(sgqlc.types.Enum):
     """Why ``Monitor.isTunable`` is ``false`` for a given monitor.
     ``None`` at the GraphQL boundary means tuning is currently
@@ -13496,7 +13518,7 @@ class MskKafkaConnectCredentialsInput(sgqlc.types.Input):
 
 class MulesoftConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("client_id", "client_secret", "region")
+    __field_names__ = ("client_id", "client_secret", "region", "org_id")
     client_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clientId")
     """Anypoint Connected App client_id (the customer creates the
     Connected App in Anypoint with the View Environment, Read
@@ -13515,6 +13537,17 @@ class MulesoftConnectionDetails(sgqlc.types.Input):
     gov.anypoint.mulesoft.com). Defaults to US when omitted
     (anypoint.mulesoft.com is the primary Anypoint instance; EU and
     Gov are special-case deployments).
+    """
+
+    org_id = sgqlc.types.Field(String, graphql_name="orgId")
+    """Anypoint organization or business-group ID to collect from. Set
+    this when your Mule applications are deployed in an Anypoint
+    business group: Anypoint resolves a Connected App's identity to
+    the root organization regardless of where the app was created, so
+    business-group deployments are only visible when named explicitly.
+    Find the ID in Anypoint under Access Management → Business Groups
+    (it is also in that page's URL). When omitted, the organization
+    that owns the Connected App is collected.
     """
 
 
@@ -16144,6 +16177,23 @@ class TriageAlertsInput(sgqlc.types.Input):
     duplicated. Does NOT affect the alert message's own triage state —
     the in-progress status, completed priority dot, and Triage-button
     removal always sync — nor the in-product completion notification.
+    """
+
+
+class TriageAutomationDomainOverrideInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("domain_uuid", "triage_enabled", "tsa_threshold")
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """UUID of the domain whose override to set or remove."""
+
+    triage_enabled = sgqlc.types.Field(Boolean, graphql_name="triageEnabled")
+    """Per-domain triage toggle. Omit or pass null to inherit the
+    account-level setting.
+    """
+
+    tsa_threshold = sgqlc.types.Field(TsaAutomationThreshold, graphql_name="tsaThreshold")
+    """Per-domain troubleshooting-agent threshold. Omit or pass null to
+    inherit the account-level threshold.
     """
 
 
@@ -20880,7 +20930,10 @@ class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
     """Lifecycle status of the execution."""
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
-    """When the execution was submitted."""
+    """When the execution was submitted to the agent. Holds the enqueue
+    time while the execution is QUEUED and is reset when it is
+    promoted, so it always means when the run actually started.
+    """
 
     end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
     """When the execution reached a terminal status."""
@@ -28163,6 +28216,8 @@ class CustomSQLOutputSample(sgqlc.types.Type):
         "sampling_disabled",
         "next_file_index",
         "total_samples_size",
+        "branch_sample_counts",
+        "branch_matches",
     )
     columns = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="columns")
 
@@ -28180,6 +28235,24 @@ class CustomSQLOutputSample(sgqlc.types.Type):
 
     total_samples_size = sgqlc.types.Field(Int, graphql_name="totalSamplesSize")
     """Total number of samples retrieved."""
+
+    branch_sample_counts = sgqlc.types.Field(JSONString, graphql_name="branchSampleCounts")
+    """Per-branch breach counts over the drawn sample row set. Keys are
+    branch metric names matching conditionBreakdown entry names;
+    values are the number of sample rows where that branch predicate
+    evaluated to true. Null when the sample does not carry per-branch
+    indicator data (non-multi-condition monitors or monitors without
+    sampling enabled).
+    """
+
+    branch_matches = sgqlc.types.Field(JSONString, graphql_name="branchMatches")
+    """Per-branch row indices into the drawn sample. Keys are branch
+    metric names (matching conditionBreakdown entry names); values are
+    arrays of 0-based row indices from `rows` where that branch
+    predicate evaluated to true. Use this to filter the sample drawer
+    to only rows matching a selected condition. Null when the sample
+    does not carry per-branch indicator data.
+    """
 
 
 class CustomSQLOutputSampleWithExceptions(sgqlc.types.Type):
@@ -34021,6 +34094,8 @@ class FieldHealthSampling(sgqlc.types.Type):
         "sampling_disabled",
         "next_file_index",
         "total_samples_size",
+        "branch_sample_counts",
+        "branch_matches",
         "normal_records_query",
         "anomalous_records_query",
     )
@@ -34040,6 +34115,24 @@ class FieldHealthSampling(sgqlc.types.Type):
 
     total_samples_size = sgqlc.types.Field(Int, graphql_name="totalSamplesSize")
     """Total number of samples retrieved."""
+
+    branch_sample_counts = sgqlc.types.Field(JSONString, graphql_name="branchSampleCounts")
+    """Per-branch breach counts over the drawn sample row set. Keys are
+    branch metric names matching conditionBreakdown entry names;
+    values are the number of sample rows where that branch predicate
+    evaluated to true. Null when the sample does not carry per-branch
+    indicator data (non-multi-condition monitors or monitors without
+    sampling enabled).
+    """
+
+    branch_matches = sgqlc.types.Field(JSONString, graphql_name="branchMatches")
+    """Per-branch row indices into the drawn sample. Keys are branch
+    metric names (matching conditionBreakdown entry names); values are
+    arrays of 0-based row indices from `rows` where that branch
+    predicate evaluated to true. Use this to filter the sample drawer
+    to only rows matching a selected condition. Null when the sample
+    does not carry per-branch indicator data.
+    """
 
     normal_records_query = sgqlc.types.Field(String, graphql_name="normalRecordsQuery")
     """This is null for summary statistics such as mean, min, max, and
@@ -40475,6 +40568,7 @@ class Mutation(sgqlc.types.Type):
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "update_agentic_platform_pipeline",
+        "update_triage_automation_config",
         "create_or_update_agentic_notification_route",
         "delete_agentic_notification_route",
         "submit_finding_feedback",
@@ -56074,8 +56168,11 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Manually triggers a run of the specified agentic
-    platform pipeline. Fails if the pipeline is disabled or if a prior
-    execution is still running.
+    platform pipeline. Disabled pipelines stay manually triggerable
+    (disabled only pauses the schedule). Requests matching an in-
+    flight (running or queued) execution for the same user are
+    silently dropped; externally scheduled anchor pipelines (e.g.
+    agent_health) instead fail while any execution is in flight.
 
     Arguments:
 
@@ -56118,6 +56215,53 @@ class Mutation(sgqlc.types.Type):
     * `pipeline_uuid` (`UUID!`): UUID of the pipeline to update.
     * `rate_seconds` (`Int`): New cadence in seconds. Must be positive
       when provided.
+    """
+
+    update_triage_automation_config = sgqlc.types.Field(
+        "UpdateTriageAutomationConfig",
+        graphql_name="updateTriageAutomationConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "clear_all_domain_overrides",
+                    sgqlc.types.Arg(Boolean, graphql_name="clearAllDomainOverrides", default=None),
+                ),
+                (
+                    "domain_overrides",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(
+                            sgqlc.types.non_null(TriageAutomationDomainOverrideInput)
+                        ),
+                        graphql_name="domainOverrides",
+                        default=None,
+                    ),
+                ),
+                (
+                    "tsa_automation_threshold",
+                    sgqlc.types.Arg(
+                        TsaAutomationThreshold, graphql_name="tsaAutomationThreshold", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update the automated-triage configuration for the
+    caller's account: the account-level threshold and/or per-domain
+    overrides. Unset inputs are left unchanged.
+
+    Arguments:
+
+    * `clear_all_domain_overrides` (`Boolean`): When true, remove
+      every per-domain override so the account-level settings apply to
+      all domains again. Applied before any domainOverrides entries.
+    * `domain_overrides` (`[TriageAutomationDomainOverrideInput!]`):
+      Domain overrides to set or remove. An entry with both
+      triageEnabled and tsaThreshold null removes the domain's
+      override so it inherits the account-level settings. When a
+      domain appears more than once, the last entry wins.
+    * `tsa_automation_threshold` (`TsaAutomationThreshold`): New
+      account-level threshold at or above which the troubleshooting
+      agent auto-runs on a triaged alert.
     """
 
     create_or_update_agentic_notification_route = sgqlc.types.Field(
@@ -62100,6 +62244,12 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="skipClassifiedColumns", default=None),
                 ),
                 (
+                    "skip_user_defined_warehouse_tags",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="skipUserDefinedWarehouseTags", default=False
+                    ),
+                ),
+                (
                     "warehouse_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
@@ -62155,6 +62305,9 @@ class Mutation(sgqlc.types.Type):
     * `skip_classified_columns` (`Boolean`): Exclude columns already
       tagged by supported warehouse classification tags. Defaults to
       true for ALERT mode, false for SCAN mode.
+    * `skip_user_defined_warehouse_tags` (`Boolean`): Exclude columns
+      with Snowflake user-defined warehouse tags. Defaults to false.
+      (default: `false`)
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
@@ -65562,6 +65715,44 @@ class PiiTypeInfo(sgqlc.types.Type):
     """Grouping category (e.g. PII, Location)"""
 
 
+class PiiWarehouseTagSummary(sgqlc.types.Type):
+    """Bounded summary of Snowflake warehouse tags available for PII
+    setup.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "is_snowflake_warehouse",
+        "has_system_classification_tags",
+        "has_user_defined_tags",
+        "sample_system_tags",
+        "sample_user_defined_tags",
+    )
+    is_snowflake_warehouse = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isSnowflakeWarehouse"
+    )
+
+    has_system_classification_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasSystemClassificationTags"
+    )
+
+    has_user_defined_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasUserDefinedTags"
+    )
+
+    sample_system_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanWarehouseTag))),
+        graphql_name="sampleSystemTags",
+    )
+    """At most two Snowflake system classification tag examples."""
+
+    sample_user_defined_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanWarehouseTag))),
+        graphql_name="sampleUserDefinedTags",
+    )
+    """At most two Snowflake user-defined tag examples."""
+
+
 class PineconeVectorIndexMetadata(sgqlc.types.Type):
     """Pinecone-specific metadata"""
 
@@ -66578,6 +66769,7 @@ class Query(sgqlc.types.Type):
         "get_pii_types",
         "get_pii_scan_findings",
         "get_pii_scan_inventory",
+        "get_pii_warehouse_tag_summary",
         "get_pii_scan_inventory_export_csv",
         "bulk_monitor",
         "bulk_monitors",
@@ -67104,6 +67296,7 @@ class Query(sgqlc.types.Type):
         "get_agentic_platform_config",
         "get_agentic_platform_pipelines",
         "get_agentic_platform_pipeline_executions",
+        "get_triage_automation_config",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -69885,6 +70078,28 @@ class Query(sgqlc.types.Type):
       return. (default: `500`)
     * `columns_offset` (`Int`): Grouped inventory row offset for
       pagination. (default: `0`)
+    """
+
+    get_pii_warehouse_tag_summary = sgqlc.types.Field(
+        sgqlc.types.non_null(PiiWarehouseTagSummary),
+        graphql_name="getPiiWarehouseTagSummary",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return a bounded existence summary for Snowflake
+    system classification and user-defined warehouse tags on fields.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`)None
     """
 
     get_pii_scan_inventory_export_csv = sgqlc.types.Field(
@@ -89476,6 +89691,15 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_triage_automation_config = sgqlc.types.Field(
+        sgqlc.types.non_null("TriageAutomationConfigOutput"),
+        graphql_name="getTriageAutomationConfig",
+    )
+    """(experimental) Returns the automated-triage configuration for the
+    caller's account: the account-level settings, the raw per-domain
+    overrides, and the effective per-domain resolution.
+    """
+
     get_agent_operation_logs = sgqlc.types.Field(
         sgqlc.types.list_of(AgentLogEntry),
         graphql_name="getAgentOperationLogs",
@@ -97276,6 +97500,86 @@ class TriageAlertsOutput(sgqlc.types.Type):
     """
 
 
+class TriageAutomationConfigOutput(sgqlc.types.Type):
+    """Account-level automated-triage configuration."""
+
+    __schema__ = schema
+    __field_names__ = ("triage_enabled_default", "tsa_automation_threshold", "domain_configs")
+    triage_enabled_default = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="triageEnabledDefault"
+    )
+    """The account-level automated-triage setting that domains inherit
+    unless overridden. Managed from the account AI settings page.
+    """
+
+    tsa_automation_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(TsaAutomationThreshold), graphql_name="tsaAutomationThreshold"
+    )
+    """Account-level threshold at or above which the troubleshooting
+    agent auto-runs on a triaged alert. Domains inherit it unless
+    overridden.
+    """
+
+    domain_configs = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("TriageAutomationDomainConfigOutput"))
+        ),
+        graphql_name="domainConfigs",
+    )
+    """Per-domain configuration for every domain in the account, each
+    combining the raw override values with the effective resolution.
+    """
+
+
+class TriageAutomationDomainConfigOutput(sgqlc.types.Type):
+    """Per-domain automated-triage configuration: the raw override values
+    (null means the domain inherits the account-level setting)
+    alongside the effective resolution after applying the override on
+    top of the account-level settings.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "domain_uuid",
+        "domain_name",
+        "triage_enabled_override",
+        "tsa_threshold_override",
+        "effective_triage_enabled",
+        "effective_tsa_threshold",
+    )
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """Domain UUID."""
+
+    domain_name = sgqlc.types.Field(String, graphql_name="domainName")
+    """Domain name."""
+
+    triage_enabled_override = sgqlc.types.Field(Boolean, graphql_name="triageEnabledOverride")
+    """Raw per-domain triage toggle override. Null means the domain
+    inherits the account-level automated-triage setting.
+    """
+
+    tsa_threshold_override = sgqlc.types.Field(
+        TsaAutomationThreshold, graphql_name="tsaThresholdOverride"
+    )
+    """Raw per-domain troubleshooting-agent threshold override. Null
+    means the domain inherits the account-level threshold.
+    """
+
+    effective_triage_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="effectiveTriageEnabled"
+    )
+    """Whether alerts in this domain are effectively triaged
+    automatically.
+    """
+
+    effective_tsa_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(TsaAutomationThreshold), graphql_name="effectiveTsaThreshold"
+    )
+    """Effective troubleshooting-agent threshold for this domain. OFF
+    whenever effectiveTriageEnabled is false.
+    """
+
+
 class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
     """Manually trigger a run of an agentic platform pipeline.  Execution
     rows are created synchronously and returned; the agents run
@@ -98501,6 +98805,21 @@ class UpdateTransactionalDbCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateTriageAutomationConfig(sgqlc.types.Type):
+    """Update the automated-triage configuration for the caller's
+    account.  Unset inputs are left unchanged. Setting
+    ``tsaAutomationThreshold`` requires account-settings edit access;
+    changing domain overrides (including ``clearAllDomainOverrides``)
+    requires domain-settings edit access.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("config",)
+    config = sgqlc.types.Field(
+        sgqlc.types.non_null(TriageAutomationConfigOutput), graphql_name="config"
+    )
 
 
 class UpdateUserAuthorizationGroupMembership(sgqlc.types.Type):
@@ -106304,6 +106623,7 @@ class Event(sgqlc.types.Type, Node):
         "agent_span_filters",
         "filters",
         "condition_breakdown",
+        "condition_breakdown_is_sample_based",
     )
     event_type = sgqlc.types.Field(
         sgqlc.types.non_null(EventModelEventType), graphql_name="eventType"
@@ -106494,10 +106814,28 @@ class Event(sgqlc.types.Type, Node):
     """Per-OR-branch breach counts for multi-condition validation
     monitors, persisted at incident emission time. Each entry is
     `{name, count, label, sql}`; `label` and `sql` are null on pre-
-    YET-1399 events. Returns null for non-validation rules / single-
-    condition rules / rules that hit the sampling path (which doesn't
-    widen the count query) — same gate as `condition_breakdown` being
-    absent from `event.data`.
+    YET-1399 events. On the sampling-enabled evaluation path the
+    counts are SAMPLE-BASED (sums over the drawn sample, not true
+    totals) — see `conditionBreakdownIsSampleBased`. Returns null for
+    non-validation rules / single-condition rules — same gate as
+    `condition_breakdown` being absent from `event.data`.
+    """
+
+    condition_breakdown_is_sample_based = sgqlc.types.Field(
+        Boolean, graphql_name="conditionBreakdownIsSampleBased"
+    )
+    """True when `conditionBreakdown` counts are SAMPLE-BASED — summed
+    over the drawn sample on the sampling-enabled evaluation path
+    rather than true totals. When true, render each count as a sample
+    figure (e.g. "N in sample of M", M = the event's total sampled row
+    count) and keep zero-in-sample branches: a branch with 0 in the
+    sample may still have breaching rows that weren't sampled. Null on
+    the no-sampling path and when there is no breakdown. NOTE: as of
+    YET-1402 the sampling-enabled path runs an exact COUNT_IF query
+    alongside the drawn sample, so condition_breakdown always holds
+    true totals and this field is always null/false in practice.
+    Reserved for a future path where exact counts are not feasible and
+    sample-based attribution is used instead.
     """
 
 

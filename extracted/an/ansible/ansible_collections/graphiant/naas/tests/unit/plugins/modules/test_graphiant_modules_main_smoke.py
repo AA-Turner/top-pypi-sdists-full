@@ -231,10 +231,7 @@ def test_graphiant_interfaces_configure_lan(m_am, m_gc) -> None:
     m.exit_json.assert_called_once()
 
 
-@patch(
-    "ansible_collections.graphiant.naas.plugins.modules.graphiant_lag_interfaces."
-    "graphiant_utils.get_graphiant_connection"
-)
+@patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_lag_interfaces.graphiant_utils.get_graphiant_connection")
 @patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_lag_interfaces.AnsibleModule")
 def test_graphiant_lag_configure(m_am, m_gc) -> None:
     from ansible_collections.graphiant.naas.plugins.modules import graphiant_lag_interfaces
@@ -430,41 +427,3 @@ def test_graphiant_data_exchange_info_summary(m_am, m_gc) -> None:
     m_gc.return_value = _conn_with(data_exchange=dx)
     graphiant_data_exchange_info.main()
     m.exit_json.assert_called_once()
-
-
-@patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_backbone.get_graphiant_connection")
-@patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_backbone.AnsibleModule")
-def test_graphiant_backbone_configure(m_am, m_gc) -> None:
-    from ansible_collections.graphiant.naas.plugins.modules import graphiant_backbone
-
-    m = _mod(
-        config_yaml_file="b.yaml",
-        operation="configure",
-        state="present",
-    )
-    m_am.return_value = m
-    mgr = MagicMock()
-    mgr.configure.return_value = _result()
-    m_gc.return_value = _conn_with(backbone=mgr)
-    graphiant_backbone.main()
-    m.exit_json.assert_called_once()
-    mgr.configure.assert_called_once_with("b.yaml")
-
-
-@patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_backbone.get_graphiant_connection")
-@patch("ansible_collections.graphiant.naas.plugins.modules.graphiant_backbone.AnsibleModule")
-def test_graphiant_backbone_deconfigure(m_am, m_gc) -> None:
-    from ansible_collections.graphiant.naas.plugins.modules import graphiant_backbone
-
-    m = _mod(
-        config_yaml_file="b.yaml",
-        operation="deconfigure",
-        state="absent",
-    )
-    m_am.return_value = m
-    mgr = MagicMock()
-    mgr.deconfigure.return_value = _result()
-    m_gc.return_value = _conn_with(backbone=mgr)
-    graphiant_backbone.main()
-    m.exit_json.assert_called_once()
-    mgr.deconfigure.assert_called_once_with("b.yaml")

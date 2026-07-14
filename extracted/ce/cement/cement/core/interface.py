@@ -2,9 +2,9 @@
 Cement core interface module.
 """
 
-from __future__ import annotations
 from abc import ABC
-from typing import Any, Dict, Optional, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..core import exc, meta
 from ..utils.misc import minimal_logger
 
@@ -12,7 +12,7 @@ LOG = minimal_logger(__name__)
 
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 
 class Interface(ABC, meta.MetaMixin):
@@ -30,13 +30,15 @@ class Interface(ABC, meta.MetaMixin):
         interface: str = NotImplemented
         """The string identifier of this interface."""
 
+    # D-09: handler-contract pluggable kwargs by design (Meta merging via
+    # MetaMixin upchain). Wide type is part of the public Interface contract.
     def __init__(self, **kw: Any) -> None:
-        super(Interface, self).__init__(**kw)
+        super().__init__(**kw)
         try:
             assert self._meta.interface, \
                 f"{self.__class__.__name__}.Meta.interface undefined."
         except AssertionError as e:
-            raise exc.InterfaceError(e.args[0])
+            raise exc.InterfaceError(e.args[0]) from e
 
     def _validate(self) -> None:
         """
@@ -45,23 +47,28 @@ class Interface(ABC, meta.MetaMixin):
         pass
 
 
-class InterfaceManager(object):
+class InterfaceManager:
     """
     Manages the interface system to define, get, list interfaces with
     the Cement Framework.
 
     """
 
-    __interfaces__: Dict[str, Type[Interface]]
+    __interfaces__: dict[str, type[Interface]]
 
-    def __init__(self, app: App) -> None:
+    def __init__(self, app: "App") -> None:
         self.app = app
         self.__interfaces__ = {}
 
+    # D-09: fallback accepts user-arbitrary values per the public
+    # contract (matches cache.get pattern; tests verify string
+    # fallback). Passthrough kwargs for the handler-resolution
+    # machinery; wide type is intentional. Public InterfaceManager
+    # API (D-12).
     def get(self,
             interface: str,
-            fallback: Optional[Type[Interface]] = None,
-            **kwargs: Any) -> Type[Interface]:
+            fallback: Any = None,
+            **kwargs: Any) -> type[Interface]:
         """
         Get an interface class.
 
@@ -88,11 +95,11 @@ class InterfaceManager(object):
         if interface in self.__interfaces__.keys():
             return self.__interfaces__[interface]
         elif fallback is not None:
-            return fallback
+            return fallback  # type: ignore[no-any-return]
         else:
             raise exc.InterfaceError(f"interface '{interface}' does not exist!")
 
-    def list(self) -> list[str]:
+    def list(self) -> "list[str]":  # autodoc: PEP 585 + method-name-shadow workaround
         """
         Return a list of defined interfaces.
 
@@ -108,7 +115,7 @@ class InterfaceManager(object):
         """
         return list(self.__interfaces__.keys())
 
-    def define(self, ibc: Type[Interface]) -> None:
+    def define(self, ibc: type[Interface]) -> None:
         """
         Define an ``ibc`` (interface base class).
 

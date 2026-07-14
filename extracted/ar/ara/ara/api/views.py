@@ -24,10 +24,12 @@ class PlaybookViewSet(viewsets.ModelViewSet):
     filterset_class = filters.PlaybookFilter
 
     def get_queryset(self):
-        statuses = self.request.GET.getlist("status")
-        if statuses:
-            return models.Playbook.objects.filter(status__in=statuses).order_by("-id")
-        return models.Playbook.objects.all().order_by("-id")
+        queryset = models.Playbook.objects.all()
+        # Only the list and detail representations expose relationship counts and
+        # labels; annotating/prefetching for create/update/destroy would be wasted work.
+        if self.action in ("list", "retrieve"):
+            queryset = queryset.with_item_counts()
+        return queryset.order_by("-id")
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -64,10 +66,11 @@ class PlayViewSet(viewsets.ModelViewSet):
     filterset_class = filters.PlayFilter
 
     def get_queryset(self):
-        statuses = self.request.GET.getlist("status")
-        if statuses:
-            return models.Play.objects.filter(status__in=statuses).order_by("-id")
-        return models.Play.objects.all().order_by("-id")
+        queryset = models.Play.objects.all()
+        # Only the list and detail representations expose relationship counts.
+        if self.action in ("list", "retrieve"):
+            queryset = queryset.with_item_counts()
+        return queryset.order_by("-id")
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -83,10 +86,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     filterset_class = filters.TaskFilter
 
     def get_queryset(self):
-        statuses = self.request.GET.getlist("status")
-        if statuses:
-            return models.Task.objects.filter(status__in=statuses).order_by("-id")
-        return models.Task.objects.all().order_by("-id")
+        queryset = models.Task.objects.all()
+        # Only the list and detail representations expose relationship counts.
+        if self.action in ("list", "retrieve"):
+            queryset = queryset.with_item_counts()
+        return queryset.order_by("-id")
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -138,13 +142,8 @@ class LatestHostViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ResultViewSet(viewsets.ModelViewSet):
+    queryset = models.Result.objects.all().order_by("-id")
     filterset_class = filters.ResultFilter
-
-    def get_queryset(self):
-        statuses = self.request.GET.getlist("status")
-        if statuses:
-            return models.Result.objects.filter(status__in=statuses).order_by("-id")
-        return models.Result.objects.all().order_by("-id")
 
     def get_serializer_class(self):
         if self.action == "list":

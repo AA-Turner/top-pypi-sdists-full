@@ -20,8 +20,9 @@ from collections.abc import MutableMapping
 import copy
 import dataclasses
 import enum
-from typing import Any, Callable, Mapping, Optional, Union, TypeAlias
-from immutabledict import immutabledict
+from typing import Any, Callable, Mapping, Optional, TypeAlias, Union
+
+import immutabledict
 import numpy as np
 
 from ai_edge_litert.tools import flatbuffer_utils
@@ -37,25 +38,37 @@ ModelQuantizationRecipe = list[dict[str, Any]]
 ActivationFunctionType = flatbuffer_utils.ActivationFunctionType
 BlockwiseQuantizationT = flatbuffer_utils.BlockwiseQuantizationT
 Buffer = flatbuffer_utils.Buffer
-BufferT = flatbuffer_utils.BufferT
+BufferT: TypeAlias = (
+    flatbuffer_utils.BufferT
+)  # Mutable flatbuffer buffer representation
 BuiltinOperator = flatbuffer_utils.BuiltinOperator
 BuiltinOptions = flatbuffer_utils.BuiltinOptions
 BuiltinOptions2 = flatbuffer_utils.BuiltinOptions2
 FullyConnectedOptionsT = flatbuffer_utils.FullyConnectedOptionsT
 Model = flatbuffer_utils.Model
-ModelT = flatbuffer_utils.ModelT
+ModelT: TypeAlias = (
+    flatbuffer_utils.ModelT
+)  # Mutable flatbuffer model representation containing subgraphs and buffers
 Operator = flatbuffer_utils.Operator
 OperatorCode = flatbuffer_utils.OperatorCode
 OperatorCodeT = flatbuffer_utils.OperatorCodeT
-OperatorT = flatbuffer_utils.OperatorT
+OperatorT: TypeAlias = (
+    flatbuffer_utils.OperatorT
+)  # Mutable flatbuffer operator representation
 QuantizationDetails = flatbuffer_utils.QuantizationDetails
-QuantizationParametersT = flatbuffer_utils.QuantizationParametersT
+QuantizationParametersT: TypeAlias = (
+    flatbuffer_utils.QuantizationParametersT
+)  # Mutable quantization parameters (scale, zero point)
 StableHLOCompositeOptions = flatbuffer_utils.StableHLOCompositeOptions
 StableHLOCompositeOptionsT = flatbuffer_utils.StableHLOCompositeOptionsT
 SubGraph = flatbuffer_utils.SubGraph
-SubGraphT = flatbuffer_utils.SubGraphT
+SubGraphT: TypeAlias = (
+    flatbuffer_utils.SubGraphT
+)  # Mutable flatbuffer subgraph containing tensors and operators
 Tensor = flatbuffer_utils.Tensor
-TensorT = flatbuffer_utils.TensorT
+TensorT: TypeAlias = (
+    flatbuffer_utils.TensorT
+)  # Mutable flatbuffer tensor representation
 TensorType = flatbuffer_utils.TensorType
 
 # Local convenience types.
@@ -122,14 +135,18 @@ class TFLOperationName(str, enum.Enum):
 
 
 class QuantizeMode(enum.Enum):
+  """The mode of quantization, determining which stage is executed."""
+
+  # Gathering information from calibration data (e.g., min/max).
   CALIBRATE = 2
+  # Executing the quantization process using parameters from calibration data.
   MATERIALIZE = 3
 
 
 class OpExecutionMode(str, enum.Enum):
   """How to execute the op."""
 
-  WEIGHT_ONLY = 'WEIGHT_ONLY'
+  WEIGHT_ONLY = 'WEIGHT_ONLY'  # Weight-only quantization.
   DRQ = 'DRQ'  # Dynamic range quantization.
   SRQ = 'SRQ'  # Static range quantization.
 
@@ -194,7 +211,11 @@ class UniformQuantParams:
     quantized_data: The quantized data.
     block_size: The block size for blockwise quantization, block_size=0 meaning
       no blockwise quantization.
-    hadamard: The Hadamard rotation parameters, if set.
+    hadamard: The Hadamard rotation parameters, if set. Hadamard rotation
+      mitigates quantization loss caused by outliers by rotating (or
+      distributing) weights and activations into a more uniform distribution.
+      This is particularly useful for low bits quantization. More technical
+      details can be found in algorithms/uniform_quantize/hadamard_rotation.py.
   """
 
   class HadamardRotationParams:
@@ -253,7 +274,10 @@ class UniformQuantParams:
     elif data_type == np.int64:
       num_bits = 64
     else:
-      raise ValueError(f'Unsupported data type: {data_type}')
+      raise ValueError(
+          f'Unsupported data type: {data_type}. Supported types are np.int8,'
+          ' np.int16, np.int32, np.int64.'
+      )
     symmetric = sum(abs(quant_params['zero_points'])) == 0
     return cls(
         quantized_dimension=quant_params['quantized_dimension'],
@@ -367,13 +391,15 @@ class TensorQuantizationConfig:
   granularity: QuantGranularity = QuantGranularity.TENSORWISE
   dtype: TensorDataType = TensorDataType.INT
   algorithm_params: Mapping[str, Any] = dataclasses.field(
-      default_factory=immutabledict
+      default_factory=immutabledict.immutabledict
   )
 
   def __post_init__(self):
-    if not isinstance(self.algorithm_params, immutabledict):
+    if not isinstance(self.algorithm_params, immutabledict.immutabledict):
       object.__setattr__(
-          self, 'algorithm_params', immutabledict(self.algorithm_params)
+          self,
+          'algorithm_params',
+          immutabledict.immutabledict(self.algorithm_params),
       )
 
   def to_dict(self) -> dict[str, Any]:

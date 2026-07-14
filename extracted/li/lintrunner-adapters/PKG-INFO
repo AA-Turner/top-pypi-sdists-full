@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintrunner-adapters
-Version: 0.14.0
+Version: 0.14.1
 Summary: Adapters and tools for lintrunner
 Author-email: Justin Chu <justinchu@microsoft.com>
 License-Expression: MIT

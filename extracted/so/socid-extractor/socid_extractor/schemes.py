@@ -124,6 +124,57 @@ def _gh_handle_for(accounts, provider):
     return None
 
 
+def _bio_site_section(profile, section_type):
+    for item in profile.get('body') or []:
+        if item.get('type') == section_type:
+            return item.get('section') or {}
+    return {}
+
+
+def _bio_site_social_handles(profile):
+    return _bio_site_section(profile, 'section_social').get('handles') or []
+
+
+def _bio_site_links(profile):
+    urls = []
+    for handle in _bio_site_social_handles(profile):
+        if handle.get('url'):
+            urls.append(handle.get('url'))
+
+    links_section = _bio_site_section(profile, 'section_links')
+    for link in links_section.get('links') or []:
+        if link.get('url'):
+            urls.append(link.get('url'))
+    return urls
+
+
+def _bio_site_social_value(profile, provider):
+    for handle in _bio_site_social_handles(profile):
+        if handle.get('type') == provider:
+            return handle.get('value')
+    return None
+
+
+def _faceit_current_game(profile):
+    games = profile.get('games') or {}
+    game_key = profile.get('flag')
+    if game_key and isinstance(games.get(game_key), dict):
+        return games[game_key]
+    for game in games.values():
+        if isinstance(game, dict):
+            return game
+    return {}
+
+
+def _faceit_streaming_links(profile):
+    streaming = profile.get('streaming') or {}
+    links = {}
+    for platform, handle in streaming.items():
+        if handle:
+            links[platform.removesuffix('_id')] = handle
+    return links
+
+
 schemes = {
     # IMPORTANT: extract() returns the FIRST matching scheme.
     # More specific schemes (more/stricter flags) must come BEFORE
@@ -804,6 +855,33 @@ schemes = {
             'is_verified': lambda x: x.get('is_verified'),
             'follower_count': lambda x: x.get('edge_followed_by', {}).get('count'),
             'following_count': lambda x: x.get('edge_follow', {}).get('count'),
+        }
+    },
+    'Instagram GraphQL': {
+        'url_hints': ('instagram.com', 'cdninstagram.com'),
+        'flags': ['"biography"', '"edge_followed_by"', '"profile_pic_url_hd"'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: (x.get('data') or {}).get('user') or {},
+            json.dumps,
+        ],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('full_name'),
+            'id': lambda x: x.get('id'),
+            'image': lambda x: x.get('profile_pic_url_hd'),
+            'bio': lambda x: x.get('biography'),
+            'business_email': lambda x: x.get('business_email'),
+            'external_url': lambda x: x.get('external_url'),
+            'facebook_uid': lambda x: x.get('fbid'),
+            'is_business': lambda x: x.get('is_business_account'),
+            'is_joined_recently': lambda x: x.get('is_joined_recently'),
+            'is_private': lambda x: x.get('is_private'),
+            'is_verified': lambda x: x.get('is_verified'),
+            'follower_count': lambda x: (x.get('edge_followed_by') or {}).get('count'),
+            'following_count': lambda x: (x.get('edge_follow') or {}).get('count'),
         }
     },
     'Spotify API': {
@@ -1530,13 +1608,21 @@ schemes = {
     'DeviantArt': {
         'url_hints': ('deviantart.com',),
         'flags': ['window.deviantART = '],
-        'regex': r'({\\"username\\":\\".+?\",\\"country.+?legacyTextEditUrl.+?})',
+        # Capture from `{"username":"...","country...` greedily — previous
+        # `legacyTextEditUrl.+?})` terminator stopped at the first `})` and
+        # broke for users whose object had extra fields after that key
+        # (e.g. `isNewDeviant`). raw_decode below trims trailing garbage.
+        'regex': r'({\\"username\\":\\"[^"]+\\",\\"country[\s\S]+)',
         'extract_json': True,
         'transforms': [
             lambda x: x.replace('\\"', '"'),
             lambda x: x.replace('\\\\"', '\''),
             lambda x: x.replace('\\\\u002F', '/'),
-            lambda x: x.replace("\\'", "'")
+            lambda x: x.replace("\\'", "'"),
+            # Trim to the first complete JSON object (the user record);
+            # raw_decode finds the matching closing brace regardless of
+            # whatever HTML/JS tail the regex pulled in after it.
+            lambda x: json.dumps(json.JSONDecoder().raw_decode(x)[0]),
         ],
         'fields': {
             'country': lambda x: x['country'],
@@ -2748,6 +2834,12 @@ schemes = {
     },
     'LeetCode GraphQL': {
         'url_hints': ('leetcode.com',),
+        'url_mutations': [
+            {
+                'from': r'https?://leetcode\.com/(?:u/)?(?P<username>[^/]+)/?$',
+                'to': 'https://leetcode.com/graphql?query=query%20userPublicProfile%28%24username%3A%20String%21%29%20%7B%20matchedUser%28username%3A%20%24username%29%20%7B%20username%20profile%20%7B%20realName%20aboutMe%20userAvatar%20countryName%20company%20school%20ranking%20%7D%20%7D%20%7D&variables=%7B%22username%22%3A%20%22{username}%22%7D',
+            }
+        ],
         'flags': ['"data":', '"matchedUser":', '"profile":'],
         'regex': r'^(\{[\s\S]+\})$',
         'extract_json': True,
@@ -2944,6 +3036,194 @@ schemes = {
             'latest_activity_at': lambda x: x.get('active'),
         },
     },
+    # https://pub.orcid.org/v3.0/{orcid}/record
+    # Returns JSON only when `Accept: application/json` is sent; default is XML.
+    # The richest single endpoint in the academic-OSINT chain: surfaces homepage,
+    # social URLs, current employer, PhD institution, Scopus/ResearcherID IDs, etc.
+    'ORCID API': {
+        'url_hints': ('pub.orcid.org', 'orcid.org'),
+        'flags': ['"orcid-identifier":', '"activities-summary":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'url_mutations': [
+            {
+                'from': r'^https?://(?:www\.)?orcid\.org/(?P<orcid>\d{4}-\d{4}-\d{4}-\d{3}[\dX])/?$',
+                'to': 'https://pub.orcid.org/v3.0/{orcid}/record',
+                'headers': {'Accept': 'application/json'},
+            },
+        ],
+        'fields': {
+            'orcid': lambda x: safe_deep_get(x, 'orcid-identifier', 'path'),
+            'fullname': lambda x: (' '.join(filter(None, [
+                safe_deep_get(x, 'person', 'name', 'given-names', 'value'),
+                safe_deep_get(x, 'person', 'name', 'family-name', 'value'),
+            ])).strip() or None),
+            'credit_name': lambda x: safe_deep_get(x, 'person', 'name', 'credit-name', 'value'),
+            'bio': lambda x: safe_deep_get(x, 'person', 'biography', 'content'),
+            'links': lambda x: [u['url']['value']
+                                for u in safe_deep_get(x, 'person', 'researcher-urls', 'researcher-url', default=[]) or []
+                                if safe_deep_get(u, 'url', 'value')] or None,
+            'interests': lambda x: (', '.join(k['content']
+                                              for k in safe_deep_get(x, 'person', 'keywords', 'keyword', default=[]) or []
+                                              if k.get('content')) or None),
+            'country_code': lambda x: safe_deep_get(x, 'person', 'addresses', 'address', 0, 'country', 'value'),
+            'email': lambda x: safe_deep_get(x, 'person', 'emails', 'email', 0, 'email'),
+            'other_names': lambda x: [o['content']
+                                      for o in safe_deep_get(x, 'person', 'other-names', 'other-name', default=[]) or []
+                                      if o.get('content')] or None,
+            'external_ids': lambda x: ({e['external-id-type']: e['external-id-value']
+                                        for e in safe_deep_get(x, 'person', 'external-identifiers', 'external-identifier', default=[]) or []
+                                        if e.get('external-id-type')} or None),
+            'company': lambda x: safe_deep_get(
+                x, 'activities-summary', 'employments', 'affiliation-group', 0,
+                'summaries', 0, 'employment-summary', 'organization', 'name'),
+            'occupation': lambda x: safe_deep_get(
+                x, 'activities-summary', 'employments', 'affiliation-group', 0,
+                'summaries', 0, 'employment-summary', 'role-title'),
+            'education_school': lambda x: safe_deep_get(
+                x, 'activities-summary', 'educations', 'affiliation-group', 0,
+                'summaries', 0, 'education-summary', 'organization', 'name'),
+            'education_degree': lambda x: safe_deep_get(
+                x, 'activities-summary', 'educations', 'affiliation-group', 0,
+                'summaries', 0, 'education-summary', 'role-title'),
+            'created_at': lambda x: safe_deep_get(x, 'history', 'submission-date', 'value'),
+            'posts_count': lambda x: len(safe_deep_get(x, 'activities-summary', 'works', 'group', default=[]) or []) or None,
+            'is_verified': lambda x: safe_deep_get(x, 'history', 'verified-primary-email'),
+        },
+    },
+    # https://api.openalex.org/authors/orcid:{orcid}
+    # Bibliometric stats + affiliations + research topics keyed off ORCID.
+    'OpenAlex Authors API': {
+        'url_hints': ('api.openalex.org', 'openalex.org'),
+        'flags': ['"works_count":', '"cited_by_count":', '"summary_stats":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'url_mutations': [
+            {
+                'from': r'^https?://(?:www\.)?orcid\.org/(?P<orcid>\d{4}-\d{4}-\d{4}-\d{3}[\dX])/?$',
+                'to': 'https://api.openalex.org/authors/orcid:{orcid}',
+            },
+            {
+                'from': r'^https?://openalex\.org/(?P<openalex_id>A\d+)/?$',
+                'to': 'https://api.openalex.org/authors/{openalex_id}',
+            },
+        ],
+        'fields': {
+            'orcid': lambda x: (x.get('orcid') or '').replace('https://orcid.org/', '') or None,
+            'openalex_id': lambda x: (x.get('id') or '').replace('https://openalex.org/', '') or None,
+            'fullname': lambda x: x.get('display_name'),
+            'name_alternatives': lambda x: x.get('display_name_alternatives') or None,
+            'posts_count': lambda x: x.get('works_count'),
+            'cited_by_count': lambda x: x.get('cited_by_count'),
+            'h_index': lambda x: safe_deep_get(x, 'summary_stats', 'h_index'),
+            'i10_index': lambda x: safe_deep_get(x, 'summary_stats', 'i10_index'),
+            'company': lambda x: safe_deep_get(x, 'last_known_institutions', 0, 'display_name'),
+            'country_code': lambda x: safe_deep_get(x, 'last_known_institutions', 0, 'country_code'),
+            'institutions': lambda x: [i['display_name']
+                                       for i in x.get('last_known_institutions') or []
+                                       if i.get('display_name')] or None,
+            'interests': lambda x: (', '.join(t['display_name']
+                                              for t in (x.get('topics') or [])[:5]
+                                              if t.get('display_name')) or None),
+            'created_at': lambda x: x.get('created_date'),
+            'updated_at': lambda x: x.get('updated_date'),
+        },
+    },
+    # https://arxiv.org/a/{orcid}
+    # NB: arXiv only links the page if the user explicitly connected ORCID
+    # in arXiv's UI. A 404 (or empty list) does NOT prove "not on arXiv".
+    'arXiv author page': {
+        'url_hints': ('arxiv.org',),
+        'flags': ["'s articles on arXiv"],
+        'bs': True,
+        'url_mutations': [
+            {
+                'from': r'^https?://(?:www\.)?orcid\.org/(?P<orcid>\d{4}-\d{4}-\d{4}-\d{3}[\dX])/?$',
+                'to': 'https://arxiv.org/a/{orcid}',
+            },
+        ],
+        'fields': {
+            'fullname': lambda x: next(
+                (h.get_text().split("'s articles on arXiv")[0].strip()
+                 for h in x.find_all('h1')
+                 if "'s articles on arXiv" in h.get_text()),
+                None),
+            'arxiv_ids': lambda x: list(dict.fromkeys(
+                a['href'].split('/abs/', 1)[1].split('?')[0].rstrip('/')
+                for a in x.find_all('a', href=True)
+                if '/abs/' in a['href']
+            )) or None,
+            'posts_count': lambda x: len({
+                a['href'].split('/abs/', 1)[1].split('?')[0].rstrip('/')
+                for a in x.find_all('a', href=True)
+                if '/abs/' in a['href']
+            }) or None,
+        },
+    },
+    # https://dblp.org/orcid/{orcid}.xml (and pid/XX/YY.xml)
+    # XML person record; computer-science only. Affiliation, homepages,
+    # cross-links to Scholar/ACM/Wikipedia/Wikidata/ISNI/ORCID all live here.
+    # html.parser handles this fine (XMLParsedAsHTMLWarning is acceptable).
+    'DBLP person record': {
+        'url_hints': ('dblp.org',),
+        'flags': ['<dblpperson ', '<author pid='],
+        'bs': True,
+        'url_mutations': [
+            {
+                'from': r'^https?://(?:www\.)?orcid\.org/(?P<orcid>\d{4}-\d{4}-\d{4}-\d{3}[\dX])/?$',
+                'to': 'https://dblp.org/orcid/{orcid}.xml',
+            },
+            {
+                'from': r'^https?://dblp\.org/pid/(?P<pid>[\w/]+)\.html$',
+                'to': 'https://dblp.org/pid/{pid}.xml',
+            },
+        ],
+        'fields': {
+            'fullname': lambda x: x.find('dblpperson').get('name'),
+            'dblp_pid': lambda x: x.find('dblpperson').get('pid'),
+            'posts_count': lambda x: x.find('dblpperson').get('n'),
+            'company': lambda x: (x.find('note', attrs={'type': 'affiliation'}).get_text()
+                                  if x.find('note', attrs={'type': 'affiliation'}) else None),
+            'awards': lambda x: [f"{n.get('label')}: {n.get_text()}"
+                                 for n in x.find_all('note', attrs={'type': 'award'})] or None,
+            # `<person>` wraps homepage+xref URLs; `<r>` blocks below it hold
+            # per-publication URLs which would otherwise drown the signal.
+            'links': lambda x: ([u.get_text() for u in x.find('person').find_all('url') if u.get_text()]
+                                if x.find('person') else None) or None,
+        },
+    },
+    # https://scholia.toolforge.org/orcid/{orcid} -> redirects to /author/{Q}
+    # Page itself is JS-rendered (no name/works in HTML), but the canonical
+    # link exposes the Wikidata QID — enough to pivot to Wikidata SPARQL.
+    'Scholia author profile': {
+        'url_hints': ('scholia.toolforge.org',),
+        'flags': ['scholia.toolforge.org/author/Q', 'rel="canonical"'],
+        'regex': r'<link rel="canonical" href="https?://scholia\.toolforge\.org/author/(?P<wikidata_qid>Q\d+)"',
+        'url_mutations': [
+            {
+                'from': r'^https?://(?:www\.)?orcid\.org/(?P<orcid>\d{4}-\d{4}-\d{4}-\d{3}[\dX])/?$',
+                'to': 'https://scholia.toolforge.org/orcid/{orcid}',
+            },
+        ],
+    },
+    'BuyMeACoffee': {
+        'url_hints': ('buymeacoffee.com',),
+        'flags': ['buymeacoffee.com', 'og:title'],
+        'bs': True,
+        'fields': {
+            'fullname': lambda x: (
+                (x.find('meta', property='og:title') and x.find('meta', property='og:title').get('content')) or
+                (x.find('title') and x.find('title').text.replace(' - Buymeacoffee', '').strip())
+            ),
+            'bio': lambda x: (
+                (x.find('meta', attrs={'name': 'description'}) and x.find('meta', attrs={'name': 'description'}).get('content')) or
+                (x.find('meta', property='og:description') and x.find('meta', property='og:description').get('content'))
+            ),
+            'image': lambda x: (
+                x.find('meta', property='og:image') and x.find('meta', property='og:image').get('content')
+            ),
+        }
+    },
     'Discourse API': {
         'flags': ['"trust_level"', '"badge_count"', '"profile_view_count"'],
         'regex': r'^(\{[\s\S]+\})$',
@@ -2969,6 +3249,76 @@ schemes = {
             'views_count': lambda x: x.get('profile_view_count'),
             'created_at': lambda x: x.get('created_at'),
             'latest_activity_at': lambda x: x.get('last_seen_at'),
+        },
+    },
+    'Snapchat': {
+        'flags': ['__NEXT_DATA__', '"userProfile":'],
+        'regex': r'<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x['props']['pageProps'],
+            json.dumps,
+        ],
+        'fields': {
+            'username': lambda x: x['userProfile']['userInfo'].get('username'),
+            'fullname': lambda x: x['userProfile']['userInfo'].get('displayName'),
+            'bio': lambda x: x.get('pageMetadata', {}).get('pageDescription', {}).get('value'),
+            'url': lambda x: x.get('linkPreview', {}).get('canonicalUrl'),
+            'image': lambda x: x.get('linkPreview', {}).get('twitterImage', {}).get('url'),
+            'snapcode_image': lambda x: x['userProfile']['userInfo'].get('snapcodeImageUrl'),
+            'profile_type': lambda x: x['userProfile'].get('$case'),
+        }
+    },
+    'Bio Site': {
+        'url_hints': ('bio.site',),
+        'flags': ['window.initial_state=', 'media.bio.site', 'Bio Sites'],
+        'regex': r'window\.initial_state=({[\s\S]+?});\s*window\.additionalRenderingContext=',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('metadata', {}).get('handle'),
+            'fullname': lambda x: x.get('header', {}).get('name'),
+            'bio': lambda x: x.get('header', {}).get('bio'),
+            'image': lambda x: x.get('header', {}).get('profile_photo'),
+            'image_bg': lambda x: x.get('header', {}).get('cover_photo'),
+            'created_at': lambda x: parse_datetime(x.get('metadata', {}).get('created_at')),
+            'updated_at': lambda x: parse_datetime(x.get('metadata', {}).get('last_updated_at')),
+            'links': _bio_site_links,
+            'instagram_username': lambda x: _bio_site_social_value(x, 'instagram'),
+        },
+    },
+    'Faceit API': {
+        'url_hints': ('faceit.com',),
+        'flags': ['"payload"', '"skill_level_label"' ,'"registration_status_v2"'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('payload') or {},
+            json.dumps,
+        ],
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?faceit\.com/(?:[a-z]{2}/)?players/(?P<username>[^/?#]+).*',
+                'to': 'https://www.faceit.com/api/users/v1/nicknames/{username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('nickname'),
+            'image': lambda x: x.get('avatar'),
+            'image_bg': lambda x: x.get('cover_image_url'),
+            'country_code': lambda x: x.get('country', '').upper() if x.get('country') else None,
+            'created_at': lambda x: parse_datetime_str(x.get('created_at')) if x.get('created_at') else None,
+            'friends_count': lambda x: len(x.get('friends') or []),
+            'faceit_game': lambda x: x.get('flag'),
+            'faceit_elo': lambda x: _faceit_current_game(x).get('faceit_elo'),
+            'faceit_skill_level': lambda x: _faceit_current_game(x).get('skill_level'),
+            'faceit_region': lambda x: _faceit_current_game(x).get('region'),
+            'steam_id': lambda x: x.get('platforms', {}).get('steam', {}).get('id64'),
+            'steam_nickname': lambda x: x.get('platforms', {}).get('steam', {}).get('nickname'),
+            'social_links': lambda x: _faceit_streaming_links(x),
         },
     },
 }

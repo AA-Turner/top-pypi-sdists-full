@@ -32,8 +32,10 @@ dependencies = [
     "absl-py",
     "immutabledict",
     "numpy",
+    "scipy",
     "ml_dtypes",
-    "ai-edge-litert==2.1.5",
+    "ai-edge-litert==2.1.6",
+    "litert-lm-builder",
 ]
 
 [project.urls]
@@ -58,6 +60,9 @@ version = {file = ["VERSION"]}
 
 [tool.setuptools.packages.find]
 include = ["ai_edge_quantizer*"]
+
+[tool.setuptools.package-data]
+"ai_edge_quantizer" = ["recipes/*.json", "policies/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib -n auto --dist loadfile"

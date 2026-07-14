@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: svcs
-Version: 25.1.0
+Version: 26.1.0
 Summary: A Flexible Service Locator
 Project-URL: Changelog, https://github.com/hynek/svcs/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://svcs.hynek.me/
@@ -13,56 +13,16 @@ License-Expression: MIT
 License-File: LICENSE
 Keywords: aiohttp,dependency injection,fastapi,flask,inversion of control,pyramid,service locator,starlette
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: attrs>=21.3.0
-Provides-Extra: dev
-Requires-Dist: aiohttp; extra == 'dev'
-Requires-Dist: fastapi; extra == 'dev'
-Requires-Dist: flask; extra == 'dev'
-Requires-Dist: httpx; extra == 'dev'
-Requires-Dist: mypy>=1.4; extra == 'dev'
-Requires-Dist: pyramid; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-asyncio; extra == 'dev'
-Requires-Dist: starlette; extra == 'dev'
-Requires-Dist: sybil>=6; extra == 'dev'
-Requires-Dist: tox-uv; extra == 'dev'
-Requires-Dist: tox>4; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: aiohttp; extra == 'docs'
-Requires-Dist: fastapi; extra == 'docs'
-Requires-Dist: flask; extra == 'docs'
-Requires-Dist: furo>=2023.8.17; extra == 'docs'
-Requires-Dist: httpx; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: pyramid; extra == 'docs'
-Requires-Dist: pytest; extra == 'docs'
-Requires-Dist: pytest-asyncio; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-design; extra == 'docs'
-Requires-Dist: sphinx-notfound-page; extra == 'docs'
-Requires-Dist: sphinx>=7.2.2; extra == 'docs'
-Requires-Dist: sphinxext-opengraph; extra == 'docs'
-Requires-Dist: sqlalchemy; extra == 'docs'
-Requires-Dist: starlette; extra == 'docs'
-Requires-Dist: sybil; extra == 'docs'
-Provides-Extra: tests
-Requires-Dist: pytest; extra == 'tests'
-Requires-Dist: pytest-asyncio; extra == 'tests'
-Requires-Dist: sybil>=6; extra == 'tests'
-Provides-Extra: typing
-Requires-Dist: aiohttp; extra == 'typing'
-Requires-Dist: fastapi; extra == 'typing'
-Requires-Dist: flask; extra == 'typing'
-Requires-Dist: mypy>=1.4; extra == 'typing'
-Requires-Dist: pyramid; extra == 'typing'
-Requires-Dist: starlette; extra == 'typing'
+Requires-Dist: typing-extensions>=4.13.0; python_version < '3.15'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -107,7 +67,7 @@ def view(request):
 ... or less!
 
 <!-- begin addendum -->
-To a type checker like [Mypy](https://mypy-lang.org), `db` has the type `Database`, `api` has the type `WebAPIClient`, and `cache` has the type `Cache`.
+To a type checker, `db` has the type `Database`, `api` has the type `WebAPIClient`, and `cache` has the type `Cache`.
 `db`, `api`, and `cache` will be automatically cleaned up when the request ends -- it's context managers all the way down.
 <!-- end addendum -->
 
@@ -125,7 +85,7 @@ Read on in [*Why?*](https://svcs.hynek.me/en/latest/why.html) or watch this shor
 [![Watch the video](https://img.youtube.com/vi/d1elMD9WgpA/maxresdefault.jpg)](https://youtu.be/d1elMD9WgpA)
 
 
-## Project Links
+## Project links
 
 - [**PyPI**](https://pypi.org/project/svcs/)
 - [**GitHub**](https://github.com/hynek/svcs)
@@ -136,40 +96,61 @@ Read on in [*Why?*](https://svcs.hynek.me/en/latest/why.html) or watch this shor
 
 ## Release Information
 
+### Deprecated
+
+- `svcs.get_abstract()` and all its `*_abstract()` siblings.
+  Thanks to [PEP 747] they are no longer necessary.
+  No deprecation warnings or plans to remove them for now.
+
+[PEP 747]: https://peps.python.org/pep-0747/
+
+
 ### Added
 
-- Python 3.13 support.
+- Python 3.14 and 3.15 support.
 
-- `svcs.Registry` now implements a `__iter__` method that allows to iterate over its registered services.
-  [#106](https://github.com/hynek/svcs/pull/106)
+- [PEP 747] support, aka [`typing.TypeForm`](https://docs.python.org/3.15/library/typing.html#typing.TypeForm).
+  This means that it's now possible use abstract types like `Protocol`s or abstract base classes for registered services, removing an important typing caveat.
+  This change introduces a dependency on `typing-extensions` for Python 3.14 and earlier.
+
+  Note: On Mypy versions older than 2.2, users that want to take advantage of this must pass the `--enable-incomplete-feature=TypeForm` argument.
+
+- New `svcs.autowire()` and `svcs.aautowire()` that can be used to automatically resolve dependencies based on type annotations.
+  [#167](https://github.com/hynek/svcs/pull/167)
+
+- New *suppress_context_exit* argument to `svcs.register_(factory|value)()`.
+  If set to `False`, errors in the container context will be passed into the factory cleanup context manager and allow you to act on them there.
+
+  You can't stop the exception from bubbling out of the container context, though.
+  [#129](https://github.com/hynek/svcs/pull/129)
 
 
 ### Removed
 
-- Python 3.8 support.
+- Debug logs don't contain stack information anymore since it leads to excessive output.
+  If you miss them, please open an issue and we make it an option on `svcs.Registry`.
+  [#135](https://github.com/hynek/svcs/discussions/135)
+  [#139](https://github.com/hynek/svcs/pull/139)
+
+- Python 3.9 support.
+  [#152](https://github.com/hynek/svcs/pull/152)
 
 
 ### Changed
 
-- Flask: The registry is now stored on `app.extensions`, not `app.config`.
-  This is an implementation detail.
-  If you are directly accessing the registry via `app.config`, this is a breaking change, though you should ideally move to `svcs.flask.registry` anyway.
-  [#71](https://github.com/hynek/svcs/discussions/71)
-  [#72](https://github.com/hynek/svcs/issues/72)
-  [#73](https://github.com/hynek/svcs/pull/73)
-
-- `Registry.register_factory()` is now more lenient regarding the arguments of the factory.
-  It only looks at the first argument (if present) and ignores the rest.
-  [#110](https://github.com/hynek/svcs/pull/110)
+- `Container.get_pings()` now includes registry-local services.
+  Locally defined services overwrite global ones if they are registered for the same type.
+  This includes that a local service without a ping disables a global service's ping.
+  [#83](https://github.com/hynek/svcs/pull/83)
 
 
 ### Fixed
 
-- `Container.aget()` now also enters and exits synchronous context managers.
-  [#93](https://github.com/hynek/svcs/pull/93)
+- Factories now can return [`MagicMock`](https://docs.python.org/3/library/unittest.mock.html#unittest.mock.MagicMock)s without crashing with a TypeError.
+  [#137](https://github.com/hynek/svcs/issues/137)
 
-- `Container.aget()` now also enters and exits context managers that are returned by async factories.
-  [#105](https://github.com/hynek/svcs/pull/105)
+- AIOHTTP: The container is now stored using `aiohttp.web.RequestKey`s on the application.
+  This is an implementation detail and shouldn't matter, but it fixes a warning on AIOHTTP 3.14 and later.
 
 
 ---
@@ -183,5 +164,13 @@ Read on in [*Why?*](https://svcs.hynek.me/en/latest/why.html) or watch this shor
 
 The development is kindly supported by my employer [Variomedia AG](https://www.variomedia.de/) and all my fabulous [GitHub Sponsors](https://github.com/sponsors/hynek).
 
-The [Bestagon](https://www.youtube.com/watch?v=thOifuHs6eY) radar logo is made by [Lynn Root](https://www.roguelynn.com), based on an [Font Awesome](https://fontawesome.com) icon.
+The [Bestagon](https://www.youtube.com/watch?v=thOifuHs6eY) radar logo is made by [Lynn Root](https://www.roguelynn.com), based on a [Font Awesome](https://fontawesome.com) icon.
 *svcs* has started out as a wrapper around [*wired*](https://wired.readthedocs.io/) by [Michael Merickel](https://michael.merickel.org/) and has been heavily influenced by it.
+
+
+## *svcs* for Enterprise
+
+Available as part of the [Tidelift Subscription](https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek).
+
+The maintainers of *svcs* and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open source packages you use to build your applications.
+Save time, reduce risk, and improve code health, while paying the maintainers of the exact packages you use.

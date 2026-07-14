@@ -277,7 +277,7 @@ class LocalWorld(w.World):
                 hook = read_json(hook_path, w.Hook)
                 if hook is not None and hook.token == token:
                     return hook
-        raise RuntimeError(f"Hook with token {token!r} not found")
+        raise w.HookNotFoundError(token=token)
 
     async def events_create(self, run_id: str | None, data: w.Event) -> w.EventResult:
         # run_created has no existing entity to race on — its create is guarded by
@@ -355,12 +355,12 @@ class LocalWorld(w.World):
                         f'"{current_run.status}"'
                     )
 
-        hook_events_requiring_existance = ["hook_disposed", "hook_received"]
-        if data.event_type in hook_events_requiring_existance and data.correlation_id:
+        if data.event_type in w.HOOK_EVENTS_REQUIRING_EXISTENCE and data.correlation_id:
             hook_path = self.data_dir / "hooks" / f"{data.correlation_id}.json"
             existing_hook = read_json(hook_path, w.Hook)
             if existing_hook is None:
-                raise RuntimeError(f"Hook {data.correlation_id!r} not found")
+                # Already disposed (or never created). Mirrors the backend's 404.
+                raise w.HookNotFoundError(hook_id=data.correlation_id)
 
         event = w.EventAdaptor.validate_python(
             data.model_dump()
@@ -510,9 +510,10 @@ class LocalWorld(w.World):
         elif data.event_type == "step_started":
             if validated_step:
                 if validated_step.retry_after and validated_step.retry_after > now:
-                    raise RuntimeError(
+                    raise w.TooEarlyError(
                         f'Cannot start step "{data.correlation_id}": '
-                        f"retryAfter timestamp has not been reached yet"
+                        f"retryAfter timestamp has not been reached yet",
+                        retry_after=math.ceil((validated_step.retry_after - now).total_seconds()),
                     )
 
                 step_composite_key = f"{effective_run_id}-{data.correlation_id}"
@@ -595,6 +596,16 @@ class LocalWorld(w.World):
                 ),
             )
             if not token_claimed:
+                existing_claim = json.loads(constraint_path.read_text())
+                if (
+                    existing_claim["runId"] == effective_run_id
+                    and existing_claim["hookId"] == data.correlation_id
+                ):
+                    # Same hook re-claiming its own token (replay re-issue or
+                    # crash recovery). Idempotent, not a cross-workflow conflict.
+                    raise w.EntityConflictError(
+                        f'Hook "{data.correlation_id}" has already been created'
+                    )
                 conflict_event = w.HookConflictEvent(
                     correlationId=data.correlation_id,
                     eventData=w.HookConflictEventData(token=hook_data.token),
@@ -643,6 +654,15 @@ class LocalWorld(w.World):
                 raise w.EntityConflictError(f'Wait "{data.correlation_id}" already completed')
 
         elif data.event_type == "hook_disposed":
+            # The existence check above already rejects an already-disposed hook
+            # with HookNotFoundError. This lock guards the narrow cross-process
+            # window where two invocations both still see the hook present: the
+            # loser gets EntityConflictError (swallowed by the runtime) instead
+            # of double-deleting and writing a duplicate hook_disposed event. The
+            # in-process run lock can't serialize separate processes.
+            dispose_lock = self.data_dir / ".locks" / "hooks" / f"{data.correlation_id}.disposed"
+            if not write_exclusive(dispose_lock, ""):
+                raise w.EntityConflictError(f'Hook "{data.correlation_id}" already disposed')
             hook_path = self.data_dir / "hooks" / f"{data.correlation_id}.json"
             existing_hook = read_json(hook_path, w.Hook)
             if existing_hook is not None:

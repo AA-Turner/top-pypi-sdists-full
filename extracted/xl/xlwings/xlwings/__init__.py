@@ -4,7 +4,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.36.8"
+__version__ = "0.36.10"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")
@@ -114,6 +114,7 @@ else:
 from .main import (
     App,
     Book,
+    BookAsync,
     Chart,
     Engine,
     Name,
@@ -135,6 +136,7 @@ from .utils import xlserial_to_datetime as to_datetime
 __all__ = (
     "App",
     "Book",
+    "BookAsync",
     "Chart",
     "Engine",
     "Name",

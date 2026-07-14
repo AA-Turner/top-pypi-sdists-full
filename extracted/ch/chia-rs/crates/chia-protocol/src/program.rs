@@ -27,7 +27,11 @@ use std::rc::Rc;
 #[cfg(feature = "py-bindings")]
 use clvm_utils::CurriedProgram;
 
-#[cfg_attr(feature = "py-bindings", pyclass(subclass), derive(PyStreamable))]
+#[cfg_attr(
+    feature = "py-bindings",
+    pyclass(subclass, from_py_object),
+    derive(PyStreamable)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Program(Bytes);
@@ -360,7 +364,7 @@ impl Program {
         // and it being treated as the CLVM structure it represents. In python's
         // SerializedProgram, we have a hack where we interpret the first
         // "layer" of SerializedProgram, or lists of SerializedProgram this way.
-        // But if we encounter an Optional or tuple, we defer to the clvm
+        // But if we encounter an Option or tuple, we defer to the clvm
         // wheel's conversion function to SExp. This level does not have any
         // special treatment for SerializedProgram (as that would cause a
         // circular dependency).
@@ -479,7 +483,7 @@ impl FromJsonDict for Program {
             // If the bytes in the JSON string is not a valid CLVM
             // serialization, or if it has garbage at the end of the string,
             // reject it
-            return Err(Error::InvalidClvm)?;
+            Err(Error::InvalidClvm)?;
         }
         Ok(Self(bytes))
     }

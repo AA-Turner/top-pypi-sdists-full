@@ -728,6 +728,15 @@ def metrics(
 # ---------------------------------------------------------------------------
 
 
+def _human_size(n: int) -> str:
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
+    return f"{value:.1f} TB"
+
+
 @chronos_app.command("workspace-refs")
 def workspace_refs(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
@@ -758,19 +767,23 @@ def workspace_refs(
             # Pretty-print refs table
             from rich.table import Table
 
+            from plato.worlds.dvc_models import dvc_files_size_summary
+
             table = Table(title=f"Workspace Refs for {session_id[:12]}...")
             table.add_column("Repo", style="cyan")
             table.add_column("Step", style="green")
             table.add_column("Ref ID", style="dim")
-            table.add_column("DVC Files", style="yellow")
+            table.add_column("Size", style="magenta", justify="right")
+            table.add_column("Files", style="yellow", justify="right")
 
             for ref in refs:
-                dvc_count = len(ref.get("dvc_files") or {})
+                total_bytes, total_files = dvc_files_size_summary(ref.get("dvc_files") or {})
                 table.add_row(
                     ref.get("repo_name", ""),
                     ref.get("step_name", ""),
                     ref.get("public_id", "")[:12] + "...",
-                    str(dvc_count),
+                    _human_size(total_bytes),
+                    str(total_files),
                 )
             console.print(table)
 

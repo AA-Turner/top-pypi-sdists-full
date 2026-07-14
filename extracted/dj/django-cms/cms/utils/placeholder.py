@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import operator
 import os
 import warnings
@@ -10,7 +8,6 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection, models
-from django.db.models.query_utils import Q
 from django.template import (
     Context,
     NodeList,
@@ -27,6 +24,7 @@ from sekizai.helpers import get_varname
 
 from cms.exceptions import DuplicatePlaceholderWarning
 from cms.models import EmptyPageContent, Placeholder
+from cms.utils.compat.warnings import RemovedInDjangoCMS60Warning
 from cms.utils.conf import get_cms_setting
 
 if TYPE_CHECKING:
@@ -69,17 +67,20 @@ def _get_placeholder_settings():
             raise ImproperlyConfigured(f"Circular inheritance detected in CMS_PLACEHOLDER_CONF at key '{key}'")
         visited.add(key)
         if "inherit" in conf[key]:
-            return resolve_inheritance(conf[key]['inherit'], visited) | {k: v for k, v in conf.items() if k != "inherit"}
-        return conf[key]
+            return resolve_inheritance(conf[key]["inherit"], visited) | {
+                k: v for k, v in conf[key].items() if k != "inherit"
+            }
+        # Return a copy: the caller updates the result in place, which must
+        # not leak into the inherited-from slot's own configuration.
+        return dict(conf[key])
 
     new_conf = {}
     for key, value in conf.items():
         if "inherit" in value:
-            new_conf[key] = resolve_inheritance(value['inherit'])
+            new_conf[key] = resolve_inheritance(value["inherit"])
             new_conf[key].update({k: v for k, v in value.items() if k != "inherit"})
         else:
             new_conf[key] = value
-
 
     settings = defaultdict(dict)
     for key, value in new_conf.items():
@@ -128,7 +129,7 @@ def get_placeholder_conf(setting: str, placeholder: str, template: str | None = 
     return default
 
 
-def get_toolbar_plugin_struct(plugins, slot=None, page=None):
+def get_toolbar_plugin_struct(plugins, slot=None, obj=None, page=None):
     """
     Return the list of plugins to render in the toolbar.
     The dictionary contains the label, the classname and the module for the
@@ -143,8 +144,17 @@ def get_toolbar_plugin_struct(plugins, slot=None, page=None):
     """
     template = None
 
+    obj = obj or page
     if page:
-        template = page.get_template()
+        import warnings
+
+        warnings.warn(
+            "The 'page' argument is deprecated. Please use 'obj' instead.",
+            RemovedInDjangoCMS60Warning,
+            stacklevel=2,
+        )
+    if obj and hasattr(obj, "get_template"):
+        template = obj.get_template()
 
     modules = get_placeholder_conf("plugin_modules", slot, template, default={})
     names = get_placeholder_conf("plugin_labels", slot, template, default={})
@@ -159,7 +169,7 @@ def get_toolbar_plugin_struct(plugins, slot=None, page=None):
                 "value": plugin.value,
                 "name": names.get(plugin.value, plugin.name),
                 "module": modules.get(plugin.value, plugin.module),
-                "add_form": plugin.show_add_form and not plugin.disable_edit,
+                "add_form": plugin.show_add_form and not plugin.is_slot,
             }
         )
     return sorted(main_list, key=operator.itemgetter("module"))
@@ -167,9 +177,7 @@ def get_toolbar_plugin_struct(plugins, slot=None, page=None):
 
 def validate_placeholder_name(name):
     if not isinstance(name, str):
-        raise ImproperlyConfigured(
-            "Placeholder identifier names need to be of type string. "
-        )
+        raise ImproperlyConfigured("Placeholder identifier names need to be of type string. ")
 
     try:
         name.encode("ascii")
@@ -183,55 +191,6 @@ def validate_placeholder_name(name):
         )
 
 
-class PlaceholderNoAction:
-    can_copy = False
-
-    def copy(self, **kwargs):
-        return False
-
-    def get_copy_languages(self, **kwargs):
-        return []
-
-
-class MLNGPlaceholderActions(PlaceholderNoAction):
-    can_copy = True
-
-    def copy(
-        self,
-        target_placeholder,
-        source_language,
-        fieldname,
-        model,
-        target_language,
-        **kwargs,
-    ):
-        from cms.utils.plugins import copy_plugins_to_placeholder
-
-        trgt = model.objects.get(**{fieldname: target_placeholder})
-        src = model.objects.get(master=trgt.master, language_code=source_language)
-
-        source_placeholder = getattr(src, fieldname, None)
-        if not source_placeholder:
-            return False
-        return copy_plugins_to_placeholder(
-            source_placeholder.get_plugins_list(),
-            placeholder=target_placeholder,
-            language=target_language,
-        )
-
-    def get_copy_languages(self, placeholder, model, fieldname, **kwargs):
-        manager = model.objects
-        src = manager.get(**{fieldname: placeholder})
-        query = Q(master=src.master)
-        query &= Q(**{"%s__cmsplugin__isnull" % fieldname: False})
-        query &= ~Q(pk=src.pk)
-
-        language_codes = (
-            manager.filter(query).values_list("language_code", flat=True).distinct()
-        )
-        return [(lc, dict(settings.LANGUAGES)[lc]) for lc in language_codes]
-
-
 def restore_sekizai_context(context, changes):
     varname = get_varname()
     sekizai_container = context.get(varname)
@@ -241,9 +200,7 @@ def restore_sekizai_context(context, changes):
             sekizai_namespace.append(value)
 
 
-def _scan_placeholders(
-    nodelist, node_class=None, current_block=None, ignore_blocks=None
-):
+def _scan_placeholders(nodelist, node_class=None, current_block=None, ignore_blocks=None):
     from cms.templatetags.cms_tags import Placeholder
 
     if not node_class:
@@ -279,22 +236,22 @@ def _scan_placeholders(
                             continue
                 else:
                     template = node.template
-                nodes += _scan_placeholders(
-                    _get_nodelist(template), node_class, current_block
-                )
+                nodes += _scan_placeholders(_get_nodelist(template), node_class, current_block)
         # handle {% extends ... %} tags
         elif isinstance(node, ExtendsNode):
-            nodes += _get_placeholder_nodes_from_extend(node, node_class)
+            try:
+                nodes += _get_placeholder_nodes_from_extend(node, node_class)
+            except (TemplateSyntaxError, TemplateDoesNotExist):
+                # If the extends tag uses a variable that's not available in the
+                # scanning context (like CMS_TEMPLATE), we can't resolve the parent
+                # template. Skip scanning this extends node.
+                continue
         # in block nodes we have to scan for super blocks
         elif isinstance(node, VariableNode) and current_block:
             if node.filter_expression.token == "block.super":
                 if not hasattr(current_block.super, "nodelist"):
-                    raise TemplateSyntaxError(
-                        "Cannot render block.super for blocks without a parent."
-                    )
-                nodes += _scan_placeholders(
-                    _get_nodelist(current_block.super), node_class, current_block.super
-                )
+                    raise TemplateSyntaxError("Cannot render block.super for blocks without a parent.")
+                nodes += _scan_placeholders(_get_nodelist(current_block.super), node_class, current_block.super)
         # ignore nested blocks which are already handled
         elif isinstance(node, BlockNode) and node.name in ignore_blocks:
             continue
@@ -307,9 +264,7 @@ def _scan_placeholders(
                     if isinstance(subnodelist, NodeList):
                         if isinstance(node, BlockNode):
                             current_block = node
-                        nodes += _scan_placeholders(
-                            subnodelist, node_class, current_block, ignore_blocks
-                        )
+                        nodes += _scan_placeholders(subnodelist, node_class, current_block, ignore_blocks)
         # else just scan the node for nodelist instance attributes
         else:
             for attr in dir(node):
@@ -317,13 +272,11 @@ def _scan_placeholders(
                 if isinstance(obj, NodeList):
                     if isinstance(node, BlockNode):
                         current_block = node
-                    nodes += _scan_placeholders(
-                        obj, node_class, current_block, ignore_blocks
-                    )
+                    nodes += _scan_placeholders(obj, node_class, current_block, ignore_blocks)
     return nodes
 
 
-def get_placeholders(template: str) -> list[DeclaredPlaceholder]:
+def get_placeholders(template: str) -> list["DeclaredPlaceholder"]:
     compiled_template = get_template(template)
 
     placeholders = []
@@ -344,6 +297,7 @@ def get_placeholders(template: str) -> list[DeclaredPlaceholder]:
             placeholders.append(placeholder)
             clean_placeholders.append(slot)
     return placeholders
+
 
 if settings.DEBUG is False or os.environ.get("DJANGO_TESTS"):
     # Cache in production only, so template changes in development
@@ -392,15 +346,11 @@ def _get_placeholder_nodes_from_extend(extend_node, node_class):
     placeholders = []
 
     for block in block_nodes.values():
-        placeholders.extend(
-            _scan_placeholders(_get_nodelist(block), node_class, block, block_names)
-        )
+        placeholders.extend(_scan_placeholders(_get_nodelist(block), node_class, block, block_names))
 
     # Scan topmost template for placeholder outside of blocks
     parent_template = _find_topmost_template(extend_node)
-    placeholders += _scan_placeholders(
-        _get_nodelist(parent_template), node_class, None, block_names
-    )
+    placeholders += _scan_placeholders(_get_nodelist(parent_template), node_class, None, block_names)
     return placeholders
 
 
@@ -420,10 +370,18 @@ def rescan_placeholders_for_obj(obj: models.Model) -> dict[str, Placeholder]:
     placeholders = {pl.slot: None for pl in declared_placeholders}  # Fix order of placeholders in dict
 
     # Fill in existing placeholders
-    placeholders.update({placeholder.slot: placeholder for placeholder in Placeholder.objects.get_for_obj(obj) if placeholder.slot in placeholders})
+    placeholders.update(
+        {
+            placeholder.slot: placeholder
+            for placeholder in Placeholder.objects.get_for_obj(obj)
+            if placeholder.slot in placeholders
+        }
+    )
 
     # Create missing placeholders
-    new_placeholders = [Placeholder(slot=slot, source=obj) for slot, placeholder in placeholders.items() if placeholder is None]
+    new_placeholders = [
+        Placeholder(slot=slot, source=obj) for slot, placeholder in placeholders.items() if placeholder is None
+    ]
     if new_placeholders:
         if connection.features.can_return_rows_from_bulk_insert:
             Placeholder.objects.bulk_create(new_placeholders)
@@ -442,7 +400,7 @@ def rescan_placeholders_for_obj(obj: models.Model) -> dict[str, Placeholder]:
     return placeholders
 
 
-def get_declared_placeholders_for_obj(obj: models.Model | EmptyPageContent | None) -> list[DeclaredPlaceholder]:
+def get_declared_placeholders_for_obj(obj: models.Model | EmptyPageContent | None) -> list["DeclaredPlaceholder"]:
     """Returns declared placeholders for an object. The object is supposed to either have a method
     ``get_placeholder_slots`` which returns the list of placeholders or a method ``get_template``
     which returns the template path as a string that renders the object. ``get_declared_placeholders`` returns

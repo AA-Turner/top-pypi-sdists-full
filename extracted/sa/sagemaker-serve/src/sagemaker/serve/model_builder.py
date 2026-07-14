@@ -149,7 +149,7 @@ from sagemaker.core.workflow import is_pipeline_variable
 from sagemaker.core import image_uris
 from sagemaker.core.fw_utils import model_code_key_prefix
 from sagemaker.train.base_trainer import BaseTrainer
-from sagemaker.core.telemetry.telemetry_logging import _telemetry_emitter
+from sagemaker.core.telemetry.telemetry_logging import _telemetry_emitter, TelemetryParamType
 from sagemaker.core.telemetry.constants import Feature
 
 _LOWEST_MMS_VERSION = "1.2"
@@ -3536,7 +3536,16 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
             if hasattr(self, attr):
                 delattr(self, attr)
 
-    @_telemetry_emitter(feature=Feature.MODEL_CUSTOMIZATION, func_name="model_builder.build")
+    @_telemetry_emitter(
+        feature=Feature.MODEL_CUSTOMIZATION,
+        func_name="model_builder.build",
+        telemetry_params=[
+            ("mode", TelemetryParamType.ATTR_VALUE),
+            ("network", TelemetryParamType.ATTR_EXISTS),
+            ("source_code", TelemetryParamType.ATTR_EXISTS),
+            ("inference_spec", TelemetryParamType.ATTR_EXISTS),
+        ],
+    )
     @runnable_by_pipeline
     def build(
         self,
@@ -3895,6 +3904,16 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         mb_instance.resource_requirements = resource_requirements
         mb_instance.model_kms_key = model_kms_key
         mb_instance.hub_name = jumpstart_config.hub_name
+        if mb_instance.hub_name and not getattr(mb_instance, "hub_arn", None):
+            from sagemaker.core.jumpstart.hub.utils import (
+                generate_hub_arn_for_init_kwargs,
+            )
+
+            mb_instance.hub_arn = generate_hub_arn_for_init_kwargs(
+                hub_name=mb_instance.hub_name,
+                region=mb_instance.region,
+                session=mb_instance.sagemaker_session,
+            )
         mb_instance.config_name = jumpstart_config.inference_config_name
         mb_instance.accept_eula = jumpstart_config.accept_eula
         mb_instance.tolerate_vulnerable_model = tolerate_vulnerable_model
@@ -4399,7 +4418,18 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         self.built_model = self._create_model()
         return self.built_model
 
-    @_telemetry_emitter(feature=Feature.MODEL_CUSTOMIZATION, func_name="model_builder.deploy")
+    @_telemetry_emitter(
+        feature=Feature.MODEL_CUSTOMIZATION,
+        func_name="model_builder.deploy",
+        telemetry_params=[
+            ("mode", TelemetryParamType.ATTR_VALUE),
+            ("instance_type", TelemetryParamType.ATTR_VALUE),
+            ("_is_model_customization", TelemetryParamType.ATTR_CALL),
+            ("network", TelemetryParamType.ATTR_EXISTS),
+            ("compute", TelemetryParamType.ATTR_EXISTS),
+            ("update_endpoint", TelemetryParamType.KWARG_EXISTS),
+        ],
+    )
     def deploy(
         self,
         endpoint_name: str = None,

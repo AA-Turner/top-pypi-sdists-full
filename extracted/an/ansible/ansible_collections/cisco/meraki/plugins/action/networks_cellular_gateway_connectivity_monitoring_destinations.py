@@ -48,7 +48,7 @@ class NetworksCellularGatewayConnectivityMonitoringDestinations(object):
         self.meraki = meraki
         self.new_object = dict(
             destinations=params.get("destinations"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -124,7 +124,9 @@ class NetworksCellularGatewayConnectivityMonitoringDestinations(object):
         requested_obj = self.new_object
 
         obj_params = [
-            ("destinations", "destinations"),]
+            ("destinations", "destinations"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

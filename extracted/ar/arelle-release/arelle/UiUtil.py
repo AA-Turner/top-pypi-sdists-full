@@ -151,7 +151,7 @@ class gridHdr(Label):
         minwidth: int | None = None,
         stretchCols: bool = True,
         stretchRows: bool = True,
-        objectId: Any = None,
+        objectId: str | None = None,
         onClick: Callable[[Event[Any]], object] | None = None,
     ) -> None:
         Label.__init__(self, master=master)
@@ -217,7 +217,7 @@ class gridCell(Entry):
         value: str | None = "",
         width: int | None = None,
         justify: str | None = None,
-        objectId: Any = None,
+        objectId: str | None = None,
         onClick: Callable[[Event[Any]], object] | None = None,
     ) -> None:
         Entry.__init__(self, master=master)
@@ -271,7 +271,7 @@ class gridCombobox(_Combobox):
         value: str = "",
         values: Sequence[str] = (),
         width: int | None = None,
-        objectId: Any = None,
+        objectId: str | None = None,
         columnspan: int | None = None,
         selectindex: int | None = None,
         comboboxselected: Callable[[Event[Any]], object] | None = None,
@@ -599,7 +599,7 @@ class scrolledHeaderedFrame(Frame):
                 for y in range(y):
                     grid.tk.call(('grid', 'rowconfigure', grid._w, y, '-minsize', 0))  # type: ignore[attr-defined]
                 grid.config(width=1, height=1)
-                grid.master.config(width=1, height=1, scrollregion=(0, 0, 1, 1))  # type: ignore[attr-defined]
+                grid.master.config(width=1, height=1, scrollregion=(0, 0, 1, 1))  # type: ignore[call-arg]
         self.update()
         self.colsConfigured = False
 

@@ -16,6 +16,8 @@
 PyONE is an implementation of Open Nebula XML-RPC bindings.
 '''
 
+from __future__ import annotations
+
 from enum import IntEnum
 from os import environ
 from typing import Optional, Union
@@ -198,7 +200,6 @@ def _resolve_uri_and_protocol(uri: Optional[str], protocol: Optional[str]) -> tu
     return protocol.lower(), uri
 
 
-from . import server_grpc
 from . import server_xrpc
 
 
@@ -227,6 +228,9 @@ class OneServer:
             raise OneException("Missing session")
         protocol, uri = _resolve_uri_and_protocol(uri, protocol)
         if protocol == "grpc":
+            # Imported lazily so that XML-RPC-only consumers do not need the
+            # native grpcio stack (and its libstdc++ dependency) available.
+            from . import server_grpc
             return server_grpc.OneServerGRPC(
                 uri, session, timeout=timeout, **options
             )

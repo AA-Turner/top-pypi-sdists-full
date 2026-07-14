@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+import importlib
+
 from doctest import ELLIPSIS
 
 import pytest
@@ -40,6 +42,12 @@ try:
 except ImportError:
     collect_ignore.extend(["docs"])
 
+for name in ["fastapi", "pyramid", "flask", "aiohttp", "starlette"]:
+    try:
+        importlib.import_module(name)
+    except ImportError:  # noqa: PERF203
+        collect_ignore.extend([f"tests/integrations/test_{name}.py"])
+
 
 @pytest.fixture(name="svc")
 def _svc():
@@ -48,7 +56,7 @@ def _svc():
 
 @pytest.fixture(name="rs")
 def _rs(svc):
-    return svcs.RegisteredService(Service, Service, False, True, None)
+    return svcs.RegisteredService(Service, Service, False, True, None, True)
 
 
 @pytest.fixture(name="registry")

@@ -32,8 +32,10 @@ __all__ = (
     "DescribePackagesFilterNameType",
     "DescribeReservedElasticsearchInstanceOfferingsPaginatorName",
     "DescribeReservedElasticsearchInstancesPaginatorName",
+    "DomainEngineModeType",
     "DomainPackageStatusType",
     "DomainProcessingStatusTypeType",
+    "DomainUseCaseType",
     "ESPartitionInstanceTypeType",
     "ESWarmPartitionInstanceTypeType",
     "ElasticsearchServiceServiceName",
@@ -104,6 +106,7 @@ DescribeReservedElasticsearchInstanceOfferingsPaginatorName = Literal[
 DescribeReservedElasticsearchInstancesPaginatorName = Literal[
     "describe_reserved_elasticsearch_instances"
 ]
+DomainEngineModeType = Literal["GENERAL", "OPTIMIZED"]
 DomainPackageStatusType = Literal[
     "ACTIVE", "ASSOCIATING", "ASSOCIATION_FAILED", "DISSOCIATING", "DISSOCIATION_FAILED"
 ]
@@ -116,6 +119,7 @@ DomainProcessingStatusTypeType = Literal[
     "UpdatingServiceSoftware",
     "UpgradingEngineVersion",
 ]
+DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 ESPartitionInstanceTypeType = Literal[
     "c4.2xlarge.elasticsearch",
     "c4.4xlarge.elasticsearch",
@@ -428,8 +432,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -456,6 +458,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -523,10 +527,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -559,6 +563,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -586,6 +591,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -607,7 +613,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -628,6 +633,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

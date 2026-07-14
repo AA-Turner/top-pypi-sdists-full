@@ -68,7 +68,18 @@ def autodiscover_cms_configs():
     """
     Find and import all cms_config.py files. Add a cms_app attribute
     to django's app config with an instance of the cms config.
+
+    This runs in two passes: all CMSAppExtension instances are attached
+    first, then the CMSAppConfig objects are instantiated. A config's
+    ``__init__`` may query registered extensions via
+    ``CMSAppConfig.get_contract()`` (which caches the result of
+    ``get_cms_extension_apps()``), so every extension must be registered
+    before any config is instantiated. Otherwise the order of apps in
+    INSTALLED_APPS could cause a config to cache an incomplete extension
+    list (e.g. djangocms_alias not finding djangocms_versioning).
     """
+    discovered = []
+    # First pass: import every cms_config module and attach the extensions.
     for app_config in apps.get_app_configs():
         try:
             cms_module = import_module(
@@ -82,20 +93,30 @@ def autodiscover_cms_configs():
         else:
             config = _find_config(cms_module)
             extension = _find_extension(cms_module)
+            if not config and not extension:
+                raise ImproperlyConfigured(
+                    f"The cms_config.py file of the '{app_config.label}' app "
+                    "must define at least one class which inherits from "
+                    "CMSAppConfig or CMSAppExtension")
             # We are adding these attributes here rather than in
             # django's app config definition because there are
             # all kinds of limitations as to what can be imported
             # in django's apps.py and leaving it to devs to define this
             # there could cause issues
-            if config:
-                app_config.cms_config = config(app_config)
             if extension:
                 app_config.cms_extension = extension()
-            if not config and not extension:
-                raise ImproperlyConfigured(
-                    "cms_config.py files must define at least one "
-                    "class which inherits from CMSAppConfig or "
-                    "CMSAppExtension")
+            discovered.append((app_config, config))
+
+    # All extensions are now attached; drop any extension lookup that was
+    # cached before every extension was registered, so the configs below
+    # see the complete list.
+    get_cms_extension_apps.cache_clear()
+
+    # Second pass: instantiate the configs, which may now safely look up
+    # any registered extension via get_contract().
+    for app_config, config in discovered:
+        if config:
+            app_config.cms_config = config(app_config)
 
 
 @cache
@@ -128,7 +149,14 @@ def configure_cms_apps(apps_with_features):
     and run code to register them with their config
     """
     for app_with_feature in apps_with_features:
-        enabled_property = f"{app_with_feature.label}_enabled"
+        contract = getattr(app_with_feature.cms_extension, "contract", None)
+        if contract is None:
+            contract_label = app_with_feature.label  # default contract name
+        elif isinstance(contract, (tuple, list)) and len(contract) == 2:
+            contract_label = contract[0]
+        else:
+            raise ImproperlyConfigured("CMSExtension contract property needs to be a 2-tuple consisting of the form (contract_name, contract_object)")
+        enabled_property = f"{contract_label}_enabled"
         configure_app = app_with_feature.cms_extension.configure_app
 
         for app_config in get_cms_config_apps():

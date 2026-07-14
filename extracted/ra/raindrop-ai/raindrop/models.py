@@ -22,6 +22,24 @@ class Attachment(BaseModel):
         return self
 
 
+class TrackEvent(_Base):
+    event_id: Optional[str] = None
+    user_id: str
+    event: str
+    properties: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(microsecond=0)
+    )
+    convo_id: Optional[str] = None
+    attachments: Optional[List[Attachment]] = None
+
+    @field_validator("user_id", "event")
+    def _non_empty(cls, v, info):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            raise ValueError(f"'{info.field_name}' must be a non-empty string.")
+        return v
+
+
 class AIData(_Base):
     model: Optional[str]
     input: Optional[str]

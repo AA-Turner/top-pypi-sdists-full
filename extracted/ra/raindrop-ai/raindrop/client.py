@@ -18,7 +18,7 @@ to different projects concurrently::
     interaction.finish(output="...")
     rd_support.track_ai(user_id="u1", event="chat", input="q", output="a")
 
-Manual events (track_ai / begin / finish / signals / identify) ship on the
+Manual events (track / track_ai / begin / finish / signals / identify) ship on the
 instance's own connections with its own ``Authorization`` and
 ``X-Raindrop-Project-Id`` headers — fully isolated per instance.
 
@@ -169,6 +169,27 @@ class Raindrop:
         return _rd_tracing.as_current(self._state.project_id, self._state.auth_hint)
 
     # -- event tracking ------------------------------------------------------ #
+
+    def track(
+        self,
+        user_id: str,
+        event: str,
+        event_id: Optional[str] = None,
+        timestamp: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+        convo_id: Optional[str] = None,
+        attachments: Optional[List[Attachment]] = None,
+    ) -> str | None:
+        return _analytics.track(
+            user_id=user_id,
+            event=event,
+            event_id=event_id,
+            timestamp=timestamp,
+            properties=properties,
+            convo_id=convo_id,
+            attachments=attachments,
+            state=self._state,
+        )
 
     def track_ai(
         self,

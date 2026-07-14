@@ -212,6 +212,8 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             is_ignored=self.state.ignored_devices.__contains__,
             presence=self._db.subscriber_presence,
             resolve_api_connection=self._resolve_device_api_connection,
+            on_persisted_ip_invalidated=self._on_persisted_ip_invalidated,
+            on_resolved_addresses_cleared=self._on_resolved_addresses_cleared,
         )
         # Per-signal freshness tracker (mDNS / ping / MQTT last-seen,
         # ping RTT) feeding the device drawer's Reachability section.
@@ -220,7 +222,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         # state monitor.
         self._reachability = ReachabilityTracker(
             on_observation=self._on_reachability_observation,
-            mdns_cache_reader=self._state_monitor.get_mdns_cache_info,
+            mdns_cache_reader=self._state_monitor.mdns.get_mdns_cache_info,
         )
         self._state_monitor.set_reachability(self._reachability)
         # MQTT routes its observations through the same state monitor so
@@ -242,7 +244,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         up a second responder. ``None`` when zeroconf failed to start —
         callers skip their advertise.
         """
-        return self._state_monitor.zeroconf
+        return self._state_monitor.mdns.zeroconf
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -1123,6 +1125,12 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
 
     def _on_ip_change(self, name: str, ip: str, addresses: list[str]) -> None:
         state_callbacks.on_ip_change(self, name, ip, addresses)
+
+    def _on_resolved_addresses_cleared(self, name: str) -> None:
+        state_callbacks.on_resolved_addresses_cleared(self, name)
+
+    def _on_persisted_ip_invalidated(self, name: str, stale_ip: str) -> None:
+        state_callbacks.on_persisted_ip_invalidated(self, name, stale_ip)
 
     def _on_source_change(self, name: str, source: ReachabilitySource) -> None:
         state_callbacks.on_source_change(self, name, source)

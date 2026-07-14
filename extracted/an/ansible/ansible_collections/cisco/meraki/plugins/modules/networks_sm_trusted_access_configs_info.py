@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_sm_trusted_access_configs_info
-short_description: Information module for networks _sm _trusted _access _configs
+short_description: Information module for networks _sm _trustedaccessconfigs
 description:
-  - Get all networks _sm _trusted _access _configs.
+  - Information module for Networks Sm Trustedaccessconfigs Info.
+  - Get all networks _sm _trustedaccessconfigs.
   - List Trusted Access Configs.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -22,15 +22,18 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Sm Trustedaccessconfigs Info.
       - NetworkId path parameter. Network ID.
     type: str
   perPage:
     description:
+      - Information module for Networks Sm Trustedaccessconfigs Info.
       - PerPage query parameter. The number of entries per page returned. Acceptable
         range is 3 - 1000. Default is 100.
     type: int
   startingAfter:
     description:
+      - Information module for Networks Sm Trustedaccessconfigs Info.
       - >
         StartingAfter query parameter. A token used by the server to indicate the
         start of the page. Often this is a timestamp or an ID but it is not limited
@@ -40,6 +43,7 @@ options:
     type: str
   endingBefore:
     description:
+      - Information module for Networks Sm Trustedaccessconfigs Info.
       - >
         EndingBefore query parameter. A token used by the server to indicate the end
         of the page. Often this is a timestamp or an ID but it is not limited to those.
@@ -62,7 +66,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _sm _trusted _access _configs
+- name: Get all networks _sm _trustedaccessconfigs
   cisco.meraki.networks_sm_trusted_access_configs_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

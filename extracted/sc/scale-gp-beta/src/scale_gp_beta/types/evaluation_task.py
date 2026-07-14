@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Union, Optional
-from typing_extensions import Literal, Annotated, TypeAlias
+from typing_extensions import Literal, Annotated, TypeAlias, TypeAliasType
 
 from pydantic import Field as FieldInfo
 
 from .._utils import PropertyInfo
+from .._compat import PYDANTIC_V1
 from .._models import BaseModel
 from .item_locator import ItemLocator
+from .eq_evaluation_run_condition import EqEvaluationRunCondition
+from .gt_evaluation_run_condition import GtEvaluationRunCondition
+from .in_evaluation_run_condition import InEvaluationRunCondition
+from .lt_evaluation_run_condition import LtEvaluationRunCondition
+from .ne_evaluation_run_condition import NeEvaluationRunCondition
+from .or_evaluation_run_condition import OrEvaluationRunCondition
+from .and_evaluation_run_condition import AndEvaluationRunCondition
+from .gte_evaluation_run_condition import GteEvaluationRunCondition
+from .lte_evaluation_run_condition import LteEvaluationRunCondition
+from .not_evaluation_run_condition import NotEvaluationRunCondition
 from .launch_inference_configuration import LaunchInferenceConfiguration
+from .not_in_evaluation_run_condition import NotInEvaluationRunCondition
+from .is_null_evaluation_run_condition import IsNullEvaluationRunCondition
+from .is_not_null_evaluation_run_condition import IsNotNullEvaluationRunCondition
 from .auto_evaluation_agent_task_request_with_item_locator import AutoEvaluationAgentTaskRequestWithItemLocator
 
 __all__ = [
@@ -380,26 +394,51 @@ class AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStruc
     op: Optional[Literal["var"]] = None
 
 
-AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunCondition: TypeAlias = Annotated[
-    Union[
-        AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
-        AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
-        "EqEvaluationRunCondition",
-        "NeEvaluationRunCondition",
-        "LtEvaluationRunCondition",
-        "LteEvaluationRunCondition",
-        "GtEvaluationRunCondition",
-        "GteEvaluationRunCondition",
-        "AndEvaluationRunCondition",
-        "OrEvaluationRunCondition",
-        "InEvaluationRunCondition",
-        "NotInEvaluationRunCondition",
-        "NotEvaluationRunCondition",
-        "IsNullEvaluationRunCondition",
-        "IsNotNullEvaluationRunCondition",
-    ],
-    PropertyInfo(discriminator="op"),
-]
+if TYPE_CHECKING or not PYDANTIC_V1:
+    AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunCondition = TypeAliasType(
+        "AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunCondition",
+        Annotated[
+            Union[
+                AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
+                AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
+                EqEvaluationRunCondition,
+                NeEvaluationRunCondition,
+                LtEvaluationRunCondition,
+                LteEvaluationRunCondition,
+                GtEvaluationRunCondition,
+                GteEvaluationRunCondition,
+                AndEvaluationRunCondition,
+                OrEvaluationRunCondition,
+                InEvaluationRunCondition,
+                NotInEvaluationRunCondition,
+                NotEvaluationRunCondition,
+                IsNullEvaluationRunCondition,
+                IsNotNullEvaluationRunCondition,
+            ],
+            PropertyInfo(discriminator="op"),
+        ],
+    )
+else:
+    AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunCondition: TypeAlias = Annotated[
+        Union[
+            AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
+            AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
+            EqEvaluationRunCondition,
+            NeEvaluationRunCondition,
+            LtEvaluationRunCondition,
+            LteEvaluationRunCondition,
+            GtEvaluationRunCondition,
+            GteEvaluationRunCondition,
+            AndEvaluationRunCondition,
+            OrEvaluationRunCondition,
+            InEvaluationRunCondition,
+            NotInEvaluationRunCondition,
+            NotEvaluationRunCondition,
+            IsNullEvaluationRunCondition,
+            IsNotNullEvaluationRunCondition,
+        ],
+        PropertyInfo(discriminator="op"),
+    ]
 
 
 class AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationStructuredOutputTaskRequestWithItemLocator(
@@ -439,26 +478,51 @@ class AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuide
     op: Optional[Literal["var"]] = None
 
 
-AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunCondition: TypeAlias = Annotated[
-    Union[
-        AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
-        AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
-        "EqEvaluationRunCondition",
-        "NeEvaluationRunCondition",
-        "LtEvaluationRunCondition",
-        "LteEvaluationRunCondition",
-        "GtEvaluationRunCondition",
-        "GteEvaluationRunCondition",
-        "AndEvaluationRunCondition",
-        "OrEvaluationRunCondition",
-        "InEvaluationRunCondition",
-        "NotInEvaluationRunCondition",
-        "NotEvaluationRunCondition",
-        "IsNullEvaluationRunCondition",
-        "IsNotNullEvaluationRunCondition",
-    ],
-    PropertyInfo(discriminator="op"),
-]
+if TYPE_CHECKING or not PYDANTIC_V1:
+    AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunCondition = TypeAliasType(
+        "AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunCondition",
+        Annotated[
+            Union[
+                AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
+                AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
+                EqEvaluationRunCondition,
+                NeEvaluationRunCondition,
+                LtEvaluationRunCondition,
+                LteEvaluationRunCondition,
+                GtEvaluationRunCondition,
+                GteEvaluationRunCondition,
+                AndEvaluationRunCondition,
+                OrEvaluationRunCondition,
+                InEvaluationRunCondition,
+                NotInEvaluationRunCondition,
+                NotEvaluationRunCondition,
+                IsNullEvaluationRunCondition,
+                IsNotNullEvaluationRunCondition,
+            ],
+            PropertyInfo(discriminator="op"),
+        ],
+    )
+else:
+    AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunCondition: TypeAlias = Annotated[
+        Union[
+            AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionConstEvaluationRunCondition,
+            AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocatorRunConditionVarEvaluationRunCondition,
+            EqEvaluationRunCondition,
+            NeEvaluationRunCondition,
+            LtEvaluationRunCondition,
+            LteEvaluationRunCondition,
+            GtEvaluationRunCondition,
+            GteEvaluationRunCondition,
+            AndEvaluationRunCondition,
+            OrEvaluationRunCondition,
+            InEvaluationRunCondition,
+            NotInEvaluationRunCondition,
+            NotEvaluationRunCondition,
+            IsNullEvaluationRunCondition,
+            IsNotNullEvaluationRunCondition,
+        ],
+        PropertyInfo(discriminator="op"),
+    ]
 
 
 class AutoEvaluationGuidedDecodingEvaluationTaskConfigurationAutoEvaluationGuidedDecodingTaskRequestWithItemLocator(
@@ -599,16 +663,3 @@ EvaluationTask: TypeAlias = Annotated[
 ]
 
 from .container import Container
-from .eq_evaluation_run_condition import EqEvaluationRunCondition
-from .gt_evaluation_run_condition import GtEvaluationRunCondition
-from .in_evaluation_run_condition import InEvaluationRunCondition
-from .lt_evaluation_run_condition import LtEvaluationRunCondition
-from .ne_evaluation_run_condition import NeEvaluationRunCondition
-from .or_evaluation_run_condition import OrEvaluationRunCondition
-from .and_evaluation_run_condition import AndEvaluationRunCondition
-from .gte_evaluation_run_condition import GteEvaluationRunCondition
-from .lte_evaluation_run_condition import LteEvaluationRunCondition
-from .not_evaluation_run_condition import NotEvaluationRunCondition
-from .not_in_evaluation_run_condition import NotInEvaluationRunCondition
-from .is_null_evaluation_run_condition import IsNullEvaluationRunCondition
-from .is_not_null_evaluation_run_condition import IsNotNullEvaluationRunCondition

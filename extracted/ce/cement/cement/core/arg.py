@@ -4,9 +4,10 @@ Cement core argument module.
 """
 
 from abc import abstractmethod
-from typing import Any, List
-from ..core.interface import Interface
+from typing import Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.misc import minimal_logger
 
 LOG = minimal_logger(__name__)
@@ -28,6 +29,9 @@ class ArgumentInterface(Interface):
         #: The string identifier of the interface.
         interface = 'argument'
 
+    # D-09: argparse passthrough — `**kw` carries argparse `add_argument`
+    # kwargs which are documented as arbitrary (action, type, default, help,
+    # nargs, etc.). Handler-contract pluggable kwargs by design.
     @abstractmethod
     def add_argument(self, *args: str, **kw: Any) -> None:
         """Add arguments to the parser.
@@ -58,10 +62,10 @@ class ArgumentInterface(Interface):
             None
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
-    def parse(self, *args: List[str]) -> object:
+    def parse(self, *args: list[str]) -> object:
         """
         Parse the argument list (i.e. ``sys.argv``).  Can return any object as
         long as its' members contain those of the added arguments.  For
@@ -76,7 +80,7 @@ class ArgumentInterface(Interface):
             arguments
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
 
 class ArgumentHandler(ArgumentInterface, Handler):
@@ -84,4 +88,4 @@ class ArgumentHandler(ArgumentInterface, Handler):
     """Argument handler implementation"""
 
     class Meta(Handler.Meta):
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method

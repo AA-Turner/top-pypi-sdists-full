@@ -52,11 +52,16 @@ class NFSTransport(Transport):
         world_vm_ip: str,
         ssh_key_path: Path,
         mount_path: str | None = None,
+        readonly: bool = False,
     ) -> None:
         self.path = path
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
+        # Read-only workspaces are enforced at BOTH ends: the server export
+        # line uses `ro` and the agent-side mount adds `-o ro`, so a
+        # misconfigured client cannot write even if it drops the mount flag.
+        self.readonly = readonly
 
     async def initialize(self) -> None:
         """Install kernel NFS server, write exports, and start the service."""
@@ -97,7 +102,8 @@ class NFSTransport(Transport):
         else:
             logger.debug("VM memory tuning applied: %s", stdout.strip())
 
-        export_line = f"{self.path} *(rw,sync,fsid=0,no_subtree_check,no_root_squash)"
+        perms = "ro" if self.readonly else "rw"
+        export_line = f"{self.path} *({perms},sync,fsid=0,no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' > /etc/exports",
             timeout=10,
@@ -145,10 +151,11 @@ class NFSTransport(Transport):
         _, exports, _ = await run_local("exportfs -s", timeout=5)
         logger.debug(f"NFS server running. Exports:\n{exports.strip()}")
 
-    async def add_export(self, path: str, fsid: int) -> None:
+    async def add_export(self, path: str, fsid: int, readonly: bool = False) -> None:
         """Add an additional NFS export line for a workspace path."""
         await self._setup_workspace_path(path)
-        export_line = f"{path} *(rw,sync,fsid={fsid},no_subtree_check,no_root_squash)"
+        perms = "ro" if readonly else "rw"
+        export_line = f"{path} *({perms},sync,fsid={fsid},no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' >> /etc/exports",
             timeout=10,
@@ -216,9 +223,10 @@ class NFSTransport(Transport):
             raise RuntimeError(f"Failed to prepare NFS mount on agent VM: {stderr}")
 
         # Step 2: mount with bounded per-attempt timeout and retries.
+        ro_opt = ",ro" if self.readonly else ""
         mount_cmd = (
             f"timeout 30 mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,"
-            f"rsize=32768,wsize=32768 {nfs_src} {remote}"
+            f"rsize=32768,wsize=32768{ro_opt} {nfs_src} {remote}"
         )
         t0 = _time.monotonic()
         last_err = ""
@@ -331,8 +339,13 @@ class NFSTransport(Transport):
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)
 
-    def with_path(self, path: str) -> NFSTransport:
+    def with_path(self, path: str, readonly: bool | None = None) -> NFSTransport:
+        """Clone for a sub-path. ``readonly`` INHERITS from this transport unless
+        explicitly overridden — per-agent mount clones (mounts.py, base.py) call
+        this without the flag, and dropping it would strip ``-o ro`` from the
+        client mount, silently degrading dual-end enforcement to export-only."""
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        return NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)
+        effective_readonly = self.readonly if readonly is None else readonly
+        return NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount, readonly=effective_readonly)

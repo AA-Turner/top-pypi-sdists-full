@@ -47,7 +47,7 @@ def _run_shell_with_timeout(
 GATEWAY_HOST = os.getenv("PLATO_GATEWAY_HOST", "gateway.plato.so")
 
 
-def _get_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, str]]:
+def get_vm_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, str]]:
     """Get SSH options for connecting to a VM via the gateway.
 
     Returns:
@@ -183,7 +183,7 @@ def build_ssh_command(job_id: str, private_key_path: Path) -> list[str]:
     Returns:
         SSH command as list of strings
     """
-    options = _get_ssh_options(job_id, private_key_path)
+    options = get_vm_ssh_options(job_id, private_key_path)
 
     cmd = ["ssh", "-i", str(private_key_path)]
     for name, value in options:
@@ -203,7 +203,7 @@ def build_ssh_command_string(job_id: str, private_key_path: Path) -> str:
     Returns:
         SSH command string suitable for rsync -e option
     """
-    options = _get_ssh_options(job_id, private_key_path)
+    options = get_vm_ssh_options(job_id, private_key_path)
 
     parts = [f"ssh -i {private_key_path}"]
     for name, value in options:
@@ -244,7 +244,12 @@ async def run_ssh_command(
 
     if stream_output and process.stdout:
         while True:
-            line = await process.stdout.readline()
+            try:
+                line = await process.stdout.readline()
+            except ValueError:
+                line = await process.stdout.read(2**16)
+                if not line:
+                    break
             if not line:
                 break
             print(line.decode("utf-8", errors="replace").rstrip())

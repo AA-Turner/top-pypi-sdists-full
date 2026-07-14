@@ -50,6 +50,8 @@ class StandardCapabilityName(str, Enum):
     LIST_ENTITLEMENTS = 'list_entitlements'
     LIST_EXPENSES = 'list_expenses'
     LIST_RESOURCES = 'list_resources'
+    LIST_CREDENTIALS = 'list_credentials'
+    LIST_NON_HUMAN_ACCOUNTS = 'list_non_human_accounts'
     FIND_RESOURCE_GRAPH = 'find_resource_graph'
     FIND_ENTITLEMENT_GRAPH = 'find_entitlement_graph'
     FIND_ENTITLEMENT_ASSIGNMENTS = 'find_entitlement_assignments'

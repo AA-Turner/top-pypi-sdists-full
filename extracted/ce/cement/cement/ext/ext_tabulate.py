@@ -11,14 +11,15 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
+
 from tabulate import tabulate  # type: ignore
-from typing import Any, List, Dict, TYPE_CHECKING
+
 from ..core import output
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -47,7 +48,7 @@ class TabulateOutputHandler(output.OutputHandler):
         format = 'orgtbl'
 
         #: Default headers to use.
-        headers: List[str] = []
+        headers: list[str] = []
 
         #: Default alignment for string columns.  See the ``tabulate``
         #: documentation for all supported ``stralign`` options.
@@ -69,7 +70,7 @@ class TabulateOutputHandler(output.OutputHandler):
 
     _meta: Meta  # type: ignore
 
-    def render(self, data: Dict[str, Any], **kw: Any) -> str:
+    def render(self, data: dict[str, Any], **kw: Any) -> str:
         """
         Take a data dictionary and render it into a table.  Additional
         keyword arguments are passed directly to ``tabulate.tabulate``.
@@ -101,5 +102,5 @@ class TabulateOutputHandler(output.OutputHandler):
         return out  # type: ignore
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(TabulateOutputHandler)

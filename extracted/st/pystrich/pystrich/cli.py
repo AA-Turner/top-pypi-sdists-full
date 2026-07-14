@@ -402,6 +402,12 @@ class DataMatrix(TwoDFormat):
             default=None,
             help="replace each occurrence of CHAR in --text with an FNC1 codeword",
         )
+        sp.add_argument(
+            "--symbol-shape",
+            choices=("square", "rectangular", "auto"),
+            default="square",
+            help="Data Matrix shape (default: square)",
+        )
 
     def encoder(self, args: argparse.Namespace) -> DataMatrixEncoder:
         segments = _datamatrix_segments(args.text, args.substitute_with_fnc1)
@@ -409,7 +415,7 @@ class DataMatrix(TwoDFormat):
             data = DataMatrixData(*segments, auto_encoding=True)
         else:
             data = DataMatrixData(*segments, encoding=args.encoding)
-        return DataMatrixEncoder(data, quiet_zone=args.quiet_zone)
+        return DataMatrixEncoder(data, quiet_zone=args.quiet_zone, symbol_shape=args.symbol_shape)
 
 
 def _datamatrix_segments(
@@ -463,7 +469,7 @@ class PDF417(TwoDFormat):
             type=int,
             choices=range(1, 31),
             metavar="N",
-            help="data columns 1-30 (default: near-square layout)",
+            help="data columns 1-30 (default: minimal-area layout)",
         )
         sp.add_argument(
             "--row-height",

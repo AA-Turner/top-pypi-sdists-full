@@ -8,8 +8,10 @@ import logging
 import math
 import random
 import re
+import sys
 import traceback
 from collections import deque
+from collections.abc import Coroutine
 from datetime import datetime, timedelta
 from typing import Any, Generic, Literal, ParamSpec, TypeVar
 
@@ -25,6 +27,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 SUSPENDED_MESSAGE = "<WORKFLOW SUSPENDED>"
 logger = logging.getLogger("vercel.workflow")
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Wait-continuation dispatch — mirrors @workflow/core's wait-continuation.ts.
 # The delayed re-enqueue that wakes a run when a pending wait elapses is keyed on
@@ -147,6 +150,47 @@ def get_step_metadata() -> StepInfo:
         raise RuntimeError("get_step_metadata() can only be called inside a step") from None
 
 
+def _run_in_default_loop(coro: Coroutine[Any, Any, T]) -> T:
+    if sys.version_info >= (3, 11):
+        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+            return runner.run(coro)
+    else:
+        # Python 3.10 doesn't support asyncio.Runner or the
+        # loop_factory argument to asyncio.run(). I don't really want
+        # to reimplement run so instead we just warn if the loop
+        # policy is something weird.
+        pol = asyncio.get_event_loop_policy()
+        if not isinstance(pol, asyncio.DefaultEventLoopPolicy):
+            logger.warning(
+                "asyncio event loop policy %r is not the default; workflow "
+                "execution needs the stdlib event loop and may misbehave.",
+                pol,
+            )
+        return asyncio.run(coro)
+
+
+def _run_isolated(coro: Coroutine[Any, Any, T]) -> T:
+    # The workflow is async, but it is not actually allowed to perform
+    # any IO-full operations, and resume/resume_wrapper require that it
+    # run in an isolated loop.
+    #
+    # So hide our existing loop and run everything in a fresh loop. We
+    # explicitly specify a factory because we look at ._ready, which
+    # might not exist in uvloop etc.
+    # TODO: Use a custom loop implementation.
+    old_loop = asyncio.get_running_loop()
+    current_task = asyncio.current_task()
+    if current_task:
+        asyncio._leave_task(old_loop, current_task)
+    asyncio._set_running_loop(None)
+    try:
+        return _run_in_default_loop(coro)
+    finally:
+        asyncio._set_running_loop(old_loop)
+        if current_task:
+            asyncio._enter_task(old_loop, current_task)
+
+
 class WorkflowOrchestratorContext:
     _ctx: contextvars.ContextVar[Self] = contextvars.ContextVar("WorkflowContext")
 
@@ -161,6 +205,7 @@ class WorkflowOrchestratorContext:
         prng = random.Random(seed)
         self.generate_ulid = functools.partial(ulid.monotonic_factory(prng.random), started_at)
         self.generate_nanoid = nanoid.custom_random(nanoid.URL_ALPHABET, 21, prng.random)
+        self._user_random = random.Random(f"{seed}:random")
         self._fut: asyncio.Future[Any] | None = None
         self.suspensions: dict[str, BaseSuspension] = {}
         self.hooks: dict[str, Hook] = {}
@@ -172,7 +217,7 @@ class WorkflowOrchestratorContext:
     def current(cls) -> Self:
         return cls._ctx.get()
 
-    async def run_workflow(self: Self, workflow_run: w.WorkflowRun) -> Any:
+    def run_workflow(self: Self, workflow_run: w.WorkflowRun) -> Any:
         wf = self.registry._get_workflow(workflow_run.workflow_name)
         if not workflow_run.input or not isinstance(workflow_run.input, list):
             raise RuntimeError(f"Invalid workflow input for run {workflow_run.run_id}")
@@ -180,7 +225,7 @@ class WorkflowOrchestratorContext:
             raise RuntimeError(f"Unsupported workflow input encoding for run {workflow_run.run_id}")
         args, kwargs = json.loads(workflow_run.input[0][len(b"json") :].decode())
 
-        with workflow_sandbox(random_seed=workflow_run.run_id):
+        with workflow_sandbox(policy=self.registry._sandbox_policy):
             mod = importlib.import_module(wf.module)
 
             # Resolve the sandboxed Workflow by qualname from the
@@ -189,19 +234,23 @@ class WorkflowOrchestratorContext:
             for attr in wf.qualname.split("."):
                 obj = getattr(obj, attr)
 
+            async def inner():
+                self._fut = asyncio.ensure_future(obj.func(*args, **kwargs))
+                self.resume_wrapper()  # arm the resume callback
+                await self._fut
+
             token = self._ctx.set(self)
             try:
-                self._fut = asyncio.ensure_future(obj.func(*args, **kwargs))
+                _run_isolated(inner())
             finally:
                 self._ctx.reset(token)
-            return await self._fut
+            assert self._fut
+            return self._fut.result()
 
     async def run_step(self, step: core.Step[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
         input_data = b"json" + json.dumps((args, kwargs), sort_keys=True).encode()
         sus = Suspension(correlation_id=f"step_{self.generate_ulid()}", step=step, input=input_data)
         self.suspensions[sus.correlation_id] = sus
-        if self.resume_handle is None and not self._suspended:
-            self.resume_handle = asyncio.get_running_loop().call_soon(self.resume)
         return await sus.future
 
     async def run_wait(self, param: int | float | datetime | str) -> None:
@@ -210,9 +259,21 @@ class WorkflowOrchestratorContext:
             resume_at=(parse_duration_to_date(param)),
         )
         self.suspensions[wait.correlation_id] = wait
-        if self.resume_handle is None and not self._suspended:
-            self.resume_handle = asyncio.get_running_loop().call_soon(self.resume)
         await wait.future
+
+    def now(self) -> datetime:
+        if not self.events:
+            raise RuntimeError("now() requires at least one event in the run's event log")
+        event = self.events[max(self.replay_index - 1, 0)]
+        assert event.server_props is not None
+        return event.server_props.created_at
+
+    def time_ns(self) -> int:
+        delta = self.now() - _EPOCH
+        return (delta.days * 86_400 + delta.seconds) * 1_000_000_000 + delta.microseconds * 1_000
+
+    def random(self) -> random.Random:
+        return self._user_random
 
     def create_hook(self, token: str | None, hook_cls: type[T]) -> core.HookEvent[T]:
         hook = Hook(
@@ -230,8 +291,6 @@ class WorkflowOrchestratorContext:
         self.suspensions[hook.correlation_id] = hook
         fut = asyncio.Future[T]()
         hook.futures.append(fut)
-        if self.resume_handle is None and not self._suspended:
-            self.resume_handle = asyncio.get_running_loop().call_soon(self.resume)
         return await fut
 
     def dispose_hook(self, *, correlation_id: str) -> None:
@@ -257,12 +316,54 @@ class WorkflowOrchestratorContext:
         elif isinstance(sus, (Suspension, Wait)) and not sus.future.done():
             sus.future.set_exception(exc)
 
+    def resume_wrapper(self) -> None:
+        """Make sure that resume() runs on an empty event loop ready queue."""
+
+        loop = asyncio.get_running_loop()
+        is_ready = bool(loop._ready)  # type: ignore[attr-defined]
+        self.resume_handle = loop.call_soon(self.resume_wrapper)
+        # We only want to resume() when all of the workflow tasks have
+        # suspended, so if anything else is running or ready to run,
+        # we defer. Our resume_handle callback will be at the back of
+        # the _ready queue, so everything else will go first.
+        if is_ready:
+            return
+
+        self.resume()
+
     def resume(self) -> None:
-        self.resume_handle = None
+        """Run over the the event log and try to apply an event.
+
+        The idea is that resume() will be run whenever everything else in the
+        async event loop has paused.
+
+        The core invariant of how resume() interacts with the workflow
+        is that the execution needs to appear identical to the events
+        arriving one at a time (because when they originally arrive
+        they are one at a time, and it needs to be indistinguishable
+        from that.)
+
+        Resolves at most one suspension before breaking.
+
+        If the event log is exhausted, cancel the future and suspend
+        the workflow.
+        """
 
         if self._fut is None:
             return
 
+        # NOTE: resume() does single-step delivery, so we resolve at most
+        # one suspension per invocation of resume().
+        # As an optimization for processing StepCreatedEvent and similar,
+        # we still structure this as a loop, though.
+        # The cases that do *not* invoke a suspension will continue,
+        # and the main bottom of the loop will break.
+        #
+        # This makes sure that resume() gets interleaved directly one
+        # to one with event deliveries, instead of sometimes having
+        # multiple deliveries bunched up before a resume(), which can
+        # lead to mismatches between a recording trace and a replaying
+        # one.
         while (
             self.replay_index < len(self.events) or self.ooo_hook_received_events
         ) and self.suspensions:
@@ -339,9 +440,11 @@ class WorkflowOrchestratorContext:
                         )
                         return
                     sus.has_created_event = True
+                    continue
 
                 case w.HookCreatedEvent() | w.WaitCreatedEvent():
                     self.suspensions[event.correlation_id].has_created_event = True
+                    continue
 
                 case w.StepCompletedEvent(event_data=w.StepCompletedEventData(result=data)):
                     sus = self.suspensions.pop(event.correlation_id)
@@ -396,9 +499,18 @@ class WorkflowOrchestratorContext:
                     self.hooks[event.correlation_id].has_dispose_event = True
                     self.dispose_hook(correlation_id=event.correlation_id)
 
-        if self.suspensions:
+            # One wake per pass: yield to the body so it drains to its next
+            # suspension before we deliver the next recorded event.
+            break
+
+        # If we did not break out of the loop, that means that the
+        # event log exhausted without doing any work.
+        # Suspend.
+        else:
             self._suspended = True
             self._fut.cancel(SUSPENDED_MESSAGE)
+            if self.resume_handle:
+                self.resume_handle.cancel()
 
 
 async def workflow_handler(
@@ -408,6 +520,7 @@ async def workflow_handler(
     queue_name: str,
     message_id: str,
     registry: core.Workflows,
+    namespace: str | None = None,
 ) -> w.QueueContinuation | None:
     world = w.get_world()
     run_id = w.WorkflowInvokePayload.model_validate(message).run_id
@@ -503,7 +616,7 @@ async def workflow_handler(
         events, seed=run_id, started_at=workflow_started_at, registry=registry
     )
     try:
-        result = await context.run_workflow(workflow_run)
+        result = context.run_workflow(workflow_run)
         output = b"json" + json.dumps(result).encode()
     except BaseException as e:
         if isinstance(e, asyncio.CancelledError) and e.args and e.args[0] == SUSPENDED_MESSAGE:
@@ -511,6 +624,7 @@ async def workflow_handler(
             pass
         elif isinstance(e, Exception):
             error_message = "".join(traceback.format_exception_only(type(e), e)).strip()
+            logger.exception("[Workflows] '%s' - workflow run failed: %s", run_id, error_message)
             try:
                 await world.events_create(
                     run_id,
@@ -557,7 +671,7 @@ async def workflow_handler(
                     # Instead we use an idempotency_key to pervent
                     # duplicate queueing.
                     await world.queue(
-                        f"__wkf_step_{s.step.name}",
+                        w.get_queue_name("step", s.step.name, namespace),
                         w.StepInvokePayload(
                             workflowName=workflow_run.workflow_name,
                             workflowRunId=run_id,
@@ -604,7 +718,7 @@ async def workflow_handler(
                             run_id,
                             w.HookDisposedEvent(correlationId=h.correlation_id),
                         )
-                    except w.EntityConflictError:
+                    except (w.EntityConflictError, w.HookNotFoundError):
                         logger.debug(
                             f"Workflow hook {h.correlation_id!r} has already been disposed"
                         )
@@ -621,6 +735,7 @@ async def workflow_handler(
             queue_name=queue_name,
             message_id=message_id,
             registry=registry,
+            namespace=namespace,
         )
 
     now = datetime.now(UTC)
@@ -641,6 +756,14 @@ async def workflow_handler(
     return w.QueueContinuation(delay_seconds=delay, idempotency_key=key)
 
 
+def _step_name_from_queue(queue_name: str, namespace: str | None = None) -> str:
+    """The step name encoded in a step queue topic."""
+    prefix = w.get_queue_topic_prefix("step", namespace)
+    if not queue_name.startswith(prefix):
+        raise ValueError(f'Invalid step queue name "{queue_name}": expected prefix "{prefix}"')
+    return queue_name.removeprefix(prefix)
+
+
 async def step_handler(
     message: Any,
     *,
@@ -648,23 +771,54 @@ async def step_handler(
     queue_name: str,
     message_id: str,
     registry: core.Workflows,
+    namespace: str | None = None,
 ) -> w.QueueContinuation | None:
     world = w.get_world()
     req = w.StepInvokePayload.model_validate(message)
 
-    # Get the step entity
-    step_run = await world.steps_get(req.workflow_run_id, req.step_id)
-    step = registry._get_step(step_run.step_name)
+    step = registry._get_step(_step_name_from_queue(queue_name, namespace))
 
-    # Check if retry_after timestamp hasn't been reached yet
-    now = datetime.now(UTC)
-    if step_run.retry_after and step_run.retry_after > now:
-        timeout_seconds = max(1, int((step_run.retry_after - now).total_seconds()))
+    # step_started validates state (terminal -> EntityConflictError, retryAfter
+    # not reached -> TooEarlyError), increments the attempt, and returns the
+    # updated step entity, so no step pre-read is needed.
+    try:
+        start_result = await world.events_create(
+            req.workflow_run_id,
+            w.StepStartedEvent(correlationId=req.step_id),
+        )
+    except w.TooEarlyError as e:
+        # retryAfter not reached yet — keep the message visible and retry later.
+        timeout_seconds = max(1, e.retry_after or 1)
+        logger.debug(
+            "[Workflows] '%s' - step '%s' retryAfter not reached, deferring %ds",
+            req.workflow_run_id,
+            step.name,
+            timeout_seconds,
+        )
         return w.QueueContinuation(delay_seconds=timeout_seconds)
+    except w.EntityConflictError:
+        # Step already in a terminal state — a duplicate delivery, or a concurrent
+        # worker finished it. Re-enqueue the workflow so it observes the outcome,
+        # then ack. This is also the crash-recovery path for a step that finished
+        # but whose handler died before re-invoking the workflow.
+        logger.debug("Tried starting step %r, but it has already finished", req.step_id)
+        await world.queue(
+            w.get_queue_name("workflow", req.workflow_name, namespace),
+            w.WorkflowInvokePayload(
+                runId=req.workflow_run_id,
+                requestedAt=datetime.now(UTC),
+            ),
+        )
+        return None
 
-    # Check max retries FIRST before any state changes
-    # step.attempt tracks how many times step_started has been called
-    # Use > here (not >=) because this guards against re-invocation AFTER all attempts are used
+    # Use the step entity from the event response
+    if not start_result.step:
+        raise RuntimeError(f"step_started event for '{req.step_id}' did not return step entity")
+    step_run = start_result.step
+    current_attempt = step_run.attempt
+
+    # Check max retries AFTER step_started (the attempt was just incremented).
+    # Use > here (not >=) because this guards re-invocation AFTER all attempts are used.
     if step_run.attempt > step.max_retries + 1:
         retry_count = step_run.attempt - 1
         error_message = (
@@ -683,7 +837,7 @@ async def step_handler(
 
         # Re-invoke the workflow to handle the failed step
         await world.queue(
-            f"__wkf_workflow_{req.workflow_name}",
+            w.get_queue_name("workflow", req.workflow_name, namespace),
             w.WorkflowInvokePayload(
                 runId=req.workflow_run_id,
                 requestedAt=datetime.now(UTC),
@@ -692,42 +846,6 @@ async def step_handler(
         return None
 
     try:
-        # Check step status
-        if step_run.status not in ["pending", "running"]:
-            logger.warning(
-                "[Workflows] '%s' - Step invoked erroneously, "
-                "expected status 'pending' or 'running', got '%s' instead, "
-                "skipping execution",
-                req.workflow_run_id,
-                step_run.status,
-            )
-
-            # Re-enqueue workflow if step is in terminal state
-            is_terminal_step = step_run.status in ["completed", "failed", "cancelled"]
-            if is_terminal_step:
-                await world.queue(
-                    f"__wkf_workflow_{req.workflow_name}",
-                    w.WorkflowInvokePayload(runId=req.workflow_run_id),
-                )
-            return None
-
-        # Start the step via event (increments attempt counter)
-        try:
-            start_result = await world.events_create(
-                req.workflow_run_id,
-                w.StepStartedEvent(correlationId=req.step_id),
-            )
-        except w.EntityConflictError:
-            logger.debug(f"Workflow step {req.step_id!r} was already started")
-            return None
-
-        # Use the step entity from the event response
-        if not start_result.step:
-            raise RuntimeError(f"step_started event for '{req.step_id}' did not return step entity")
-        step_run = start_result.step
-
-        current_attempt = step_run.attempt
-
         if not step_run.started_at:
             raise RuntimeError(f"Step '{req.step_id}' has no 'startedAt' timestamp")
 
@@ -774,6 +892,7 @@ async def step_handler(
 
         # step.attempt was incremented by step_started
         current_attempt = step_run.attempt
+        error_text = "".join(traceback.format_exception_only(type(e), e)).strip()
 
         # Check if max retries reached
         if current_attempt >= step.max_retries + 1:
@@ -781,9 +900,9 @@ async def step_handler(
             retry_count = step_run.attempt - 1
             error_message = (
                 f"Step '{step.name}' failed after {step.max_retries} "
-                f"{'retry' if step.max_retries == 1 else 'retries'}: {str(e)}"
+                f"{'retry' if step.max_retries == 1 else 'retries'}: {error_text}"
             )
-            logger.error(
+            logger.exception(
                 "[Workflows] '%s' - Encountered Error "
                 "while executing step '%s' (attempt %d, "
                 "%d %s): %s\n\n  Max retries reached\n  Bubbling error to parent workflow",
@@ -819,7 +938,9 @@ async def step_handler(
             error_stack = traceback.format_exc()
             await world.events_create(
                 req.workflow_run_id,
-                w.StepRetryingEventData(error=str(e), stack=error_stack).into_event(req.step_id),
+                w.StepRetryingEventData(error=error_text, stack=error_stack).into_event(
+                    req.step_id
+                ),
             )
 
             # Return timeout to keep message visible for retry
@@ -827,7 +948,7 @@ async def step_handler(
 
     # Re-invoke the workflow to continue execution
     await world.queue(
-        f"__wkf_workflow_{req.workflow_name}",
+        w.get_queue_name("workflow", req.workflow_name, namespace),
         w.WorkflowInvokePayload(
             runId=req.workflow_run_id,
             requestedAt=datetime.now(UTC),
@@ -837,16 +958,18 @@ async def step_handler(
 
 
 def workflow_entrypoint(registry: core.Workflows) -> w.HTTPHandler:
+    namespace = registry.namespace
     return w.get_world().create_queue_handler(
-        "__wkf_workflow_",
-        functools.partial(workflow_handler, registry=registry),
+        w.get_queue_topic_prefix("workflow", namespace),
+        functools.partial(workflow_handler, registry=registry, namespace=namespace),
     )
 
 
 def step_entrypoint(registry: core.Workflows) -> w.HTTPHandler:
+    namespace = registry.namespace
     return w.get_world().create_queue_handler(
-        "__wkf_step_",
-        functools.partial(step_handler, registry=registry),
+        w.get_queue_topic_prefix("step", namespace),
+        functools.partial(step_handler, registry=registry, namespace=namespace),
     )
 
 
@@ -974,9 +1097,13 @@ class Run:
 async def start(wf: core.Workflow[P, T], *args: P.args, **kwargs: P.kwargs) -> Run:
     world = w.get_world()
     deployment_id = await world.get_deployment_id()
+    namespace = wf._resolve_queue_namespace()
     input_data = b"json" + json.dumps([args, kwargs], sort_keys=True).encode()
     data = w.RunCreatedEventData(
-        deploymentId=deployment_id, workflowName=wf.workflow_id, input=[input_data]
+        deploymentId=deployment_id,
+        workflowName=wf.workflow_id,
+        input=[input_data],
+        executionContext={"queueNamespace": namespace} if namespace is not None else None,
     )
     result = await world.events_create(None, data.into_event())
 
@@ -986,7 +1113,7 @@ async def start(wf: core.Workflow[P, T], *args: P.args, **kwargs: P.kwargs) -> R
 
     run_id = result.run.run_id
     await world.queue(
-        f"__wkf_workflow_{wf.workflow_id}",
+        w.get_queue_name("workflow", wf.workflow_id, namespace),
         w.WorkflowInvokePayload(runId=run_id),
         deployment_id=deployment_id,
     )
@@ -1004,8 +1131,12 @@ async def resume_hook(token_or_hook: str | w.Hook, payload_json: str) -> w.Hook:
     payload = b"json" + payload_json.encode()
     data = w.HookReceivedEventData(payload=[payload])
     await world.events_create(hook.run_id, data.into_event(hook.hook_id))
+    execution_context = run.execution_context or {}
+    namespace = execution_context.get("queueNamespace")
+    if namespace is not None and not isinstance(namespace, str):
+        raise RuntimeError("Workflow run has an invalid queue namespace")
     await world.queue(
-        f"__wkf_workflow_{run.workflow_name}",
+        w.get_queue_name("workflow", run.workflow_name, namespace),
         w.WorkflowInvokePayload(runId=hook.run_id),
     )
     return hook

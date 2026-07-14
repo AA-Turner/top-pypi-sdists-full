@@ -5,7 +5,7 @@ from os.path import join
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.db import IntegrityError, connection, models
-from django.db.models import F, Prefetch, Q
+from django.db.models import Prefetch
 from django.db.models.base import ModelState
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Concat
@@ -151,18 +151,17 @@ class Page(MP_Node):
         #: Internal cache for page urls
         self.page_content_cache = {}
         #: Internal cache for page content objects visible publicly
-        self.admin_content_cache = AdminCacheDict()
+        self.admin_content_cache = None
         #: Internal cache for page content objects visible in the admin (i.e. to staff users.)
         #: Might be larger than the page_content_cache
 
     def __str__(self):
-        page_content = self.get_content_obj(get_language(), fallback=True)
+        page_content = self.get_admin_content(get_language(), fallback=True)
         if page_content:
             title = page_content.menu_title or page_content.title
         else:
             title = _("No available title")
-        path = self.get_path(get_language(), fallback=True)
-        return force_str(title) + ("" if path is None else f" (/{path})")
+        return force_str(title)
 
     def __repr__(self):
         display = f"<{self.__module__}.{self.__class__.__name__} id={self.pk} object at {hex(id(self))}>"
@@ -212,7 +211,7 @@ class Page(MP_Node):
     def _clear_internal_cache(self):
         self.urls_cache = {}
         self.page_content_cache = {}
-        self.admin_content_cache = AdminCacheDict()
+        self.admin_content_cache = None
 
         if hasattr(self, "_prefetched_objects_cache"):
             del self._prefetched_objects_cache
@@ -704,7 +703,7 @@ class Page(MP_Node):
     def get_languages(self, admin_manager=True):
         """Returns available languages for the page. This is potentially costly."""
         if admin_manager:
-            if not self.admin_content_cache:
+            if self.admin_content_cache is None:
                 self.set_admin_content_cache()
             return list(self.admin_content_cache.keys())
         if not self.page_content_cache:
@@ -751,11 +750,11 @@ class Page(MP_Node):
     def get_admin_content(self, language, fallback=False):
         from cms.models.contentmodels import EmptyPageContent
 
-        if not self.admin_content_cache:
+        if self.admin_content_cache is None:
             self.set_admin_content_cache()
         page_content = self.admin_content_cache.get(language, EmptyPageContent(language=language, page=self))
         if not page_content and fallback:
-            for lang in i18n.get_fallback_languages(language):
+            for lang in i18n.get_fallback_languages(language, site_id=self.site_id):
                 page_content = self.admin_content_cache.get(lang)
                 if page_content:
                     return page_content
@@ -943,7 +942,7 @@ class Page(MP_Node):
         """
 
         def get_fallback_language(page, language):
-            fallback_langs = i18n.get_fallback_languages(language)
+            fallback_langs = i18n.get_fallback_languages(language, site_id=page.site_id)
             for lang in fallback_langs:
                 if page.page_content_cache.get(lang):
                     return lang
@@ -984,7 +983,7 @@ class Page(MP_Node):
     def get_template(self, language=None, fallback=True, force_reload=False):
         content = self.get_content_obj(language, fallback, force_reload)
         if content:
-            return content.get_template()
+            return content.get_template(app_hooks=False)
         return get_cms_setting("TEMPLATES")[0][0] if get_cms_setting("TEMPLATES") else ""
 
     def get_template_name(self):

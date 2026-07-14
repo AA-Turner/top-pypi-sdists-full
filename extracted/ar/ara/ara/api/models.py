@@ -4,7 +4,8 @@
 import uuid
 
 from django.db import models
-from django.db.models import Func, IntegerField
+from django.db.models import Count, Func, IntegerField, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from ara.setup import ara_version
@@ -106,6 +107,54 @@ class Label(Base):
         return "<Label %s: %s>" % (self.id, self.name)
 
 
+def _related_count(related_model, fk_field="playbook"):
+    """
+    Build a correlated subquery that counts related_model rows pointing back to the
+    outer row through fk_field.
+
+    Each relationship is counted with its own independent subquery rather than with
+    several JOINs and a GROUP BY. Joining multiple reverse relationships in a single
+    query multiplies their rows together (a "fan-out") and inflates every count.
+    Independent subqueries avoid that entirely. The construct is plain SQL and behaves
+    identically on SQLite, MySQL/MariaDB and PostgreSQL. Coalesce reports 0 (instead of
+    NULL) when a relationship has no rows, which keeps the annotated value usable and
+    lets serializers tell "annotated as zero" apart from "not annotated at all".
+    """
+    subquery = (
+        related_model.objects.filter(**{fk_field: OuterRef("pk")})
+        .order_by()
+        .values(fk_field)
+        .annotate(count=Count("pk"))
+        .values("count")
+    )
+    return Coalesce(Subquery(subquery, output_field=IntegerField()), Value(0))
+
+
+class PlaybookQuerySet(models.QuerySet):
+    def with_item_counts(self):
+        """
+        Annotate each playbook with the number of related plays, tasks, results, hosts,
+        files and records, and prefetch its labels.
+
+        The item-count serializers (ara.api.serializers.ItemCountSerializer) then report
+        these counts and the labels straight from the queryset instead of issuing a
+        separate query per relationship per playbook. That is the N+1 problem behind the
+        slow playbook list page (issue #534): with this applied the whole list is served
+        in a constant number of queries regardless of how many playbooks are returned.
+
+        The related models are referenced by name here but resolved when the method runs
+        (they are defined further down this module), so the forward references are fine.
+        """
+        return self.annotate(
+            annotated_plays_count=_related_count(Play),
+            annotated_tasks_count=_related_count(Task),
+            annotated_results_count=_related_count(Result),
+            annotated_hosts_count=_related_count(Host),
+            annotated_files_count=_related_count(File),
+            annotated_records_count=_related_count(Record),
+        ).prefetch_related("labels")
+
+
 class Playbook(Duration):
     """
     An entry in the 'playbooks' table represents a single execution of the
@@ -115,6 +164,13 @@ class Playbook(Duration):
 
     class Meta:
         db_table = "playbooks"
+        # status: the common status filter (UI, CLI, exporter per-status counts).
+        # started / updated: the two timestamps list views sort by. `ara playbook
+        indexes = [
+            models.Index(fields=["status"], name="playbooks_status_idx"),
+            models.Index(fields=["started"], name="playbooks_started_idx"),
+            models.Index(fields=["updated"], name="playbooks_updated_idx"),
+        ]
 
     # A playbook in ARA can be running (in progress), completed (succeeded) or failed.
     UNKNOWN = "unknown"
@@ -141,6 +197,8 @@ class Playbook(Duration):
     labels = models.ManyToManyField(Label)
     controller = models.CharField(max_length=255, null=True, default="localhost")
     user = models.CharField(max_length=255, null=True)
+
+    objects = PlaybookQuerySet.as_manager()
 
     def __str__(self):
         return "<Playbook %s>" % self.id
@@ -200,6 +258,19 @@ class Record(Base):
         return "<Record %s:%s>" % (self.id, self.key)
 
 
+class PlayQuerySet(models.QuerySet):
+    def with_item_counts(self):
+        """
+        Annotate each play with the number of related tasks and results so the item-count
+        serializers can report them without issuing a query per relationship per play.
+        (See #534)
+        """
+        return self.annotate(
+            annotated_tasks_count=_related_count(Task, "play"),
+            annotated_results_count=_related_count(Result, "play"),
+        )
+
+
 class Play(Duration):
     """
     Data about Ansible plays.
@@ -208,6 +279,12 @@ class Play(Duration):
 
     class Meta:
         db_table = "plays"
+        # started / updated: `ara play list` and API/CLI time filters sort by
+        # these, like the other Duration models.
+        indexes = [
+            models.Index(fields=["started"], name="plays_started_idx"),
+            models.Index(fields=["updated"], name="plays_updated_idx"),
+        ]
 
     # A play in ARA can be running (in progress) or completed (regardless of success or failure)
     UNKNOWN = "unknown"
@@ -221,8 +298,25 @@ class Play(Duration):
     status = models.CharField(max_length=25, choices=STATUS, default=UNKNOWN)
     playbook = models.ForeignKey(Playbook, on_delete=models.CASCADE, related_name="plays")
 
+    objects = PlayQuerySet.as_manager()
+
     def __str__(self):
         return "<Play %s:%s>" % (self.id, self.name)
+
+
+class TaskQuerySet(models.QuerySet):
+    def with_item_counts(self):
+        """
+        Annotate each task with the number of related results, and select_related its
+        file, so the task list can be serialized without a query per task.
+        (See #534)
+
+        The results count feeds ItemCountSerializer.get_items (see also _related_count);
+        select_related("file") covers the task list's "path" field, which reads
+        task.file.path (see ara.api.serializers.TaskPathSerializer) and would otherwise
+        fetch the file one task at a time.
+        """
+        return self.select_related("file").annotate(annotated_results_count=_related_count(Result, "task"))
 
 
 class Task(Duration):
@@ -230,6 +324,15 @@ class Task(Duration):
 
     class Meta:
         db_table = "tasks"
+        # status: the UI/CLI status filter and the exporter's per-status counts,
+        # on a large table.
+        # started / updated: the timestamps `ara task list` and the Tasks UI sort
+        # by. Big table, so the scan-plus-sort this replaces is expensive.
+        indexes = [
+            models.Index(fields=["status"], name="tasks_status_idx"),
+            models.Index(fields=["started"], name="tasks_started_idx"),
+            models.Index(fields=["updated"], name="tasks_updated_idx"),
+        ]
 
     # Possible statuses for a task
     # A failed task is expected to have at least one failed result
@@ -262,6 +365,8 @@ class Task(Duration):
     file = models.ForeignKey(File, on_delete=models.CASCADE, related_name="tasks")
     playbook = models.ForeignKey(Playbook, on_delete=models.CASCADE, related_name="tasks")
 
+    objects = TaskQuerySet.as_manager()
+
     def __str__(self):
         return "<Task %s:%s>" % (self.name, self.id)
 
@@ -274,6 +379,13 @@ class Host(Base):
     class Meta:
         db_table = "hosts"
         unique_together = ("name", "playbook")
+        # updated: `ara host list` and the Hosts UI sort by -updated, and the
+        # exporter reads the most recently updated host records
+        # (hosts?order=-updated) for its per-hostname breakdown. Host has no
+        # `started` column (it is a Base model, not a Duration one).
+        indexes = [
+            models.Index(fields=["updated"], name="hosts_updated_idx"),
+        ]
 
     name = models.CharField(max_length=255)
     facts = models.BinaryField(max_length=(2**32) - 1)
@@ -319,6 +431,24 @@ class Result(Duration):
 
     class Meta:
         db_table = "results"
+        # (status, changed) / (status, ignore_errors): ara derives the status it
+        # displays from these column pairs (ok+changed becomes "changed",
+        # failed+ignore_errors becomes "ignored"), so the hottest filters on the
+        # largest table pair status with one of the two booleans.
+        # started / updated: the timestamps the global results list and
+        # `ara result list` sort by. Results is one of the largest tables, so
+        # this is where the scan-plus-sort hurt most.
+        # (playbook, started) / (host, started): the UI renders a playbook's or a
+        # host's results ordered by -started; these composites serve the FK
+        # filter and the -started ordering together for those report pages.
+        indexes = [
+            models.Index(fields=["status", "changed"], name="results_status_changed_idx"),
+            models.Index(fields=["status", "ignore_errors"], name="results_status_ignore_idx"),
+            models.Index(fields=["started"], name="results_started_idx"),
+            models.Index(fields=["updated"], name="results_updated_idx"),
+            models.Index(fields=["playbook", "started"], name="results_playbook_started_idx"),
+            models.Index(fields=["host", "started"], name="results_host_started_idx"),
+        ]
 
     # Ansible statuses
     OK = "ok"

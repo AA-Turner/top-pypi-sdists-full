@@ -32,6 +32,7 @@ from chalk._gen.chalk.common.v1.online_query_pb2 import GenericSingleQuery, Uplo
 from chalk._gen.chalk.common.v1.script_task_pb2 import ScriptTaskKind, ScriptTaskRequest, TrainingRunArgs
 from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, ExecutePlanResponse
 from chalk._gen.chalk.engine.v1 import query_server_pb2
+from chalk._gen.chalk.engine.v1.bloom_filter_pb2 import InspectBloomFiltersRequest
 from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
 from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServiceStub
 from chalk._gen.chalk.engine.v2.offline_store_service_pb2_grpc import OfflineStoreServiceStub
@@ -199,7 +200,12 @@ from chalk.client.serialization.model_serialization import ModelSerializer
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
 from chalk.config.auth_config import TokenConfig, load_token
 from chalk.features import live_updates
-from chalk.features._encoding.inputs import GRPC_ENCODE_OPTIONS, InputEncodeOptions, recursive_encode_bulk_inputs
+from chalk.features._encoding.inputs import (
+    GRPC_ENCODE_OPTIONS,
+    InputEncodeOptions,
+    InputSchemaHint,
+    recursive_encode_bulk_inputs,
+)
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import is_feature_set_class
@@ -324,11 +330,17 @@ def get_features_feather_bytes(
     inputs: "Mapping[FeatureReference, Sequence[Any]] | DataFrame | Table | RecordBatch",
     options: InputEncodeOptions,
     compression: Literal["lz4", "zstd", "uncompressed"] = "lz4",
+    input_schema_hint: Optional[InputSchemaHint] = None,
 ) -> bytes:
     import pyarrow as pa
 
     if isinstance(inputs, Mapping):
-        inputs, _ = recursive_encode_bulk_inputs(inputs, options=options)
+        inputs, _ = recursive_encode_bulk_inputs(inputs, options=options, input_schema_hint=input_schema_hint)
+    elif input_schema_hint is not None:
+        raise ValueError(
+            "input_schema_hint is only supported when inputs are provided as a mapping; "
+            + "tabular inputs (DataFrame/Table/RecordBatch) already carry an explicit schema"
+        )
 
     if isinstance(inputs, DataFrame):
         inputs_table: pa.Table = inputs.to_pyarrow()
@@ -995,6 +1007,7 @@ class ChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
         branch: str | None | types.EllipsisType = ...,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> OnlineQueryResponse:
         """Compute features values using online resolvers.
 
@@ -1069,6 +1082,14 @@ class ChalkGRPCClient:
         branch
             Sends this query to a branch with the given name. If omitted, uses the client's current branch. If explicitly None,
             runs this query on the mainline deployment (i.e. no branch)
+        input_schema_hint
+            Specifies the intended wire schema of has-many inputs e.g.
+            ```{User.transactions: [Transaction.id, Transaction.amount]}```
+            If no hint is provided, the schema will be inferred from the provided row data, which
+            is ambiguous when the row list is empty.
+            This ambiguity can cause query plan cache misses, since the shape of input data may
+            affect the inferred input schema, which may change which resolvers are needed to compute
+            the requested output.
 
         Other Parameters
         ----------------
@@ -1124,6 +1145,7 @@ class ChalkGRPCClient:
             query_context=_validate_context_dict(query_context),
             trace=trace,
             branch=branch,
+            input_schema_hint=input_schema_hint,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode_to_single(bulk_response)
 
@@ -1150,6 +1172,7 @@ class ChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
         branch: str | None | types.EllipsisType = ...,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> OnlineQueryResponse:
         """A synonym for :meth:`online_query`.
 
@@ -1177,6 +1200,7 @@ class ChalkGRPCClient:
             query_context=query_context,
             trace=trace,
             branch=branch,
+            input_schema_hint=input_schema_hint,
         )
 
     @classmethod
@@ -1207,11 +1231,13 @@ class ChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
         trace: bool = False,
         branch: str | None = None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
         trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("_online_query_grpc_request"):
             request = self._make_query_bulk_request(
                 input={k: [v] for k, v in input.items()},
+                input_schema_hint=input_schema_hint,
                 output=output,
                 now=[now] if now is not None else [],
                 staleness=staleness or {},
@@ -1268,6 +1294,7 @@ class ChalkGRPCClient:
         branch: str | None | types.EllipsisType = ...,
         *,
         input_sql: str | None = None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> BulkOnlineQueryResult:
         if input is None and input_sql is None:
             raise TypeError("One of `input` or `input_sql` is required")
@@ -1282,6 +1309,7 @@ class ChalkGRPCClient:
         response, call = self._online_query_bulk_grpc_request(
             input=input,
             input_sql=input_sql,
+            input_schema_hint=input_schema_hint,
             output=output,
             now=now,
             staleness=staleness,
@@ -1330,12 +1358,14 @@ class ChalkGRPCClient:
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
         branch: Optional[str] = None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, grpc.Call]:
         """Returns the raw GRPC response and metadata"""
 
         request = self._make_query_bulk_request(
             input=input,
             input_sql=input_sql,
+            input_schema_hint=input_schema_hint,
             output=output,
             now=now or (),
             staleness=staleness or {},
@@ -1579,6 +1609,7 @@ class ChalkGRPCClient:
         required_resolver_tags: Sequence[str],
         planner_options: Mapping[str, str | int | bool],
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None,
+        input_schema_hint: Optional[InputSchemaHint] = None,
     ) -> online_query_pb2.OnlineQueryBulkRequest:
         if input is None and input_sql is None:
             raise TypeError("One of `input` or `input_sql` is required")
@@ -1590,7 +1621,10 @@ class ChalkGRPCClient:
             inputs_feather = None
         else:
             inputs_feather = get_features_feather_bytes(
-                input, self._INPUT_ENCODE_OPTIONS, compression=self._input_compression
+                input,
+                self._INPUT_ENCODE_OPTIONS,
+                compression=self._input_compression,
+                input_schema_hint=input_schema_hint,
             )
 
         encoded_outputs = encode_outputs(output)
@@ -2502,6 +2536,15 @@ class ChalkGRPCClient:
             )
         )
         return ListDatasetsResponseDataclass.from_proto(proto_resp)
+
+    def get_active_bloom_filters(self):
+        """
+        Gets bloom filters loaded on an engine, if any have been configured.
+        Note: This request is unicast to a single engine, so if multiple engine pods are running
+        only the information for one of them will be returned.
+        """
+        request = InspectBloomFiltersRequest()
+        return self._stub_refresher.call_query_stub(lambda x: x.InspectBloomFilters(request), _EngineTarget.GRPC_ENGINE)
 
     def run_sql(self, sql: str, persistence_settings: Optional[Dict[str, Any]] = None):
         request = ExecuteSqlQueryRequest(query=sql)

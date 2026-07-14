@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: opensandbox
-Version: 0.1.13
+Version: 0.1.14
 Summary: OpenSandbox Python SDK - Secure, isolated execution environments
 Project-URL: Homepage, https://open-sandbox.ai
-Project-URL: Repository, https://github.com/alibaba/OpenSandbox
+Project-URL: Repository, https://github.com/opensandbox-group/OpenSandbox
 Project-URL: Documentation, https://open-sandbox.ai
-Project-URL: Issues, https://github.com/alibaba/OpenSandbox/issues
+Project-URL: Issues, https://github.com/opensandbox-group/OpenSandbox/issues
 Author-email: OpenSandbox Team <ninan.nn@alibaba-inc.com>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -228,6 +228,7 @@ Requires-Dist: httpx<1.0,>=0.27.0
 Requires-Dist: pydantic<3.0,>=2.4.2
 Requires-Dist: python-dateutil<3.0,>=2.8.2
 Provides-Extra: pool-redis
+Requires-Dist: pyjwt>=2.13.0; extra == 'pool-redis'
 Requires-Dist: redis<6.0,>=5.0; extra == 'pool-redis'
 Description-Content-Type: text/markdown
 
@@ -760,7 +761,6 @@ await sandbox.credential_vault.create(
             name="api-token",
             match={
                 "schemes": ["https"],
-                "ports": [443],
                 "hosts": ["api.example.com"],
                 "paths": ["/v1/*"],
             },

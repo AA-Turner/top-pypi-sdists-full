@@ -328,7 +328,9 @@ class NetworksSwitchStacksRoutingInterfaces(object):
             ("ospfSettings", "ospfSettings"),
             ("ipv6", "ipv6"),
             ("vrf", "vrf"),
-            ("loopback", "loopback"), ("switchStackId", "switchStackId"),
+            ("loopback", "loopback"),
+            ("networkId", "networkId"),
+            ("switchStackId", "switchStackId"),
             ("interfaceId", "interfaceId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params

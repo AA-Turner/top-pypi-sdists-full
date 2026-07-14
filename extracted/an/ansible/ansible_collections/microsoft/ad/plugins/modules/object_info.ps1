@@ -284,7 +284,7 @@ $module.Result.objects = @(foreach ($adId in $foundGuids) {
         }
 
         $propertyNames = $adObject.PropertyNames
-        $propertyNames += ($properties | Where-Object { $_ -ne '*' -and $_ -notin $propertyNames })
+        $propertyNames += ($properties | Where-Object { $_ -ne '*' })
 
         # Now process each property to an easy to represent string
         $filteredObject = [Ordered]@{}

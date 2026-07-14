@@ -24,15 +24,19 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nXsentry_protos/billing/v1/services/contract/v1/endpoint_release_manual_payment_lock.proto\x12-sentry_protos.billing.v1.services.contract.v1\"5\n\x1fReleaseManualPaymentLockRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\"3\n ReleaseManualPaymentLockResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nXsentry_protos/billing/v1/services/contract/v1/endpoint_release_manual_payment_lock.proto\x12-sentry_protos.billing.v1.services.contract.v1\"9\n\x1fReleaseManualPaymentLockRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04:\x02\x18\x01\"7\n ReleaseManualPaymentLockResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08:\x02\x18\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_release_manual_payment_lock_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_RELEASEMANUALPAYMENTLOCKREQUEST']._loaded_options = None
+  _globals['_RELEASEMANUALPAYMENTLOCKREQUEST']._serialized_options = b'\030\001'
+  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._loaded_options = None
+  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._serialized_options = b'\030\001'
   _globals['_RELEASEMANUALPAYMENTLOCKREQUEST']._serialized_start=139
-  _globals['_RELEASEMANUALPAYMENTLOCKREQUEST']._serialized_end=192
-  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._serialized_start=194
-  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._serialized_end=245
+  _globals['_RELEASEMANUALPAYMENTLOCKREQUEST']._serialized_end=196
+  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._serialized_start=198
+  _globals['_RELEASEMANUALPAYMENTLOCKRESPONSE']._serialized_end=253
 # @@protoc_insertion_point(module_scope)

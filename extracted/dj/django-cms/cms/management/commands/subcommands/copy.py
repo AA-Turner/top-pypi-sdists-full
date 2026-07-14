@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.management import CommandError
@@ -6,10 +5,9 @@ from django.db import transaction
 
 from cms.api import copy_plugins_to_language
 from cms.management.commands.subcommands.base import SubcommandsCommand
-from cms.models import EmptyPageContent, Page, PageContent, PageUrl, StaticPlaceholder
+from cms.models import EmptyPageContent, Page, PageContent, PageUrl
 from cms.utils import get_language_list
 from cms.utils.page import get_available_slug
-from cms.utils.plugins import copy_plugins_to_placeholder
 
 User = get_user_model()
 
@@ -64,7 +62,7 @@ class CopyLangCommand(SubcommandsCommand):
         try:
             site = int(options.get('site', None))
         except Exception:
-            site = settings.SITE_ID
+            site = Site.objects.get_current().pk
 
         try:
             assert from_lang in get_language_list(site)
@@ -105,13 +103,13 @@ class CopyLangCommand(SubcommandsCommand):
 
                     if parent_page:
                         base = parent_page.get_path(to_lang)
-                        path = '%s/%s' % (base, page_url.slug) if base else page_url.slug
+                        path = f'{base}/{page_url.slug}' if base else page_url.slug
                     else:
                         base = ''
                         path = page_url.slug
 
                     new_url["slug"] = get_available_slug(site, path, to_lang)
-                    new_url["path"] = '%s/%s' % (base, new_url["slug"]) if base else new_url["slug"]
+                    new_url["path"] = '{}/{}'.format(base, new_url["slug"]) if base else new_url["slug"]
                     PageUrl.objects.with_user(user).create(**new_url)
 
                 if copy_content:
@@ -125,24 +123,6 @@ class CopyLangCommand(SubcommandsCommand):
                 if verbose:
                     self.stdout.write(
                         f'Skipping page {page.get_page_title(page.get_languages()[0])}, language {from_lang} not defined\n'
-                    )
-
-        if copy_content:
-            for static_placeholder in StaticPlaceholder.objects.all():
-                plugin_list = []
-                for plugin in static_placeholder.draft.get_plugins():
-                    if plugin.language == from_lang:
-                        plugin_list.append(plugin)
-
-                if plugin_list:
-                    if verbose:
-                        self.stdout.write(
-                            f'copying plugins from static_placeholder "{static_placeholder.name}" in "{from_lang}" to "{to_lang}"\n'
-                        )
-                    copy_plugins_to_placeholder(
-                        plugins=plugin_list,
-                        placeholder=static_placeholder.draft,
-                        language=to_lang,
                     )
 
         self.stdout.write('all done')
@@ -165,11 +145,11 @@ class CopySiteCommand(SubcommandsCommand):
         try:
             from_site = int(options.get('from_site', None))
         except Exception:
-            from_site = settings.SITE_ID
+            from_site = Site.objects.get_current().pk
         try:
             to_site = int(options.get('to_site', None))
         except Exception:
-            to_site = settings.SITE_ID
+            to_site = Site.objects.get_current().pk
         try:
             assert from_site != to_site
         except AssertionError:

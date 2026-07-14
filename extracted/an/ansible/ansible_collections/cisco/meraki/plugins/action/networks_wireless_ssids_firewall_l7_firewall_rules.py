@@ -49,7 +49,7 @@ class NetworksWirelessSsidsFirewallL7FirewallRules(object):
         self.meraki = meraki
         self.new_object = dict(
             rules=params.get("rules"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -132,7 +132,9 @@ class NetworksWirelessSsidsFirewallL7FirewallRules(object):
         requested_obj = self.new_object
 
         obj_params = [
-            ("rules", "rules"), ("number", "number"),
+            ("rules", "rules"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

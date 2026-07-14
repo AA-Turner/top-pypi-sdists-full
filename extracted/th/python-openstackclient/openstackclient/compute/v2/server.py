@@ -703,9 +703,10 @@ class AddServerSecurityGroup(command.Command):
         errors = 0
         for security_group in security_groups:
             try:
+                # SDK wants a SecurityGroup object but will handle a dict
                 compute_client.add_security_group_to_server(
                     server,
-                    {'name': security_group},
+                    {'name': security_group},  # type: ignore[arg-type]
                 )
             except sdk_exceptions.HttpException as e:
                 errors += 1
@@ -786,7 +787,7 @@ with status ``SHELVED`` or ``SHELVED_OFFLOADED``."""
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         compute_client = self.app.client_manager.compute
-        volume_client = self.app.client_manager.sdk_connection.volume
+        volume_client = self.app.client_manager.volume
 
         server = compute_client.find_server(
             parsed_args.server,
@@ -1668,9 +1669,9 @@ class CreateServer(command.ShowOne):
                 msg = _('--volume is not allowed with --boot-from-volume')
                 raise exceptions.CommandError(msg)
 
-            volume = utils.find_resource(
-                volume_client.volumes,
+            volume = volume_client.find_volume(
                 parsed_args.volume,
+                ignore_missing=False,
             ).id
 
         snapshot = None
@@ -1680,9 +1681,9 @@ class CreateServer(command.ShowOne):
                 msg = _('--snapshot is not allowed with --boot-from-volume')
                 raise exceptions.CommandError(msg)
 
-            snapshot = utils.find_resource(
-                volume_client.volume_snapshots,
+            snapshot = volume_client.find_snapshot(
                 parsed_args.snapshot,
+                ignore_missing=False,
             ).id
 
         flavor = compute_client.find_flavor(
@@ -1822,15 +1823,15 @@ class CreateServer(command.ShowOne):
             # The 'uuid' field isn't necessarily a UUID yet; let's validate it
             # just in case
             if mapping['source_type'] == 'volume':
-                volume_id = utils.find_resource(
-                    volume_client.volumes,
+                volume_id = volume_client.find_volume(
                     mapping['uuid'],
+                    ignore_missing=False,
                 ).id
                 mapping['uuid'] = volume_id
             elif mapping['source_type'] == 'snapshot':
-                snapshot_id = utils.find_resource(
-                    volume_client.volume_snapshots,
+                snapshot_id = volume_client.find_snapshot(
                     mapping['uuid'],
+                    ignore_missing=False,
                 ).id
                 mapping['uuid'] = snapshot_id
             elif mapping['source_type'] == 'image':
@@ -2723,25 +2724,27 @@ class ListServer(command.Lister):
         self, parsed_args: argparse.Namespace
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
         compute_client = self.app.client_manager.compute
-        identity_client = self.app.client_manager.identity
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         image_client = self.app.client_manager.image
 
         project_id = None
         if parsed_args.project:
-            project_id = identity_common.find_project(
+            project_id = identity_common.find_project_id_sdk(
                 identity_client,
                 parsed_args.project,
                 parsed_args.project_domain,
-            ).id
+            )
             parsed_args.all_projects = True
 
         user_id = None
         if parsed_args.user:
-            user_id = identity_common.find_user(
+            user_id = identity_common.find_user_id_sdk(
                 identity_client,
                 parsed_args.user,
                 parsed_args.user_domain,
-            ).id
+            )
 
         # Nova only supports list servers searching by flavor ID. So if a
         # flavor name is given, map it to ID.
@@ -4214,9 +4217,10 @@ class RemoveServerSecurityGroup(command.Command):
         errors = 0
         for security_group in security_groups:
             try:
+                # SDK wants a SecurityGroup object but will handle a dict
                 compute_client.remove_security_group_from_server(
                     server,
-                    {'name': security_group},
+                    {'name': security_group},  # type: ignore[arg-type]
                 )
             except sdk_exceptions.HttpException as e:
                 errors += 1
@@ -4264,7 +4268,7 @@ volume from a server with status ``SHELVED`` or ``SHELVED_OFFLOADED``."""
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         compute_client = self.app.client_manager.compute
         volume_client = sdk_utils.ensure_service_version(
-            self.app.client_manager.sdk_connection.volume, '3'
+            self.app.client_manager.volume, '3'
         )
 
         server = compute_client.find_server(
@@ -4320,9 +4324,9 @@ server booted from a volume."""
         compute_client = self.app.client_manager.compute
         image_client = self.app.client_manager.image
 
-        image_ref = None
+        image = None
         if parsed_args.image:
-            image_ref = image_client.find_image(
+            image = image_client.find_image(
                 parsed_args.image, ignore_missing=False
             ).id
 
@@ -4330,7 +4334,7 @@ server booted from a volume."""
             parsed_args.server, ignore_missing=False
         )
         compute_client.rescue_server(
-            server, admin_pass=parsed_args.password, image_ref=image_ref
+            server, admin_pass=parsed_args.password, image=image
         )
 
 
@@ -4675,6 +4679,16 @@ class SetServer(command.Command):
                 '(supported by --os-compute-api-version 2.90 or above)'
             ),
         )
+        parser.add_argument(
+            '--pinned-availability-zone',
+            metavar='<availability-zone>',
+            help=_(
+                'Pin the server to the given availability zone. '
+                'The server must currently be in the given zone. '
+                'To unpin, use "server unset --pinned-availability-zone" '
+                '(supported by --os-compute-api-version 2.104 or above)'
+            ),
+        )
         return parser
 
     @staticmethod
@@ -4721,6 +4735,14 @@ class SetServer(command.Command):
                 )
                 raise exceptions.CommandError(msg)
 
+        if parsed_args.pinned_availability_zone:
+            if not sdk_utils.supports_microversion(compute_client, '2.104'):
+                msg = _(
+                    '--os-compute-api-version 2.104 or greater is required '
+                    'to support the --pinned-availability-zone option'
+                )
+                raise exceptions.CommandError(msg)
+
         update_kwargs = {}
 
         if parsed_args.name:
@@ -4731,6 +4753,11 @@ class SetServer(command.Command):
 
         if parsed_args.hostname:
             update_kwargs['hostname'] = parsed_args.hostname
+
+        if parsed_args.pinned_availability_zone:
+            update_kwargs['pinned_availability_zone'] = (
+                parsed_args.pinned_availability_zone
+            )
 
         if update_kwargs:
             compute_client.update_server(server, **update_kwargs)
@@ -5328,6 +5355,15 @@ class UnsetServer(command.Command):
                 '(supported by --os-compute-api-version 2.26 or above)'
             ),
         )
+        parser.add_argument(
+            '--pinned-availability-zone',
+            dest='pinned_availability_zone',
+            action='store_true',
+            help=_(
+                'Unpin the server from its availability zone '
+                '(supported by --os-compute-api-version 2.104 or above)'
+            ),
+        )
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
@@ -5351,6 +5387,16 @@ class UnsetServer(command.Command):
                 raise exceptions.CommandError(msg)
 
             compute_client.update_server(server, description="")
+
+        if parsed_args.pinned_availability_zone:
+            if not sdk_utils.supports_microversion(compute_client, '2.104'):
+                msg = _(
+                    '--os-compute-api-version 2.104 or greater is required '
+                    'to support the --pinned-availability-zone option'
+                )
+                raise exceptions.CommandError(msg)
+
+            compute_client.update_server(server, pinned_availability_zone=None)
 
         if parsed_args.tags or parsed_args.all_tags:
             if not sdk_utils.supports_microversion(compute_client, '2.26'):

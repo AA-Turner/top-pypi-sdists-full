@@ -12,6 +12,7 @@ from .character_gender import CharacterGender
 class CharacterMetadataResponseModel(UncheckedBaseModel):
     description: typing.Optional[str] = None
     sample_message: typing.Optional[str] = None
+    voice_creation_prompt_suggestion: typing.Optional[str] = None
     gender: typing.Optional[CharacterGender] = None
     age: typing.Optional[CharacterAge] = None
     accent: typing.Optional[str] = None

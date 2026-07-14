@@ -52,7 +52,7 @@ class NetworksWirelessElectronicShelfLabel(object):
             hostname=params.get("hostname"),
             enabled=params.get("enabled"),
             mode=params.get("mode"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -136,7 +136,9 @@ class NetworksWirelessElectronicShelfLabel(object):
         obj_params = [
             ("hostname", "hostname"),
             ("enabled", "enabled"),
-            ("mode", "mode"),]
+            ("mode", "mode"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

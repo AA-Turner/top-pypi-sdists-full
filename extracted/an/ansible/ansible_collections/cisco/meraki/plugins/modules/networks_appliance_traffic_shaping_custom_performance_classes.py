@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_appliance_traffic_shaping_custom_performance_classes
-short_description: Resource module for networks _appliance _traffic _shaping _custom
-  _performance _classes
+short_description: Resource module for networks _appliance _trafficshaping _customperformanceclasses
 description:
-  - Manage operation create of the resource networks _appliance _traffic _shaping
-    _custom _performance _classes.
+  - Manage operation create of the resource networks _appliance _trafficshaping _customperformanceclasses.
   - Add a custom performance class for an MX network.
 version_added: '1.0.0'
 extends_documentation_fragment:

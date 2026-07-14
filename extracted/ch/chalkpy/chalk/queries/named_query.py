@@ -5,7 +5,7 @@ import traceback
 from typing import TYPE_CHECKING, Mapping, Sequence
 
 from chalk._lsp.error_builder import LSPErrorBuilder
-from chalk.features import unwrap_feature
+from chalk.features import feature_to_query_str, unwrap_feature
 from chalk.utils.object_inspect import get_source_object_starting
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
@@ -155,7 +155,9 @@ class NamedQuery:
                 self._input = None
                 self.errors.append("Must provide either input or output ")
             elif self._input_raw is not None:
-                self._input = [str(f) for f in self._input_raw]
+                # feature_to_query_str (not str) so a projected has-many input keeps its columns,
+                # e.g. `user.transactions[transaction.id]`.
+                self._input = [feature_to_query_str(f) for f in self._input_raw]
             elif self._output_raw is not None:
                 self._input = [str(unwrap_feature(o).primary_feature) for o in self._output_raw]
         except Exception as e:
@@ -173,7 +175,7 @@ class NamedQuery:
             return self._output
         try:
             if self._output_raw is not None:
-                self._output = [str(o) for o in self._output_raw]
+                self._output = [feature_to_query_str(o) for o in self._output_raw]
         except Exception as e:
             self._output = None
             if not LSPErrorBuilder.promote_exception(e):

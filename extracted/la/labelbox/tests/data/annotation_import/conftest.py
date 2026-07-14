@@ -26,8 +26,8 @@ DATA_ROW_PROCESSING_WAIT_SLEEP_INTERNAL_SECONDS = 7
 def video_data_row_factory():
     def video_data_row(global_key):
         return {
-            "row_data": "https://storage.googleapis.com/labelbox-datasets/video-sample-data/sample-video-1.mp4",
-            "global_key": f"https://storage.googleapis.com/labelbox-datasets/video-sample-data/sample-video-1.mp4-{global_key}",
+            "row_data": "https://storage.googleapis.com/lb-test-data/cataflow/media/test_video_500kb.mp4",
+            "global_key": f"https://storage.googleapis.com/lb-test-data/cataflow/media/test_video_500kb.mp4-{global_key}",
             "media_type": "VIDEO",
         }
 
@@ -38,8 +38,8 @@ def video_data_row_factory():
 def audio_data_row_factory():
     def audio_data_row(global_key):
         return {
-            "row_data": "https://storage.googleapis.com/labelbox-datasets/audio-sample-data/sample-audio-1.mp3",
-            "global_key": f"https://storage.googleapis.com/labelbox-datasets/audio-sample-data/sample-audio-1.mp3-{global_key}",
+            "row_data": "https://storage.googleapis.com/lb-test-data/cataflow/media/tomorrow-114848.mp3",
+            "global_key": f"https://storage.googleapis.com/lb-test-data/cataflow/media/tomorrow-114848.mp3-{global_key}",
             "media_type": "AUDIO",
         }
 
@@ -82,8 +82,8 @@ def geospatial_data_row_factory():
 def html_data_row_factory():
     def html_data_row(global_key):
         return {
-            "row_data": "https://storage.googleapis.com/labelbox-datasets/html_sample_data/sample_html_1.html",
-            "global_key": f"https://storage.googleapis.com/labelbox-datasets/html_sample_data/sample_html_1.html-{global_key}",
+            "row_data": "https://storage.googleapis.com/lb-test-data/cataflow/media/about.html",
+            "global_key": f"https://storage.googleapis.com/lb-test-data/cataflow/media/about.html-{global_key}",
         }
 
     return html_data_row
@@ -106,10 +106,10 @@ def document_data_row_factory():
     def document_data_row(global_key):
         return {
             "row_data": {
-                "pdf_url": "https://storage.googleapis.com/labelbox-datasets/arxiv-pdf/data/99-word-token-pdfs/0801.3483.pdf",
-                "text_layer_url": "https://storage.googleapis.com/labelbox-datasets/arxiv-pdf/data/99-word-token-pdfs/0801.3483-lb-textlayer.json",
+                "pdf_url": "https://storage.googleapis.com/lb-test-data/cataflow/media/test-pdf.pdf",
+                "text_layer_url": "https://storage.googleapis.com/lb-test-data/cataflow/media/sample-pdf-textlayer.json",
             },
-            "global_key": f"https://storage.googleapis.com/labelbox-datasets/arxiv-pdf/data/99-word-token-pdfs/0801.3483.pdf-{global_key}",
+            "global_key": f"https://storage.googleapis.com/lb-test-data/cataflow/media/test-pdf.pdf-{global_key}",
             "media_type": "PDF",
         }
 
@@ -120,28 +120,17 @@ def document_data_row_factory():
 def text_data_row_factory():
     def text_data_row(global_key):
         return {
-            "row_data": "https://storage.googleapis.com/lb-artifacts-testing-public/sdk_integration_test/sample-text-2.txt",
-            "global_key": f"https://storage.googleapis.com/lb-artifacts-testing-public/sdk_integration_test/sample-text-2.txt-{global_key}",
+            "row_data": "https://storage.googleapis.com/lb-test-data/cataflow/media/sample-text.txt",
+            "global_key": f"https://storage.googleapis.com/lb-test-data/cataflow/media/sample-text.txt-{global_key}",
             "media_type": "TEXT",
         }
 
     return text_data_row
 
 
-@pytest.fixture(scope="module", autouse=True)
-def llm_human_preference_data_row_factory():
-    def llm_human_preference_data_row(global_key):
-        return {
-            "row_data": "https://storage.googleapis.com/labelbox-datasets/sdk_test/llm_prompt_response_conv.json",
-            "global_key": global_key,
-        }
-
-    return llm_human_preference_data_row
-
-
 @pytest.fixture(scope="module")
 def mmc_data_row_url():
-    return "https://storage.googleapis.com/labelbox-datasets/conversational_model_evaluation_sample/offline-model-chat-evaluation.json"
+    return "https://storage.googleapis.com/lb-test-data/cataflow/media/sample-conversational-v2-4.json"
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -700,7 +689,7 @@ def llm_prompt_response_creation_dataset_with_data_row(
     global_key = str(uuid.uuid4())
 
     convo_data = {
-        "row_data": "https://storage.googleapis.com/labelbox-datasets/conversational-sample-data/pairwise_shopping_2.json",
+        "row_data": "https://storage.googleapis.com/lb-test-data/cataflow/media/sample-conversational-v2-4.json",
         "global_key": global_key,
     }
 
@@ -1291,16 +1280,17 @@ def entity_inference_document(prediction_id_mapping):
             "textSelections": [
                 {
                     "tokenIds": [
-                        "3f984bf3-1d61-44f5-b59a-9658a2e3440f",
-                        "3bf00b56-ff12-4e52-8cc1-08dbddb3c3b8",
-                        "6e1c3420-d4b7-4c5a-8fd6-ead43bf73d80",
-                        "87a43d32-af76-4a1d-b262-5c5f4d5ace3a",
-                        "e8606e8a-dfd9-4c49-a635-ad5c879c75d0",
-                        "67c7c19e-4654-425d-bf17-2adb8cf02c30",
-                        "149c5e80-3e07-49a7-ab2d-29ddfe6a38fa",
-                        "b0e94071-2187-461e-8e76-96c58738a52c",
+                        "543ea587-6817-4d2b-a9c1-6d8dd797e8d7",
+                        "f4c15744-c9fe-48f2-89dc-8f52fafda028",
+                        "43867d16-0236-47cd-b348-5190143a3ccb",
+                        "521f705e-b276-4ac7-8e5b-2e38e037f80f",
+                        "4c1475f9-3576-4171-91a9-7cfb369c73d8",
+                        "a75658b1-dd91-4f9f-b7d8-572eee7fd707",
+                        "480a3484-28d9-4690-a466-0b8e24a24c3a",
+                        "d8fcd3cb-4bf7-461c-a91f-f9142b6bc3c3",
+                        "4ec0bac5-e5d7-4eda-802b-3962ad2db82c",
                     ],
-                    "groupId": "2f4336f4-a07e-4e0a-a9e1-5629b03b719b",
+                    "groupId": "ed53dd86-ef39-4634-9505-ee0eebedef44",
                     "page": 1,
                 }
             ]
@@ -1321,7 +1311,7 @@ def segmentation_inference(prediction_id_mapping):
         segmentation.update(
             {
                 "mask": {
-                    "instanceURI": "https://storage.googleapis.com/labelbox-datasets/image_sample_data/raster_seg.png",
+                    "instanceURI": "https://storage.googleapis.com/lb-test-data/cataflow/media/dog.png",
                     "colorRGB": (255, 255, 255),
                 }
             }
@@ -2166,7 +2156,7 @@ def expected_export_v2_text():
                 "location": {
                     "start": 112,
                     "end": 128,
-                    "token": "research suggests",
+                    "token": " sollicitudin nis",
                 },
             }
         ],
@@ -2361,19 +2351,20 @@ def expected_export_v2_document():
                 "location": {
                     "groups": [
                         {
-                            "id": "2f4336f4-a07e-4e0a-a9e1-5629b03b719b",
+                            "id": "ed53dd86-ef39-4634-9505-ee0eebedef44",
                             "page_number": 1,
                             "tokens": [
-                                "3f984bf3-1d61-44f5-b59a-9658a2e3440f",
-                                "3bf00b56-ff12-4e52-8cc1-08dbddb3c3b8",
-                                "6e1c3420-d4b7-4c5a-8fd6-ead43bf73d80",
-                                "87a43d32-af76-4a1d-b262-5c5f4d5ace3a",
-                                "e8606e8a-dfd9-4c49-a635-ad5c879c75d0",
-                                "67c7c19e-4654-425d-bf17-2adb8cf02c30",
-                                "149c5e80-3e07-49a7-ab2d-29ddfe6a38fa",
-                                "b0e94071-2187-461e-8e76-96c58738a52c",
+                                "543ea587-6817-4d2b-a9c1-6d8dd797e8d7",
+                                "f4c15744-c9fe-48f2-89dc-8f52fafda028",
+                                "43867d16-0236-47cd-b348-5190143a3ccb",
+                                "521f705e-b276-4ac7-8e5b-2e38e037f80f",
+                                "4c1475f9-3576-4171-91a9-7cfb369c73d8",
+                                "a75658b1-dd91-4f9f-b7d8-572eee7fd707",
+                                "480a3484-28d9-4690-a466-0b8e24a24c3a",
+                                "d8fcd3cb-4bf7-461c-a91f-f9142b6bc3c3",
+                                "4ec0bac5-e5d7-4eda-802b-3962ad2db82c",
                             ],
-                            "text": "Metal-insulator (MI) transitions have been one of the",
+                            "text": "Mott transition and superconductivity in the strongly correlated organic",
                         }
                     ]
                 },
@@ -2393,7 +2384,7 @@ def expected_export_v2_document():
                 },
                 "page_dimensions": {
                     "height": 792.0,
-                    "width": 612.0,
+                    "width": 594.0,
                     "unit": "points",
                 },
             },

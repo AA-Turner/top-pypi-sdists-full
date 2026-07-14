@@ -51,7 +51,7 @@ class NetworksWirelessSsidsFirewallL3FirewallRules(object):
         self.new_object = dict(
             rules=params.get("rules"),
             allowLanAccess=params.get("allowLanAccess"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -139,7 +139,9 @@ class NetworksWirelessSsidsFirewallL3FirewallRules(object):
 
         obj_params = [
             ("rules", "rules"),
-            ("allowLanAccess", "allowLanAccess"), ("number", "number"),
+            ("allowLanAccess", "allowLanAccess"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

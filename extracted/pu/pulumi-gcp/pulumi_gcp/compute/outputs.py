@@ -66,6 +66,7 @@ __all__ = [
     'BackendServiceStrongSessionAffinityCookieTtl',
     'BackendServiceTlsSettings',
     'BackendServiceTlsSettingsSubjectAltName',
+    'BulkPerInstanceConfigInstance',
     'DiskAsyncPrimaryDisk',
     'DiskAsyncReplicationSecondaryDisk',
     'DiskDiskEncryptionKey',
@@ -81,6 +82,8 @@ __all__ = [
     'FirewallDeny',
     'FirewallLogConfig',
     'FirewallParams',
+    'FirewallPolicyIamBindingCondition',
+    'FirewallPolicyIamMemberCondition',
     'FirewallPolicyRuleMatch',
     'FirewallPolicyRuleMatchLayer4Config',
     'FirewallPolicyRuleMatchSrcSecureTag',
@@ -335,6 +338,8 @@ __all__ = [
     'MangedSslCertificateManaged',
     'NetworkAttachmentConnectionEndpoint',
     'NetworkEndpointListNetworkEndpoint',
+    'NetworkFirewallPolicyIamBindingCondition',
+    'NetworkFirewallPolicyIamMemberCondition',
     'NetworkFirewallPolicyPacketMirroringRuleMatch',
     'NetworkFirewallPolicyPacketMirroringRuleMatchLayer4Config',
     'NetworkFirewallPolicyPacketMirroringRuleTargetSecureTag',
@@ -516,6 +521,8 @@ __all__ = [
     'RegionNetworkEndpointGroupCloudRun',
     'RegionNetworkEndpointGroupPscData',
     'RegionNetworkEndpointGroupServerlessDeployment',
+    'RegionNetworkFirewallPolicyIamBindingCondition',
+    'RegionNetworkFirewallPolicyIamMemberCondition',
     'RegionNetworkFirewallPolicyRuleMatch',
     'RegionNetworkFirewallPolicyRuleMatchLayer4Config',
     'RegionNetworkFirewallPolicyRuleMatchSrcSecureTag',
@@ -530,6 +537,7 @@ __all__ = [
     'RegionNetworkFirewallPolicyWithRulesRuleMatchLayer4Config',
     'RegionNetworkFirewallPolicyWithRulesRuleMatchSrcSecureTag',
     'RegionNetworkFirewallPolicyWithRulesRuleTargetSecureTag',
+    'RegionNetworkPolicyAssociation',
     'RegionPerInstanceConfigPreservedState',
     'RegionPerInstanceConfigPreservedStateDisk',
     'RegionPerInstanceConfigPreservedStateExternalIp',
@@ -945,6 +953,9 @@ __all__ = [
     'WireGroupWireGroupProperties',
     'WireGroupWireProperties',
     'WireGroupWireWireProperty',
+    'ZoneVmExtensionPolicyExtensionPolicy',
+    'ZoneVmExtensionPolicyInstanceSelector',
+    'ZoneVmExtensionPolicyInstanceSelectorLabelSelector',
     'GetAddressesAddressResult',
     'GetBackendBucketCdnPolicyResult',
     'GetBackendBucketCdnPolicyBypassCacheOnRequestHeaderResult',
@@ -1034,6 +1045,8 @@ __all__ = [
     'GetInstanceGroupManagerVersionResult',
     'GetInstanceGroupManagerVersionTargetSizeResult',
     'GetInstanceGroupNamedPortResult',
+    'GetInstanceGroupsInstanceGroupResult',
+    'GetInstanceGroupsInstanceGroupNamedPortResult',
     'GetInstanceGuestAcceleratorResult',
     'GetInstanceGuestAttributesQueryValueResult',
     'GetInstanceInstanceEncryptionKeyResult',
@@ -5178,6 +5191,24 @@ class BackendServiceTlsSettingsSubjectAltName(dict):
 
 
 @pulumi.output_type
+class BulkPerInstanceConfigInstance(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: The name for this per-instance config and its corresponding instance.
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name for this per-instance config and its corresponding instance.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
 class DiskAsyncPrimaryDisk(dict):
     def __init__(__self__, *,
                  disk: _builtins.str):
@@ -5925,6 +5956,60 @@ class FirewallParams(dict):
         To apply tags to an existing resource, see the tags.TagBinding resource.
         """
         return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
+class FirewallPolicyIamBindingCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class FirewallPolicyIamMemberCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
 
 
 @pulumi.output_type
@@ -25110,6 +25195,60 @@ class NetworkEndpointListNetworkEndpoint(dict):
 
 
 @pulumi.output_type
+class NetworkFirewallPolicyIamBindingCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class NetworkFirewallPolicyIamMemberCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
 class NetworkFirewallPolicyPacketMirroringRuleMatch(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -38690,6 +38829,60 @@ class RegionNetworkEndpointGroupServerlessDeployment(dict):
 
 
 @pulumi.output_type
+class RegionNetworkFirewallPolicyIamBindingCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class RegionNetworkFirewallPolicyIamMemberCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
 class RegionNetworkFirewallPolicyRuleMatch(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -40384,6 +40577,54 @@ class RegionNetworkFirewallPolicyWithRulesRuleTargetSecureTag(dict):
         or its network is deleted.
         """
         return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class RegionNetworkPolicyAssociation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "attachmentTarget":
+            suggest = "attachment_target"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionNetworkPolicyAssociation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionNetworkPolicyAssociation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionNetworkPolicyAssociation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 attachment_target: Optional[_builtins.str] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str attachment_target: The target that the network policy is attached to.
+        :param _builtins.str name: User-provided name of the Network policy. The name should be unique in the project in which the policy is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
+        """
+        if attachment_target is not None:
+            pulumi.set(__self__, "attachment_target", attachment_target)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="attachmentTarget")
+    def attachment_target(self) -> Optional[_builtins.str]:
+        """
+        The target that the network policy is attached to.
+        """
+        return pulumi.get(self, "attachment_target")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        User-provided name of the Network policy. The name should be unique in the project in which the policy is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -70289,6 +70530,143 @@ class WireGroupWireWireProperty(dict):
 
 
 @pulumi.output_type
+class ZoneVmExtensionPolicyExtensionPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "extensionName":
+            suggest = "extension_name"
+        elif key == "pinnedVersion":
+            suggest = "pinned_version"
+        elif key == "stringConfig":
+            suggest = "string_config"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ZoneVmExtensionPolicyExtensionPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ZoneVmExtensionPolicyExtensionPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ZoneVmExtensionPolicyExtensionPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 extension_name: _builtins.str,
+                 pinned_version: Optional[_builtins.str] = None,
+                 string_config: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str extension_name: The identifier for this object. Format specified above.
+        :param _builtins.str pinned_version: The specific version of the extension to install.
+        :param _builtins.str string_config: String-based configuration data for the extension.
+        """
+        pulumi.set(__self__, "extension_name", extension_name)
+        if pinned_version is not None:
+            pulumi.set(__self__, "pinned_version", pinned_version)
+        if string_config is not None:
+            pulumi.set(__self__, "string_config", string_config)
+
+    @_builtins.property
+    @pulumi.getter(name="extensionName")
+    def extension_name(self) -> _builtins.str:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "extension_name")
+
+    @_builtins.property
+    @pulumi.getter(name="pinnedVersion")
+    def pinned_version(self) -> Optional[_builtins.str]:
+        """
+        The specific version of the extension to install.
+        """
+        return pulumi.get(self, "pinned_version")
+
+    @_builtins.property
+    @pulumi.getter(name="stringConfig")
+    def string_config(self) -> Optional[_builtins.str]:
+        """
+        String-based configuration data for the extension.
+        """
+        return pulumi.get(self, "string_config")
+
+
+@pulumi.output_type
+class ZoneVmExtensionPolicyInstanceSelector(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "labelSelector":
+            suggest = "label_selector"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ZoneVmExtensionPolicyInstanceSelector. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ZoneVmExtensionPolicyInstanceSelector.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ZoneVmExtensionPolicyInstanceSelector.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 label_selector: Optional['outputs.ZoneVmExtensionPolicyInstanceSelectorLabelSelector'] = None):
+        """
+        :param 'ZoneVmExtensionPolicyInstanceSelectorLabelSelectorArgs' label_selector: LabelSelector matches VM labels.
+               Structure is documented below.
+        """
+        if label_selector is not None:
+            pulumi.set(__self__, "label_selector", label_selector)
+
+    @_builtins.property
+    @pulumi.getter(name="labelSelector")
+    def label_selector(self) -> Optional['outputs.ZoneVmExtensionPolicyInstanceSelectorLabelSelector']:
+        """
+        LabelSelector matches VM labels.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "label_selector")
+
+
+@pulumi.output_type
+class ZoneVmExtensionPolicyInstanceSelectorLabelSelector(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "inclusionLabels":
+            suggest = "inclusion_labels"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ZoneVmExtensionPolicyInstanceSelectorLabelSelector. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ZoneVmExtensionPolicyInstanceSelectorLabelSelector.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ZoneVmExtensionPolicyInstanceSelectorLabelSelector.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 inclusion_labels: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] inclusion_labels: A map of key-value pairs representing VM labels.
+        """
+        if inclusion_labels is not None:
+            pulumi.set(__self__, "inclusion_labels", inclusion_labels)
+
+    @_builtins.property
+    @pulumi.getter(name="inclusionLabels")
+    def inclusion_labels(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        A map of key-value pairs representing VM labels.
+        """
+        return pulumi.get(self, "inclusion_labels")
+
+
+@pulumi.output_type
 class GetAddressesAddressResult(dict):
     def __init__(__self__, *,
                  address: _builtins.str,
@@ -76167,6 +76545,155 @@ class GetInstanceGroupNamedPortResult(dict):
     @_builtins.property
     @pulumi.getter
     def port(self) -> _builtins.int:
+        return pulumi.get(self, "port")
+
+
+@pulumi.output_type
+class GetInstanceGroupsInstanceGroupResult(dict):
+    def __init__(__self__, *,
+                 deletion_policy: _builtins.str,
+                 description: _builtins.str,
+                 name: _builtins.str,
+                 named_ports: Sequence['outputs.GetInstanceGroupsInstanceGroupNamedPortResult'],
+                 network: _builtins.str,
+                 project: _builtins.str,
+                 self_link: _builtins.str,
+                 size: _builtins.int,
+                 zone: _builtins.str):
+        """
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+        :param _builtins.str description: Textual description of the instance group.
+        :param _builtins.str name: The name of the instance group.
+        :param Sequence['GetInstanceGroupsInstanceGroupNamedPortArgs'] named_ports: List of named ports in the group, as a list of objects, each with the following attributes:
+        :param _builtins.str network: The URL of the network the instance group is in.
+        :param _builtins.str project: The ID of the project in which the resource belongs. If it
+               is not provided, the provider project is used.
+        :param _builtins.str self_link: The URI of the resource.
+        :param _builtins.int size: The number of instances in the group.
+        :param _builtins.str zone: The zone of the instance groups. If
+               it is not provided, the provider zone is used.
+        """
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "named_ports", named_ports)
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "project", project)
+        pulumi.set(__self__, "self_link", self_link)
+        pulumi.set(__self__, "size", size)
+        pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        Textual description of the instance group.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the instance group.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="namedPorts")
+    def named_ports(self) -> Sequence['outputs.GetInstanceGroupsInstanceGroupNamedPortResult']:
+        """
+        List of named ports in the group, as a list of objects, each with the following attributes:
+        """
+        return pulumi.get(self, "named_ports")
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> _builtins.str:
+        """
+        The URL of the network the instance group is in.
+        """
+        return pulumi.get(self, "network")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> _builtins.str:
+        """
+        The ID of the project in which the resource belongs. If it
+        is not provided, the provider project is used.
+        """
+        return pulumi.get(self, "project")
+
+    @_builtins.property
+    @pulumi.getter(name="selfLink")
+    def self_link(self) -> _builtins.str:
+        """
+        The URI of the resource.
+        """
+        return pulumi.get(self, "self_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> _builtins.int:
+        """
+        The number of instances in the group.
+        """
+        return pulumi.get(self, "size")
+
+    @_builtins.property
+    @pulumi.getter
+    def zone(self) -> _builtins.str:
+        """
+        The zone of the instance groups. If
+        it is not provided, the provider zone is used.
+        """
+        return pulumi.get(self, "zone")
+
+
+@pulumi.output_type
+class GetInstanceGroupsInstanceGroupNamedPortResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 port: _builtins.int):
+        """
+        :param _builtins.str name: The name of the instance group.
+        :param _builtins.int port: The port number.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "port", port)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the instance group.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def port(self) -> _builtins.int:
+        """
+        The port number.
+        """
         return pulumi.get(self, "port")
 
 

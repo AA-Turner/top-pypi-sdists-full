@@ -206,7 +206,7 @@ class Biome(
         :param ignore_generated_files: (experimental) Automatically ignore all generated files. This prevents Biome from trying to format or lint files that are marked as generated, which would fail since generated files are typically read-only. Default: true
         :param linter: (experimental) Enable linting with recommended rules. Default: true
         :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
-        :param version: (experimental) Version of Biome to use. Default: "^2"
+        :param version: (experimental) Version of Biome to use. Default: "^2.5"
 
         :stability: experimental
         '''
@@ -443,7 +443,7 @@ class BiomeOptions:
         :param ignore_generated_files: (experimental) Automatically ignore all generated files. This prevents Biome from trying to format or lint files that are marked as generated, which would fail since generated files are typically read-only. Default: true
         :param linter: (experimental) Enable linting with recommended rules. Default: true
         :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
-        :param version: (experimental) Version of Biome to use. Default: "^2"
+        :param version: (experimental) Version of Biome to use. Default: "^2.5"
 
         :stability: experimental
         '''
@@ -552,7 +552,7 @@ class BiomeOptions:
     def version(self) -> typing.Optional[builtins.str]:
         '''(experimental) Version of Biome to use.
 
-        :default: "^2"
+        :default: "^2.5"
 
         :stability: experimental
         '''

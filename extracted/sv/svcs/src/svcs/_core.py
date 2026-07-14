@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import sys
 import warnings
 
 from collections.abc import Awaitable, Callable, Iterator
@@ -24,11 +25,21 @@ from inspect import (
     isgeneratorfunction,
 )
 from types import TracebackType
-from typing import Any, TypeVar, overload
+from typing import Any, TypeAlias, TypeVar, overload
+from unittest.mock import MagicMock
 
 import attrs
 
 from .exceptions import ServiceNotFoundError
+
+
+if sys.version_info < (3, 15):
+    from typing_extensions import TypeForm as TypeForm  # noqa: PLC0414
+else:
+    from typing import TypeForm as TypeForm  # noqa: PLC0414
+
+
+_ServiceType: TypeAlias = TypeForm[Any]
 
 
 log = logging.getLogger("svcs")
@@ -36,7 +47,7 @@ log = logging.getLogger("svcs")
 
 def _full_name(obj: object) -> str:
     try:
-        return f"{obj.__module__}.{obj.__qualname__}"  # type: ignore[attr-defined]
+        return f"{obj.__module__}.{obj.__qualname__}"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     except AttributeError:
         return repr(obj)
 
@@ -66,13 +77,18 @@ class RegisteredService:
         enter: Whether context managers returned by the factory are entered.
 
         ping: See :ref:`health`.
+
+        suppress_context_exit:
+            Whether to suppress errors raised in the container context when
+            exiting registered factories.
     """
 
-    svc_type: type
+    svc_type: _ServiceType
     factory: Callable = attrs.field(hash=False)
     takes_container: bool
     enter: bool
     ping: Callable | None = attrs.field(hash=False)
+    suppress_context_exit: bool
 
     @property
     def name(self) -> str:
@@ -85,9 +101,40 @@ class RegisteredService:
             f"factory={self.factory}, "
             f"takes_container={self.takes_container}, "
             f"enter={self.enter}, "
-            f"has_ping={self.ping is not None}"
+            f"has_ping={self.ping is not None}, "
+            f"suppress_context_exit={self.suppress_context_exit}"
             ")>"
         )
+
+    def close(
+        self,
+        cm: AbstractContextManager,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """
+        Close the context manager *cm* with the given exception information.
+        """
+        if self.suppress_context_exit:
+            cm.__exit__(None, None, None)
+        else:
+            cm.__exit__(exc_type, exc_val, exc_tb)
+
+    async def aclose(
+        self,
+        cm: AbstractAsyncContextManager,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """
+        Close the async context manager *cm* with the given exception information.
+        """
+        if self.suppress_context_exit:
+            await cm.__aexit__(None, None, None)
+        else:
+            await cm.__aexit__(exc_type, exc_val, exc_tb)
 
 
 @attrs.frozen
@@ -106,7 +153,7 @@ class ServicePing:
 
     name: str
     is_async: bool
-    _svc_type: type
+    _svc_type: _ServiceType
     _ping: Callable
     _container: Container
 
@@ -135,7 +182,7 @@ class ServicePing:
 
 @attrs.define
 class Registry:
-    """
+    r"""
     A central registry of recipes for creating services.
 
     An instance of this should live as long as your application does.
@@ -158,15 +205,21 @@ class Registry:
     Warns:
         ResourceWarning:
             If a registry with pending cleanups is garbage-collected.
+
+    .. versionadded:: 26.1.0
+       It is now possible to register (and get) abstract types like
+       :class:`typing.Protocol`\ s or abstract base classes.
     """
 
-    _services: dict[type, RegisteredService] = attrs.Factory(dict)
-    _on_close: list[tuple[str, Callable | Awaitable]] = attrs.Factory(list)
+    _services: dict[_ServiceType, RegisteredService] = attrs.Factory(dict)
+    _on_close: list[tuple[RegisteredService, Callable | Awaitable]] = (
+        attrs.Factory(list)
+    )
 
     def __repr__(self) -> str:
         return f"<svcs.Registry(num_services={len(self._services)})>"
 
-    def __contains__(self, svc_type: type) -> bool:
+    def __contains__(self, svc_type: _ServiceType) -> bool:
         """
         Check whether this registry knows how to create *svc_type*:
 
@@ -225,12 +278,13 @@ class Registry:
 
     def register_factory(
         self,
-        svc_type: type,
+        svc_type: _ServiceType,
         factory: Callable,
         *,
         enter: bool = True,
         ping: Callable | None = None,
         on_registry_close: Callable | Awaitable | None = None,
+        suppress_context_exit: bool = True,
     ) -> None:
         """
         Register *factory* to be used when asked for a *svc_type*.
@@ -280,8 +334,24 @@ class Registry:
                 :class:`collections.abc.Awaitable`; then
                 :meth:`svcs.Registry.aclose()` must be called.
 
+            suppress_context_exit:
+                Whether to suppress errors raised in the container context when
+                exiting registered factories.
+
+                By default, it is True to avoid propagating errors raised in
+                container context, so factories cleanup code is executed
+                unconditionally.
+
+                Set it to False to have control over error propagation, but
+                note that you can't stop the exception from bubbling out of the
+                container context by handling it in the factory cleanup context
+                manager.
+
         .. versionchanged:: 25.1.0
             *factory* now may take any amount of arguments and they are ignored.
+
+        .. versionadded:: 26.1.0
+           *suppress_context_exit*.
         """
         rs = self._register_factory(
             svc_type,
@@ -289,6 +359,7 @@ class Registry:
             enter=enter,
             ping=ping,
             on_registry_close=on_registry_close,
+            suppress_context_exit=suppress_context_exit,
         )
 
         log.debug(
@@ -299,17 +370,17 @@ class Registry:
                 "svcs_service_name": rs.name,
                 "svcs_factory_name": _full_name(factory),
             },
-            stack_info=True,
         )
 
     def register_value(
         self,
-        svc_type: type,
+        svc_type: _ServiceType,
         value: object,
         *,
         enter: bool = False,
         ping: Callable | None = None,
         on_registry_close: Callable | Awaitable | None = None,
+        suppress_context_exit: bool = True,
     ) -> None:
         """
         Syntactic sugar for::
@@ -319,7 +390,8 @@ class Registry:
                lambda: value,
                enter=enter,
                ping=ping,
-               on_registry_close=on_registry_close
+               on_registry_close=on_registry_close,
+               suppress_context_exit=suppress_context_exit
            )
 
         Please note that, unlike with :meth:`register_factory`, entering
@@ -334,6 +406,7 @@ class Registry:
             enter=enter,
             ping=ping,
             on_registry_close=on_registry_close,
+            suppress_context_exit=suppress_context_exit,
         )
 
         log.debug(
@@ -341,16 +414,16 @@ class Registry:
             value,
             rs.name,
             extra={"svcs_service_name": rs.name, "svcs_value": value},
-            stack_info=True,
         )
 
     def _register_factory(
         self,
-        svc_type: type,
+        svc_type: _ServiceType,
         factory: Callable,
         enter: bool,
         ping: Callable | None,
         on_registry_close: Callable | Awaitable | None = None,
+        suppress_context_exit: bool = True,
     ) -> RegisteredService:
         if isgeneratorfunction(factory):
             factory = contextmanager(factory)
@@ -358,14 +431,21 @@ class Registry:
             factory = asynccontextmanager(factory)
 
         rs = RegisteredService(
-            svc_type, factory, _takes_container(factory), enter, ping
+            svc_type,
+            factory,
+            _takes_container(factory),
+            enter,
+            ping,
+            suppress_context_exit,
         )
         self._services[svc_type] = rs
         if on_registry_close is not None:
-            self._on_close.append((rs.name, on_registry_close))
+            self._on_close.append((rs, on_registry_close))
         return rs
 
-    def get_registered_service_for(self, svc_type: type) -> RegisteredService:
+    def get_registered_service_for(
+        self, svc_type: _ServiceType
+    ) -> RegisteredService:
         try:
             return self._services[svc_type]
         except KeyError:
@@ -379,10 +459,10 @@ class Registry:
 
         Errors are logged at warning level, but otherwise ignored.
         """
-        for name, oc in reversed(self._on_close):
+        for rs, oc in reversed(self._on_close):
             if iscoroutinefunction(oc) or isawaitable(oc):
                 warnings.warn(
-                    f"Skipped async cleanup for {name!r}. "
+                    f"Skipped async cleanup for {rs.name!r}. "
                     "Use aclose() instead.",
                     # stacklevel doesn't matter here; it's coming from a
                     # framework.
@@ -391,15 +471,15 @@ class Registry:
                 continue
 
             try:
-                log.debug("closing %r", name)
+                log.debug("closing %r", rs.name)
                 oc()
-                log.debug("closed %r", name)
+                log.debug("closed %r", rs.name)
             except Exception:  # noqa: BLE001
                 log.warning(
                     "Registry's on_registry_close callback failed for %r.",
-                    name,
+                    rs.name,
                     exc_info=True,
-                    extra={"svcs_service_name": name},
+                    extra={"svcs_service_name": rs.name},
                 )
 
         self._services.clear()
@@ -414,48 +494,56 @@ class Registry:
         Also works with synchronous services, so in an async application, just
         use this.
         """
-        for name, oc in reversed(self._on_close):
+        for rs, oc in reversed(self._on_close):
             try:
                 if iscoroutinefunction(oc):
                     oc = oc()  # noqa: PLW2901
 
                 if isawaitable(oc):
-                    log.debug("async closing %r", name)
+                    log.debug("async closing %r", rs.name)
                     await oc
-                    log.debug("async closed %r", name)
+                    log.debug("async closed %r", rs.name)
                 else:
-                    log.debug("closing %r", name)
+                    log.debug("closing %r", rs.name)
                     oc()
-                    log.debug("closed %r", name)
+                    log.debug("closed %r", rs.name)
             except Exception:  # noqa: BLE001, PERF203
                 log.warning(
                     "Registry's on_registry_close callback failed for %r.",
-                    name,
+                    rs.name,
                     exc_info=True,
-                    extra={"svcs_service_name": name},
+                    extra={"svcs_service_name": rs.name},
                 )
 
         self._services.clear()
         self._on_close.clear()
 
 
+def _robust_signature(factory: Callable) -> inspect.Signature | None:
+    with suppress(Exception):
+        # Provide the locals so that `eval_str` will work even if the user
+        # places the `Container` under a `if TYPE_CHECKING` block.
+        return inspect.signature(
+            factory,
+            locals={"Container": Container},
+            eval_str=True,
+        )
+
+    # Retry without `eval_str` since if the annotation is "svcs.Container"
+    # the eval will fail due to it not finding the `svcs` module
+    with suppress(Exception):
+        return inspect.signature(factory)
+
+    return None
+
+
 def _takes_container(factory: Callable) -> bool:
     """
     Return True if *factory* takes a svcs.Container as its first argument.
     """
-    try:
-        # Provide the locals so that `eval_str` will work even if the user
-        # places the `Container` under a `if TYPE_CHECKING` block.
-        sig = inspect.signature(
-            factory, locals={"Container": Container}, eval_str=True
-        )
-    except Exception:  # noqa: BLE001
-        # Retry without `eval_str` since if the annotation is "svcs.Container"
-        # the eval will fail due to it not finding the `svcs` module
-        try:
-            sig = inspect.signature(factory)
-        except Exception:  # noqa: BLE001
-            return False
+
+    if not (sig := _robust_signature(factory)):
+        return False
 
     try:
         (name, p) = next(iter(sig.parameters.items()))
@@ -515,9 +603,14 @@ class Container:
 
     registry: Registry
     _lazy_local_registry: Registry | None = None
-    _instantiated: dict[type, object] = attrs.Factory(dict)
+    _instantiated: dict[_ServiceType, tuple[object, RegisteredService]] = (
+        attrs.Factory(dict)
+    )
     _on_close: list[
-        tuple[str, AbstractContextManager | AbstractAsyncContextManager]
+        tuple[
+            RegisteredService,
+            AbstractContextManager | AbstractAsyncContextManager,
+        ]
     ] = attrs.Factory(list)
 
     def __repr__(self) -> str:
@@ -526,7 +619,7 @@ class Container:
             f"cleanups={len(self._on_close)})>"
         )
 
-    def __contains__(self, svc_type: type) -> bool:
+    def __contains__(self, svc_type: _ServiceType) -> bool:
         """
         Check whether this container has a cached instance of *svc_type*.
         """
@@ -541,7 +634,7 @@ class Container:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        self.close()
+        self.close(exc_type, exc_val, exc_tb)
 
     async def __aenter__(self) -> Container:
         return self
@@ -552,7 +645,7 @@ class Container:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        await self.aclose()
+        await self.aclose(exc_type, exc_val, exc_tb)
 
     def __del__(self) -> None:
         """
@@ -565,7 +658,12 @@ class Container:
                 stacklevel=1,
             )
 
-    def close(self) -> None:
+    def close(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_val: BaseException | None = None,
+        exc_tb: TracebackType | None = None,
+    ) -> None:
         """
         Run all registered *synchronous* cleanups.
 
@@ -577,25 +675,24 @@ class Container:
             The Container can be used again after this. Closing it is an
             idempotent way to reset it.
         """
-        for name, cm in reversed(self._on_close):
+        for rs, cm in reversed(self._on_close):
             try:
                 if isinstance(cm, AbstractAsyncContextManager):
                     warnings.warn(
-                        f"Skipped async cleanup for {name!r}. "
+                        f"Skipped async cleanup for {rs.name!r}. "
                         "Use aclose() instead.",
                         # stacklevel doesn't matter here; it's coming from a
                         # framework.
                         stacklevel=1,
                     )
                     continue
-
-                cm.__exit__(None, None, None)
+                rs.close(cm, exc_type, exc_val, exc_tb)
             except Exception:  # noqa: BLE001
                 log.warning(
                     "Container clean up failed for %r.",
-                    name,
+                    rs.name,
                     exc_info=True,
-                    extra={"svcs_service_name": name},
+                    extra={"svcs_service_name": rs.name},
                 )
 
         if self._lazy_local_registry is not None:
@@ -603,7 +700,12 @@ class Container:
         self._on_close.clear()
         self._instantiated.clear()
 
-    async def aclose(self) -> None:
+    async def aclose(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_val: BaseException | None = None,
+        exc_tb: TracebackType | None = None,
+    ) -> None:
         """
         Run *all* registered cleanups -- synchronous **and** asynchronous.
 
@@ -616,19 +718,19 @@ class Container:
             The container can be used again after this. Closing it is an
             idempotent way to reset it.
         """
-        for name, cm in reversed(self._on_close):
+        for rs, cm in reversed(self._on_close):
             try:
                 if isinstance(cm, AbstractContextManager):
-                    cm.__exit__(None, None, None)
+                    rs.close(cm, exc_type, exc_val, exc_tb)
                 else:
-                    await cm.__aexit__(None, None, None)
+                    await rs.aclose(cm, exc_type, exc_val, exc_tb)
 
             except Exception:  # noqa: BLE001, PERF203
                 log.warning(
                     "Container clean up failed for %r.",
-                    name,
+                    rs.name,
                     exc_info=True,
-                    extra={"svcs_service_name": name},
+                    extra={"svcs_service_name": rs.name},
                 )
 
         if self._lazy_local_registry is not None:
@@ -644,7 +746,24 @@ class Container:
         Returns:
             A list of services that have registered a ping callable.
         """
-        return [
+        if self._lazy_local_registry is None:
+            local_rs_types = set()
+            pings = []
+        else:
+            local_rs_types = {rs.svc_type for rs in self._lazy_local_registry}
+            pings = [
+                ServicePing(
+                    rs.name,
+                    iscoroutinefunction(rs.ping),
+                    rs.svc_type,
+                    rs.ping,
+                    self,
+                )
+                for rs in self._lazy_local_registry
+                if rs.ping is not None
+            ]
+
+        pings.extend(
             ServicePing(
                 rs.name,
                 iscoroutinefunction(rs.ping),
@@ -652,44 +771,49 @@ class Container:
                 rs.ping,
                 self,
             )
-            for rs in self.registry._services.values()
-            if rs.ping is not None
-        ]
+            for rs in self.registry
+            if rs.ping is not None and rs.svc_type not in local_rs_types
+        )
+        return pings
 
-    def get_abstract(self, *svc_types: type) -> Any:
+    def get_abstract(self, *svc_types: _ServiceType) -> Any:
         """
         Like :meth:`get` but is annotated to return :data:`typing.Any` which
-        allows it to be used with abstract types like :class:`typing.Protocol`
-        or :mod:`abc` classes.
+        used to be the only way to allow it to be used with abstract types like
+        :class:`typing.Protocol` or :mod:`abc` classes.
 
-        Note:
-             See :doc:`typing-caveats` why this is necessary.
+        As of *svcs* 26.1.0 and :pep:`747`, this is no longer necessary.
+
+        .. deprecated:: 26.1.0
         """
         return self.get(*svc_types)
 
-    async def aget_abstract(self, *svc_types: type) -> Any:
+    async def aget_abstract(self, *svc_types: _ServiceType) -> Any:
         """
         Same as :meth:`get_abstract` but instantiates asynchronously, if
         necessary.
 
         Also works with synchronous services, so in an async application, just
         use this.
+
+        .. deprecated:: 26.1.0
         """
         return await self.aget(*svc_types)
 
-    def _lookup(self, svc_type: type) -> tuple[bool, object, str, bool]:
+    def _lookup(
+        self, svc_type: _ServiceType
+    ) -> tuple[bool, object, RegisteredService]:
         """
         Look up svc_type first in our cache, then in the registry.
 
         If it's cached, only the first two items of the returned tupled are
         meaningful.
         """
-        if (
-            svc := self._instantiated.get(svc_type, attrs.NOTHING)
-        ) is not attrs.NOTHING:
-            return True, svc, "", False
+        rs: RegisteredService | None = None
+        if cached_data := self._instantiated.get(svc_type):
+            svc, rs = cached_data
+            return True, svc, rs
 
-        rs = None
         if self._lazy_local_registry is not None:
             with suppress(ServiceNotFoundError):
                 rs = self._lazy_local_registry.get_registered_service_for(
@@ -700,12 +824,11 @@ class Container:
             rs = self.registry.get_registered_service_for(svc_type)
 
         svc = rs.factory(self) if rs.takes_container else rs.factory()
-
-        return False, svc, rs.name, rs.enter
+        return False, svc, rs
 
     def register_local_factory(
         self,
-        svc_type: type,
+        svc_type: _ServiceType,
         factory: Callable,
         *,
         enter: bool = True,
@@ -737,7 +860,7 @@ class Container:
 
     def register_local_value(
         self,
-        svc_type: type,
+        svc_type: _ServiceType,
         value: object,
         *,
         enter: bool = False,
@@ -772,110 +895,114 @@ class Container:
         )
 
     @overload
-    def get(self, svc_type: type[T1], /) -> T1: ...
+    def get(self, svc_type: TypeForm[T1], /) -> T1: ...
 
     @overload
     def get(
-        self, svc_type1: type[T1], svc_type2: type[T2], /
+        self, svc_type1: TypeForm[T1], svc_type2: TypeForm[T2], /
     ) -> tuple[T1, T2]: ...
 
     @overload
     def get(
-        self, svc_type1: type[T1], svc_type2: type[T2], svc_type3: type[T3], /
+        self,
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        /,
     ) -> tuple[T1, T2, T3]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
         /,
     ) -> tuple[T1, T2, T3, T4]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
         /,
     ) -> tuple[T1, T2, T3, T4, T5]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
-        svc_type9: type[T9],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
+        svc_type9: TypeForm[T9],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8, T9]: ...
 
     @overload
     def get(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
-        svc_type9: type[T9],
-        svc_type10: type[T10],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
+        svc_type9: TypeForm[T9],
+        svc_type10: TypeForm[T10],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: ...
 
-    def get(self, *svc_types: type) -> object:
+    def get(self, *svc_types: _ServiceType) -> object:
         """
         Get services of *svc_types*.
 
@@ -888,22 +1015,26 @@ class Container:
         """
         rv = []
         for svc_type in svc_types:
-            cached, svc, name, enter = self._lookup(svc_type)
+            cached, svc, rs = self._lookup(svc_type)
             if cached:
                 rv.append(svc)
                 continue
 
-            if iscoroutine(svc) or isinstance(
-                svc, AbstractAsyncContextManager
+            if not isinstance(svc, MagicMock) and (
+                iscoroutine(svc)
+                or isinstance(
+                    svc,
+                    AbstractAsyncContextManager,  # pyrefly: ignore[unsafe-overlap]
+                )
             ):
                 msg = "Use `aget()` for async factories."
                 raise TypeError(msg)
 
-            if enter and isinstance(svc, AbstractContextManager):
-                self._on_close.append((name, svc))
+            if rs.enter and isinstance(svc, AbstractContextManager):
+                self._on_close.append((rs, svc))
                 svc = svc.__enter__()
 
-            self._instantiated[svc_type] = svc
+            self._instantiated[svc_type] = (svc, rs)
 
             rv.append(svc)
 
@@ -913,110 +1044,114 @@ class Container:
         return rv
 
     @overload
-    async def aget(self, svc_type: type[T1], /) -> T1: ...
+    async def aget(self, svc_type: TypeForm[T1], /) -> T1: ...
 
     @overload
     async def aget(
-        self, svc_type1: type[T1], svc_type2: type[T2], /
+        self, svc_type1: TypeForm[T1], svc_type2: TypeForm[T2], /
     ) -> tuple[T1, T2]: ...
 
     @overload
     async def aget(
-        self, svc_type1: type[T1], svc_type2: type[T2], svc_type3: type[T3], /
+        self,
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        /,
     ) -> tuple[T1, T2, T3]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
         /,
     ) -> tuple[T1, T2, T3, T4]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
         /,
     ) -> tuple[T1, T2, T3, T4, T5]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
-        svc_type9: type[T9],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
+        svc_type9: TypeForm[T9],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8, T9]: ...
 
     @overload
     async def aget(
         self,
-        svc_type1: type[T1],
-        svc_type2: type[T2],
-        svc_type3: type[T3],
-        svc_type4: type[T4],
-        svc_type5: type[T5],
-        svc_type6: type[T6],
-        svc_type7: type[T7],
-        svc_type8: type[T8],
-        svc_type9: type[T9],
-        svc_type10: type[T10],
+        svc_type1: TypeForm[T1],
+        svc_type2: TypeForm[T2],
+        svc_type3: TypeForm[T3],
+        svc_type4: TypeForm[T4],
+        svc_type5: TypeForm[T5],
+        svc_type6: TypeForm[T6],
+        svc_type7: TypeForm[T7],
+        svc_type8: TypeForm[T8],
+        svc_type9: TypeForm[T9],
+        svc_type10: TypeForm[T10],
         /,
     ) -> tuple[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: ...
 
-    async def aget(self, *svc_types: type) -> object:
+    async def aget(self, *svc_types: _ServiceType) -> object:
         """
         Same as :meth:`get` but instantiates asynchronously, if necessary.
 
@@ -1028,16 +1163,16 @@ class Container:
         """
         rv = []
         for svc_type in svc_types:
-            cached, svc, name, enter = self._lookup(svc_type)
+            cached, svc, rs = self._lookup(svc_type)
             if cached:
                 rv.append(svc)
                 continue
 
-            if enter and isinstance(svc, AbstractAsyncContextManager):
-                self._on_close.append((name, svc))
+            if rs.enter and isinstance(svc, AbstractAsyncContextManager):
+                self._on_close.append((rs, svc))
                 svc = await svc.__aenter__()
-            elif enter and isinstance(svc, AbstractContextManager):
-                self._on_close.append((name, svc))
+            elif rs.enter and isinstance(svc, AbstractContextManager):
+                self._on_close.append((rs, svc))
                 svc = svc.__enter__()
             # _lookup() doesn't handle async factories, so we have to live with
             # some repetition.
@@ -1047,14 +1182,14 @@ class Container:
                 svc = await svc
 
                 # Factory returned a contextmanager.
-                if enter and isinstance(svc, AbstractAsyncContextManager):
-                    self._on_close.append((name, svc))
+                if rs.enter and isinstance(svc, AbstractAsyncContextManager):
+                    self._on_close.append((rs, svc))
                     svc = await svc.__aenter__()
-                elif enter and isinstance(svc, AbstractContextManager):
-                    self._on_close.append((name, svc))
+                elif rs.enter and isinstance(svc, AbstractContextManager):
+                    self._on_close.append((rs, svc))
                     svc = svc.__enter__()
 
-            self._instantiated[svc_type] = svc
+            self._instantiated[svc_type] = (svc, rs)
 
             rv.append(svc)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyclang
-Version: 0.6.3
+Version: 0.7.0
 Summary: A python clang-tidy runner
 Author: Fu Hanxi
 Author-email: fuhanxi@espressif.com
@@ -19,8 +19,11 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: esp-pylib[cli]>=1.1.1
+Requires-Dist: rich
 Provides-Extra: html
 Requires-Dist: codereport~=0.4; extra == "html"
+Requires-Dist: setuptools<82; extra == "html"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -29,6 +32,7 @@ Dynamic: description-content-type
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
@@ -58,7 +62,6 @@ You can write custom chain method by using decorator `@chain`.
 Restrictions: all arguments are fixed, you need to pass the rest of them when initializing `Runner` instance with kwargs
 
 - `folder`: which is the folder you passed when initializing `Runner` instance
-- `log_fs`: file stream (if you provided `log_path`) or `sys.stdout`
 
 ```python
 import os
@@ -77,10 +80,6 @@ runner = Runner([os.path.join(os.environ['IDF_PATH'], 'examples', 'get-started',
 runner.hello().idf_reconfigure()
 runner()
 ```
-
-## CLI Extension
-
-For each custom chain method, you should also define this in `cli_ext.py` if there're additional arguments.
 
 ## Use as a script
 

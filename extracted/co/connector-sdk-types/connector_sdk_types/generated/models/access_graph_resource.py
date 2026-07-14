@@ -13,7 +13,7 @@ from __future__ import annotations
 import pprint
 import re
 import json
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.reference import Reference
 from typing import Optional, Set
@@ -41,7 +41,29 @@ class AccessGraphResource(BaseModel):
     description: Optional[StrictStr] = Field(
         default=None, description="An optional human-readable description of the resource."
     )
-    __properties: ClassVar[List[str]] = ["id", "resource_type", "reference", "label", "description"]
+    is_terminal: Optional[StrictBool] = Field(
+        default=None,
+        description="Access ends here - this resource is a leaf (RFC-37 governance: terminal).",
+    )
+    is_credential_bearing: Optional[StrictBool] = Field(
+        default=None,
+        description="This resource holds a secret; graph traversal continues through it (RFC-37 governance: credential-bearing). Credential-bearing wins for traversal.",
+    )
+    linked_credential_ids: Optional[List[StrictStr]] = Field(
+        default=None,
+        description="Credentials held by this credential-bearing resource (RFC-37 vault lineage). A credential-bearing resource can hold several secrets.",
+        json_schema_extra={"x-semantic": "credential-id"},
+    )
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "resource_type",
+        "reference",
+        "label",
+        "description",
+        "is_terminal",
+        "is_credential_bearing",
+        "linked_credential_ids",
+    ]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -94,6 +116,9 @@ class AccessGraphResource(BaseModel):
                 else None,
                 "label": obj.get("label"),
                 "description": obj.get("description"),
+                "is_terminal": obj.get("is_terminal"),
+                "is_credential_bearing": obj.get("is_credential_bearing"),
+                "linked_credential_ids": obj.get("linked_credential_ids"),
             }
         )
         return _obj

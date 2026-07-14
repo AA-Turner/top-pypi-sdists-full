@@ -29,6 +29,8 @@ class CustomAttributeCustomizedType(str, Enum):
     ACCOUNT = 'account'
     ENTITLEMENT = 'entitlement'
     RESOURCE = 'resource'
+    CREDENTIAL = 'credential'
+    NON_HUMAN_ACCOUNT = 'non_human_account'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

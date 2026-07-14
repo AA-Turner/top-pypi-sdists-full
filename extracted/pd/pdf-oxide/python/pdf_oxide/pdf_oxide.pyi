@@ -1643,6 +1643,13 @@ class TextWord:
         `TextSpan.sequence`.
         """
 
+    @property
+    def rotation_degrees(self) -> float:
+        """
+        Rotation of the word's glyph run in degrees, snapped to a quadrant
+        (0 / 90 / 180 / -90) — see `Word.rotation_degrees`.
+        """
+
 @t.final
 class TextLine:
     @property

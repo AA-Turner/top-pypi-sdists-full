@@ -2,17 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_meraki_auth_users_info
-short_description: Information module for networks _meraki _auth _users
+short_description: Information module for networks _merakiauthusers
 description:
-  - Get all networks _meraki _auth _users.
-  - Get networks _meraki _auth _users by id. - > List the authorized users configured
-    under Meraki Authentication for a network splash guest or RADIUS users for a wireless
-    network, or client VPN users for a MX network .
+  - Information module for Networks Merakiauthusers Info.
+  - Get all networks _merakiauthusers.
+  - Get networks _merakiauthusers by id.
+  - >
+    List the authorized users configured under Meraki Authentication for a network
+    splash guest or RADIUS users for a wireless network, or client VPN users for a
+    MX network .
   - Return the Meraki Auth splash guest, RADIUS, or client VPN user.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -24,10 +26,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Merakiauthusers Info.
       - NetworkId path parameter. Network ID.
     type: str
   merakiAuthUserId:
     description:
+      - Information module for Networks Merakiauthusers Info.
       - MerakiAuthUserId path parameter. Meraki auth user ID.
     type: str
 requirements:
@@ -50,7 +54,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _meraki _auth _users
+- name: Get all networks _merakiauthusers
   cisco.meraki.networks_meraki_auth_users_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -75,7 +79,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
   register: result
-- name: Get networks _meraki _auth _users by id
+- name: Get networks _merakiauthusers by id
   cisco.meraki.networks_meraki_auth_users_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

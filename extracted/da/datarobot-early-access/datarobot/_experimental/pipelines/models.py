@@ -20,6 +20,7 @@ from datarobot._compat import String
 from datarobot._experimental.pipelines.enums import PipelineMode, PipelineVersionStatus
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
+from datarobot.utils import rawdict
 
 TPipeline = TypeVar("TPipeline", bound="Pipeline")
 
@@ -189,6 +190,14 @@ class Pipeline(APIObject):
         The Python version the workflow was parsed with (in detail responses).
     resource_bundle : dict or None
         Resource configuration for the draft pipeline (in detail responses).
+    input_set_template : str or None
+        A ready-to-submit YAML body for creating an input set, derived from the
+        latest available pipeline graph. None when the graph is not yet available.
+    image_id : str or None
+        The execution image linked to this pipeline, or None if unlinked.
+    linked_image : dict or None
+        Snapshot of the linked image version (image_id, name, version, status,
+        error_detail), or None when no image is bound.
     versions : list
         List of PipelineVersion objects (in detail responses).
     created_at : str
@@ -211,6 +220,9 @@ class Pipeline(APIObject):
         t.Key("task_names", optional=True, default=None): t.Or(t.List(String()), t.Null()),
         t.Key("python_version", optional=True, default=None): t.Or(String(), t.Null()),
         t.Key("resource_bundle", optional=True, default=None): t.Or(t.Dict().allow_extra("*"), t.Null()),
+        t.Key("input_set_template", optional=True, default=None): t.Or(String(allow_blank=True), t.Null()),
+        t.Key("image_id", optional=True, default=None): t.Or(String(), t.Null()),
+        t.Key("linked_image", optional=True, default=None): t.Or(t.Dict().allow_extra("*"), t.Null()),
         t.Key("versions", optional=True, default=None): t.Or(t.List(t.Dict().allow_extra("*")), t.Null()),
         t.Key("created_at", optional=True, default=None): t.Or(String(), t.Null()),
         t.Key("updated_at", optional=True, default=None): t.Or(String(), t.Null()),
@@ -229,6 +241,9 @@ class Pipeline(APIObject):
         task_names: Optional[List[str]] = None,
         python_version: Optional[str] = None,
         resource_bundle: Optional[Dict[str, Any]] = None,
+        input_set_template: Optional[str] = None,
+        image_id: Optional[str] = None,
+        linked_image: Optional[Dict[str, Any]] = None,
         versions: Optional[List[Dict[str, Any]]] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -245,6 +260,9 @@ class Pipeline(APIObject):
         self.task_names = task_names
         self.python_version = python_version
         self.resource_bundle = resource_bundle
+        self.input_set_template = input_set_template
+        self.image_id = image_id
+        self.linked_image = linked_image
         self.versions = [PipelineVersion(**v) for v in versions] if versions else []
         self.created_at = created_at
         self.updated_at = updated_at
@@ -257,6 +275,8 @@ class Pipeline(APIObject):
         cls: Type[TPipeline],
         file_path: str,
         description: Optional[str] = None,
+        name: Optional[str] = None,
+        image_id: Optional[str] = None,
     ) -> TPipeline:
         """Upload a .py workflow file to create a pipeline.
 
@@ -269,6 +289,12 @@ class Pipeline(APIObject):
             Path to the .py file containing @task and @pipeline decorated functions.
         description : str, optional
             Description of the pipeline.
+        name : str, optional
+            Human-readable display name. Defaults to the title-cased
+            ``@pipeline`` function name when omitted.
+        image_id : str, optional
+            Execution image to associate with the pipeline. The pipeline is
+            linked to the image's latest active version.
 
         Returns
         -------
@@ -291,11 +317,18 @@ class Pipeline(APIObject):
             data: Dict[str, str] = {}
             if description is not None:
                 data["description"] = description
+            if name is not None:
+                data["name"] = name
+            if image_id is not None:
+                data["image_id"] = image_id
+            # rawdict keeps the multipart form keys snake_case; without it the
+            # REST layer camelCases them (image_id -> imageId) and the FastAPI
+            # Form(...) params silently ignore the value.
             response = cls._client.request(
                 method="POST",
                 url=cls._path,
                 files=files,
-                data=data,
+                data=rawdict(data),
             )
         return cls.from_server_data(response.json())
 
@@ -344,13 +377,31 @@ class Pipeline(APIObject):
         response = cls._client.get(f"{cls._path}{pipeline_id}/")
         return cls.from_server_data(response.json())
 
-    def update(self: TPipeline, file_path: str) -> TPipeline:
-        """Update a draft pipeline by re-uploading the .py file.
+    def update(
+        self: TPipeline,
+        file_path: Optional[str] = None,
+        image_id: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> TPipeline:
+        """Update a draft pipeline.
+
+        All arguments are optional and independent -- re-upload the ``.py``
+        file, rename the pipeline, change its description, (re-)link an
+        execution image, or any combination in a single call. Passing nothing
+        is a no-op that just refreshes the pipeline's current state.
 
         Parameters
         ----------
-        file_path : str
-            Path to the updated .py file.
+        file_path : str, optional
+            Path to the updated .py file. When omitted, the pipeline's source
+            is left unchanged.
+        image_id : str, optional
+            Execution image to (re)link to the pipeline.
+        name : str, optional
+            New human-readable display name.
+        description : str, optional
+            New pipeline description.
 
         Returns
         -------
@@ -360,7 +411,7 @@ class Pipeline(APIObject):
         Raises
         ------
         FileNotFoundError
-            If ``file_path`` does not exist.
+            If ``file_path`` is given and does not exist.
         IsADirectoryError
             If ``file_path`` refers to a directory rather than a file.
         PermissionError
@@ -368,13 +419,29 @@ class Pipeline(APIObject):
         OSError
             For any other I/O error opening or reading ``file_path``.
         """
-        with open(file_path, "rb") as f:
-            files = {"file": (basename(file_path), f, "application/octet-stream")}
-            response = self._client.request(
-                method="PATCH",
-                url=f"{self._path}{self.pipeline_id}/",
-                files=files,
-            )
+        data: Dict[str, str] = {}
+        if name is not None:
+            data["name"] = name
+        if description is not None:
+            data["description"] = description
+        if image_id is not None:
+            data["image_id"] = image_id
+        url = f"{self._path}{self.pipeline_id}/"
+        if file_path is not None:
+            # Multipart with the file; rawdict keeps the extra form keys
+            # snake_case (see create()).
+            with open(file_path, "rb") as f:
+                files: Dict[str, Any] = {"file": (basename(file_path), f, "application/octet-stream")}
+                response = self._client.request(
+                    method="PATCH", url=url, files=files, data=rawdict(data) if data else None
+                )
+        else:
+            # No file: send the fields as multipart form fields via (None, value)
+            # tuples. A bare ``data=`` dict would be JSON-encoded by the client,
+            # which the FastAPI ``Form(...)`` params ignore. Passing them through
+            # ``files`` also skips the camelCase conversion, keeping keys as-is.
+            form_files = {key: (None, value) for key, value in data.items()}
+            response = self._client.request(method="PATCH", url=url, files=form_files or None)
         updated = self.from_server_data(response.json())
         self.__dict__.update(updated.__dict__)
         return self
@@ -497,3 +564,30 @@ class Pipeline(APIObject):
         """
         response = self._client.get(f"{self._path}{self.pipeline_id}/versions/{version_id}/tasks/{task_id}/")
         return PipelineTask.from_server_data(response.json())
+
+    def get_source(self) -> str:
+        """Get the raw source code of the draft pipeline.
+
+        Returns
+        -------
+        source : str
+            The full ``source.py`` of the draft.
+        """
+        response = self._client.get(f"{self._path}{self.pipeline_id}/source/")
+        return cast(str, response.json().get("source") or "")
+
+    def get_version_source(self, version_id: int) -> str:
+        """Get the raw source code of a specific locked pipeline version.
+
+        Parameters
+        ----------
+        version_id : int
+            The version number.
+
+        Returns
+        -------
+        source : str
+            The full ``source.py`` of the version.
+        """
+        response = self._client.get(f"{self._path}{self.pipeline_id}/versions/{version_id}/source/")
+        return cast(str, response.json().get("source") or "")

@@ -43,8 +43,6 @@ impl R1SecretKey {
     }
 
     pub fn sign_prehashed(&self, message_hash: &[u8; 32]) -> Result<R1Signature, Error> {
-        Ok(R1Signature(
-            self.0.sign_prehash_recoverable(message_hash)?.0,
-        ))
+        Ok(R1Signature(self.0.sign_prehash_recoverable(message_hash).0))
     }
 }

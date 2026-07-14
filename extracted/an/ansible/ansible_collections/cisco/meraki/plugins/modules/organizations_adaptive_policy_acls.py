@@ -2,15 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_adaptive_policy_acls
-short_description: Resource module for organizations _adaptive _policy _acls
+short_description: Resource module for organizations _adaptivepolicy _acls
 description:
-  - Manage operations create, update and delete of the resource organizations _adaptive
-    _policy _acls.
+  - Manage operations create, update and delete of the resource organizations _adaptivepolicy
+    _acls.
   - Creates new adaptive policy ACL.
   - Deletes the specified adaptive policy ACL. Note this adaptive policy ACL will
     also be removed from policies using it.
@@ -61,7 +60,6 @@ options:
         type: str
       tcpEstablished:
         description: If enabled, means TCP connection with this node must be established.
-          Can only be enabled when policy protocol is 'allow tcp'.
         type: bool
     type: list
 requirements:

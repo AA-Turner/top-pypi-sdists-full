@@ -1,9 +1,10 @@
 """Cement core output module."""
 
 from abc import abstractmethod
-from typing import Any, Dict, Union
-from ..core.interface import Interface
+from typing import Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.misc import minimal_logger
 
 LOG = minimal_logger(__name__)
@@ -25,8 +26,11 @@ class OutputInterface(Interface):
         #: The string identifier of the interface
         interface = 'output'
 
+    # D-09: render data is user-arbitrary (apps render dicts of any shape);
+    # the *args/**kwargs are passthrough to mix output handlers with
+    # different feature sets per the docstring. Public OutputInterface (D-12).
     @abstractmethod
-    def render(self, data: Dict[str, Any], *args: Any, **kwargs: Any) -> Union[str, None]:
+    def render(self, data: dict[str, Any], *args: Any, **kwargs: Any) -> str | None:
         """
         Render the ``data`` dict into output in some fashion.  This function
         must accept both ``*args`` and ``**kwargs`` to allow an application to
@@ -41,7 +45,7 @@ class OutputInterface(Interface):
             rendered
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
 
 class OutputHandler(OutputInterface, Handler):
@@ -49,4 +53,4 @@ class OutputHandler(OutputInterface, Handler):
     """Output handler implementation."""
 
     class Meta(Handler.Meta):
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method

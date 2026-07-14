@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_wireless_radio_rrm
@@ -40,8 +39,8 @@ options:
             description: Manual Busy Hour settings.
             suboptions:
               end:
-                description: The hour that Manual Busy Hour ends each day, in the
-                  network time zone.
+                description: The hour that Manual Busy Hour ends each day, in the network
+                  time zone.
                 type: str
               start:
                 description: The hour that Manual Busy Hour starts each day, in the
@@ -70,8 +69,8 @@ options:
     description: FRA settings.
     suboptions:
       enabled:
-        description: Toggle to activate or deactivate FRA in a network, contingent
-          on AI-RRM being enabled.
+        description: Toggle to activate or deactivate FRA in a network, contingent on
+          AI-RRM being enabled.
         type: bool
     type: dict
   networkId:
@@ -87,6 +86,7 @@ seealso:
 notes:
   - SDK Method used are
     wireless.Wireless.update_network_wireless_radio_rrm,
+
   - Paths used are
     put /networks/{networkId}/wireless/radio/rrm,
 """
@@ -115,6 +115,7 @@ EXAMPLES = r"""
     meraki_caller: "{{ meraki_caller }}"
     meraki_use_iterator_for_get_pages: "{{ meraki_use_iterator_for_get_pages }}"
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
+
     ai:
       enabled: true
     busyHour:

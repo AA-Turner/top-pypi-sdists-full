@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_branding_policies_info
-short_description: Information module for organizations _branding _policies
+short_description: Information module for organizations _brandingpolicies
 description:
-  - Get all organizations _branding _policies.
-  - Get organizations _branding _policies by id.
+  - Information module for Organizations Brandingpolicies Info.
+  - Get all organizations _brandingpolicies.
+  - Get organizations _brandingpolicies by id.
   - List the branding policies of an organization.
   - Return a branding policy.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   organizationId:
     description:
+      - Information module for Organizations Brandingpolicies Info.
       - OrganizationId path parameter. Organization ID.
     type: str
   brandingPolicyId:
     description:
+      - Information module for Organizations Brandingpolicies Info.
       - BrandingPolicyId path parameter. Branding policy ID.
     type: str
 requirements:
@@ -49,7 +51,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all organizations _branding _policies
+- name: Get all organizations _brandingpolicies
   cisco.meraki.organizations_branding_policies_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -74,7 +76,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     organizationId: string
   register: result
-- name: Get organizations _branding _policies by id
+- name: Get organizations _brandingpolicies by id
   cisco.meraki.organizations_branding_policies_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

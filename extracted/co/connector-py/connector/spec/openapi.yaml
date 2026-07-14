@@ -2562,6 +2562,82 @@ paths:
                         Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/list_credentials:
+    post:
+      operationId: list_credentials
+      description: |-
+        List all credentials available in the connected system.
+
+        A credential is used by a non-human identity to authenticate (e.g. an access
+        key, OAuth grant, certificate, or OIDC trust policy). The response carries
+        metadata only - never secret material.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListCredentialsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListCredentials'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/list_custom_attributes_schema:
     post:
       operationId: list_custom_attributes_schema
@@ -2759,6 +2835,82 @@ paths:
                     request:
                       allOf:
                         - $ref: '#/components/schemas/ListExpenses'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/list_non_human_accounts:
+    post:
+      operationId: list_non_human_accounts
+      description: |-
+        List all non-human accounts available in the connected system.
+
+        A non-human account is the (workload, identity) pair for a non-human
+        principal such as an IAM role, a GitHub App installation, or a service
+        principal.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListNonHumanAccountsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListNonHumanAccounts'
                       description: The main request payload.
                     include_raw_data:
                       type: boolean
@@ -3916,6 +4068,22 @@ components:
         description:
           type: string
           description: An optional human-readable description of the resource.
+        is_terminal:
+          type: boolean
+          description: 'Access ends here - this resource is a leaf (RFC-37 governance: terminal).'
+        is_credential_bearing:
+          type: boolean
+          description: |-
+            This resource holds a secret; graph traversal continues through it
+            (RFC-37 governance: credential-bearing). Credential-bearing wins for traversal.
+        linked_credential_ids:
+          type: array
+          items:
+            type: string
+          description: |-
+            Credentials held by this credential-bearing resource (RFC-37 vault lineage).
+            A credential-bearing resource can hold several secrets.
+          x-semantic: credential-id
       description: |-
         Resource data describing a resource within the connector. This can be
         used to model records, directories, groups, and any other entity in a
@@ -4955,6 +5123,104 @@ components:
             - created
           default: created
       description: Effect indicating a new record was created in the target system.
+    Credential:
+      type: object
+      required:
+        - resource_id
+        - external_id
+        - label
+        - credential_type
+      properties:
+        resource_id:
+          type: string
+          description: Globally-unique resource id - the credential's identity as a node in the synthesized graph.
+          x-semantic: resource-id
+        external_id:
+          type: string
+          description: The app's own id for the credential (e.g. an access-key id) - NOT the secret value.
+          x-semantic: credential-id
+        label:
+          type: string
+          description: A human-readable label for the credential.
+        credential_type:
+          allOf:
+            - $ref: '#/components/schemas/CredentialType'
+          description: The normalized class of the credential (maps 1:1 to RFC-37).
+        status:
+          allOf:
+            - $ref: '#/components/schemas/CredentialStatus'
+          description: The lifecycle status of the credential.
+        grants_access_to_account_id:
+          type: string
+          description: |-
+            IMPERSONATES a human account: the account this credential grants access to.
+            Lumos synthesizes the corresponding resource relationship from this field.
+          x-semantic: account-id
+        grants_access_to_non_human_account_id:
+          type: string
+          description: |-
+            IMPERSONATES a non-human account: the non-human account this credential grants access to.
+
+            At most one grants_access_to_* is set; both unset means the credential is standalone.
+            Scopes/roles/permissions are AccessGraphEntitlementAssignment rows keyed by resource_id
+            (this is why Credential has no `scopes` field).
+          x-semantic: non-human-account-id
+        created_at:
+          type: string
+          description: When the credential was created in the source system.
+        last_used_at:
+          type: string
+          description: When the credential was last used.
+        expires_at:
+          type: string
+          description: When the credential expires.
+        last_rotated_at:
+          type: string
+          description: When the credential was last rotated.
+        custom_attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom attributes associated with the credential. See the list_custom_attributes_schema capability.
+        extra_data:
+          type: object
+          additionalProperties: {}
+          description: Additional data specific to the connector that doesn't fit into the standard fields.
+      description: |-
+        A credential used by a non-human identity to authenticate to a system
+        (e.g. an access key, OAuth grant, certificate, or OIDC trust policy).
+
+        Credentials carry identifiers and metadata only - never the secret value.
+        Relationships are expressed as fields; Lumos synthesizes the resource node
+        and its relationships from them.
+      example:
+        resource_id: cred:pat_1
+        external_id: pat_1
+        label: CI deploy token
+        credential_type: api_key
+        status: active
+        grants_access_to_account_id: user_42
+        last_used_at: '2026-06-01T00:00:00Z'
+      x-unique-hash:
+        - resource_id
+    CredentialStatus:
+      type: string
+      enum:
+        - active
+        - inactive
+        - stale
+        - expired
+        - revoked
+      description: The lifecycle status of a credential.
+    CredentialType:
+      type: string
+      enum:
+        - unspecified
+        - api_key
+        - oauth_grant
+        - certificate
+        - oidc_trust_policy
+      description: The normalized class of a credential. Maps 1:1 to the RFC-37 credential type.
     CustomAttribute:
       type: object
       required:
@@ -4983,6 +5249,8 @@ components:
         - account
         - entitlement
         - resource
+        - credential
+        - non_human_account
       description: Enum representing the types that can be customized with attributes.
     CustomAttributeParameter:
       type: object
@@ -5980,6 +6248,12 @@ components:
           type: string
           description: Integration specific identifier that uniquely identifies an account.
           x-semantic: account-id
+        resource_id:
+          type: string
+          description: |-
+            Globally-unique resource id - the account's identity as a node in the synthesized graph.
+            Optional for back-compat; when absent Lumos falls back to the `account:<id>` convention.
+          x-semantic: resource-id
         email:
           type: string
           description: The email address associated with the account.
@@ -7416,6 +7690,54 @@ components:
                 detailed information about what actually happened in the target system.
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing information about the applications
+    ListCredentials:
+      type: object
+      properties:
+        custom_attributes:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional array of custom attribute names to include in the credential data.
+            Each string in this array represents a specific custom attribute to retrieve.
+      description: Request parameters for listing credentials.
+      x-capability-level: read
+    ListCredentialsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/Credential'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
+            execution_summary:
+              allOf:
+                - $ref: '#/components/schemas/ExecutionSummary'
+              description: |-
+                Summary of how the operation executed from the connector's perspective.
+
+                This model provides metadata about the execution of the operation,
+                including what effect the operation had, whether it's safe to retry, and any non-fatal errors
+                that occurred during execution.
+
+                This field is typically included for write operations (create, update, delete) to provide
+                detailed information about what actually happened in the target system.
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the list of credentials and their details.
     ListCustomAttributesSchema:
       type: object
       allOf:
@@ -7551,6 +7873,54 @@ components:
                 detailed information about what actually happened in the target system.
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing information about the expenses
+    ListNonHumanAccounts:
+      type: object
+      properties:
+        custom_attributes:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional array of custom attribute names to include in the non-human account data.
+            Each string in this array represents a specific custom attribute to retrieve.
+      description: Request parameters for listing non-human accounts.
+      x-capability-level: read
+    ListNonHumanAccountsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/NonHumanAccount'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
+            execution_summary:
+              allOf:
+                - $ref: '#/components/schemas/ExecutionSummary'
+              description: |-
+                Summary of how the operation executed from the connector's perspective.
+
+                This model provides metadata about the execution of the operation,
+                including what effect the operation had, whether it's safe to retry, and any non-fatal errors
+                that occurred during execution.
+
+                This field is typically included for write operations (create, update, delete) to provide
+                detailed information about what actually happened in the target system.
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the list of non-human accounts and their details.
     ListResources:
       type: object
       allOf:
@@ -7732,6 +8102,61 @@ components:
 
         This response model wraps the UpdatedAccounts data and provides standard
         response metadata including success status and any error information.
+    NonHumanAccount:
+      type: object
+      required:
+        - resource_id
+        - id
+        - label
+        - type
+        - status
+      properties:
+        resource_id:
+          type: string
+          description: Globally-unique resource id - the account's identity as a node in the synthesized graph.
+          x-semantic: resource-id
+        id:
+          type: string
+          description: Integration specific identifier that uniquely identifies the non-human account.
+          x-semantic: non-human-account-id
+        label:
+          type: string
+          description: A human-readable label for the non-human account.
+        type:
+          type: string
+          description: Source-specific account kind (e.g. "github_app_installation", "iam_role") - connector-only data.
+        status:
+          allOf:
+            - $ref: '#/components/schemas/AccountStatus'
+          description: The current status of the account.
+        custom_attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom attributes associated with the non-human account. See the list_custom_attributes_schema capability.
+        extra_data:
+          type: object
+          additionalProperties: {}
+          description: |-
+            Additional data specific to the connector that doesn't fit into the standard fields.
+            For the MVP this also carries the app-specific signals Lumos uses to match
+            non-human accounts into non-human identities.
+      description: |-
+        A non-human account: the (workload, identity) pair for a non-human principal
+        such as an IAM role, a GitHub App installation, or a service principal.
+
+        A non-human account carries its own globally-unique `resource_id`; Lumos
+        synthesizes its resource node and relationships. It is never re-emitted as an
+        AccessGraphResource. Its grants are ordinary AccessGraphEntitlementAssignment
+        rows keyed by its `resource_id`.
+      example:
+        resource_id: nha:arn:aws:iam::123456789012:role/deploy
+        id: arn:aws:iam::123456789012:role/deploy
+        label: deploy
+        type: iam_role
+        status: ACTIVE
+      x-unique-hash:
+        - resource_id
     NoopEffect:
       type: object
       required:
@@ -8498,6 +8923,8 @@ components:
         - list_entitlements
         - list_expenses
         - list_resources
+        - list_credentials
+        - list_non_human_accounts
         - find_resource_graph
         - find_entitlement_graph
         - find_entitlement_assignments

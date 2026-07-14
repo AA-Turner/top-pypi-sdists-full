@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snyk-agent-scan
-Version: 0.5.12
+Version: 0.5.13
 Summary: Agent supply chain security scanner.
 License: Apache-2.0
 License-File: LICENSE
@@ -105,7 +105,7 @@ Agent Scan auto-discovers agents and their capabilities (MCP servers or skills) 
 | OpenClaw | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ |
 | Amp | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ |
 | Kiro | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| OpenCode | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| OpenCode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Antigravity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Codex | ✓ | ✓ | ✓ | ✓ | — | — |
 | Amazon Q | ✓ | ✗ | ✓ | ✗ | ✓ (WSL) | ✗ |
@@ -134,7 +134,7 @@ Legend: **✓** detected · **✗** the agent supports this but Agent Scan does 
 | OpenClaw | N/A | N/A | ✓ | ✗ | ✓ † | N/A | ✗ | ✗ |
 | Amp | N/A | ✗ | ✓ | ✗ | ✗ ‡ | ✗ | ✗ | ✗ |
 | Kiro | N/A | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| OpenCode | N/A | ✗ | ✗ | ✗ | ✗ | ✗ | N/A | N/A |
+| OpenCode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | N/A | N/A |
 | Antigravity | N/A | N/A | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Codex | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Amazon Q | N/A | N/A | N/A | ✓ | N/A | ✗ | N/A | N/A |
@@ -184,6 +184,35 @@ uvx snyk-agent-scan@latest ~/.claude/skills
 
 [![Agent Scan security vulnerabilities demo](demo.svg)](https://asciinema.org/a/716858)
 
+## Verifying Standalone Binaries
+
+We use GPG signing on the release checksums file to ensure distribution integrity and authenticity.
+
+### Step-by-Step Verification Guide
+
+1. **Download the release assets:**
+   Download the binary for your platform (e.g., `agent-scan-<version>-<os>-<arch>`) and the signed checksums file (`sha256sums.txt.asc`) from the [GitHub Releases](https://github.com/snyk/agent-scan/releases) page into the same directory.
+
+2. **Verify GPG signature of the checksums file:**
+   Download the [GPG public key](https://github.com/snyk/agent-scan/blob/main/help/_about-this-project/snyk-code-signing-public.pgp) into the same directory, then run:
+   ```bash
+   gpg --import snyk-code-signing-public.pgp
+   gpg --verify sha256sums.txt.asc
+   ```
+   Look for a line in the output saying `gpg: Good signature from "Snyk Limited <code-signing@snyk.io>"`.
+
+3. **Verify the binary's integrity:**
+   After confirming the signature is valid, check that your downloaded binary matches the checksum:
+   * **On Linux (or macOS with `coreutils`):**
+     ```bash
+     grep agent-scan-<version>-<os>-<arch> sha256sums.txt.asc | sha256sum -c -
+     ```
+   * **On macOS (using default `shasum`):**
+     ```bash
+     grep agent-scan-<version>-<os>-<arch> sha256sums.txt.asc | shasum -a 256 -c -
+     ```
+   This will output `agent-scan-<version>-<os>-<arch>: OK`.
+
 ## Scanner Capabilities
 
 Agent Scan is a security scanning tool to both scan and inspect the supply chain of agent components on your machine. It scans for common security vulnerabilities like prompt injections, tool poisoning, toxic flows, or vulnerabilities in agent skills.
@@ -192,7 +221,7 @@ Agent Scan operates in two main modes which can be used jointly or separately:
 
 1. **Scan Mode**: The CLI command `snyk-agent-scan` scans the current machine for agents and agent components such as skills and MCP servers. Upon completion, it will output a comprehensive report for the user to review.
 
-2. **Background Mode** (MDM, Crowdstrike). Agent Scan scans the machine in regular intervals in the background, and reports the results to a [Snyk Evo](https://evo.ai.snyk.io) instance. This can be used by security teams to monitor the company-wide agent supply chain in a central location. To set this up, please [contact us](https://evo.ai.snyk.io/#contact-us).
+2. **Background Mode** (MDM). Agent Scan scans the machine in regular intervals in the background, and reports the results to a [Snyk Evo](https://evo.ai.snyk.io) instance. This can be used by security teams to monitor the company-wide agent supply chain in a central location. To set this up, please [contact us](https://evo.ai.snyk.io/#contact-us).
 
 ## How It Works
 

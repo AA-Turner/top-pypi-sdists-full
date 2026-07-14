@@ -61,7 +61,7 @@ class NetworksSwitchRoutingOspf(object):
             v3=params.get("v3"),
             md5AuthenticationEnabled=params.get("md5AuthenticationEnabled"),
             md5AuthenticationKey=params.get("md5AuthenticationKey"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             vrf=params.get("vrf"),
         )
 
@@ -169,7 +169,9 @@ class NetworksSwitchRoutingOspf(object):
             ("areas", "areas"),
             ("v3", "v3"),
             ("md5AuthenticationEnabled", "md5AuthenticationEnabled"),
-            ("md5AuthenticationKey", "md5AuthenticationKey"), ("vrf", "vrf"),
+            ("md5AuthenticationKey", "md5AuthenticationKey"),
+            ("networkId", "networkId"),
+            ("vrf", "vrf"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

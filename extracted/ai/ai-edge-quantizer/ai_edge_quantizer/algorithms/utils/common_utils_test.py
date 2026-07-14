@@ -14,11 +14,16 @@
 # ==============================================================================
 
 import collections
+from unittest import mock
+
 from absl.testing import absltest
 from absl.testing import parameterized
+import numpy as np
 from ai_edge_quantizer import default_policy
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer.algorithms.utils import common_utils
+from ai_edge_quantizer.utils import tfl_flatbuffer_utils
+
 
 _ComputePrecision = qtyping.ComputePrecision
 _QuantTransformation = qtyping.QuantTransformation
@@ -126,7 +131,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
 
   @parameterized.product(
       op_name=(_TFLOpName.FULLY_CONNECTED, _TFLOpName.CONV_2D),
-      weight_num_bits=(4, 8),
+      weight_num_bits=(2, 4, 8),
       granularity=(
           qtyping.QuantGranularity.TENSORWISE,
           qtyping.QuantGranularity.CHANNELWISE,
@@ -174,7 +179,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
   def test_check_drq_config_wrong_bits_raise_error(self, op_name):
     op_quant_config = _OpQuantConfig(
         weight_tensor_config=_TensorQuantConfig(
-            num_bits=2,
+            num_bits=3,
             granularity=qtyping.QuantGranularity.TENSORWISE,
         ),
         compute_precision=_ComputePrecision.INTEGER,  # DRQ.
@@ -348,7 +353,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
             num_bits=16, symmetric=True
         ),
         weight_tensor_config=_TensorQuantConfig(
-            num_bits=2,
+            num_bits=3,
             granularity=qtyping.QuantGranularity.CHANNELWISE,
         ),
         compute_precision=_ComputePrecision.INTEGER,  # SRQ.
@@ -522,6 +527,140 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
           output_activation_constraints={},
           get_tensor_quant_params_fn=lambda *args: [],
           tensor_quant_params_cache=common_utils.TensorQuantParamsCache(),
+      )
+
+  def test_wrapper_passes_activation_qsv(
+      self,
+  ):
+    """Tests if activation qsv is passed to get_tensor_quant_params_fn."""
+    mock_act_tensor = mock.create_autospec(
+        qtyping.TensorT, instance=True, spec_set=False
+    )
+    mock_act_tensor.name = b"activation"
+    mock.seal(mock_act_tensor)
+    mock_weight_tensor = mock.create_autospec(
+        qtyping.TensorT, instance=True, spec_set=False
+    )
+    mock_weight_tensor.name = b"weight"
+    mock_weight_tensor.buffer = 1
+    mock.seal(mock_weight_tensor)
+
+    mock_op = mock.create_autospec(
+        qtyping.OperatorT, instance=True, spec_set=False
+    )
+    mock_op.inputs = [0, 1]  # input 0=activation, input 1=weight
+    mock_op.outputs = []
+    mock.seal(mock_op)
+    mock_op_info = qtyping.OpInfo(
+        op=mock_op,
+        op_name=_TFLOpName.FULLY_CONNECTED,
+        subgraph_op_index=0,
+        op_quant_config=qtyping.OpQuantizationConfig(
+            weight_tensor_config=qtyping.TensorQuantizationConfig(num_bits=8),
+            compute_precision=qtyping.ComputePrecision.INTEGER,
+        ),
+    )
+    mock_graph_info = qtyping.GraphInfo(
+        subgraph_tensors=[mock_act_tensor, mock_weight_tensor], buffers=[]
+    )
+
+    def dummy_get_tensor_params(
+        op_info, tensor_quant_config, tensor_data, tensor_qsv
+    ):
+      del op_info, tensor_quant_config, tensor_data, tensor_qsv
+
+    mock_get_tensor_params_fn = mock.create_autospec(
+        dummy_get_tensor_params, spec_set=True
+    )
+    tensor_name_to_qsv = {
+        "activation": {"min": -1, "max": 1, "hessian": 0.5},
+        "weight": {"min": -10, "max": 10},
+    }
+
+    self.enter_context(
+        mock.patch.object(
+            tfl_flatbuffer_utils,
+            "get_tensor_name",
+            side_effect=lambda x: x.name.decode("utf-8"),
+            autospec=True,
+            spec_set=True,
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            tfl_flatbuffer_utils,
+            "get_tensor_data",
+            return_value=np.array([1]),
+            autospec=True,
+            spec_set=True,
+        )
+    )
+    common_utils._get_tensor_transformation_params_wrapper(
+        tensor=mock_weight_tensor,
+        is_inbounding_tensor=True,
+        op_info=mock_op_info,
+        graph_info=mock_graph_info,
+        tensor_name_to_qsv=tensor_name_to_qsv,
+        get_tensor_quant_params_fn=mock_get_tensor_params_fn,
+        tensor_quant_params_cache=common_utils.TensorQuantParamsCache(),
+    )
+
+    expected_tensor_qsv = dict(tensor_name_to_qsv["weight"])
+    expected_tensor_qsv["activation_tensor_qsv"] = tensor_name_to_qsv[
+        "activation"
+    ]
+    mock_get_tensor_params_fn.assert_called_once_with(
+        mock_op_info,
+        mock_op_info.op_quant_config.weight_tensor_config,
+        mock.ANY,  # tensor_data
+        expected_tensor_qsv,  # tensor_qsv
+    )
+
+
+class CommonUtilsTest(parameterized.TestCase):
+
+  def test_reshape_to_blocks_symmetric_2d(self):
+    # Shape (2, 6), quantized_dimension=1, block_size=3.
+    # Result shape should be (4, 3).
+    tensor = np.arange(12, dtype=np.float32).reshape(2, 6)
+    expected = np.array(
+        [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]], dtype=np.float32
+    )
+    actual = common_utils.reshape_to_blocks(
+        tensor, quantized_dimension=1, block_size=3
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+  def test_reshape_to_blocks_transposed_2d(self):
+    # Shape (6, 2), quantized_dimension=0, block_size=3.
+    # Result shape should be (4, 3).
+    tensor = np.arange(12, dtype=np.float32).reshape(6, 2)
+    expected = np.array(
+        [[0, 2, 4], [1, 3, 5], [6, 8, 10], [7, 9, 11]], dtype=np.float32
+    )
+    actual = common_utils.reshape_to_blocks(
+        tensor, quantized_dimension=0, block_size=3
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+  def test_reshape_to_blocks_3d(self):
+    # Shape (2, 2, 4), quantized_dimension=2, block_size=2.
+    # Result shape should be (8, 2).
+    tensor = np.arange(16, dtype=np.float32).reshape(2, 2, 4)
+    expected = np.array(
+        [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13], [14, 15]],
+        dtype=np.float32,
+    )
+    actual = common_utils.reshape_to_blocks(
+        tensor, quantized_dimension=2, block_size=2
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+  def test_reshape_to_blocks_not_divisible_raises_error(self):
+    tensor = np.arange(10, dtype=np.float32).reshape(2, 5)
+    with self.assertRaisesRegex(ValueError, "is not divisible by block size"):
+      common_utils.reshape_to_blocks(
+          tensor, quantized_dimension=1, block_size=3
       )
 
 

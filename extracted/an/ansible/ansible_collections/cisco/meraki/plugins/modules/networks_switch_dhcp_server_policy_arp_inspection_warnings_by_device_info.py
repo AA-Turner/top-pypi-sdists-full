@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_switch_dhcp_server_policy_arp_inspection_warnings_by_device_info
-short_description: Information module for networks _switch _dhcp _server _policy _arp
-  _inspection _warnings _by _device
+short_description: Information module for networks _switch _dhcpserverpolicy _arpinspection
+  _warnings _bydevice
 description:
-  - Get all networks _switch _dhcp _server _policy _arp _inspection _warnings _by
-    _device.
+  - Information module for Networks Switch Dhcpserverpolicy Arpinspection Warnings Bydevice Info.
+  - Get all networks _switch _dhcpserverpolicy _arpinspection _warnings _bydevice.
   - Return the devices that have a Dynamic ARP Inspection warning and their warnings.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -24,15 +23,18 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Switch Dhcpserverpolicy Arpinspection Warnings Bydevice Info.
       - NetworkId path parameter. Network ID.
     type: str
   perPage:
     description:
+      - Information module for Networks Switch Dhcpserverpolicy Arpinspection Warnings Bydevice Info.
       - PerPage query parameter. The number of entries per page returned. Acceptable
         range is 3 - 1000. Default is 1000.
     type: int
   startingAfter:
     description:
+      - Information module for Networks Switch Dhcpserverpolicy Arpinspection Warnings Bydevice Info.
       - >
         StartingAfter query parameter. A token used by the server to indicate the
         start of the page. Often this is a timestamp or an ID but it is not limited
@@ -42,6 +44,7 @@ options:
     type: str
   endingBefore:
     description:
+      - Information module for Networks Switch Dhcpserverpolicy Arpinspection Warnings Bydevice Info.
       - >
         EndingBefore query parameter. A token used by the server to indicate the end
         of the page. Often this is a timestamp or an ID but it is not limited to those.
@@ -65,8 +68,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _switch _dhcp _server _policy _arp _inspection _warnings
-    _by _device
+- name: Get all networks _switch _dhcpserverpolicy _arpinspection _warnings _bydevice
   cisco.meraki.networks_switch_dhcp_server_policy_arp_inspection_warnings_by_device_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

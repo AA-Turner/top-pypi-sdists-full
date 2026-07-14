@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 3.1.0
+Version: 3.1.1
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -29,15 +29,12 @@ Requires-Dist: typing-extensions<5,>=4.5
 Provides-Extra: dev
 Requires-Dist: anthropic>0.18.0; extra == 'dev'
 Requires-Dist: boto3; extra == 'dev'
-Requires-Dist: litellm<1.82.7,>=1.28.9; extra == 'dev'
-Requires-Dist: mistralai>=1.0.0; extra == 'dev'
+Requires-Dist: litellm>=1.83.14; extra == 'dev'
 Requires-Dist: openai>=1.0.0; extra == 'dev'
-Requires-Dist: vertexai; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: anthropic>=0.18.0; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
-Requires-Dist: litellm<1.82.7,>=1.28.9; extra == 'test'
-Requires-Dist: mistralai>=1.0.0; extra == 'test'
+Requires-Dist: litellm>=1.83.14; extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
@@ -47,7 +44,6 @@ Requires-Dist: respx; extra == 'test'
 Requires-Dist: tqdm; extra == 'test'
 Requires-Dist: types-tqdm; extra == 'test'
 Requires-Dist: typing-extensions<5,>=4.5; extra == 'test'
-Requires-Dist: vertexai; extra == 'test'
 Description-Content-Type: text/markdown
 
 # arize-phoenix-evals

@@ -533,8 +533,10 @@ class RTCPeerConnectionTest(TestCase):
         self, pc1: RTCPeerConnection, pc2: RTCPeerConnection
     ) -> None:
         await self.sleepWhile(
-            lambda: pc1.iceConnectionState == "checking"
-            or pc2.iceConnectionState == "checking"
+            lambda: (
+                pc1.iceConnectionState == "checking"
+                or pc2.iceConnectionState == "checking"
+            )
         )
         self.assertEqual(pc1.iceConnectionState, "completed")
         self.assertEqual(pc2.iceConnectionState, "completed")
@@ -5377,6 +5379,11 @@ a=rtpmap:0 PCMU/8000
         self.assertEqual(param1.password, param2.password)
         self.assertEqual(transceiver.receiver.transport, pc.sctp.transport)
 
+        self.assertEqual(
+            transceiver.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            pc.sctp.transport.transport.iceGatherer.getLocalParameters(),
+        )
+
     @asynctest
     async def test_bundlepolicy_transports_balanced(self) -> None:
         pc = RTCPeerConnection(RTCConfiguration(bundlePolicy=RTCBundlePolicy.BALANCED))
@@ -5392,6 +5399,19 @@ a=rtpmap:0 PCMU/8000
         )
         self.assertNotEqual(transceiver1.receiver.transport, pc.sctp.transport)
         self.assertNotEqual(transceiver2.receiver.transport, pc.sctp.transport)
+
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver2.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver3.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            pc.sctp.transport.transport.iceGatherer.getLocalParameters(),
+        )
 
     @asynctest
     async def test_bundlepolicy_transports_max_compat(self) -> None:
@@ -5411,6 +5431,19 @@ a=rtpmap:0 PCMU/8000
         self.assertNotEqual(transceiver1.receiver.transport, pc.sctp.transport)
         self.assertNotEqual(transceiver2.receiver.transport, pc.sctp.transport)
 
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver2.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver3.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            pc.sctp.transport.transport.iceGatherer.getLocalParameters(),
+        )
+
     @asynctest
     async def test_bundlepolicy_transports_max_bundle(self) -> None:
         pc = RTCPeerConnection(
@@ -5427,3 +5460,46 @@ a=rtpmap:0 PCMU/8000
             transceiver1.receiver.transport, transceiver3.receiver.transport
         )
         self.assertEqual(transceiver1.receiver.transport, pc.sctp.transport)
+
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver2.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            transceiver3.receiver.transport.transport.iceGatherer.getLocalParameters(),
+        )
+        self.assertEqual(
+            transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
+            pc.sctp.transport.transport.iceGatherer.getLocalParameters(),
+        )
+
+    @asynctest
+    async def test_always_negotiate_datachannels(self) -> None:
+        pc = RTCPeerConnection(RTCConfiguration(alwaysNegotiateDataChannels=True))
+        pc.addTransceiver("audio")
+        offer = await pc.createOffer()
+        parsed = SessionDescription.parse(offer.sdp)
+        self.assertEqual(len(parsed.media), 2)
+        self.assertEqual("application", parsed.media[0].kind)
+        self.assertEqual("audio", parsed.media[1].kind)
+
+    @asynctest
+    async def test_always_negotiate_datachannels_subsequent(self) -> None:
+        pc1 = RTCPeerConnection(RTCConfiguration(alwaysNegotiateDataChannels=True))
+        pc2 = RTCPeerConnection()
+
+        pc1.addTransceiver("audio")
+        await pc1.setLocalDescription()
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription()
+        await pc1.setRemoteDescription(pc2.localDescription)
+
+        for pc in [pc1, pc2]:
+            parsed = SessionDescription.parse(pc.localDescription.sdp)
+            self.assertEqual(len(parsed.media), 2)
+
+            pc.createDataChannel("test")
+            offer = await pc.createOffer()
+            parsed = SessionDescription.parse(offer.sdp)
+            self.assertEqual(len(parsed.media), 2)

@@ -20,10 +20,10 @@ DOCUMENTATION = """
 ---
 module: purefb_subnet
 version_added: "1.0.0"
-short_description:  Manage network subnets in a Everpure FlashBlade
+short_description:  Manage network subnets in a Pure Storage FlashBlade
 description:
-    - This module manages network subnets on Everpure FlashBlade.
-author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module manages network subnets on Pure Storage FlashBlade.
+author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -106,11 +106,11 @@ EXAMPLES = """
 RETURN = """
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURITY_FB = True
 try:
     from pypureclient.flashblade import Subnet, Reference
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURITY_FB = False
 
 try:
     import netaddr
@@ -123,9 +123,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -167,7 +164,7 @@ def create_subnet(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create subnet {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -190,7 +187,7 @@ def modify_subnet(module, blade):
                         msg="Failed to change subnet {0} prefix to {1}. Error: {2}".format(
                             module.params["name"],
                             module.params["prefix"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     if module.params["vlan"]:
@@ -206,7 +203,7 @@ def modify_subnet(module, blade):
                         msg="Failed to change subnet {0} VLAN to {1}. Error: {2}".format(
                             module.params["name"],
                             module.params["vlan"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     if module.params["gateway"]:
@@ -222,7 +219,7 @@ def modify_subnet(module, blade):
                         msg="Failed to change subnet {0} gateway to {1}. Error: {2}".format(
                             module.params["name"],
                             module.params["gateway"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     if module.params["mtu"]:
@@ -238,7 +235,7 @@ def modify_subnet(module, blade):
                         msg="Failed to change subnet {0} MTU to {1}. Error: {2}".format(
                             module.params["name"],
                             module.params["mtu"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     module.exit_json(changed=changed)
@@ -252,7 +249,7 @@ def delete_subnet(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete subnet {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -277,7 +274,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURITY_FB:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     if not HAS_NETADDR:
@@ -310,18 +307,18 @@ def main():
                 module.fail_json(msg="Gateway and subnet are not compatible.")
         subnets = list(blade.get_subnets().items)
         nrange = netaddr.IPSet([module.params["prefix"]])
-        for sub in subnets:
+        for sub in range(len(subnets)):
             if (
-                sub.vlan == module.params["vlan"]
-                and sub.name != module.params["name"]
-                and hasattr(sub.link_aggregation_group, "name")
+                subnets[sub].vlan == module.params["vlan"]
+                and subnets[sub].name != module.params["name"]
+                and hasattr(subnets[sub].link_aggregation_group, "name")
             ):
                 module.fail_json(
                     msg="VLAN ID {0} is already in use.".format(module.params["vlan"])
                 )
             if (
-                nrange & netaddr.IPSet([sub.prefix])
-                and sub.name != module.params["name"]
+                nrange & netaddr.IPSet([subnets[sub].prefix])
+                and subnets[sub].name != module.params["name"]
             ):
                 module.fail_json(msg="Prefix CIDR overlaps with existing subnet.")
 

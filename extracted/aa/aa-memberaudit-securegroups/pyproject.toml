@@ -20,7 +20,6 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
@@ -40,11 +39,7 @@ dependencies = [
 test = ["coverage", "factory_boy", "allianceauth-app-utils>=1.32"]
 
 [project.urls]
-Changelog = "https://github.com/ppfeufer/aa-ma-securegroups/blob/master/CHANGELOG.md"
-Codecov = "https://codecov.io/gh/ppfeufer/aa-ma-securegroups"
-Documentation = "https://github.com/ppfeufer/aa-ma-securegroups/blob/master/README.md"
-GitHub = "https://github.com/ppfeufer/aa-ma-securegroups"
-Tracker = "https://github.com/ppfeufer/aa-ma-securegroups/issues"
+Homepage = "https://github.com/AllianceAuth-Apps/aa-memberaudit-securegroups"
 
 [tool.flit.module]
 name = "memberaudit_securegroups"

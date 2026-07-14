@@ -210,7 +210,6 @@ class Acls(ResourceModule):
                         self.addcmd(
                             {
                                 "sequence": hentry.get("sequence", None),
-                                "afi": afi,
                             },
                             "remarks_no_data",
                             negate=True,
@@ -237,7 +236,6 @@ class Acls(ResourceModule):
                         self.addcmd(
                             {
                                 "sequence": hentry.get("sequence", None),
-                                "afi": afi,
                             },
                             "remarks_no_data",
                             negate=True,
@@ -247,7 +245,6 @@ class Acls(ResourceModule):
                             {
                                 "remarks": wrems,
                                 "sequence": wentry.get("sequence", ""),
-                                "afi": afi,
                             },
                             "remarks",
                         )
@@ -267,7 +264,6 @@ class Acls(ResourceModule):
                 self.addcmd(
                     {
                         "sequence": hseq.get("sequence", None),
-                        "afi": afi,
                     },
                     "remarks_no_data",
                     negate=True,

@@ -97,7 +97,6 @@ pub fn get_flags_for_height_and_constants(
     if prev_tx_height >= constants.soft_fork9_height {
         flags |= ConsensusFlags::SIMPLE_GENERATOR
             | ConsensusFlags::CANONICAL_INTS
-            | ConsensusFlags::LIMITS
             | ConsensusFlags::LIMIT_SPENDS;
     }
     flags
@@ -308,8 +307,8 @@ ff843B9ACA00\
         )
         .expect("SpendBundle should be valid for this test");
 
-        assert!((conds.spends[0].flags & ELIGIBLE_FOR_DEDUP) != 0);
-        assert!(conds.spends[0].fingerprint != Bytes::default());
+        assert_ne!(conds.spends[0].flags & ELIGIBLE_FOR_DEDUP, 0);
+        assert_ne!(conds.spends[0].fingerprint, Bytes::default());
     }
 
     #[test]

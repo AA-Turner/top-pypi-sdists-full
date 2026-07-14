@@ -24,6 +24,7 @@ class PuterJS(AsyncGeneratorProvider, ProviderModelMixin):
     active_by_default = True
     needs_auth = True
     quota_url = "https://api.puter.com/metering/usage"
+    supports_native_tools = True
 
     default_model = 'gpt-5.1'
     default_vision_model = default_model
@@ -350,15 +351,27 @@ class PuterJS(AsyncGeneratorProvider, ProviderModelMixin):
                     if finish_reason:
                         yield FinishReason(finish_reason)
                 elif mime_type.startswith("application/x-ndjson"):
+                    tools_idx = 0
                     async for line in response.content:
                         data = json.loads(line)
                         if data.get("type") == "text":
                             yield data.get("text", "")
                         elif data.get("type") == "reasoning":
                             yield Reasoning(data.get("reasoning", ""))
+                        elif data.get("type") == "tool_use":
+                            yield ToolCalls([{
+                                "id": tools_idx,
+                                "type": "function",
+                                "id": data.get("id"),
+                                "function": {
+                                    "name": data.get("name"),
+                                    "arguments": data.get("input")
+                                }}
+                            ])
+                            tools_idx += 1
                         elif data.get("type") == "tool_calls":
                             yield ToolCalls(data.get("tool_calls", []))
                         elif data.get("type") == "usage":
-                            yield Usage(**data.get("usage", {}))
+                            yield Usage.from_dict(data.get("usage", {}))
                 else:
                     raise ResponseError(f"Unexpected content type: {mime_type}")

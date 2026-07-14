@@ -11,25 +11,26 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
+
 from pystache.renderer import Renderer  # type: ignore
-from typing import Any, Dict, Union, TYPE_CHECKING
+
 from ..core.output import OutputHandler
 from ..core.template import TemplateHandler
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
 
-class PartialsLoader(object):
+class PartialsLoader:
 
     def __init__(self, handler: TemplateHandler) -> None:
         self.handler = handler
 
-    def get(self, template: str) -> Union[str, bytes, None]:
+    def get(self, template: str) -> str | bytes | None:
         content, _type, _path = self.handler.load(template)
         return content
 
@@ -57,15 +58,15 @@ class MustacheOutputHandler(OutputHandler):
     _meta: Meta  # type: ignore
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(MustacheOutputHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.templater: MustacheTemplateHandler = None  # type: ignore
 
-    def _setup(self, app: App) -> None:
-        super(MustacheOutputHandler, self)._setup(app)
+    def _setup(self, app: "App") -> None:
+        super()._setup(app)
         self.templater = self.app.handler.resolve('template', 'mustache',  # type: ignore
                                                   setup=True)
 
-    def render(self, data: Dict[str, Any], template: str = None, **kw: Any) -> str:  # type: ignore
+    def render(self, data: dict[str, Any], template: str | None = None, **kw: Any) -> str:
         """
         Take a data dictionary and render it using the given template file.
         Additional keyword arguments passed to ``stache.render()``.
@@ -84,7 +85,11 @@ class MustacheOutputHandler(OutputHandler):
         """
 
         LOG.debug(f"rendering content using '{template}' as a template.")
-        content, _type, _path = self.templater.load(template)
+        # `template=None` is well-defined at runtime: TemplateHandler.load
+        # guards `if not template_path:` and raises FrameworkError. The
+        # arg-type narrowing here documents that we accept the None default
+        # but rely on the load() guard for the actual rejection.
+        content, _type, _path = self.templater.load(template)  # type: ignore[arg-type]
         return self.templater.render(content, data)
 
 
@@ -113,10 +118,10 @@ class MustacheTemplateHandler(TemplateHandler):
     _meta: Meta  # type: ignore
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(MustacheTemplateHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self._partials_loader = PartialsLoader(self)
 
-    def render(self, content: Union[str, bytes], data: Dict[str, Any]) -> str:
+    def render(self, content: str | bytes, data: dict[str, Any]) -> str:
         """
         Render the given ``content`` as template with the ``data`` dictionary.
 
@@ -133,6 +138,6 @@ class MustacheTemplateHandler(TemplateHandler):
         return stache.render(content, data)  # type: ignore
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(MustacheOutputHandler)
     app.handler.register(MustacheTemplateHandler)

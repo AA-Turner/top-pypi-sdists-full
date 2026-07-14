@@ -6,17 +6,17 @@ __all__ = [
 
 # This should always be 0.0.0 in main. Only update this after tagging
 # before release.
-__version__ = '12.1.0'
+__version__ = '12.2.0'
 
 import base64
 import contextlib
+import copy
 import json
 import logging
 import random
 import time
 
 import requests
-import six
 
 from datetime import datetime, timedelta
 from dropbox.auth import (
@@ -24,6 +24,7 @@ from dropbox.auth import (
     RateLimitError_validator,
 )
 from dropbox import files
+from dropbox.content_hash import content_hash as _content_hash
 from dropbox.common import (
     PathRoot,
     PathRoot_validator,
@@ -75,7 +76,7 @@ class RouteResult(object):
         :param requests.models.Response http_resp: A raw HTTP response. It will
             be used to stream the binary-body payload of the response.
         """
-        assert isinstance(obj_result, six.string_types), \
+        assert isinstance(obj_result, str), \
             'obj_result: expected string, got %r' % type(obj_result)
         if http_resp is not None:
             assert isinstance(http_resp, requests.models.Response), \
@@ -152,7 +153,8 @@ class _DropboxTransport(object):
                  app_key=None,
                  app_secret=None,
                  scope=None,
-                 ca_certs=None):
+                 ca_certs=None,
+                 auto_content_hash=True):
         """
         :param str oauth2_access_token: OAuth2 access token for making client
             requests.
@@ -183,6 +185,8 @@ class _DropboxTransport(object):
             refresh will request all available scopes for application
         :param str ca_certs: a path to a file of concatenated CA certificates in PEM format.
             Has the same meaning as when using :func:`ssl.wrap_socket`.
+        :param bool auto_content_hash: If True (default), send a computed
+            content_hash with uploads so the server verifies integrity.
         """
 
         if not (oauth2_access_token or oauth2_refresh_token or (app_key and app_secret)):
@@ -196,7 +200,7 @@ class _DropboxTransport(object):
         if oauth2_refresh_token and not app_key:
             raise BadInputException("app_key is required to refresh tokens")
 
-        if scope is not None and (len(scope) == 0 or not isinstance(scope, list)):
+        if scope is not None and (not isinstance(scope, list) or len(scope) == 0):
             raise BadInputException("Scope list must be of type list")
 
         self._oauth2_access_token = oauth2_access_token
@@ -206,6 +210,7 @@ class _DropboxTransport(object):
         self._app_key = app_key
         self._app_secret = app_secret
         self._scope = scope
+        self._auto_content_hash = auto_content_hash
 
         self._max_retries_on_error = max_retries_on_error
         self._max_retries_on_rate_limit = max_retries_on_rate_limit
@@ -247,7 +252,8 @@ class _DropboxTransport(object):
             oauth2_access_token_expiration=None,
             app_key=None,
             app_secret=None,
-            scope=None):
+            scope=None,
+            auto_content_hash=None):
         """
         Creates a new copy of the Dropbox client with the same defaults unless modified by
         arguments to clone()
@@ -262,7 +268,7 @@ class _DropboxTransport(object):
             oauth2_access_token or self._oauth2_access_token,
             max_retries_on_error or self._max_retries_on_error,
             max_retries_on_rate_limit or self._max_retries_on_rate_limit,
-            user_agent or self._user_agent,
+            user_agent or self._raw_user_agent,
             session or self._session,
             headers or self._headers,
             timeout or self._timeout,
@@ -270,7 +276,10 @@ class _DropboxTransport(object):
             oauth2_access_token_expiration or self._oauth2_access_token_expiration,
             app_key or self._app_key,
             app_secret or self._app_secret,
-            scope or self._scope
+            scope or self._scope,
+            auto_content_hash=(self._auto_content_hash
+                               if auto_content_hash is None
+                               else auto_content_hash),
         )
 
     def request(self,
@@ -309,6 +318,9 @@ class _DropboxTransport(object):
         if route.version > 1:
             route_name += '_v{}'.format(route.version)
         route_style = route.attrs['style'] or 'rpc'
+
+        request_arg = self._maybe_add_content_hash(request_arg, request_binary)
+
         serialized_arg = stone_serializers.json_encode(route.arg_type,
                                                        request_arg)
 
@@ -357,6 +369,23 @@ class _DropboxTransport(object):
         else:
             return deserialized_result
 
+    def _maybe_add_content_hash(self, request_arg, request_binary):
+        """Set content_hash on upload args when the caller didn't. Returns a
+        copy; the caller's arg is not mutated."""
+        if not self._auto_content_hash:
+            return request_arg
+        if not isinstance(request_binary, bytes):
+            return request_arg
+        if request_arg is None or \
+                'content_hash' not in getattr(request_arg, '_all_field_names_', ()):
+            return request_arg
+        if request_arg.content_hash is not None:
+            return request_arg
+
+        request_arg = copy.copy(request_arg)
+        request_arg.content_hash = _content_hash(request_binary)
+        return request_arg
+
     def check_and_refresh_access_token(self):
         """
         Checks if access token needs to be refreshed and refreshes if possible
@@ -379,7 +408,7 @@ class _DropboxTransport(object):
         :param scope: list of permission scopes for access token
         :return:
         """
-        if scope is not None and (len(scope) == 0 or not isinstance(scope, list)):
+        if scope is not None and (not isinstance(scope, list) or len(scope) == 0):
             raise BadInputException("Scope list must be of type list")
 
         if not (self._oauth2_refresh_token and self._app_key):
@@ -402,8 +431,25 @@ class _DropboxTransport(object):
         timeout = DEFAULT_TIMEOUT
         if self._timeout:
             timeout = self._timeout
-        res = self._session.post(url, data=body, timeout=timeout)
-        self.raise_dropbox_error_for_resp(res)
+
+        attempt = 0
+        while True:
+            res = self._session.post(url, data=body, timeout=timeout)
+            try:
+                self.raise_dropbox_error_for_resp(res)
+                break
+            except InternalServerError as e:
+                attempt += 1
+                if attempt <= self._max_retries_on_error:
+                    # Use exponential backoff, matching request_json_string_with_retry.
+                    backoff = 2**attempt * random.random()
+                    self._logger.info(
+                        'HttpError status_code=%s while refreshing access token: '
+                        'Retrying in %.1f seconds',
+                        e.status_code, backoff)
+                    time.sleep(backoff)
+                else:
+                    raise
 
         token_content = res.json()
         self._oauth2_access_token = token_content["access_token"]
@@ -530,7 +576,7 @@ class _DropboxTransport(object):
         if host not in self._host_map:
             raise ValueError('Unknown value for host: %r' % host)
 
-        if not isinstance(request_binary, (six.binary_type, type(None))):
+        if not isinstance(request_binary, (bytes, type(None))):
             # Disallow streams and file-like objects even though the underlying
             # requests library supports them. This is to prevent incorrect
             # behavior when a non-rewindable stream is read from, but the
@@ -620,14 +666,14 @@ class _DropboxTransport(object):
             raise InternalServerError(request_id, res.status_code, res.text)
         elif res.status_code == 400:
             try:
-                if res.json()['error'] == 'invalid_grant':
+                if res.json().get('error') == 'invalid_grant':
                     request_id = res.headers.get('x-dropbox-request-id')
                     err = stone_serializers.json_compat_obj_decode(
                         AuthError_validator, 'invalid_access_token')
                     raise AuthError(request_id, err)
                 else:
                     raise BadInputError(request_id, res.text)
-            except ValueError:
+            except (ValueError, AttributeError):
                 raise BadInputError(request_id, res.text)
         elif res.status_code == 401:
             assert res.headers.get('content-type') == 'application/json', (
@@ -788,6 +834,7 @@ class DropboxTeam(_DropboxTransport, DropboxTeamBase):
             app_key=self._app_key,
             app_secret=self._app_secret,
             scope=self._scope,
+            auto_content_hash=self._auto_content_hash,
         )
 
 class BadInputException(Exception):

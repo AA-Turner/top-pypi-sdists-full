@@ -48,7 +48,7 @@ class OrganizationsApplianceSecurityIntrusion(object):
         self.meraki = meraki
         self.new_object = dict(
             allowedRules=params.get("allowedRules"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
 
     def get_all_params(self, name=None, id=None):

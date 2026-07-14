@@ -119,6 +119,25 @@ class TestGuardedGetattr(GuardTestCase):
         guarded_getattr(self, 'test_calls_validate_for_unknown_type')
         self.assertEqual(len(self.__sm.calls), 1)
 
+    def test_validates_bound_method_of_allow_listed_type(self):
+        # A bound method whose ``__self__`` is an allow-listed simple type
+        # (here a ``tuple``), accessed as an attribute of an object that has
+        # no container assertion of its own, must still be routed through
+        # ``validate()``.  The assertion lookup keys on the type of the
+        # accessed object (``type(inst)``), not on ``type(value.__self__)`` --
+        # otherwise the pure-Python engine short-circuits and diverges from
+        # the C engine, returning the method without a permission check.
+        from AccessControl import Unauthorized
+        from AccessControl.ZopeGuards import guarded_getattr
+
+        class Protected:
+            feed = (1, 2, 3).count  # bound method of an allow-listed tuple
+
+        obj = Protected()
+        self.__sm.reject = True
+        self.assertRaises(Unauthorized, guarded_getattr, obj, 'feed')
+        self.assertEqual(len(self.__sm.calls), 1)
+
     def test_attr_handler_table(self):
         from AccessControl import Unauthorized
         from AccessControl.SimpleObjectPolicies import ContainerAssertions
@@ -158,6 +177,44 @@ class TestGuardedGetattr(GuardTestCase):
         finally:
             self.__sm.reject = orig_value
         self.assertEqual(len(self.__sm.calls), 0)
+
+    def test_str_subclass_format_uses_safe_formatter(self):
+        from AccessControl import Unauthorized
+        from AccessControl.ZopeGuards import guarded_getattr
+
+        class X(str):
+            pass
+
+        fmt = guarded_getattr(X('{0.__class__}'), 'format')
+        self.assertRaises(Unauthorized, fmt, 0)
+
+    def test_str_subclass_format_map_uses_safe_formatter(self):
+        from AccessControl import Unauthorized
+        from AccessControl.ZopeGuards import guarded_getattr
+
+        class X(str):
+            pass
+
+        fmt = guarded_getattr(X('{foo.__class__}'), 'format_map')
+        self.assertRaises(Unauthorized, fmt, {'foo': 0})
+
+    def test_str_subclass_type_format_is_unauthorized(self):
+        from AccessControl import Unauthorized
+        from AccessControl.ZopeGuards import guarded_getattr
+
+        class X(str):
+            pass
+
+        self.assertRaises(Unauthorized, guarded_getattr, X, 'format')
+
+    def test_str_subclass_type_format_map_is_unauthorized(self):
+        from AccessControl import Unauthorized
+        from AccessControl.ZopeGuards import guarded_getattr
+
+        class X(str):
+            pass
+
+        self.assertRaises(Unauthorized, guarded_getattr, X, 'format_map')
 
 
 class TestGuardedHasattr(GuardTestCase):

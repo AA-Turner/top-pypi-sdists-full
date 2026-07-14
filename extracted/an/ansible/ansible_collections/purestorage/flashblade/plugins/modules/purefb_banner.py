@@ -18,13 +18,13 @@ DOCUMENTATION = r"""
 ---
 module: purefb_banner
 version_added: '1.4.0'
-short_description: Configure Everpure FlashBlade GUI and SSH MOTD message
+short_description: Configure Pure Storage FlashBlade GUI and SSH MOTD message
 description:
-- Configure MOTD for Everpure FlashBlades.
+- Configure MOTD for Pure Storage FlashBlades.
 - This will be shown during an SSH or GUI login to the system.
 - Multiple line messages can be achieved using \\n.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -71,9 +71,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 
 
 def set_banner(module, blade):
@@ -87,7 +84,7 @@ def set_banner(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to set MOTD banner text. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -102,7 +99,7 @@ def delete_banner(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete current MOTD banner text. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)

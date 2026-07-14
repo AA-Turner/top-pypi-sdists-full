@@ -101,15 +101,16 @@ class OEMHandler(generic.OEMHandler):
             url = '/redfish/v1/Chassis/chassis1/Oem/Lenovo/Nodes/{}'.format(nodeid)
             self._do_web_request(url, parms, method='PATCH')
 
-    def _get_cpu_inventory(self, withids=False):
+    def _get_cpu_inventory(self, onlynames=False, withids=False, urls=None):
         # Empty generator: no CPU inventory items for this OEM handler.
         yield from ()
 
-    def _get_mem_inventory(self, withids=False):
+
+    def _get_mem_inventory(self, onlyname=False, withids=False, urls=None):
         # Empty generator: no memory inventory items for this OEM handler.
         yield from ()
 
-    def _get_adp_inventory(self, withids=False, urls=None):
+    def _get_adp_inventory(self, onlyname=False, withids=False, urls=None):
         # Empty generator: no adapter inventory items for this OEM handler.
         yield from ()
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socid-extractor
-Version: 0.1.0
+Version: 0.1.1
 Summary: Extract accounts' identifiers and metadata from personal pages on various platforms.
 Author-email: Soxoj <soxoj@protonmail.com>
 License-Expression: MIT

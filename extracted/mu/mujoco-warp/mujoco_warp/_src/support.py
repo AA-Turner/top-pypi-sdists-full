@@ -26,7 +26,7 @@ from mujoco_warp._src.types import JointType
 from mujoco_warp._src.types import Model
 from mujoco_warp._src.types import State
 from mujoco_warp._src.types import vec5
-from mujoco_warp._src.types import vec10f
+from mujoco_warp._src.types import vec10
 from mujoco_warp._src.warp_util import cache_kernel
 from mujoco_warp._src.warp_util import event_scope
 
@@ -39,7 +39,7 @@ def next_act(
   # Model:
   opt_timestep: float,  # kernel_analyzer: ignore
   actuator_dyntype: int,  # kernel_analyzer: ignore
-  actuator_dynprm: vec10f,  # kernel_analyzer: ignore
+  actuator_dynprm: vec10,  # kernel_analyzer: ignore
   actuator_actrange: wp.vec2,  # kernel_analyzer: ignore
   # Data In:
   act_in: float,  # kernel_analyzer: ignore
@@ -62,6 +62,92 @@ def next_act(
     act = wp.clamp(act, actuator_actrange[0], actuator_actrange[1])
 
   return act
+
+
+@wp.func
+def mat33_to_quat_polar(F: wp.mat33) -> wp.quat:
+  cell_quat = wp.quat(0.0, 0.0, 0.0, 1.0)
+  for _iter in range(50):
+    rot = wp.quat_to_matrix(cell_quat)
+    rot_t = wp.transpose(rot)
+    col1_rot = rot_t[0]
+    col2_rot = rot_t[1]
+    col3_rot = rot_t[2]
+    F_t = wp.transpose(F)
+    col1_mat = F_t[0]
+    col2_mat = F_t[1]
+    col3_mat = F_t[2]
+
+    omega = wp.cross(col1_rot, col1_mat) + wp.cross(col2_rot, col2_mat) + wp.cross(col3_rot, col3_mat)
+    denom = wp.abs(wp.dot(col1_rot, col1_mat) + wp.dot(col2_rot, col2_mat) + wp.dot(col3_rot, col3_mat)) + 1.0e-10
+    omega = omega / denom
+
+    w = wp.length(omega)
+    if w < 1.0e-6:
+      break
+
+    axis = omega / w
+    half_w = 0.5 * w
+    qrot = wp.quat(
+      axis[0] * wp.sin(half_w),
+      axis[1] * wp.sin(half_w),
+      axis[2] * wp.sin(half_w),
+      wp.cos(half_w),
+    )
+    cell_quat = wp.normalize(qrot * cell_quat)
+  return cell_quat
+
+
+@wp.func
+def compute_interp_cell_quat(
+  # Data in:
+  flexnode_xpos_in: wp.array2d[wp.vec3],
+  # In:
+  order: int,
+  ci: int,
+  cj: int,
+  ck: int,
+  cy: int,
+  cz: int,
+  ny_g: int,
+  nz_g: int,
+  nstart: int,
+  worldid: int,
+) -> wp.quat:
+  """Computes corotational cell quaternion from deformation gradient at cell center."""
+  npc = (order + 1) * (order + 1) * (order + 1)
+  F = wp.mat33(0.0)
+  idx = int(0)
+  for li in range(order + 1):
+    for lj in range(order + 1):
+      for lk in range(order + 1):
+        if idx < npc:
+          gi = ci * order + li
+          gj = cj * order + lj
+          gk = ck * order + lk
+          gidx = gi * ny_g * nz_g + gj * nz_g + gk
+
+          node_pos = flexnode_xpos_in[worldid, nstart + gidx]
+
+          dphi_x = float(-1) if li == 0 else float(1)
+          dphi_y = float(-1) if lj == 0 else float(1)
+          dphi_z = float(-1) if lk == 0 else float(1)
+          phi_x = float(0.5)
+          phi_y = float(0.5)
+          phi_z = float(0.5)
+
+          grad_x = dphi_x * phi_y * phi_z
+          grad_y = phi_x * dphi_y * phi_z
+          grad_z = phi_x * phi_y * dphi_z
+
+          for r in range(3):
+            F[r, 0] += node_pos[r] * grad_x
+            F[r, 1] += node_pos[r] * grad_y
+            F[r, 2] += node_pos[r] * grad_z
+
+          idx += 1
+
+  return mat33_to_quat_polar(F)
 
 
 @cache_kernel
@@ -166,322 +252,6 @@ def mul_m(
       mul_m_kernel(check_skip),
       dim=(d.nworld, m.nv),
       inputs=[m.M_mulm_rowadr, m.M_mulm_col, m.M_mulm_madr, M, vec, skip],
-      outputs=[res],
-    )
-
-
-@wp.kernel
-def _mul_m_island(
-  # Model:
-  M_mulm_rowadr: wp.array[int],
-  M_mulm_col: wp.array[int],
-  M_mulm_madr: wp.array[int],
-  # Data in:
-  nidof_in: wp.array[int],
-  M_in: wp.array2d[float],
-  map_dof2idof_in: wp.array2d[int],
-  map_idof2dof_in: wp.array2d[int],
-  # In:
-  idof_islandid_in: wp.array2d[int],
-  vec: wp.array2d[float],
-  island_done_in: wp.array2d[bool],
-  check_skip: int,
-  # Out:
-  res: wp.array2d[float],
-):
-  """Sparse island mul_m for ALL islands in parallel."""
-  worldid, idofid = wp.tid()
-
-  nidof = nidof_in[worldid]
-  if idofid >= nidof:
-    return
-
-  islandid = idof_islandid_in[worldid, idofid]
-  if islandid < 0:
-    return
-
-  if check_skip:
-    if island_done_in[worldid, islandid]:
-      return
-
-  dof = map_idof2dof_in[worldid, idofid]
-
-  acc = float(0.0)
-  start = M_mulm_rowadr[dof]
-  end = M_mulm_rowadr[dof + 1]
-  for k in range(start, end):
-    col = M_mulm_col[k]
-    madr = M_mulm_madr[k]
-    col_idof = map_dof2idof_in[worldid, col]
-    # skip unconstrained DOFs
-    if col_idof < nidof:
-      acc += M_in[worldid, madr] * vec[worldid, col_idof]
-
-  res[worldid, idofid] = acc
-
-
-@event_scope
-def mul_m_island(
-  m: Model,
-  d: Data,
-  res: wp.array2d[float],
-  vec: wp.array2d[float],
-  nidof: wp.array[int],
-  map_idof2dof: wp.array2d[int],
-  map_dof2idof: wp.array2d[int],
-  idof_islandid: wp.array2d[int],
-  island_done: Optional[wp.array] = None,
-  M: Optional[wp.array] = None,
-):
-  """Multiply island-local vectors by inertia matrix for all islands in parallel.
-
-  Args:
-    m: The model containing kinematic and dynamic information.
-    d: The data object containing the current state and output arrays.
-    res: Result: qM @ vec (island-local DOF order).
-    vec: Input vector (island-local DOF order).
-    nidof: Number of island DOFs per world.
-    map_idof2dof: Island-local DOF → global DOF map.
-    map_dof2idof: Global DOF → island-local DOF map.
-    idof_islandid: Island ID per island-local DOF.
-    island_done: Per-island done flags (nworld, ntree).
-    M: Optional mass matrix override.
-  """
-  check_skip = int(island_done is not None)
-  island_done = island_done or wp.empty((0, 0), dtype=bool)
-
-  if M is None:
-    M = d.M
-
-  wp.launch(
-    _mul_m_island,
-    dim=(d.nworld, m.nv),
-    inputs=[
-      m.M_mulm_rowadr,
-      m.M_mulm_col,
-      m.M_mulm_madr,
-      nidof,
-      M,
-      map_dof2idof,
-      map_idof2dof,
-      idof_islandid,
-      vec,
-      island_done,
-      check_skip,
-    ],
-    outputs=[res],
-  )
-
-
-@cache_kernel
-def _solve_LD_sparse_island(nv: int, nlevels: int):
-  """Sparse backsubstitution with island-local index remapping.
-
-  Same algorithm as _solve_LD_sparse_fused, but reads/writes x/y in
-  island-local DOF order. The L/D factorization stays in global DOF order.
-  """
-
-  @wp.func_native(snippet="WP_TILE_SYNC();")
-  def _syncthreads():
-    pass
-
-  @wp.kernel(module="unique", enable_backward=False)
-  def kernel(
-    # Data in:
-    nidof_in: wp.array[int],
-    map_dof2idof_in: wp.array2d[int],
-    map_idof2dof_in: wp.array2d[int],
-    # In:
-    dof_dense: wp.array[int],
-    dof_simple: wp.array[int],
-    L: wp.array2d[float],
-    D: wp.array2d[float],
-    all_updates: wp.array[wp.vec3i],
-    level_offsets: wp.array[int],
-    y: wp.array2d[float],
-    # Out:
-    x_out: wp.array2d[float],
-  ):
-    worldid, tid = wp.tid()
-    NLEVELS = wp.static(nlevels)
-    BLOCK_DIM = wp.block_dim()
-    nid = nidof_in[worldid]
-
-    # Copy y to x_out for coupled-sparse dofs only; dense and simple dofs use their own passes.
-    for idof in range(tid, nid, BLOCK_DIM):
-      dofid = map_idof2dof_in[worldid, idof]
-      if dof_dense[dofid] == 0 and dof_simple[dofid] == 0:
-        x_out[worldid, idof] = y[worldid, idof]
-    _syncthreads()
-
-    # Forward substitution
-    for level in range(NLEVELS):
-      level_idx = NLEVELS - 1 - level
-      level_offset = level_offsets[level_idx]
-      level_size = level_offsets[level_idx + 1] - level_offset
-
-      for u in range(tid, level_size, BLOCK_DIM):
-        update = all_updates[level_offset + u]
-        i, k, Madr_ki = update[0], update[1], update[2]
-        idof_i = map_dof2idof_in[worldid, i]
-        if idof_i < nid:
-          idof_k = map_dof2idof_in[worldid, k]
-          wp.atomic_sub(x_out[worldid], idof_i, L[worldid, Madr_ki] * x_out[worldid, idof_k])
-      _syncthreads()
-
-    # Diagonal multiply (coupled-sparse dofs only)
-    for idof in range(tid, nid, BLOCK_DIM):
-      dofid = map_idof2dof_in[worldid, idof]
-      if dof_dense[dofid] == 0 and dof_simple[dofid] == 0:
-        x_out[worldid, idof] *= D[worldid, dofid]
-    _syncthreads()
-
-    # Backward substitution
-    for level in range(NLEVELS):
-      level_idx = level
-      level_offset = level_offsets[level_idx]
-      level_size = level_offsets[level_idx + 1] - level_offset
-
-      for u in range(tid, level_size, BLOCK_DIM):
-        update = all_updates[level_offset + u]
-        i, k, Madr_ki = update[0], update[1], update[2]
-        idof_k = map_dof2idof_in[worldid, k]
-        if idof_k < nid:
-          idof_i = map_dof2idof_in[worldid, i]
-          wp.atomic_sub(x_out[worldid], idof_k, L[worldid, Madr_ki] * x_out[worldid, idof_i])
-      _syncthreads()
-
-  return kernel
-
-
-@wp.kernel
-def _solve_simple_island(
-  # Data in:
-  nidof_in: wp.array[int],
-  map_dof2idof_in: wp.array2d[int],
-  # In:
-  simple_dofs: wp.array[int],
-  D: wp.array2d[float],
-  vec: wp.array2d[float],
-  # Out:
-  res: wp.array2d[float],
-):
-  # A simple (decoupled) dof's island solve is res = (1/diag) * vec, in island-local order.
-  # Unconstrained simple dofs map to idof >= nidof and are skipped (solved by the smooth pass).
-  worldid, s = wp.tid()
-  dofid = simple_dofs[s]
-  idof = map_dof2idof_in[worldid, dofid]
-  if idof < nidof_in[worldid]:
-    res[worldid, idof] = D[worldid, dofid] * vec[worldid, idof]
-
-
-@cache_kernel
-def _tile_cholesky_solve_block_island(tile):
-  """Dense Cholesky backsubstitution with island-local index remapping.
-
-  L is now the packed block-dense factor, so the diagonal block is read from its packed offset
-  qLD_block_adr[dofid] (factorization stays in global DOF order); y/x use island-local offsets.
-  """
-  TILE_SIZE = tile.size
-  block_area = TILE_SIZE * TILE_SIZE
-
-  @wp.kernel(module="unique", enable_backward=False)
-  def cholesky_solve(
-    # Model:
-    qLD_block_adr: wp.array[int],
-    # Data in:
-    nidof_in: wp.array[int],
-    map_dof2idof_in: wp.array2d[int],
-    # In:
-    L: wp.array2d[float],
-    y: wp.array2d[float],
-    adr: wp.array[int],
-    # Out:
-    x: wp.array2d[float],
-  ):
-    worldid, nodeid = wp.tid()
-    dofid = adr[nodeid]
-    idofid = map_dof2idof_in[worldid, dofid]
-
-    # Skip unconstrained trees (uniform branch — all threads in block agree)
-    if idofid >= nidof_in[worldid]:
-      return
-
-    # L is packed in global block order; y and x use island-local offsets.
-    L_tile = wp.tile_reshape(
-      wp.tile_load(L[worldid], shape=(block_area,), offset=(qLD_block_adr[dofid],)), (TILE_SIZE, TILE_SIZE)
-    )
-    y_slice = wp.tile_load(y[worldid], shape=(TILE_SIZE,), offset=(idofid,))
-    x_slice = wp.tile_cholesky_solve(L_tile, y_slice, fill_mode="upper")
-    wp.tile_store(x[worldid], x_slice, offset=(idofid,))
-
-  return cholesky_solve
-
-
-@event_scope
-def solve_m_island(
-  m: Model,
-  d: Data,
-  res: wp.array2d[float],
-  vec: wp.array2d[float],
-  nidof: wp.array[int],
-  map_idof2dof: wp.array2d[int],
-):
-  """Compute res = M^{-1} @ vec for island-local DOFs.
-
-  Args:
-    m: Model.
-    d: Data.
-    res: Output in island-local DOF order.
-    vec: Input in island-local DOF order.
-    nidof: Number of island DOFs per world.
-    map_idof2dof: Island-local DOF -> global DOF map.
-  """
-  # qLD layout is per-block (is_sparse only selects the constraint J/H layout). Three disjoint
-  # passes, mirroring smooth.solve_LD: dense blocks back-substitute from the packed block-dense
-  # Cholesky, coupled-sparse blocks from the LDL region (offset qLD_block_total), and simple
-  # (diagonal) blocks via res = (1/diag) * vec. The LDL pass skips dense and simple dofs.
-  if m.qLD_has_dense:
-    for tile in m.M_tiles:
-      # large blocks prefer fewer threads for the sequential solve; see smooth._solve_block_dense
-      block_dim = m.block_dim.cholesky_solve if tile.size <= 40 else 32
-      wp.launch_tiled(
-        _tile_cholesky_solve_block_island(tile),
-        dim=(d.nworld, tile.adr.size),
-        inputs=[m.qLD_block_adr, d.nidof, d.map_dof2idof, d.qLD, vec, tile.adr],
-        outputs=[res],
-        block_dim=block_dim,
-      )
-  if m.qLD_has_sparse:
-    nlevels = len(m.qLD_updates)
-    if wp.get_device().is_cuda:
-      dim_block = m.block_dim.solve_LD_sparse_fused
-    else:
-      dim_block = 1
-
-    wp.launch(
-      _solve_LD_sparse_island(m.nv, nlevels),
-      dim=(d.nworld, dim_block),
-      inputs=[
-        d.nidof,
-        d.map_dof2idof,
-        map_idof2dof,
-        m.qLD_dof_dense,
-        m.qLD_dof_simple,
-        d.qLD[:, m.qLD_block_total :],
-        d.qLDiagInv,
-        m.qLD_all_updates,
-        m.qLD_level_offsets,
-        vec,
-      ],
-      outputs=[res],
-      block_dim=dim_block,
-    )
-  if m.qLD_has_simple:
-    wp.launch(
-      _solve_simple_island,
-      dim=(d.nworld, m.qLD_simple_dofs.size),
-      inputs=[d.nidof, d.map_dof2idof, m.qLD_simple_dofs, d.qLDiagInv, vec],
       outputs=[res],
     )
 
@@ -1209,3 +979,302 @@ def set_state(m: Model, d: Data, state: wp.array2d[float], sig: int, active: Opt
       d.userdata,
     ],
   )
+
+
+@wp.func
+def _phi(s: float, i: int) -> float:
+  """1D trilinear basis function (order=1 only).
+
+  phi(s, 0) = 1 - s
+  phi(s, 1) = s
+  """
+  if i == 0:
+    return 1.0 - s
+  return s
+
+
+@wp.func
+def eval_basis_trilinear(local: wp.vec3, node_idx: int) -> float:
+  """Evaluate trilinear basis function for node_idx at local coords [0,1]^3.
+
+  For order=1 (trilinear), node_idx encodes (i,j,k) via bits:
+    k = node_idx & 1, j = (node_idx >> 1) & 1, i = (node_idx >> 2) & 1
+  """
+  k = node_idx & 1
+  j = (node_idx >> 1) & 1
+  i = (node_idx >> 2) & 1
+  return _phi(local[0], i) * _phi(local[1], j) * _phi(local[2], k)
+
+
+@wp.func
+def select_top4_weights(
+  # In:
+  W_mat: wp.mat33,
+  b_mat: wp.mat33,
+) -> tuple[wp.vec4i, wp.vec4]:
+  """Selects top 4 weights and their corresponding body IDs from 8 voxel corners."""
+  selected_b = wp.vec4i(-1, -1, -1, -1)
+  selected_W = wp.vec4(0.0, 0.0, 0.0, 0.0)
+
+  local_W = W_mat
+  for p in range(4):
+    max_w = -1.0
+    max_b = -1
+    max_r = -1
+    max_c = -1
+    for r in range(3):
+      for c in range(3):
+        idx = 3 * r + c
+        if idx < 8:
+          w = local_W[r, c]
+          if w > max_w:
+            max_w = w
+            max_b = int(b_mat[r, c])
+            max_r = r
+            max_c = c
+    # Record top choice for this pass and mark it as visited
+    if max_r >= 0:
+      local_W[max_r, max_c] = -1.0
+
+      if p == 0:
+        selected_b = wp.vec4i(max_b, -1, -1, -1)
+        selected_W = wp.vec4(max_w, 0.0, 0.0, 0.0)
+      elif p == 1:
+        selected_b = wp.vec4i(selected_b[0], max_b, -1, -1)
+        selected_W = wp.vec4(selected_W[0], max_w, 0.0, 0.0)
+      elif p == 2:
+        selected_b = wp.vec4i(selected_b[0], selected_b[1], max_b, -1)
+        selected_W = wp.vec4(selected_W[0], selected_W[1], max_w, 0.0)
+      else:
+        selected_b = wp.vec4i(selected_b[0], selected_b[1], selected_b[2], max_b)
+        selected_W = wp.vec4(selected_W[0], selected_W[1], selected_W[2], max_w)
+
+  # Normalize selected weights
+  sum_W = selected_W[0] + selected_W[1] + selected_W[2] + selected_W[3]
+  if sum_W > 1.0e-5:
+    selected_W = wp.vec4(
+      selected_W[0] / sum_W,
+      selected_W[1] / sum_W,
+      selected_W[2] / sum_W,
+      selected_W[3] / sum_W,
+    )
+
+  return selected_b, selected_W
+
+
+@wp.func
+def get_face_metadata(
+  # In:
+  cellnum_x: int,
+  cellnum_y: int,
+  cellnum_z: int,
+  face_elem_idx: int,
+  order_abs: int,
+) -> Tuple[int, int, int, int, int, int]:
+  size01 = cellnum_y * cellnum_z
+  size23 = cellnum_x * cellnum_z
+  size45 = cellnum_x * cellnum_y
+
+  face_id = 0
+  within_face = 0
+
+  if face_elem_idx < size01:
+    face_id = 0
+    within_face = face_elem_idx
+  elif face_elem_idx < 2 * size01:
+    face_id = 1
+    within_face = face_elem_idx - size01
+  elif face_elem_idx < 2 * size01 + size23:
+    face_id = 2
+    within_face = face_elem_idx - 2 * size01
+  elif face_elem_idx < 2 * size01 + 2 * size23:
+    face_id = 3
+    within_face = face_elem_idx - 2 * size01 - size23
+  elif face_elem_idx < 2 * size01 + 2 * size23 + size45:
+    face_id = 4
+    within_face = face_elem_idx - 2 * size01 - 2 * size23
+  else:
+    face_id = 5
+    within_face = face_elem_idx - 2 * size01 - 2 * size23 - size45
+
+  normal_axis = face_id // 2
+
+  c1 = 0
+  if face_id == 0 or face_id == 1:
+    c1 = cellnum_z
+  elif face_id == 2 or face_id == 3:
+    c1 = cellnum_x
+  else:
+    c1 = cellnum_y
+
+  fixed_dim = 0
+  if normal_axis == 0:
+    fixed_dim = cellnum_x
+  elif normal_axis == 1:
+    fixed_dim = cellnum_y
+  else:
+    fixed_dim = cellnum_z
+  g_fixed = (face_id % 2) * fixed_dim * order_abs
+
+  q0 = within_face // c1
+  q1 = within_face % c1
+
+  ny_g = cellnum_y * order_abs + 1
+  nz_g = cellnum_z * order_abs + 1
+
+  return normal_axis, g_fixed, q0, q1, ny_g, nz_g
+
+
+@wp.func
+def gather_face_node_index_fast(
+  # In:
+  normal_axis: int,
+  g_fixed: int,
+  q0: int,
+  q1: int,
+  ny_g: int,
+  nz_g: int,
+  local_idx: int,
+  order_abs: int,
+) -> int:
+  l0 = local_idx // (order_abs + 1)
+  l1 = local_idx % (order_abs + 1)
+
+  g = wp.vec3i(0, 0, 0)
+  if normal_axis == 0:
+    g = wp.vec3i(g_fixed, q0 * order_abs + l0, q1 * order_abs + l1)
+  elif normal_axis == 1:
+    g = wp.vec3i(q1 * order_abs + l1, g_fixed, q0 * order_abs + l0)
+  else:
+    g = wp.vec3i(q0 * order_abs + l0, q1 * order_abs + l1, g_fixed)
+
+  return g[0] * ny_g * nz_g + g[1] * nz_g + g[2]
+
+
+@wp.func
+def gather_face_node_index(
+  # In:
+  cellnum_x: int,
+  cellnum_y: int,
+  cellnum_z: int,
+  face_elem_idx: int,
+  local_idx: int,
+  order_abs: int,
+) -> int:
+  normal_axis, g_fixed, q0, q1, ny_g, nz_g = get_face_metadata(cellnum_x, cellnum_y, cellnum_z, face_elem_idx, order_abs)
+  return gather_face_node_index_fast(normal_axis, g_fixed, q0, q1, ny_g, nz_g, local_idx, order_abs)
+
+
+@wp.func
+def compute_interp_face_quat(
+  # Data in:
+  flexnode_xpos_in: wp.array2d[wp.vec3],
+  # In:
+  cellnum_x: int,
+  cellnum_y: int,
+  cellnum_z: int,
+  face_elem_idx: int,
+  nstart: int,
+  order_abs: int,
+  worldid: int,
+) -> wp.quat:
+  normal_axis, g_fixed, q0, q1, ny_g, nz_g = get_face_metadata(
+    cellnum_x,
+    cellnum_y,
+    cellnum_z,
+    face_elem_idx,
+    order_abs,
+  )
+
+  t1 = wp.vec3(0.0)
+  t2 = wp.vec3(0.0)
+
+  npc = (order_abs + 1) * (order_abs + 1)
+
+  for local_idx in range(9):
+    if local_idx < npc:
+      gidx = gather_face_node_index_fast(
+        normal_axis,
+        g_fixed,
+        q0,
+        q1,
+        ny_g,
+        nz_g,
+        local_idx,
+        order_abs,
+      )
+      node_pos = flexnode_xpos_in[worldid, nstart + gidx]
+
+      l0 = local_idx // (order_abs + 1)
+      l1 = local_idx % (order_abs + 1)
+
+      dphi0 = -1.0 + 2.0 * float(l0)
+      dphi1 = -1.0 + 2.0 * float(l1)
+      phi0 = 0.5
+      phi1 = 0.5
+
+      grad0 = dphi0 * phi1
+      grad1 = phi0 * dphi1
+
+      t1 += node_pos * grad0
+      t2 += node_pos * grad1
+
+  normal = wp.cross(t1, t2)
+
+  F = wp.mat33(0.0)
+  if normal_axis == 0:
+    F = wp.mat33(
+      normal[0],
+      t1[0],
+      t2[0],
+      normal[1],
+      t1[1],
+      t2[1],
+      normal[2],
+      t1[2],
+      t2[2],
+    )
+  elif normal_axis == 1:
+    F = wp.mat33(
+      t2[0],
+      normal[0],
+      t1[0],
+      t2[1],
+      normal[1],
+      t1[1],
+      t2[2],
+      normal[2],
+      t1[2],
+    )
+  else:
+    F = wp.mat33(
+      t1[0],
+      t2[0],
+      normal[0],
+      t1[1],
+      t2[1],
+      normal[1],
+      t1[2],
+      t2[2],
+      normal[2],
+    )
+
+  return mat33_to_quat_polar(F)
+
+
+@wp.func
+def flex_phi(s: float, i: int, order: int) -> float:
+  return 1.0 - s if i == 0 else s
+
+
+@wp.func
+def flex_dphi(s: float, i: int, order: int) -> float:
+  return -1.0 if i == 0 else 1.0
+
+
+@wp.func
+def dphi2D(s0: float, l0: int, s1: float, l1: int, order: int, direction: int) -> float:
+  if direction == 0:
+    return flex_dphi(s0, l0, order) * flex_phi(s1, l1, order)
+  else:
+    return flex_phi(s0, l0, order) * flex_dphi(s1, l1, order)

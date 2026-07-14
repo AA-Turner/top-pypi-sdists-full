@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_traffic_analysis
-short_description: Resource module for networks _traffic _analysis
+short_description: Resource module for networks _trafficanalysis
 description:
-  - Manage operation update of the resource networks _traffic _analysis.
+  - Manage operation update of the resource networks _trafficanalysis.
   - Update the traffic analysis settings for a network.
 version_added: '1.0.0'
 extends_documentation_fragment:

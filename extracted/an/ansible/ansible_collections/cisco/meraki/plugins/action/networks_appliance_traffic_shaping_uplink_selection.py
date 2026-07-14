@@ -58,7 +58,7 @@ class NetworksApplianceTrafficShapingUplinkSelection(object):
             failoverAndFailback=params.get("failoverAndFailback"),
             wanTrafficUplinkPreferences=params.get("wanTrafficUplinkPreferences"),
             vpnTrafficUplinkPreferences=params.get("vpnTrafficUplinkPreferences"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -158,7 +158,9 @@ class NetworksApplianceTrafficShapingUplinkSelection(object):
             ("loadBalancingEnabled", "loadBalancingEnabled"),
             ("failoverAndFailback", "failoverAndFailback"),
             ("wanTrafficUplinkPreferences", "wanTrafficUplinkPreferences"),
-            ("vpnTrafficUplinkPreferences", "vpnTrafficUplinkPreferences"),]
+            ("vpnTrafficUplinkPreferences", "vpnTrafficUplinkPreferences"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

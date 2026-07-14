@@ -1,17 +1,13 @@
-from __future__ import annotations
-
 import logging
 import sys
 from collections import OrderedDict, defaultdict, deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from copy import deepcopy
-from functools import cache
 from itertools import starmap
 from operator import itemgetter
 
 from django.db import models, transaction
 from django.http import HttpRequest
-from django.utils.encoding import force_str
 from django.utils.translation import gettext as _
 
 from cms.constants import PLUGIN_ITERATOR_CHUNK_SIZE
@@ -26,13 +22,12 @@ from cms.utils.placeholder import get_placeholder_conf
 logger = logging.getLogger(__name__)
 
 
-@cache
 def get_plugin_class(plugin_type: str) -> type[CMSPluginBase]:
     """Returns the plugin class for a given plugin_type (str)"""
     return plugin_pool.get_plugin(plugin_type)
 
 
-def get_plugin_model(plugin_type: str) -> CMSPlugin:
+def get_plugin_model(plugin_type: str) -> type[CMSPlugin]:
     """Returns the plugin model class for a given plugin_type (str)"""
     return get_plugin_class(plugin_type).model
 
@@ -182,10 +177,9 @@ def get_plugin_restrictions(plugin, page=None, restrictions_cache=None):
 
     plugin_type = plugin.plugin_type
     plugin_class = get_plugin_class(plugin.plugin_type)
-    cache = plugin_pool.get_restrictions_cache(restrictions_cache, plugin, page=page)
+    cache = plugin_pool.get_restrictions_cache(restrictions_cache, plugin, page or plugin.placeholder.source)
     parents_cache = cache.setdefault("plugin_parents", {})
     children_cache = cache.setdefault("plugin_children", {})
-
     try:
         parent_classes = parents_cache[plugin_type]
     except KeyError:
@@ -198,6 +192,10 @@ def get_plugin_restrictions(plugin, page=None, restrictions_cache=None):
     if plugin_class.cache_parent_classes:
         parents_cache[plugin_type] = parent_classes or []
 
+    # Note: a plugin's allowed *parents* are not sent to the frontend -- droppability is already
+    # encoded in every potential parent's child list (including the placeholder's root list, which
+    # excludes plugins that require a parent). ``parent_classes`` is still returned here for
+    # backwards compatibility with external callers.
     child_classes = []
     if plugin_class.allow_children:
         # Only check for children if children are allowed
@@ -211,7 +209,7 @@ def get_plugin_restrictions(plugin, page=None, restrictions_cache=None):
                 only_uncached=True,
             )
             child_classes = child_classes + uncached_child_classes  # Creates a new list to not change the cache
-
+            child_classes = child_classes or [""]
         except KeyError:
             child_classes = plugin_class.get_child_classes(
                 slot=plugin.placeholder.slot,
@@ -223,10 +221,10 @@ def get_plugin_restrictions(plugin, page=None, restrictions_cache=None):
                 # Only add plugins to the cache that have the cache_parent_class attribute set
                 children_cache[plugin_type] = [
                     plugin for plugin in (child_classes or []) if plugin_pool.get_plugin(plugin).cache_parent_classes
-                ]
-                if not children_cache[plugin_type] and child_classes:
-                    # Edge case: NO child classes available
-                    children_cache[plugin_type] = [""]
+                ] or [""]
+            # An empty list of allowed children (e.g. ``child_classes = []``) is sent to the
+            # frontend as the ``[""]`` sentinel so that no plugins can be dropped as children.
+            child_classes = child_classes or [""]
 
     return child_classes, parent_classes
 
@@ -409,7 +407,7 @@ def get_bound_plugins(plugins):
 
 def downcast_plugins(
     plugins: Iterable[CMSPlugin],
-    placeholders: list | None = None,
+    placeholders: Sequence | None = None,
     select_placeholder: bool = False,
     request: HttpRequest | None = None,
 ) -> Iterable[CMSPlugin]:
@@ -534,3 +532,20 @@ def has_reached_plugin_limit(placeholder, plugin_type, language, template=None):
             % {"limit": type_limit, "plugin_name": plugin_name}
         )
 
+
+def get_plugin_disallowed_in_slot(plugin_types: Iterable[str], slot: str | None) -> str | None:
+    """Return the first plugin type whose ``allowed_slots`` restriction forbids ``slot``.
+
+    ``plugin_types`` is an iterable of plugin type names (e.g. the plugin being moved or
+    copied together with all of its descendants). Returns the offending plugin type name,
+    or ``None`` if every plugin may be added to ``slot``. Unregistered plugin types are
+    skipped (treated as allowed), mirroring the rest of the move/copy handling.
+    """
+    for plugin_type in dict.fromkeys(plugin_types):
+        try:
+            plugin_class = plugin_pool.get_plugin(plugin_type)
+        except KeyError:
+            continue
+        if not plugin_class.is_allowed_in_slot(slot):
+            return plugin_type
+    return None

@@ -72,7 +72,7 @@ class ActionModule(ActionBase):
             timestamp=params.get("timestamp"),
             targetOS=params.get("targetOS"),
             request=params.get("request"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
         return new_object
 

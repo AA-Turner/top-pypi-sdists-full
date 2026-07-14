@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-sdk
-Version: 1.35.0
+Version: 1.36.0
 Summary: OpenHands SDK - Core functionality for building AI agents
 Project-URL: Source, https://github.com/OpenHands/software-agent-sdk
 Project-URL: Homepage, https://github.com/OpenHands/software-agent-sdk
@@ -26,5 +26,7 @@ Requires-Dist: tree-sitter>=0.25
 Requires-Dist: tree-sitter-bash>=0.25
 Provides-Extra: boto3
 Requires-Dist: boto3>=1.35.0; extra == "boto3"
+Provides-Extra: toolshield
+Requires-Dist: toolshield<0.2,>=0.1.3; extra == "toolshield"
 Provides-Extra: vertex
 Requires-Dist: google-cloud-aiplatform>=1.38; extra == "vertex"

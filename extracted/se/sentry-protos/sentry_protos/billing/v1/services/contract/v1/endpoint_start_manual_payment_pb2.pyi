@@ -12,9 +12,15 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing.final
 class StartManualPaymentRequest(google.protobuf.message.Message):
-    """Atomically stamps manual_payment_started_at on an unpaid PlatformInvoice,
-    locking it from automated billing for 24h while the user completes a manual
-    Pay Now flow via Stripe.js.
+    """DEPRECATED: replaced by ClaimChargeLockRequest / ClaimChargeLockResponse
+    in endpoint_claim_charge_lock.proto. The rename generalized the
+    semantics -- the same column (manual_payment_started_at) is now
+    claimed by both the manual Pay Now flow and the automated invoicing
+    job, so "start_manual_payment" no longer describes the shared lock.
+
+    The messages are retained here (rather than being deleted) so buf's
+    breaking-change check stays green while consumers migrate. Remove on the
+    next major version bump.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -36,13 +42,6 @@ class StartManualPaymentResponse(google.protobuf.message.Message):
 
     UPDATED_FIELD_NUMBER: builtins.int
     updated: builtins.bool
-    """False when no row was updated. That covers three cases: invoice id
-    unknown, the row is already paid, or the row was paid in the window
-    between the caller's last read and this call. The third case is the
-    race that the atomic ``WHERE paid=false`` filter closes -- callers
-    can treat ``updated=false`` as "the invoice is no longer in a payable
-    state, discard any side effects you took in the meantime."
-    """
     def __init__(
         self,
         *,

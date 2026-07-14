@@ -1,10 +1,12 @@
 """Cement core config module."""
 
-import os
+import os  # noqa: F401  # boundary: retained as public-API surface (cement.core.config:os in 03-PUBLIC-API-BASELINE.txt; D-12)
 from abc import abstractmethod
-from typing import Any, Dict, List
-from ..core.interface import Interface
+from pathlib import Path as _Path
+from typing import Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.fs import abspath
 from ..utils.misc import minimal_logger
 
@@ -40,10 +42,10 @@ class ConfigInterface(Interface):
             bool: ``True`` if the file was parsed, ``False`` otherwise.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
-    def keys(self, section: str) -> List[str]:
+    def keys(self, section: str) -> list[str]:
         """
         Return a list of configuration keys from ``section``.
 
@@ -54,10 +56,10 @@ class ConfigInterface(Interface):
             list: A list of keys in ``section``.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
-    def get_sections(self) -> List[str]:
+    def get_sections(self) -> list[str]:
         """
         Return a list of configuration sections.
 
@@ -65,10 +67,14 @@ class ConfigInterface(Interface):
             list: A list of config sections.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
+    # D-09: config values are user-arbitrary; cement supports apps storing
+    # strings, ints, floats, bools, lists, nested dicts, etc. Tightening
+    # the value type would break that contract. Public ConfigInterface —
+    # wide type is the API surface (D-12).
     @abstractmethod
-    def get_dict(self) -> Dict[str, Any]:
+    def get_dict(self) -> dict[str, Any]:
         """
         Return a dict of the entire configuration.
 
@@ -77,8 +83,9 @@ class ConfigInterface(Interface):
 
         """
 
+    # D-09: same user-arbitrary config-value contract as `get_dict`.
     @abstractmethod
-    def get_section_dict(self, section: str) -> Dict[str, Any]:
+    def get_section_dict(self, section: str) -> dict[str, Any]:
         """
         Return a dict of configuration parameters for ``section``.
 
@@ -90,7 +97,7 @@ class ConfigInterface(Interface):
             dict: A dictionary of the config section.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
     def add_section(self, section: str) -> None:
@@ -104,8 +111,9 @@ class ConfigInterface(Interface):
             None
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
+    # D-09: same user-arbitrary config-value contract as `get_dict`.
     @abstractmethod
     def get(self, section: str, key: str) -> Any:
         """
@@ -127,8 +135,9 @@ class ConfigInterface(Interface):
             unknown: The value of the ``key`` in ``section``.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
+    # D-09: same user-arbitrary config-value contract as `get_dict`.
     @abstractmethod
     def set(self, section: str, key: str, value: Any) -> None:
         """
@@ -144,7 +153,7 @@ class ConfigInterface(Interface):
             None
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
     def merge(self, dict_obj: dict, override: bool = True) -> None:
@@ -159,7 +168,7 @@ class ConfigInterface(Interface):
             None
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     @abstractmethod
     def has_section(self, section: str) -> bool:
@@ -174,7 +183,7 @@ class ConfigInterface(Interface):
                 otherwise.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
 
 class ConfigHandler(ConfigInterface, Handler):
@@ -185,7 +194,7 @@ class ConfigHandler(ConfigInterface, Handler):
     """
 
     class Meta(Handler.Meta):
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def _parse_file(self, file_path: str) -> bool:
@@ -201,7 +210,7 @@ class ConfigHandler(ConfigInterface, Handler):
             bool: ``True`` if file was read properly, ``False`` otherwise
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
     def parse_file(self, file_path: str) -> bool:
         """
@@ -222,7 +231,7 @@ class ConfigHandler(ConfigInterface, Handler):
 
         """
         file_path = abspath(file_path)
-        if os.path.exists(file_path):
+        if _Path(file_path).exists():
             LOG.debug(f"config file '{file_path}' exists, loading settings...")
             return self._parse_file(file_path)
         else:

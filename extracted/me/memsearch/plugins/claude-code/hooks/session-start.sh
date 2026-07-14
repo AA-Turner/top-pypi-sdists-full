@@ -78,12 +78,14 @@ if [ -n "$VERSION" ]; then
     if [ -n "$_MS_BIN" ]; then
       _MS_REAL=$(readlink -f "$_MS_BIN" 2>/dev/null || python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$_MS_BIN" 2>/dev/null || echo "$_MS_BIN")
     fi
-    if [[ "$MEMSEARCH_CMD" == *"uvx"* ]] || [[ "$_MS_REAL" == *"uv/tools"* ]]; then
-      UPGRADE_CMD="uv tool install -U 'memsearch[onnx]'"
+    if [[ "$MEMSEARCH_CMD" == *"uvx"* ]]; then
+      UPGRADE_CMD="uvx --upgrade --from 'memsearch[onnx]' memsearch --version"
+    elif [[ "$_MS_REAL" == *"uv/tools"* ]]; then
+      UPGRADE_CMD="uv tool upgrade memsearch"
     elif [[ "$_MS_REAL" == *"/pipx/venvs/memsearch/"* ]] || { command -v pipx &>/dev/null && pipx list 2>/dev/null | grep -Eq "package memsearch([ ,]|$)"; }; then
       UPGRADE_CMD="pipx upgrade memsearch"
     else
-      UPGRADE_CMD="pip install --upgrade 'memsearch[onnx]'"
+      UPGRADE_CMD="pip install --upgrade memsearch"
     fi
     UPDATE_HINT=" | UPDATE: v${LATEST} available — run: ${UPGRADE_CMD}"
   fi
@@ -195,7 +197,8 @@ fi
 context=""
 
 # Find the 2 most recent daily log files (sorted by filename descending).
-recent_files=$(find "$MEMORY_DIR" -maxdepth 1 -type f -name '*.md' -print 2>/dev/null | sort -r | head -2 || true)
+DAILY_JOURNAL_PATTERN='[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md'
+recent_files=$(find "$MEMORY_DIR" -maxdepth 1 -type f -name "$DAILY_JOURNAL_PATTERN" -print 2>/dev/null | sort -r | head -2 || true)
 
 if [ -n "$recent_files" ]; then
   context="# Recent Memory\n\n"

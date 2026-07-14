@@ -1,15 +1,7 @@
 // CSP-safe replacement for the previously inline script in templates/cms/welcome.html
 // Reads its configuration from the #cms-welcome-config element's data-* attributes
 // so that no inline JavaScript (and no template interpolation into JS) is required.
-
 (function () {
-    /**
-     * Reads configuration from #cms-welcome-config and either redirects anonymous
-     * users to the login page or wires up the wizard modal for authenticated users.
-     *
-     * @function init
-     * @returns {void}
-     */
     function init() {
         var config = document.getElementById('cms-welcome-config');
 
@@ -33,10 +25,9 @@
         }
 
         var buttons = document.querySelectorAll('.js-welcome-add');
-        var i;
 
-        for (i = 0; i < buttons.length; i++) {
-            buttons[i].addEventListener('click', function (e) {
+        buttons.forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 var modal = new CMS.Modal();
 
@@ -45,7 +36,7 @@
                     title: config.dataset.addTitle
                 });
             });
-        }
+        });
     }
 
     if (document.readyState === 'loading') {

@@ -1,14 +1,14 @@
 """Cement core mail module."""
 
-from __future__ import annotations
 from abc import abstractmethod
-from typing import Any, Dict, TYPE_CHECKING
-from ..core.interface import Interface
+from typing import TYPE_CHECKING, Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -29,6 +29,9 @@ class MailInterface(Interface):
         interface = 'mail'
         """The label identifier of the interface."""
 
+    # D-09: mail kwargs are arbitrary by docstring contract (to, from, cc,
+    # bcc, subject, headers, files, ...). Public MailInterface — wide type
+    # is the API surface (D-12).
     @abstractmethod
     def send(self, body: str, **kwargs: Any) -> bool:
         """
@@ -65,7 +68,7 @@ class MailInterface(Interface):
                     )
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
 
 class MailHandler(MailInterface, Handler):
@@ -97,7 +100,9 @@ class MailHandler(MailInterface, Handler):
         """
 
         #: Configuration default values
-        config_defaults: Dict[str, Any] = {
+        # D-09: handler `config_defaults` carries arbitrary value types by
+        # Meta contract (str / list / int / etc). Public Meta attribute (D-12).
+        config_defaults: dict[str, Any] = {
             'to': [],
             'from_addr': 'noreply@example.com',
             'cc': [],
@@ -106,7 +111,7 @@ class MailHandler(MailInterface, Handler):
             'subject_prefix': '',
         }
 
-    def _setup(self, app_obj: App) -> None:
+    def _setup(self, app_obj: "App") -> None:
         super()._setup(app_obj)
         self._validate_config()
 

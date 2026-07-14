@@ -2,17 +2,18 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_switch_access_policies_info
-short_description: Information module for networks _switch _access _policies
+short_description: Information module for networks _switch _accesspolicies
 description:
-  - Get all networks _switch _access _policies.
-  - Get networks _switch _access _policies by id. - > List the access policies for
-    a switch network. Only returns access policies with 'my RADIUS server' as authentication
-    method.
+  - Information module for Networks Switch Accesspolicies Info.
+  - Get all networks _switch _accesspolicies.
+  - Get networks _switch _accesspolicies by id.
+  - >
+    List the access policies for a switch network. Only returns access policies with
+    'my RADIUS server' as authentication method.
   - Return a specific access policy for a switch network.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -24,10 +25,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Switch Accesspolicies Info.
       - NetworkId path parameter. Network ID.
     type: str
   accessPolicyNumber:
     description:
+      - Information module for Networks Switch Accesspolicies Info.
       - AccessPolicyNumber path parameter. Access policy number.
     type: str
 requirements:
@@ -50,7 +53,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _switch _access _policies
+- name: Get all networks _switch _accesspolicies
   cisco.meraki.networks_switch_access_policies_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -75,7 +78,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
   register: result
-- name: Get networks _switch _access _policies by id
+- name: Get networks _switch _accesspolicies by id
   cisco.meraki.networks_switch_access_policies_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

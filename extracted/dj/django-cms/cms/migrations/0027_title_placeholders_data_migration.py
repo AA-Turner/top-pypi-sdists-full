@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 from collections import defaultdict
 import warnings
 
@@ -80,7 +79,7 @@ def forwards(apps, schema_editor):
                 # Move all plugins whose language matches
                 # the current translation and are hosted on the
                 # current placeholder slot to point to the new title placeholder.
-                Plugin.objects.filter(
+                Plugin.objects.using(db_alias).filter(
                     language=translation.language,
                     placeholder__page=page,
                     placeholder__slot=new_placeholder.slot,

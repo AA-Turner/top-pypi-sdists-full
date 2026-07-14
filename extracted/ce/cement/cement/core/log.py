@@ -5,8 +5,9 @@ Cement core log module.
 
 # from ..core import interface
 from abc import abstractmethod
-from ..core.interface import Interface
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 
 
 class LogInterface(Interface):
@@ -32,12 +33,12 @@ class LogInterface(Interface):
             ``['INFO', 'WARNING', 'ERROR', 'DEBUG', or 'FATAL']``.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def get_level(self) -> str:
         """Return a string representation of the log level."""
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def info(self, msg: str) -> None:
@@ -48,7 +49,7 @@ class LogInterface(Interface):
             msg (str): The message to log.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def warning(self, msg: str) -> None:
@@ -59,7 +60,7 @@ class LogInterface(Interface):
             msg (str): The message to log.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def error(self, msg: str) -> None:
@@ -70,7 +71,7 @@ class LogInterface(Interface):
             msg (str): The message to log.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def fatal(self, msg: str) -> None:
@@ -81,7 +82,7 @@ class LogInterface(Interface):
             msg (str): The message to log.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
     @abstractmethod
     def debug(self, msg: str) -> None:
@@ -92,7 +93,7 @@ class LogInterface(Interface):
             msg (str): The message to log.
 
         """
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method
 
 
 class LogHandler(LogInterface, Handler):
@@ -103,4 +104,4 @@ class LogHandler(LogInterface, Handler):
     """
 
     class Meta(Handler.Meta):
-        pass  # pragma: nocover
+        pass  # pragma: nocover  # abstract method

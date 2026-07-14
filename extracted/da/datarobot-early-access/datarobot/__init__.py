@@ -177,6 +177,7 @@ try:
         PipelineSchedule as PipelineSchedule,
         PipelineImage as PipelineImage,
         PipelineImageVersion as PipelineImageVersion,
+        PipelineTaskExecution as PipelineTaskExecution,
         PipelineMode as PipelineMode,
         PipelineVersionStatus as PipelineVersionStatus,
         PipelineDispatchStatus as PipelineDispatchStatus,
@@ -184,6 +185,7 @@ try:
         PipelineInputState as PipelineInputState,
         PipelineScheduleStatus as PipelineScheduleStatus,
         PipelineImageStatus as PipelineImageStatus,
+        TaskExecutionStatus as TaskExecutionStatus,
         Pipelines as Pipelines,
     )
 except ImportError:

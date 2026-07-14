@@ -54,6 +54,10 @@ class TestVersions:
                     "type": "plain_text",
                 }
             ],
+            cache_options={
+                "enabled": True,
+                "cross_version_cache": True,
+            },
             compatibility_date="2021-01-01",
             compatibility_flags=["nodejs_compat"],
             containers=[{"class_name": "MyDurableObject"}],
@@ -87,6 +91,13 @@ class TestVersions:
                     "content_base64": "ZXhwb3J0IGRlZmF1bHQgewogIGFzeW5jIGZldGNoKHJlcXVlc3QsIGVudiwgY3R4KSB7CiAgICByZXR1cm4gbmV3IFJlc3BvbnNlKCdIZWxsbyBXb3JsZCEnKQogIH0KfQ==",
                     "content_type": "application/javascript+module",
                     "name": "index.js",
+                }
+            ],
+            package_dependencies=[
+                {
+                    "installed_version": "4.17.22",
+                    "name": "lodash",
+                    "package_json_version": "^4.17.21",
                 }
             ],
             placement={"mode": "smart"},
@@ -361,6 +372,10 @@ class TestAsyncVersions:
                     "type": "plain_text",
                 }
             ],
+            cache_options={
+                "enabled": True,
+                "cross_version_cache": True,
+            },
             compatibility_date="2021-01-01",
             compatibility_flags=["nodejs_compat"],
             containers=[{"class_name": "MyDurableObject"}],
@@ -394,6 +409,13 @@ class TestAsyncVersions:
                     "content_base64": "ZXhwb3J0IGRlZmF1bHQgewogIGFzeW5jIGZldGNoKHJlcXVlc3QsIGVudiwgY3R4KSB7CiAgICByZXR1cm4gbmV3IFJlc3BvbnNlKCdIZWxsbyBXb3JsZCEnKQogIH0KfQ==",
                     "content_type": "application/javascript+module",
                     "name": "index.js",
+                }
+            ],
+            package_dependencies=[
+                {
+                    "installed_version": "4.17.22",
+                    "name": "lodash",
+                    "package_json_version": "^4.17.21",
                 }
             ],
             placement={"mode": "smart"},

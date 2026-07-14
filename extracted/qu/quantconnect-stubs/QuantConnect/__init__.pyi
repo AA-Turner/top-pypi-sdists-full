@@ -6867,6 +6867,17 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
+    def to_display_string(py_object: typing.Any) -> str:
+        """
+        Gets a string representation of the given Python object and its type
+        to be used in user-facing messages, e.g. "'Daily' of type 'Resolution'"
+        
+        :param py_object: The Python object to represent
+        :returns: The string representation of the Python object.
+        """
+        ...
+
+    @staticmethod
     def to_financial_figures(number: float) -> str:
         """
         Converts a decimal into a rounded number ending with K (thousands), M (millions), B (billions), etc.

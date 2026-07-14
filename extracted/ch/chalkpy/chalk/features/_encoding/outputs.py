@@ -8,6 +8,7 @@ from chalk._gen.chalk.common.v1.online_query_pb2 import FeatureExpression
 from chalk.client.models import OutputExpression
 from chalk.features import Feature, FeatureWrapper, Resolver
 from chalk.features.feature_set import is_features_cls
+from chalk.features.feature_wrapper import feature_to_query_str
 from chalk.features.filter import Filter
 from chalk.features.underscore import UnderscoreAttr, UnderscoreCall
 from chalk.features.underscore_features import NamedUnderscoreExpr, Underscore, process_named_underscore_expr
@@ -129,7 +130,9 @@ def encode_outputs(output: Sequence[Union[str, NamedUnderscoreExpr, Underscore, 
     feature_expressions_proto: List[FeatureExpression] = []
     for o in output:
         if isinstance(o, (Feature, FeatureWrapper)):
-            string_outputs.append(str(o))
+            # Use feature_to_query_str (not str) so a projected has-many keeps its selected columns,
+            # e.g. `user.transactions[transaction.id]`.
+            string_outputs.append(feature_to_query_str(o))
         elif is_features_cls(o):
             string_outputs.append(o.namespace)
         elif isinstance(o, Resolver):

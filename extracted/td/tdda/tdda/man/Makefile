@@ -1,5 +1,5 @@
-DATE    = May 2026
-VERSION = 3.0
+DATE    = July 2026
+VERSION = 3.3
 
 TARGETS = tdda.txt \
           tdda-discover.txt \
@@ -20,7 +20,8 @@ TARGETS = tdda.txt \
           tdda-config.txt \
           tdda-test.txt \
           tdda-installman.txt \
-          rexpy.txt
+          rexpy.txt \
+          xerpy.txt
 
 
 CLI_SRCS = sphinx/tdda.md \
@@ -42,7 +43,8 @@ CLI_SRCS = sphinx/tdda.md \
            sphinx/tdda-test.md \
            sphinx/tdda-help.md \
            sphinx/tdda-installman.md \
-           sphinx/rexpy.md
+           sphinx/rexpy.md \
+           sphinx/xerpy.md
 
 all: clean sphinx $(TARGETS) cli
 

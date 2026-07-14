@@ -1,16 +1,17 @@
 import copy
 
-from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, Group, Permission
 from django.contrib.sites.models import Site
+from django.core.cache import caches
+from django.db import connection
 from django.template import Template, TemplateSyntaxError
 from django.template.context import Context
-from django.test.utils import override_settings
+from django.test.utils import CaptureQueriesContext, override_settings
 from django.utils.translation import activate, override as force_language
 
 from cms.api import create_page, create_page_content
 from cms.apphook_pool import apphook_pool
-from cms.cms_menus import get_visible_page_contents
+from cms.cms_menus import CMSMenu, get_visible_page_contents
 from cms.models import ACCESS_PAGE_AND_DESCENDANTS, Page, PageContent
 from cms.models.permissionmodels import GlobalPagePermission, PagePermission
 from cms.test_utils.fixtures.menus import (
@@ -32,7 +33,6 @@ from cms.test_utils.project.sampleapp.cms_menus import (
 from cms.test_utils.testcases import CMSTestCase
 from cms.test_utils.util.context_managers import LanguageOverride, apphooks
 from cms.test_utils.util.mock import AttributeObject
-from cms.utils import get_current_site
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_default_language_for_site
 from menus.base import NavigationNode
@@ -61,7 +61,7 @@ class BaseMenuTest(CMSTestCase):
             menu_pool.discover_menus()
         self.old_menu = menu_pool.menus
         menu_pool.menus = {"CMSMenu": self.old_menu["CMSMenu"]}
-        menu_pool.clear(settings.SITE_ID)
+        menu_pool.clear(Site.objects.get_current().pk)
         activate("en")
 
     def tearDown(self):
@@ -439,7 +439,7 @@ class FixturesMenuTests(MenusFixture, BaseMenuTest):
             tpl = Template("{% load menu_tags %}{% show_menu %}")
             tpl.render(context)
 
-    def test_show_menu_cache_key_leak(self):
+    def test_show__key_leak(self):
         context = self.get_context()
         tpl = Template("{% load menu_tags %}{% show_menu %}")
         self.assertEqual(CacheKey.objects.count(), 0)
@@ -484,6 +484,35 @@ class FixturesMenuTests(MenusFixture, BaseMenuTest):
             #     get all page url objects
             #     set the menu cache key
             Template("{% load menu_tags %}{% show_menu %}").render(context)
+
+    def test_menu_cache_default_is_default_cache(self):
+        from cms.utils.conf import get_menu_cache
+
+        menu_cache = get_menu_cache()  # Re-read the patched settings
+        menu_cache.get("something")  # Resolve lazy cache
+
+        self.assertEqual(menu_cache, caches["default"], "Menu cache is not \"default\"")
+
+    @override_settings(
+        CMS_MENU_CACHE_BACKEND="secondary",
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "menu-test-default",
+            },
+            "secondary": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "menu-test-secondary",
+            },
+        },
+    )
+    def test_menu_cache_uses_configured_backend(self):
+        from cms.utils.conf import get_menu_cache
+
+        menu_cache = get_menu_cache()  # Re-read the patched settings
+        menu_cache.get("something")  # Resolve lazy cache
+
+        self.assertEqual(menu_cache, caches["secondary"], "Menu cache ignores CMS_MENU_CACHE_BACKEND setting")
 
     def test_menu_keys_duplicate_clear(self):
         """
@@ -552,7 +581,7 @@ class FixturesMenuTests(MenusFixture, BaseMenuTest):
             self.assertEqual(len(node.children), 0)
 
     def test_only_level_one(self):
-        site = get_current_site()
+        site = Site.objects.get_current()
         context = self.get_context()
         # test standard show_menu
         tpl = Template("{% load menu_tags %}{% show_menu 1 1 100 100 %}")
@@ -821,7 +850,7 @@ class FixturesMenuTests(MenusFixture, BaseMenuTest):
         page4 = self.get_page(4)
         page4.update_translations(in_navigation=True)
         page4.save()
-        menu_pool.clear(settings.SITE_ID)
+        menu_pool.clear(Site.objects.get_current().pk)
         context = self.get_context()
         tpl = Template("{% load menu_tags %}{% show_menu 0 100 100 100 %}")
         tpl.render(context)
@@ -1298,7 +1327,7 @@ class AdvancedSoftrootTests(SoftrootFixture, CMSTestCase):
         """
         msg = f"root nodes: {len(a)!r} != {len(b)!r} with {a!r}, {b!r}"
         self.assertEqual(len(a), len(b), msg)
-        for n1, n2 in zip(a, b):
+        for n1, n2 in zip(a, b, strict=False):
             for attr in attrs:
                 a1 = getattr(n1, attr)
                 a2 = getattr(n2, attr)
@@ -1697,7 +1726,7 @@ class ViewPermissionMenuTests(CMSTestCase):
         self.page = create_page("page", "nav_playground.html", "en")
         self.pages = [self.page]
         self.user = self.get_standard_user()
-        self.site = get_current_site()
+        self.site = Site.objects.get_current()
 
     def get_request(self, user=None):
         attrs = {
@@ -1861,7 +1890,7 @@ class PublicViewPermissionMenuTests(CMSTestCase):
         c3 = create_page("c3", template, "en", parent=b2, **kw)
         c4 = create_page("c4", template, "en", parent=b2, **kw)
         self.pages = [a, b1, c1, c2, b2, c3, c4]  # tree order
-        self.site = get_current_site()
+        self.site = Site.objects.get_current()
 
         self.user = self._create_user("standard", is_staff=False, is_superuser=False)
         self.other = self._create_user("other", is_staff=False, is_superuser=False)
@@ -1887,6 +1916,52 @@ class PublicViewPermissionMenuTests(CMSTestCase):
         page_contents = get_visible_page_contents(self.request, page_contents, self.site)
         titles = [page_content.title for page_content in page_contents]
         self.assertSequenceEqual(sorted(titles), ["a", "b1", "c1", "c2"])
+
+
+@override_settings(
+    CMS_PERMISSION=True,
+    CMS_PUBLIC_FOR="all",
+)
+class ViewPermissionMenuQueryTests(CMSTestCase):
+    """
+    Regression tests: building the menu must not run one query per page.
+
+    ``CMSMenu.get_nodes`` restricts the loaded fields with ``only()``. Every
+    field accessed by the view-restriction check in
+    ``get_visible_page_contents`` (such as ``page.path``) has to be part of
+    that ``only()`` call, otherwise each page triggers an extra query to
+    load the deferred field.
+    """
+
+    template = "nav_playground.html"
+
+    def _get_menu_query_count(self):
+        request = self.get_request("/")
+        renderer = menu_pool.get_renderer(request)
+        menu = CMSMenu(renderer)
+        with CaptureQueriesContext(connection) as queries:
+            menu.get_nodes(request)
+        return len(queries.captured_queries)
+
+    def test_number_of_queries_does_not_scale_with_page_count(self):
+        create_page("home", self.template, "en", in_navigation=True)
+        restricted = create_page("restricted", self.template, "en", in_navigation=True)
+        PagePermission.objects.create(
+            page=restricted,
+            user=self.get_standard_user(),
+            can_view=True,
+            grant_on=ACCESS_PAGE_AND_DESCENDANTS,
+        )
+        for index in range(3):
+            create_page(f"page-{index}", self.template, "en", in_navigation=True)
+
+        self._get_menu_query_count()  # warm up caches (site, content types, ...)
+        query_count = self._get_menu_query_count()
+
+        for index in range(5):
+            create_page(f"extra-{index}", self.template, "en", in_navigation=True)
+
+        self.assertEqual(self._get_menu_query_count(), query_count)
 
 
 @override_settings(CMS_PERMISSION=False)

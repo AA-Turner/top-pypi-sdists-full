@@ -332,22 +332,24 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                     f"[dim]Verifying image pull secret {params.image_credentials} exists...[/dim]"
                 )
             )
-            creds_exist, error = await API.bubble_error().secrets_list(
-                secret_set=params.image_credentials, org=org, live=live
-            )
+            sets, error = await API.secrets_list(org=org, live=live)
 
             if error:
-                if error.get("code") == "400":
-                    creds_exist = True
-                else:
-                    API.print_error()
-                    return typer.Exit()
+                return typer.Exit()
+
+            # Image pull secrets are globally unique by name (region is validated
+            # server-side at deploy), so match on name + type without region filter.
+            creds_exist = any(
+                s.get("name") == params.image_credentials and s.get("type") == "imagePullSecret"
+                for s in (sets or [])
+            )
 
             if not creds_exist:
                 live.stop()
                 console.error(
                     f"Image pull secret with name [bold]'{params.image_credentials}'[/bold] not found in namespace [bold]'{org}'[/bold]"
                 )
+                return typer.Exit()
 
         live.update(
             console.status(
@@ -775,7 +777,7 @@ def create_deploy_command(app: typer.Typer):
             console.error(
                 "Deployments require an image pull secret [bold](--credentials)[/bold] to securely pull images from private repositories."
                 "\nPlease provide an image pull secret name or use [bold][--no-credentials][/bold] to deploy without one.",
-                subtitle="Learn more:https://docs.pipecat.daily.co/agents/secrets#image-pull-secrets",
+                subtitle="Learn more: https://docs.pipecat.ai/pipecat-cloud/fundamentals/secrets#image-pull-secrets",
                 title_extra="Attempt to deploy without repository credentials",
             )
             return typer.Exit()

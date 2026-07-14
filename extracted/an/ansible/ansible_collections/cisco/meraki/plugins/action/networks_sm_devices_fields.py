@@ -72,7 +72,7 @@ class ActionModule(ActionBase):
             id=params.get("id"),
             serial=params.get("serial"),
             deviceFields=params.get("deviceFields"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
         return new_object
 

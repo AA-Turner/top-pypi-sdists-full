@@ -28,6 +28,8 @@ from .contacts.segments._contact_segment import ContactSegment
 from .contacts.segments._contact_segments import ContactSegments
 from .domains._domain import Domain
 from .domains._domains import Domains
+from .domains.claims._domain_claim import DomainClaim, DomainClaimRecord
+from .domains.claims._domain_claims import DomainClaims
 from .emails._attachment import Attachment, RemoteAttachment
 from .emails._attachments import Attachments as EmailAttachments
 from .emails._batch import Batch, BatchValidationError
@@ -47,6 +49,8 @@ from .http_client_async import \
 from .http_client_requests import RequestsClient
 from .logs._log import Log
 from .logs._logs import Logs
+from .oauth_grants._oauth_grant import OAuthGrant, OAuthGrantClient
+from .oauth_grants._oauth_grants import OAuthGrants
 from .request import Request
 from .segments._segment import Segment
 from .segments._segments import Segments
@@ -81,6 +85,7 @@ __all__ = [
     "Emails",
     "ApiKeys",
     "Domains",
+    "DomainClaims",
     "Batch",
     "Audiences",
     "Automations",
@@ -94,6 +99,7 @@ __all__ = [
     "Webhooks",
     "Topics",
     "Logs",
+    "OAuthGrants",
     # Types
     "Audience",
     "Automation",
@@ -121,6 +127,8 @@ __all__ = [
     "ContactTopic",
     "TopicSubscriptionUpdate",
     "Domain",
+    "DomainClaim",
+    "DomainClaimRecord",
     "ApiKey",
     "Log",
     "Email",
@@ -139,6 +147,8 @@ __all__ = [
     "WebhookStatus",
     "VerifyWebhookOptions",
     "Topic",
+    "OAuthGrant",
+    "OAuthGrantClient",
     "BatchValidationError",
     "ReceivedEmail",
     "EmailAttachment",

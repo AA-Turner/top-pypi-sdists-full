@@ -1,3 +1,4 @@
+from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as _backfill_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.server.v1 import batch_pb2 as _batch_pb2
@@ -226,6 +227,51 @@ class ManualTriggerScheduledQueryResponse(_message.Message):
     scheduled_query_run: _scheduled_query_run_pb2.ScheduledQueryRun
     def __init__(
         self, scheduled_query_run: _Optional[_Union[_scheduled_query_run_pb2.ScheduledQueryRun, _Mapping]] = ...
+    ) -> None: ...
+
+class ManualTriggerScheduledAggregateBackfillRequest(_message.Message):
+    __slots__ = ("scheduled_aggregate_backfill_name", "planner_options", "env_overrides")
+    class PlannerOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class EnvOverridesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    SCHEDULED_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
+    PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    scheduled_aggregate_backfill_name: str
+    planner_options: _containers.MessageMap[str, _struct_pb2.Value]
+    env_overrides: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        scheduled_aggregate_backfill_name: _Optional[str] = ...,
+        planner_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        env_overrides: _Optional[_Mapping[str, str]] = ...,
+    ) -> None: ...
+
+class ManualTriggerScheduledAggregateBackfillResponse(_message.Message):
+    __slots__ = ("aggregate_backfill_job", "progress_url")
+    AGGREGATE_BACKFILL_JOB_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_URL_FIELD_NUMBER: _ClassVar[int]
+    aggregate_backfill_job: _backfill_pb2.AggregateBackfillJob
+    progress_url: str
+    def __init__(
+        self,
+        aggregate_backfill_job: _Optional[_Union[_backfill_pb2.AggregateBackfillJob, _Mapping]] = ...,
+        progress_url: _Optional[str] = ...,
     ) -> None: ...
 
 class GetScheduledResolverRunRequest(_message.Message):

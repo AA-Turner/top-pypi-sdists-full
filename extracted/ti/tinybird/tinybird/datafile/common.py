@@ -221,8 +221,6 @@ INTERNAL_TABLES: Tuple[str, ...] = (
     "kafka_ops_log",
     "datasources_storage",
     "endpoint_errors",
-    "bi_stats_rt",
-    "bi_stats",
 )
 
 PREVIEW_CONNECTOR_SERVICES = ["s3", "s3_iamrole", "gcs"]
@@ -1725,7 +1723,9 @@ def parse(
 
         parser_state.current_node["indexes"] = indexes
 
-    def assign_var(v: str, allowed_values: Optional[set[str]] = None) -> Callable[[VarArg(str), KwArg(Any)], None]:
+    def assign_var(
+        v: str, allowed_values: Optional[set[str]] = None, lowercase: bool = False
+    ) -> Callable[[VarArg(str), KwArg(Any)], None]:
         @multiline_not_supported
         def _f(*args: str, **kwargs: Any):
             s = _unquote((" ".join(args)).strip())
@@ -1736,6 +1736,8 @@ def parse(
                     lineno=kwargs["lineno"],
                     pos=1,
                 )
+            if lowercase:
+                val = val.lower()
             parser_state.current_node[v.lower()] = val
 
         return _f
@@ -2048,7 +2050,9 @@ def parse(
             "import_schedule": assign_var("import_schedule"),
             "import_strategy": import_strategy_deprecated,  # Deprecated, always append
             "import_bucket_uri": assign_var("import_bucket_uri"),
-            "import_format": assign_var("import_format"),
+            # Lowercase: format checks and executor routing downstream expect
+            # lowercase values (ANALYTICS-A8M)
+            "import_format": assign_var("import_format", lowercase=True),
             "import_from_timestamp": assign_var("import_from_timestamp"),
             "import_service": import_service_deprecated,  # Deprecated
             "import_external_datasource": import_external_datasource_deprecated,  # Deprecated, BQ and SFK

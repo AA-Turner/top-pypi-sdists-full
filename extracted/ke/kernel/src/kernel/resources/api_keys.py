@@ -71,7 +71,7 @@ class APIKeysResource(SyncAPIResource):
         Create a new API key within the authenticated organization.
 
         Args:
-          name: API key name (1-255 characters)
+          name: Label for the API key (1-255 characters). API keys are not addressable by name.
 
           days_to_expire: Number of days until expiry, up to 3650. Use null for never.
 
@@ -188,6 +188,7 @@ class APIKeysResource(SyncAPIResource):
         *,
         include_deleted: bool | Omit = omit,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
@@ -209,6 +210,11 @@ class APIKeysResource(SyncAPIResource):
               API keys in the results for audit purposes.
 
           limit: Maximum number of results to return
+
+          name: Exact-match filter on API key name using the database collation. In production,
+              matching is case- and accent-insensitive. Names are not required to be unique,
+              so multiple keys may match. When status=all or include_deleted=true is set,
+              soft-deleted keys with the same name may also match.
 
           offset: Number of results to skip
 
@@ -243,6 +249,7 @@ class APIKeysResource(SyncAPIResource):
                     {
                         "include_deleted": include_deleted,
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                         "sort_by": sort_by,
@@ -382,7 +389,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         Create a new API key within the authenticated organization.
 
         Args:
-          name: API key name (1-255 characters)
+          name: Label for the API key (1-255 characters). API keys are not addressable by name.
 
           days_to_expire: Number of days until expiry, up to 3650. Use null for never.
 
@@ -499,6 +506,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         *,
         include_deleted: bool | Omit = omit,
         limit: int | Omit = omit,
+        name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
@@ -520,6 +528,11 @@ class AsyncAPIKeysResource(AsyncAPIResource):
               API keys in the results for audit purposes.
 
           limit: Maximum number of results to return
+
+          name: Exact-match filter on API key name using the database collation. In production,
+              matching is case- and accent-insensitive. Names are not required to be unique,
+              so multiple keys may match. When status=all or include_deleted=true is set,
+              soft-deleted keys with the same name may also match.
 
           offset: Number of results to skip
 
@@ -554,6 +567,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
                     {
                         "include_deleted": include_deleted,
                         "limit": limit,
+                        "name": name,
                         "offset": offset,
                         "query": query,
                         "sort_by": sort_by,

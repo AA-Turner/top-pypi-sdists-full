@@ -55,11 +55,13 @@ __all__ = [
     "BindingWorkersBindingKindWasmModule",
     "BindingWorkersBindingKindVPCService",
     "BindingWorkersBindingKindVPCNetwork",
+    "CacheOptions",
     "Container",
     "Limits",
     "Migrations",
     "MigrationsWorkersMultipleStepMigrations",
     "Module",
+    "PackageDependency",
     "Placement",
     "PlacementMode",
     "PlacementRegion",
@@ -697,6 +699,26 @@ Binding: TypeAlias = Annotated[
 ]
 
 
+class CacheOptions(BaseModel):
+    """Global CacheW configuration for the Worker.
+
+    When caching is on,
+    the platform provisions a `cloudflare.app` zone for the Worker.
+    A `type: worker` entry in the `exports` map can override this
+    value for a single entrypoint.
+    """
+
+    enabled: bool
+    """Whether caching is enabled for this Worker."""
+
+    cross_version_cache: Optional[bool] = None
+    """Whether cached responses are shared across Worker version uploads.
+
+    This is independent of `enabled`. It can stay true while caching is off, so the
+    preference survives turning caching off and back on.
+    """
+
+
 class Container(BaseModel):
     """Container configuration for a Worker."""
 
@@ -730,6 +752,17 @@ class Module(BaseModel):
 
     name: str
     """The name of the module."""
+
+
+class PackageDependency(BaseModel):
+    installed_version: str = FieldInfo(alias="installedVersion")
+    """The exact version that was resolved and installed by the package manager."""
+
+    name: str
+    """The npm package name."""
+
+    package_json_version: str = FieldInfo(alias="packageJsonVersion")
+    """The version constraint as written in package.json."""
 
 
 class PlacementMode(BaseModel):
@@ -856,6 +889,14 @@ class Version(BaseModel):
     https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
     """
 
+    cache_options: Optional[CacheOptions] = None
+    """Global CacheW configuration for the Worker.
+
+    When caching is on, the platform provisions a `cloudflare.app` zone for the
+    Worker. A `type: worker` entry in the `exports` map can override this value for
+    a single entrypoint.
+    """
+
     compatibility_date: Optional[str] = None
     """Date indicating targeted support in the Workers runtime.
 
@@ -909,6 +950,12 @@ class Version(BaseModel):
     [Static Assets](https://developers.cloudflare.com/workers/static-assets/).
     `_headers` and `_redirects` files should be included as modules named `_headers`
     and `_redirects` with content type `text/plain`.
+    """
+
+    package_dependencies: Optional[List[PackageDependency]] = None
+    """
+    The list of npm packages that were installed and used when this Worker version
+    was built.
     """
 
     placement: Optional[Placement] = None

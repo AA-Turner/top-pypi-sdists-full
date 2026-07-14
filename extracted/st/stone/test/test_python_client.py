@@ -1,7 +1,11 @@
+import os
+import shutil
+import tempfile
 import textwrap
 
 from stone.backends.python_client import PythonClientBackend
 from stone.ir import (
+    Api,
     ApiNamespace,
     ApiRoute,
     Int32,
@@ -43,6 +47,44 @@ class TestGeneratedPythonClient(unittest.TestCase):
             args=['-w', auth_mode, '-m', 'files', '-c', 'DropboxBase', '-t', 'dropbox'])
         backend._generate_route_methods({ns})
         return backend.output_buffer_to_string()
+
+    def _generate_module(self, ns):
+        # type: (ApiNamespace) -> typing.Text
+
+        # Exercises the full generate() path (which writes to disk) and
+        # returns the contents of the generated module.
+        api = Api(version='0.1b1')
+        api.namespaces[ns.name] = ns
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            backend = PythonClientBackend(
+                target_folder_path=tmp_dir,
+                args=['-m', 'base', '-c', 'DropboxBase', '-t', 'dropbox'])
+            backend.generate(api)
+            with open(os.path.join(tmp_dir, 'base.py'), encoding='utf-8') as f:
+                return f.read()
+        finally:
+            shutil.rmtree(tmp_dir)
+
+    def test_abstract_request_signature(self):
+        # type: () -> None
+
+        # The generated abstract request() must match the concrete
+        # _DropboxTransport.request signature in dropbox-sdk-python so the
+        # two base classes are Liskov-compatible under mypy (see
+        # dropbox/dropbox-sdk-python#511).
+        route = ApiRoute('get_metadata', 1, None)
+        route.set_attributes(None, None, Void(), Void(), Void(), {})
+        ns = ApiNamespace('files')
+        ns.add_route(route)
+
+        result = self._generate_module(ns)
+
+        self.assertIn(
+            '@abstractmethod\n'
+            '    def request(self, route, namespace, request_arg, '
+            'request_binary, timeout=None):',
+            result)
 
     def test_route_with_version_number(self):
         # type: () -> None
@@ -220,6 +262,57 @@ class TestGeneratedPythonClient(unittest.TestCase):
                          'Nullable[str]')
         self.assertEqual(backend._format_type_in_doc(ns, Map(String(), Int32())),
                          'Map[str, int]')
+
+    def test_route_argument_doc_uses_foreign_type_namespace(self):
+        team_common = ApiNamespace('team_common')
+        time_range = Struct('TimeRange', team_common, None)
+        time_range.set_attributes(None, [])
+
+        team_log = ApiNamespace('team_log')
+        args = Struct('GetTeamEventsArg', team_log, None)
+        args.set_attributes(None, [
+            StructField(
+                'time',
+                Nullable(time_range),
+                'Filter by time range.',
+                None,
+            ),
+            StructField(
+                'revoke_linked_app',
+                List(time_range),
+                None,
+                None,
+            ),
+        ])
+        route = ApiRoute('get_events', 1, None)
+        route.set_attributes(None, None, args, Void(), Void(), {})
+        team_log.add_route(route)
+
+        result = self._evaluate_namespace(team_log)
+
+        self.assertIn(
+            ':param time: Filter by time range.\n'
+            '    :type time: Nullable[:class:`dropbox.team_common.TimeRange`]',
+            result,
+        )
+        self.assertNotIn(':param Nullable[:class:', result)
+        self.assertIn(
+            ':type revoke_linked_app: '
+            'List[:class:`dropbox.team_common.TimeRange`]',
+            result,
+        )
+
+        async_ns = ApiNamespace('async')
+        poll_error = Struct('PollError', async_ns, None)
+        poll_error.set_attributes(None, [])
+        backend = PythonClientBackend(
+            target_folder_path='output',
+            args=['-m', 'files', '-c', 'DropboxBase', '-t', 'dropbox'],
+        )
+        self.assertEqual(
+            backend._format_type_in_doc(team_log, poll_error),
+            ':class:`dropbox.async_.PollError`',
+        )
 
     def test_route_with_attributes_in_docstring(self):
         # type: () -> None

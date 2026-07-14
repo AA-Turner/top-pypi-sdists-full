@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_appliance_warm_spare
-short_description: Resource module for networks _appliance _warm _spare
+short_description: Resource module for networks _appliance _warmspare
 description:
-  - Manage operation update of the resource networks _appliance _warm _spare.
+  - Manage operation update of the resource networks _appliance _warmspare.
   - Update MX warm spare settings.
 version_added: '1.0.0'
 extends_documentation_fragment:

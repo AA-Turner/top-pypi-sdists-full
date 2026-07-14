@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import numbers
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from functools import lru_cache
@@ -16,8 +16,6 @@ __lazy_modules__ = ["defusedxml.minidom"]
 # Create a safe random number generator
 _SAFE_RANDOM = SystemRandom()
 
-# Set up logging
-LOG = logging.getLogger("dicttoxml")
 _XML_ESCAPE_CHARS = frozenset("&\"'<>")
 
 
@@ -53,24 +51,15 @@ def make_id(element: str, start: int = 100000, end: int = 999999) -> str:
 
 def get_unique_id(element: str) -> str:
     """
-    Generate a unique ID for a given element.
+    Generate an ID for a given element.
 
     Args:
         element (str): The element to generate an ID for.
 
     Returns:
-        str: The unique ID.
+        str: The generated ID.
     """
-    ids: list[str] = []  # initialize list of unique ids
-    this_id = make_id(element)
-    dup = True
-    while dup:
-        if this_id not in ids:
-            dup = False
-            ids.append(this_id)
-        else:  # pragma: no cover
-            this_id = make_id(element)
-    return ids[-1]
+    return make_id(element)
 
 
 ELEMENT = Union[
@@ -951,6 +940,127 @@ def convert_none_valid_name(
     return f"<{key}{attr_string}></{key}>"
 
 
+@dataclass(frozen=True, slots=True)
+class SerializerConfig:
+    """Normalized options for the pure Python serializer engine."""
+
+    obj: ELEMENT
+    root: bool
+    custom_root: str
+    ids: list[int] | None
+    attr_type: bool
+    item_wrap: bool
+    item_func: Callable[[str], str]
+    cdata: bool
+    xml_namespaces: dict[str, Any] | None
+    list_headers: bool
+    xpath_format: bool
+
+
+class _XPathDocumentRenderer:
+    """Render the W3C XPath 3.1 JSON-to-XML document shape."""
+
+    def __init__(self, config: SerializerConfig) -> None:
+        self._config = config
+
+    def render(self) -> bytes:
+        output = _XMLWriter()
+        output.write('<?xml version="1.0" encoding="UTF-8" ?>')
+        tag_name = get_xpath31_tag_name(self._config.obj)
+        if tag_name in {"map", "array"}:
+            _append_xpath31(output, self._config.obj, namespace=True)
+        else:
+            output.write(f'<map xmlns="{XPATH_FUNCTIONS_NS}">')
+            _append_xpath31(output, self._config.obj)
+            output.write("</map>")
+        return output.to_bytes()
+
+
+class _NamespaceFormatter:
+    """Keep namespace emission and schema-attribute quirks in one place."""
+
+    @staticmethod
+    def format(xml_namespaces: dict[str, Any] | None) -> str:
+        if xml_namespaces is None:
+            return ""
+
+        namespace_parts: list[str] = []
+        for prefix in xml_namespaces:
+            if prefix == "xsi":
+                for schema_att in xml_namespaces[prefix]:
+                    if schema_att == "schemaInstance":
+                        namespace_parts.append(
+                            f' xmlns:{prefix}="{xml_namespaces[prefix]["schemaInstance"]}"'
+                        )
+                    elif schema_att == "schemaLocation":
+                        namespace_parts.append(
+                            f' xsi:{schema_att}="{xml_namespaces[prefix][schema_att]}"'
+                        )
+            elif prefix == "xmlns":
+                namespace_parts.append(f' xmlns="{xml_namespaces[prefix]}"')
+            else:
+                namespace_parts.append(f' xmlns:{prefix}="{xml_namespaces[prefix]}"')
+        return "".join(namespace_parts)
+
+
+class _StandardDocumentRenderer:
+    """Render the project-specific XML document shape."""
+
+    def __init__(self, config: SerializerConfig) -> None:
+        self._config = config
+
+    def render(self) -> bytes:
+        output = _XMLWriter()
+        if self._config.root:
+            self._render_with_root(output)
+        else:
+            self._render_fragment(output)
+        return output.to_bytes()
+
+    def _render_with_root(self, output: _XMLWriter) -> None:
+        custom_root, root_attr = make_valid_xml_name(self._config.custom_root, {})
+        namespace_str = _NamespaceFormatter.format(self._config.xml_namespaces)
+        output.write('<?xml version="1.0" encoding="UTF-8" ?>')
+        output.write(f"<{custom_root}{make_attrstring(root_attr)}{namespace_str}>")
+        _append_convert(
+            output,
+            self._config.obj,
+            self._config.ids,
+            self._config.attr_type,
+            self._config.item_func,
+            self._config.cdata,
+            self._config.item_wrap,
+            parent=custom_root,
+            list_headers=self._config.list_headers,
+        )
+        output.write(f"</{custom_root}>")
+
+    def _render_fragment(self, output: _XMLWriter) -> None:
+        _append_convert(
+            output,
+            self._config.obj,
+            self._config.ids,
+            self._config.attr_type,
+            self._config.item_func,
+            self._config.cdata,
+            self._config.item_wrap,
+            parent="",
+            list_headers=self._config.list_headers,
+        )
+
+
+class _SerializerEngine:
+    """Choose the document renderer while keeping helper semantics local."""
+
+    def __init__(self, config: SerializerConfig) -> None:
+        self._config = config
+
+    def render(self) -> bytes:
+        if self._config.xpath_format:
+            return _XPathDocumentRenderer(self._config).render()
+        return _StandardDocumentRenderer(self._config).render()
+
+
 # @lat: [[architecture#Conversion engine]]
 def dicttoxml(
     obj: ELEMENT,
@@ -1103,62 +1213,17 @@ def dicttoxml(
         <list a="b" c="d"><item>4</item><item>5</item><item>6</item></list>
 
     """
-    if xpath_format:
-        output = _XMLWriter()
-        output.write('<?xml version="1.0" encoding="UTF-8" ?>')
-        tag_name = get_xpath31_tag_name(obj)
-        if tag_name in {"map", "array"}:
-            _append_xpath31(output, obj, namespace=True)
-        else:
-            output.write(f'<map xmlns="{XPATH_FUNCTIONS_NS}">')
-            _append_xpath31(output, obj)
-            output.write("</map>")
-        return output.to_bytes()
-
-    namespace_parts: list[str] = []
-    if xml_namespaces is None:
-        xml_namespaces = {}
-    for prefix in xml_namespaces:
-        if prefix == 'xsi':
-            for schema_att in xml_namespaces[prefix]:
-                if schema_att == 'schemaInstance':
-                    ns = xml_namespaces[prefix]['schemaInstance']
-                    namespace_parts.append(f' xmlns:{prefix}="{ns}"')
-                elif schema_att == 'schemaLocation':
-                    ns = xml_namespaces[prefix][schema_att]
-                    namespace_parts.append(f' xsi:{schema_att}="{ns}"')
-
-        elif prefix == 'xmlns':
-            # xmns needs no prefix
-            ns = xml_namespaces[prefix]
-            namespace_parts.append(f' xmlns="{ns}"')
-
-        else:
-            ns = xml_namespaces[prefix]
-            namespace_parts.append(f' xmlns:{prefix}="{ns}"')
-    namespace_str = "".join(namespace_parts)
-    if root:
-        custom_root, root_attr = make_valid_xml_name(custom_root, {})
-        output = _XMLWriter()
-        output.write('<?xml version="1.0" encoding="UTF-8" ?>')
-        output.write(f"<{custom_root}{make_attrstring(root_attr)}{namespace_str}>")
-        _append_convert(
-            output,
-            obj,
-            ids,
-            attr_type,
-            item_func,
-            cdata,
-            item_wrap,
-            parent=custom_root,
-            list_headers=list_headers,
-        )
-        output.write(f"</{custom_root}>")
-        return output.to_bytes()
-
-    output = _XMLWriter()
-    _append_convert(
-        output,
-            obj, ids, attr_type, item_func, cdata, item_wrap, parent="", list_headers=list_headers
+    config = SerializerConfig(
+        obj=obj,
+        root=root,
+        custom_root=custom_root,
+        ids=ids,
+        attr_type=attr_type,
+        item_wrap=item_wrap,
+        item_func=item_func,
+        cdata=cdata,
+        xml_namespaces=xml_namespaces,
+        list_headers=list_headers,
+        xpath_format=xpath_format,
     )
-    return output.to_bytes()
+    return _SerializerEngine(config).render()

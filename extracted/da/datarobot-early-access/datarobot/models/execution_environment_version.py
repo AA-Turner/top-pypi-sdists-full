@@ -15,13 +15,14 @@ import os
 import shutil
 import tempfile
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+from requests_toolbelt import MultipartEncoder
 import trafaret as t
 
 from datarobot import errors
 from datarobot._compat import Int, String, TypedDict
-from datarobot.enums import DEFAULT_MAX_WAIT, EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS
+from datarobot.enums import DEFAULT_MAX_WAIT, DEFAULT_TIMEOUT, EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS
 from datarobot.models.api_object import APIObject
 from datarobot.utils.pagination import unpaginate
 
@@ -120,6 +121,22 @@ class ExecutionEnvironmentVersion(APIObject):
         self.docker_image_uri = docker_image_uri
 
     @classmethod
+    def _create_or_use_context_tarball(cls, docker_context_path: str) -> Tuple[str, bool]:
+        """Function to either create/use tarball of Docker context."""
+        if os.path.isdir(docker_context_path):
+            with tempfile.NamedTemporaryFile(prefix="docker_context_", suffix=".zip") as temp_zip_file:
+                temp_zip_file_path = temp_zip_file.name
+            archive_base_name = os.path.splitext(temp_zip_file_path)[0]
+            archive_path = shutil.make_archive(archive_base_name, "zip", docker_context_path)
+            should_cleanup = True
+        else:
+            # if user provides a tarball, use it (and do not delete it)
+            archive_path = docker_context_path
+            should_cleanup = False
+
+        return archive_path, should_cleanup
+
+    @classmethod
     def create(
         cls,
         execution_environment_id: str,
@@ -179,14 +196,7 @@ class ExecutionEnvironmentVersion(APIObject):
         should_cleanup = False
 
         if docker_context_path:
-            if os.path.isdir(docker_context_path):
-                with tempfile.NamedTemporaryFile(prefix="docker_context_", suffix=".zip") as temp_zip_file:
-                    temp_zip_file_path = temp_zip_file.name
-                archive_base_name = os.path.splitext(temp_zip_file_path)[0]
-                archive_path = shutil.make_archive(archive_base_name, "zip", docker_context_path)
-                should_cleanup = True
-            else:
-                archive_path = docker_context_path
+            archive_path, should_cleanup = cls._create_or_use_context_tarball(docker_context_path)
 
             try:
                 with open(archive_path, "rb") as docker_context_file:
@@ -203,6 +213,84 @@ class ExecutionEnvironmentVersion(APIObject):
                     os.remove(archive_path)
         else:
             response = cls._client.post(url, data=payload)
+
+        version_id = response.json()["id"]
+
+        if max_wait is None:
+            return cls.get(execution_environment_id, version_id)
+        return cls._await_final_build_status(execution_environment_id, version_id, max_wait)
+
+    @classmethod
+    def upload(
+        cls,
+        execution_environment_id: str,
+        docker_image_path: str,
+        docker_context_path: str,
+        label: Optional[str] = None,
+        description: Optional[str] = None,
+        max_wait: Optional[int] = DEFAULT_TIMEOUT.UPLOAD,
+    ) -> "ExecutionEnvironmentVersion":
+        """Upload a pre-built Docker image tarball to create an execution environment version.
+
+        .. versionadded:: v3.18
+
+        Parameters
+        ----------
+        execution_environment_id: str
+            The ID of the execution environment
+        docker_image_path: str
+            The path to a Docker image tarball file.
+        docker_context_path: str
+            The path to a Docker context archive or folder.
+        label: Optional[str]
+            A human-readable string to label the version.
+        description: Optional[str]
+            The execution environment version description.
+        max_wait: Optional[int]
+            The max time to wait for a final build status ("success" or "failed").
+            If set to None, then the method will return without waiting.
+
+        Returns
+        -------
+        ExecutionEnvironmentVersion
+            The created execution environment version.
+
+        Raises
+        ------
+        datarobot.errors.AsyncTimeoutError
+            If the version did not reach final state during timeout seconds.
+        datarobot.errors.ClientError
+            If the server responded with 4xx status.
+        datarobot.errors.ServerError
+            If the server responded with 5xx status.
+        ValueError
+            If ``docker_image_path`` or ``docker_context_path`` does not exist.
+        """
+        if not os.path.exists(docker_image_path):
+            raise ValueError(f"Docker image file does not exist: {docker_image_path}")
+        if not os.path.exists(docker_context_path):
+            raise ValueError(f"Docker context path does not exist: {docker_context_path}")
+
+        archive_path, should_cleanup = cls._create_or_use_context_tarball(docker_context_path)
+
+        url = cls._path.format(execution_environment_id)
+        payload: Dict[str, Any] = {"label": label, "description": description}
+
+        try:
+            with open(docker_image_path, "rb") as docker_image_file:
+                with open(archive_path, "rb") as docker_context_file:
+                    payload["dockerImage"] = (str(os.path.basename(docker_image_path)), docker_image_file)
+                    payload["dockerContext"] = (str(os.path.basename(archive_path)), docker_context_file)
+
+                    encoder = MultipartEncoder(fields=payload)
+                    response = cls._client.post(
+                        url,
+                        headers={"Content-Type": encoder.content_type},
+                        data=encoder,
+                    )
+        finally:
+            if should_cleanup and archive_path and os.path.exists(archive_path):
+                os.remove(archive_path)
 
         version_id = response.json()["id"]
 

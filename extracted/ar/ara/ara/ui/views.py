@@ -26,7 +26,10 @@ class Index(generics.ListAPIView):
     template_name = "index.html"
 
     def get(self, request, *args, **kwargs):
-        query = self.filter_queryset(self.queryset.all().order_by("-id"))
+        # with_item_counts() annotates the relationship counts and prefetches labels so
+        # the playbook list is served in a constant number of queries instead of running
+        # one query per relationship per playbook (the N+1 problem in issue #534).
+        query = self.filter_queryset(self.queryset.all().with_item_counts().order_by("-id"))
         page = self.paginate_queryset(query)
         if page is not None:
             serializer = serializers.ListPlaybookSerializer(page, many=True)
@@ -259,6 +262,7 @@ class Host(generics.RetrieveAPIView):
 
     queryset = models.Host.objects.all()
     renderer_classes = [TemplateHTMLRenderer]
+    pagination_class = LimitOffsetPaginationWithLinks
     template_name = "host.html"
 
     def get(self, request, *args, **kwargs):

@@ -144,6 +144,16 @@ def _require_git_workspace_root(path: Path) -> tuple[Path, Path]:
         return root / "repo", root / ".git-bare"
     if (root / ".git").is_dir() and root.name == "repo" and (root.parent / ".git-bare" / "HEAD").exists():
         return root, root.parent / ".git-bare"
+    for repo_dir in (root / "repo", root if root.name == "repo" else None):
+        if repo_dir is not None and (repo_dir / ".git").is_file() and (repo_dir.parent / ".git-bare" / "HEAD").exists():
+            # Raw copy of a VM workspace using the off-FUSE gitfile layout
+            # (git_config.worktree_git_off_fuse): repo/.git points at a
+            # /tmp/plato-git dir that only existed on the VM.
+            raise ValueError(
+                f"'{repo_dir}/.git' is a gitfile pointing at VM-local state that is not present here. "
+                "Re-fetch this workspace with 'plato chronos workspace download --extract' (which re-clones "
+                "repo/ from .git-bare) instead of copying the raw VM directory."
+            )
     raise ValueError(
         "Expected a git workspace root containing repo/ and .git-bare/, or the repo/ directory inside that workspace."
     )

@@ -55,7 +55,8 @@ async def lifespan4(
 reg = svcs.Registry()
 
 app = Starlette(
-    lifespan=lifespan, middleware=[Middleware(svcs.starlette.SVCSMiddleware)]
+    lifespan=lifespan,
+    middleware=[Middleware(svcs.starlette.SVCSMiddleware)],
 )
 
 a: int

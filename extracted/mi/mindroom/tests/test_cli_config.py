@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -39,13 +39,16 @@ from mindroom.model_defaults import (
     LOCAL_QWEN_PRESET_NAME,
     OLLAMA_GEMMA,
     OLLAMA_QWEN,
-    OPENAI_GPT_MINI,
-    OPENAI_GPT_NANO,
+    OPENAI_GPT_LUNA,
+    OPENAI_GPT_TERRA,
     llama_cpp_server_command,
 )
 from mindroom.startup_errors import PermanentStartupError
 from mindroom.thread_export import ThreadExportStats
 from tests.conftest import load_config_yaml, normalize_console_output
+
+if TYPE_CHECKING:
+    from mindroom.config.main import Config
 
 runner = CliRunner()
 
@@ -237,6 +240,7 @@ class TestConfigInit:
             "website",
             "browser",
             "scheduler",
+            "update_awareness",
             "todo",
             "subagents",
             "matrix_message",
@@ -255,6 +259,7 @@ class TestConfigInit:
             "include_entrypoint": False,
         }
         assert config["memory"]["auto_flush"]["enabled"] is True
+        assert config["defaults"]["tools"] == ["scheduler", "update_awareness"]
         assert "openclaw_compat" not in target.read_text()
 
         env_content = (tmp_path / ".env").read_text()
@@ -668,8 +673,8 @@ class TestConfigInit:
         assert "Default model provider" in output
         assert "llama.cpp" in output
         assert "llama_cpp" not in output
-        assert "openai_mini" not in output
-        assert "openai_nano" not in output
+        assert "openai_terra" not in output
+        assert "openai_luna" not in output
         assert "Use with --matrix-server" not in output
         assert "--profile" not in output
         assert "--minimal" not in output
@@ -981,14 +986,14 @@ class TestConfigInit:
         assert config["models"]["default"]["provider"] == "openai"
         assert config["models"]["default"]["id"] == CONFIG_INIT_MODEL_PRESETS["openai"].id
         assert config["models"]["default"]["context_window"] == CONFIG_INIT_MODEL_PRESETS["openai"].context_window
-        assert "openai_mini" not in config["models"]
-        assert "openai_nano" not in config["models"]
+        assert "openai_terra" not in config["models"]
+        assert "openai_luna" not in config["models"]
 
         config_text = target.read_text(encoding="utf-8")
-        assert "# openai_mini:" in config_text
-        assert f"#   id: {OPENAI_GPT_MINI}" in config_text
-        assert "# openai_nano:" in config_text
-        assert f"#   id: {OPENAI_GPT_NANO}" in config_text
+        assert "# openai_terra:" in config_text
+        assert f"#   id: {OPENAI_GPT_TERRA}" in config_text
+        assert "# openai_luna:" in config_text
+        assert f"#   id: {OPENAI_GPT_LUNA}" in config_text
         assert config["matrix_room_access"] == {"mode": "single_user_private"}
 
     def test_init_anthropic_preset_uses_anthropic_models(self, tmp_path: Path) -> None:
@@ -1160,7 +1165,7 @@ def _old_config_init_mind_memory_config(knowledge_path: str) -> str:
 models:
   default:
     provider: openai
-    id: gpt-5.5
+    id: gpt-5.6
 
 agents:
   assistant:
@@ -1251,7 +1256,7 @@ def _migrated_config_init_mind_memory_config() -> str:
 models:
   default:
     provider: openai
-    id: gpt-5.5
+    id: gpt-5.6
 
 agents:
   assistant:
@@ -2467,6 +2472,11 @@ def _patch_homeserver_fail(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestDoctor:
     """Tests for `mindroom doctor`."""
 
+    @pytest.fixture(autouse=True)
+    def _healthy_embedder_probe(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Keep the real-embedding probe off the network; specific tests override it."""
+        monkeypatch.setattr("mindroom.cli.doctor.probe_embedder", lambda *_args: None)
+
     def test_all_checks_pass(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Doctor reports all green when everything is fine."""
         cfg = tmp_path / "config.yaml"
@@ -2632,7 +2642,7 @@ class TestDoctor:
         result = _invoke_with_runtime(["doctor"], cfg, storage_path=storage)
         assert result.exit_code == 0
         assert "ANTHROPIC_API_KEY not set" in result.output
-        assert "3 warnings" in result.output
+        assert "2 warnings" in result.output
 
     def test_homeserver_unreachable(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Doctor reports failure when Matrix homeserver is unreachable."""
@@ -3163,7 +3173,7 @@ class TestDoctor:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Doctor validates custom OpenAI embedder hosts using /embeddings."""
+        """Doctor validates custom OpenAI embedder hosts with one probe round-trip."""
         cfg = tmp_path / "config.yaml"
         cfg.write_text(
             "models:\n  default:\n    provider: anthropic\n    id: claude-sonnet-5\n"
@@ -3181,18 +3191,17 @@ class TestDoctor:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         _patch_homeserver_ok(monkeypatch)
 
-        called_urls: list[str] = []
+        probed_hosts: list[str | None] = []
 
-        def _mock_post(url: str, **_kwargs: object) -> httpx.Response:
-            called_urls.append(str(url))
-            return httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2, 0.3]}]})
+        def _mock_probe(config: Config, _runtime_paths: object) -> None:
+            probed_hosts.append(config.memory.embedder.config.host)
 
-        monkeypatch.setattr("mindroom.cli.doctor.httpx.post", _mock_post)
+        monkeypatch.setattr("mindroom.cli.doctor.probe_embedder", _mock_probe)
 
         result = _invoke_with_runtime(["doctor"], cfg, storage_path=storage)
         assert result.exit_code == 0
-        assert "embeddings endpoint reachable" in result.output
-        assert any(url.endswith("/embeddings") for url in called_urls)
+        assert "embedding round-trip succeeded" in result.output
+        assert probed_hosts == ["http://llama.local/v1"]
 
     def test_memory_openai_embedder_local_host_error_has_hint(
         self,
@@ -3216,12 +3225,10 @@ class TestDoctor:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         _patch_homeserver_ok(monkeypatch)
-
-        def _mock_post(*_args: object, **_kwargs: object) -> httpx.Response:
-            msg = "[Errno 65] No route to host"
-            raise httpx.ConnectError(msg)
-
-        monkeypatch.setattr("mindroom.cli.doctor.httpx.post", _mock_post)
+        monkeypatch.setattr(
+            "mindroom.cli.doctor.probe_embedder",
+            lambda *_args: "embedder endpoint unreachable",
+        )
 
         result = _invoke_with_runtime(["doctor"], cfg, storage_path=storage)
         assert result.exit_code == 0

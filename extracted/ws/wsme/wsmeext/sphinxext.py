@@ -435,6 +435,7 @@ def document_function(funcdef, docstrings=None, protocols=['restjson']):
     if protocols:
         params = []
         for arg in funcdef.arguments:
+            wsme.types.register_type(arg.datatype)
             params.append((
                 arg.name,
                 arg.datatype,
@@ -464,6 +465,7 @@ def document_function(funcdef, docstrings=None, protocols=['restjson']):
                 u'    .. cssclass:: toggle',
                 u''
             ])
+            wsme.types.register_type(funcdef.return_type)
             sample_obj = make_sample_object(funcdef.return_type)
             for name, protocol in protocols:
                 language, sample = protocol.encode_sample_result(
@@ -506,25 +508,30 @@ class FunctionDocumenter(autodoc.MethodDocumenter):
         return ret
 
     def format_args(self):
-        args = [arg.name for arg in self.wsme_fd.arguments]
-        defaults = [
-            arg.default
-            for arg in self.wsme_fd.arguments if not arg.mandatory
-        ]
-        return inspect.formatargspec(args, defaults=defaults)
+        formatted = []
+        for arg in self.wsme_fd.arguments:
+            if arg.mandatory:
+                formatted.append(arg.name)
+            else:
+                formatted.append(f'{arg.name}={arg.default!r}')
+        return '(' + ', '.join(formatted) + ')'
 
-    def get_doc(self, encoding=None):
+    def get_doc(self):
         """Inject the type and param fields into the docstrings so that the
         user can add its own param fields to document the parameters"""
-        docstrings = super(FunctionDocumenter, self).get_doc(encoding)
+        if hasattr(self, '_wsme_docstrings'):
+            return self._wsme_docstrings
+
+        docstrings = super().get_doc()
 
         protocols = get_protocols(
             self.options.protocols or self.env.app.config.wsme_protocols
         )
 
-        return document_function(
+        self._wsme_docstrings = document_function(
             self.wsme_fd, docstrings, protocols
         )
+        return self._wsme_docstrings
 
     def add_content(self, more_content):
         super(FunctionDocumenter, self).add_content(more_content)

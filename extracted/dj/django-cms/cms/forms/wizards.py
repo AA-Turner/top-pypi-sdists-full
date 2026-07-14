@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils.html import strip_tags
 from django.utils.text import slugify
 from django.utils.translation import gettext, gettext_lazy as _
 
@@ -12,8 +13,8 @@ from cms.utils.page import get_available_slug
 from cms.utils.page_permissions import user_can_add_page, user_can_add_subpage
 
 try:
-    # djangocms_text_ckeditor is not guaranteed to be available
-    from djangocms_text_ckeditor.widgets import TextEditorWidget
+    # djangocms_text is not guaranteed to be available
+    from djangocms_text.widgets import TextEditorWidget
     text_widget = TextEditorWidget
 except ImportError:
     text_widget = forms.Textarea
@@ -99,6 +100,16 @@ class CreateCMSPageForm(AddPageForm):
             raise forms.ValidationError(_("Please provide a valid slug."))
         return data
 
+    def clean_content(self):
+        # A rich-text editor submits an empty value as an empty paragraph
+        # (e.g. ``<p></p>`` or ``<p>&nbsp;</p>``) rather than an empty string.
+        # Treat any value without visible text as empty so the wizard does not
+        # create a blank text plugin on the new page.
+        content = self.cleaned_data.get("content")
+        if content and not strip_tags(content).replace("\xa0", "").replace("&nbsp;", "").strip():
+            return ""
+        return content
+
     def clean_parent_page(self):
         # Check to see if this user has permissions to make this page. We've
         # already checked this when producing a list of wizard entries, but this
@@ -115,9 +126,9 @@ class CreateCMSPageForm(AddPageForm):
             parent_page = None
 
         if parent_page:
-            has_perm = user_can_add_subpage(self._user, target=parent_page)
+            has_perm = user_can_add_subpage(self._user, target=parent_page, site=self._site)
         else:
-            has_perm = user_can_add_page(self._user)
+            has_perm = user_can_add_page(self._user, site=self._site)
 
         if not has_perm:
             message = gettext('You don\'t have the permissions required to add a page.')

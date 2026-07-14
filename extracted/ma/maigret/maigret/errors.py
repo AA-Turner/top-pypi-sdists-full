@@ -31,7 +31,12 @@ COMMON_ERRORS = {
     '<title>Attention Required! | Cloudflare</title>': CheckError(
         'Captcha', 'Cloudflare'
     ),
-    '<title>Just a moment</title>': CheckError(
+    # Prefix (no closing tag) so it matches both '<title>Just a moment</title>'
+    # and Cloudflare's real title '<title>Just a moment...</title>' (with the
+    # trailing ellipsis). The exact-match form missed the ellipsis variant, so
+    # lightweight CF pages without the /cdn-cgi/challenge-platform script went
+    # undetected and produced false CLAIMED on message-check sites (e.g. RealMeye).
+    '<title>Just a moment': CheckError(
         'Bot protection', 'Cloudflare challenge page'
     ),
     'Please stand by, while we are checking your browser': CheckError(
@@ -68,10 +73,7 @@ COMMON_ERRORS = {
     ),
 }
 
-PROXY_RECOMMENDATION = (
-    "it's recommended to use --cloudflare-bypass or proxy, "
-    "e.g. https://vaultproxies.net/maigret"
-)
+PROXY_RECOMMENDATION = "it's recommended to use --cloudflare-bypass or a proxy"
 
 ERRORS_TYPES = {
     'Captcha': 'Try to switch to another IP address or to use service cookies',

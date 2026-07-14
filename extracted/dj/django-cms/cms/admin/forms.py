@@ -1,5 +1,3 @@
-import warnings
-
 from django import forms
 from django.apps import apps
 from django.contrib.auth import get_permission_codename, get_user_model
@@ -38,7 +36,10 @@ from cms.models import (
     PageUserGroup,
     Placeholder,
 )
-from cms.models.permissionmodels import User
+from cms.models.permissionmodels import (
+    EDIT_PERMISSION_REQUIRED_MESSAGES,
+    User,
+)
 from cms.operations import ADD_PAGE_TRANSLATION, CHANGE_PAGE_TRANSLATION
 from cms.operations.helpers import (
     send_post_page_operation,
@@ -46,8 +47,8 @@ from cms.operations.helpers import (
 )
 from cms.plugin_pool import plugin_pool
 from cms.signals.apphook import set_restart_trigger
+from cms.utils import get_current_site
 from cms.utils.compat.forms import UserChangeForm
-from cms.utils.compat.warnings import RemovedInDjangoCMS51Warning
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_language_list, get_site_language_from_request
 from cms.utils.page import get_clean_username
@@ -112,13 +113,22 @@ def get_main_language_page_content_template(new_page):
     return None
 
 
+# Permission actions managed by the CMS permission forms (Django's defaults).
+CMS_PERMISSION_ACTIONS = ("add", "change", "delete")
+
+# Maps each ``can_<action>_<name>`` permission group to the model whose
+# permission governs it. Used to render, read and authorize the checkboxes.
+CMS_PERMISSION_MODELS = (
+    (Page, "page"),
+    (PageUser, "pageuser"),
+    (PagePermission, "pagepermission"),
+)
+
+
 def save_permissions(data, obj):
-    models = (
-        (Page, "page"),
-        (PageUser, "pageuser"),
-        (PageUserGroup, "pageuser"),
-        (PagePermission, "pagepermission"),
-    )
+    # ``PageUserGroup`` shares the ``pageuser`` field with ``PageUser`` but has
+    # its own content type, so the permission must be (un)assigned on both.
+    models = (*CMS_PERMISSION_MODELS, (PageUserGroup, "pageuser"))
 
     if not obj.pk:
         # save obj, otherwise we can't assign permissions to him
@@ -128,7 +138,7 @@ def save_permissions(data, obj):
 
     for model, name in models:
         content_type = ContentType.objects.get_for_model(model)
-        for key in ("add", "change", "delete"):
+        for key in CMS_PERMISSION_ACTIONS:
             # add permission `key` for model `model`
             codename = get_permission_codename(key, model._meta)
             permission = Permission.objects.get(content_type=content_type, codename=codename)
@@ -530,13 +540,7 @@ class DuplicatePageForm(AddPageForm):
         # ``source`` is a hidden field whose value is fully controlled by the
         # client on POST and whose queryset spans every page on every site.
         # ``has_add_permission`` only checks that the user may create *a* page,
-        # not that they may read ``source``. Without an explicit object-level
-        # check, a staff user with only "add page" rights could duplicate (and
-        # thereby read the plugin content of) any page -- bypassing per-page
-        # view restrictions and multi-site isolation (CWE-639 / CWE-862).
-        # ``copy(..., permissions=False)`` even strips the source's view
-        # restrictions, leaving the copy fully readable. Require that the user
-        # is actually allowed to view the page they are copying.
+        # not that they may read ``source``.
         if source and not user_can_view_page(self._user, source):
             raise ValidationError(_("You do not have permission to copy this page."))
         return source
@@ -570,12 +574,12 @@ class ChangePageForm(BasePageContentForm):
         help_text=_("Keep this field empty if standard path should be used."),
     )
     soft_root = forms.BooleanField(
-        label=PageContent._meta.get_field("soft_root").verbose_name,
+        label=PageContent._meta.get_field("soft_root").verbose_name.capitalize(),
         required=False,
         help_text=PageContent._meta.get_field("soft_root").help_text,
     )
     redirect = PageSmartLinkField(
-        label=PageContent._meta.get_field("redirect").verbose_name,
+        label=PageContent._meta.get_field("redirect").verbose_name.capitalize(),
         required=False,
         help_text=PageContent._meta.get_field("redirect").help_text,
         placeholder_text=_("Start typing..."),
@@ -583,7 +587,7 @@ class ChangePageForm(BasePageContentForm):
     )
     limit_visibility_in_menu = forms.TypedChoiceField(
         choices=PageContent._meta.get_field("limit_visibility_in_menu").choices,
-        label=_("menu visibility"),
+        label=PageContent._meta.get_field("limit_visibility_in_menu").verbose_name.capitalize(),
         help_text=_("limit when this page is visible in the menu"),
         initial=PageContent._meta.get_field("limit_visibility_in_menu").default,
         required=False,
@@ -969,7 +973,7 @@ class PageTreeForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         self.page = kwargs.pop("page")
-        self._site = kwargs.pop("site", Site.objects.get_current())
+        self._site = kwargs.pop("site", self.page.site)
         super().__init__(*args, **kwargs)
         self.fields["target"].queryset = Page.objects.filter(
             site=self._site,
@@ -979,14 +983,6 @@ class PageTreeForm(forms.Form):
     def get_root_pages(self):
         pages = Page.get_root_nodes()
         return pages.exclude(is_page_type=not self.page.is_page_type)
-
-    def get_root_nodes(self):
-        warnings.warn(
-            "Method `get_root_nodes()` is deprecated. Instead use method `get_root_pages`.",
-            RemovedInDjangoCMS51Warning,
-            stacklevel=2,
-        )
-        return self.get_root_pages()
 
     def get_tree_options(self):
         position = self.cleaned_data["position"]
@@ -1102,7 +1098,6 @@ class MovePageForm(PageTreeForm):
 
 
 class CopyPageForm(PageTreeForm):
-    source_site = forms.ModelChoiceField(queryset=Site.objects.all(), required=True)
     copy_permissions = forms.BooleanField(initial=False, required=False)
 
     def copy_page(self, user):
@@ -1184,6 +1179,8 @@ class PagePermissionInlineAdminForm(BasePermissionAdminForm):
     but aren't assigned to higher page level than current user.
     """
 
+    _page = None
+
     page = forms.ModelChoiceField(
         queryset=Page.objects.all(),
         label=_("user"),
@@ -1194,7 +1191,9 @@ class PagePermissionInlineAdminForm(BasePermissionAdminForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         user = get_current_user()  # current user from threadlocals
-        site = Site.objects.get_current()
+
+        site_id = getattr(self._page, "site_id", None)
+        site = Site.objects._get_site_by_id(site_id) if site_id else None
         sub_users = get_subordinate_users(user, site)
 
         limit_choices = True
@@ -1322,7 +1321,6 @@ class GenericCmsPermissionForm(forms.ModelForm):
     # Maps the ``can_<action>_<name>`` permission fields to the model whose
     # permission they grant. Mirrors ``save_permissions`` and the fieldsets
     # rendered by ``PageUserGroupAdmin``/``PageUserAdmin``.
-    _permission_models = ((Page, "page"), (PageUser, "pageuser"), (PagePermission, "pagepermission"))
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get("instance")
@@ -1340,28 +1338,22 @@ class GenericCmsPermissionForm(forms.ModelForm):
         # Validate Page options
         if not data.get("can_change_page"):
             if data.get("can_add_page"):
-                message = _(
-                    "Users can't create a page without permissions "
-                    "to change the created page. Edit permissions required."
-                )
-                raise ValidationError(message)
+                raise ValidationError(EDIT_PERMISSION_REQUIRED_MESSAGES["can_add"])
 
             if data.get("can_delete_page"):
-                message = _(
-                    "Users can't delete a page without permissions to change the page. Edit permissions required."
-                )
-                raise ValidationError(message)
+                raise ValidationError(EDIT_PERMISSION_REQUIRED_MESSAGES["can_delete"])
 
             if data.get("can_add_pagepermission"):
                 message = _(
-                    "Users can't set page permissions without permissions to change a page. Edit permissions required."
+                    "Users can't set page permissions without also being able to "
+                    "change the page. Please also enable 'Can edit'."
                 )
                 raise ValidationError(message)
 
             if data.get("can_delete_pagepermission"):
                 message = _(
-                    "Users can't delete page permissions without permissions "
-                    "to change a page. Edit permissions required."
+                    "Users can't delete page permissions without also being able "
+                    "to change the page. Please also enable 'Can edit'."
                 )
                 raise ValidationError(message)
 
@@ -1369,15 +1361,15 @@ class GenericCmsPermissionForm(forms.ModelForm):
         if not data.get("can_change_pagepermission"):
             if data.get("can_add_pagepermission"):
                 message = _(
-                    "Users can't create page permissions without permissions "
-                    "to change the created permission. Edit permissions required."
+                    "Users can't create page permissions without also being able "
+                    "to change them. Please also enable 'Can edit'."
                 )
                 raise ValidationError(message)
 
             if data.get("can_delete_pagepermission"):
                 message = _(
-                    "Users can't delete page permissions without permissions "
-                    "to change permissions. Edit permissions required."
+                    "Users can't delete page permissions without also being able "
+                    "to change them. Please also enable 'Can edit'."
                 )
                 raise ValidationError(message)
 
@@ -1399,8 +1391,8 @@ class GenericCmsPermissionForm(forms.ModelForm):
         untouched as well.
         """
         user = self._current_user
-        for model, name in self._permission_models:
-            for action in ("add", "change", "delete"):
+        for model, name in CMS_PERMISSION_MODELS:
+            for action in CMS_PERMISSION_ACTIONS:
                 field = f"can_{action}_{name}"
                 if field not in self.fields:
                     continue
@@ -1413,11 +1405,10 @@ class GenericCmsPermissionForm(forms.ModelForm):
         initials = {}
         permission_accessor = get_permission_accessor(obj)
 
-        for model in (Page, PageUser, PagePermission):
-            name = model.__name__.lower()
+        for model, name in CMS_PERMISSION_MODELS:
             content_type = ContentType.objects.get_for_model(model)
             permissions = permission_accessor.filter(content_type=content_type).values_list("codename", flat=True)
-            for key in ("add", "change", "delete"):
+            for key in CMS_PERMISSION_ACTIONS:
                 codename = get_permission_codename(key, model._meta)
                 initials[f"can_{key}_{name}"] = codename in permissions
         return initials
@@ -1537,8 +1528,8 @@ class PluginAddValidationForm(forms.Form):
         position = data["plugin_position"]
         placeholder = data["placeholder_id"]
         parent_plugin = data.get("plugin_parent")
-
-        if language not in get_language_list():
+        site = get_current_site(getattr(self, "_request", None))
+        if language not in get_language_list(site_id=site.pk):
             message = gettext("Language must be set to a supported language!")
             self.add_error("plugin_language", message)
             return self.cleaned_data
@@ -1561,6 +1552,12 @@ class PluginAddValidationForm(forms.Form):
 
         page = placeholder.page
         template = page.get_template() if page else None
+
+        plugin_class = plugin_pool.get_plugin(data["plugin_type"])
+        if not plugin_class.is_allowed_in_slot(placeholder.slot):
+            message = gettext("Plugin %(plugin)s is not allowed in placeholder '%(slot)s'.")
+            self.add_error(None, message % {"plugin": plugin_class.__name__, "slot": placeholder.slot})
+            return self.cleaned_data
 
         try:
             has_reached_plugin_limit(placeholder, data["plugin_type"], language, template=template)

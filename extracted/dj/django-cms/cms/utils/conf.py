@@ -1,9 +1,12 @@
 import os
 from functools import update_wrapper
+from typing import Any
 from urllib.parse import urljoin
 
 from django.conf import settings
+from django.core.cache import caches
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.connection import ConnectionProxy
 from django.utils.translation import gettext_lazy as _
 
 from cms import __version__, constants
@@ -38,7 +41,7 @@ def default(name):
             return wrapped()
 
         update_wrapper(wrapper, wrapped)
-        return wrapped
+        return wrapper
 
     return decorator
 
@@ -63,6 +66,7 @@ DEFAULTS = {
     'PAGE_CACHE': True,
     'PLACEHOLDER_CACHE': True,
     'PLUGIN_CACHE': True,
+    'MENU_CACHE_BACKEND': 'default',
     'CACHE_PREFIX': f'cms_{__version__}_',
     'PLUGIN_PROCESSORS': [],
     'PLUGIN_CONTEXT_PROCESSORS': [],
@@ -83,7 +87,6 @@ DEFAULTS = {
     'PAGE_WIZARD_CONTENT_PLUGIN_BODY': 'body',
     'PAGE_WIZARD_CONTENT_PLACEHOLDER': None,  # Use first placeholder it finds.
     'SIDEFRAME_ENABLED': True,
-    'CONFIRM_VERSION4': False,
     'ENDPOINT_LIVE_URL_QUERYSTRING_PARAM_ENABLED': False,
     'ENDPOINT_LIVE_URL_QUERYSTRING_PARAM': "live-url",
     'REDIRECT_PRESERVE_QUERY_PARAMS': False,
@@ -94,6 +97,14 @@ DEFAULTS = {
     'CATCH_PLUGIN_500_EXCEPTION': True,
     'DEFAULT_IN_NAVIGATION': True,
     'ALWAYS_REFRESH_CONTENT': False,
+    'ENABLE_HELP': True,  # Adds help menu toolbar
+    'EXTRA_HELP_MENU_ITEMS': (),
+    'HELP_MENU_ITEMS': (
+        (_('Community forum'), 'https://discourse.django-cms.org/'),
+        (_('Documentation'), 'https://docs.django-cms.org/en/latest/'),
+        (_('Getting started'), 'https://www.django-cms.org/en/get-started-django-cms/'),
+        (_('Talk to us'), 'https://www.django-cms.org/en/support/'),
+    )
 }
 
 
@@ -106,6 +117,10 @@ def get_cache_durations():
         'content': 60,
         'permissions': 60 * 60,
     })
+
+
+def get_menu_cache():
+    return ConnectionProxy(caches, get_cms_setting('MENU_CACHE_BACKEND'))
 
 
 @default('CMS_MEDIA_ROOT')
@@ -133,7 +148,7 @@ def get_toolbar_url__enable():
     return get_cms_setting('TOOLBAR_URL__ENABLE')
 
 
-def get_templates():
+def get_templates() -> list[tuple[str, Any]]:
     if getattr(settings, 'CMS_TEMPLATES_DIR', False):
         tpldir = getattr(settings, 'CMS_TEMPLATES_DIR', False)
         # CMS_TEMPLATES_DIR can either be a string pointing to the templates directory
@@ -250,20 +265,30 @@ def _ensure_languages_settings(languages):
 
 
 def get_languages():
-    if settings.SITE_ID != hash(settings.SITE_ID):
+    site_settings = getattr(settings, 'SITE_ID', None)
+    if site_settings and site_settings != hash(site_settings):
         raise ImproperlyConfigured(
             "SITE_ID must be an integer"
         )
     if not settings.USE_I18N:
-        return _ensure_languages_settings(
-            {settings.SITE_ID: [{'code': settings.LANGUAGE_CODE, 'name': settings.LANGUAGE_CODE}]})
+        if site_settings:
+            return _ensure_languages_settings(
+                {site_settings: [{'code': settings.LANGUAGE_CODE, 'name': settings.LANGUAGE_CODE}]}
+            )
+        settings.LANGUAGES = ((settings.LANGUAGE_CODE, settings.LANGUAGE_CODE),)
+        return {'default': {}, VERIFIED: True}
+
     if settings.LANGUAGE_CODE not in dict(settings.LANGUAGES):
         raise ImproperlyConfigured(
             'LANGUAGE_CODE "%s" must have a matching entry in LANGUAGES' % settings.LANGUAGE_CODE
         )
-    languages = getattr(settings, 'CMS_LANGUAGES', {
-        settings.SITE_ID: [{'code': code, 'name': _(name)} for code, name in settings.LANGUAGES]
-    })
+
+    if site_settings:
+        languages = getattr(settings, 'CMS_LANGUAGES', {
+            site_settings: [{'code': code, 'name': _(name)} for code, name in settings.LANGUAGES]
+        })
+    else:
+        languages = {'default': {}, VERIFIED: True}
     if VERIFIED in languages:
         return languages
     return _ensure_languages_settings(languages)
@@ -294,7 +319,7 @@ COMPLEX = {
 }
 
 
-def get_cms_setting(name):
+def get_cms_setting(name) -> Any:
     if name in COMPLEX:
         return COMPLEX[name]()
     return getattr(settings, 'CMS_%s' % name, DEFAULTS[name])
@@ -308,4 +333,4 @@ def get_site_id(site):
         return int(site)
     except (TypeError, ValueError):
         pass
-    return settings.SITE_ID
+    return getattr(settings, 'SITE_ID', None)

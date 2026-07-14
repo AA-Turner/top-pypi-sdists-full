@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-jira
-Version: 0.3.24
+Version: 0.4.0
 Summary: py.test JIRA integration plugin, using markers
 Project-URL: Homepage, https://github.com/rhevm-qe-automation/pytest_jira
 Author-email: James Laska <james.laska@gmail.com>, Lukas Bednar <lukyn17@gmail.com>
@@ -163,8 +163,11 @@ Fixture usage
 -------------
 
 Besides a test marker, you can also use the added ``jira_issue`` fixture. This enables examining issue status mid test
-and not just at the beginning of a test. The fixture return a boolean representing the state of the issue.
+and not just at the beginning of a test. The fixture returns a boolean representing the state of the issue.
 If the issue isn't found, or the jira plugin isn't loaded, it returns ``None``.
+
+The same API is available at other pytest scopes via ``jira_issue_scope_class``,
+``jira_issue_scope_module``, ``jira_issue_scope_package``, and ``jira_issue_scope_session``.
 
 .. code:: python
 

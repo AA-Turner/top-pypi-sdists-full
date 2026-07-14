@@ -30,6 +30,11 @@ class FoundAccountData(BaseModel):
         description="Integration specific identifier that uniquely identifies an account.",
         json_schema_extra={"x-semantic": "account-id"},
     )
+    resource_id: Optional[StrictStr] = Field(
+        default=None,
+        description="Globally-unique resource id - the account's identity as a node in the synthesized graph. Optional for back-compat; when absent Lumos falls back to the `account:<id>` convention.",
+        json_schema_extra={"x-semantic": "resource-id"},
+    )
     email: Optional[StrictStr] = Field(
         default=None, description="The email address associated with the account."
     )
@@ -58,6 +63,7 @@ class FoundAccountData(BaseModel):
     )
     __properties: ClassVar[List[str]] = [
         "integration_specific_id",
+        "resource_id",
         "email",
         "given_name",
         "family_name",
@@ -111,6 +117,7 @@ class FoundAccountData(BaseModel):
         _obj = cls.model_validate(
             {
                 "integration_specific_id": obj.get("integration_specific_id"),
+                "resource_id": obj.get("resource_id"),
                 "email": obj.get("email"),
                 "given_name": obj.get("given_name"),
                 "family_name": obj.get("family_name"),

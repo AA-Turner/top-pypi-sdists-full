@@ -2,28 +2,28 @@
 Cement scrub extension module.
 """
 
-from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
+
 from .. import Controller
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
 
-def scrub_output(app: App, text: str) -> str:
+def scrub_output(app: "App", text: str) -> str:
     if app.pargs.scrub:
         text = app.scrub(text)
     return text
 
 
-def extend_scrub(app: App) -> None:
+def extend_scrub(app: "App") -> None:
     def scrub(text: str) -> str:
         if not hasattr(app._meta, 'scrub') or app._meta.scrub is None:
-            return text  # pragma: nocover
+            return text  # pragma: nocover  # defensive: unreachable
         elif isinstance(text, str):
             for regex, replace in app._meta.scrub:
                 text = re.sub(regex, replace, text)
@@ -67,7 +67,7 @@ class ScrubController(Controller):
                                        dest='scrub')
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(ScrubController)
     app.hook.register('post_render', scrub_output)
     app.hook.register('pre_argument_parsing', extend_scrub)

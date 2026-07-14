@@ -39,6 +39,7 @@ from opentelemetry.util.genai.types import (
 from opentelemetry.util.types import AttributeValue
 
 from .allowlist_util import AllowList
+from .client_info import get_client_info as _get_client_info
 from .custom_semconv import GCP_GENAI_OPERATION_CONFIG
 from .dict_util import flatten_dict
 from .message import (
@@ -66,10 +67,20 @@ GENERATE_CONTENT_EXTRA_ATTRIBUTES_CONTEXT_KEY = context_api.create_key(
 class _MethodsSnapshot:
     def __init__(self):
         self._original_generate_content = Models.generate_content
+        self._original_generate_content_code = Models.generate_content.__code__
         self._original_generate_content_stream = Models.generate_content_stream
+        self._original_generate_content_stream_code = (
+            Models.generate_content_stream.__code__
+        )
         self._original_async_generate_content = AsyncModels.generate_content
+        self._original_async_generate_content_code = (
+            AsyncModels.generate_content.__code__
+        )
         self._original_async_generate_content_stream = (
             AsyncModels.generate_content_stream
+        )
+        self._original_async_generate_content_stream_code = (
+            AsyncModels.generate_content_stream.__code__
         )
 
     @property
@@ -89,12 +100,33 @@ class _MethodsSnapshot:
         return self._original_async_generate_content_stream
 
     def restore(self):
+        self._original_generate_content.__code__ = (
+            self._original_generate_content_code
+        )
+        self._original_generate_content_stream.__code__ = (
+            self._original_generate_content_stream_code
+        )
+        self._original_async_generate_content.__code__ = (
+            self._original_async_generate_content_code
+        )
+        self._original_async_generate_content_stream.__code__ = (
+            self._original_async_generate_content_stream_code
+        )
+
         Models.generate_content = self._original_generate_content
         Models.generate_content_stream = self._original_generate_content_stream
         AsyncModels.generate_content = self._original_async_generate_content
         AsyncModels.generate_content_stream = (
             self._original_async_generate_content_stream
         )
+
+
+# Magic incantation used by native Google ADK instrumentation to identify
+# instrumented functions and suppress its own internal tracing when OTel is active.
+def _set_co_filename(wrapped: object) -> None:
+    wrapped.__wrapped__.__code__ = wrapped.__wrapped__.__code__.replace(
+        co_filename=__file__.replace("\\", "/")
+    )
 
 
 def _guess_genai_system_from_env():
@@ -435,10 +467,12 @@ def _create_instrumented_generate_content(
                 config,
             )
             finish_reasons = []
+            _, server_address = _get_client_info(instance)
             with telemetry_handler.inference(
                 provider=_determine_genai_system(instance),
                 request_model=model,
                 operation_name="generate_content",
+                server_address=server_address,
             ) as invocation:
                 _apply_request_attributes(
                     wrapped_config,
@@ -591,10 +625,12 @@ def _create_instrumented_generate_content_stream(
                 telemetry_handler,
                 config,
             )
+            _, server_address = _get_client_info(instance)
             invocation = telemetry_handler.inference(
                 provider=_determine_genai_system(instance),
                 request_model=model,
                 operation_name="generate_content",
+                server_address=server_address,
             )
             _apply_request_attributes(
                 wrapped_config,
@@ -660,10 +696,12 @@ def _create_instrumented_async_generate_content(
                 config,
             )
             finish_reasons = []
+            _, server_address = _get_client_info(instance)
             with telemetry_handler.inference(
                 provider=_determine_genai_system(instance),
                 request_model=model,
                 operation_name="generate_content",
+                server_address=server_address,
             ) as invocation:
                 invocation.attributes.update(
                     _get_extra_generate_content_attributes()
@@ -740,10 +778,12 @@ def _create_instrumented_async_generate_content_stream(  # type: ignore
                 telemetry_handler,
                 config,
             )
+            _, server_address = _get_client_info(instance)
             invocation = telemetry_handler.inference(
                 provider=_determine_genai_system(instance),
                 request_model=model,
                 operation_name="generate_content",
+                server_address=server_address,
             )
             invocation.attributes.update(
                 _get_extra_generate_content_attributes()
@@ -795,7 +835,7 @@ def instrument_generate_content(
 ) -> object:
     os.environ["OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT"] = "true"
     snapshot = _MethodsSnapshot()
-    wrap_function_wrapper(
+    wrapped = wrap_function_wrapper(
         "google.genai.models",
         "Models.generate_content",
         _create_instrumented_generate_content(
@@ -803,7 +843,7 @@ def instrument_generate_content(
             generate_content_config_key_allowlist,
         ),
     )
-    wrap_function_wrapper(
+    wrapped2 = wrap_function_wrapper(
         "google.genai.models",
         "Models.generate_content_stream",
         _create_instrumented_generate_content_stream(
@@ -811,7 +851,7 @@ def instrument_generate_content(
             generate_content_config_key_allowlist,
         ),
     )
-    wrap_function_wrapper(
+    wrapped3 = wrap_function_wrapper(
         "google.genai.models",
         "AsyncModels.generate_content",
         _create_instrumented_async_generate_content(
@@ -819,7 +859,7 @@ def instrument_generate_content(
             generate_content_config_key_allowlist,
         ),
     )
-    wrap_function_wrapper(
+    wrapped4 = wrap_function_wrapper(
         "google.genai.models",
         "AsyncModels.generate_content_stream",
         _create_instrumented_async_generate_content_stream(
@@ -827,4 +867,8 @@ def instrument_generate_content(
             generate_content_config_key_allowlist,
         ),
     )
+    _set_co_filename(wrapped)
+    _set_co_filename(wrapped2)
+    _set_co_filename(wrapped3)
+    _set_co_filename(wrapped4)
     return snapshot

@@ -3362,12 +3362,22 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     EPSILON: System.Numerics.Decimal64
 
+    def __add__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __eq__(self, right: System.Numerics.Decimal64) -> bool:
+        ...
+
     @overload
     def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __ge__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Numerics.Decimal64) -> bool:
         ...
 
     @overload
@@ -3379,6 +3389,22 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @overload
+    def __gt__(self, right: System.Numerics.Decimal64) -> bool:
+        ...
+
+    def __iadd__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __imul__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __isub__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __itruediv__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @overload
     def __le__(self, other: typing.Any) -> bool:
         ...
 
@@ -3387,11 +3413,37 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @overload
+    def __le__(self, right: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
     def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __lt__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Numerics.Decimal64) -> bool:
+        ...
+
+    def __mul__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __ne__(self, right: System.Numerics.Decimal64) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Decimal64:
+        ...
+
+    def __pos__(self) -> System.Numerics.Decimal64:
+        ...
+
+    def __sub__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    def __truediv__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @overload
@@ -3841,12 +3893,22 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     EPSILON: System.Numerics.Decimal32
 
+    def __add__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __eq__(self, right: System.Numerics.Decimal32) -> bool:
+        ...
+
     @overload
     def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __ge__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Numerics.Decimal32) -> bool:
         ...
 
     @overload
@@ -3858,6 +3920,22 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @overload
+    def __gt__(self, right: System.Numerics.Decimal32) -> bool:
+        ...
+
+    def __iadd__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __imul__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __isub__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __itruediv__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @overload
     def __le__(self, other: typing.Any) -> bool:
         ...
 
@@ -3866,11 +3944,37 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @overload
+    def __le__(self, right: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
     def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __lt__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Numerics.Decimal32) -> bool:
+        ...
+
+    def __mul__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __ne__(self, right: System.Numerics.Decimal32) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Decimal32:
+        ...
+
+    def __pos__(self) -> System.Numerics.Decimal32:
+        ...
+
+    def __sub__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    def __truediv__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @overload
@@ -5071,12 +5175,22 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     EPSILON: System.Numerics.Decimal128
 
+    def __add__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __eq__(self, right: System.Numerics.Decimal128) -> bool:
+        ...
+
     @overload
     def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __ge__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Numerics.Decimal128) -> bool:
         ...
 
     @overload
@@ -5088,6 +5202,22 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @overload
+    def __gt__(self, right: System.Numerics.Decimal128) -> bool:
+        ...
+
+    def __iadd__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __imul__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __isub__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __itruediv__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @overload
     def __le__(self, other: typing.Any) -> bool:
         ...
 
@@ -5096,11 +5226,37 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @overload
+    def __le__(self, right: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
     def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __lt__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Numerics.Decimal128) -> bool:
+        ...
+
+    def __mul__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __ne__(self, right: System.Numerics.Decimal128) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Decimal128:
+        ...
+
+    def __pos__(self) -> System.Numerics.Decimal128:
+        ...
+
+    def __sub__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    def __truediv__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @overload

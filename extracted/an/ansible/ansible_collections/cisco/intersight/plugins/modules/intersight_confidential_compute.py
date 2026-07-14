@@ -40,7 +40,7 @@ options:
   name:
     description:
       - The name assigned to the BIOS policy.
-      - The name must be between 1 and 64 alphanumeric characters, allowing special characters :-_.
+      - The name must be between 1 and 62 alphanumeric characters, allowing special characters :-_.
     type: str
     required: true
   tags:
@@ -70,6 +70,7 @@ options:
         simplified attestation service enrollment.
     type: str
     choices: [amd_sev, amd_sev_snp, intel_sgx, intel_sgx_with_auto_reg]
+    required: true
   sev_asid_count:
     description:
       - Number of AMD SEV Address Space Identifiers (ASIDs) to allocate.
@@ -220,6 +221,7 @@ def main():
         security_profile=dict(
             type='str',
             choices=['amd_sev', 'amd_sev_snp', 'intel_sgx', 'intel_sgx_with_auto_reg'],
+            required=True,
         ),
         sev_asid_count=dict(type='str', choices=['platform-default', '253 ASIDs', '509 ASIDs']),
         sgx_epoch0=dict(type='str'),
@@ -247,9 +249,6 @@ def main():
     }
 
     if module.params['state'] == 'present':
-        if not module.params.get('security_profile'):
-            module.fail_json(msg="security_profile is required when state is 'present'")
-
         intersight.set_tags_and_description()
 
         # Apply security profile preset

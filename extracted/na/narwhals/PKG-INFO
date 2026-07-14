@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.23.0
+Version: 2.24.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Keywords: dataframes,interoperability,pandas,polars,pyarrow,dask,modin,cudf
 Author: Marco Gorelli
@@ -21,7 +21,6 @@ Requires-Dist: cudf-cu12>=24.10.0 ; sys_platform == 'linux' and extra == 'cudf'
 Requires-Dist: dask[dataframe]>=2024.8 ; extra == 'dask'
 Requires-Dist: duckdb>=1.1 ; extra == 'duckdb'
 Requires-Dist: ibis-framework>=6.0.0 ; extra == 'ibis'
-Requires-Dist: rich>=12.4.4 ; extra == 'ibis'
 Requires-Dist: packaging>=21.3 ; extra == 'ibis'
 Requires-Dist: pyarrow-hotfix>=0.7 ; extra == 'ibis'
 Requires-Dist: modin>=0.22.0 ; extra == 'modin'

@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_login_security
-short_description: Resource module for organizations _login _security
+short_description: Resource module for organizations _loginsecurity
 description:
-  - Manage operation update of the resource organizations _login _security.
+  - Manage operation update of the resource organizations _loginsecurity.
   - Update the login security settings for an organization.
 version_added: '1.0.0'
 extends_documentation_fragment:

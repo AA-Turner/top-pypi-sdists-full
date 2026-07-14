@@ -337,13 +337,10 @@ class TestTypes(unittest.TestCase):
         self.assertRaises(ValueError, v.validate, '_')
 
     def test_validate_string_type_pattern_exception_message(self):
-        regex = '^[a-zA-Z0-9]*$'
-        v = types.StringType(pattern=regex)
-        try:
-            v.validate('_')
-            self.assertFail()
-        except ValueError as e:
-            self.assertIn(regex, str(e))
+        v = types.StringType(pattern='^[a-zA-Z0-9]*$')
+        self.assertRaisesRegex(
+            ValueError, r'Value should match the pattern \^\[a-zA-Z0-9\]\*\$',
+            v.validate, '_')
 
     def test_validate_ipv4_address_type(self):
         v = types.IPv4AddressType()

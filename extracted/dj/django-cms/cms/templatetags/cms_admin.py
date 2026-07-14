@@ -109,13 +109,11 @@ class GetPreviewUrl(AsTag):
     def get_value(self, context, page_content):
         if isinstance(page_content, Page):
             # Advanced settings wants a preview for a Page object.
-            page_content = page_content.get_content_obj(
+            page_content = page_content.get_admin_content(
                 language=get_language_from_request(context["request"])
             )
         if not page_content:
             return ""
-        # Frontend-editable objects (non-PageContent) may not carry a language
-        # attribute; fall back to the active request language. See PR #8691.
         return self.get_url(page_content, language=getattr(page_content, "language", None))
 
     def get_url(self, object, language):
@@ -340,6 +338,7 @@ def submit_row_plugin(context):
     if context.get('original') is not None:
         ctx['original'] = context['original']
     return ctx
+
 
 @register.filter
 def placeholder_is_immutable(placeholder, user):

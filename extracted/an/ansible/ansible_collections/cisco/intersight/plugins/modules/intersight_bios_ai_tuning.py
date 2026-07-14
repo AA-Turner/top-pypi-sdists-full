@@ -39,7 +39,7 @@ options:
   name:
     description:
       - The name assigned to the BIOS policy.
-      - The name must be between 1 and 64 alphanumeric characters, allowing special characters :-_.
+      - The name must be between 1 and 62 alphanumeric characters, allowing special characters :-_.
     type: str
     required: true
   tags:
@@ -69,6 +69,7 @@ options:
         and NUMA optimization suitable for edge deployment constraints.
     type: str
     choices: [gpu_inference, gpu_training, cpu_inference, edge_ai]
+    required: true
   gpu_count:
     description:
       - Number of GPUs to enable via ACS Control (1-8).
@@ -278,7 +279,7 @@ def main():
         name=dict(type='str', required=True),
         description=dict(type='str', aliases=['descr']),
         tags=dict(type='list', elements='dict'),
-        tuning_profile=dict(type='str', choices=['gpu_inference', 'gpu_training', 'cpu_inference', 'edge_ai']),
+        tuning_profile=dict(type='str', choices=['gpu_inference', 'gpu_training', 'cpu_inference', 'edge_ai'], required=True),
         gpu_count=dict(type='int', default=8),
         numa_optimized=dict(type='str', choices=['platform-default', 'enabled', 'disabled']),
         cpu_power_management=dict(type='str', choices=['platform-default', 'performance', 'energy-efficient', 'custom']),
@@ -310,9 +311,6 @@ def main():
     }
 
     if module.params['state'] == 'present':
-        if not module.params.get('tuning_profile'):
-            module.fail_json(msg="tuning_profile is required when state is 'present'")
-
         intersight.set_tags_and_description()
 
         # Apply tuning profile preset

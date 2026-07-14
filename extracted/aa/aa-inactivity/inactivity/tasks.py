@@ -11,7 +11,7 @@ from memberaudit.models import Character
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.db.models import Max, Q
+from django.db.models import Max, Q, QuerySet
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
@@ -19,6 +19,7 @@ from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 
 from inactivity.app_settings import INACTIVITY_TASKS_DEFAULT_PRIORITY
+from inactivity.core import check_user_active
 from inactivity.models import InactivityPing, InactivityPingConfig, Webhook
 
 logger = get_extension_logger(__name__)
@@ -70,15 +71,7 @@ def check_inactivity_for_user(user_pk: int):
     )
     for config in InactivityPingConfig.objects.relevant_for_user(user):
         threshold_date = today - dt.timedelta(days=config.days)
-        threshold_datetime = dt.datetime.combine(
-            date=threshold_date, time=dt.datetime.min.time(), tzinfo=dt.timezone.utc
-        )
-        characters = Character.objects.owned_by_user(user)
-
-        is_active = characters.filter(
-            Q(online_status__last_login__gt=threshold_datetime)
-            | Q(online_status__last_logout__gt=threshold_datetime),
-        ).exists()
+        is_active = check_user_active(user=user, threshold_date=threshold_date)
         if is_active:
             InactivityPing.objects.filter(user__pk=user_pk, config=config).delete()
 
@@ -86,7 +79,10 @@ def check_inactivity_for_user(user_pk: int):
         was_pinged = InactivityPing.objects.filter(
             user__pk=user_pk, config=config
         ).exists()
+
+        characters: QuerySet[Character] = Character.objects.owned_by_user(user)
         is_registered = characters.exists()
+
         if not is_active and is_registered and not was_pinged and not is_excused:
             last_login_at = characters.aggregate(Max("online_status__last_login")).get(
                 "online_status__last_login__max"

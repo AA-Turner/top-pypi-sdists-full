@@ -2,18 +2,18 @@
 Cement print extension module.
 """
 
-from __future__ import annotations
-from typing import Any, Dict, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..core import output
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
 
-def extend_print(app: App) -> None:
+def extend_print(app: "App") -> None:
     def _print(text: str) -> None:
         app.render({'out': text}, handler='print')
     app.extend('print', _print)
@@ -43,7 +43,7 @@ class PrintOutputHandler(output.OutputHandler):
 
     _meta: Meta  # type: ignore
 
-    def render(self, data: Dict[str, Any], *args: Any, **kw: Any) -> Union[str, None]:
+    def render(self, data: dict[str, Any], *args: Any, **kw: Any) -> str | None:
         """
         Take a data dictionary and render only the ``out`` key as text output.
         Note that the template option is received here per the interface,
@@ -61,7 +61,7 @@ class PrintOutputHandler(output.OutputHandler):
             return data['out'] + '\n'  # type: ignore
         else:
             LOG.debug("no 'out' key found in data dict. "
-                      "not rendering content via %s" % self.__module__)
+                      f"not rendering content via {self.__module__}")
             return None
 
 
@@ -87,7 +87,7 @@ class PrintDictOutputHandler(output.OutputHandler):
 
     _meta: Meta  # type: ignore
 
-    def render(self, data: Dict[str, Any], *args: Any, **kw: Any) -> str:
+    def render(self, data: dict[str, Any], *args: Any, **kw: Any) -> str:
         """
         Take a data dictionary and render it as text output.  Note that the
         template option is received here per the interface, however this
@@ -108,7 +108,7 @@ class PrintDictOutputHandler(output.OutputHandler):
         return out
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(PrintDictOutputHandler)
     app.handler.register(PrintOutputHandler)
     app.hook.register('pre_argument_parsing', extend_print)

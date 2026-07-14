@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.sites import site
 from django.contrib.admin.utils import flatten_fieldsets
@@ -9,14 +10,14 @@ from django.contrib.sites.models import Site
 from django.http import Http404, HttpResponseBadRequest, HttpResponseNotFound
 from django.test.utils import override_settings
 from django.utils.encoding import force_str, smart_str
-from djangocms_text_ckeditor.cms_plugins import TextPlugin
-from djangocms_text_ckeditor.models import Text
+from djangocms_text.cms_plugins import TextPlugin
+from djangocms_text.models import Text
 
 from cms import api
 from cms.admin.forms import ChangePageForm
 from cms.api import add_plugin, create_page, create_page_content
 from cms.constants import TEMPLATE_INHERITANCE_MAGIC
-from cms.models import PageContent, PageUrl, StaticPlaceholder, UserSettings
+from cms.models import PageContent, PageUrl, UserSettings
 from cms.models.pagemodel import Page
 from cms.models.permissionmodels import GlobalPagePermission, PagePermission
 from cms.models.placeholdermodel import Placeholder
@@ -26,7 +27,7 @@ from cms.test_utils.testcases import (
     URL_CMS_PAGE_PUBLISHED,
     CMSTestCase,
 )
-from cms.utils.compat import DJANGO_4_2, DJANGO_5_1
+from cms.toolbar.utils import get_object_edit_url
 from cms.utils.conf import get_cms_setting
 from cms.utils.i18n import get_language_list
 from cms.utils.urlutils import admin_reverse
@@ -592,13 +593,10 @@ class AdminTests(AdminTestsBase):
         )
         with self.login_user_context(self.get_superuser()):
             response = self.client.get(endpoint)
-        if DJANGO_4_2:
-            self.assertContains(response, '<input type="text" name="page_title" maxlength="255" id="id_page_title">')
-        else:
-            self.assertContains(
-                response,
-                '<input type="text" name="page_title" maxlength="255" aria-describedby="id_page_title_helptext" id="id_page_title">',
-            )
+        self.assertContains(
+            response,
+            '<input type="text" name="page_title" maxlength="255" aria-describedby="id_page_title_helptext" id="id_page_title">',
+        )
 
 
 class NoDBAdminTests(CMSTestCase):
@@ -608,17 +606,11 @@ class NoDBAdminTests(CMSTestCase):
 
     def test_lookup_allowed_site__exact(self):
         request = self.get_request()
-        if DJANGO_5_1:
-            self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1"))
-        else:
-            self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1", request=request))
+        self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1", request=request))
 
     def test_lookup_allowed_published(self):
         request = self.get_request()
-        if DJANGO_5_1:
-            self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1"))
-        else:
-            self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1", request=request))
+        self.assertTrue(self.admin_class.lookup_allowed("site__exact", "1", request=request))
 
 
 class PluginPermissionTests(AdminTestsBase):
@@ -733,15 +725,10 @@ class AdminFormsTests(AdminTestsBase):
             # Invalid parent
             endpoint = self.get_page_add_uri("en")
             response = self.client.post(endpoint, new_page_data)
-            if DJANGO_5_1:
-                expected_error = (
-                    '<ul class="errorlist">' "<li>Site doesn&#39;t match the parent&#39;s page site</li></ul>"
-                )
-            else:
-                expected_error = (
-                    '<ul class="errorlist" id="id_parent_page_error">'
-                    "<li>Site doesn&#x27;t match the parent&#x27;s page site</li></ul>"
-                )
+            expected_error = (
+                '<ul class="errorlist" id="id_parent_page_error">'
+                "<li>Site doesn&#x27;t match the parent&#x27;s page site</li></ul>"
+            )
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, expected_error, html=True)
 
@@ -760,15 +747,10 @@ class AdminFormsTests(AdminTestsBase):
         with self.login_user_context(superuser):
             # Invalid parent
             response = self.client.post(endpoint, new_page_data)
-            if DJANGO_5_1:
-                expected_error = (
-                    '<ul class="errorlist">' "<li>Site doesn&#39;t match the parent&#39;s page site</li></ul>"
-                )
-            else:
-                expected_error = (
-                    '<ul class="errorlist" id="id_parent_page_error">'
-                    "<li>Site doesn&#x27;t match the parent&#x27;s page site</li></ul>"
-                )
+            expected_error = (
+                '<ul class="errorlist" id="id_parent_page_error">'
+                "<li>Site doesn&#x27;t match the parent&#x27;s page site</li></ul>"
+            )
 
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, expected_error, html=True)
@@ -782,16 +764,10 @@ class AdminFormsTests(AdminTestsBase):
             with self.login_user_context(superuser):
                 # Invalid slug
                 response = self.client.post(endpoint, new_page_data)
-                if DJANGO_5_1:
-                    expected_error = (
-                        '<ul class="errorlist"><li>Enter a valid “slug” consisting of letters, numbers, '
-                        "underscores or hyphens.</li></ul>"
-                    )
-                else:
-                    expected_error = (
-                        '<ul class="errorlist" id="id_slug_error"><li>Enter a valid “slug” consisting of '
-                        "letters, numbers, underscores or hyphens.</li></ul>"
-                    )
+                expected_error = (
+                    '<ul class="errorlist" id="id_slug_error"><li>Enter a valid “slug” consisting of '
+                    "letters, numbers, underscores or hyphens.</li></ul>"
+                )
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected_error, html=True)
@@ -805,18 +781,11 @@ class AdminFormsTests(AdminTestsBase):
         with self.login_user_context(superuser):
             with self.subTest("Duplicate slug / path"):
                 response = self.client.post(endpoint, new_page_data)
-                if DJANGO_5_1:
-                    expected_error = (
-                        '<ul class="errorlist"><li>Page '
-                        '<a href="{}" target="_blank">test</a> '
-                        "has the same url 'test' as current page.</li></ul>"
-                    ).format(self.get_page_change_uri("en", page2))
-                else:
-                    expected_error = (
-                        '<ul class="errorlist" id="id_slug_error"><li>Page '
-                        '<a href="{}" target="_blank">test</a> '
-                        "has the same url 'test' as current page.</li></ul>"
-                    ).format(self.get_page_change_uri("en", page2))
+                expected_error = (
+                    '<ul class="errorlist" id="id_slug_error"><li>Page '
+                    '<a href="{}" target="_blank">test</a> '
+                    "has the same url 'test' as current page.</li></ul>"
+                ).format(self.get_page_change_uri("en", page2))
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected_error, html=True)
@@ -869,6 +838,125 @@ class AdminFormsTests(AdminTestsBase):
             # Make sure no change was made
             self.assertEqual(page.application_urls, None)
 
+    @override_settings(CMS_PERMISSION=True)
+    def test_advanced_settings_endpoint_permissions(self):
+        """
+        Test that the advanced settings endpoint respects various permission levels
+        """
+        admin_user = self.get_superuser()
+        staff_user = self._get_staff_user(use_global_permissions=False)
+        page = create_page("Page 1", "nav_playground.html", "en", created_by=admin_user)
+        path = admin_reverse("cms_page_advanced", args=(page.pk,))
+
+        # Test with no permissions
+        with self.login_user_context(staff_user):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 403)
+
+        # Test with change permission only (no advanced settings permission)
+        gpp = GlobalPagePermission.objects.create(
+            user=staff_user,
+            can_change=True,
+            can_change_advanced_settings=False,
+        )
+        gpp.sites.set(Site.objects.all())
+
+        with self.login_user_context(staff_user):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 403)
+
+        # Test with advanced settings permission only
+        gpp.can_change = False
+        gpp.can_change_advanced_settings = True
+        gpp.save()
+
+        with self.login_user_context(staff_user):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 403)
+
+        # Test with both permissions
+        gpp.can_change = True
+        gpp.can_change_advanced_settings = True
+        gpp.save()
+
+        with self.login_user_context(staff_user):
+            response = self.client.get(path)
+            # Check that advanced settings fields are present
+            self.assertContains(response, 'name="reverse_id"')
+            self.assertContains(response, 'name="application_urls"')
+
+        # Test with permissions change permission only
+        gpp.can_change_advanced_settings = False
+        gpp.can_change_permissions = True
+        gpp.save()
+        # Ensure no advanced settings fields are shown without proper permissions
+        with self.login_user_context(staff_user):
+            response = self.client.get(path)
+            self.assertNotContains(response, 'name="reverse_id"')
+            self.assertNotContains(response, 'name="application_urls"')
+
+    def test_advanced_settings_toolbar_entry(self):
+        """
+        Test that the advanced settings toolbar entry is only shown to users with appropriate permissions
+        and offers the correct content
+        """
+        admin_user = self.get_superuser()
+        staff_user = self._get_staff_user(use_global_permissions=False)
+        page = create_page("Test Page", "nav_playground.html", "en", created_by=admin_user)
+        page_url = get_object_edit_url(page.get_admin_content("en"))
+        advanced_settings_url = admin_reverse("cms_page_advanced", args=(page.pk,))
+
+        snippet = """
+<li class="{} ">
+    <a {}href="{}?language=en" data-rel="modal" data-on-close="REFRESH_PAGE">
+        <span>Advanced settings...<span class="cms-icon cms-icon-arrow"></span></span>
+    </a>
+</li>"""
+        disabled_snippet = snippet.format("cms-toolbar-item-navigation-disabled", 'tabindex="-1" ', advanced_settings_url)
+        enabled_snippet = snippet.format("", "", advanced_settings_url)
+
+        # Test with admin user - should see advanced settings
+        with self.login_user_context(admin_user):
+            response = self.client.get(page_url)
+            self.assertEqual(response.status_code, 200)
+            # Check for advanced settings in toolbar
+            self.assertContains(response, enabled_snippet, html=True)
+
+        # Test with staff user with no permissions
+        with self.login_user_context(staff_user):
+            response = self.client.get(page_url)
+            # Should not contain advanced settings link
+            self.assertContains(response, disabled_snippet, html=True)
+
+        # Test with change permission but no advanced settings permission
+        gpp = GlobalPagePermission.objects.create(
+            user=staff_user,
+            can_change_permissions=True,
+            can_change_advanced_settings=False,
+        )
+        gpp.sites.set(Site.objects.all())
+
+        with self.login_user_context(staff_user):
+            response = self.client.get(page_url)
+            self.assertContains(response, enabled_snippet, html=True)
+
+        # Test with permissions change permissions only
+        gpp.can_change_permissions = False
+        gpp.can_change_advanced_settings = True
+        gpp.save()
+
+        with self.login_user_context(staff_user):
+            response = self.client.get(page_url)
+            self.assertContains(response, enabled_snippet, html=True)
+
+    def test_advanced_settings_returns_404(self):
+        invalid_page_pk = 0
+        path = admin_reverse("cms_page_advanced", args=(invalid_page_pk,))
+
+        with self.login_user_context(self.get_superuser()):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 404)
+
     def test_render_edit_mode(self):
         from django.core.cache import cache
 
@@ -885,7 +973,6 @@ class AdminFormsTests(AdminTestsBase):
         with self.login_user_context(user):
             output = force_str(self.client.get("/en/").content)
             self.assertIn("<b>Test</b>", output)
-            self.assertEqual(StaticPlaceholder.objects.count(), 2)
             for placeholder in homepage.get_placeholders("en"):
                 add_plugin(placeholder, TextPlugin, "en", body="<b>Test</b>")
             output = force_str(self.client.get("/en/").content)
@@ -1289,7 +1376,7 @@ class AdminPageTreeTests(AdminTestsBase):
         admin_user, staff = self._get_guys()
         pagecontent_admin = self.pagecontent_admin_class
 
-        languages = get_language_list()  # Run through all languages
+        languages = get_language_list(site_id=settings.SITE_ID)  # Run through all languages
         url = admin_reverse("cms_pagecontent_changelist")
         add_url = admin_reverse("cms_pagecontent_add")  # "Add page" button
         self.assertIn("/en/", add_url + "?language=en")  # English admin (default in tests)
@@ -1301,7 +1388,7 @@ class AdminPageTreeTests(AdminTestsBase):
             for language in languages:  # Now check all language with the languages selector defined
                 request = self.get_request(path=f"{url}?language={language}")  # Language of the page tree
                 response = pagecontent_admin.changelist_view(request)
-                self.assertContains(response, f'href="{add_url}?language={language}"')
+                self.assertContains(response, f'href="{add_url}?language={language}&amp;site=1"')
 
             # Create pages in all languages
             page = {}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tdda
-Version: 3.2.3
+Version: 3.3.0
 Summary: Test-driven data analysis: command-line tools and Python APIs for data validation, testing analytical pipelines, automatic test generation and more.
 Home-page: http://www.stochasticsolutions.com
 Download-URL: https://github.com/tdda/tdda

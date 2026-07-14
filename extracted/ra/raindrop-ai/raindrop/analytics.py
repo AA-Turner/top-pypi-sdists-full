@@ -3,8 +3,10 @@ import time
 import threading
 import os
 import base64
+import io
 import math
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
+from itertools import groupby
 from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union
 import requests
 from datetime import datetime, timezone
@@ -16,6 +18,7 @@ from pydantic import ValidationError
 from threading import Timer
 from raindrop.version import VERSION
 from raindrop.models import (
+    TrackEvent,
     TrackAIEvent,
     Attachment,
     SignalEvent,
@@ -64,6 +67,7 @@ __all__ = [
     "set_redact_pii",
     "init",
     "identify",
+    "track",
     "track_ai",
     "track_signal",
     "begin",
@@ -377,6 +381,17 @@ def start_flush_thread(state: Optional[RaindropState] = None) -> None:
 
 def flush_loop(state: Optional[RaindropState] = None) -> None:
     st = _resolve_state(state)
+    with st.flush_lock:
+        defer_initial_flush = any(
+            event.get("_defer_initial_flush") for event in st.buffer
+        )
+    if defer_initial_flush:
+        # Plain-track hot-path scenarios need deterministic first delivery:
+        # give consecutive enqueues one interval to coalesce before the first
+        # drain. This delays the first background flush of the state's entire
+        # buffer by upload_interval; later iterations keep the normal cadence.
+        time.sleep(st.upload_interval)
+
     while not st.shutdown_event.is_set():
         try:
             # Loop-driven flushes throttle the TRACE flush: the OTLP pipeline
@@ -417,10 +432,9 @@ def flush(
     _background: bool = False,
 ) -> None:
     st = _resolve_state(state)
-    # Retry backoff sleeps only ever run on the background flush thread
-    # (``_background=True``). An explicit caller-thread flush() gets exactly
-    # one bounded attempt per batch: a flaky or rate-limited API must never
-    # make a caller sleep through the retry schedule, which stacks per batch.
+    # Most explicit caller-thread flushes get one bounded attempt per batch.
+    # Event types that opt into durable explicit delivery use the same bounded
+    # retry policy as the background worker.
     max_attempts = None if _background else 1
 
     if st.buffer is None:
@@ -443,16 +457,32 @@ def flush(
     grouped_events = {}
     for event in current_buffer:
         endpoint = event["type"]
-        data = event["data"]
         if endpoint not in grouped_events:
             grouped_events[endpoint] = []
-        grouped_events[endpoint].append(data)
+        grouped_events[endpoint].append(event)
 
-    for endpoint, events_data in grouped_events.items():
-        for i in range(0, len(events_data), st.upload_size):
-            batch = events_data[i : i + st.upload_size]
-            logger.debug(f"Sending {len(batch)} events to {endpoint}")
-            send_request(endpoint, batch, state=st, max_attempts=max_attempts)
+    for endpoint, events in grouped_events.items():
+        policy_groups = groupby(
+            events,
+            key=lambda event: bool(event.get("_retry_on_explicit_flush")),
+        )
+        for retry_on_explicit_flush, policy_events in policy_groups:
+            events_with_policy = list(policy_events)
+            for i in range(0, len(events_with_policy), st.upload_size):
+                batch_events = events_with_policy[i : i + st.upload_size]
+                batch = [event["data"] for event in batch_events]
+                batch_max_attempts = (
+                    None
+                    if _background or retry_on_explicit_flush
+                    else max_attempts
+                )
+                logger.debug(f"Sending {len(batch)} events to {endpoint}")
+                send_request(
+                    endpoint,
+                    batch,
+                    state=st,
+                    max_attempts=batch_max_attempts,
+                )
 
     for partial_event in current_partials:
         # Serialization / PII redaction / size checks deliberately run here,
@@ -716,9 +746,9 @@ def _post_with_retries(
 
     Outside shutdown: up to ``max_attempts`` (default ``_HTTP_MAX_ATTEMPTS``)
     attempts with a short, capped backoff between them, each bounded by
-    (connect, read) timeouts. Explicit ``flush()`` callers pass
-    ``max_attempts=1`` so a caller-thread drain never sleeps in backoff;
-    retries with backoff run only on the background flush thread.
+    (connect, read) timeouts. Explicit ``flush()`` batches normally pass
+    ``max_attempts=1``; plain ``track()`` batches opt into the default bounded
+    retry schedule and may therefore sleep in backoff on the caller thread.
 
     During shutdown — checked fresh on EVERY attempt, so a shutdown that
     begins while a flush-thread POST is mid-retry takes effect immediately —
@@ -789,6 +819,13 @@ def _post_with_retries(
             # In (or after) shutdown, the remaining time is better spent on
             # other queued payloads than on retrying this one.
             if _shutdown_budget(state=st) is not None or st.shutdown_event.is_set():
+                break
+            status_code = e.response.status_code if e.response is not None else None
+            if (
+                status_code is not None
+                and 400 <= status_code < 500
+                and status_code != 429
+            ):
                 break
             if attempt < attempts - 1:
                 backoff_idx = min(attempt, len(_HTTP_RETRY_BACKOFF_SECONDS) - 1)
@@ -913,6 +950,71 @@ def identify(
     save_to_buffer({"type": "users/identify", "data": data}, state=st)
 
 
+def track(
+    user_id: str,
+    event: str,
+    event_id: Optional[str] = None,
+    timestamp: Optional[str] = None,
+    properties: Optional[Dict[str, Any]] = None,
+    convo_id: Optional[str] = None,
+    attachments: Optional[List[Attachment]] = None,
+    state: Optional[RaindropState] = None,
+) -> str | None:
+    try:
+        st = _resolve_state(state)
+        if not _check_write_key(state=st):
+            return None
+
+        event_id = event_id or str(uuid.uuid4())
+        payload = TrackEvent(
+            event_id=event_id,
+            user_id=user_id,
+            event=event,
+            timestamp=timestamp or _get_timestamp(),
+            properties=properties or {},
+            convo_id=convo_id,
+            attachments=attachments,
+        )
+        payload.properties["$context"] = _get_context()
+        if st._wizard_session is not None:
+            payload.properties["raindrop.wizardSession"] = st._wizard_session
+
+        data = payload.model_dump(mode="json")
+        if st.redact_pii:
+            data = perform_pii_redaction(data)
+
+        size = _get_size(data)
+        if size > max_ingest_size_bytes:
+            logger.warning(
+                f"[raindrop] Events larger than {max_ingest_size_bytes / (1024 * 1024)} MB may have properties truncated - "
+                f"an event of size {size / (1024 * 1024):.2f} MB was logged"
+            )
+            return None
+
+        save_to_buffer(
+            {
+                "type": "events/track",
+                "data": data,
+                "_defer_initial_flush": True,
+                "_retry_on_explicit_flush": True,
+            },
+            state=st,
+        )
+        return event_id
+    except ValidationError:
+        logger.error(
+            "[raindrop] Invalid data passed to track; event was not queued."
+        )
+        return None
+    except Exception as err:
+        logger.error(
+            "[raindrop] track failed (%s: %s); event was not queued.",
+            type(err).__name__,
+            err,
+        )
+        return None
+
+
 def track_ai(
     user_id: str,
     event: str,
@@ -958,6 +1060,7 @@ def track_ai(
         payload.properties["raindrop.wizardSession"] = st._wizard_session
 
     data = payload.model_dump(mode="json")
+    data["ai_data"] = payload.ai_data.model_dump(mode="json", exclude_none=True)
 
     # Apply PII redaction if enabled
     if st.redact_pii:
@@ -1512,6 +1615,24 @@ def begin(
 
 
 @contextmanager
+def _suppress_traceloop_banner() -> Iterator[None]:
+    """Swallow Traceloop's stdout init banner without touching tracing.
+
+    ``Traceloop.init`` unconditionally prints ``Traceloop exporting traces to
+    <url>`` via a raw ``print()`` (not the logging module), so the
+    instrumentation log filters can't catch it and it surfaces once per init.
+    Redirect stdout only for the duration of the init call so the banner is
+    hidden while tracing is fully set up. ``set_debug_logs(True)`` keeps it
+    visible for troubleshooting.
+    """
+    if debug_logs:
+        yield
+        return
+    with redirect_stdout(io.StringIO()):
+        yield
+
+
+@contextmanager
 def _temp_env(key: str, value: str) -> Iterator[None]:
     """Temporarily sets an environment variable. Hacky helper to deal with traceloop's BS"""
     orig = os.environ.get(key)
@@ -1799,7 +1920,9 @@ def _configure(
                     return
 
             try:
-                with _temp_env("TRACELOOP_METRICS_ENABLED", "false"):
+                with _temp_env(
+                    "TRACELOOP_METRICS_ENABLED", "false"
+                ), _suppress_traceloop_banner():
                     Traceloop.init(
                         api_endpoint=api_endpoint,
                         api_key=api_key,

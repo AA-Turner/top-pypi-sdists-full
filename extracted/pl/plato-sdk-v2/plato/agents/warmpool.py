@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import math
 import shlex
 import time
 from collections import deque
@@ -21,6 +23,88 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _ACQUIRE_PROVISION_ATTEMPT_LIMIT = 3
 _PROVISION_VM_ATTEMPT_LIMIT = 3
+# How long a budget acquirer waits before re-scanning sibling pools for an
+# evictable idle VM. Bounded polling avoids a lost-wakeup deadlock when an idle
+# VM appears between a failed eviction scan and the condition wait.
+_BUDGET_WAIT_RETRY_S = 1.0
+
+
+class AgentVMBudget:
+    """Session-wide cap on LIVE agent VMs across every warm pool of a world.
+
+    ``WarmPool.max_size`` bounds each pool individually, but a world that fans
+    out through several pools (one :class:`AgentExecutionManager` per
+    agent-config/primary-mount shape) can retain idle VMs in one pool while
+    another provisions — the SUM of live VMs can then blow past the session's
+    ~40-env limit even though each pool respects its own ``max_parallel``.
+
+    Pools constructed with a shared budget acquire one token per provisioned VM
+    and release it when the VM is destroyed. When the budget is exhausted, an
+    acquirer evicts the least-recently-used IDLE VM from any registered pool
+    (destroying it frees its token) instead of over-provisioning; if no VM is
+    idle it waits for one to be released.
+    """
+
+    def __init__(self, max_vms: int) -> None:
+        if max_vms < 1:
+            raise ValueError("max_vms must be at least 1")
+        self.max_vms = max_vms
+        self._live = 0
+        self._condition = asyncio.Condition()
+        self._pools: list[WarmPool] = []
+
+    @property
+    def live(self) -> int:
+        """Number of live (idle + in-use + stopping) VMs holding a token."""
+        return self._live
+
+    def register_pool(self, pool: WarmPool) -> None:
+        """Track a pool so its idle VMs are candidates for cross-pool eviction."""
+        if pool not in self._pools:
+            self._pools.append(pool)
+
+    async def acquire(self) -> None:
+        """Reserve one live-VM slot, evicting an idle sibling VM when full."""
+        while True:
+            async with self._condition:
+                if self._live < self.max_vms:
+                    self._live += 1
+                    return
+            if await self._evict_lru_idle_vm():
+                continue
+            async with self._condition:
+                if self._live < self.max_vms:
+                    continue
+                # Bounded wait: notify_idle()/release() wake us early, the
+                # timeout guards against wakeups lost between the eviction
+                # scan above and this wait.
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._condition.wait(), timeout=_BUDGET_WAIT_RETRY_S)
+
+    async def release(self) -> None:
+        """Return one live-VM slot (called when a VM is destroyed)."""
+        async with self._condition:
+            if self._live > 0:
+                self._live -= 1
+            self._condition.notify_all()
+
+    async def notify_idle(self) -> None:
+        """Wake budget waiters so they can retry idle-VM eviction."""
+        async with self._condition:
+            self._condition.notify_all()
+
+    async def _evict_lru_idle_vm(self) -> bool:
+        """Destroy the least-recently-used idle VM across all pools, if any."""
+        best_pool: WarmPool | None = None
+        best_last_used = math.inf
+        for pool in self._pools:
+            last_used = pool.oldest_idle_last_used()
+            if last_used is not None and last_used < best_last_used:
+                best_last_used = last_used
+                best_pool = pool
+        if best_pool is None:
+            return False
+        return await best_pool.evict_oldest_idle_vm()
 
 
 @dataclass(slots=True)
@@ -35,6 +119,8 @@ class PooledVM:
     last_used_at: float
     use_count: int
     healthy: bool = True
+    # True while this VM holds a token in the pool's shared AgentVMBudget.
+    holds_budget_token: bool = False
 
 
 class WarmPool:
@@ -57,6 +143,7 @@ class WarmPool:
         health_check_attempts: int = 3,
         reset_attempts: int = 3,
         vm_timeout: int | None = None,
+        vm_budget: AgentVMBudget | None = None,
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
@@ -76,6 +163,9 @@ class WarmPool:
         self.health_check_attempts = health_check_attempts
         self.reset_attempts = reset_attempts
         self._vm_timeout = vm_timeout
+        self._vm_budget = vm_budget
+        if vm_budget is not None:
+            vm_budget.register_pool(self)
 
         self._available: deque[PooledVM] = deque()
         self._in_use: dict[str, PooledVM] = {}
@@ -172,6 +262,9 @@ class WarmPool:
 
         if destroy_now:
             await self._destroy_vm(pooled_vm)
+        elif self._vm_budget is not None:
+            # An idle VM just became evictable — wake budget waiters.
+            await self._vm_budget.notify_idle()
 
     async def pre_warm(self) -> None:
         """Provision the configured number of warm VMs ahead of time."""
@@ -187,7 +280,17 @@ class WarmPool:
         if needed <= 0:
             return
 
-        results = await asyncio.gather(*(self._provision_vm() for _ in range(needed)), return_exceptions=True)
+        # Task-based (not bare gather) so cancellation of pre_warm itself can
+        # still harvest completed children: a cancelled gather abandons
+        # already-provisioned VMs (alive, holding budget tokens, unregistered)
+        # and skips the _provisioning decrement — permanently deflating pool
+        # capacity and deadlocking acquirers waiting on the condition.
+        tasks = [asyncio.create_task(self._provision_vm_budgeted()) for _ in range(needed)]
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        except BaseException:
+            await asyncio.shield(self._abort_pre_warm(tasks, needed))
+            raise
 
         provisioned: list[PooledVM] = []
         failures = 0
@@ -208,6 +311,19 @@ class WarmPool:
 
         if self._closed:
             await asyncio.gather(*(self._destroy_vm(vm) for vm in provisioned), return_exceptions=True)
+
+    async def _abort_pre_warm(self, tasks: list[asyncio.Task], needed: int) -> None:
+        """Cancelled mid-pre-warm: return slots, destroy harvested VMs."""
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        async with self._condition:
+            self._provisioning -= needed
+            self._condition.notify_all()
+        doomed = [r for r in results if isinstance(r, PooledVM)]
+        if doomed:
+            await asyncio.gather(*(self._destroy_vm(vm) for vm in doomed), return_exceptions=True)
 
     async def shutdown(self) -> None:
         """Destroy every VM managed by the pool."""
@@ -257,7 +373,7 @@ class WarmPool:
                     continue
 
             try:
-                pooled_vm = await self._provision_vm()
+                pooled_vm = await self._provision_vm_budgeted()
             except Exception as exc:
                 async with self._condition:
                     self._provisioning -= 1
@@ -275,21 +391,82 @@ class WarmPool:
                 )
                 await asyncio.sleep(delay)
                 continue
-
-            async with self._condition:
-                self._provisioning -= 1
-                if self._closed:
-                    destroy_now = True
-                else:
-                    self._all_vms[pooled_vm.alias] = pooled_vm
-                    self._in_use[pooled_vm.alias] = pooled_vm
+            except BaseException:
+                # Cancelled while waiting on the budget or mid-provision: the
+                # reserved local slot must be returned or the pool's capacity
+                # shrinks permanently.
+                async with self._condition:
+                    self._provisioning -= 1
                     self._condition.notify_all()
-                    destroy_now = False
+                raise
+
+            try:
+                async with self._condition:
+                    self._provisioning -= 1
+                    if self._closed:
+                        destroy_now = True
+                    else:
+                        self._all_vms[pooled_vm.alias] = pooled_vm
+                        self._in_use[pooled_vm.alias] = pooled_vm
+                        self._condition.notify_all()
+                        destroy_now = False
+            except BaseException:
+                # Cancelled between a successful provision and registration
+                # (`async with` is an await point): without cleanup the fresh
+                # VM stays alive untracked, its AgentVMBudget token is never
+                # returned, and _provisioning never decrements — the pool and
+                # the session env cap shrink permanently. Shielded so a second
+                # cancellation cannot abandon the teardown mid-flight.
+                await asyncio.shield(self._cleanup_unregistered_vm(pooled_vm))
+                raise
 
             if destroy_now:
                 await self._destroy_vm(pooled_vm)
                 raise RuntimeError("WarmPool was shut down during provisioning")
             return pooled_vm
+
+    async def _cleanup_unregistered_vm(self, pooled_vm: PooledVM) -> None:
+        """Teardown for a provisioned-but-never-registered VM (cancel race).
+
+        The VM was never added to ``_all_vms``/``_in_use``, so only the
+        provisioning counter and the VM itself (plus its budget token, released
+        by ``_destroy_vm``) need cleaning up.
+        """
+        async with self._condition:
+            self._provisioning -= 1
+            self._condition.notify_all()
+        with contextlib.suppress(Exception):
+            await self._destroy_vm(pooled_vm)
+
+    async def _provision_vm_budgeted(self) -> PooledVM:
+        """Provision one VM, holding a global live-VM budget token when configured."""
+        if self._vm_budget is None:
+            return await self._provision_vm()
+        await self._vm_budget.acquire()
+        try:
+            pooled_vm = await self._provision_vm()
+        except BaseException:
+            await self._vm_budget.release()
+            raise
+        pooled_vm.holds_budget_token = True
+        return pooled_vm
+
+    def oldest_idle_last_used(self) -> float | None:
+        """``last_used_at`` of the least-recently-used idle VM, or None."""
+        if not self._available:
+            return None
+        return min(vm.last_used_at for vm in self._available)
+
+    async def evict_oldest_idle_vm(self) -> bool:
+        """Destroy the LRU idle VM to free global budget; False when none idle."""
+        async with self._condition:
+            if not self._available:
+                return False
+            lru = min(self._available, key=lambda vm: vm.last_used_at)
+            self._available = deque(vm for vm in self._available if vm.alias != lru.alias)
+        logger.info("Warm pool: evicting idle VM %s to free the shared agent-VM budget", lru.alias)
+        await self._destroy_vm(lru)
+        return True
 
     async def _mark_not_in_use(self, alias: str) -> None:
         async with self._condition:
@@ -312,6 +489,12 @@ class WarmPool:
             await pooled_vm.vm_runtime.stop(pooled_vm.runtime_info.runtime_id)
         except Exception as exc:
             logger.warning("Failed to destroy pooled VM %s: %s", pooled_vm.alias, exc)
+        finally:
+            # Release the shared budget token exactly once per VM, and only
+            # after the backend env is actually gone.
+            if pooled_vm.holds_budget_token and self._vm_budget is not None:
+                pooled_vm.holds_budget_token = False
+                await self._vm_budget.release()
 
     def _schedule_replenish(self) -> None:
         if self._closed or self._pre_warm_target <= 0:

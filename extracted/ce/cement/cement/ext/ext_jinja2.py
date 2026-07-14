@@ -11,15 +11,16 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
-from typing import Any, Optional, Dict, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from jinja2 import Environment, FileSystemLoader, PackageLoader
+
 from ..core.output import OutputHandler
 from ..core.template import TemplateHandler
 from ..utils.misc import minimal_logger
-from jinja2 import Environment, FileSystemLoader, PackageLoader
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -46,14 +47,14 @@ class Jinja2OutputHandler(OutputHandler):
         label = 'jinja2'
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(Jinja2OutputHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.templater: TemplateHandler = None  # type: ignore
 
-    def _setup(self, app: App) -> None:
-        super(Jinja2OutputHandler, self)._setup(app)
+    def _setup(self, app: "App") -> None:
+        super()._setup(app)
         self.templater = self.app.handler.resolve('template', self._meta.label, setup=True)  # type: ignore
 
-    def render(self, data: Dict[str, Any], template: str = None, **kw: Any) -> str:  # type: ignore
+    def render(self, data: dict[str, Any], template: str = None, **kw: Any) -> str:  # type: ignore
         """
         Take a data dictionary and render it using the given template file.
         Additional keyword arguments are ignored.
@@ -94,13 +95,13 @@ class Jinja2TemplateHandler(TemplateHandler):
         label = 'jinja2'
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(Jinja2TemplateHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
 
         # expose Jinja2 Environment instance so that we can manipulate it
         # higher in application code if necessary
         self.env = Environment(keep_trailing_newline=True)
 
-    def load(self, *args: Any, **kw: Any) -> Tuple[Union[str, bytes], str, Optional[str]]:
+    def load(self, *args: Any, **kw: Any) -> tuple[str | bytes, str, str | None]:
         """
         Loads a template file first from ``self.app._meta.template_dirs`` and
         secondly from ``self.app._meta.template_module``.  The
@@ -120,7 +121,7 @@ class Jinja2TemplateHandler(TemplateHandler):
             cement.core.exc.FrameworkError: If the template does not exist in
                 either the ``template_module`` or ``template_dirs``.
         """
-        content, _type, _path = super(Jinja2TemplateHandler, self).load(*args, **kw)
+        content, _type, _path = super().load(*args, **kw)
 
         if _type == 'directory':
             self.env.loader = FileSystemLoader(self.app._meta.template_dirs)
@@ -131,8 +132,8 @@ class Jinja2TemplateHandler(TemplateHandler):
         return content, _type, _path
 
     def render(self,
-               content: Union[str, bytes],
-               data: Dict[str, Any],
+               content: str | bytes,
+               data: dict[str, Any],
                *args: Any,
                **kw: Any) -> str:
         """
@@ -156,6 +157,6 @@ class Jinja2TemplateHandler(TemplateHandler):
         return res
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(Jinja2OutputHandler)
     app.handler.register(Jinja2TemplateHandler)

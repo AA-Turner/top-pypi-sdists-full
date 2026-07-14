@@ -60,6 +60,7 @@
 #include "old-code/test_old_permuted_dense.h"
 #include "problem/test_param_broadcast.h"
 #include "problem/test_param_prob.h"
+#include "problem/test_param_source_refresh.h"
 #include "problem/test_problem.h"
 #include "utils/test_COO_matrix.h"
 #include "utils/test_alloc_overflow.h"
@@ -384,8 +385,12 @@ int main(void)
     mu_run_test(test_block_left_multiply_single_block, tests_run);
     mu_run_test(test_block_left_multiply_two_blocks, tests_run);
     mu_run_test(test_block_left_multiply_zero_column, tests_run);
+    mu_run_test(test_block_left_multiply_dedup_order, tests_run);
+    mu_run_test(test_block_left_multiply_matches_reference_random, tests_run);
     mu_run_test(test_csr_csc_matmul_alloc_basic, tests_run);
     mu_run_test(test_csr_csc_matmul_alloc_sparse, tests_run);
+    mu_run_test(test_csr_csc_matmul_alloc_dedup_order, tests_run);
+    mu_run_test(test_csr_csc_matmul_alloc_matches_reference_random, tests_run);
     mu_run_test(test_block_left_multiply_vec_single_block, tests_run);
     mu_run_test(test_block_left_multiply_vec_two_blocks, tests_run);
     mu_run_test(test_block_left_multiply_vec_sparse, tests_run);
@@ -545,6 +550,12 @@ int main(void)
     mu_run_test(test_param_fixed_skip_in_update, tests_run);
     mu_run_test(test_param_scalar_mult_problem_with_constant, tests_run);
     mu_run_test(test_param_convolve_problem, tests_run);
+
+    printf("\n--- Composite param_source Refresh Tests ---\n");
+    mu_run_test(test_composite_source_left_matmul, tests_run);
+    mu_run_test(test_composite_source_quad_form, tests_run);
+    mu_run_test(test_composite_source_nested_gates, tests_run);
+    mu_run_test(test_composite_source_kron, tests_run);
 
     printf("\n--- Parameter + Broadcast Tests ---\n");
     mu_run_test(test_constant_broadcast_vector_mult, tests_run);

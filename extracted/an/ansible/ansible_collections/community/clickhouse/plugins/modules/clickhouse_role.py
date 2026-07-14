@@ -21,10 +21,6 @@ attributes:
   check_mode:
     description: Supports check_mode.
     support: full
-  idempotent:
-    support: full
-    description:
-      - O(settings) can break idempotency when the deprecated C(list) format is used. Use the dictionary format instead.
 
 version_added: '0.5.0'
 
@@ -32,7 +28,6 @@ author:
   - Don Naro (@oranod)
   - Aleksandr Vagachev (@aleksvagachev)
   - Andrew Klychkov (@Andersson007)
-  - Rafal Kozlowski (@rkozlo)
 
 extends_documentation_fragment:
   - community.clickhouse.client_inst_opts
@@ -59,17 +54,9 @@ options:
   settings:
     description:
       - Settings with their limitations that apply to the role.
-      - Can pass either list(obsolete) or dictionary.
-      - You can also specify the profile from which the settings will be inherited C(list).
-    type: raw
-  profiles:
-    version_added: 2.2.0
-    description:
-      - Settings profiles that will be applied to role.
-      - Can be only used with O(settings) as C(dict).
+      - You can also specify the profile from which the settings will be inherited.
     type: list
     elements: str
-    default: []
 """
 
 EXAMPLES = r"""
@@ -83,27 +70,8 @@ EXAMPLES = r"""
     name: test_role
     state: present
     settings:
-      max_memory_usage:
-        value: 15000
-        min: 15000
-        max: 16000
-        writability: readonly
-    profiles:
-      - restricted
-    cluster: test_cluster
-
-- name: Create a role with settings and profiles
-  community.clickhouse.clickhouse_role:
-    name: test_role
-    state: present
-    settings:
-      max_memory_usage:
-        value: 15000
-        min: 15000
-        max: 16000
-        writability: readonly
-    profiles:
-      - restricted
+      - max_memory_usage = 15000 MIN 15000 MAX 16000 READONLY
+      - PROFILE restricted
     cluster: test_cluster
 
 - name: Remove role
@@ -132,7 +100,7 @@ from ansible_collections.community.clickhouse.plugins.module_utils.clickhouse im
     execute_query,
     get_main_conn_kwargs,
 )
-from ansible_collections.community.clickhouse.plugins.module_utils.entity_settings import EntitySettings
+
 executed_statements = []
 
 
@@ -141,7 +109,6 @@ class ClickHouseRole:
         self.module = module
         self.client = client
         self.name = name
-        self.settings = EntitySettings(self.module, self.client, self.name, 'role')
         self.exists = self.check_exists()
 
     def check_exists(self):
@@ -253,17 +220,13 @@ class ClickHouseRole:
             if self.module.params['cluster']:
                 query += " ON CLUSTER %s" % self.module.params['cluster']
 
-            if isinstance(self.module.params['settings'], list):
-                list_settings = self.module.params['settings']
-                if list_settings:
-                    query += " SETTINGS"
-                    for index, value in enumerate(list_settings):
-                        query += " %s" % value
-                        if index < len(list_settings) - 1:
-                            query += ","
-            elif isinstance(self.module.params['settings'], dict) or self.module.params['profiles']:
-                settings_entity = self.settings.compare_and_build_clause(self.module.params['settings'], self.module.params['profiles'])
-                query += settings_entity[1]
+            list_settings = self.module.params['settings']
+            if list_settings:
+                query += " SETTINGS"
+                for index, value in enumerate(list_settings):
+                    query += " %s" % value
+                    if index < len(list_settings) - 1:
+                        query += ","
 
             executed_statements.append(query)
 
@@ -275,30 +238,24 @@ class ClickHouseRole:
         else:
             return False
 
-    def alter(self, settings, profiles, cluster):
+    def alter(self, settings):
         """Update role settings using ALTER ROLE"""
         if not self.exists:
             return False
 
         query = "ALTER ROLE %s" % self.name
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        if self.module.params['cluster']:
+            query += " ON CLUSTER %s" % self.module.params['cluster']
 
-        if isinstance(settings, list):
-            # Handle settings updates
-            if settings is not None and len(settings) > 0:
-                # Set these settings
-                query += " SETTINGS"
-                for index, value in enumerate(settings):
-                    query += " %s" % value
-                    if index < len(settings) - 1:
-                        query += ","
-        elif isinstance(settings, dict) or (settings is None and profiles):
-            settings_entity = self.settings.compare_and_build_clause(settings, profiles)
-            if settings_entity[0] is False:
-                return False
-            query += settings_entity[1]
+        # Handle settings updates
+        if settings is not None and len(settings) > 0:
+            # Set these settings
+            query += " SETTINGS"
+            for index, value in enumerate(settings):
+                query += " %s" % value
+                if index < len(settings) - 1:
+                    query += ","
 
         executed_statements.append(query)
 
@@ -331,8 +288,7 @@ def main():
         state=dict(type="str", choices=["present", "absent"], default="present"),
         name=dict(type="str", required=True),
         cluster=dict(type='str', default=None),
-        settings=dict(type='raw'),
-        profiles=dict(type='list', elements='str', default=[])
+        settings=dict(type='list', elements='str'),
     )
 
     # Instantiate an object of module class
@@ -350,9 +306,6 @@ def main():
     main_conn_kwargs = get_main_conn_kwargs(module)
     state = module.params["state"]
     name = module.params["name"]
-    settings = module.params["settings"]
-    profiles = module.params["profiles"]
-    cluster = module.params["cluster"]
 
     # Will fail if no driver informing the user
     check_clickhouse_driver(module)
@@ -371,16 +324,12 @@ def main():
             changed = role.create()
         else:
             # Role exists, check if settings need to be updated
-            if isinstance(desired_settings, list):
-                if desired_settings is not None and len(desired_settings) > 0:  # Only check settings if they are specified and not empty
-                    current_definition = role.get_current_role_definition()
-                    current_settings = role.parse_settings_from_create_statement(current_definition) if current_definition else []
+            if desired_settings is not None and len(desired_settings) > 0:  # Only check settings if they are specified and not empty
+                current_definition = role.get_current_role_definition()
+                current_settings = role.parse_settings_from_create_statement(current_definition) if current_definition else []
 
-                    if role.settings_changed(current_settings, desired_settings):
-                        changed = role.alter(desired_settings, profiles, cluster)
-            # No need to check settings in new settings parameter
-            elif isinstance(settings, dict) or profiles:
-                changed = role.alter(desired_settings, profiles, cluster)
+                if role.settings_changed(current_settings, desired_settings):
+                    changed = role.alter(desired_settings)
     else:
         # If state is absent
         if role.exists:

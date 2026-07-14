@@ -1,13 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: resend
-Version: 2.32.2
+Version: 2.33.0
 Summary: Resend Python SDK
 Home-page: https://github.com/resendlabs/resend-python
 Author: Derich Pacheco
 Author-email: carlosderich@gmail.com
-License: UNKNOWN
 Keywords: email,email platform
-Platform: UNKNOWN
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
@@ -19,8 +17,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: async
 License-File: LICENSE.md
+Requires-Dist: requests>=2.31.0
+Requires-Dist: typing_extensions>=4.4.0
+Provides-Extra: async
+Requires-Dist: httpx>=0.24.0; extra == "async"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Resend Python SDK
 
@@ -121,5 +134,3 @@ import resend
 resend.api_key = "re_yourkey"
 resend.default_async_http_client = resend.HTTPXClient(timeout=60)
 ```
-
-

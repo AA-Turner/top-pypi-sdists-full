@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "crawlee"
-version = "1.8.1"
+version = "1.8.2"
 description = "Crawlee for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -61,7 +61,14 @@ adaptive-crawler = [
 ]
 pydantic-ai = ["pydantic-ai-slim[openai]>=2.1.0", "parsel>=1.10.0", "lxml[html_clean]>=5.2.0"]
 beautifulsoup = ["beautifulsoup4[lxml]>=4.12.0", "html5lib>=1.0"]
-cli = ["cookiecutter>=2.6.0", "inquirer>=3.3.0", "rich>=13.9.0", "typer>=0.12.0"]
+cli = [
+    "cookiecutter>=2.6.0",
+    "inquirer>=3.3.0",
+    "rich>=13.9.0",
+    # Pinned below 0.26, which breaks our `click.Choice` CLI options.
+    # See https://github.com/apify/crawlee-python/issues/2063.
+    "typer>=0.12.0,<0.26",
+]
 curl-impersonate = ["curl-cffi>=0.9.0"]
 httpx = ["httpx[brotli,http2,zstd]>=0.27.0", "apify_fingerprint_datapoints>=0.0.2", "browserforge>=1.2.3"]
 parsel = ["parsel>=1.10.0"]
@@ -117,9 +124,10 @@ dev = [
     # We explicitly constrain black>=24.3.0 to override the transitive dependency.
     "black>=24.3.0",
     "anyio<5.0.0",
-    "apify_client", # For e2e tests.
+    # Pin below 3.0, which drops Python 3.10 support and introduces a breaking API. Once Crawlee
+    # drops Python 3.10 (https://github.com/apify/crawlee-python/issues/1721), remove this constraint.
+    "apify_client<3.0.0", # For e2e tests.
     "build<2.0.0", # For e2e tests.
-    "dycw-pytest-only<3.0.0",
     "fakeredis[probabilistic,json,lua]<3.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
@@ -157,7 +165,13 @@ only-include = [
 
 [tool.ruff]
 line-length = 120
-include = ["src/**/*.py", "tests/**/*.py", "docs/**/*.py", "website/**/*.py"]
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+    "scripts/**/*.py",
+    "docs/**/*.py",
+    "website/**/*.py",
+]
 exclude = [
     "website/versioned_docs/**",
 ]
@@ -205,6 +219,12 @@ indent-style = "space"
 "**/__init__.py" = [
     "F401", # Unused imports
 ]
+"**/{scripts}/*" = [
+    "D",       # Everything from the pydocstyle
+    "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+    "T20",     # flake8-print
+]
 "**/{tests}/*" = [
     "ASYNC230", # Async functions should not open files with blocking methods like `open`
     "D",       # Everything from the pydocstyle
@@ -230,6 +250,10 @@ indent-style = "space"
 ]
 "**/docs/guides/code_examples/creating_web_archive/*.*" = [
     "ASYNC230", # Ignore for simplicity of the example.
+]
+"**/docs/guides/code_examples/scrapy_migration/scrapy_*.py" = [
+    "ANN",    # Idiomatic Scrapy tutorial snippets are untyped; shown for comparison, not executed.
+    "RUF012", # Scrapy declares `start_urls` as a plain class-level list.
 ]
 
 [tool.ruff.lint.flake8-quotes]

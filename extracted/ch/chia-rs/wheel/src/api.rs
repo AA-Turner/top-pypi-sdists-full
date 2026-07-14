@@ -5,6 +5,7 @@ use crate::run_generator::{
 };
 use chia_consensus::allocator::make_allocator;
 use chia_consensus::build_compressed_block::BlockBuilder;
+use chia_consensus::build_interned_block::InternedBlockBuilder;
 use chia_consensus::check_time_locks::py_check_time_locks;
 use chia_consensus::consensus_constants::ConsensusConstants;
 use chia_consensus::flags::{ConsensusFlags, MEMPOOL_MODE};
@@ -155,6 +156,21 @@ fn compute_plot_id_v2(
         pool_contract.as_ref(),
         plot_index,
         meta_group,
+    )
+}
+
+#[pyfunction]
+fn compute_plot_group_id_v2(
+    strength: u8,
+    plot_pk: G1Element,
+    pool_pk: Option<G1Element>,
+    pool_contract: Option<Bytes32>,
+) -> Bytes32 {
+    chia_protocol::compute_plot_group_id_v2(
+        strength,
+        &plot_pk,
+        pool_pk.as_ref(),
+        pool_contract.as_ref(),
     )
 }
 
@@ -777,6 +793,7 @@ pub fn chia_rs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fast_forward_singleton, m)?)?;
     m.add_class::<OwnedSpendBundleConditions>()?;
     m.add_class::<BlockBuilder>()?;
+    m.add_class::<InternedBlockBuilder>()?;
     m.add(
         "ELIGIBLE_FOR_DEDUP",
         chia_consensus::conditions::ELIGIBLE_FOR_DEDUP,
@@ -830,6 +847,7 @@ pub fn chia_rs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(compute_plot_id_v1, m)?)?;
     m.add_function(wrap_pyfunction!(compute_plot_id_v2, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_plot_group_id_v2, m)?)?;
 
     // flags affecting consensus
     m.add("NO_UNKNOWN_CONDS", ConsensusFlags::NO_UNKNOWN_CONDS.bits())?;

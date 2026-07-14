@@ -42,7 +42,7 @@ options:
   name:
     description:
       - The name assigned to the server profile template.
-      - The name must be between 1 and 64 alphanumeric characters, allowing special characters :-_.
+      - The name must be between 1 and 62 alphanumeric characters, allowing special characters :-_.
     type: str
     required: true
   tags:
@@ -69,6 +69,7 @@ options:
         for demanding edge AI inference and light training workloads.
     type: str
     choices: [xe9305, xe130c_m8, xe150c_m8]
+    required: true
   bios_policy:
     description:
       - Name of BIOS Policy to associate with this template.
@@ -265,7 +266,7 @@ def main():
         name=dict(type='str', required=True),
         description=dict(type='str', aliases=['descr']),
         tags=dict(type='list', elements='dict'),
-        hardware_platform=dict(type='str', choices=['xe9305', 'xe130c_m8', 'xe150c_m8']),
+        hardware_platform=dict(type='str', choices=['xe9305', 'xe130c_m8', 'xe150c_m8'], required=True),
         bios_policy=dict(type='str'),
         boot_order_policy=dict(type='str'),
         firmware_policy=dict(type='str'),
@@ -302,9 +303,6 @@ def main():
     }
 
     if module.params['state'] == 'present':
-        if not module.params.get('hardware_platform'):
-            module.fail_json(msg="hardware_platform is required when state is 'present'")
-
         intersight.set_tags_and_description()
 
         # Always set target platform to Unified Edge

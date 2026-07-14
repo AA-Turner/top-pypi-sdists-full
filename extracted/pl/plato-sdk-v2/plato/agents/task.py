@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -96,6 +97,10 @@ class AgentTask:
         self._world_runtime_info = world_runtime_info
         # Set during _run_on_runtime so exit conditions / hooks can access the agent VM
         self.runtime_info: RuntimeInfo | None = None
+        # Live-VM tracking for current_runtime_info: set alongside runtime_info
+        # but cleared when the run finishes (runtime_info intentionally persists
+        # for post-run readers).
+        self._current_runtime_info: RuntimeInfo | None = None
         # Continuation loop settings (set via with_continuation())
         self._exit_condition: Callable[[], Awaitable[bool]] | None = None
         self._max_continuations: int = 2
@@ -127,12 +132,31 @@ class AgentTask:
         self._review_compaction_instruction: str | Callable[[], str] | None = None
         # Set to True by the execution manager after a successful merge to main
         self.merged: bool = False
+        # Salvage refs: set by the execution manager when a FAILED agent's git
+        # state (committed + dirty + untracked) was best-effort captured to a
+        # discoverable hidden ref before the VM was destroyed. Read back by the
+        # workflow backend so the failure outcome records where to recover it.
+        self.salvage_ref: str | None = None
+        self.salvage_commit: str | None = None
         # Set when a review-exhaustion policy force-merges the branch.
         self.review_exhaustion_force_merged: bool = False
         # Set when the post-exhaustion merge-only loop still could not merge the
         # branch within its (generous) budget. The route is quarantined
         # (left unmerged) instead of crashing the whole session.
         self.review_exhaustion_quarantined: bool = False
+
+    @property
+    def current_runtime_info(self) -> RuntimeInfo | None:
+        """RuntimeInfo of the VM this task is executing on right now, or None.
+
+        None until the acquired VM (warm-pooled or fresh) reaches
+        ``_run_on_runtime``, and reset to None when the run on that VM
+        finishes — just before the VM is released/stopped — so mid-run
+        observers (e.g. the workflow world's agent-state pull loop) never
+        SSH to a VM that is being torn down. Unlike ``runtime_info``, which
+        persists after the run for post-run readers, this reflects liveness.
+        """
+        return self._current_runtime_info
 
     def on_prepare(self, fn: Callable[[RuntimeInfo], Awaitable[None]]) -> AgentTask:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -417,16 +441,35 @@ class AgentTask:
                 mounts=mounts,
             )
         except Exception:
-            await self._warm_pool.release(
-                pooled_runtime,
-                workspace_paths=[mount.agent_path for mount in mounts],
-                destroy=True,
+            await asyncio.shield(
+                self._warm_pool.release(
+                    pooled_runtime,
+                    workspace_paths=[mount.agent_path for mount in mounts],
+                    destroy=True,
+                )
             )
             raise
+        except BaseException:
+            # CancelledError (timeout/cancel) is not an Exception — without
+            # this handler the pooled VM stays checked out forever. Destroy
+            # it; shield the teardown against a second cancellation.
+            with contextlib.suppress(Exception):
+                await asyncio.shield(
+                    self._warm_pool.release(
+                        pooled_runtime,
+                        workspace_paths=[mount.agent_path for mount in mounts],
+                        destroy=True,
+                    )
+                )
+            raise
 
-        await self._warm_pool.release(
-            pooled_runtime,
-            workspace_paths=[mount.agent_path for mount in mounts],
+        # Shielded so a cancellation mid-release cannot leave the VM
+        # half-returned (neither idle nor destroyed).
+        await asyncio.shield(
+            self._warm_pool.release(
+                pooled_runtime,
+                workspace_paths=[mount.agent_path for mount in mounts],
+            )
         )
         return agent_id
 
@@ -472,6 +515,7 @@ class AgentTask:
         mounts: list[AgentWorkspaceMount],
     ) -> str:
         self.runtime_info = info
+        self._current_runtime_info = info
         current_display_name = display_name or self._display_name
         mounts, audited_mounts = prepare_audited_mounts(mounts)
 
@@ -718,6 +762,9 @@ class AgentTask:
                     final_error = exc
                 logger.exception("Post-run hook failed on VM %s", info.runtime_id)
             finally:
+                # The VM is about to be released/stopped by the caller —
+                # current_runtime_info must go dark before that happens.
+                self._current_runtime_info = None
                 unregister_client_context(info.runtime_id)
 
         if run_error is not None:

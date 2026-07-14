@@ -35,6 +35,7 @@ class InstrumentType(StrEnum):
     EQUITY = "Equity"
     EQUITY_OFFERING = "Equity Offering"
     EQUITY_OPTION = "Equity Option"
+    EVENT_CONTRACT = "Event Contract"
     FIXED_INCOME = "Fixed Income Security"
     FUTURE = "Future"
     FUTURE_OPTION = "Future Option"

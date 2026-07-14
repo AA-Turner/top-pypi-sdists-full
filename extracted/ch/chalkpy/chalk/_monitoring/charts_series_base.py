@@ -128,6 +128,15 @@ class SeriesBase:
         resolver_type: Optional[Union[List[ResolverType], ResolverType]] = None,
         cache_hit: Optional[bool] = None,
         is_null: Optional[bool] = None,
+        computation_context: Optional[Union[List[str], str]] = None,
+        topic_name: Optional[Union[List[str], str]] = None,
+        subscription_name: Optional[Union[List[str], str]] = None,
+        partition_name: Optional[Union[List[str], str]] = None,
+        function_name: Optional[Union[List[str], str]] = None,
+        service_kind: Optional[Union[List[str], str]] = None,
+        consumer_group: Optional[Union[List[str], str]] = None,
+        planner: Optional[Union[List[str], str]] = None,
+        plan_reason: Optional[Union[List[str], str]] = None,
         equals: bool = True,
     ) -> TSeries:
         copy = self._copy_with()
@@ -138,18 +147,25 @@ class SeriesBase:
         if resolver:
             resolver_name = [resolver] if not isinstance(resolver, list) else resolver
             copy = copy._resolver_name_filter(*resolver_name, equals=equals)
-        if feature_tag:
-            feature_tag = [feature_tag] if isinstance(feature_tag, str) else feature_tag
-            copy = copy._string_filter(*feature_tag, kind=FilterKind.FEATURE_TAG, equals=equals)
-        if resolver_tag:
-            resolver_tag = [resolver_tag] if isinstance(resolver_tag, str) else resolver_tag
-            copy = copy._string_filter(*resolver_tag, kind=FilterKind.RESOLVER_TAG, equals=equals)
-        if operation_id:
-            operation_id = [operation_id] if isinstance(operation_id, str) else operation_id
-            copy = copy._string_filter(*operation_id, kind=FilterKind.OPERATION_ID, equals=equals)
-        if query_name:
-            query_name = [query_name] if isinstance(query_name, str) else query_name
-            copy = copy._string_filter(*query_name, kind=FilterKind.QUERY_NAME, equals=equals)
+        string_filters = (
+            (FilterKind.FEATURE_TAG, feature_tag),
+            (FilterKind.RESOLVER_TAG, resolver_tag),
+            (FilterKind.OPERATION_ID, operation_id),
+            (FilterKind.QUERY_NAME, query_name),
+            (FilterKind.COMPUTATION_CONTEXT, computation_context),
+            (FilterKind.TOPIC_NAME, topic_name),
+            (FilterKind.SUBSCRIPTION_NAME, subscription_name),
+            (FilterKind.PARTITION_NAME, partition_name),
+            (FilterKind.FUNCTION_NAME, function_name),
+            (FilterKind.SERVICE_KIND, service_kind),
+            (FilterKind.CONSUMER_GROUP, consumer_group),
+            (FilterKind.PLANNER, planner),
+            (FilterKind.PLAN_REASON, plan_reason),
+        )
+        for kind, value in string_filters:
+            if value:
+                values = [value] if isinstance(value, str) else value
+                copy = copy._string_filter(*values, kind=kind, equals=equals)
         if feature_status:
             copy = copy._status_filter(kind=FilterKind.FEATURE_STATUS, success=success_dict[feature_status] == equals)
         if resolver_status:

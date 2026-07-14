@@ -136,9 +136,9 @@ class PodmanImageBuilder:
         self.executable = executable
         self.auth_config = auth_config or {}
 
-    def build_image(self, image_name, build_config, path=None, containerfile_hash=None, platform=None, arch=None):
+    def build_image(self, image_name, build_config, path=None, containerfile_hash=None, platform=None):
         """Build an image with the given configuration."""
-        args = self._construct_build_args(image_name, build_config, path, containerfile_hash, platform, arch)
+        args = self._construct_build_args(image_name, build_config, path, containerfile_hash, platform)
 
         # Handle inline container file
         temp_file_path = None
@@ -162,17 +162,14 @@ class PodmanImageBuilder:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
-    def _construct_build_args(self, image_name, build_config, path, containerfile_hash, platform=None, arch=None):
+    def _construct_build_args(self, image_name, build_config, path, containerfile_hash, platform=None):
         """Construct build command arguments."""
         args = ["build", "-t", image_name]
 
         # Add authentication
         self._add_auth_args(args)
 
-        # Add arch/platform for cross-platform builds
-        if arch:
-            args.extend(["--arch", arch])
-
+        # Add platform for cross-platform builds
         if platform:
             args.extend(["--platform", platform])
 
@@ -646,8 +643,7 @@ class PodmanImageManager:
         if not self.module.check_mode:
             image_id, output, podman_command = self.builder.build_image(
                 self.repository.full_name, build_config, path, containerfile_hash,
-                self.params.get("platform"),
-                self.params.get("arch"),
+                self.params.get("platform")
             )
             self.results["stdout"] = output
             self.results["image"] = self.inspector.inspect_image(image_id)

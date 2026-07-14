@@ -22,7 +22,6 @@ Bless my noggin with a tickle from your noodly appendages!
 ##############################################################################
 
 import enum
-import typing
 
 from . import console
 
@@ -65,14 +64,14 @@ class Level(enum.IntEnum):
 
 
 # module variable
-level = Level.INFO
+level: Level = Level.INFO
 
 ##############################################################################
 # Logger Class
 ##############################################################################
 
 
-class Logger(object):
+class Logger:
     """
     Simple logger object.
 
@@ -80,7 +79,7 @@ class Logger(object):
     :vartype override: bool
     """
 
-    def __init__(self, name: typing.Optional[str] = None):
+    def __init__(self, name: str | None = None):
         self.prefix = "{:<20}".format(name.replace("\n", " ")) + " : " if name else ""
 
     def debug(self, msg: str) -> None:
@@ -90,7 +89,6 @@ class Logger(object):
         Args:
            msg: the message to log
         """
-        global level
         if level < Level.INFO:
             console.logdebug(self.prefix + msg)
 
@@ -101,7 +99,6 @@ class Logger(object):
         Args:
            msg: the message to log
         """
-        global level
         if level < Level.WARN:
             console.loginfo(self.prefix + msg)
 
@@ -112,7 +109,6 @@ class Logger(object):
         Args:
            msg: the message to log
         """
-        global level
         if level < Level.ERROR:
             console.logwarn(self.prefix + msg)
 

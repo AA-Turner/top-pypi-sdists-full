@@ -52,6 +52,9 @@ from connector_sdk_types.generated.models.create_account_request import CreateAc
 from connector_sdk_types.generated.models.create_account_response import CreateAccountResponse
 from connector_sdk_types.generated.models.created_account import CreatedAccount
 from connector_sdk_types.generated.models.created_effect import CreatedEffect
+from connector_sdk_types.generated.models.credential import Credential
+from connector_sdk_types.generated.models.credential_status import CredentialStatus
+from connector_sdk_types.generated.models.credential_type import CredentialType
 from connector_sdk_types.generated.models.custom_attribute_customized_type import (
     CustomAttributeCustomizedType,
 )
@@ -182,6 +185,12 @@ from connector_sdk_types.generated.models.list_activity_records_response import 
 from connector_sdk_types.generated.models.list_connector_app_ids200_response import (
     ListConnectorAppIds200Response,
 )
+from connector_sdk_types.generated.models.list_credentials import ListCredentials
+from connector_sdk_types.generated.models.list_credentials200_response import (
+    ListCredentials200Response,
+)
+from connector_sdk_types.generated.models.list_credentials_request import ListCredentialsRequest
+from connector_sdk_types.generated.models.list_credentials_response import ListCredentialsResponse
 from connector_sdk_types.generated.models.list_custom_attributes_schema import (
     ListCustomAttributesSchema,
 )
@@ -204,10 +213,21 @@ from connector_sdk_types.generated.models.list_expenses import ListExpenses
 from connector_sdk_types.generated.models.list_expenses200_response import ListExpenses200Response
 from connector_sdk_types.generated.models.list_expenses_request import ListExpensesRequest
 from connector_sdk_types.generated.models.list_expenses_response import ListExpensesResponse
+from connector_sdk_types.generated.models.list_non_human_accounts import ListNonHumanAccounts
+from connector_sdk_types.generated.models.list_non_human_accounts200_response import (
+    ListNonHumanAccounts200Response,
+)
+from connector_sdk_types.generated.models.list_non_human_accounts_request import (
+    ListNonHumanAccountsRequest,
+)
+from connector_sdk_types.generated.models.list_non_human_accounts_response import (
+    ListNonHumanAccountsResponse,
+)
 from connector_sdk_types.generated.models.list_resources import ListResources
 from connector_sdk_types.generated.models.list_resources200_response import ListResources200Response
 from connector_sdk_types.generated.models.list_resources_request import ListResourcesRequest
 from connector_sdk_types.generated.models.list_resources_response import ListResourcesResponse
+from connector_sdk_types.generated.models.non_human_account import NonHumanAccount
 from connector_sdk_types.generated.models.noop_effect import NoopEffect
 from connector_sdk_types.generated.models.noop_effect_reason import NoopEffectReason
 from connector_sdk_types.generated.models.normalized_expense_approval_status import (
@@ -300,11 +320,11 @@ __all__ = [
     "ActivatedAccount",
     "ActivityEventType",
     "ActivityRecord",
-    "ActivityType",
     "ActivityRecordActivityType",
     "ActivityRecordActor",
     "ActivityRecordEntitlement",
     "ActivityRecordTarget",
+    "ActivityType",
     "Amount",
     "AppCategory",
     "AppInfo",
@@ -329,6 +349,10 @@ __all__ = [
     "CreateAccountRequest",
     "CreateAccountResponse",
     "CreatedAccount",
+    "CreatedEffect",
+    "Credential",
+    "CredentialStatus",
+    "CredentialType",
     "CustomAttributeCustomizedType",
     "CustomAttributeSchema",
     "CustomAttributeType",
@@ -342,6 +366,7 @@ __all__ = [
     "DeleteAccountRequest",
     "DeleteAccountResponse",
     "DeletedAccount",
+    "DeletedEffect",
     "DowngradeLicense",
     "DowngradeLicense200Response",
     "DowngradeLicenseRequest",
@@ -353,11 +378,6 @@ __all__ = [
     "ErrorCode",
     "ErrorResponse",
     "ExecutionSummary",
-    "CreatedEffect",
-    "UpdatedEffect",
-    "DeletedEffect",
-    "NoopEffect",
-    "NoopEffectReason",
     "Expense",
     "ExpenseApprovalStatus",
     "ExpenseFilters",
@@ -411,6 +431,10 @@ __all__ = [
     "ListActivityRecordsRequest",
     "ListActivityRecordsResponse",
     "ListConnectorAppIds200Response",
+    "ListCredentials",
+    "ListCredentials200Response",
+    "ListCredentialsRequest",
+    "ListCredentialsResponse",
     "ListCustomAttributesSchema",
     "ListCustomAttributesSchema200Response",
     "ListCustomAttributesSchemaRequest",
@@ -423,10 +447,17 @@ __all__ = [
     "ListExpenses200Response",
     "ListExpensesRequest",
     "ListExpensesResponse",
+    "ListNonHumanAccounts",
+    "ListNonHumanAccounts200Response",
+    "ListNonHumanAccountsRequest",
+    "ListNonHumanAccountsResponse",
     "ListResources",
     "ListResources200Response",
     "ListResourcesRequest",
     "ListResourcesResponse",
+    "NonHumanAccount",
+    "NoopEffect",
+    "NoopEffectReason",
     "NormalizedExpenseApprovalStatus",
     "NormalizedExpensePaymentStatus",
     "OAuth1Credential",
@@ -471,6 +502,7 @@ __all__ = [
     "UpdateAccountRequest",
     "UpdateAccountResponse",
     "UpdateableAccount",
+    "UpdatedEffect",
     "ValidateCredentials",
     "ValidateCredentials200Response",
     "ValidateCredentialsRequest",

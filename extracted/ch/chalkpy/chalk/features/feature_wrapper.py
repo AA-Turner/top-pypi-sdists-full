@@ -304,6 +304,15 @@ class FeatureWrapper:
 
                 f_copy_underlying = copy.copy(underlying)
                 f_copy_underlying.typ = ParsedAnnotation(underlying=dataframe_typ[tuple_item])
+                # `Feature.converter` prefers the cached converter and `underlying` (set when the
+                # feature is reached through a has-one path) over the narrowed annotation, so both
+                # must be rebuilt for the copy.
+                f_copy_underlying._converter = None  # pyright: ignore[reportPrivateUsage]
+                if f_copy_underlying.underlying is not None:
+                    underlying_copy = copy.copy(f_copy_underlying.underlying)
+                    underlying_copy.typ = f_copy_underlying.typ
+                    underlying_copy._converter = None  # pyright: ignore[reportPrivateUsage]
+                    f_copy_underlying.underlying = underlying_copy
                 if len(f_copy_underlying.path) > 0:
                     path_copy = list(f_copy_underlying.path)
                     path_copy[-1] = dataclasses.replace(path_copy[-1], child=f_copy_underlying)
@@ -446,6 +455,37 @@ def unwrap_feature(maybe_feature_wrapper: Any, raise_error: bool = True) -> Feat
         )
     else:
         return maybe_feature_wrapper
+
+
+def feature_to_query_str(feature: Union[str, Feature, FeatureWrapper, Any]) -> str:
+    """Serialize a feature reference the way query inputs/outputs and resolver specs expect.
+
+    Behaves like ``str(feature)`` (the feature's root fqn), except that a *projected* has-many --
+    e.g. ``User.transactions[Transaction.id, Transaction.amount]`` -- renders its selected
+    sub-features as ``user.transactions[transaction.id,transaction.amount]`` (full sub-fqns,
+    comma-separated, no spaces), recursing for has-manys nested inside the projection. A bare
+    has-many (``DataFrame[Transaction]``) renders as just its fqn, meaning "all columns".
+
+    ``str(feature)`` itself intentionally stays the plain root fqn: it doubles as a DataFrame column
+    key in runtime Python resolvers, so it must not carry the ``[...]`` projection. This helper is
+    the query/resolver-spec-facing serialization.
+    """
+    from chalk.features.feature_field import Feature
+
+    if isinstance(feature, str):
+        # A string is already the serialized form and passes through verbatim, matching the
+        # pre-projection `str()` behavior: the server is the sole authority on what a string
+        # reference means (bracketed projections, `@version` suffixes, namespace outputs,
+        # graphs newer than this client), and it validates NamedQuery references loudly at
+        # deploy-time preplanning. Resolving here would force chalkpy to replicate the
+        # server's resolution rules and reject previously-valid strings whenever they drift.
+        return feature
+    f = unwrap_feature(feature, raise_error=False)
+    if isinstance(f, Feature) and f._typ is not None and f.is_has_many:  # pyright: ignore[reportPrivateUsage]
+        df = f.typ.as_dataframe()
+        if df is not None and df.__columns__:
+            return f"{f.root_fqn}[{','.join(feature_to_query_str(c) for c in df.columns)}]"
+    return str(feature)
 
 
 def ensure_feature(feature: Union[str, Feature, FeatureWrapper, Any]) -> Feature:

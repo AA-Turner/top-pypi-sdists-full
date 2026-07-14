@@ -9,7 +9,7 @@
 
 # Skip UUID set at creation tests for FreeBSD due to "xfs_admin: only 'rewrite' supported on V5 fs"
 - when:
-    - (new_uuid | default(false)) is truthy
+    - new_uuid | default(False)
     - not (ansible_facts.system == "FreeBSD" and fstype == "xfs")
   block:
     - name: "Create filesystem ({{ fstype }}) with UUID"
@@ -27,10 +27,9 @@
 
     - name: "Assert that filesystem UUID is the random UUID set on creation"
       ansible.builtin.assert:
-        that: >-
-          (random_uuid | replace('-','')) == ( uuid.stdout | ansible.builtin.regex_replace('.*\\bUUID="?([^"\\s]+)"?.*', '\\1') | replace('-',''))
+        that: (random_uuid | replace('-','')) == ( uuid.stdout | replace('-',''))
 
-- when: (new_uuid | default(false)) is not truthy
+- when: not (new_uuid | default(False))
   block:
     - name: "Create filesystem ({{ fstype }}) without UUID support"
       ignore_errors: true

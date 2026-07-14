@@ -2,7 +2,8 @@
 
 from typing import NamedTuple, Optional
 
-from allianceauth.authentication.models import User
+from django.contrib.auth.models import User
+
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.views import bootstrap_icon_plus_name_html
 

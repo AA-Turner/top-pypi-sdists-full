@@ -74,10 +74,6 @@ options:
                     - Redirect Traffic from Port 80 to Port 443, only available if protocol is https
                 type: bool
                 default: False
-            timeout_idle:
-                description:
-                    - Idle timeout in seconds for HTTP connections. Must be between 30 and 300 seconds.
-                type: int
     health_check:
         description:
             - Configuration for health checks
@@ -220,11 +216,6 @@ hcloud_load_balancer_service:
                     returned: always
                     type: bool
                     sample: false
-                timeout_idle:
-                    description: Idle timeout in seconds for HTTP connections.
-                    returned: always
-                    type: int
-                    sample: 50
         health_check:
             description: Configuration for health checks
             returned: always
@@ -315,7 +306,6 @@ class AnsibleHCloudLoadBalancerService(AnsibleHCloud):
                 "cookie_lifetime": self.hcloud_load_balancer_service.http.cookie_lifetime,
                 "redirect_http": self.hcloud_load_balancer_service.http.redirect_http,
                 "sticky_sessions": self.hcloud_load_balancer_service.http.sticky_sessions,
-                "timeout_idle": self.hcloud_load_balancer_service.http.timeout_idle,
                 "certificates": [
                     certificate.name for certificate in self.hcloud_load_balancer_service.http.certificates
                 ],
@@ -397,8 +387,6 @@ class AnsibleHCloudLoadBalancerService(AnsibleHCloud):
             service_http.sticky_sessions = http_arg.get("sticky_sessions")
         if http_arg.get("redirect_http") is not None:
             service_http.redirect_http = http_arg.get("redirect_http")
-        if http_arg.get("timeout_idle") is not None:
-            service_http.timeout_idle = http_arg.get("timeout_idle")
         if http_arg.get("certificates") is not None:
             certificates = http_arg.get("certificates")
             if certificates is not None:
@@ -527,7 +515,6 @@ class AnsibleHCloudLoadBalancerService(AnsibleHCloud):
                         cookie_lifetime={"type": "int"},
                         sticky_sessions={"type": "bool", "default": False},
                         redirect_http={"type": "bool", "default": False},
-                        timeout_idle={"type": "int"},
                         certificates={"type": "list", "elements": "str"},
                     ),
                 },

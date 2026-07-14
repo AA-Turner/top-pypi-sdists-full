@@ -233,7 +233,6 @@ TESTDATADIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'testdata
 
 # does re escape all punctuation, or only special ones?
 re_escape_more = re.escape('%') != '%'
-isPython2 = sys.version_info[0] < 3
 PC = re.escape('%')
 UNDERSCORE = re.escape('_')
 
@@ -350,6 +349,16 @@ class TestUtilityFunctions(ReferenceTestCase):
         self.assertEqual(get_omnipresent_at_pos({}, 1), [])
 
         self.assertEqual(get_omnipresent_at_pos({}, 0), [])
+
+    def test_get_only_present_at_pos(self):
+        c = {
+            ('a', 1, 1, 'fixed'): {1: 7, -1: 7, 3: 4},
+            ('b', 1, 1, 'fixed'): {2: 6},
+        }
+        self.assertEqual(
+            get_only_present_at_pos(c), [(('b', 1, 1, 'fixed'), 2)]
+        )
+        self.assertEqual(get_only_present_at_pos({}), [])
 
     def test_length_stats(self):
         # Testing with strings, but works with lists etc. too
@@ -492,6 +501,11 @@ class TestUtilityFunctions(ReferenceTestCase):
         self.assertEqual(c.ids.get('four'), 4)  # 'cos added fourth
 
         self.assertEqual(list(c.keys()), ['two', 'three', 'one', 'four'])
+
+    def test_size_unknown_parameter(self):
+        with self.assertRaises(TDDAError) as cm:
+            Size(not_a_real_param=1)
+        self.assertIn('not_a_real_param', str(cm.exception))
 
     def test_combine_patterns(self):
         self.assertEqual(combine_patterns([]), [])
@@ -753,6 +767,11 @@ class TestHelperMethods(ReferenceTestCase):
         expected = '^%s{2,3}%s%s{2}%s%s{3,4}$' % (an, punc, an, punc, an)
         x = Extractor([])
         self.assertEqual(x._vrle2re(rrle), expected)
+
+    def test_results_to_string(self):
+        x = Extractor(['abc123', 'def456'])
+        s = x.results.to_string()
+        self.assertIn(x.results.rex[0], s)
 
     def test_sort_by_len(self):
         # Really designed for sorting lists/tuples, but everything with
@@ -2316,16 +2335,7 @@ class TestExtraction(ReferenceTestCase):
         r = extract(inputs, size=Size(n_per_length=1, do_all=2), seed=12345678)
         self.assertEqual(random.getstate(), state)
 
-        expected_with_seed = choose23(
-            [
-                '^a$',
-                '^a\\.a$',
-                '^a\\.a\\.a$',
-                '^a\\.a\\.a\\.a$',
-                '^a\\.a\\.a\\.a\\.a$',
-            ],
-            ['^a$', '^a\\.a$'],
-        )
+        expected_with_seed = ['^a$', '^a\\.a$']
 
         self.assertEqual(r, expected_with_seed)
         # but not always True
@@ -2355,24 +2365,6 @@ def CtoUC(s):
         return s.replace('C', UNIC)
     else:
         return s
-
-
-def choose23(two, three):
-    """
-    Choose between results based on whether running in Python2 or Python3
-    """
-    return two if isPython2 else three
-
-
-if isPython2:
-    # Quieten down Python3's vexatious complaining
-    TestExtraction.assertRaisesRegex = TestExtraction.assertRaisesRegexp
-
-    # def testextractcli(self):
-    #     examples_dir = os.path.join(os.path.abspath(__file__), 'examples')
-    #     ids_path = os.path.join(examples_dir, 'ids.txt')
-    #     params = get_params(ids_path)
-    #     main(params)
 
 
 if __name__ == '__main__':

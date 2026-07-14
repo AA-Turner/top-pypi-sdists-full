@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import functools
 import json
+import random as _random
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator
-from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, overload
 
 import pydantic
 
 from vercel._internal.polyfills import Self
 
 from . import py_sandbox
+from .world import validate_queue_namespace
 
 if TYPE_CHECKING:
     from . import world as w
@@ -19,21 +22,34 @@ if TYPE_CHECKING:
 P = ParamSpec("P")
 T = TypeVar("T")
 
+DEFAULT_MAX_RETRIES = 3
+
 
 class Workflow(Generic[P, T]):
-    def __init__(self, func: Callable[P, Coroutine[Any, Any, T]]):
+    def __init__(
+        self,
+        func: Callable[P, Coroutine[Any, Any, T]],
+        *,
+        registry: Workflows,
+    ):
         self.func = func
+        self._registry = registry
         self.module = func.__module__
         self.qualname = func.__qualname__
         self.workflow_id = f"workflow//{self.module}.{self.qualname}"
 
+    def _resolve_queue_namespace(self) -> str | None:
+        return self._registry.namespace
+
 
 class Step(Generic[P, T]):
-    max_retries: int = 3
-
-    def __init__(self, func: Callable[P, Coroutine[Any, Any, T]]):
+    def __init__(
+        self, func: Callable[P, Coroutine[Any, Any, T]], *, max_retries: int = DEFAULT_MAX_RETRIES
+    ):
         self.func = func
         self.name = f"step//{func.__module__}.{func.__qualname__}"
+        self.max_retries = max_retries
+        functools.update_wrapper(self, func)
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         from . import runtime
@@ -57,6 +73,39 @@ async def sleep(param: int | float | datetime.datetime | str) -> None:
         raise RuntimeError("cannot call sleep outside workflow") from None
 
     await ctx.run_wait(param)
+
+
+def now() -> datetime.datetime:
+    from . import runtime
+
+    try:
+        ctx = runtime.WorkflowOrchestratorContext.current()
+    except LookupError:
+        raise RuntimeError("cannot call now() outside workflow") from None
+
+    return ctx.now()
+
+
+def time_ns() -> int:
+    from . import runtime
+
+    try:
+        ctx = runtime.WorkflowOrchestratorContext.current()
+    except LookupError:
+        raise RuntimeError("cannot call time_ns() outside workflow") from None
+
+    return ctx.time_ns()
+
+
+def random() -> _random.Random:
+    from . import runtime
+
+    try:
+        ctx = runtime.WorkflowOrchestratorContext.current()
+    except LookupError:
+        raise RuntimeError("cannot call random() outside workflow") from None
+
+    return ctx.random()
 
 
 class HookEvent(Generic[T]):
@@ -136,17 +185,34 @@ class BaseHook:
 
 
 class Workflows:
-    def __init__(self, *, as_vercel_job: bool = True):
+    def __init__(
+        self,
+        *,
+        as_vercel_job: bool = True,
+        namespace: str | None = None,
+        sandbox_policy: py_sandbox.SandboxPolicy | None = None,
+    ):
+        validate_queue_namespace(namespace)
+
+        self._namespace = namespace
         self._workflows: dict[str, Workflow] = {}
         self._steps: dict[str, Step] = {}
+        if sandbox_policy is None:
+            sandbox_policy = py_sandbox.SandboxPolicy()
+        self._sandbox_policy = sandbox_policy
         if as_vercel_job and not py_sandbox.in_sandbox():
             from . import runtime
 
             runtime.workflow_entrypoint(self)
             runtime.step_entrypoint(self)
 
+    @property
+    def namespace(self) -> str | None:
+        """The immutable queue namespace for this registry."""
+        return self._namespace
+
     def workflow(self, func: Callable[P, Coroutine[Any, Any, T]]) -> Workflow[P, T]:
-        rv = Workflow(func)
+        rv = Workflow(func, registry=self)
         assert rv.workflow_id not in self._workflows, f"Duplicate workflow ID: {rv.workflow_id}"
         self._workflows[rv.workflow_id] = rv
         return rv
@@ -154,11 +220,29 @@ class Workflows:
     def _get_workflow(self, workflow_id: str) -> Workflow[Any, Any]:
         return self._workflows[workflow_id]
 
-    def step(self, func: Callable[P, Coroutine[Any, Any, T]]) -> Step[P, T]:
-        rv = Step(func)
-        assert rv.name not in self._steps, f"Duplicate step name: {rv.name}"
-        self._steps[rv.name] = rv
-        return rv
+    @overload
+    def step(self, func: Callable[P, Coroutine[Any, Any, T]]) -> Step[P, T]: ...
+
+    @overload
+    def step(
+        self, *, max_retries: int = ...
+    ) -> Callable[[Callable[P, Coroutine[Any, Any, T]]], Step[P, T]]: ...
+
+    def step(
+        self,
+        func: Callable[P, Coroutine[Any, Any, T]] | None = None,
+        *,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+    ) -> Step[P, T] | Callable[[Callable[P, Coroutine[Any, Any, T]]], Step[P, T]]:
+        def register(f: Callable[P, Coroutine[Any, Any, T]]) -> Step[P, T]:
+            rv = Step(f, max_retries=max_retries)
+            assert rv.name not in self._steps, f"Duplicate step name: {rv.name}"
+            self._steps[rv.name] = rv
+            return rv
+
+        if func is None:
+            return register
+        return register(func)
 
     def _get_step(self, step_name: str) -> Step[Any, Any]:
         return self._steps[step_name]

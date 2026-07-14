@@ -13,7 +13,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -22,7 +21,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -33,19 +32,24 @@ issues = "https://github.com/ivankorobkov/python-inject/issues"
 
 [dependency-groups]
 dev = [
-  "ipython",
-  "ruff",
-  "mypy",
-  "yamllint",
-  "typing-extensions",
+  "typing-extensions>=4.15.0",
+  { include-group = "ruff" },
+  { include-group = "mypy" },
+  { include-group = "yamllint" },
   { include-group = "tests" },
 ]
 
+ruff = ["ruff>=0.15.20"]
+mypy = ["mypy>=2.1.0"]
+yamllint = ["yamllint>=1.38.0"]
+
 tests = [
-  "pytest",
-  "pytest-cov",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
 ]
 
+[tool.uv]
+required-version = ">=0.11"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -73,21 +77,9 @@ profile = "black"
 
 
 [tool.mypy]
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
 ignore_missing_imports = true
-no_implicit_optional = true
-python_version = "3.11"
-warn_redundant_casts = true
-warn_return_any = true
-warn_unused_configs = true
-warn_unused_ignores = true
-#strict = true  # TODO(pyctrl): improve typings and enable strict mode
+python_version = "3.10"
+strict = true
 exclude = ["tests", ".venv"]
 
 
@@ -112,11 +104,12 @@ extend-exclude = [".git", ".venv", "docs"]
 preview = true
 extend-select = ["ALL"]
 extend-ignore = [
-  "D10",   # missing documentation
-  "D203",  # 1 of conflicting code-styles
-  "D212",  # 1 of conflicting code-styles
-  "C408",  # allow `dict()` instead of literal
-  "TD003", # don't require issue link
+  "D10",    # missing documentation
+  "D203",   # 1 of conflicting code-styles
+  "D212",   # 1 of conflicting code-styles
+  "C408",   # allow `dict()` instead of literal
+  "TD003",  # don't require issue link
+  "RUF067", # __init__ modules intentionally contain code
   # Completely disable
   "FIX",
   "CPY",
@@ -142,11 +135,6 @@ extend-ignore = [
   "ISC002",
   "N818",   # Exception name should be named with an Error suffix
   "TRY003",
-  "UP006",
-  "UP007",
-  "UP035",
-  "UP045",
-  "FA100",
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
@@ -183,55 +171,6 @@ ban-relative-imports = "all"
 quote-style = "double"
 indent-style = "space"
 
-#ignore = [
-#  "B027",   # Allow non-abstract empty methods in abstract base classes
-#  "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
-#  # Ignore checks for possible passwords
-#  "S105",
-#  "S106",
-#  "S107",
-#  # Ignore complexity
-#  "C901",
-#  "PLR0911",
-#  "PLR0912",
-#  "PLR0913",
-#  "PLR0915",
-#  "PLC1901", # empty string comparisons
-#  "PLW2901", # `for` loop variable overwritten
-#  "SIM114",  # Combine `if` branches using logical `or` operator
-#]
-#select = [
-#  "A",
-#  "B",
-#  "C",
-#  "DTZ",
-#  "E",
-#  "EM",
-#  "F",
-#  "FBT",
-#  "I",
-#  "ICN",
-#  "ISC",
-#  "N",
-#  "PLC",
-#  "PLE",
-#  "PLR",
-#  "PLW",
-#  "Q",
-#  "RUF",
-#  "S",
-#  "SIM",
-#  "T",
-#  "TID",
-#  "UP",
-#  "W",
-#  "YTT",
-#]
-#unfixable = [
-#  "F401", # Don't touch unused imports
-#]
-
-
 ####  Pytest & Coverage  ####
 [tool.pytest.ini_options]
 minversion = "8.4"
@@ -245,7 +184,7 @@ branch = true
 [tool.coverage.report]
 include_namespace_packages = true
 # Regexes for lines to exclude from consideration
-omit = ["*/.venv/*", "*/.tox/*", "*/.uv-cache/*"]
+omit = ["*/.venv/*", "*/.uv-cache/*"]
 exclude_also = [
   # Don't complain if tests don't hit defensive assertion code:
   "raise NotImplementedError",
@@ -257,151 +196,4 @@ exclude_also = [
   "@(abc\\.)?abstractmethod",
 
   "if TYPE_CHECKING:",
-]
-
-
-# Tox config
-[tool.tox]
-requires = ["tox>=4.23", "tox-uv>=1.13"]
-runner = "uv-venv-lock-runner"
-skip_missing_interpreters = true
-
-env_list = [
-  "py39",
-  "py310",
-  "py311",
-  "py312",
-  "py313",
-  "fmt-py",
-  "fmt-toml",
-  "lint-py",
-  "lint-types",
-  #"lint-mypy",  # TODO(pyctrl): make it green & uncomment
-  "lint-toml",
-  "lint-yaml",
-  #"lint-git",
-  "coverage",
-]
-
-[tool.tox.labels]
-fmt = [
-  "fmt-py",
-  "fmt-toml",
-]
-lint = [
-  "lint-py",
-  "lint-types",
-  #"lint-mypy",  # TODO(pyctrl): make it green & uncomment
-  "lint-toml",
-  "lint-yaml",
-  #"lint-git",
-]
-
-# default env
-[tool.tox.env_run_base]
-description = "Run unit tests with coverage report ({env_name})"
-use_develop = true
-dependency_groups = ["tests"]
-commands = [["pytest", { replace = "posargs", extend = true }]]
-
-# tox envs
-[tool.tox.env.lint-py]
-description = "Lint python files"
-deps = ["ruff"]
-skip_install = true
-commands = [
-  [
-    "ruff",
-    "format",
-    "--diff",
-    { replace = "posargs", default = [
-      "{tox_root}",
-    ], extend = true },
-  ],
-  [
-    "ruff",
-    "check",
-    { replace = "posargs", default = [
-      "{tox_root}",
-    ], extend = true },
-  ],
-]
-
-[tool.tox.env.lint-types]
-description = "Type-check the public-API typing guards"
-deps = ["mypy"]
-commands = [
-  [
-    "mypy",
-    { replace = "posargs", default = [
-      "typing_checks",
-    ], extend = true },
-  ],
-]
-
-[tool.tox.env.lint-mypy]
-description = "Type checking"
-deps = ["mypy"]
-commands = [["mypy", { replace = "posargs", default = ["{tox_root}"], extend = true }]]
-
-[tool.tox.env.lint-toml]
-description = "Lint TOML files"
-allowlist_externals = ["taplo"]
-skip_install = true
-commands = [
-  ["taplo", "lint", { replace = "posargs", extend = true }],
-  ["taplo", "format", "--check", "--diff", { replace = "posargs", extend = true }],
-]
-
-[tool.tox.env.lint-yaml]
-description = "Lint YAML files"
-deps = ["yamllint"]
-skip_install = true
-commands = [
-  [
-    "yamllint",
-    "--strict",
-    { replace = "posargs", default = [
-      "{tox_root}",
-    ], extend = true },
-  ],
-]
-
-[tool.tox.env.fmt-py]
-description = "Format python files"
-deps = ["ruff"]
-skip_install = true
-commands = [
-  [
-    "ruff",
-    "format",
-    { replace = "posargs", default = ["{tox_root}"], extend = true },
-  ],
-  [
-    "ruff",
-    "check",
-    "--fix",
-    "--show-fixes",
-    { replace = "posargs", default = ["{tox_root}"], extend = true },
-  ],
-]
-
-[tool.tox.env.fmt-toml]
-description = "Format TOML files"
-allowlist_externals = ["taplo"]
-skip_install = true
-commands = [["taplo", "format", { replace = "posargs", extend = true }]]
-
-[tool.tox.env.coverage]
-description = "run coverage"
-use_develop = true
-dependency_groups = ["tests"]
-commands = [
-  [
-    "pytest",
-    "--cov=.",
-    "--cov-branch",
-    "--cov-report=term-missing:skip-covered",
-    { replace = "posargs", default = ["--cov-report=xml:coverage.xml"], extend = true },
-  ],
 ]

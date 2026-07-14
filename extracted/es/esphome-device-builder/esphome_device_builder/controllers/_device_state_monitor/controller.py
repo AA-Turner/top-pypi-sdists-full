@@ -13,7 +13,10 @@ Source precedence (highest first): ``mdns`` > ``mqtt`` > ``ping``. A
 lower-priority source can never override the state set by a higher one.
 A separate Native API fallback fills ``mac_address`` / ``deployed_version``
 for online API devices mDNS hasn't reached; it never drives ONLINE/OFFLINE
-and so stays out of the precedence ledger.
+and so stays out of the precedence ledger. The API reviver is the one
+Native API path that does drive state: it revives a stuck-offline device
+from its persisted IP after identity verification, claiming under the
+``ping`` source.
 """
 
 from __future__ import annotations
@@ -22,11 +25,10 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Any
 
-from esphome.zeroconf import AsyncEsphomeZeroconf
-
-from ...helpers.async_ import create_eager_task
+from ...helpers.async_ import create_eager_task, drain_tasks, log_task_exit
 from ...helpers.subscriber_presence import SubscriberPresence
 from ...models import (
     RUNTIME_STATE_FIELD_NAMES,
@@ -35,10 +37,11 @@ from ...models import (
     DeviceState,
     ReachabilitySource,
 )
-from .._reachability_tracker import MdnsCacheInfo, ReachabilityTracker
+from .._reachability_tracker import ReachabilityTracker
 from .._task_controller_base import TaskControllerBase
 from ._state import MonitorState
 from .api_info import ApiInfoSource
+from .api_reviver import ApiReviverSource
 from .helpers import (
     _normalize_mac,
     _pick_ipv4,
@@ -51,11 +54,6 @@ from .shared import _SOURCE_PRIORITY, should_ping
 _LOGGER = logging.getLogger(__name__)
 # Cap on draining the ping / API-info / resolve tasks at shutdown.
 _STOP_DRAIN_TIMEOUT = 2.0
-# Padding added to the cached A record's TTL when the drawer's
-# refresh loop schedules its next probe. Sleeping ``ttl + this``
-# guarantees ``async_resolve_host`` falls through its cache short-
-# circuit and actually goes on the wire.
-_MDNS_REFRESH_PADDING_SECONDS = 1.0
 
 
 # Callback signature used by DeviceStateMonitor to push state changes
@@ -71,9 +69,17 @@ SourceChangeCallback = Callable[[str, ReachabilitySource], None]
 # mDNS IP resolution callback. ``primary`` is the IPv4 we lock onto
 # for ICMP / OTA cache args (or the first scoped IPv6 when no V4 is
 # present); ``addresses`` is the announced set in zeroconf's
-# ``parsed_scoped_addresses`` order. Empty primary + empty list
-# signals the device went offline / was removed from mDNS.
+# ``parsed_scoped_addresses`` order. Both are always non-empty — a
+# confirmed loss of resolution flows through
+# ``ResolvedAddressesClearedCallback`` instead.
 IPChangeCallback = Callable[[str, str, list[str]], None]
+
+# Confirmed loss of mDNS resolution for *name*: drop the resolved
+# ``ip_addresses`` set. ``device.ip`` keeps the last-known primary
+# (RAM mirrors the metadata sidecar) so the api_reviver can repair a
+# mid-process mDNS death; only its identity-verified invalidation
+# clears that value.
+ResolvedAddressesClearedCallback = Callable[[str], None]
 
 # mDNS ``version`` TXT change.
 VersionChangeCallback = Callable[[str, str], None]
@@ -105,14 +111,27 @@ ImportableRemovedCallback = Callable[[str], None]
 # device; an empty key means "connect plaintext".
 ApiConnectionResolver = Callable[[str], Awaitable[tuple[str, int]]]
 
+# Persisted-IP invalidation, ``(name, stale_ip)``: the API reviver
+# proved the on-disk last-known *stale_ip* now belongs to a different
+# device, so the owner must clear it (``on_ip_change`` deliberately
+# keeps last-known on disk). Carrying the proven IP scopes the clear —
+# a same-name sibling holding a different IP, or an IP mDNS re-learned
+# mid-dial, stays untouched.
+PersistedIpInvalidatedCallback = Callable[[str, str], None]
 
-class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; new public methods need a refactor first)
+
+class DeviceStateMonitor(TaskControllerBase):
     """
     Drive device state from mDNS broadcasts plus periodic ICMP pings.
 
     Only one source can own a device's state at a time. mDNS always
     wins; ping only writes when mDNS hasn't already resolved the
     device. :meth:`priority_for` lets callers query the active source.
+
+    The public source attributes (``mdns``, ``ping``, ``importable``,
+    ``api_info``, ``api_reviver``) are the sanctioned seams for
+    per-source queries and nudges; the monitor keeps only the
+    cross-source core (lifecycle, the precedence ledger, ``apply_*``).
     """
 
     def __init__(
@@ -132,6 +151,8 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         presence: SubscriberPresence | None = None,
         resolve_api_connection: ApiConnectionResolver | None = None,
         on_source_change: SourceChangeCallback | None = None,
+        on_persisted_ip_invalidated: PersistedIpInvalidatedCallback | None = None,
+        on_resolved_addresses_cleared: ResolvedAddressesClearedCallback | None = None,
     ) -> None:
         super().__init__()
         self._get_devices = get_devices
@@ -155,9 +176,12 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         self._on_importable_removed = on_importable_removed
         self._is_ignored = is_ignored or (lambda _name: False)
         self._resolve_api_connection = resolve_api_connection
+        self._on_persisted_ip_invalidated = on_persisted_ip_invalidated
+        self._on_resolved_addresses_cleared = on_resolved_addresses_cleared
         self.state = MonitorState(reachability=reachability)
         self._ping_task: asyncio.Task | None = None
         self._api_info_task: asyncio.Task | None = None
+        self._api_reviver_task: asyncio.Task | None = None
         # ``self._tasks`` (fire-and-forget mDNS resolve refs) is
         # inherited from :class:`TaskControllerBase`.
         # When wired, the ping loop pauses while no dashboard client
@@ -166,75 +190,62 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         # ``None`` means "always run the loop" so existing tests
         # without a presence gate keep working.
         self._presence = presence
-        self._importable = ImportableDiscovery(self)
-        self._mdns = MdnsSource(self)
-        self._ping = PingSource(self)
-        self._api_info = ApiInfoSource(self)
+        self.importable = ImportableDiscovery(self)
+        # One Native API worker dial at a time across every API source
+        # (api_info + reviver): each dial spawns an interpreter and
+        # occupies one of a device's scarce API connection slots.
+        self._api_dial_budget = asyncio.Semaphore(1)
+        self.mdns = MdnsSource(self)
+        self.ping = PingSource(self)
+        self.api_info = ApiInfoSource(self)
+        self.api_reviver = ApiReviverSource(self)
 
     async def start(self) -> None:
-        """Start the mDNS browser, the periodic ping sweep, and the API info fallback."""
-        await self._mdns.start()
-        self._ping_task = asyncio.create_task(self._ping.run())
-        self._api_info_task = asyncio.create_task(self._api_info.run())
-        self._api_info_task.add_done_callback(self._log_api_info_task_exit)
+        """Start the importable flow, mDNS browser, ping sweep, API info fallback, and reviver."""
+        self.importable.setup()
+        await self.mdns.start()
+        self._ping_task = asyncio.create_task(self.ping.run())
+        self._ping_task.add_done_callback(partial(log_task_exit, "Ping sweep"))
+        self._api_info_task = asyncio.create_task(self.api_info.run())
+        self._api_info_task.add_done_callback(partial(log_task_exit, "API info fallback"))
+        self._api_reviver_task = asyncio.create_task(self.api_reviver.run())
+        self._api_reviver_task.add_done_callback(partial(log_task_exit, "API reviver"))
 
     async def stop(self) -> None:
-        """Tear down the browser and drain the ping + API-info + resolve tasks (bounded)."""
+        """Tear down the browser and drain the ping + API + resolve tasks (bounded)."""
         drain: list[asyncio.Task[Any]] = []
-        if self._ping_task is not None:
-            self._ping_task.cancel()
-            drain.append(self._ping_task)
-            self._ping_task = None
-        if self._api_info_task is not None:
-            self._api_info_task.cancel()
-            drain.append(self._api_info_task)
-            self._api_info_task = None
+        # Cancel the loop tasks eagerly — before the ``cancel_browser``
+        # await below — so a mid-sweep loop can't resume and spawn new
+        # work (a 15s worker subprocess, state applies) during teardown.
+        # ``drain_tasks`` re-cancelling later is a no-op.
+        for attr in ("_ping_task", "_api_info_task", "_api_reviver_task"):
+            task: asyncio.Task | None = getattr(self, attr)
+            if task is not None:
+                task.cancel()
+                drain.append(task)
+                setattr(self, attr, None)
         # Cancel the browser FIRST so it stops dispatching new mDNS
         # callbacks; otherwise the drain below would race against
         # newly-spawned resolve tasks the browser is still firing.
-        await self._mdns.cancel_browser()
-        for task in self._tasks:
-            task.cancel()
+        await self.mdns.cancel_browser()
         drain.extend(self._tasks)
         self._tasks.clear()
         # Close zeroconf eagerly so 5353 frees now, overlapping the task drain.
-        close = create_eager_task(self._mdns.close_zeroconf())
+        close = create_eager_task(self.mdns.close_zeroconf())
         if drain:
             # Drain bounded here so the cancelled tasks don't leak to aiohttp's
             # unbounded terminal sweep.
             with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(
-                    asyncio.gather(*drain, return_exceptions=True), _STOP_DRAIN_TIMEOUT
-                )
+                await asyncio.wait_for(drain_tasks(drain), _STOP_DRAIN_TIMEOUT)
         await close
-
-    @staticmethod
-    def _log_api_info_task_exit(task: asyncio.Task) -> None:
-        """Surface an unexpected API-info loop crash instead of letting it die silently."""
-        if task.cancelled():
-            return
-        if (exc := task.exception()) is not None:
-            _LOGGER.error("API info fallback loop crashed: %s", exc, exc_info=exc)
-
-    @property
-    def zeroconf(self) -> AsyncEsphomeZeroconf | None:
-        """
-        The mDNS responder powering device discovery, or ``None``.
-
-        Exposed so the dashboard's own ``_esphomebuilder._tcp.local.``
-        advertiser can reuse the same instance instead of opening a
-        second responder. ``None`` when zeroconf failed to start
-        (port held by avahi / ``mDNSResponder``).
-        """
-        return self._mdns.zeroconf
 
     def set_reachability(self, tracker: ReachabilityTracker) -> None:
         """
         Wire (or rewire) the per-signal freshness tracker.
 
         :class:`DevicesController` builds the monitor first so the
-        tracker can take ``get_mdns_cache_info`` as its mDNS cache
-        reader; this setter completes the wire-back.
+        tracker can take ``mdns.get_mdns_cache_info`` as its mDNS
+        cache reader; this setter completes the wire-back.
         """
         self.state.reachability = tracker
 
@@ -254,6 +265,14 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         old = self.state.state_source.pop(name, None)
         if old is not None:
             self._emit_source_change(name, old, ReachabilitySource.UNKNOWN)
+
+    def confirmed_offline(self, name: str, source: str) -> None:
+        """Tear down every per-name ledger after *source* confirms *name* is gone."""
+        self.apply(name, DeviceState.OFFLINE, source)
+        self.clear_resolved_addresses(name)
+        self.forget(name)
+        if self.state.reachability is not None:
+            self.state.reachability.clear(name)
 
     def _emit_source_change(self, name: str, old: str, new: str) -> None:
         """Notify the owner when *name*'s authoritative source actually flips."""
@@ -321,31 +340,21 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         self._on_state_change(name, state, source)
         return True
 
-    async def refresh_mdns(self, name: str) -> None:
-        """Re-query a device's mDNS A/AAAA records via the wire."""
-        await self._mdns.refresh_mdns(name)
-
-    def get_mdns_a_record_ttl_remaining(self, name: str) -> float | None:
-        """Return the minimum remaining TTL across cached A/AAAA records."""
-        return self._mdns.get_mdns_a_record_ttl_remaining(name)
-
-    def get_mdns_cache_info(self, name: str) -> MdnsCacheInfo | None:
-        """Read the truthful "last heard via mDNS" age + remaining TTL."""
-        return self._mdns.get_mdns_cache_info(name)
-
     def apply_ip(self, name: str, ip: str) -> bool:
         """
-        Record a single-IP observation. Empty string clears stored IPs.
+        Record a single-IP observation; *ip* must be truthy.
 
         Used by sources that only know one address per device
         (MQTT, DNS fallback). When *ip* is already in the device's
         ``ip_addresses`` list, only the primary slot is touched —
         a narrower MQTT / DNS observation must not shrink a multi-
         IP view mDNS already populated. Callers with the full
-        announced set should reach for :meth:`apply_ip_addresses`.
+        announced set should reach for :meth:`apply_ip_addresses`;
+        a confirmed loss of resolution goes through
+        :meth:`clear_resolved_addresses`.
         """
         if not ip:
-            return self._dispatch_ip(name, "", [])
+            raise ValueError("empty ip; use clear_resolved_addresses")
         devices = self._get_devices_by_name(name)
         if not devices:
             return False
@@ -358,15 +367,32 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
 
     def apply_ip_addresses(self, name: str, addresses: list[str]) -> bool:
         """
-        Record the full set of announced IPs for *name*.
+        Record the full set of announced IPs; *addresses* must be non-empty.
 
         Picks an IPv4 primary via :func:`_pick_ipv4` (falling back
         to the first scoped IPv6) so ``device.ip`` stays the single
         target for ICMP / OTA, and forwards the complete list to
-        ``runtime_state.ip_addresses``. Empty list clears both.
+        ``runtime_state.ip_addresses``.
         """
-        primary = _pick_ipv4(addresses) if addresses else ""
-        return self._dispatch_ip(name, primary, addresses)
+        if not addresses:
+            raise ValueError("empty addresses; use clear_resolved_addresses")
+        return self._dispatch_ip(name, _pick_ipv4(addresses), addresses)
+
+    def clear_resolved_addresses(self, name: str) -> bool:
+        """
+        Drop the resolved-address set after a confirmed loss of mDNS.
+
+        ``device.ip`` keeps the last-known primary (RAM mirrors the
+        metadata sidecar); only the api_reviver's identity-verified
+        invalidation clears that value.
+        """
+        if self._on_resolved_addresses_cleared is None:
+            return False
+        devices = self._get_devices_by_name(name)
+        if not devices or all(not d.runtime_state.ip_addresses for d in devices):
+            return False
+        self._on_resolved_addresses_cleared(name)
+        return True
 
     def _dispatch_ip(self, name: str, primary: str, addresses: list[str]) -> bool:
         """
@@ -386,10 +412,6 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
             return False
         self._on_ip_change(name, primary, addresses)
         return True
-
-    def request_version_reprobe(self, name: str) -> None:
-        """Force one Native-API version probe of *name*, ignoring the mac+version guard."""
-        self._api_info.request_reprobe(name)
 
     def apply_version(self, name: str, version: str) -> bool:
         """Record a firmware version observation; True iff forwarded."""
@@ -481,17 +503,10 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
             for device in self._get_devices_by_name(name)
         )
 
-    def get_cached_addresses(self, host_name: str) -> list[str] | None:
-        """Return all zeroconf-cached IPs for *host_name* without issuing a query."""
-        return self._mdns.get_cached_addresses(host_name)
-
-    def probe_device(self, device_name: str, service_name: str | None = None) -> None:
-        """Eagerly resolve a device's ``_esphomelib._tcp.local.`` service."""
-        self._importable.probe_device(device_name, service_name)
-
-    def reconcile_from_mdns_cache(self, device_name: str) -> None:
-        """Re-apply the zeroconf-cached TXT payload; never claims state or IP."""
-        self._mdns.reconcile_from_cache(device_name)
+    def invalidate_persisted_ip(self, name: str, stale_ip: str) -> None:
+        """Tell the owner *name*'s persisted *stale_ip* is proven stale; no-op when unwired."""
+        if self._on_persisted_ip_invalidated is not None:
+            self._on_persisted_ip_invalidated(name, stale_ip)
 
     def probe_device_ping(self, device_name: str) -> None:
         """
@@ -504,33 +519,12 @@ class DeviceStateMonitor(TaskControllerBase):  # noqa: PLR0904 (grandfathered; n
         """
         devices = self._get_devices_by_name(device_name)
         if not devices or any(should_ping(self, d) for d in devices):
-            self._ping.wake()
+            self.ping.wake()
 
     def probe_reachability(self, device_name: str) -> None:
         """Full reachability nudge: eager mDNS resolve + ICMP sweep wake for *device_name*."""
-        self.probe_device(device_name)
+        self.mdns.probe_device(device_name)
         self.probe_device_ping(device_name)
-
-    def revisit_importable(self, device_name: str) -> None:
-        """Re-fire ``on_importable_added`` for *device_name* if upstream still has it cached."""
-        self._importable.revisit_importable(device_name)
-
-    def revisit_all_importables(self) -> None:
-        """Re-fire ``on_importable_added`` for every cached importable."""
-        self._importable.revisit_all_importables()
-
-    def get_importable_devices(self) -> list[AdoptableDevice]:
-        """Snapshot of devices currently advertising as importable."""
-        return self._importable.get_importable_devices()
-
-    def get_cached_dns_addresses(self, host_name: str) -> list[str] | None:
-        """
-        Return DNS-cached IPs for *host_name* without issuing a lookup.
-
-        Populated by the ping sweep's pre-resolution pass; ``None``
-        on cache miss or expired entry.
-        """
-        return self.state.dns_cache.get_cached_addresses(host_name)
 
     # ------------------------------------------------------------------
     # Internals

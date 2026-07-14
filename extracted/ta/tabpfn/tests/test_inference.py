@@ -7,19 +7,25 @@ from __future__ import annotations
 from typing import Literal, overload
 from typing_extensions import override
 
+import numpy as np
 import pytest
+import sklearn.datasets
 import torch
 from numpy.random import default_rng
-from torch import Tensor
+from torch import Tensor, nn
 
 from tabpfn import TabPFNClassifier, TabPFNRegressor
 from tabpfn.architectures.interface import Architecture, PerformanceOptions
-from tabpfn.architectures.kv_cache import KVCache, KVCacheEntry
+from tabpfn.architectures.kv_cache import KVCacheEntry
+from tabpfn.architectures.shared import workaround_mps_linear_bug
+from tabpfn.architectures.shared.workaround_mps_linear_bug import MpsSafeLinear
 from tabpfn.architectures.tabpfn_v3 import TabPFNV3Cache
+from tabpfn.base import create_inference_engine, get_embeddings
 from tabpfn.inference import (
     InferenceEngineCachePreprocessing,
     InferenceEngineExplicitKVCache,
     InferenceEngineOnDemand,
+    MultiDeviceInferenceEngine,
 )
 from tabpfn.preprocessing import (
     ClassifierEnsembleConfig,
@@ -29,6 +35,7 @@ from tabpfn.preprocessing import (
 )
 from tabpfn.preprocessing.ensemble import TabPFNEnsemblePreprocessor
 from tabpfn.preprocessing.torch import FeatureSchema
+from tabpfn.settings import settings
 
 from .utils import get_pytest_devices, get_pytest_devices_with_mps_marked_slow
 
@@ -195,7 +202,7 @@ class _TestModelWithKVCache(Architecture):
                 value=torch.zeros(1, n_train, 1, 1, device=x.device),
             )
             cache = TabPFNV3Cache(
-                icl_cache=KVCache(kv={0: dummy_kv}),
+                kv={0: dummy_kv},
                 train_embeddings=torch.zeros(1, n_train, 1, device=x.device),
                 train_shape=(1, n_train),
             )
@@ -584,7 +591,7 @@ def test__explicit_kv_cache__keep_on_device_reuses_tensors(device: str) -> None:
     assert model.cache_used_count == n_configs
 
     # Snapshot underlying tensor storage after the first predict.
-    first_ptrs = [cache.icl_cache.kv[0].key.data_ptr() for cache in engine.kv_caches]
+    first_ptrs = [cache.kv[0].key.data_ptr() for cache in engine.kv_caches]
 
     # Second predict call — still no rebuild, caches reused in place.
     outputs_second = list(
@@ -594,7 +601,7 @@ def test__explicit_kv_cache__keep_on_device_reuses_tensors(device: str) -> None:
     assert model.cache_build_count == n_configs
     assert model.cache_used_count == 2 * n_configs
 
-    second_ptrs = [cache.icl_cache.kv[0].key.data_ptr() for cache in engine.kv_caches]
+    second_ptrs = [cache.kv[0].key.data_ptr() for cache in engine.kv_caches]
     assert first_ptrs == second_ptrs, (
         "keep_cache_on_device=True must reuse on-device cache tensors, "
         "not re-transfer them on each predict call"
@@ -641,10 +648,239 @@ def test__public_keep_cache_on_device__controls_cache_placement(
     # True keeps caches on the build device; False offloads them to CPU.
     expected_device = device if keep_cache_on_device else "cpu"
     for cache in est.executor_.kv_caches:
-        for entry in cache.icl_cache.kv.values():
+        for entry in cache.kv.values():
             assert entry.key is not None
             assert entry.key.device.type == expected_device
 
     # Prediction still works end-to-end (caches moved to device on demand).
     preds = est.predict(X[:5])
     assert len(preds) == 5
+
+
+class _TestModelWithLinear(_TestModelWithKVCache):
+    """A test model with Linear layers that also supports the KV-cache forward."""
+
+    def __init__(self) -> None:
+        """Create a new instance."""
+        super().__init__()
+        self.linear = nn.Linear(2, 3, bias=True)
+        self.linear_no_bias = nn.Linear(3, 2, bias=False)
+
+
+@pytest.mark.skipif(
+    not torch.backends.mps.is_available(), reason="requires the MPS backend"
+)
+@pytest.mark.parametrize(
+    "fit_mode", ["low_memory", "fit_preprocessors", "fit_with_cache"]
+)
+def test__init__mps_target_device__applies_mps_linear_bug_workaround(
+    fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Moving an engine to MPS replaces Linears with MpsSafeLinear.
+
+    See tabpfn.architectures.shared.workaround_mps_linear_bug.
+    """
+    monkeypatch.setattr(
+        workaround_mps_linear_bug, "_mps_linear_bias_is_buggy", lambda: True
+    )
+    rng = default_rng(seed=0)
+    X_train = rng.standard_normal((20, 4))
+    y_train = rng.integers(0, 3, (20, 1))
+    mps = torch.device("mps")
+    engine = create_inference_engine(
+        fit_mode=fit_mode,
+        X_train=X_train,
+        y_train=y_train,
+        ensemble_preprocessor=TabPFNEnsemblePreprocessor(
+            configs=_create_test_ensemble_configs(
+                n_configs=2, n_classes=3, num_models=1
+            ),
+            n_samples=X_train.shape[0],
+            feature_schema=FeatureSchema.from_only_categorical_indices([], 4),
+            random_state=rng,
+            n_preprocessing_jobs=1,
+        ),
+        models=[_TestModelWithLinear()],
+        devices_=[mps],
+        byte_size=4,
+        forced_inference_dtype_=None,
+        memory_saving_mode=True,
+        use_autocast_=False,
+        inference_mode=True,
+    )
+
+    engine.to([torch.device(mps)], force_inference_dtype=None, dtype_byte_size=4)
+
+    assert isinstance(engine, MultiDeviceInferenceEngine)
+    model = engine.model_caches[0].get(torch.device(mps))
+    linears = [m for m in model.modules() if isinstance(m, nn.Linear)]
+    bias_linears = [m for m in linears if m.bias is not None]
+    no_bias_linears = [m for m in linears if m.bias is None]
+
+    assert bias_linears, "expected at least one bias-enabled Linear"
+    assert all(isinstance(m, MpsSafeLinear) for m in bias_linears)
+    assert all(type(m) is nn.Linear for m in no_bias_linears)
+
+
+@pytest.mark.skipif(
+    not torch.backends.mps.is_available(), reason="requires the MPS backend"
+)
+@pytest.mark.parametrize(
+    "fit_mode", ["low_memory", "fit_preprocessors", "fit_with_cache"]
+)
+def test__to__mps_target_device__applies_mps_linear_bug_workaround(
+    fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Moving an engine to MPS replaces Linears with MpsSafeLinear.
+
+    See tabpfn.architectures.shared.workaround_mps_linear_bug.
+    """
+    monkeypatch.setattr(
+        workaround_mps_linear_bug, "_mps_linear_bias_is_buggy", lambda: True
+    )
+    rng = default_rng(seed=0)
+    X_train = rng.standard_normal((20, 4))
+    y_train = rng.integers(0, 3, (20, 1))
+    engine = create_inference_engine(
+        fit_mode=fit_mode,
+        X_train=X_train,
+        y_train=y_train,
+        ensemble_preprocessor=TabPFNEnsemblePreprocessor(
+            configs=_create_test_ensemble_configs(
+                n_configs=2, n_classes=3, num_models=1
+            ),
+            n_samples=X_train.shape[0],
+            feature_schema=FeatureSchema.from_only_categorical_indices([], 4),
+            random_state=rng,
+            n_preprocessing_jobs=1,
+        ),
+        models=[_TestModelWithLinear()],
+        devices_=[torch.device("cpu")],
+        byte_size=4,
+        forced_inference_dtype_=None,
+        memory_saving_mode=True,
+        use_autocast_=False,
+        inference_mode=True,
+    )
+
+    mps = torch.device("mps")
+    engine.to([torch.device(mps)], force_inference_dtype=None, dtype_byte_size=4)
+
+    assert isinstance(engine, MultiDeviceInferenceEngine)
+    model = engine.model_caches[0].get(torch.device(mps))
+    linears = [m for m in model.modules() if isinstance(m, nn.Linear)]
+    bias_linears = [m for m in linears if m.bias is not None]
+    no_bias_linears = [m for m in linears if m.bias is None]
+
+    assert bias_linears, "expected at least one bias-enabled Linear"
+    assert all(isinstance(m, MpsSafeLinear) for m in bias_linears)
+    assert all(type(m) is nn.Linear for m in no_bias_linears)
+
+
+@pytest.mark.parametrize("device", get_pytest_devices())
+@pytest.mark.parametrize("estimator", ["classifier", "regressor"])
+def test__kv_cache_chunking__matches_unchunked(
+    estimator: str,
+    device: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chunked cached inference must equal unchunked inference.
+
+    We run in float64 so the only remaining
+    differences are sub-tolerance floating-point rounding (in lower precisions
+    GEMM rounding across differing batch sizes can accumulate beyond tolerance).
+    """
+    if torch.device(device).type == "mps":
+        pytest.skip("float64 inference is not supported on MPS")
+
+    # n_test must exceed the chunk size, and not be a multiple of it, so that
+    # chunking actually triggers and the final (ragged) chunk is exercised.
+    n_train, n_test, chunk = 32, 37, 8
+
+    if estimator == "classifier":
+        X, y = sklearn.datasets.make_classification(
+            n_samples=n_train + n_test,
+            n_features=5,
+            n_informative=3,
+            n_classes=3,
+            random_state=0,
+        )
+        model = TabPFNClassifier(
+            n_estimators=1,
+            random_state=42,
+            device=device,
+            inference_precision=torch.float64,
+            fit_mode="fit_with_cache",
+        )
+
+        def predict(m, x) -> np.ndarray:
+            return m.predict_proba(x)
+    else:
+        X, y, _ = sklearn.datasets.make_regression(
+            n_samples=n_train + n_test,
+            n_features=5,
+            random_state=0,
+            coef=True,
+        )
+        model = TabPFNRegressor(
+            n_estimators=1,
+            random_state=42,
+            device=device,
+            inference_precision=torch.float64,
+            fit_mode="fit_with_cache",
+        )
+
+        def predict(m, x) -> np.ndarray:
+            return m.predict(x, output_type="mean")
+
+    X_train, X_test = X[:n_train], X[n_train:]
+    y_train = y[:n_train]
+    model.fit(X_train, y_train)
+
+    # Reference: chunking disabled -> a single forward pass over all test rows.
+    monkeypatch.setattr(settings.tabpfn, "max_batched_test_rows", 0)
+    pred_unchunked = predict(model, X_test)
+
+    # Chunked: several forward passes over test-row chunks, then concatenated.
+    monkeypatch.setattr(settings.tabpfn, "max_batched_test_rows", chunk)
+    pred_chunked = predict(model, X_test)
+
+    np.testing.assert_allclose(pred_chunked, pred_unchunked, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.parametrize("device", get_pytest_devices())
+def test__kv_cache_chunking__train_embeddings_not_duplicated(
+    device: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chunking must not inflate the dict (only_return_standard_out=False) path.
+
+    Test embeddings are test-indexed and get concatenated across chunks, but
+    train embeddings are read from the KV cache and are identical per chunk, so
+    naively concatenating them would yield n_chunks * n_train rows.
+    """
+    if torch.device(device).type == "mps":
+        pytest.skip("float64 inference is not supported on MPS")
+
+    n_train, n_test, chunk = 32, 37, 8
+    X, y = sklearn.datasets.make_classification(
+        n_samples=n_train + n_test, n_features=5, n_informative=3, random_state=0
+    )
+    model = TabPFNClassifier(
+        n_estimators=1,
+        random_state=42,
+        device=device,
+        inference_precision=torch.float64,
+        fit_mode="fit_with_cache",
+    )
+    model.fit(X[:n_train], y[:n_train])
+    X_test = X[n_train:]
+
+    monkeypatch.setattr(settings.tabpfn, "max_batched_test_rows", chunk)
+    train_emb = get_embeddings(model, X_test, data_source="train")
+    test_emb = get_embeddings(model, X_test, data_source="test")
+
+    assert train_emb.shape[-2] == n_train
+    assert test_emb.shape[-2] == n_test

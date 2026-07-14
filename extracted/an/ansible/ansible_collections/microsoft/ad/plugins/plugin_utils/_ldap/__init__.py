@@ -47,7 +47,6 @@ def create_ldap_connection(
     server: t.Optional[str] = None,
     tls_mode: t.Optional[str] = None,
     username: t.Optional[str] = None,
-    domain_realm: t.Optional[str] = None,
     **kwargs: t.Any,  # Catches any other module option not needed here
 ) -> SyncLDAPClient:
     """Creates the LDAP client.
@@ -76,8 +75,7 @@ def create_ldap_connection(
         server: The LDAP server to connect to.
         tls_mode: The TLS mode, can be ldaps or start_tls.
         username: The username to authenticate with.
-        domain_realm: The domain realm to use for LDAP server lookup. If not
-            specified, will use the default realm from the Kerberos config.
+
     Returns:
         LDAPClient: The LDAP client.
     """
@@ -85,7 +83,7 @@ def create_ldap_connection(
         raise ImportError(str(LDAP_IMP_ERR)) from LDAP_IMP_ERR
 
     if not server:
-        server, lookup_port = lookup_ldap_server(default_realm=domain_realm)
+        server, lookup_port = lookup_ldap_server()
         if not port:
             port = lookup_port
 

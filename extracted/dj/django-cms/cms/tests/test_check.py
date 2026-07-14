@@ -4,7 +4,7 @@ from copy import deepcopy
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
-from djangocms_text_ckeditor.cms_plugins import TextPlugin
+from djangocms_text.cms_plugins import TextPlugin
 
 from cms.api import add_plugin
 from cms.models.placeholdermodel import Placeholder
@@ -96,7 +96,7 @@ class CheckTests(CheckAssertMixin, TestCase):
             "django.template.context_processors.i18n",
         ]
         with self.settings(**override):
-            self.assertCheck(False, errors=2)
+            self.assertCheck(False, errors=1)
 
     def test_old_style_i18n_settings(self):
         with self.settings(CMS_LANGUAGES=[("en", "English")]):

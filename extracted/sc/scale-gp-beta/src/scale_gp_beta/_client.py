@@ -51,6 +51,7 @@ if TYPE_CHECKING:
         completions,
         credentials,
         evaluations,
+        agent_configs,
         dataset_items,
         vector_stores,
         annotation_tasks,
@@ -72,6 +73,7 @@ if TYPE_CHECKING:
     from .resources.completions import CompletionsResource, AsyncCompletionsResource
     from .resources.credentials import CredentialsResource, AsyncCredentialsResource
     from .resources.files.files import FilesResource, AsyncFilesResource
+    from .resources.agent_configs import AgentConfigsResource, AsyncAgentConfigsResource
     from .resources.dataset_items import DatasetItemsResource, AsyncDatasetItemsResource
     from .resources.rubrics.rubrics import RubricsResource, AsyncRubricsResource
     from .resources.annotation_tasks import AnnotationTasksResource, AsyncAnnotationTasksResource
@@ -340,6 +342,12 @@ class SGPClient(SyncAPIClient):
         from .resources.vector_stores import VectorStoresResource
 
         return VectorStoresResource(self)
+
+    @cached_property
+    def agent_configs(self) -> AgentConfigsResource:
+        from .resources.agent_configs import AgentConfigsResource
+
+        return AgentConfigsResource(self)
 
     @cached_property
     def with_raw_response(self) -> SGPClientWithRawResponse:
@@ -695,6 +703,12 @@ class AsyncSGPClient(AsyncAPIClient):
         return AsyncVectorStoresResource(self)
 
     @cached_property
+    def agent_configs(self) -> AsyncAgentConfigsResource:
+        from .resources.agent_configs import AsyncAgentConfigsResource
+
+        return AsyncAgentConfigsResource(self)
+
+    @cached_property
     def with_raw_response(self) -> AsyncSGPClientWithRawResponse:
         return AsyncSGPClientWithRawResponse(self)
 
@@ -950,6 +964,12 @@ class SGPClientWithRawResponse:
 
         return VectorStoresResourceWithRawResponse(self._client.vector_stores)
 
+    @cached_property
+    def agent_configs(self) -> agent_configs.AgentConfigsResourceWithRawResponse:
+        from .resources.agent_configs import AgentConfigsResourceWithRawResponse
+
+        return AgentConfigsResourceWithRawResponse(self._client.agent_configs)
+
 
 class AsyncSGPClientWithRawResponse:
     _client: AsyncSGPClient
@@ -1088,6 +1108,12 @@ class AsyncSGPClientWithRawResponse:
         from .resources.vector_stores import AsyncVectorStoresResourceWithRawResponse
 
         return AsyncVectorStoresResourceWithRawResponse(self._client.vector_stores)
+
+    @cached_property
+    def agent_configs(self) -> agent_configs.AsyncAgentConfigsResourceWithRawResponse:
+        from .resources.agent_configs import AsyncAgentConfigsResourceWithRawResponse
+
+        return AsyncAgentConfigsResourceWithRawResponse(self._client.agent_configs)
 
 
 class SGPClientWithStreamedResponse:
@@ -1228,6 +1254,12 @@ class SGPClientWithStreamedResponse:
 
         return VectorStoresResourceWithStreamingResponse(self._client.vector_stores)
 
+    @cached_property
+    def agent_configs(self) -> agent_configs.AgentConfigsResourceWithStreamingResponse:
+        from .resources.agent_configs import AgentConfigsResourceWithStreamingResponse
+
+        return AgentConfigsResourceWithStreamingResponse(self._client.agent_configs)
+
 
 class AsyncSGPClientWithStreamedResponse:
     _client: AsyncSGPClient
@@ -1366,6 +1398,12 @@ class AsyncSGPClientWithStreamedResponse:
         from .resources.vector_stores import AsyncVectorStoresResourceWithStreamingResponse
 
         return AsyncVectorStoresResourceWithStreamingResponse(self._client.vector_stores)
+
+    @cached_property
+    def agent_configs(self) -> agent_configs.AsyncAgentConfigsResourceWithStreamingResponse:
+        from .resources.agent_configs import AsyncAgentConfigsResourceWithStreamingResponse
+
+        return AsyncAgentConfigsResourceWithStreamingResponse(self._client.agent_configs)
 
 
 Client = SGPClient

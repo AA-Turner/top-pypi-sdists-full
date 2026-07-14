@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_login_security_info
-short_description: Information module for organizations _login _security
+short_description: Information module for organizations _loginsecurity
 description:
-  - Get all organizations _login _security.
+  - Information module for Organizations Loginsecurity Info.
+  - Get all organizations _loginsecurity.
   - Returns the login security settings for an organization.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -21,6 +21,7 @@ options:
     type: dict
   organizationId:
     description:
+      - Information module for Organizations Loginsecurity Info.
       - OrganizationId path parameter. Organization ID.
     type: str
 requirements:
@@ -38,7 +39,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all organizations _login _security
+- name: Get all organizations _loginsecurity
   cisco.meraki.organizations_login_security_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

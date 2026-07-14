@@ -55,7 +55,7 @@ class NetworksWirelessSsidsEapOverride(object):
             identity=params.get("identity"),
             maxRetries=params.get("maxRetries"),
             eapolKey=params.get("eapolKey"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -153,7 +153,9 @@ class NetworksWirelessSsidsEapOverride(object):
             ("timeout", "timeout"),
             ("identity", "identity"),
             ("maxRetries", "maxRetries"),
-            ("eapolKey", "eapolKey"), ("number", "number"),
+            ("eapolKey", "eapolKey"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

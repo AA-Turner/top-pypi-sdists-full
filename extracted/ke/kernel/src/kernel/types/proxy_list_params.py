@@ -11,8 +11,18 @@ class ProxyListParams(TypedDict, total=False):
     limit: int
     """Limit the number of proxies to return."""
 
+    name: str
+    """Exact-match filter on proxy name using the database collation.
+
+    In production, matching is case- and accent-insensitive. Names are not required
+    to be unique, so multiple proxies may match.
+    """
+
     offset: int
     """Offset the number of proxies to return."""
 
     query: str
-    """Search proxies by name, host, IP address, or ID."""
+    """Case-insensitive substring match against proxy name, host, or IP address.
+
+    IDs match by exact value.
+    """

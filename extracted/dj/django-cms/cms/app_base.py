@@ -104,7 +104,7 @@ class CMSApp:
         By default, it returns the urls assigned to :py:attr:`CMSApp._urls`
 
         The method accepts page, language and generic keyword arguments:
-        you can customize this function to return different list of menu classes
+        you can customize this function to return different urlconfs
         according to the given arguments.
 
         This method **must** return a non-empty list of urlconfs,
@@ -115,6 +115,53 @@ class CMSApp:
         :return: list of urlconfs strings
         """
         return self._urls
+
+    def get_root_template(self, page=None, language=None, **kwargs):
+        """
+        .. versionadded:: 5.1
+
+        Returns the template name used by the apphook's root view.
+
+        Best-effort: walks the urlconfs from :meth:`get_urls` to locate the
+        pattern matching the empty path and returns ``template_name`` from its
+        view class (CBVs) or callback (FBVs that expose it). Returns ``None``
+        for views that compute the template dynamically — override this method
+        to return the template name in that case.
+
+        :return: template name or None
+        """
+        from django.urls import URLPattern, URLResolver, get_resolver
+
+        def find_root(patterns):
+            for p in patterns:
+                if p.pattern.match('') is None:
+                    continue
+                if isinstance(p, URLResolver):
+                    inner = find_root(p.url_patterns)
+                    if inner is not None:
+                        return inner
+                elif isinstance(p, URLPattern):
+                    return p
+            return None
+
+        for urlconf in self.get_urls(page=page, language=language, **kwargs):
+            try:
+                resolver = get_resolver(urlconf)
+                pattern = find_root(resolver.url_patterns)
+            except Exception:
+                continue
+            if pattern is None:
+                continue
+            callback = pattern.callback
+            view_class = getattr(callback, 'view_class', None)
+            view_initkwargs = getattr(callback, 'view_initkwargs', None) or {}
+            return (
+                view_initkwargs.get('template_name')
+                or getattr(view_class, 'template_name', None)
+                or getattr(callback, 'template_name', None)
+            )
+
+        return None
 
 
 class CMSAppConfig:
@@ -136,6 +183,41 @@ class CMSAppConfig:
 
     def __init__(self, django_app_config):
         self.app_config = django_app_config
+
+    @staticmethod
+    def get_contract(contract_name: str) -> type:
+        """
+        Retrieve a contract implementation from registered CMS extension apps.
+
+        Searches through all registered CMS extension applications for a contract
+        that matches the given contract name. A contract is a named interface that
+        allows apps to provide functionality that other apps can use.
+
+        This method enables an architecture where apps can query for
+        specific contracts and use the implementation provided by any registered
+        extension app that exports that contract.
+
+        :param contract_name: The name identifier of the contract to retrieve
+        :type contract_name: str
+        :return: The contract class if found, or None if no matching contract exists
+        :rtype: type or None
+        :raises: None
+
+        Example::
+
+            # Get a versioning contract implementation
+            versioning_contract = CMSAppConfig.get_contract('versioning')
+            if versioning_contract:
+                # Use the versioning functionality
+                version = versioning_contract.create_version(obj)
+        """
+        from cms.app_registration import get_cms_extension_apps
+
+        for app in get_cms_extension_apps():
+            name, cls = getattr(app.cms_extension, "contract", (None, None))
+            if name == contract_name:
+                return cls
+        return None
 
 
 class CMSAppExtension(metaclass=ABCMeta):

@@ -1,17 +1,15 @@
 """Common File System Utilities."""
 
-# derks@2024-06-22: remove after 3.9 is EOL?
-from __future__ import annotations
-
 import os
-import tempfile
 import shutil
+import tempfile
 from datetime import datetime
-from typing import Any, Optional
+from pathlib import Path as _Path
 from types import TracebackType
+from typing import Any
 
 
-class Tmp(object):
+class Tmp:
 
     """
     Provides creation and cleanup of a separate temporary directory, and file.
@@ -34,7 +32,7 @@ class Tmp(object):
 
             with fs.Tmp() as tmp:
                 # do something with a temporary directory
-                os.path.listdir(tmp.dir)
+                os.listdir(tmp.dir)
 
                 # do something with a temporary file
                 with open(tmp.file, 'w') as f:
@@ -64,9 +62,9 @@ class Tmp(object):
         ``self.cleanup`` is ``True``.
         """
         if self.cleanup is True:
-            if os.path.exists(self.dir):
+            if _Path(self.dir).exists():
                 shutil.rmtree(self.dir)
-            if os.path.exists(self.file):
+            if _Path(self.file).exists():
                 os.remove(self.file)
 
     def __enter__(self):  # type: ignore
@@ -101,7 +99,7 @@ def abspath(path: str, strip_trailing_slash: bool = True) -> str:
 
     """
 
-    return os.path.abspath(os.path.expanduser(path))
+    return os.path.abspath(os.path.expanduser(path))  # boundary: D-14 (CR-01/CR-02)
 
 
 def join(*args: str, **kwargs: Any) -> str:
@@ -124,15 +122,24 @@ def join(*args: str, **kwargs: Any) -> str:
             fs.join('~/some/path', 'some/other/relevant/paht')
 
     """
+    # NOTE: ``**kwargs`` is retained on the public signature for backward
+    # compatibility but is unused by the body. The original implementation
+    # forwarded kwargs to the stdlib path-join (which only accepts
+    # positional args), so any non-empty kwargs would have raised
+    # TypeError. No in-tree caller passes kwargs; downstream callers
+    # passing kwargs were already broken pre-migration.
     paths = list(args)
     first_path = abspath(paths.pop(0))
-    return os.path.join(first_path, *paths, **kwargs)
+    p = _Path(first_path)
+    for part in paths:
+        p = p / part
+    return str(p)
 
 
 def join_exists(*paths: str) -> tuple[str, bool]:
     """
-    Wrapper around ``os.path.join()``, ``os.path.abspath()``, and
-    ``os.path.exists()``.
+    Wrapper around :func:`join` plus an existence check via
+    :class:`pathlib.Path`.
 
     Args:
         paths (list): List of paths to join, and then return ``True`` if that
@@ -143,7 +150,7 @@ def join_exists(*paths: str) -> tuple[str, bool]:
                is ``bool`` (whether that path exists or not).
     """
     path = join(*paths)
-    return (path, os.path.exists(path))
+    return (path, _Path(path).exists())
 
 
 def ensure_dir_exists(path: str) -> None:
@@ -161,11 +168,12 @@ def ensure_dir_exists(path: str) -> None:
     """
 
     path = abspath(path)
+    p = _Path(path)
 
-    if os.path.exists(path) and not os.path.isdir(path):
+    if p.exists() and not p.is_dir():
         raise AssertionError(f'Path `{path}` exists but is not a directory!')
-    elif not os.path.exists(path):
-        os.makedirs(path)
+    elif not p.exists():
+        p.mkdir(parents=True)
 
 
 def ensure_parent_dir_exists(path: str) -> None:
@@ -179,11 +187,11 @@ def ensure_parent_dir_exists(path: str) -> None:
     Returns: None
     """
 
-    parent_dir = os.path.dirname(abspath(path))
+    parent_dir = str(_Path(abspath(path)).parent)
     return ensure_dir_exists(parent_dir)
 
 
-def backup(path: str, suffix: str = '.bak', **kwargs: Any) -> Optional[str]:
+def backup(path: str, suffix: str = '.bak', **kwargs: Any) -> str | None:
     """
     Rename a file or directory safely without overwriting an existing
     backup of the same name.
@@ -218,23 +226,24 @@ def backup(path: str, suffix: str = '.bak', **kwargs: Any) -> Optional[str]:
         timestamp = datetime.now().strftime(timestamp_format)
         suffix = '-'.join((suffix, timestamp))
 
+    p = _Path(path)
     while True:
-        if os.path.exists(path):
+        if p.exists():
             if count == -1:
                 new_path = f"{path}{suffix}"
             else:
                 new_path = f"{path}{suffix}.{count}"
-            if os.path.exists(new_path):
+            if _Path(new_path).exists():
                 count += 1
                 continue
             else:
-                if os.path.isfile(path):
+                if p.is_file():
                     shutil.copy(path, new_path)
-                elif os.path.isdir(path):
+                elif p.is_dir():
                     shutil.copytree(path, new_path)
                 break
         else:
-            break  # pragma: nocover
+            break  # pragma: nocover  # defensive: unreachable
     return new_path
 
 
@@ -242,4 +251,4 @@ def backup(path: str, suffix: str = '.bak', **kwargs: Any) -> Optional[str]:
 if 'HOME' in os.environ:
     HOME_DIR = abspath(os.environ['HOME'])
 else:
-    HOME_DIR = abspath('~')  # pragma: nocover
+    HOME_DIR = abspath('~')  # pragma: nocover  # platform-specific

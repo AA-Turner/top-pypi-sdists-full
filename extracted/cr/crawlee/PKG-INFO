@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.8.1
+Version: 1.8.2
 Summary: Crawlee for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
@@ -279,7 +279,7 @@ Requires-Dist: rich>=13.9.0; extra == 'all'
 Requires-Dist: scikit-learn>=1.6.0; extra == 'all'
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: stagehand>=3.19.5; extra == 'all'
-Requires-Dist: typer>=0.12.0; extra == 'all'
+Requires-Dist: typer<0.26,>=0.12.0; extra == 'all'
 Requires-Dist: wrapt>=1.17.0; extra == 'all'
 Provides-Extra: beautifulsoup
 Requires-Dist: beautifulsoup4[lxml]>=4.12.0; extra == 'beautifulsoup'
@@ -288,7 +288,7 @@ Provides-Extra: cli
 Requires-Dist: cookiecutter>=2.6.0; extra == 'cli'
 Requires-Dist: inquirer>=3.3.0; extra == 'cli'
 Requires-Dist: rich>=13.9.0; extra == 'cli'
-Requires-Dist: typer>=0.12.0; extra == 'cli'
+Requires-Dist: typer<0.26,>=0.12.0; extra == 'cli'
 Provides-Extra: curl-impersonate
 Requires-Dist: curl-cffi>=0.9.0; extra == 'curl-impersonate'
 Provides-Extra: httpx

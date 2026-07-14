@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         dns,
         iam,
         ips,
+        moq,
         rum,
         ssl,
         argo,
@@ -88,6 +89,7 @@ if TYPE_CHECKING:
         addressing,
         ai_gateway,
         audit_logs,
+        email_auth,
         hyperdrive,
         page_rules,
         zero_trust,
@@ -163,6 +165,7 @@ if TYPE_CHECKING:
     from .resources.dns.dns import DNSResource, AsyncDNSResource
     from .resources.iam.iam import IAMResource, AsyncIAMResource
     from .resources.ips.ips import IPsResource, AsyncIPsResource
+    from .resources.moq.moq import MoQResource, AsyncMoQResource
     from .resources.rum.rum import RUMResource, AsyncRUMResource
     from .resources.ssl.ssl import SSLResource, AsyncSSLResource
     from .resources.argo.argo import ArgoResource, AsyncArgoResource
@@ -204,6 +207,7 @@ if TYPE_CHECKING:
     from .resources.addressing.addressing import AddressingResource, AsyncAddressingResource
     from .resources.ai_gateway.ai_gateway import AIGatewayResource, AsyncAIGatewayResource
     from .resources.audit_logs.audit_logs import AuditLogsResource, AsyncAuditLogsResource
+    from .resources.email_auth.email_auth import EmailAuthResource, AsyncEmailAuthResource
     from .resources.hyperdrive.hyperdrive import HyperdriveResource, AsyncHyperdriveResource
     from .resources.page_rules.page_rules import PageRulesResource, AsyncPageRulesResource
     from .resources.zero_trust.zero_trust import ZeroTrustResource, AsyncZeroTrustResource
@@ -558,6 +562,12 @@ class Cloudflare(SyncAPIClient):
         return EmailSecurityResource(self)
 
     @cached_property
+    def email_auth(self) -> EmailAuthResource:
+        from .resources.email_auth import EmailAuthResource
+
+        return EmailAuthResource(self)
+
+    @cached_property
     def email_routing(self) -> EmailRoutingResource:
         from .resources.email_routing import EmailRoutingResource
 
@@ -787,6 +797,102 @@ class Cloudflare(SyncAPIClient):
 
     @cached_property
     def registrar(self) -> RegistrarResource:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import RegistrarResource
 
         return RegistrarResource(self)
@@ -964,6 +1070,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.calls import CallsResource
 
         return CallsResource(self)
+
+    @cached_property
+    def moq(self) -> MoQResource:
+        from .resources.moq import MoQResource
+
+        return MoQResource(self)
 
     @cached_property
     def cloudforce_one(self) -> CloudforceOneResource:
@@ -1510,6 +1622,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncEmailSecurityResource(self)
 
     @cached_property
+    def email_auth(self) -> AsyncEmailAuthResource:
+        from .resources.email_auth import AsyncEmailAuthResource
+
+        return AsyncEmailAuthResource(self)
+
+    @cached_property
     def email_routing(self) -> AsyncEmailRoutingResource:
         from .resources.email_routing import AsyncEmailRoutingResource
 
@@ -1739,6 +1857,102 @@ class AsyncCloudflare(AsyncAPIClient):
 
     @cached_property
     def registrar(self) -> AsyncRegistrarResource:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import AsyncRegistrarResource
 
         return AsyncRegistrarResource(self)
@@ -1916,6 +2130,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.calls import AsyncCallsResource
 
         return AsyncCallsResource(self)
+
+    @cached_property
+    def moq(self) -> AsyncMoQResource:
+        from .resources.moq import AsyncMoQResource
+
+        return AsyncMoQResource(self)
 
     @cached_property
     def cloudforce_one(self) -> AsyncCloudforceOneResource:
@@ -2382,6 +2602,12 @@ class CloudflareWithRawResponse:
         return EmailSecurityResourceWithRawResponse(self._client.email_security)
 
     @cached_property
+    def email_auth(self) -> email_auth.EmailAuthResourceWithRawResponse:
+        from .resources.email_auth import EmailAuthResourceWithRawResponse
+
+        return EmailAuthResourceWithRawResponse(self._client.email_auth)
+
+    @cached_property
     def email_routing(self) -> email_routing.EmailRoutingResourceWithRawResponse:
         from .resources.email_routing import EmailRoutingResourceWithRawResponse
 
@@ -2611,6 +2837,102 @@ class CloudflareWithRawResponse:
 
     @cached_property
     def registrar(self) -> registrar.RegistrarResourceWithRawResponse:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import RegistrarResourceWithRawResponse
 
         return RegistrarResourceWithRawResponse(self._client.registrar)
@@ -2792,6 +3114,12 @@ class CloudflareWithRawResponse:
         from .resources.calls import CallsResourceWithRawResponse
 
         return CallsResourceWithRawResponse(self._client.calls)
+
+    @cached_property
+    def moq(self) -> moq.MoQResourceWithRawResponse:
+        from .resources.moq import MoQResourceWithRawResponse
+
+        return MoQResourceWithRawResponse(self._client.moq)
 
     @cached_property
     def cloudforce_one(self) -> cloudforce_one.CloudforceOneResourceWithRawResponse:
@@ -3085,6 +3413,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncEmailSecurityResourceWithRawResponse(self._client.email_security)
 
     @cached_property
+    def email_auth(self) -> email_auth.AsyncEmailAuthResourceWithRawResponse:
+        from .resources.email_auth import AsyncEmailAuthResourceWithRawResponse
+
+        return AsyncEmailAuthResourceWithRawResponse(self._client.email_auth)
+
+    @cached_property
     def email_routing(self) -> email_routing.AsyncEmailRoutingResourceWithRawResponse:
         from .resources.email_routing import AsyncEmailRoutingResourceWithRawResponse
 
@@ -3314,6 +3648,102 @@ class AsyncCloudflareWithRawResponse:
 
     @cached_property
     def registrar(self) -> registrar.AsyncRegistrarResourceWithRawResponse:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import AsyncRegistrarResourceWithRawResponse
 
         return AsyncRegistrarResourceWithRawResponse(self._client.registrar)
@@ -3495,6 +3925,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.calls import AsyncCallsResourceWithRawResponse
 
         return AsyncCallsResourceWithRawResponse(self._client.calls)
+
+    @cached_property
+    def moq(self) -> moq.AsyncMoQResourceWithRawResponse:
+        from .resources.moq import AsyncMoQResourceWithRawResponse
+
+        return AsyncMoQResourceWithRawResponse(self._client.moq)
 
     @cached_property
     def cloudforce_one(self) -> cloudforce_one.AsyncCloudforceOneResourceWithRawResponse:
@@ -3788,6 +4224,12 @@ class CloudflareWithStreamedResponse:
         return EmailSecurityResourceWithStreamingResponse(self._client.email_security)
 
     @cached_property
+    def email_auth(self) -> email_auth.EmailAuthResourceWithStreamingResponse:
+        from .resources.email_auth import EmailAuthResourceWithStreamingResponse
+
+        return EmailAuthResourceWithStreamingResponse(self._client.email_auth)
+
+    @cached_property
     def email_routing(self) -> email_routing.EmailRoutingResourceWithStreamingResponse:
         from .resources.email_routing import EmailRoutingResourceWithStreamingResponse
 
@@ -4017,6 +4459,102 @@ class CloudflareWithStreamedResponse:
 
     @cached_property
     def registrar(self) -> registrar.RegistrarResourceWithStreamingResponse:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import RegistrarResourceWithStreamingResponse
 
         return RegistrarResourceWithStreamingResponse(self._client.registrar)
@@ -4198,6 +4736,12 @@ class CloudflareWithStreamedResponse:
         from .resources.calls import CallsResourceWithStreamingResponse
 
         return CallsResourceWithStreamingResponse(self._client.calls)
+
+    @cached_property
+    def moq(self) -> moq.MoQResourceWithStreamingResponse:
+        from .resources.moq import MoQResourceWithStreamingResponse
+
+        return MoQResourceWithStreamingResponse(self._client.moq)
 
     @cached_property
     def cloudforce_one(self) -> cloudforce_one.CloudforceOneResourceWithStreamingResponse:
@@ -4493,6 +5037,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncEmailSecurityResourceWithStreamingResponse(self._client.email_security)
 
     @cached_property
+    def email_auth(self) -> email_auth.AsyncEmailAuthResourceWithStreamingResponse:
+        from .resources.email_auth import AsyncEmailAuthResourceWithStreamingResponse
+
+        return AsyncEmailAuthResourceWithStreamingResponse(self._client.email_auth)
+
+    @cached_property
     def email_routing(self) -> email_routing.AsyncEmailRoutingResourceWithStreamingResponse:
         from .resources.email_routing import AsyncEmailRoutingResourceWithStreamingResponse
 
@@ -4724,6 +5274,102 @@ class AsyncCloudflareWithStreamedResponse:
 
     @cached_property
     def registrar(self) -> registrar.AsyncRegistrarResourceWithStreamingResponse:
+        """
+        Registrar API for searching, checking, registering, and managing domains through Cloudflare Registrar.
+
+        ## Prerequisites
+
+        Before using this API, ensure:
+
+        1. **Cloudflare account** — the caller must have a valid Cloudflare account.
+        2. **Billing profile** — the account must have a billing profile with a valid,
+          current default payment method (credit card or other accepted method).
+          This cannot be set up via API — the account owner must configure billing
+          at `https://dash.cloudflare.com/{account_id}/billing/payment-info` before
+          calling `POST /registrations`.
+        3. **API authentication** — use an API token or API key with the appropriate
+          Registrar permissions for the operations you are calling.
+
+        ## Terminology: domain extension
+
+        Throughout this API, "extension" refers to the domain extension part of a fully
+        qualified domain name — the portion after the registrable label. For example,
+        in `example.co.uk`, the extension is `co.uk` (not just `uk`). This covers both
+        top-level domains like `com` and multi-level extensions like `co.uk`. This is
+        distinct from other uses of the word "extension" (e.g., EPP extensions).
+
+        ## Supported extensions
+
+        This API currently supports programmatic registration for the following
+        extensions:
+
+        `com`, `org`, `net`, `app`, `dev`, `cc`, `xyz`, `info`, `cloud`, `studio`,
+        `live`, `link`, `pro`, `tech`, `fyi`, `shop`, `online`, `tools`, `run`,
+        `games`, `build`, `systems`, `world`, `news`, `site`, `network`, `chat`,
+        `space`, `family`, `page`, `life`, `group`, `email`, `solutions`, `day`,
+        `blog`, `ing`, `icu`, `academy`, `today`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        not listed above can be registered at `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
+        ## Typical workflow
+
+        1. **Search** — call `GET /domain-search?q={keyword}` to discover available domains.
+        2. **Check** — call `POST /domain-check` with candidate domains to verify real-time
+          availability and pricing.
+        3. **Review the response** — if `registrable: false`, inspect `reason` to
+          understand whether the domain is unavailable, the extension is not supported
+          by this API, the extension is not supported by Cloudflare Registrar at all,
+          or the extension's registry has frozen new registrations.
+        4. **Handle premium domains** — if `tier: premium`, premium registration is
+          not currently supported by this API. Surface the premium pricing to the user,
+          but do not proceed to `POST /registrations` for that domain.
+        5. **Register** — call `POST /registrations` with the chosen domain name for
+          supported non-premium registrations.
+        6. **Confirm completion** — if the response is `201 Created`, registration
+          completed within the default timeout and no polling is needed.
+        7. **Poll when needed** — if the response is `202 Accepted`, poll
+          `links.self` from the workflow response.
+        8. **Stop for user action** — if `state: action_required`, stop polling and
+          surface `context.action` to the user.
+          The workflow will not resolve on its own.
+        9. **Continue when blocked** — if `state: blocked`, continue polling and
+          inform the user that a third party, such as the extension registry or losing
+          registrar, is delaying progress.
+        10. **Review failures before retrying** — if `state: failed`, review
+          `error.code` and `error.message`, then decide whether user action or a new
+          Check call is needed.
+
+        **All successful domain registrations are non-refundable.** Once the registration
+        workflow completes with `state: succeeded`, the charge cannot be reversed.
+        Confirm pricing and domain choice with the user before calling `POST /registrations`.
+
+        ## Default behavior for mutating operations
+
+        By default, mutating operations such as create and update hold the connection
+        for a bounded, server-defined amount of time while the operation completes.
+        In most cases, the response contains a completed workflow status and no
+        polling is required.
+
+        - **Completed within the synchronous wait window:** Returns `201` (create)
+        or `200` (update) with a `workflow_status` where `state: succeeded` and
+        `completed: true`.
+        - **Still processing after the synchronous wait window:** Returns
+        `202 Accepted` with a `workflow_status` where `completed: false`. Use
+        the `links.self` URL to poll for completion.
+
+        ## Non-blocking mode
+
+        To receive an immediate `202 Accepted` response without waiting, send the
+        `Prefer: respond-async` request header (RFC 7240). The server will acknowledge
+        it with a `Preference-Applied: respond-async` response header.
+
+        ## Polling
+
+        When the response is `202`, poll the workflow status endpoint indicated by
+        `links.self` in the response body until the workflow reaches a terminal
+        state or requires user action.
+        """
         from .resources.registrar import AsyncRegistrarResourceWithStreamingResponse
 
         return AsyncRegistrarResourceWithStreamingResponse(self._client.registrar)
@@ -4909,6 +5555,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.calls import AsyncCallsResourceWithStreamingResponse
 
         return AsyncCallsResourceWithStreamingResponse(self._client.calls)
+
+    @cached_property
+    def moq(self) -> moq.AsyncMoQResourceWithStreamingResponse:
+        from .resources.moq import AsyncMoQResourceWithStreamingResponse
+
+        return AsyncMoQResourceWithStreamingResponse(self._client.moq)
 
     @cached_property
     def cloudforce_one(self) -> cloudforce_one.AsyncCloudforceOneResourceWithStreamingResponse:

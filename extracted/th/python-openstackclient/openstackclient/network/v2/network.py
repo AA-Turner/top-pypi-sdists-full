@@ -78,11 +78,7 @@ def _get_columns_network(
     )
 
 
-def _get_columns_compute(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    return utils.get_osc_show_columns_for_sdk_resource(item, {})
-
-
-def _get_attrs_network(
+def _get_attrs(
     client_manager: Any, parsed_args: argparse.Namespace
 ) -> dict[str, Any]:
     attrs = {}
@@ -103,12 +99,12 @@ def _get_attrs_network(
 
     # "network set" command doesn't support setting project.
     if 'project' in parsed_args and parsed_args.project is not None:
-        identity_client = client_manager.identity
-        project_id = identity_common.find_project(
+        identity_client = client_manager.sdk_connection.identity
+        project_id = identity_common.find_project_id_sdk(
             identity_client,
             parsed_args.project,
             parsed_args.project_domain,
-        ).id
+        )
         attrs['project_id'] = project_id
 
     # "network set" command doesn't support setting availability zone hints.
@@ -160,21 +156,6 @@ def _get_attrs_network(
     # Update DNS network options
     if parsed_args.dns_domain is not None:
         attrs['dns_domain'] = parsed_args.dns_domain
-    return attrs
-
-
-def _get_attrs_compute(
-    client_manager: Any, parsed_args: argparse.Namespace
-) -> dict[str, Any]:
-    attrs = {}
-    if parsed_args.name is not None:
-        attrs['name'] = parsed_args.name
-    if parsed_args.share:
-        attrs['share_subnet'] = True
-    if parsed_args.no_share:
-        attrs['share_subnet'] = False
-    if parsed_args.subnet is not None:
-        attrs['subnet'] = parsed_args.subnet
     return attrs
 
 
@@ -383,7 +364,7 @@ class CreateNetwork(command.ShowOne, common.NeutronCommandWithExtraArgs):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         client = self.app.client_manager.network
-        attrs = _get_attrs_network(self.app.client_manager, parsed_args)
+        attrs = _get_attrs(self.app.client_manager, parsed_args)
         if parsed_args.transparent_vlan:
             attrs['vlan_transparent'] = True
         if parsed_args.no_transparent_vlan:
@@ -587,7 +568,6 @@ class ListNetwork(command.Lister):
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[Any]]:
         client = self.app.client_manager.network
-        identity_client = self.app.client_manager.identity
         if parsed_args.long:
             columns: tuple[str, ...] = (
                 'id',
@@ -645,7 +625,7 @@ class ListNetwork(command.Lister):
                 ),
             )
 
-        args = {}
+        args: dict[str, object] = {}
 
         if parsed_args.external:
             args['router:external'] = True
@@ -665,12 +645,13 @@ class ListNetwork(command.Lister):
             args['is_admin_state_up'] = False
 
         if parsed_args.project:
-            project = identity_common.find_project(
+            identity_client = self.app.client_manager.sdk_connection.identity
+            project_id = identity_common.find_project_id_sdk(
                 identity_client,
                 parsed_args.project,
                 parsed_args.project_domain,
             )
-            args['project_id'] = project.id
+            args['project_id'] = project_id
 
         if parsed_args.share:
             args['shared'] = True
@@ -837,7 +818,7 @@ class SetNetwork(common.NeutronCommandWithExtraArgs):
         client = self.app.client_manager.network
         obj = client.find_network(parsed_args.network, ignore_missing=False)
 
-        attrs = _get_attrs_network(self.app.client_manager, parsed_args)
+        attrs = _get_attrs(self.app.client_manager, parsed_args)
         attrs.update(
             self._parse_extra_properties(parsed_args.extra_properties)
         )

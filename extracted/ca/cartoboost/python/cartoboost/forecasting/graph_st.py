@@ -85,6 +85,251 @@ class GraphTemporalFrame:
         return {"timestamp": list(self._timestamps)}
 
 
+class MarketPanelFrame:
+    """Generic directional market panel for native structure learning.
+
+    ``target_names`` names the caller-selected primary and secondary measures;
+    CartoBoost does not assign business semantics to either target.
+    """
+
+    def __init__(
+        self,
+        *,
+        lane_ids: list[str],
+        timestamps: list[int],
+        target_names: tuple[str, str] | list[str],
+        primary: Any,
+        secondary: Any,
+        origin_ids: list[str],
+        destination_ids: list[str],
+        coordinates: Any,
+        hierarchy_groups: list[list[str]] | None = None,
+        calendar: Any | None = None,
+        mix: Any | None = None,
+        expert_priors: list[dict[str, Any]] | None = None,
+        expert_labels: list[dict[str, Any]] | None = None,
+        horizon: int = 1,
+        frequency: str = "daily",
+    ) -> None:
+        native_class = _native_class("MarketPanelFrame")
+        if native_class is None:
+            raise NotImplementedError("Rust binding for MarketPanelFrame is not available.")
+        primary_rows = np.asarray(primary, dtype=float).tolist()
+        secondary_rows = np.asarray(secondary, dtype=float).tolist()
+        if (
+            np.asarray(primary, dtype=float).ndim != 2
+            or np.asarray(secondary, dtype=float).ndim != 2
+        ):
+            raise ValueError("primary and secondary must be two-dimensional time by lane matrices")
+        coordinate_rows = np.asarray(coordinates, dtype=float).tolist()
+        calendar_rows = (
+            np.zeros((len(timestamps), 0), dtype=float).tolist()
+            if calendar is None
+            else np.asarray(calendar, dtype=float).tolist()
+        )
+        mix_rows = None if mix is None else np.asarray(mix, dtype=float).tolist()
+        parent_groups = (
+            [[] for _ in lane_ids]
+            if hierarchy_groups is None
+            else [list(map(str, groups)) for groups in hierarchy_groups]
+        )
+        self._native_frame = native_class(
+            list(map(str, lane_ids)),
+            list(map(int, timestamps)),
+            list(map(str, target_names)),
+            primary_rows,
+            secondary_rows,
+            list(map(str, origin_ids)),
+            list(map(str, destination_ids)),
+            coordinate_rows,
+            calendar_rows,
+            parent_groups,
+            mix_rows,
+            json.dumps(expert_priors or []),
+            json.dumps(expert_labels or []),
+            int(horizon),
+            str(frequency),
+        )
+        # Keep the caller-supplied panel unchanged so it can be handed to a
+        # Rust graph forecaster.  This is data conversion only; the graph
+        # model and every learned relationship remain native.
+        self._timestamps = list(map(int, timestamps))
+        self._primary = primary_rows
+        self._secondary = secondary_rows
+        self._horizon = int(horizon)
+        self._frequency = str(frequency)
+
+    @property
+    def lane_ids(self) -> list[str]:
+        return list(self._native_frame.lane_ids)
+
+    @property
+    def target_names(self) -> list[str]:
+        return list(self._native_frame.target_names)
+
+    def as_graph_temporal_frame(
+        self,
+        *,
+        indptr: list[int],
+        indices: list[int],
+        data: list[float],
+        target: str = "primary",
+        covariates: Any | None = None,
+    ) -> GraphTemporalFrame:
+        """Create a native graph frame for a named observed market target.
+
+        The adjacency is intentionally explicit: this adapter never infers,
+        densifies, or fabricates a market graph.  Graph forecasters require a
+        complete numeric target matrix, so a panel with unobserved values is
+        rejected rather than imputed.
+        """
+        if target == "primary":
+            values = self._primary
+        elif target == "secondary":
+            values = self._secondary
+        else:
+            raise ValueError("target must be 'primary' or 'secondary'")
+        target_values = np.asarray(values, dtype=float)
+        if not np.isfinite(target_values).all():
+            raise ValueError(
+                "market graph forecasting requires complete observed target values; "
+                "remove unavailable lanes or provide an explicitly observed panel"
+            )
+        return GraphTemporalFrame(
+            node_ids=self.lane_ids,
+            timestamps=self._timestamps,
+            target=target_values,
+            indptr=indptr,
+            indices=indices,
+            data=data,
+            horizon=self._horizon,
+            frequency=self._frequency,
+            covariates=covariates,
+        )
+
+
+class MarketStructureForecaster:
+    """Sparse, explainable, time-aware smoothing for two named market targets."""
+
+    def __init__(
+        self,
+        *,
+        top_k: int = 8,
+        neural_hidden_dim: int = 16,
+        neural_epochs: int = 20,
+        head_epochs: int = 80,
+        head_learning_rate: float = 0.02,
+        huber_delta: float = 1.0,
+        quantile_levels: list[float] | tuple[float, ...] = (0.1, 0.5, 0.9),
+        graph_strength: float = 0.55,
+        local_strength: float = 0.35,
+        correlation_floor: float = 0.10,
+        shift_zscore: float = 2.0,
+        calibrate_intervals: bool = True,
+    ) -> None:
+        native_class = _native_class("MarketStructureForecaster")
+        if native_class is None:
+            raise NotImplementedError(
+                "Rust binding for MarketStructureForecaster is not available."
+            )
+        self._params = {
+            "top_k": int(top_k),
+            "neural_hidden_dim": int(neural_hidden_dim),
+            "neural_epochs": int(neural_epochs),
+            "head_epochs": int(head_epochs),
+            "head_learning_rate": float(head_learning_rate),
+            "huber_delta": float(huber_delta),
+            "quantile_levels": list(map(float, quantile_levels)),
+            "graph_strength": float(graph_strength),
+            "local_strength": float(local_strength),
+            "correlation_floor": float(correlation_floor),
+            "shift_zscore": float(shift_zscore),
+            "calibrate_intervals": bool(calibrate_intervals),
+        }
+        self._native_model = native_class(**self._params)
+        self.is_fitted_ = False
+
+    def fit(self, frame: MarketPanelFrame) -> MarketStructureForecaster:
+        native = getattr(frame, "_native_frame", None)
+        if native is None:
+            raise TypeError("expected a MarketPanelFrame")
+        self._native_model.fit(native)
+        self.is_fitted_ = True
+        return self
+
+    def predict(self, horizon: int, *, future_calendar: Any | None = None) -> list[dict[str, Any]]:
+        self._check_is_fitted()
+        calendar = (
+            None if future_calendar is None else np.asarray(future_calendar, dtype=float).tolist()
+        )
+        return list(json.loads(self._native_model.predict_json(int(horizon), calendar)))
+
+    def nowcast(self) -> list[dict[str, Any]]:
+        self._check_is_fitted()
+        return list(json.loads(self._native_model.nowcast_json()))
+
+    def weekly_rollups(
+        self, horizon: int, *, future_calendar: Any | None = None
+    ) -> list[dict[str, Any]]:
+        """Aggregate daily native forecasts into calendar-week rows."""
+        self._check_is_fitted()
+        calendar = (
+            None if future_calendar is None else np.asarray(future_calendar, dtype=float).tolist()
+        )
+        return list(json.loads(self._native_model.weekly_rollups_json(int(horizon), calendar)))
+
+    def relationships(self) -> list[dict[str, Any]]:
+        self._check_is_fitted()
+        return list(json.loads(self._native_model.relationships_json()))
+
+    def explorer_payload(self, horizon: int = 7) -> dict[str, Any]:
+        """Return portable lanes, forecasts, explanations, and learned kernels."""
+        self._check_is_fitted()
+        return dict(json.loads(self._native_model.explorer_json(int(horizon))))
+
+    def save(self, path: str | Path) -> None:
+        self._check_is_fitted()
+        self._native_model.save(str(path))
+
+    @classmethod
+    def load(cls, path: str | Path) -> MarketStructureForecaster:
+        native_class = _native_class("MarketStructureForecaster")
+        if native_class is None:
+            raise NotImplementedError(
+                "Rust binding for MarketStructureForecaster is not available."
+            )
+        obj = cls.__new__(cls)
+        obj._native_model = native_class.load(str(path))
+        obj._params = {}
+        obj.is_fitted_ = True
+        return obj
+
+    def to_json(self) -> str:
+        self._check_is_fitted()
+        return str(self._native_model.to_json())
+
+    @classmethod
+    def from_json(cls, value: str) -> MarketStructureForecaster:
+        native_class = _native_class("MarketStructureForecaster")
+        if native_class is None:
+            raise NotImplementedError(
+                "Rust binding for MarketStructureForecaster is not available."
+            )
+        obj = cls.__new__(cls)
+        obj._native_model = native_class.from_json(value)
+        obj._params = {}
+        obj.is_fitted_ = True
+        return obj
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        del deep
+        return dict(self._params)
+
+    def _check_is_fitted(self) -> None:
+        if not self.is_fitted_:
+            raise RuntimeError("MarketStructureForecaster must be fit before prediction")
+
+
 class DCRNNForecaster:
     """Rust DCRNN-style graph sequence forecaster."""
 
@@ -501,6 +746,175 @@ class GraphWaveNetForecaster:
         return str(backend())
 
 
+class _PaperGraphTransformerForecaster:
+    """Shared thin Python facade for paper-derived native graph architectures."""
+
+    _profile: str
+    _architecture: str
+
+    def __init__(
+        self,
+        *,
+        lookback: int = 12,
+        hidden_size: int = 16,
+        attention_heads: int = 4,
+        graph_order: int = 2,
+        experts: int = 4,
+        periodicity: int = 24,
+        epochs: int = 80,
+        learning_rate: float = 0.01,
+        weight_decay: float = 0.00001,
+        backend: Backend = Backend.CPU,
+        horizon: int = 1,
+    ) -> None:
+        native_class = _native_class("PaperGraphTransformerForecaster")
+        if native_class is None:
+            raise NotImplementedError("Rust binding for paper graph transformers is not available.")
+        self._params = {
+            "profile": self._profile,
+            "lookback": int(lookback),
+            "hidden_size": int(hidden_size),
+            "attention_heads": int(attention_heads),
+            "graph_order": int(graph_order),
+            "experts": int(experts),
+            "periodicity": int(periodicity),
+            "epochs": int(epochs),
+            "learning_rate": float(learning_rate),
+            "weight_decay": float(weight_decay),
+            "backend": _choice_value(backend),
+            "horizon": int(horizon),
+        }
+        if self._params["horizon"] <= 0:
+            raise ValueError("horizon must be positive")
+        self._native_model = native_class(
+            **{key: value for key, value in self._params.items() if key != "horizon"}
+        )
+        self.is_fitted_ = False
+
+    def fit(self, frame: GraphTemporalFrame):
+        self._native_model.fit(_native_frame(frame))
+        self.is_fitted_ = True
+        return self
+
+    def predict(self, horizon: int) -> np.ndarray:
+        self._check_is_fitted()
+        return np.asarray(self._native_model.predict(int(horizon)), dtype=float)
+
+    def score(self, actual: Any) -> float:
+        self._check_is_fitted()
+        actual_arr = np.asarray(actual, dtype=float)
+        if actual_arr.ndim != 2:
+            raise ValueError("actual must be a two-dimensional horizon by node matrix")
+        return float(self._native_model.score(actual_arr.tolist()))
+
+    def save(self, path: str | Path) -> None:
+        self._check_is_fitted()
+        self._native_model.save(str(path))
+
+    @classmethod
+    def load(cls, path: str | Path):
+        native_class = _native_class("PaperGraphTransformerForecaster")
+        if native_class is None:
+            raise NotImplementedError("Rust binding for paper graph transformers is not available.")
+        obj = cls.__new__(cls)
+        obj._native_model = native_class.load(str(path))
+        obj.is_fitted_ = True
+        obj._params = {"profile": cls._profile, "backend": obj._backend_selected(), "horizon": 1}
+        return obj
+
+    def to_json(self) -> str:
+        self._check_is_fitted()
+        return str(self._native_model.to_json())
+
+    @classmethod
+    def from_json(cls, value: str):
+        native_class = _native_class("PaperGraphTransformerForecaster")
+        if native_class is None:
+            raise NotImplementedError("Rust binding for paper graph transformers is not available.")
+        obj = cls.__new__(cls)
+        obj._native_model = native_class.from_json(value)
+        obj.is_fitted_ = True
+        obj._params = {"profile": cls._profile, "backend": obj._backend_selected(), "horizon": 1}
+        return obj
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        del deep
+        return dict(self._params)
+
+    @property
+    def metadata_(self) -> dict[str, Any]:
+        metadata = {
+            "model": type(self).__name__,
+            "architecture": self._architecture,
+            "profile": self._profile,
+            "params": dict(self._params),
+            "backend": self._backend_selected(),
+            "fitted": self.is_fitted_,
+        }
+        if self.is_fitted_:
+            metadata["architecture_report"] = dict(
+                json.loads(self._native_model.architecture_json())
+            )
+        return metadata
+
+    def _check_is_fitted(self) -> None:
+        if not self.is_fitted_:
+            raise RuntimeError(f"{type(self).__name__} must be fitted before predict")
+
+    def _backend_selected(self) -> str:
+        return str(self._native_model.backend())
+
+
+class STGormerForecaster(_PaperGraphTransformerForecaster):
+    """Structural-bias spatial/temporal Transformer with routed MoE feed-forwards."""
+
+    _profile = "heterogeneous_moe"
+    _architecture = "stgormer"
+
+
+class STGformerForecaster(_PaperGraphTransformerForecaster):
+    """Single-block recursive high-order graph-propagation Transformer."""
+
+    _profile = "efficient_high_order"
+    _architecture = "stgformer"
+
+
+class LSTTNForecaster(_PaperGraphTransformerForecaster):
+    """Long-history masked-subseries, periodic graph, and short-term fusion forecaster."""
+
+    _profile = "long_short_fusion"
+    _architecture = "lsttn"
+
+    def __init__(
+        self,
+        *,
+        lookback: int = 4032,
+        periodicity: int = 288,
+        **kwargs: Any,
+    ) -> None:
+        """Use the paper's 14-day five-minute traffic context by default.
+
+        Callers with another frequency should set both values explicitly (for
+        example, ``lookback=336, periodicity=24`` for 14 days of hourly
+        daily and weekly traffic cycles).
+        """
+        super().__init__(lookback=lookback, periodicity=periodicity, **kwargs)
+
+
+class SpatialTemporalGraphGatedTransformerForecaster(_PaperGraphTransformerForecaster):
+    """Graph convolution with temporal attention and gated recurrent updates."""
+
+    _profile = "gated_graph_temporal"
+    _architecture = "spatial_temporal_graph_gated_transformer"
+
+
+class SpatialShiftGraphonMoEForecaster(_PaperGraphTransformerForecaster):
+    """Input-conditioned expert graphon mixture for spatial distribution shift."""
+
+    _profile = "spatial_shift_graphon_moe"
+    _architecture = "spatial_shift_graphon_moe"
+
+
 def _native_frame(frame: GraphTemporalFrame) -> Any:
     native = getattr(frame, "_native_frame", None)
     if native is None:
@@ -537,5 +951,10 @@ __all__ = [
     "DCRNNForecaster",
     "GraphTemporalFrame",
     "GraphWaveNetForecaster",
+    "LSTTNForecaster",
+    "SpatialShiftGraphonMoEForecaster",
+    "SpatialTemporalGraphGatedTransformerForecaster",
     "STAEformerForecaster",
+    "STGformerForecaster",
+    "STGormerForecaster",
 ]

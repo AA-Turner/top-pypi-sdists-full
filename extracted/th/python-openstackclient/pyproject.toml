@@ -418,6 +418,7 @@ network_agent_list = "openstackclient.network.v2.network_agent:ListNetworkAgent"
 network_agent_remove_network = "openstackclient.network.v2.network_agent:RemoveNetworkFromAgent"
 network_agent_remove_router = "openstackclient.network.v2.network_agent:RemoveRouterFromAgent"
 network_agent_set = "openstackclient.network.v2.network_agent:SetNetworkAgent"
+network_agent_router_set = "openstackclient.network.v2.network_agent:SetNetworkAgentRouter"
 network_agent_show = "openstackclient.network.v2.network_agent:ShowNetworkAgent"
 network_auto_allocated_topology_create = "openstackclient.network.v2.network_auto_allocated_topology:CreateAutoAllocatedTopology"
 network_auto_allocated_topology_delete = "openstackclient.network.v2.network_auto_allocated_topology:DeleteAutoAllocatedTopology"
@@ -526,6 +527,11 @@ default_security_group_rule_create = "openstackclient.network.v2.default_securit
 default_security_group_rule_delete = "openstackclient.network.v2.default_security_group_rule:DeleteDefaultSecurityGroupRule"
 default_security_group_rule_list = "openstackclient.network.v2.default_security_group_rule:ListDefaultSecurityGroupRule"
 default_security_group_rule_show = "openstackclient.network.v2.default_security_group_rule:ShowDefaultSecurityGroupRule"
+security_group_default_statefulness_create = "openstackclient.network.v2.security_groups_default_statefulness:CreateSecurityGroupDefaultStatefulness"
+security_group_default_statefulness_delete = "openstackclient.network.v2.security_groups_default_statefulness:DeleteSecurityGroupDefaultStatefulness"
+security_group_default_statefulness_list = "openstackclient.network.v2.security_groups_default_statefulness:ListSecurityGroupDefaultStatefulness"
+security_group_default_statefulness_set = "openstackclient.network.v2.security_groups_default_statefulness:SetSecurityGroupDefaultStatefulness"
+security_group_default_statefulness_show = "openstackclient.network.v2.security_groups_default_statefulness:ShowSecurityGroupDefaultStatefulness"
 subnet_create = "openstackclient.network.v2.subnet:CreateSubnet"
 subnet_delete = "openstackclient.network.v2.subnet:DeleteSubnet"
 subnet_list = "openstackclient.network.v2.subnet:ListSubnet"
@@ -562,6 +568,26 @@ bgpvpn_port_association_unset = "openstackclient.network.v2.bgpvpn.port_associat
 bgpvpn_port_association_delete = "openstackclient.network.v2.bgpvpn.port_association:DeleteBgpvpnPortAssoc"
 bgpvpn_port_association_list = "openstackclient.network.v2.bgpvpn.port_association:ListBgpvpnPortAssoc"
 bgpvpn_port_association_show = "openstackclient.network.v2.bgpvpn.port_association:ShowBgpvpnPortAssoc"
+
+[project.entry-points."openstack.network.v2.dynamic_routing"]
+bgp_peer_create = "openstackclient.network.v2.dynamic_routing.bgp_peer:CreateBgpPeer"
+bgp_peer_delete = "openstackclient.network.v2.dynamic_routing.bgp_peer:DeleteBgpPeer"
+bgp_peer_list = "openstackclient.network.v2.dynamic_routing.bgp_peer:ListBgpPeer"
+bgp_peer_set = "openstackclient.network.v2.dynamic_routing.bgp_peer:SetBgpPeer"
+bgp_peer_show = "openstackclient.network.v2.dynamic_routing.bgp_peer:ShowBgpPeer"
+bgp_speaker_create = "openstackclient.network.v2.dynamic_routing.bgp_speaker:CreateBgpSpeaker"
+bgp_speaker_delete = "openstackclient.network.v2.dynamic_routing.bgp_speaker:DeleteBgpSpeaker"
+bgp_speaker_list = "openstackclient.network.v2.dynamic_routing.bgp_speaker:ListBgpSpeaker"
+bgp_speaker_set = "openstackclient.network.v2.dynamic_routing.bgp_speaker:SetBgpSpeaker"
+bgp_speaker_show = "openstackclient.network.v2.dynamic_routing.bgp_speaker:ShowBgpSpeaker"
+bgp_speaker_add_network = "openstackclient.network.v2.dynamic_routing.bgp_speaker:AddNetworkToSpeaker"
+bgp_speaker_add_peer = "openstackclient.network.v2.dynamic_routing.bgp_speaker:AddPeerToSpeaker"
+bgp_speaker_remove_network = "openstackclient.network.v2.dynamic_routing.bgp_speaker:RemoveNetworkFromSpeaker"
+bgp_speaker_remove_peer = "openstackclient.network.v2.dynamic_routing.bgp_speaker:RemovePeerFromSpeaker"
+bgp_speaker_list_advertised_routes = "openstackclient.network.v2.dynamic_routing.bgp_speaker:ListRoutesAdvertisedBySpeaker"
+bgp_dragent_add_speaker = "openstackclient.network.v2.dynamic_routing.bgp_dragent:AddBgpSpeakerToDRAgent"
+bgp_dragent_remove_speaker = "openstackclient.network.v2.dynamic_routing.bgp_dragent:RemoveBgpSpeakerFromDRAgent"
+bgp_dragent_list = "openstackclient.network.v2.dynamic_routing.bgp_dragent:ListDRAgent"
 
 [project.entry-points."openstack.network.v2.fwaas"]
 firewall_group_create = "openstackclient.network.v2.fwaas.group:CreateFirewallGroup"
@@ -602,6 +628,33 @@ tap_service_list = "openstackclient.network.v2.taas.tap_service:ListTapService"
 tap_service_show = "openstackclient.network.v2.taas.tap_service:ShowTapService"
 tap_service_update = "openstackclient.network.v2.taas.tap_service:UpdateTapService"
 
+[project.entry-points."openstack.network.v2.vpnaas"]
+vpn_endpoint_group_create = "openstackclient.network.v2.vpnaas.endpoint_group:CreateEndpointGroup"
+vpn_endpoint_group_delete = "openstackclient.network.v2.vpnaas.endpoint_group:DeleteEndpointGroup"
+vpn_endpoint_group_list = "openstackclient.network.v2.vpnaas.endpoint_group:ListEndpointGroup"
+vpn_endpoint_group_set = "openstackclient.network.v2.vpnaas.endpoint_group:SetEndpointGroup"
+vpn_endpoint_group_show = "openstackclient.network.v2.vpnaas.endpoint_group:ShowEndpointGroup"
+vpn_ike_policy_create = "openstackclient.network.v2.vpnaas.ikepolicy:CreateIKEPolicy"
+vpn_ike_policy_delete = "openstackclient.network.v2.vpnaas.ikepolicy:DeleteIKEPolicy"
+vpn_ike_policy_list = "openstackclient.network.v2.vpnaas.ikepolicy:ListIKEPolicy"
+vpn_ike_policy_set = "openstackclient.network.v2.vpnaas.ikepolicy:SetIKEPolicy"
+vpn_ike_policy_show = "openstackclient.network.v2.vpnaas.ikepolicy:ShowIKEPolicy"
+vpn_ipsec_policy_create = "openstackclient.network.v2.vpnaas.ipsecpolicy:CreateIPsecPolicy"
+vpn_ipsec_policy_delete = "openstackclient.network.v2.vpnaas.ipsecpolicy:DeleteIPsecPolicy"
+vpn_ipsec_policy_list = "openstackclient.network.v2.vpnaas.ipsecpolicy:ListIPsecPolicy"
+vpn_ipsec_policy_set = "openstackclient.network.v2.vpnaas.ipsecpolicy:SetIPsecPolicy"
+vpn_ipsec_policy_show = "openstackclient.network.v2.vpnaas.ipsecpolicy:ShowIPsecPolicy"
+vpn_ipsec_site_connection_create = "openstackclient.network.v2.vpnaas.ipsec_site_connection:CreateIPsecSiteConnection"
+vpn_ipsec_site_connection_delete = "openstackclient.network.v2.vpnaas.ipsec_site_connection:DeleteIPsecSiteConnection"
+vpn_ipsec_site_connection_list = "openstackclient.network.v2.vpnaas.ipsec_site_connection:ListIPsecSiteConnection"
+vpn_ipsec_site_connection_set = "openstackclient.network.v2.vpnaas.ipsec_site_connection:SetIPsecSiteConnection"
+vpn_ipsec_site_connection_show = "openstackclient.network.v2.vpnaas.ipsec_site_connection:ShowIPsecSiteConnection"
+vpn_service_create = "openstackclient.network.v2.vpnaas.vpnservice:CreateVPNService"
+vpn_service_delete = "openstackclient.network.v2.vpnaas.vpnservice:DeleteVPNService"
+vpn_service_list = "openstackclient.network.v2.vpnaas.vpnservice:ListVPNService"
+vpn_service_set = "openstackclient.network.v2.vpnaas.vpnservice:SetVPNSercice"
+vpn_service_show = "openstackclient.network.v2.vpnaas.vpnservice:ShowVPNService"
+
 [project.entry-points."openstack.object_store.v1"]
 object_store_account_set = "openstackclient.object.v1.account:SetAccount"
 object_store_account_show = "openstackclient.object.v1.account:ShowAccount"
@@ -620,6 +673,48 @@ object_save = "openstackclient.object.v1.object:SaveObject"
 object_set = "openstackclient.object.v1.object:SetObject"
 object_show = "openstackclient.object.v1.object:ShowObject"
 object_unset = "openstackclient.object.v1.object:UnsetObject"
+
+[project.entry-points."openstack.share.v2"]
+share_group_create = "openstackclient.share.v2.share_groups:CreateShareGroup"
+share_group_delete = "openstackclient.share.v2.share_groups:DeleteShareGroup"
+share_group_list = "openstackclient.share.v2.share_groups:ListShareGroup"
+share_group_show = "openstackclient.share.v2.share_groups:ShowShareGroup"
+share_group_set = "openstackclient.share.v2.share_groups:SetShareGroup"
+share_group_unset = "openstackclient.share.v2.share_groups:UnsetShareGroup"
+share_group_type_create = "openstackclient.share.v2.share_group_types:CreateShareGroupType"
+share_group_type_delete = "openstackclient.share.v2.share_group_types:DeleteShareGroupType"
+share_group_type_list = "openstackclient.share.v2.share_group_types:ListShareGroupType"
+share_group_type_show = "openstackclient.share.v2.share_group_types:ShowShareGroupType"
+share_group_type_set = "openstackclient.share.v2.share_group_types:SetShareGroupType"
+share_group_type_unset = "openstackclient.share.v2.share_group_types:UnsetShareGroupType"
+share_group_type_access_create = "openstackclient.share.v2.share_group_type_access:ShareGroupTypeAccessAllow"
+share_group_type_access_list = "openstackclient.share.v2.share_group_type_access:ListShareGroupTypeAccess"
+share_group_type_access_delete = "openstackclient.share.v2.share_group_type_access:ShareGroupTypeAccessDeny"
+share_group_snapshot_create = "openstackclient.share.v2.share_group_snapshots:CreateShareGroupSnapshot"
+share_group_snapshot_delete = "openstackclient.share.v2.share_group_snapshots:DeleteShareGroupSnapshot"
+share_group_snapshot_show = "openstackclient.share.v2.share_group_snapshots:ShowShareGroupSnapshot"
+share_group_snapshot_list = "openstackclient.share.v2.share_group_snapshots:ListShareGroupSnapshot"
+share_group_snapshot_set = "openstackclient.share.v2.share_group_snapshots:SetShareGroupSnapshot"
+share_group_snapshot_unset = "openstackclient.share.v2.share_group_snapshots:UnsetShareGroupSnapshot"
+share_group_snapshot_members_list = "openstackclient.share.v2.share_group_snapshots:ListShareGroupSnapshotMembers"
+share_lock_create = "openstackclient.share.v2.resource_locks:CreateResourceLock"
+share_lock_list = "openstackclient.share.v2.resource_locks:ListResourceLock"
+share_lock_show = "openstackclient.share.v2.resource_locks:ShowResourceLock"
+share_lock_set = "openstackclient.share.v2.resource_locks:SetResourceLock"
+share_lock_unset = "openstackclient.share.v2.resource_locks:UnsetResourceLock"
+share_lock_delete = "openstackclient.share.v2.resource_locks:DeleteResourceLock"
+share_message_delete = "openstackclient.share.v2.messages:DeleteMessage"
+share_message_list = "openstackclient.share.v2.messages:ListMessage"
+share_message_show = "openstackclient.share.v2.messages:ShowMessage"
+share_security_service_create = "openstackclient.share.v2.security_services:CreateShareSecurityService"
+share_security_service_delete = "openstackclient.share.v2.security_services:DeleteShareSecurityService"
+share_security_service_show = "openstackclient.share.v2.security_services:ShowShareSecurityService"
+share_security_service_set = "openstackclient.share.v2.security_services:SetShareSecurityService"
+share_security_service_unset = "openstackclient.share.v2.security_services:UnsetShareSecurityService"
+share_security_service_list = "openstackclient.share.v2.security_services:ListShareSecurityService"
+share_service_set = "openstackclient.share.v2.services:SetShareService"
+share_service_list = "openstackclient.share.v2.services:ListShareService"
+share_service_ensure_shares = "openstackclient.share.v2.services:EnsureShareService"
 
 [project.entry-points."openstack.volume.v2"]
 consistency_group_add_volume = "openstackclient.volume.v2.consistency_group:AddVolumeToConsistencyGroup"
@@ -736,6 +831,7 @@ volume_group_type_delete = "openstackclient.volume.v3.volume_group_type:DeleteVo
 volume_group_type_list = "openstackclient.volume.v3.volume_group_type:ListVolumeGroupType"
 volume_group_type_set = "openstackclient.volume.v3.volume_group_type:SetVolumeGroupType"
 volume_group_type_show = "openstackclient.volume.v3.volume_group_type:ShowVolumeGroupType"
+volume_host_failover = "openstackclient.volume.v3.volume_host:FailoverVolumeHost"
 volume_host_set = "openstackclient.volume.v3.volume_host:SetVolumeHost"
 volume_message_delete = "openstackclient.volume.v3.volume_message:DeleteMessage"
 volume_message_list = "openstackclient.volume.v3.volume_message:ListMessages"
@@ -791,11 +887,15 @@ warn_unused_ignores = true
 exclude = "(?x)(doc | examples | hacking | releasenotes)"
 
 [[tool.mypy.overrides]]
-module = ["openstackclient.tests.functional.*"]
+module = [
+    "openstackclient.tests.functional.*",
+]
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["openstackclient.tests.unit.*"]
+module = [
+    "openstackclient.tests.unit.*",
+]
 ignore_errors = true
 
 [tool.ruff]

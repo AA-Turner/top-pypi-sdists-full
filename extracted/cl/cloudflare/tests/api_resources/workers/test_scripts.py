@@ -62,8 +62,22 @@ class TestScripts:
                     }
                 ],
                 "body_part": "worker.js",
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
                 "compatibility_date": "2021-01-01",
                 "compatibility_flags": ["nodejs_compat"],
+                "exports": {
+                    "Admin": {
+                        "type": "worker",
+                        "cache": {"enabled": True},
+                    },
+                    "default": {
+                        "type": "worker",
+                        "cache": {"enabled": False},
+                    },
+                },
                 "keep_assets": False,
                 "keep_bindings": ["string"],
                 "limits": {
@@ -110,6 +124,13 @@ class TestScripts:
                         "propagation_policy": "authenticated",
                     },
                 },
+                "package_dependencies": [
+                    {
+                        "installed_version": "4.17.22",
+                        "name": "lodash",
+                        "package_json_version": "^4.17.21",
+                    }
+                ],
                 "placement": {"mode": "smart"},
                 "tags": ["string"],
                 "tail_consumers": [
@@ -424,8 +445,22 @@ class TestAsyncScripts:
                     }
                 ],
                 "body_part": "worker.js",
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
                 "compatibility_date": "2021-01-01",
                 "compatibility_flags": ["nodejs_compat"],
+                "exports": {
+                    "Admin": {
+                        "type": "worker",
+                        "cache": {"enabled": True},
+                    },
+                    "default": {
+                        "type": "worker",
+                        "cache": {"enabled": False},
+                    },
+                },
                 "keep_assets": False,
                 "keep_bindings": ["string"],
                 "limits": {
@@ -472,6 +507,13 @@ class TestAsyncScripts:
                         "propagation_policy": "authenticated",
                     },
                 },
+                "package_dependencies": [
+                    {
+                        "installed_version": "4.17.22",
+                        "name": "lodash",
+                        "package_json_version": "^4.17.21",
+                    }
+                ],
                 "placement": {"mode": "smart"},
                 "tags": ["string"],
                 "tail_consumers": [

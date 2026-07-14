@@ -10,98 +10,66 @@
 #   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #   License for the specific language governing permissions and limitations
 #   under the License.
-#
+
+from openstack.block_storage.v2 import service as _service
+from openstack.test import fakes as sdk_fakes
 
 from openstackclient.tests.unit.volume.v2 import fakes as volume_fakes
 from openstackclient.volume.v2 import volume_host
 
 
-class TestVolumeHost(volume_fakes.TestVolume):
+class TestVolumeHostSet(volume_fakes.TestVolume):
     def setUp(self):
         super().setUp()
-
-        self.host_mock = self.volume_client.services
-        self.host_mock.reset_mock()
-
-
-class TestVolumeHostSet(TestVolumeHost):
-    service = volume_fakes.create_one_service()
-
-    def setUp(self):
-        super().setUp()
-
-        self.host_mock.freeze_host.return_value = None
-        self.host_mock.thaw_host.return_value = None
-
-        # Get the command object to mock
+        self.service = sdk_fakes.generate_fake_resource(_service.Service)
         self.cmd = volume_host.SetVolumeHost(self.app, None)
 
     def test_volume_host_set_nothing(self):
-        arglist = [
-            self.service.host,
-        ]
-        verifylist = [
-            ('host', self.service.host),
-        ]
+        arglist = [self.service.host]
+        verifylist = [('host', self.service.host)]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
         result = self.cmd.take_action(parsed_args)
 
-        self.host_mock.freeze_host.assert_not_called()
-        self.host_mock.thaw_host.assert_not_called()
+        self.volume_client.freeze_service.assert_not_called()
+        self.volume_client.thaw_service.assert_not_called()
         self.assertIsNone(result)
 
     def test_volume_host_set_enable(self):
-        arglist = [
-            '--enable',
-            self.service.host,
-        ]
-        verifylist = [
-            ('enable', True),
-            ('host', self.service.host),
-        ]
+        arglist = ['--enable', self.service.host]
+        verifylist = [('enable', True), ('host', self.service.host)]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         result = self.cmd.take_action(parsed_args)
 
-        self.host_mock.thaw_host.assert_called_with(self.service.host)
-        self.host_mock.freeze_host.assert_not_called()
+        self.volume_client.thaw_service.assert_called_once_with(
+            _service.Service(host=self.service.host)
+        )
+        self.volume_client.freeze_service.assert_not_called()
         self.assertIsNone(result)
 
     def test_volume_host_set_disable(self):
-        arglist = [
-            '--disable',
-            self.service.host,
-        ]
-        verifylist = [
-            ('disable', True),
-            ('host', self.service.host),
-        ]
+        arglist = ['--disable', self.service.host]
+        verifylist = [('disable', True), ('host', self.service.host)]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         result = self.cmd.take_action(parsed_args)
 
-        self.host_mock.freeze_host.assert_called_with(self.service.host)
-        self.host_mock.thaw_host.assert_not_called()
+        self.volume_client.freeze_service.assert_called_once_with(
+            _service.Service(host=self.service.host)
+        )
+        self.volume_client.thaw_service.assert_not_called()
         self.assertIsNone(result)
 
 
-class TestVolumeHostFailover(TestVolumeHost):
-    service = volume_fakes.create_one_service()
-
+class TestVolumeHostFailover(volume_fakes.TestVolume):
     def setUp(self):
         super().setUp()
-
-        self.host_mock.failover_host.return_value = None
-
-        # Get the command object to mock
+        self.service = sdk_fakes.generate_fake_resource(_service.Service)
         self.cmd = volume_host.FailoverVolumeHost(self.app, None)
 
     def test_volume_host_failover(self):
-        arglist = [
-            '--volume-backend',
-            'backend_test',
-            self.service.host,
-        ]
+        arglist = ['--volume-backend', 'backend_test', self.service.host]
         verifylist = [
             ('volume_backend', 'backend_test'),
             ('host', self.service.host),
@@ -110,7 +78,8 @@ class TestVolumeHostFailover(TestVolumeHost):
 
         result = self.cmd.take_action(parsed_args)
 
-        self.host_mock.failover_host.assert_called_with(
-            self.service.host, 'backend_test'
+        self.volume_client.failover_service.assert_called_once_with(
+            _service.Service(host=self.service.host),
+            backend_id='backend_test',
         )
         self.assertIsNone(result)

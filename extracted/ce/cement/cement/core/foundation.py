@@ -1,16 +1,34 @@
 """Cement core foundation module."""
 
-from __future__ import annotations
 import os
 import platform
 import signal
 import sys
+from collections.abc import Callable
 from importlib import reload as reload_module
+from pathlib import Path as _Path
 from time import sleep
-from typing import (IO, Any, Callable, Dict, List, Optional, TextIO, Tuple,
-                    Type, Union, TYPE_CHECKING)
-from ..core import (arg, cache, config, controller, exc, extension, log, mail,
-                    meta, output, plugin, template)
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    TextIO,
+)
+
+from ..core import (
+    arg,
+    cache,
+    config,
+    controller,
+    exc,
+    extension,
+    log,
+    mail,
+    meta,
+    output,
+    plugin,
+    template,
+)
 from ..core.deprecations import deprecate
 from ..core.handler import Handler, HandlerManager
 from ..core.hook import HookManager
@@ -20,22 +38,29 @@ from ..utils import fs, misc
 from ..utils.misc import is_true, minimal_logger
 
 if TYPE_CHECKING:
-    from types import FrameType, ModuleType, TracebackType  # pragma: nocover
+    from types import (  # pragma: nocover  # TYPE_CHECKING import
+        FrameType,
+        ModuleType,
+        TracebackType,
+    )
 
 
-ArgparseArgumentType = Tuple[List[str], Dict[str, Any]]
+# D-09: argparse `add_argument(*args, **kwargs)` kwargs are arbitrary
+# (action, type, default, help, choices, ...). Public type alias used by
+# Controller subclasses as the type of `Meta.arguments` entries (D-12).
+ArgparseArgumentType = tuple[list[str], dict[str, Any]]
 
-join = os.path.join
+join = os.path.join  # boundary: public alias `cement.core.foundation:join` (baseline; D-12 / D-14)
 
 
 LOG = minimal_logger(__name__)
 if platform.system() == 'Windows':
-    SIGNALS = [signal.SIGTERM, signal.SIGINT]   # pragma: nocover
+    SIGNALS = [signal.SIGTERM, signal.SIGINT]   # pragma: nocover  # platform-specific
 else:
     SIGNALS = [signal.SIGTERM, signal.SIGINT, signal.SIGHUP]
 
 
-def add_handler_override_options(app: App) -> None:
+def add_handler_override_options(app: "App") -> None:
     """
     This is a ``post_setup`` hook that adds the handler override options to
     the argument parser
@@ -80,7 +105,7 @@ def add_handler_override_options(app: App) -> None:
             )
 
 
-def handler_override(app: App) -> None:
+def handler_override(app: "App") -> None:
     """
     This is a ``post_argument_parsing`` hook that overrides a configured
     handler if defined in ``App.Meta.handler_override_options`` and
@@ -95,9 +120,9 @@ def handler_override(app: App) -> None:
 
     for i in app._meta.handler_override_options.keys():
         if not hasattr(app.pargs, f'{i}_handler_override'):
-            continue  # pragma: nocover
+            continue  # pragma: nocover  # defensive: unreachable
         elif getattr(app.pargs, f'{i}_handler_override') is None:
-            continue  # pragma: nocover
+            continue  # pragma: nocover  # defensive: unreachable
         else:
             # get the argument value from command line
             argument = getattr(app.pargs, f'{i}_handler_override')
@@ -107,7 +132,12 @@ def handler_override(app: App) -> None:
             getattr(app, f'_setup_{i}_handler')()
 
 
-def cement_signal_handler(signum: int, frame: Optional[FrameType]) -> Any:
+# D-09: the wide return type matches Python's `signal.signal` callable
+# protocol (the stdlib accepts handlers returning anything). The function
+# always raises CaughtSignal so the body never reaches a return statement;
+# `NoReturn` would diverge from the stdlib protocol. Public framework
+# symbol (D-12).
+def cement_signal_handler(signum: int, frame: "FrameType | None") -> Any:
     """
     Catch a signal, run the ``signal`` hook, and then raise an exception
     allowing the app to handle logic elsewhere.
@@ -129,8 +159,8 @@ def cement_signal_handler(signum: int, frame: Optional[FrameType]) -> Any:
         for f_global in frame.f_globals.values():
             if isinstance(f_global, App):
                 app = f_global
-                for res in app.hook.run('signal', app, signum, frame):
-                    pass  # pragma: nocover
+                for _res in app.hook.run('signal', app, signum, frame):
+                    pass  # pragma: nocover  # untestable: signal handler
     raise exc.CaughtSignal(signum, frame)
 
 
@@ -295,7 +325,7 @@ class App(meta.MetaMixin):
         first has precedence.
         """
 
-        plugin_dir: Optional[str] = None
+        plugin_dir: str | None = None
         """
         A directory path where plugin code (modules) can be loaded from.
         By default, this setting is also overridden by the
@@ -321,7 +351,7 @@ class App(meta.MetaMixin):
         ``setup()``.
         """
 
-        _choo_type = Dict[str, ArgparseArgumentType]
+        _choo_type = dict[str, ArgparseArgumentType]
         core_handler_override_options: _choo_type = dict(
             output=(['-o'], dict(help='output handler')),
         )
@@ -332,7 +362,7 @@ class App(meta.MetaMixin):
         are merged together).
         """
 
-        handler_override_options: Dict[str, ArgparseArgumentType] = {}
+        handler_override_options: dict[str, ArgparseArgumentType] = {}
         """
         Dictionary of handler override options that will be added to the
         argument parser, and allow the end-user to override handlers.  Useful
@@ -368,10 +398,14 @@ class App(meta.MetaMixin):
         the name of the application).
         """
 
-        config_defaults: Dict[str, Any] = None  # type: ignore
+        # D-09: app config defaults are user-arbitrary (str/int/list/dict
+        # values across user sections). Public Meta attribute (D-12).
+        config_defaults: dict[str, Any] = None  # type: ignore
         """Default configuration dictionary.  Must be of type ``dict``."""
 
-        meta_defaults: Dict[str, Any] = {}
+        # D-09: meta_defaults carries arbitrary high-level options pushed
+        # to handlers at registration time. Public Meta attribute (D-12).
+        meta_defaults: dict[str, Any] = {}
         """
         Default meta-data dictionary used to pass high level options from the
         application down to handlers at the point they are registered by the
@@ -448,15 +482,15 @@ class App(meta.MetaMixin):
         A handler class that implements the Template interface.
         """
 
-        cache_handler: Optional[str] = None
+        cache_handler: str | None = None
         """
         A handler class that implements the Cache interface.
         """
 
-        extensions: List[str] = []
+        extensions: list[str] = []
         """List of additional framework extensions to load."""
 
-        bootstrap: Optional[str] = None
+        bootstrap: str | None = None
         """
         A bootstrapping module to load after app creation, and before
         ``app.setup()`` is called.  This is useful for larger applications
@@ -497,6 +531,7 @@ class App(meta.MetaMixin):
             'plugin_dir',
             'ignore_deprecation_warnings',
             'template_dir',
+            'template_dirs',
             'mail_handler',
             'cache_handler',
             'log_handler',
@@ -514,7 +549,7 @@ class App(meta.MetaMixin):
         ``App.Meta.meta_override``.
         """
 
-        meta_override: List[str] = []
+        meta_override: list[str] = []
         """
         List of meta options that can/will be overridden by config options
         of the ``base`` config section (where ``base`` is the
@@ -525,7 +560,7 @@ class App(meta.MetaMixin):
         ignore_deprecation_warnings = False
         """Disable deprecation warnings from being logged by Cement."""
 
-        template_module: Optional[str] = None
+        template_module: str | None = None
         """
         A python package (dotted import path) where template files can be
         loaded from.  This is generally something like ``myapp.templates``
@@ -535,7 +570,7 @@ class App(meta.MetaMixin):
         ``template_dirs`` setting has presedence.
         """
 
-        template_dirs: List[str] = None  # type: ignore
+        template_dirs: list[str] = None  # type: ignore
         """
         A list of directory paths where template files can be loaded
         from (appended to the builtin list of directories defined by Cement).
@@ -555,9 +590,18 @@ class App(meta.MetaMixin):
 
         Templates are attempted to be loaded in order, and will stop loading
         once a template is successfully loaded from a directory.
+
+        This setting can also be overridden by the ``myapp.template_dirs``
+        config setting parsed from any of the application configuration
+        files. The config value may be a list (when using a config
+        handler that supports native lists, e.g. ``ext_yaml`` or
+        ``ext_json``) or a comma-separated string (required when using
+        the default ``ext_configparser`` / INI handler, since INI has no
+        native list syntax — the string form is split and
+        whitespace-trimmed).
         """
 
-        template_dir: Optional[str] = None
+        template_dir: str | None = None
         """
         A directory path where template files can be loaded from.  By default,
         this setting is also overridden by the
@@ -588,7 +632,7 @@ class App(meta.MetaMixin):
         ``True``.
         """
 
-        define_hooks: List[str] = []
+        define_hooks: list[str] = []
         """
         List of hook definitions (labels).  Will be passed to
         ``self.hook.define(<hook_label>)``.  Must be a list of strings.
@@ -596,7 +640,7 @@ class App(meta.MetaMixin):
         I.e. ``['my_custom_hook', 'some_other_hook']``
         """
 
-        hooks: List[Tuple[str, Callable]] = []
+        hooks: list[tuple[str, Callable]] = []
         """
         List of hooks to register when the app is created.  Will be passed to
         ``self.hook.register(<hook_label>, <hook_func>)``.  Must be a list of
@@ -605,7 +649,7 @@ class App(meta.MetaMixin):
         I.e. ``[('post_argument_parsing', my_hook_func)]``.
         """
 
-        core_interfaces: List[Type[Interface]] = [
+        core_interfaces: list[type[Interface]] = [
             extension.ExtensionInterface,
             log.LogInterface,
             config.ConfigInterface,
@@ -624,7 +668,7 @@ class App(meta.MetaMixin):
         ``App.Meta.interfaces``.
         """
 
-        interfaces: List[Type[Interface]] = []
+        interfaces: list[type[Interface]] = []
         """
         List of interfaces to be defined.  Must be a list of
         uninstantiated interface base classes.
@@ -632,7 +676,7 @@ class App(meta.MetaMixin):
         I.e. ``[MyCustomInterface, SomeOtherInterface]``
         """
 
-        handlers: List[Type[Handler]] = []
+        handlers: list[type[Handler]] = []
         """
         List of handler classes to register.  Will be passed to
         ``handler.register(<handler_class>)``.  Must be a list of
@@ -641,7 +685,7 @@ class App(meta.MetaMixin):
         I.e. ``[MyCustomHandler, SomeOtherHandler]``
         """
 
-        alternative_module_mapping: Dict[str, str] = {}
+        alternative_module_mapping: dict[str, str] = {}
         """
         EXPERIMENTAL FEATURE: This is an experimental feature added in Cement
         2.9.x and may or may not be removed in future versions of Cement.
@@ -744,8 +788,10 @@ class App(meta.MetaMixin):
 
     _meta: Meta  # type: ignore
 
-    def __init__(self, label: Optional[str] = None, **kw: Any) -> None:
-        super(App, self).__init__(**kw)
+    # D-09: handler-contract pluggable kwargs by design (Meta merging via
+    # MetaMixin upchain). Public App constructor API (D-12).
+    def __init__(self, label: str | None = None, **kw: Any) -> None:
+        super().__init__(**kw)
 
         # enable framework logging from environment?
         if 'CEMENT_LOG' in os.environ.keys():
@@ -780,12 +826,16 @@ class App(meta.MetaMixin):
 
         self._validate_label()
         self._loaded_bootstrap = None
+        # D-09: argparse Namespace is opaque per-attr-access; Cement does
+        # not bind to argparse's internal Namespace type. Internal state.
         self._parsed_args: Any = None
-        self._last_rendered: Optional[Tuple[Any, Optional[str]]] = None
-        self._extended_members: List[str] = []
+        # D-09: render data dict is user-arbitrary (matches `App.render`
+        # public signature below). Internal cache of last render.
+        self._last_rendered: tuple[Any, str | None] | None = None
+        self._extended_members: list[str] = []
         self.__saved_stdout__: TextIO = None  # type: ignore
         self.__saved_stderr__: TextIO = None  # type: ignore
-        self.__retry_hooks__: List[Tuple[str, Callable]] = []
+        self.__retry_hooks__: list[tuple[str, Callable]] = []
         self.handler: HandlerManager = None  # type: ignore
         self.interface: InterfaceManager = None  # type: ignore
         self.hook: HookManager = None  # type: ignore
@@ -843,10 +893,13 @@ class App(meta.MetaMixin):
         return self._meta.quiet
 
     @property
-    def argv(self) -> List[str]:
+    def argv(self) -> list[str]:
         """The arguments list that will be used when self.run() is called."""
         return self._meta.argv
 
+    # D-09: `extend` adds arbitrary functions/classes to the App instance
+    # per docstring contract — caller passes any function/class/object.
+    # Public App API (D-12).
     def extend(self, member_name: str, member_object: Any) -> None:
         """
         Extend the ``App()`` object with additional functions/classes such
@@ -912,7 +965,7 @@ class App(meta.MetaMixin):
             else:
                 reload_module(self._loaded_bootstrap)
 
-        for res in self.hook.run('pre_setup', self):
+        for _res in self.hook.run('pre_setup', self):
             pass
 
         self._setup_extension_handler()
@@ -930,10 +983,10 @@ class App(meta.MetaMixin):
         for hook_spec in self.__retry_hooks__:
             self.hook.register(*hook_spec)
 
-        for res in self.hook.run('post_setup', self):
+        for _res in self.hook.run('post_setup', self):
             pass
 
-    def run(self) -> Union[None, Any]:
+    def run(self) -> None | Any:
         """
         This function wraps everything together (after ``self._setup()`` is
         called) to run the application.
@@ -948,17 +1001,17 @@ class App(meta.MetaMixin):
         return_val = None
 
         LOG.debug('running pre_run hook')
-        for res in self.hook.run('pre_run', self):
+        for _res in self.hook.run('pre_run', self):
             pass
 
         # If controller exists, then dispatch it
         if self.controller:
             return_val = self.controller._dispatch()
         else:
-            self._parse_args()  # pragma: nocover
+            self._parse_args()  # pragma: nocover  # defensive: unreachable
 
         LOG.debug('running post_run hook')
-        for res in self.hook.run('post_run', self):
+        for _res in self.hook.run('post_run', self):
             pass
 
         return return_val
@@ -1012,7 +1065,7 @@ class App(meta.MetaMixin):
         self.handler.__handlers__ = {}
         self.hook.__hooks__ = {}
 
-    def close(self, code: Optional[int] = None) -> None:
+    def close(self, code: int | None = None) -> None:
         """
         Close the application.  This runs the ``pre_close`` and ``post_close``
         hooks allowing plugins/extensions/etc to cleanup at the end of
@@ -1024,7 +1077,7 @@ class App(meta.MetaMixin):
             to.  Note: ``sys.exit()`` will only be called if
             ``App.Meta.exit_on_close==True``.
         """
-        for res in self.hook.run('pre_close', self):
+        for _res in self.hook.run('pre_close', self):
             pass
 
         LOG.debug(f"closing the {self._meta.label} application")
@@ -1036,7 +1089,7 @@ class App(meta.MetaMixin):
 
         # in theory, this should happen last-last... but at that point `self`
         # would be kind of busted after _unlay_cement() is run.
-        for res in self.hook.run('post_close', self):
+        for _res in self.hook.run('post_close', self):
             pass
 
         self._unlay_cement()
@@ -1049,10 +1102,14 @@ class App(meta.MetaMixin):
         if self._meta.exit_on_close is True:
             sys.exit(self.exit_code)
 
+    # D-09: `data` is user-arbitrary (apps render dicts, lists, dataclasses,
+    # etc. — output handlers decide what to accept). `**kw` is passthrough
+    # to mix output handlers with different feature sets per OutputInterface.
+    # Public App API (D-12).
     def render(self, data: Any,
-               template: Optional[str] = None,
+               template: str | None = None,
                out: IO = sys.stdout,
-               handler: Optional[str] = None,
+               handler: str | None = None,
                **kw: Any) -> str:
         """
         This is a simple wrapper around ``self.output.render()`` which simply
@@ -1117,8 +1174,10 @@ class App(meta.MetaMixin):
         self._last_rendered = (data, out_text)
         return out_text
 
+    # D-09: render data is user-arbitrary (matches the `render` signature
+    # above). Public App property (D-12).
     @property
-    def last_rendered(self) -> Optional[Tuple[Dict[str, Any], Optional[str]]]:
+    def last_rendered(self) -> tuple[dict[str, Any], str | None] | None:
         """
         Return the ``(data, output_text)`` tuple of the last time
         ``self.render()`` was called.
@@ -1129,6 +1188,8 @@ class App(meta.MetaMixin):
         """
         return self._last_rendered
 
+    # D-09: argparse Namespace opacity (per `_parsed_args` field). Public
+    # App property (D-12).
     @property
     def pargs(self) -> Any:
         """
@@ -1137,6 +1198,9 @@ class App(meta.MetaMixin):
         """
         return self._parsed_args
 
+    # D-09: argparse `add_argument` passthrough — `*args` are name-or-flags
+    # strings and `**kw` are arbitrary argparse kwargs (action, type,
+    # default, ...). Public App API (D-12).
     def add_arg(self, *args: Any, **kw: Any) -> None:
         """A shortcut for ``self.args.add_argument``."""
         self.args.add_argument(*args, **kw)
@@ -1231,12 +1295,12 @@ class App(meta.MetaMixin):
             self.handler.register(handler_class)
 
     def _parse_args(self) -> None:
-        for res in self.hook.run('pre_argument_parsing', self):
+        for _res in self.hook.run('pre_argument_parsing', self):
             pass
 
         self._parsed_args = self.args.parse(self.argv)
 
-        for res in self.hook.run('post_argument_parsing', self):
+        for _res in self.hook.run('post_argument_parsing', self):
             pass
 
     def catch_signal(self, signum: int) -> None:
@@ -1248,8 +1312,7 @@ class App(meta.MetaMixin):
                 :py:mod:`signal library <python:signal>`.
         """
 
-        LOG.debug("adding signal handler %s for signal %s" % (
-            self._meta.signal_handler, signum)
+        LOG.debug(f"adding signal handler {self._meta.signal_handler} for signal {signum}"
         )
         signal.signal(signum, self._meta.signal_handler)
 
@@ -1263,7 +1326,7 @@ class App(meta.MetaMixin):
 
     def _resolve_handler(self,
                          handler_type: str,
-                         handler_def: Union[str, Type[Handler], Handler],
+                         handler_def: str | type[Handler] | Handler,
                          raise_error: bool = True) -> Handler:
         # meta_defaults = {}
         # if type(handler_def) == str:
@@ -1287,9 +1350,9 @@ class App(meta.MetaMixin):
         self.ext.load_extensions(self._meta.core_extensions)
         self.ext.load_extensions(self._meta.extensions)
 
-    def _find_config_files(self, path: str) -> List[str]:
+    def _find_config_files(self, path: str) -> list[str]:
         found_files = []
-        if not os.path.isdir(path):
+        if not _Path(path).is_dir():
             return []
         files = os.listdir(path)
         files.sort()
@@ -1399,9 +1462,33 @@ class App(meta.MetaMixin):
                 else:
                     setattr(self._meta, key, base_dict[key])
 
+        # convert template_dirs to a list if it is a comma-separated string
+        # (the core_meta_override loop above blindly setattr's the raw config
+        # value onto self._meta, so without this _setup_template_handler would
+        # iterate characters of a string rather than a list of paths).
+        if 'template_dirs' in self.config.keys(self._meta.config_section):
+            dirs = self.config.get(self._meta.config_section, 'template_dirs')
+
+            # convert a comma-separated string to a list
+            if type(dirs) is str:
+                # strip whitespace and drop empty tokens (trailing or
+                # repeated commas would otherwise leave '' in the list,
+                # which _setup_template_handler would silently resolve
+                # as the empty path).
+                dir_list = [x.strip() for x in dirs.split(',') if x.strip()]
+
+                # set the new template_dirs value in the config
+                self.config.set(
+                    self._meta.config_section, 'template_dirs', dir_list
+                )
+
+                # also update _meta.template_dirs which the override loop
+                # above set to the raw string
+                self._meta.template_dirs = dir_list
+
         # load extensions from configuraton file
         if 'extensions' in self.config.keys(self._meta.config_section):
-            exts = self.config.get(label, 'extensions')
+            exts = self.config.get(self._meta.config_section, 'extensions')
 
             # convert a comma-separated string to a list
             if type(exts) is str:
@@ -1411,7 +1498,9 @@ class App(meta.MetaMixin):
                 ext_list = [x.strip() for x in ext_list]
 
                 # set the new extensions value in the config
-                self.config.set(label, 'extensions', ext_list)
+                self.config.set(
+                    self._meta.config_section, 'extensions', ext_list
+                )
 
             # otherwise, if it's a list
             elif type(exts) is list:
@@ -1628,10 +1717,11 @@ class App(meta.MetaMixin):
                     super(MyApp, self).validate_config()
 
                     # test that the log file directory exist, if not create it
-                    logdir = os.path.dirname(self.config.get('log', 'file'))
+                    from pathlib import Path
+                    logdir = Path(self.config.get('log', 'file')).parent
 
-                    if not os.path.exists(logdir):
-                        os.makedirs(logdir)
+                    if not logdir.exists():
+                        logdir.mkdir(parents=True)
 
         """
         pass
@@ -1730,8 +1820,13 @@ class App(meta.MetaMixin):
         if path in self._meta.template_dirs:
             self._meta.template_dirs.remove(path)
 
-    def __import__(self, obj: Any, from_module: Optional[str] = None) -> ModuleType:
+    def __import__(self, obj: str, from_module: str | None = None) -> "ModuleType":
         # EXPERIMENTAL == UNDOCUMENTED
+        # D-09: `obj` parameter tightened from the wide type to `str` in the
+        # Wave 5 pass. The body always passes `obj` to stdlib `__import__()`
+        # (which takes a name string) and uses `mapping.get(obj, obj)` against
+        # `alternative_module_mapping: dict[str, str]` (foundation.py:661).
+        # Not in 03-PUBLIC-API-BASELINE.txt (dunder; UNDOCUMENTED experimental).
         mapping = self._meta.alternative_module_mapping
 
         if from_module is not None:
@@ -1744,14 +1839,14 @@ class App(meta.MetaMixin):
 
         return _loaded
 
-    def __enter__(self) -> App:
+    def __enter__(self) -> "App":
         self.setup()
         return self
 
     def __exit__(self,
                  exc_type: type[BaseException] | None,
                  exc_value: BaseException | None,
-                 exc_traceback: TracebackType | None) -> None:
+                 exc_traceback: "TracebackType | None") -> None:
         # only close the app if there are no unhandled exceptions
         if exc_type is None:
             self.close()
@@ -1769,16 +1864,16 @@ class TestApp(App):
 
     class Meta:
         label: str = f"app-{misc.rando()[:12]}"
-        argv: List[str] = []
-        core_system_config_files: List[str] = []
-        core_user_config_files: List[str] = []
-        config_files: List[str] = []
-        core_system_config_dirs: List[str] = []
-        core_user_config_dirs: List[str] = []
-        config_dirs: List[str] = []
-        core_system_template_dirs: List[str] = []
-        core_user_template_dirs: List[str] = []
-        core_system_plugin_dirs: List[str] = []
-        core_user_plugin_dirs: List[str] = []
-        plugin_dirs: List[str] = []
+        argv: list[str] = []
+        core_system_config_files: list[str] = []
+        core_user_config_files: list[str] = []
+        config_files: list[str] = []
+        core_system_config_dirs: list[str] = []
+        core_user_config_dirs: list[str] = []
+        config_dirs: list[str] = []
+        core_system_template_dirs: list[str] = []
+        core_user_template_dirs: list[str] = []
+        core_system_plugin_dirs: list[str] = []
+        core_user_plugin_dirs: list[str] = []
+        plugin_dirs: list[str] = []
         exit_on_close: bool = False

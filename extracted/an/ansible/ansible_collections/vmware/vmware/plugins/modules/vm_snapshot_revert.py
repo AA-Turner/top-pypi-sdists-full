@@ -189,10 +189,9 @@ class VmSnapshotRevertModule(ModulePyvmomiBase):
             if snapidentifier == snapshot.id or snapidentifier == snapshot.name:
                 return snapshot
             else:
-                if child_match := self._get_snapshot_by_identifier_recursively(
+                return self._get_snapshot_by_identifier_recursively(
                     snapshot.childSnapshotList, snapidentifier
-                ):
-                    return child_match
+                )
         return None
 
     def revert_to_snapshot(self):

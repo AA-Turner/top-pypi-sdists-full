@@ -1,4 +1,3 @@
-import cgi
 import datetime
 import re
 
@@ -36,8 +35,13 @@ def datetime_from_param(datatype, value):
 
 @from_param.when_object(File)
 def filetype_from_param(datatype, value):
-    if isinstance(value, cgi.FieldStorage):
-        return File(fieldstorage=value)
+    # TODO(johnsom) Remove once python 3.13 is the minimum supported version.
+    try:
+        import cgi
+        if isinstance(value, cgi.FieldStorage):
+            return File(fieldstorage=value)
+    except ImportError:
+        pass
     return File(content=value)
 
 

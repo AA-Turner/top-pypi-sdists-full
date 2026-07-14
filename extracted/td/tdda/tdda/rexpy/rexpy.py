@@ -68,6 +68,7 @@ from pprint import pprint
 
 from tdda import __version__
 from tdda.abstractdf import is_polars_series
+from tdda.rexpy.rexutils import PRNGState
 from tdda.utils import nvl, TDDAError
 
 
@@ -79,7 +80,7 @@ VERBOSITY_LEVEL_RE = r'^-v(-?[0-9]+)$'
 
 class VERBOSITY:
     PASSES = 0b1  # 1; old verbose
-    ALL = 0b01  # 2; same as MAX
+    ALL = 0b10  # 2; same as MAX
     INPUTS = 0b100
     SORTED = 0b1000
     RLE = 0b10000
@@ -233,7 +234,7 @@ class Size(object):
                 else:
                     self.__dict__[k] = v
             else:
-                raise TDDAError('Unknown parameter to Size: "%s" % k')
+                raise TDDAError(f'Unknown parameter to Size: "{k}"')
 
 
 nCalls = 0
@@ -940,8 +941,8 @@ class Extractor(object):
     def _poss_show_items(self, mask, items, header):
         if self._show(mask):
             print(f'{header}:')
-            for items in items:
-                print(items)
+            for item in items:
+                print(item)
             print()
 
     def _convert_rex_to_dialect(self):
@@ -1286,20 +1287,20 @@ class Extractor(object):
                 m = re.match(regex, example)
                 assert m is not None
                 f = group_map_function(m, n_frags)
-                for i, frag in enumerate(vrle):
+                for j, frag in enumerate(vrle):
                     try:
-                        g = m.group(f(i + 1))
+                        g = m.group(f(j + 1))
                     except:
                         print('>>>', regex.pattern)
-                        print(n_frags, i)
+                        print(n_frags, j)
                         raise
 
-                    if n_strings[i] <= size.max_strings_in_group:
-                        frag_strings[i].add(g)
-                        n_strings[i] = len(frag_strings[i])
-                    frag_chars[i] = frag_chars[i].union(set(list(g)))
-                    (frag_rlefcs[i], frag_rlecs[i]) = self._rle_fc_c(
-                        g, frag, frag_rlefcs[i], frag_rlecs[i]
+                    if n_strings[j] <= size.max_strings_in_group:
+                        frag_strings[j].add(g)
+                        n_strings[j] = len(frag_strings[j])
+                    frag_chars[j] = frag_chars[j].union(set(list(g)))
+                    (frag_rlefcs[j], frag_rlecs[j]) = self._rle_fc_c(
+                        g, frag, frag_rlefcs[j], frag_rlecs[j]
                     )
         if self.verbose >= 2:
             print('Fine Class VRLE:', frag_rlefcs)
@@ -2364,9 +2365,9 @@ class ResultsSummary(object):
 
     def to_re(self, patterns, grouped=False, as_re=True):
         f = (
-            self.extractor.rle2re
+            self.extractor._rle2re
             if not patterns or len(patterns[0]) == 2
-            else self.extractor.vrle2re
+            else self.extractor._vrle2re
         )
         return f(patterns, tagged=grouped, as_re=as_re)
 
@@ -2404,23 +2405,6 @@ class ResultsSummary(object):
 
     def __str__(self):
         return self.to_string()
-
-
-class PRNGState:
-    """
-    Seeds the Python PRNG and after captures its state.
-
-    restore() cam be used to set them back to the captured state.
-    """
-
-    def __init__(self, n):
-        if n is not None:
-            self.saved = random.getstate()
-            random.seed(n)
-
-    def restore(self):
-        if hasattr(self, 'saved'):
-            random.setstate(self.saved)
 
 
 def combine_patterns(patterns):
@@ -2667,7 +2651,7 @@ def get_only_present_at_pos(fragFreqCounters, *args, **kwargs):
     out = []
     for frag, fragFreqs in fragFreqCounters.items():
         if len(fragFreqs) == 1:
-            pos = fragFreqs.keys()[0]  # the only position
+            pos = next(iter(fragFreqs))  # the only position
             out.append((frag, pos))
     out.sort(key=lambda x: x[1])
     return out

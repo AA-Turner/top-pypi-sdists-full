@@ -21,7 +21,6 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 LOG_SOURCES: Tuple[str, ...] = (
     "tinybird.pipe_stats_rt",
-    "tinybird.bi_stats_rt",
     "tinybird.block_log",
     "tinybird.datasources_ops_log",
     "tinybird.endpoint_errors",
@@ -39,7 +38,6 @@ DEFAULT_LOG_SOURCES: Tuple[str, ...] = (
 
 TIMESTAMP_COLUMNS: Dict[str, str] = {
     "tinybird.pipe_stats_rt": "start_datetime",
-    "tinybird.bi_stats_rt": "start_datetime",
     "tinybird.block_log": "timestamp",
     "tinybird.datasources_ops_log": "timestamp",
     "tinybird.endpoint_errors": "start_datetime",
@@ -60,16 +58,6 @@ RELEVANT_DETAIL_FIELDS: Dict[str, Tuple[str, ...]] = {
         "read_rows",
         "read_bytes",
         "result_rows",
-    ),
-    "tinybird.bi_stats_rt": (
-        "query_normalized",
-        "error_code",
-        "error",
-        "duration",
-        "read_rows",
-        "read_bytes",
-        "result_rows",
-        "result_bytes",
     ),
     "tinybird.block_log": (
         "datasource_name",
@@ -207,7 +195,7 @@ _TEMPORAL_DETAIL_FIELDS = {
 _DURATION_DETAIL_FIELDS = {"duration", "elapsed_time", "processing_time"}
 _ROW_COUNT_DETAIL_FIELDS = {"rows", "read_rows", "written_rows", "result_rows", "quarantine_lines"}
 _BYTE_COUNT_DETAIL_FIELDS = {"bytes", "read_bytes", "result_bytes", "written_bytes"}
-_MILLISECOND_DURATION_SOURCES = {"tinybird.bi_stats_rt"}
+_MILLISECOND_DURATION_SOURCES: Set[str] = set()
 
 
 def _to_iso_utc(dt: datetime) -> str:

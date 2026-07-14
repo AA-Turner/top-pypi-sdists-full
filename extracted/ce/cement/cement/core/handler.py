@@ -3,10 +3,11 @@ Cement core handler module.
 
 """
 
-from __future__ import annotations
+import builtins
 import re
 from abc import ABC
-from typing import Any, List, Dict, Optional, Type, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..core import exc
 from ..core.meta import MetaMixin
 from ..utils.misc import minimal_logger
@@ -15,7 +16,7 @@ LOG = minimal_logger(__name__)
 
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 
 class Handler(ABC, MetaMixin):
@@ -45,7 +46,10 @@ class Handler(ABC, MetaMixin):
         no section is set by the user/developer.
         """
 
-        config_defaults: Optional[Dict[str, Any]] = None
+        # D-09: handler config defaults are user-arbitrary by Meta contract;
+        # subclasses set this to whatever shape their config block uses.
+        # Public Meta attribute (D-12).
+        config_defaults: dict[str, Any] | None = None
         """
         A config dictionary that is merged into the applications config
         in the ``[<config_section>]`` block.  These are defaults and do not
@@ -60,19 +64,21 @@ class Handler(ABC, MetaMixin):
         ``App.Meta.output_handler``, etc).
         """
 
+    # D-09: handler-contract pluggable kwargs by design (Meta merging via
+    # MetaMixin upchain). Public Handler base API (D-12).
     def __init__(self, **kw: Any) -> None:
-        super(Handler, self).__init__(**kw)
+        super().__init__(**kw)
         try:
             assert self._meta.label, \
                 f"{self.__class__.__name__}.Meta.label undefined."
             assert self._meta.interface, \
                 f"{self.__class__.__name__}.Meta.interface undefined."
         except AssertionError as e:
-            raise exc.FrameworkError(e.args[0])
+            raise exc.FrameworkError(e.args[0]) from e
 
         self.app: App = None  # type: ignore
 
-    def _setup(self, app: App) -> None:
+    def _setup(self, app: "App") -> None:
         """
         Called during application initialization and must ``setup`` the handler
         object making it ready for the framework or the application to make
@@ -101,25 +107,27 @@ class Handler(ABC, MetaMixin):
         """
         Perform any validation to ensure proper data, meta-data, etc.
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
 
-class HandlerManager(object):
+class HandlerManager:
     """
     Manages the handler system to define, get, resolve, etc handlers with
     the Cement Framework.
 
     """
 
-    def __init__(self, app: App):
+    def __init__(self, app: "App"):
         self.app = app
-        self.__handlers__: Dict[str, dict[str, Type[Handler]]] = {}
+        self.__handlers__: dict[str, dict[str, type[Handler]]] = {}
 
+    # D-09: passthrough kwargs for handler-resolution machinery; wide type
+    # is intentional. Public HandlerManager API (D-12).
     def get(self,
             interface: str,
             handler_label: str,
-            fallback: Optional[Type[Handler]] = None,
-            **kwargs: Any) -> Union[Handler, Type[Handler]]:
+            fallback: type[Handler] | None = None,
+            **kwargs: Any) -> Handler | type[Handler]:
         """
         Get a handler object.
 
@@ -165,10 +173,9 @@ class HandlerManager(object):
         elif fallback is not None:
             return fallback
         else:
-            raise exc.InterfaceError("handlers['%s']['%s'] does not exist!" %
-                                     (interface, handler_label))
+            raise exc.InterfaceError(f"handlers['{interface}']['{handler_label}'] does not exist!")
 
-    def list(self, interface: str) -> List[Type[Handler]]:
+    def list(self, interface: str) -> builtins.list[type[Handler]]:
         """
         Return a list of handlers for a given ``interface``.
 
@@ -198,7 +205,7 @@ class HandlerManager(object):
         return res
 
     def register(self,
-                 handler_class: Type[Handler],
+                 handler_class: type[Handler],
                  force: bool = False) -> None:
         """
         Register a handler class to an interface.  If the same object is
@@ -249,8 +256,10 @@ class HandlerManager(object):
         obj._meta.label = re.sub('-', '_', obj._meta.label)
 
         interface = obj._meta.interface
-        LOG.debug("registering handler '%s' into handlers['%s']['%s']" %
-                  (handler_class, interface, obj._meta.label))
+        LOG.debug(
+            f"registering handler '{handler_class}' into "
+            f"handlers['{interface}']['{obj._meta.label}']"
+        )
 
         if interface not in self.app.interface.list():
             raise exc.InterfaceError(f"Handler interface '{interface}' doesn't exist.")
@@ -303,7 +312,7 @@ class HandlerManager(object):
 
         return False
 
-    def setup(self, handler_class: Type[Handler]) -> Handler:
+    def setup(self, handler_class: type[Handler]) -> Handler:
         """
         Setup a handler class so that it can be used.
 
@@ -324,10 +333,15 @@ class HandlerManager(object):
         h._setup(self.app)
         return h
 
+    # D-09: same passthrough-kwargs contract as `get` above. Public
+    # HandlerManager API (D-12). Note: the `Handler | Handler | None`
+    # return type is a Wave 3 UP007 cascade artifact (duplicate union
+    # member, semantically equivalent to `Handler | None`); deferred to a
+    # future tech-debt cleanup since it's not an `Any`-tightening issue.
     def resolve(self,
                 interface: str,
-                handler_def: Union[str, Handler, Type[Handler]],
-                **kwargs: Any) -> Union[Handler, Optional[Handler]]:
+                handler_def: str | Handler | type[Handler],
+                **kwargs: Any) -> Handler | Handler | None:
         """
         Resolves the actual handler, as it can be either a string identifying
         the handler to load from ``self.__handlers__``, or it can be an
@@ -389,7 +403,7 @@ class HandlerManager(object):
             han = handler_def
         elif hasattr(handler_def, 'Meta'):
             han = handler_def(**meta_defaults)  # type: ignore
-            if not self.registered(interface, han._meta.label):
+            if not self.registered(interface, han._meta.label):  # type: ignore
                 self.register(handler_def)  # type: ignore
 
         msg = f"Unable to resolve handler '{handler_def}' of interface '{interface}'"

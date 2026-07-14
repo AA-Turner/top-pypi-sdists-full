@@ -1,16 +1,12 @@
 import base64
 import datetime
 import decimal
+import xml.etree.ElementTree as et
 
 from wsme.rest.xml import fromxml, toxml
 import wsme.tests.protocol
 from wsme.types import isarray, isdict, isusertype, register_type
 from wsme.utils import parse_isodatetime, parse_isodate, parse_isotime
-
-try:
-    import xml.etree.ElementTree as et
-except ImportError:
-    import cElementTree as et  # noqa
 
 
 def dumpxml(key, obj, datatype=None):

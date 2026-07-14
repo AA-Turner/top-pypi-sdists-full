@@ -5,6 +5,7 @@ import json
 import time
 import warnings
 from enum import Enum
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -28,6 +29,7 @@ import anyio
 from sqlalchemy import Column, String, asc, cast, desc, false, func, inspect, or_
 from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.collections import InstrumentedList, InstrumentedSet
 from sqlalchemy.orm.exc import DetachedInstanceError
 from sqlalchemy.sql.elements import ClauseElement
 from sqlalchemy.sql.expression import Select, select
@@ -40,19 +42,28 @@ from wtforms.fields.core import UnboundField
 
 from sqladmin._queries import Query
 from sqladmin._types import (
+    _UNSET,
+    BASE_FORMATTERS_TYPE,
     MODEL_ATTR,
     SESSION_MAKER,
     ColumnFilter,
     OperationColumnFilter,
     SimpleColumnFilter,
+    StrEnum,
 )
 from sqladmin.ajax import create_ajax_loader
 from sqladmin.exceptions import InvalidModelError
 from sqladmin.formatters import BASE_FORMATTERS
-from sqladmin.forms import ModelConverter, ModelConverterBase, get_model_form
+from sqladmin.forms import (
+    WTFORMS_ATTRS,
+    ModelConverter,
+    ModelConverterBase,
+    get_model_form,
+)
 from sqladmin.helpers import (
     Writer,
     default_encoder,
+    get_direction,
     get_object_identifier,
     get_primary_keys,
     object_identifier_values,
@@ -114,6 +125,9 @@ class ModelViewMeta(type):
         )
         mcs._check_conflicting_options(
             ["column_export_list", "column_export_exclude_list"], attrs
+        )
+        mcs._check_conflicting_options(
+            ["column_import_list", "column_import_exclude_list"], attrs
         )
 
         return cls
@@ -240,6 +254,22 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
     can_export: ClassVar[bool] = True
     """Permission for exporting lists of Models.
     Default value is set to `True`.
+    """
+
+    can_import: ClassVar[bool] = False
+    """Permission for importing lists of Models.
+    Default value is set to `False`.
+    """
+
+    max_import_file_size: ClassVar[int] = 5 * 1024 * 1024
+    """Maximum import CSV file size in bytes for this ModelView."""
+
+    max_reported_missed_rows: ClassVar[int] = 100
+    """Maximum missed rows included in import result payload."""
+
+    import_max_rows: ClassVar[int] = 0
+    """Maximum number of data rows allowed for import.
+    Unlimited by default.
     """
 
     # List page
@@ -462,7 +492,7 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
 
     # Template configuration
     show_compact_lists: ClassVar[bool] = True
-    """Show compact lists. Default is `True`.
+    """Show compact lists. Default is `True`. 
     If False, when showing lists of objects, each object will be \
     displayed in a separate line."""
 
@@ -503,11 +533,34 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
     """
     Enable export of CSV files using column labels and column formatters.
 
-    If set to True, the export will apply column labels and formatting logic
+    If set to True, the export will apply column labels and formatting logic 
     used in the list template.
     Otherwise, raw database values and field names will be used.
 
     You can override cell formatting per column by implementing `custom_export_cell`.
+    """
+
+    # Import
+    column_import_list: ClassVar[List[MODEL_ATTR]] = []
+    """List of columns to include when importing.
+    Columns can either be string names or SQLAlchemy columns.
+
+    ???+ example
+        ```python
+        class UserAdmin(ModelView, model=User):
+            column_import_list = [User.id, User.name]
+        ```
+    """
+
+    column_import_exclude_list: ClassVar[List[MODEL_ATTR]] = []
+    """List of columns to exclude when importing.
+    Columns can either be string names or SQLAlchemy columns.
+
+    ???+ example
+        ```python
+        class UserAdmin(ModelView, model=User):
+            column_import_exclude_list = [User.id, User.name]
+        ```
     """
 
     # Form
@@ -682,7 +735,7 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         ```
     """
 
-    column_type_formatters: ClassVar[Dict[Type, Callable]] = BASE_FORMATTERS
+    column_type_formatters: ClassVar[BASE_FORMATTERS_TYPE] = BASE_FORMATTERS
     """Dictionary of value type formatters to be used in the list view.
 
     By default, two types are formatted:
@@ -700,6 +753,36 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         ```
     """
 
+    column_type_formatters_detail: ClassVar[BASE_FORMATTERS_TYPE] = BASE_FORMATTERS
+    """Dictionary of value type formatters to be used in the details view.
+
+    By default, two types are formatted:
+
+        - None will be displayed as an empty string
+        - bool will be displayed as a checkmark if it is True otherwise as an X.
+
+    If you don't like the default behavior and don't want any type formatters applied,
+    just override this property with an empty dictionary:
+
+    ???+ example
+        ```python
+        class UserAdmin(ModelView, model=User):
+            column_type_formatters_detail = dict()
+        ```
+    """
+
+    non_link_related_fields: ClassVar[List[MODEL_ATTR]] = []
+    """Relationship fields that should be rendered as plain text instead of links.
+
+    Values can be relationship attributes or string field names.
+
+    ???+ example
+        ```python
+        class UserAdmin(ModelView, model=User):
+            non_link_related_fields = [User.profile, "addresses"]
+        ```
+    """
+
     def __init__(self) -> None:
         self._mapper = inspect(self.model)
         self._prop_names = [attr.key for attr in self._mapper.attrs]
@@ -707,6 +790,10 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
             getattr(self.model, relation.key) for relation in self._mapper.relationships
         ]
         self._relation_names = [relation.key for relation in self._mapper.relationships]
+
+        self._non_link_related_fields = [
+            self._get_prop_name(item) for item in self.non_link_related_fields
+        ]
 
         self._column_labels = self._build_column_pairs(self.column_labels)
         self._column_labels_value_by_key = {
@@ -747,8 +834,11 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         self._form_relations = [
             getattr(self.model, name) for name in self._form_relation_names
         ]
+        self._form_overrides = self._build_column_pairs(self.form_overrides)
 
         self._export_prop_names = self.get_export_columns()
+
+        self._import_prop_names = self.get_import_columns()
 
         self._search_fields = [
             self._get_prop_name(attr) for attr in self.column_searchable_list
@@ -763,11 +853,25 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
                 model_admin=self, name=name, options=options
             )
 
+        self._ajax_relation_names: set[str] = set(self._form_ajax_refs.keys())
+
         self._refresh_form_rules_cache()
 
         self._custom_actions_in_list: Dict[str, str] = {}
         self._custom_actions_in_detail: Dict[str, str] = {}
         self._custom_actions_confirmation: Dict[str, str] = {}
+
+        self._column_type_formatters = self.column_type_formatters.copy()
+        if (
+            self.column_type_formatters != BASE_FORMATTERS
+            and self.column_type_formatters_detail == BASE_FORMATTERS
+        ):
+            # If you want to apply filters for types on all pages
+            self._column_type_formatters_detail = self.column_type_formatters.copy()
+        else:
+            self._column_type_formatters_detail = (
+                self.column_type_formatters_detail.copy()
+            )
 
     def _run_arbitrary_query_sync(self, stmt: ClauseElement) -> Any:
         with self.session_maker(expire_on_commit=False) as session:
@@ -837,9 +941,46 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         return [(pk.name, False) for pk in self.pk_columns]
 
     def _default_formatter(self, value: Any) -> Any:
-        if type(value) in self.column_type_formatters:
-            formatter = self.column_type_formatters[type(value)]
+        value_class = type(value)
+
+        if value_class in self._column_type_formatters:
+            formatter = self._column_type_formatters[value_class]
             return formatter(value)
+
+        elif value_class is InstrumentedList:
+            return [self._default_formatter(item) for item in value]
+
+        elif value_class is InstrumentedSet:
+            return {self._default_formatter(item) for item in value}
+
+        if hasattr(value, "__class__") and hasattr(value.__class__, "__bases__"):
+            parents = value.__class__.__bases__
+            for parent_class in parents:
+                if parent_class in self._column_type_formatters:
+                    formatter = self._column_type_formatters[parent_class]
+                    return formatter(value)
+
+        return value
+
+    def _default_formatter_detail(self, value: Any) -> Any:
+        value_class = type(value)
+
+        if value_class in self._column_type_formatters_detail:
+            formatter = self._column_type_formatters_detail[value_class]
+            return formatter(value)
+
+        elif value_class is InstrumentedList:
+            return [self._default_formatter_detail(item) for item in value]
+
+        elif value_class is InstrumentedSet:
+            return {self._default_formatter_detail(item) for item in value}
+
+        if hasattr(value, "__class__") and hasattr(value.__class__, "__bases__"):
+            parents = value.__class__.__bases__
+            for parent_class in parents:
+                if parent_class in self._column_type_formatters_detail:
+                    formatter = self._column_type_formatters_detail[parent_class]
+                    return formatter(value)
 
         return value
 
@@ -912,8 +1053,9 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         for filter_ in self.get_filters():
             filter_param_name = filter_.parameter_name
             filter_value = request.query_params.get(filter_param_name)
+            default_value = getattr(filter_, "default_value", _UNSET)
 
-            if filter_value:
+            if filter_value or default_value is not _UNSET:
                 if hasattr(filter_, "has_operator") and filter_.has_operator:
                     # Use operation-based filtering
                     operation_filter = typing_cast(OperationColumnFilter, filter_)
@@ -977,9 +1119,78 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         stmt = self.form_edit_query(request)
         return await self._get_object_by_pk(stmt)
 
+    async def get_form_data_for_edit(self, obj: Any) -> dict[str, Any]:
+        result = {}
+        pk_value = get_object_identifier(obj)
+        parent_stmt = self._stmt_by_identifier(str(pk_value))
+        for name in self._form_prop_names:
+            if name in self._ajax_relation_names:
+                relation = self._mapper.relationships[name]
+                target = relation.mapper.class_
+                direction = get_direction(relation)
+                if direction in ("ONETOMANY", "MANYTOMANY"):
+                    whereclause = parent_stmt.whereclause
+                    if whereclause is None:
+                        continue
+                    stmt = (
+                        select(target)
+                        .join(getattr(self.model, name))
+                        .where(whereclause)
+                        .distinct()
+                    )
+                    result[name] = await self._run_query(stmt)
+                else:
+                    fk_value = getattr(
+                        obj, relation.local_remote_pairs[0][0].name, None
+                    )
+                    if fk_value is not None:
+                        target_pk = get_primary_keys(target)[0]
+                        stmt = select(target).where(target_pk == fk_value)
+                        rows = await self._run_query(stmt)
+                        result[name] = rows[0] if rows else None
+                    else:
+                        result[name] = None
+            else:
+                value = getattr(obj, name, None)
+                wtf_key = WTFORMS_ATTRS.get(name, name)
+                result[wtf_key] = value
+        return result
+
     async def get_object_for_delete(self, value: Any) -> Any:
         stmt = self._stmt_by_identifier(value)
         return await self._get_object_by_pk(stmt)
+
+    async def get_object_filepath(self, identifier: str, column_name: str) -> Path:
+        stmt = self._stmt_by_identifier(identifier)
+        obj = await self._get_object_by_pk(stmt)
+
+        if column_name not in self._mapper.columns:
+            raise HTTPException(status_code=404, detail="Unknown column.")
+
+        column_value = getattr(obj, column_name)
+        from sqladmin.helpers import (
+            get_column_storage_roots,
+            is_http_url,
+            resolve_storage_path,
+            validate_servable_file_path,
+        )
+
+        path = resolve_storage_path(column_value)
+        if path is None:
+            raise HTTPException(status_code=404)
+        if is_http_url(path):
+            raise HTTPException(status_code=400, detail="Remote URLs are not served.")
+
+        allowed_roots = get_column_storage_roots(self._mapper.columns[column_name])
+        try:
+            return validate_servable_file_path(path, allowed_roots)
+        except ValueError as exc:
+            message = str(exc)
+            if message == "File not found":
+                raise HTTPException(status_code=404) from exc
+            if message == "File path not allowed":
+                raise HTTPException(status_code=403, detail=message) from exc
+            raise HTTPException(status_code=400, detail=message) from exc
 
     def _stmt_by_identifier(self, identifier: str) -> Select:
         stmt = select(self.model)
@@ -996,7 +1207,7 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
             except DetachedInstanceError:
                 obj = await self._lazyload_prop(obj, part)
 
-        if obj and isinstance(obj, Enum):
+        if obj and isinstance(obj, Enum) and not isinstance(obj, StrEnum):
             obj = obj.name
 
         return obj
@@ -1047,7 +1258,7 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
                 self._detail_formatter_accepts_request.get(prop, False),
             )
             if formatter
-            else self._default_formatter(value)
+            else self._default_formatter_detail(value)
         )
         return value, formatted_value
 
@@ -1129,6 +1340,18 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
 
         return filters
 
+    def get_import_columns(self) -> List[str]:
+        """Get list of properties to import."""
+
+        columns = getattr(self, "column_import_list", None)
+        excluded_columns = getattr(self, "column_import_exclude_list", None)
+
+        return self._build_column_list(
+            include=columns,
+            exclude=excluded_columns,
+            defaults=self._list_prop_names,
+        )
+
     async def on_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
@@ -1194,27 +1417,38 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
         """
         return self.can_delete
 
+    async def check_can_import(self, request: Request) -> bool:
+        """
+        You can add a custom model attribute checker before import.
+        """
+        return self.can_import
+
+    async def on_import_row(self, data: dict, model: Any, request: Request) -> None:
+        """Perform some actions on a validated import row before it is persisted.
+        By default does nothing.
+        """
+
     async def scaffold_form(self, rules: List[str] | None = None) -> Type[Form]:
         if self.form is not None:
             return self.form
 
+        self._ajax_relation_names = set(self._form_ajax_refs.keys())
+
         form = await get_model_form(
             model=self.model,
-            session_maker=self.session_maker,  # type: ignore[arg-type]
+            session_maker=self.session_maker,
             only=self._form_prop_names,
             column_labels=self._column_labels,
             form_args=self.form_args,
             form_widget_args=self.form_widget_args,
             form_class=self.form_base_class,
-            form_overrides=self.form_overrides,
+            form_overrides=self._form_overrides,
             form_ajax_refs=self._form_ajax_refs,
             form_include_pk=self.form_include_pk,
             form_converter=self.form_converter,
         )
-
         if rules:
             self._validate_form_class(rules, form)
-
         return form
 
     def search_placeholder(self) -> str:
@@ -1331,7 +1565,9 @@ class ModelView(BaseView, metaclass=ModelViewMeta):
 
         stmt = self._stmt_by_identifier(request.path_params["pk"])
         for relation in self._form_relations:
-            stmt = stmt.options(selectinload(relation))
+            name = relation.key
+            if name not in self._ajax_relation_names:
+                stmt = stmt.options(selectinload(relation))
         return stmt
 
     def count_query(self, request: Request) -> Select:

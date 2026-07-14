@@ -20,6 +20,8 @@ from unittest import mock
 import uuid
 
 import iso8601
+from openstack.block_storage.v3 import snapshot as _snapshot
+from openstack.block_storage.v3 import volume as _volume
 from openstack.compute.v2 import flavor as _flavor
 from openstack.compute.v2 import server as _server
 from openstack.compute.v2 import server_group as _server_group
@@ -36,7 +38,6 @@ from openstackclient.tests.unit.compute.v2 import fakes as compute_fakes
 from openstackclient.tests.unit.image.v2 import fakes as image_fakes
 from openstackclient.tests.unit.network.v2 import fakes as network_fakes
 from openstackclient.tests.unit import utils as test_utils
-from openstackclient.tests.unit.volume.v3 import fakes as volume_fakes
 
 
 class TestPowerStateColumn(test_utils.TestCase):
@@ -646,8 +647,8 @@ class TestServerVolume(TestServer):
         self.server = compute_fakes.create_one_server()
         self.compute_client.find_server.return_value = self.server
 
-        self.volume = volume_fakes.create_one_sdk_volume()
-        self.volume_sdk_client.find_volume.return_value = self.volume
+        self.volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.volume_client.find_volume.return_value = self.volume
 
         attrs = {
             'server_id': self.server.id,
@@ -1240,8 +1241,8 @@ class TestServerCreate(TestServer):
         self.compute_client.create_server.return_value = self.server
         self.compute_client.get_server.return_value = self.server
 
-        self.volume = volume_fakes.create_one_volume()
-        self.snapshot = volume_fakes.create_one_snapshot()
+        self.volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.snapshot = sdk_fakes.generate_fake_resource(_snapshot.Snapshot)
 
         # Get the command object to test
         self.cmd = server.CreateServer(self.app, None)
@@ -2402,7 +2403,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_volume(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--flavor',
@@ -2420,8 +2421,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_called_once_with(
-            self.volume.name
+        self.volume_client.find_volume.assert_called_once_with(
+            self.volume.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -2444,7 +2445,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_snapshot(self):
-        self.volume_client.volume_snapshots.get.return_value = self.snapshot
+        self.volume_client.find_snapshot.return_value = self.snapshot
 
         arglist = [
             '--flavor',
@@ -2462,8 +2463,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volume_snapshots.get.assert_called_once_with(
-            self.snapshot.name
+        self.volume_client.find_snapshot.assert_called_once_with(
+            self.snapshot.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -2515,7 +2516,7 @@ class TestServerCreate(TestServer):
         columns, data = self.cmd.take_action(parsed_args)
 
         # we don't do any validation of IDs when using the legacy option
-        self.volume_client.volumes.get.assert_not_called()
+        self.volume_client.find_volume.assert_not_called()
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
             image_id='',
@@ -2539,7 +2540,7 @@ class TestServerCreate(TestServer):
     def test_server_create_with_block_device_full(self):
         self.set_compute_api_version('2.67')
 
-        self.volume_alt = volume_fakes.create_one_volume()
+        self.volume_alt = sdk_fakes.generate_fake_resource(_volume.Volume)
         block_device = (
             f'uuid={self.volume.id},source_type=volume,'
             f'destination_type=volume,disk_bus=ide,device_type=disk,'
@@ -2593,7 +2594,7 @@ class TestServerCreate(TestServer):
         columns, data = self.cmd.take_action(parsed_args)
 
         # we don't do any validation of IDs when using the legacy option
-        self.volume_client.volumes.get.assert_not_called()
+        self.volume_client.find_volume.assert_not_called()
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
             image_id=self.image.id,
@@ -2675,7 +2676,7 @@ class TestServerCreate(TestServer):
         columns, data = self.cmd.take_action(parsed_args)
 
         # we don't do any validation of IDs when using the legacy option
-        self.volume_client.volumes.get.assert_not_called()
+        self.volume_client.find_volume.assert_not_called()
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
             image_id=self.image.id,
@@ -2832,7 +2833,7 @@ class TestServerCreate(TestServer):
         self.compute_client.create_server.assert_not_called()
 
     def test_server_create_with_block_device_mapping(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--image',
@@ -2865,8 +2866,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_called_once_with(
-            self.volume.name
+        self.volume_client.find_volume.assert_called_once_with(
+            self.volume.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -2897,7 +2898,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_block_device_mapping_min_input(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--image',
@@ -2929,8 +2930,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_called_once_with(
-            self.volume.name
+        self.volume_client.find_volume.assert_called_once_with(
+            self.volume.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -2960,7 +2961,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_block_device_mapping_default_input(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--image',
@@ -2992,8 +2993,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_called_once_with(
-            self.volume.name
+        self.volume_client.find_volume.assert_called_once_with(
+            self.volume.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -3023,7 +3024,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_block_device_mapping_full_input(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--image',
@@ -3057,8 +3058,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_called_once_with(
-            self.volume.name
+        self.volume_client.find_volume.assert_called_once_with(
+            self.volume.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -3090,8 +3091,8 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_block_device_mapping_snapshot(self):
-        self.snapshot = volume_fakes.create_one_snapshot()
-        self.volume_client.volume_snapshots.get.return_value = self.snapshot
+        self.snapshot = sdk_fakes.generate_fake_resource(_snapshot.Snapshot)
+        self.volume_client.find_snapshot.return_value = self.snapshot
 
         arglist = [
             '--image',
@@ -3125,8 +3126,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volume_snapshots.get.assert_called_once_with(
-            self.snapshot.name
+        self.volume_client.find_snapshot.assert_called_once_with(
+            self.snapshot.name, ignore_missing=False
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -3158,7 +3159,7 @@ class TestServerCreate(TestServer):
         self.assertEqual(self.datalist(), data)
 
     def test_server_create_with_block_device_mapping_multiple(self):
-        self.volume_client.volumes.get.return_value = self.volume
+        self.volume_client.find_volume.return_value = self.volume
 
         arglist = [
             '--image',
@@ -3200,8 +3201,8 @@ class TestServerCreate(TestServer):
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volume_client.volumes.get.assert_has_calls(
-            [mock.call(self.volume.name)] * 2
+        self.volume_client.find_volume.assert_has_calls(
+            [mock.call(self.volume.name, ignore_missing=False)] * 2
         )
         self.compute_client.create_server.assert_called_once_with(
             name=self.server.name,
@@ -7539,7 +7540,7 @@ class TestServerRescue(compute_fakes.TestCompute):
             self.server.id, ignore_missing=False
         )
         self.compute_client.rescue_server.assert_called_once_with(
-            self.server, admin_pass=None, image_ref=None
+            self.server, admin_pass=None, image=None
         )
         self.assertIsNone(result)
 
@@ -7566,7 +7567,7 @@ class TestServerRescue(compute_fakes.TestCompute):
             self.server.id, ignore_missing=False
         )
         self.compute_client.rescue_server.assert_called_once_with(
-            self.server, admin_pass=None, image_ref=new_image.id
+            self.server, admin_pass=None, image=new_image.id
         )
         self.assertIsNone(result)
 
@@ -7589,7 +7590,7 @@ class TestServerRescue(compute_fakes.TestCompute):
             self.server.id, ignore_missing=False
         )
         self.compute_client.rescue_server.assert_called_once_with(
-            self.server, admin_pass=password, image_ref=None
+            self.server, admin_pass=password, image=None
         )
         self.assertIsNone(result)
 
@@ -8603,6 +8604,49 @@ class TestServerSet(TestServer):
             exceptions.CommandError, self.cmd.take_action, parsed_args
         )
 
+    def test_server_set_with_pinned_availability_zone(self):
+        self.set_compute_api_version('2.104')
+
+        arglist = [
+            '--pinned-availability-zone',
+            'az1',
+            self.server.id,
+        ]
+        verifylist = [
+            ('pinned_availability_zone', 'az1'),
+            ('server', self.server.id),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        result = self.cmd.take_action(parsed_args)
+
+        self.compute_client.update_server.assert_called_once_with(
+            self.server, pinned_availability_zone='az1'
+        )
+        self.compute_client.set_server_metadata.assert_not_called()
+        self.compute_client.reset_server_state.assert_not_called()
+        self.compute_client.change_server_password.assert_not_called()
+        self.compute_client.clear_server_password.assert_not_called()
+        self.compute_client.add_tag_to_server.assert_not_called()
+        self.assertIsNone(result)
+
+    def test_server_set_with_pinned_availability_zone_pre_v2104(self):
+        self.set_compute_api_version('2.103')
+
+        arglist = [
+            '--pinned-availability-zone',
+            'az1',
+            self.server.id,
+        ]
+        verifylist = [
+            ('pinned_availability_zone', 'az1'),
+            ('server', self.server.id),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        self.assertRaises(
+            exceptions.CommandError, self.cmd.take_action, parsed_args
+        )
+
 
 class TestServerShelve(TestServer):
     def setUp(self):
@@ -9404,6 +9448,46 @@ class TestServerUnset(TestServer):
         )
         self.assertIn(
             '--os-compute-api-version 2.26 or greater is required', str(ex)
+        )
+
+    def test_server_unset_with_pinned_availability_zone(self):
+        self.set_compute_api_version('2.104')
+
+        arglist = [
+            '--pinned-availability-zone',
+            self.server.id,
+        ]
+        verifylist = [
+            ('pinned_availability_zone', True),
+            ('server', self.server.id),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        result = self.cmd.take_action(parsed_args)
+
+        self.compute_client.update_server.assert_called_once_with(
+            self.server, pinned_availability_zone=None
+        )
+        self.assertIsNone(result)
+
+    def test_server_unset_with_pinned_availability_zone_pre_v2104(self):
+        self.set_compute_api_version('2.103')
+
+        arglist = [
+            '--pinned-availability-zone',
+            self.server.id,
+        ]
+        verifylist = [
+            ('pinned_availability_zone', True),
+            ('server', self.server.id),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        ex = self.assertRaises(
+            exceptions.CommandError, self.cmd.take_action, parsed_args
+        )
+        self.assertIn(
+            '--os-compute-api-version 2.104 or greater is required', str(ex)
         )
 
 

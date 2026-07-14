@@ -57,6 +57,34 @@ BILLING_CHANNEL_SALES: BillingChannel.ValueType  # 2
 BILLING_CHANNEL_PARTNER: BillingChannel.ValueType  # 3
 global___BillingChannel = BillingChannel
 
+class _SponsoredType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _SponsoredTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_SponsoredType.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    SPONSORED_TYPE_UNSPECIFIED: _SponsoredType.ValueType  # 0
+    SPONSORED_TYPE_EDUCATION: _SponsoredType.ValueType  # 1
+    SPONSORED_TYPE_OPEN_SOURCE: _SponsoredType.ValueType  # 2
+    SPONSORED_TYPE_NON_PROFIT: _SponsoredType.ValueType  # 3
+    SPONSORED_TYPE_FRIENDS_AND_FAMILY: _SponsoredType.ValueType  # 4
+    SPONSORED_TYPE_FLY_IO: _SponsoredType.ValueType  # 5
+    SPONSORED_TYPE_NINTENDO: _SponsoredType.ValueType  # 6
+    SPONSORED_TYPE_EMPLOYEE: _SponsoredType.ValueType  # 7
+
+class SponsoredType(_SponsoredType, metaclass=_SponsoredTypeEnumTypeWrapper):
+    """The type of sponsorship associated with a contract."""
+
+SPONSORED_TYPE_UNSPECIFIED: SponsoredType.ValueType  # 0
+SPONSORED_TYPE_EDUCATION: SponsoredType.ValueType  # 1
+SPONSORED_TYPE_OPEN_SOURCE: SponsoredType.ValueType  # 2
+SPONSORED_TYPE_NON_PROFIT: SponsoredType.ValueType  # 3
+SPONSORED_TYPE_FRIENDS_AND_FAMILY: SponsoredType.ValueType  # 4
+SPONSORED_TYPE_FLY_IO: SponsoredType.ValueType  # 5
+SPONSORED_TYPE_NINTENDO: SponsoredType.ValueType  # 6
+SPONSORED_TYPE_EMPLOYEE: SponsoredType.ValueType  # 7
+global___SponsoredType = SponsoredType
+
 class _ExternalBillingProvider:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -95,6 +123,34 @@ class Date(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["day", b"day", "month", b"month", "year", b"year"]) -> None: ...
 
 global___Date = Date
+
+@typing.final
+class SponsorshipConfig(google.protobuf.message.Message):
+    """Configuration for a sponsored contract. The presence of this message on a
+    BillingConfig indicates the contract is sponsored; its absence means it is
+    not.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SPONSORED_TYPE_FIELD_NUMBER: builtins.int
+    CAN_TRIAL_FIELD_NUMBER: builtins.int
+    CAN_CHECKOUT_FIELD_NUMBER: builtins.int
+    sponsored_type: global___SponsoredType.ValueType
+    can_trial: builtins.bool
+    """Whether this sponsored Contract is eligible to start trials."""
+    can_checkout: builtins.bool
+    """Whether this sponsored Contract can checkout."""
+    def __init__(
+        self,
+        *,
+        sponsored_type: global___SponsoredType.ValueType = ...,
+        can_trial: builtins.bool = ...,
+        can_checkout: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["can_checkout", b"can_checkout", "can_trial", b"can_trial", "sponsored_type", b"sponsored_type"]) -> None: ...
+
+global___SponsorshipConfig = SponsorshipConfig
 
 @typing.final
 class Address(google.protobuf.message.Message):
@@ -143,6 +199,7 @@ class BillingConfig(google.protobuf.message.Message):
     SUPPORTS_PAYG_FIELD_NUMBER: builtins.int
     IS_MANAGED_FIELD_NUMBER: builtins.int
     HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
+    SPONSORSHIP_CONFIG_FIELD_NUMBER: builtins.int
     billing_type: global___BillingType.ValueType
     channel: global___BillingChannel.ValueType
     """Remaining fields are deprecated"""
@@ -172,6 +229,10 @@ class BillingConfig(google.protobuf.message.Message):
 
     @property
     def contract_end_date(self) -> global___Date: ...
+    @property
+    def sponsorship_config(self) -> global___SponsorshipConfig:
+        """Sponsorship configuration. Absent means the contract is not sponsored."""
+
     def __init__(
         self,
         *,
@@ -185,8 +246,10 @@ class BillingConfig(google.protobuf.message.Message):
         supports_payg: builtins.bool = ...,
         is_managed: builtins.bool = ...,
         has_soft_cap: builtins.bool = ...,
+        sponsorship_config: global___SponsorshipConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["address", b"address", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "has_soft_cap", b"has_soft_cap", "is_managed", b"is_managed", "month_interval", b"month_interval", "supports_payg", b"supports_payg"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "sponsorship_config", b"sponsorship_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "has_soft_cap", b"has_soft_cap", "is_managed", b"is_managed", "month_interval", b"month_interval", "sponsorship_config", b"sponsorship_config", "supports_payg", b"supports_payg"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_sponsorship_config", b"_sponsorship_config"]) -> typing.Literal["sponsorship_config"] | None: ...
 
 global___BillingConfig = BillingConfig

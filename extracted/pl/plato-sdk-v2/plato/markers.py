@@ -118,6 +118,9 @@ class WorkspaceMarker:
         git_config: Git transport configuration. Only used when ``transport="git"``.
         commit_strategy: DVC commit strategy. ``"manifest"`` (default) uploads individual
             files; ``"archive"`` uploads the entire directory as a single tar.gz.
+        readonly: Agents mount the workspace read-only. Supported only for the
+            NFS transport (server export ``ro`` + client mount ``-o ro``); use
+            for large shared datasets agents read in place.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -142,6 +145,7 @@ class WorkspaceMarker:
         transport: Literal["nfs_kernel", "sshfs", "git", "rsync"] | None = None,
         git_config: GitTransportConfig | None = None,
         commit_strategy: Literal["manifest", "archive"] = "manifest",
+        readonly: bool = False,
     ):
         self.kind = "workspace"
         self.description = description
@@ -151,3 +155,7 @@ class WorkspaceMarker:
         self.transport = transport
         self.git_config = git_config
         self.commit_strategy = commit_strategy
+        # Agents mount this workspace read-only (NFS transport only): the
+        # server export uses `ro` and the client mount adds `-o ro`. Intended
+        # for large shared datasets that must never be rsynced per-VM.
+        self.readonly = readonly

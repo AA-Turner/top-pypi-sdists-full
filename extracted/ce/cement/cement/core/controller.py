@@ -1,10 +1,10 @@
 """Cement core controller module."""
 
-from __future__ import annotations
 from abc import abstractmethod
-from typing import Any, Union
-from ..core.interface import Interface
+from typing import Any
+
 from ..core.handler import Handler
+from ..core.interface import Interface
 from ..utils.misc import minimal_logger
 
 LOG = minimal_logger(__name__)
@@ -26,8 +26,12 @@ class ControllerInterface(Interface):
         #: The string identifier of the interface.
         interface = 'controller'
 
+    # D-09: `_dispatch` returns whatever the user's command function returns
+    # so the type contract is intentionally wide. The Wave 3 UP007 cascade
+    # left a redundant `| None` member on this annotation; dropped in the
+    # Wave 5 tightening pass since the wide type already covers None.
     @abstractmethod
-    def _dispatch(self) -> Union[Any | None]:
+    def _dispatch(self) -> Any:
         """
         Reads the application object's data to dispatch a command from this
         controller.  For example, reading ``self.app.pargs`` to determine what
@@ -42,10 +46,10 @@ class ControllerInterface(Interface):
             ``None`` if no controller function is called.
 
         """
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method
 
 
 class ControllerHandler(ControllerInterface, Handler):
     """Controller handler implementation."""
     class Meta(Handler.Meta):
-        pass    # pragma: nocover
+        pass    # pragma: nocover  # abstract method

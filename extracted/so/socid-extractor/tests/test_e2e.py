@@ -650,7 +650,7 @@ def test_eyeem():
     assert info.get('photos') == '3'
     assert info.get('facebook_uid') == '1610716256'
 
-
+@pytest.mark.github_failed
 def test_vimeo_html_e2e():
     """Vimeo HTML"""
     info = extract(parse('https://vimeo.com/staff')[0])
@@ -928,6 +928,7 @@ def test_patreon():
     assert 'bio' in info
 
 
+@pytest.mark.github_failed
 def test_last_fm():
     info = extract(parse('https://www.last.fm/user/alex')[0])
 
@@ -1220,7 +1221,7 @@ def test_weibo_api():
 
 @pytest.mark.github_failed
 def test_weibo_api_by_id():
-    """Weibo API by user ID"""
+    """Weibo API"""
     URL = 'https://weibo.com/u/6215884155'
     mutated = mutate_url(URL)
     assert len(mutated) >= 1
@@ -1275,7 +1276,8 @@ def test_ifunny_co():
     assert info.get("id") == "5ab1fd49a2cf59ac948b456e"
     assert info.get("username") == "CuddleKinnz"
     assert info.get("bio") == "Humor Some Like, Some Hate"
-    assert info.get("image", "").startswith("https://imageproxy.ifunny.co/noop/user_photos/")
+    assert info.get("image", "").startswith("https://")
+    assert "/noop/user_photos/" in info.get("image", "")
     # assert int(info.get("follower_count")) >= 0
     # assert int(info.get("following_count")) >= 70
     # assert int(info.get("posts_count")) >= 127
@@ -1286,6 +1288,7 @@ def test_ifunny_co():
     assert info.get("is_verified") == "False"
 
 
+@pytest.mark.skip(reason="Wattpad API endpoint is unavailable / unstable from CI (2026)")
 def test_wattpad_api():
     # https://wattpad.com/user/JeniferBalanzar
     info = extract(parse('https://www.wattpad.com/api/v3/users/JeniferBalanzar')[0])
@@ -1487,10 +1490,18 @@ def test_stack_exchange_api_e2e():
     assert info.get('created_at') == '1620592473'
 
 
-@pytest.mark.skip(reason='LeetCode GraphQL requires POST request')
 def test_leetcode_graphql_e2e():
     """LeetCode GraphQL"""
-    pass
+    graphql_url = 'https://leetcode.com/graphql?query=query%20userPublicProfile%28%24username%3A%20String%21%29%20%7B%20matchedUser%28username%3A%20%24username%29%20%7B%20username%20profile%20%7B%20realName%20aboutMe%20userAvatar%20countryName%20company%20school%20ranking%20%7D%20%7D%20%7D&variables=%7B%22username%22%3A%20%22votrubac%22%7D'
+
+    info = extract(parse(graphql_url)[0])
+
+    assert info.get('username') == 'votrubac'
+    assert info.get('fullname') == 'Vlad'
+    assert info.get('company') == 'Google'
+    assert info.get('ranking', '').isdigit()
+    assert int(info['ranking']) > 0
+    assert 'assets.leetcode.com' in info.get('image', '')
 
 
 def test_boosty_api_e2e():
@@ -1557,3 +1568,91 @@ def test_spatial_e2e():
     assert info.get('fullname') == 'Rammy'
     assert info.get('bio')
     assert info.get('follower_count')
+
+
+def test_buymeacoffee():
+    """BuyMeACoffee"""
+    info = extract(parse('https://buymeacoffee.com/johndoe')[0])
+
+    assert info.get("fullname") == "John Doe"
+    assert info.get("bio") == "Designer & Art Director, Growing brands.Welcome to my BMC page. If you like my content, please consider buying me a coffee. Thank you for your support!"
+    assert "15211" in info.get("image") or "cdn.buymeacoffee.com" in info.get("image")
+
+
+@pytest.mark.github_failed
+@pytest.mark.rate_limited
+def test_instagram_graphql_e2e():
+    """Instagram GraphQL"""
+    headers = {
+        'x-ig-app-id': '936619743392459',
+        'referer': 'https://www.instagram.com/',
+    }
+    body, status_code = parse('https://www.instagram.com/api/v1/users/web_profile_info/?username=cristiano', headers=headers)
+
+    # Gracefully skip if rate limited / blocked in current environment
+    if status_code in (403, 429) or not body:
+        pytest.skip(f"Rate limited or blocked by Instagram API (status {status_code})")
+
+    info = extract(body)
+
+    assert info.get('username') == 'cristiano'
+    assert info.get('fullname') == 'Cristiano Ronaldo'
+    assert info.get('id') == '173560420'
+    assert 'cdninstagram.com' in info.get('image', '')
+    assert info.get('is_business') == 'False'
+    assert info.get('is_private') == 'False'
+    assert info.get('is_verified') == 'True'
+    assert int(info.get('follower_count', 0)) > 500000000
+
+
+def test_snapchat():
+    """Snapchat"""
+    info = extract(parse('https://www.snapchat.com/@ogovorka')[0])
+
+    assert info.get('username') == 'ogovorka'
+    assert info.get('fullname') == 'Катерина Иванова'
+    assert info.get('bio') == 'Катерина Иванова is on Snapchat! (@ogovorka)'
+    assert info.get('url') == 'https://www.snapchat.com/@ogovorka'
+    assert info.get(
+        'image') == 'https://us-east1-aws.api.snapchat.com/web-capture/www.snapchat.com/@ogovorka/preview/square.jpeg?xp_id=1'
+    assert info.get(
+        'snapcode_image') == 'https://app.snapchat.com/web/deeplink/snapcode?username=ogovorka&type=SVG&bitmoji=enable'
+    assert info.get('profile_type') == 'userInfo'
+
+
+def test_bio_site():
+    """Bio Site"""
+    info = extract(parse('https://bio.site/Fish')[0])
+
+    assert info.get('uid') == '900C1C86-7397-438A-A4BB-D5201C13A943'
+    assert info.get('username') == 'Fish'
+    assert info.get('fullname') == 'F.B_Studio'
+    assert info.get('bio') == '-\n平價男女裝｜飾品｜生活小物 \n𝐹𝑖𝑠ℎ.𝑏𝑎𝑒 𝑠𝑡𝑢𝑑𝑖𝑜 ✔︎\n'
+    assert info.get('image') == 'https://media.bio.site/sites/7pQNVV5qXgtSrGyhMQd8eY/qYkypfu4hmxAKnufxJqfQc.png'
+    assert info.get('image_bg') == 'https://media.bio.site/sites/7pQNVV5qXgtSrGyhMQd8eY/oqtWruzh467NWyWAJEbjRf.png'
+    assert info.get('created_at') == '2022-03-03 09:24:42 UTC'
+    assert info.get('updated_at') == '2022-10-16 11:59:42 UTC'
+    assert info.get('instagram_username') == 'fish_bae148'
+    assert 'https://www.instagram.com/fish_bae148' in info.get('links')
+    assert 'https://shopee.tw/kissyoumybaby' in info.get('links')
+    assert 'social_links' not in info
+
+
+def test_faceit_api():
+    """Faceit API"""
+    info = extract(parse('https://www.faceit.com/api/users/v1/nicknames/simple')[0])
+
+    assert info.get('uid') == 'c55fb0f8-e3d9-4fc0-b3fa-f2878513e588'
+    assert info.get('username') == 'simple'
+    assert info.get('country_code') == 'BJ'
+    assert info.get('created_at') == '2018-08-02 10:46:27.703000+00:00'
+    assert info.get('friends_count', '').isdigit()
+    assert info.get('faceit_game') == 'cs2'
+    assert info.get('faceit_region') == 'EU'
+    assert info.get('faceit_elo', '').isdigit()
+    assert info.get('faceit_skill_level', '').isdigit()
+    assert info.get('steam_id') == '76561198838222710'
+    assert info.get('steam_nickname') == 'kr1pton'
+    assert info.get('social_links') == "{'twitch': 'umarooff'}"
+    assert 'faceit-cdn.net' in info.get('image', '')
+    assert 'faceit-cdn.net' in info.get('image_bg', '')

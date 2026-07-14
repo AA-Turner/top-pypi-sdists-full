@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from typing import Iterable, Optional
-from typing_extensions import Required, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 from .endpoint_param import EndpointParam
 
-__all__ = ["LocationCreateParams", "Network"]
+__all__ = ["LocationCreateParams", "MaxTTL", "Network"]
 
 
 class LocationCreateParams(TypedDict, total=False):
@@ -34,11 +34,38 @@ class LocationCreateParams(TypedDict, total=False):
     endpoints: Optional[EndpointParam]
     """Configure the destination endpoints for this location."""
 
+    max_ttl: Optional[MaxTTL]
+    """
+    Controls how DNS response TTLs are capped for this location relative to the
+    account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to
+    `inherit`.
+    """
+
     networks: Optional[Iterable[Network]]
     """
     Specify the list of network ranges from which requests at this location
     originate. The list takes effect only if it is non-empty and the IPv4 endpoint
     is enabled for this location.
+    """
+
+
+class MaxTTL(TypedDict, total=False):
+    """
+    Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
+    """
+
+    mode: Required[Literal["inherit", "override", "disabled"]]
+    """`inherit` uses the account `max_ttl_secs`.
+
+    `override` uses this location's `ttl_secs`. `disabled` leaves returned TTLs
+    unchanged.
+    """
+
+    ttl_secs: Optional[int]
+    """Location-specific cap on DNS response TTLs, in seconds.
+
+    Required when `mode` is `override`. Must be omitted when `mode` is `inherit` or
+    `disabled`.
     """
 
 

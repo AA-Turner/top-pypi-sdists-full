@@ -202,7 +202,7 @@ def _state_response(*call_events: dict) -> nio.RoomGetStateResponse:
     return nio.RoomGetStateResponse(events, ROOM_ID)
 
 
-def _config(*, enabled: bool = True) -> Config:
+def _config(*, enabled: bool = True, credentials_service: str = "openai") -> Config:
     return Config(
         agents={
             "helper": AgentConfig(
@@ -216,6 +216,7 @@ def _config(*, enabled: bool = True) -> Config:
         authorization=AuthorizationConfig(global_users=["@alice:example.org"]),
         calls=CallsConfig(
             enabled=enabled,
+            credentials_service=credentials_service,
             agents=["helper"],
             livekit_service_url=SERVICE_URL,
         ),
@@ -325,6 +326,10 @@ def _stub_join_externals(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "mindroom.matrix_rtc.call_manager.get_api_key_for_provider",
         lambda _provider, _paths: "sk-test",
+    )
+    monkeypatch.setattr(
+        "mindroom.matrix_rtc.call_manager.get_api_key_for_service",
+        lambda _service, _paths: "sk-test",
     )
 
     async def fake_grant(*_args: object, **_kwargs: object) -> SfuGrant:
@@ -905,7 +910,7 @@ async def test_manager_reconciles_active_calls_after_sync(tmp_path: Path) -> Non
 @pytest.mark.asyncio
 async def test_manager_skips_join_without_openai_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Manager skips join without openai key."""
-    monkeypatch.setattr("mindroom.matrix_rtc.call_manager.get_api_key_for_provider", lambda _provider, _paths: None)
+    monkeypatch.setattr("mindroom.matrix_rtc.call_manager.get_api_key_for_service", lambda _service, _paths: None)
     client = _client()
     client.room_get_state.return_value = _state_response(_remote_member_event())
     bridge = FakeBridge()
@@ -919,18 +924,18 @@ async def test_manager_skips_join_without_openai_key(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
-async def test_manager_reads_openai_key_from_shared_credentials(
+async def test_manager_reads_key_from_configured_credentials_service(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Voice calls use the same dashboard-backed key source as model loading."""
-    requested_providers: list[str] = []
+    """Voice calls use their selected dashboard-backed credential service."""
+    requested_services: list[str] = []
 
-    def fake_api_key(provider: str, _paths: object) -> str:
-        requested_providers.append(provider)
+    def fake_api_key(service: str, _paths: object) -> str:
+        requested_services.append(service)
         return "sk-dashboard"
 
-    monkeypatch.setattr("mindroom.matrix_rtc.call_manager.get_api_key_for_provider", fake_api_key)
+    monkeypatch.setattr("mindroom.matrix_rtc.call_manager.get_api_key_for_service", fake_api_key)
     client = _client()
     client.room_get_state.return_value = _state_response(_remote_member_event())
     bridge = FakeBridge()
@@ -938,7 +943,7 @@ async def test_manager_reads_openai_key_from_shared_credentials(
 
     await manager.on_room_event(_room(), _member_unknown_event())
 
-    assert requested_providers == ["openai"]
+    assert requested_services == ["openai"]
     assert bridge.agent_options is not None
     assert bridge.agent_options.api_key == "sk-dashboard"
 
@@ -1085,10 +1090,10 @@ def test_voice_backend_availability_requires_runtime_credentials(
 ) -> None:
     """Presence readiness is false when the realtime backend cannot authenticate."""
     monkeypatch.setattr(
-        "mindroom.matrix_rtc.call_manager.get_api_key_for_provider",
-        lambda _provider, _paths: None,
+        "mindroom.matrix_rtc.call_manager.get_api_key_for_service",
+        lambda _service, _paths: None,
     )
-    manager = _manager(_client(), FakeBridge(), tmp_path)
+    manager = _manager(_client(), FakeBridge(), tmp_path, _config(credentials_service="openai-realtime"))
 
     with patch("mindroom.matrix_rtc.call_manager.logger.warning") as warning:
         assert manager.voice_backend_available is False
@@ -1099,7 +1104,47 @@ def test_voice_backend_availability_requires_runtime_credentials(
             "call_join_skipped_no_openai_key",
             room_id=ROOM_ID,
             agent="helper",
+            credentials_service="openai-realtime",
         )
+
+
+def test_realtime_backend_uses_configured_credential_service(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Realtime calls use the strictly configured credential service."""
+    selected_services: list[str] = []
+
+    def lookup(service: str, _paths: object) -> str:
+        selected_services.append(service)
+        return "sk-realtime"
+
+    monkeypatch.setattr("mindroom.matrix_rtc.call_manager.get_api_key_for_service", lookup)
+    config = _config(credentials_service="openai-realtime")
+    manager = _manager(_client(), FakeBridge(), tmp_path, config)
+
+    backend = manager._resolve_voice_backend(ROOM_ID)
+
+    assert backend is not None
+    assert backend.realtime_api_key == "sk-realtime"
+    assert selected_services == ["openai-realtime"]
+
+
+def test_realtime_backend_defaults_to_openai_credential_service(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Existing installs keep using the shared OpenAI credential by default."""
+    monkeypatch.setattr(
+        "mindroom.matrix_rtc.call_manager.get_api_key_for_service",
+        lambda service, _paths: "sk-shared" if service == "openai" else None,
+    )
+    manager = _manager(_client(), FakeBridge(), tmp_path)
+
+    backend = manager._resolve_voice_backend(ROOM_ID)
+
+    assert backend is not None
+    assert backend.realtime_api_key == "sk-shared"
 
 
 def test_build_call_instructions_appends_voice_guidance() -> None:
@@ -1166,6 +1211,229 @@ async def test_session_distributes_and_applies_first_key_on_start() -> None:
     assert bridge.frame_keys
     assert bridge.frame_keys[0][0] == own_identity
     assert bridge.frame_keys[0][2] == 0
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_session_reports_when_callers_encryption_key_never_arrives(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A caller the agent cannot decrypt receives a directional diagnosis."""
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", 0)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    client = _client()
+    bridge = FakeBridge()
+    session = _session(client, bridge, FakeKeyTransport(), [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([_member("@alice:example.org", "ALICEDEV")])
+    for _ in range(20):
+        if notices:
+            break
+        await asyncio.sleep(0)
+
+    assert len(notices) == 1
+    assert "cannot decrypt or hear your microphone audio" in notices[0]
+    assert "ALICEDEV" in notices[0]
+    assert "one-time-key" in notices[0]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_session_reports_only_device_missing_inbound_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One device's key cannot hide another active device's missing key."""
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", 0)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    alice_phone = _member("@alice:example.org", "ALICEPHONE")
+    alice_tablet = _member("@alice:example.org", "ALICETABLET")
+    session = _session(_client(), FakeBridge(), FakeKeyTransport(), [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([alice_phone, alice_tablet])
+    assert session.on_key_received(
+        ReceivedFrameKey(
+            user_id=alice_phone.user_id,
+            claimed_device_id=alice_phone.device_id,
+            key_base64="QUFBQUFBQUFBQUFBQUFBQQ==",
+            key_index=2,
+            received_at_ms=1_500,
+        ),
+    )
+    for _ in range(20):
+        if notices:
+            break
+        await asyncio.sleep(0)
+
+    assert len(notices) == 1
+    assert "ALICETABLET" in notices[0]
+    assert "ALICEPHONE" not in notices[0]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_rejoining_device_must_send_a_new_inbound_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A departed device cannot reuse its old key-readiness state on rejoin."""
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", 0)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    alice = _member("@alice:example.org", "ALICEDEV")
+    session = _session(_client(), FakeBridge(), FakeKeyTransport(), [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([alice])
+    assert session.on_key_received(
+        ReceivedFrameKey(
+            user_id=alice.user_id,
+            claimed_device_id=alice.device_id,
+            key_base64="QUFBQUFBQUFBQUFBQUFBQQ==",
+            key_index=2,
+            received_at_ms=1_500,
+        ),
+    )
+
+    await session.on_members_changed([])
+    assert session._devices_with_received_key == set()
+    await session.on_members_changed([alice])
+    for _ in range(20):
+        if notices:
+            break
+        await asyncio.sleep(0)
+
+    assert len(notices) == 1
+    assert "ALICEDEV" in notices[0]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_rejoining_device_gets_a_fresh_inbound_key_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A timeout from an earlier roster cannot report a newly rejoined device."""
+    timeout_s = 15.0
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", timeout_s)
+    real_sleep = asyncio.sleep
+    timeout_waiters: list[asyncio.Future[None]] = []
+
+    async def controlled_sleep(delay: float) -> None:
+        if delay != timeout_s:
+            await real_sleep(delay)
+            return
+        waiter = asyncio.get_running_loop().create_future()
+        timeout_waiters.append(waiter)
+        await waiter
+
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session.asyncio.sleep", controlled_sleep)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    alice = _member("@alice:example.org", "ALICEDEV")
+    session = _session(_client(), FakeBridge(), FakeKeyTransport(), [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([alice])
+    while len(timeout_waiters) < 1:
+        await real_sleep(0)
+    assert session.on_key_received(
+        ReceivedFrameKey(
+            user_id=alice.user_id,
+            claimed_device_id=alice.device_id,
+            key_base64="QUFBQUFBQUFBQUFBQUFBQQ==",
+            key_index=2,
+            received_at_ms=1_500,
+        ),
+    )
+
+    await session.on_members_changed([])
+    await session.on_members_changed([alice])
+    while len(timeout_waiters) < 2:
+        await real_sleep(0)
+
+    timeout_waiters[0].set_result(None)
+    await real_sleep(0)
+    assert notices == []
+
+    timeout_waiters[1].set_result(None)
+    for _ in range(20):
+        if notices:
+            break
+        await real_sleep(0)
+    assert len(notices) == 1
+    assert "ALICEDEV" in notices[0]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_session_reports_when_agents_encryption_key_cannot_be_delivered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A caller who cannot decrypt the agent receives a directional diagnosis."""
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._KEY_DISTRIBUTION_RETRY_DELAYS_S", (0.0,))
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", 60.0)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    transport = RecoveringKeyTransport()
+    session = _session(_client(), FakeBridge(), transport, [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([_member("@alice:example.org", "ALICEDEV")])
+    for _ in range(40):
+        if notices:
+            break
+        await asyncio.sleep(0)
+
+    assert len(notices) == 1
+    assert "you will not hear its audio" in notices[0]
+    assert "ALICEDEV" in notices[0]
+    assert "one-time-key" in notices[0]
+    await session.stop()
+
+
+@pytest.mark.asyncio
+async def test_session_reports_only_device_with_undelivered_outbound_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The outbound failure notice excludes devices that received the key."""
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._KEY_DISTRIBUTION_RETRY_DELAYS_S", (0.0,))
+    monkeypatch.setattr("mindroom.matrix_rtc.call_session._E2EE_READY_TIMEOUT_S", 60.0)
+    notices: list[str] = []
+
+    async def on_failure(message: str) -> None:
+        notices.append(message)
+
+    class PhoneOnlyKeyTransport(FakeKeyTransport):
+        async def send_key(self, **kwargs: object) -> list[CallMember]:
+            await super().send_key(**kwargs)  # type: ignore[arg-type]
+            targets = cast("list[CallMember]", kwargs["targets"])
+            return [target for target in targets if target.device_id == "ALICEPHONE"]
+
+    alice_phone = _member("@alice:example.org", "ALICEPHONE")
+    alice_tablet = _member("@alice:example.org", "ALICETABLET")
+    session = _session(_client(), FakeBridge(), PhoneOnlyKeyTransport(), [1_000])
+    session.deps.on_failure = on_failure
+    await session.start([alice_phone, alice_tablet])
+    for _ in range(40):
+        if notices:
+            break
+        await asyncio.sleep(0)
+
+    assert len(notices) == 1
+    assert "ALICETABLET" in notices[0]
+    assert "ALICEPHONE" not in notices[0]
     await session.stop()
 
 
@@ -2094,6 +2362,38 @@ async def test_terminal_voice_close_stops_session_and_retries_only_when_allowed(
 
 
 @pytest.mark.asyncio
+async def test_voice_runtime_error_is_posted_as_actionable_room_notice(tmp_path: Path) -> None:
+    """A connected-but-broken voice provider cannot fail as silent audio."""
+    client = _client()
+    client.room_get_state.return_value = _state_response(_remote_member_event())
+    client.room_send.return_value = nio.RoomSendResponse("$notice", ROOM_ID)
+    bridge = FakeBridge()
+    manager = _manager(client, bridge, tmp_path)
+    await manager.on_room_event(_room(), _member_unknown_event())
+    assert bridge.agent_options is not None
+    assert bridge.agent_options.on_session_error is not None
+
+    notice = (
+        "Voice call error: OpenAI Realtime rejected the configured credential. "
+        "Update it, restart MindRoom, and rejoin the call."
+    )
+    bridge.agent_options.on_session_error(notice)
+    await asyncio.gather(*list(manager._background_tasks))
+
+    client.room_send.assert_awaited_once_with(
+        ROOM_ID,
+        message_type="m.room.message",
+        content={
+            "msgtype": "m.notice",
+            "body": notice,
+            "chat.mindroom.call_failure": {"version": 1},
+        },
+        ignore_unverified_devices=True,
+    )
+    await manager.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_nonretryable_terminal_close_stays_quarantined_until_next_call(tmp_path: Path) -> None:
     """The bot's own membership clear echo cannot reopen a terminal call."""
     client = _client()
@@ -2545,6 +2845,13 @@ def test_calls_config_rejects_unknown_agents() -> None:
     """Call configuration may reference only declared agents."""
     with pytest.raises(ValueError, match=r"calls\.agents references unknown agent"):
         Config(models={}, calls=CallsConfig(enabled=True, agents=["missing"]))
+
+
+def test_calls_config_validates_realtime_credentials_service() -> None:
+    """Realtime credential bindings use safe normalized service names."""
+    assert CallsConfig(credentials_service=" openai-realtime ").credentials_service == "openai-realtime"
+    with pytest.raises(ValueError, match="Service name can only include"):
+        CallsConfig(credentials_service="../openai")
 
 
 def test_calls_config_rejects_requester_private_agents() -> None:

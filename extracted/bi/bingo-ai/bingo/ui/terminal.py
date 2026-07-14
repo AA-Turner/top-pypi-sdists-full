@@ -556,6 +556,7 @@ class BingoTerminal:
             }.get(_lang, f"🔁 Restored {_proxy_count} proxies from last session")
             self.console.print(f"[dim]{_proxy_restore_msg}[/dim]")
 
+
         if not self.config.get_active_model_config():
             self._warn(self.s["no_model_configured"])
             self._cmd_model()
@@ -4818,7 +4819,7 @@ class BingoTerminal:
                         )
                         import os as _os
                         if _os.environ.get("BINGO_DEBUG"):
-                            console.print(f"[dim red]  [TOOL_CALL DEBUG] raw={_raw_json!r}[/dim red]")
+                            self.console.print(f"[dim red]  [TOOL_CALL DEBUG] raw={_raw_json!r}[/dim red]")
                         self.console.print(
                             f"[{THEME['error']}]⚠ TOOL_CALL JSON parse error: {_je}[/]"
                         )
@@ -5001,7 +5002,7 @@ class BingoTerminal:
             }
             _bad_tool_names = [t for t in _wrong_tc_matches if t in _known_tools]
             if _bad_tool_names:
-                console.print(
+                self.console.print(
                     f"[{THEME['error']}]⚠ [WRONG_TOOL_FORMAT] AI used Python dict format "
                     f"for tool call: {_bad_tool_names}\n"
                     f"  Correct format: TOOL_CALL:{{\"name\":\"{_bad_tool_names[0]}\","
@@ -7810,6 +7811,22 @@ class BingoTerminal:
                     )
             self._show_token_usage()
             self._exec_loop_count += 1
+
+            # ── v6.2.125: 루프 과다 자동 차단 (Type A) ───────────────────────
+            # 동일 세션에서 60루프 이상 돌면 AI가 루프에 갇힌 것으로 판단 → 강제 중단
+            _MAX_LOOP = 60
+            if self._exec_loop_count >= _MAX_LOOP:
+                from ..i18n import t as _t_loop, set_lang as _sl_loop, get_lang as _gl_loop
+                _loop_stop_msg = "\n" + _t_loop(
+                    "loop_limit_stop",
+                    f"⛔ [LOOP_LIMIT_STOP] Loop #{self._exec_loop_count} — auto-stopping.",
+                ).format(count=self._exec_loop_count)
+                self.console.print(_loop_stop_msg)
+                # 루프 카운터 리셋 후 중단 (다음 세션에서 새로운 전략으로 시작 가능)
+                self._exec_loop_count = 0
+                self._agent_stop_flag.set()  # 실제 루프 중단 트리거
+            # ─────────────────────────────────────────────────────────────────
+
             # 루프마다 세션 자동 저장 (이어하기용)
             self._save_history()
             # ── v3.2.71: target memory 자동 업데이트 ──────────────────────────

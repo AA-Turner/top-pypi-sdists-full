@@ -2,18 +2,17 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
+---
 module: networks_appliance_static_routes
 short_description: Resource module for networks _appliance _static _routes
 description:
-  - Manage operations create, update and delete of the resource networks _appliance
-    _static _routes.
-  - Add a static route for an MX or teleworker network.
-  - Delete a static route from an MX or teleworker network.
-  - Update a static route for an MX or teleworker network.
+- Manage operations create, update and delete of the resource networks _appliance _static _routes.
+- Add a static route for an MX or teleworker network.
+- Delete a static route from an MX or teleworker network.
+- Update a static route for an MX or teleworker network.
 version_added: '1.0.0'
 extends_documentation_fragment:
   - cisco.meraki.module
@@ -58,8 +57,8 @@ options:
     description: Subnet of the route.
     type: str
 requirements:
-  - meraki >= 2.4.9
-  - python >= 3.5
+- meraki >= 2.4.9
+- python >= 3.5
 seealso:
   - name: Cisco Meraki documentation for appliance createNetworkApplianceStaticRoute
     description: Complete reference of the createNetworkApplianceStaticRoute API.
@@ -75,6 +74,7 @@ notes:
     appliance.Appliance.create_network_appliance_static_route,
     appliance.Appliance.delete_network_appliance_static_route,
     appliance.Appliance.update_network_appliance_static_route,
+
   - Paths used are
     post /networks/{networkId}/appliance/staticRoutes,
     delete /networks/{networkId}/appliance/staticRoutes/{staticRouteId},
@@ -106,11 +106,13 @@ EXAMPLES = r"""
     meraki_use_iterator_for_get_pages: "{{ meraki_use_iterator_for_get_pages }}"
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     state: present
+        AQUI ['gatewayIp: 1.2.3.5', "gatewayVlanId: '100'", 'name: My route', 'networkId: string', 'subnet: 192.168.1.0/24']
     gatewayIp: 1.2.3.5
     gatewayVlanId: '100'
     name: My route
     networkId: string
     subnet: 192.168.1.0/24
+
 - name: Update by id
   cisco.meraki.networks_appliance_static_routes:
     meraki_api_key: "{{ meraki_api_key }}"
@@ -135,6 +137,7 @@ EXAMPLES = r"""
     meraki_use_iterator_for_get_pages: "{{ meraki_use_iterator_for_get_pages }}"
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     state: present
+        AQUI ['enabled: true', 'fixedIpAssignments:', '  22:33:44:55:66:77:', '    ip: 1.2.3.4', '    name: Some client name', 'gatewayIp: 1.2.3.5', "gatewayVlanId: '100'", 'name: My route', 'networkId: string', 'reservedIpRanges:', '- comment: A reserved IP range', '  end: 192.168.1.1', '  start: 192.168.1.0', 'staticRouteId: string', 'subnet: 192.168.1.0/24']
     enabled: true
     fixedIpAssignments:
       22:33:44:55:66:77:
@@ -145,11 +148,12 @@ EXAMPLES = r"""
     name: My route
     networkId: string
     reservedIpRanges:
-      - comment: A reserved IP range
-        end: 192.168.1.1
-        start: 192.168.1.0
+    - comment: A reserved IP range
+      end: 192.168.1.1
+      start: 192.168.1.0
     staticRouteId: string
     subnet: 192.168.1.0/24
+
 - name: Delete by id
   cisco.meraki.networks_appliance_static_routes:
     meraki_api_key: "{{ meraki_api_key }}"
@@ -174,8 +178,10 @@ EXAMPLES = r"""
     meraki_use_iterator_for_get_pages: "{{ meraki_use_iterator_for_get_pages }}"
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     state: absent
+        AQUI ['networkId: string', 'staticRouteId: string']
     networkId: string
     staticRouteId: string
+
 """
 RETURN = r"""
 meraki_response:

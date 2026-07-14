@@ -17,7 +17,7 @@ from chalk.features.feature_set import Features, FeatureSetBase, is_features_cls
 from chalk.features.feature_set_decorator import add_features, features
 from chalk.features.feature_tag_override import is_feature_tag_override_active, override_feature_tags
 from chalk.features.feature_time import FeatureTime, feature_time, is_feature_time
-from chalk.features.feature_wrapper import FeatureWrapper, ensure_feature, unwrap_feature
+from chalk.features.feature_wrapper import FeatureWrapper, ensure_feature, feature_to_query_str, unwrap_feature
 from chalk.features.filter import Filter, TimeDelta, after, before
 from chalk.features.hooks import after_all, before_all
 from chalk.features.primary import Primary, is_primary
@@ -260,5 +260,6 @@ __all__ = (
     "tags",
     "underscore",
     "unwrap_feature",
+    "feature_to_query_str",
     "StreamResolver",
 )

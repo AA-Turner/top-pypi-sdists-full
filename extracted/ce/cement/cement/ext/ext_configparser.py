@@ -2,16 +2,16 @@
 Cement configparser extension module.
 """
 
-from __future__ import annotations
 import os
 import re
-from typing import Any, Dict, List, TYPE_CHECKING
+from configparser import RawConfigParser
+from typing import TYPE_CHECKING, Any
+
 from ..core import config
 from ..utils.misc import minimal_logger
-from configparser import RawConfigParser
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -85,7 +85,7 @@ class ConfigParserConfigHandler(config.ConfigHandler, RawConfigParser):
         # will likely raise an exception anyhow.
         return True
 
-    def keys(self, section: str) -> List[str]:  # type: ignore
+    def keys(self, section: str) -> list[str]:  # type: ignore
         """
         Return a list of keys within ``section``.
 
@@ -98,7 +98,7 @@ class ConfigParserConfigHandler(config.ConfigHandler, RawConfigParser):
         """
         return self.options(section)
 
-    def get_dict(self) -> Dict[str, Any]:
+    def get_dict(self) -> dict[str, Any]:
         """
         Return a dict of the entire configuration.
 
@@ -110,7 +110,7 @@ class ConfigParserConfigHandler(config.ConfigHandler, RawConfigParser):
             _config[section] = self.get_section_dict(section)
         return _config
 
-    def get_sections(self) -> List[str]:
+    def get_sections(self) -> list[str]:
         """
         Return a list of configuration sections.
 
@@ -120,7 +120,7 @@ class ConfigParserConfigHandler(config.ConfigHandler, RawConfigParser):
         """
         return self.sections()
 
-    def get_section_dict(self, section: str) -> Dict[str, Any]:
+    def get_section_dict(self, section: str) -> dict[str, Any]:
         """
         Return a dict representation of a section.
 
@@ -203,5 +203,5 @@ class ConfigParserConfigHandler(config.ConfigHandler, RawConfigParser):
         RawConfigParser.set(self, section, key, value)
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(ConfigParserConfigHandler)

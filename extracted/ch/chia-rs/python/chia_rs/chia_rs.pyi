@@ -119,6 +119,7 @@ def expected_plot_size(
 
 def compute_plot_id_v1(plot_pk: G1Element, pool_pk: G1Element | None, pool_contract: bytes32 | None) -> bytes32: ...
 def compute_plot_id_v2(strength: uint8, plot_pk: G1Element, pool_pk: G1Element | None, pool_contract: bytes32 | None, plot_index: uint16, meta_group: uint8) -> bytes32: ...
+def compute_plot_group_id_v2(strength: uint8, plot_pk: G1Element, pool_pk: G1Element | None, pool_contract: bytes32 | None) -> bytes32: ...
 
 
 NO_UNKNOWN_CONDS: int = ...
@@ -194,6 +195,13 @@ class BlockBuilder:
     def add_spend_bundles(self, bundles: Sequence[SpendBundle], cost: uint64, constants: ConsensusConstants) -> tuple[bool, bool]: ...
     def cost(self) -> uint64: ...
     def finalize(self, constants: ConsensusConstants) -> tuple[bytes, G2Element, uint64]: ...
+
+@final
+class InternedBlockBuilder:
+    def __new__(cls, constants: ConsensusConstants) -> Self: ...
+    def add_spend_bundles(self, bundles: Sequence[SpendBundle], cost: uint64) -> tuple[bool, bool]: ...
+    def cost(self) -> uint64: ...
+    def finalize(self) -> tuple[bytes, G2Element, uint64]: ...
 
 @final
 class MerkleSet:
@@ -2033,6 +2041,8 @@ class FullBlock:
     transactions_info: Optional[TransactionsInfo]
     transactions_generator: Optional[Program]
     transactions_generator_ref_list: list[uint32]
+    transactions_generator_buffer: Optional[list[uint8]]
+    version: uint8
     prev_header_hash: bytes32
     header_hash: bytes32
     def is_transaction_block(self) -> bool: ...
@@ -2054,7 +2064,9 @@ class FullBlock:
         foliage_transaction_block: Optional[FoliageTransactionBlock],
         transactions_info: Optional[TransactionsInfo],
         transactions_generator: Optional[Program],
-        transactions_generator_ref_list: Sequence[uint32]
+        transactions_generator_ref_list: Sequence[uint32],
+        transactions_generator_buffer: Optional[Sequence[uint8]],
+        version: uint8
     ) -> Self: ...
     def __hash__(self) -> int: ...
     def __repr__(self) -> str: ...
@@ -2084,7 +2096,9 @@ class FullBlock:
         foliage_transaction_block: Union[ Optional[FoliageTransactionBlock], _Unspec] = _Unspec(),
         transactions_info: Union[ Optional[TransactionsInfo], _Unspec] = _Unspec(),
         transactions_generator: Union[ Optional[Program], _Unspec] = _Unspec(),
-        transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec()) -> FullBlock: ...
+        transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec(),
+        transactions_generator_buffer: Union[ Optional[list[uint8]], _Unspec] = _Unspec(),
+        version: Union[ uint8, _Unspec] = _Unspec()) -> FullBlock: ...
     def truncate(self, field: str, length: int) -> None: ...
 
 @final
@@ -2713,6 +2727,8 @@ class UnfinishedBlock:
     transactions_info: Optional[TransactionsInfo]
     transactions_generator: Optional[Program]
     transactions_generator_ref_list: list[uint32]
+    transactions_generator_buffer: Optional[list[uint8]]
+    version: uint8
     prev_header_hash: bytes32
     partial_hash: bytes32
     def is_transaction_block(self) -> bool: ...
@@ -2727,7 +2743,9 @@ class UnfinishedBlock:
         foliage_transaction_block: Optional[FoliageTransactionBlock],
         transactions_info: Optional[TransactionsInfo],
         transactions_generator: Optional[Program],
-        transactions_generator_ref_list: Sequence[uint32]
+        transactions_generator_ref_list: Sequence[uint32],
+        transactions_generator_buffer: Optional[Sequence[uint8]],
+        version: uint8
     ) -> Self: ...
     def __hash__(self) -> int: ...
     def __repr__(self) -> str: ...
@@ -2754,7 +2772,9 @@ class UnfinishedBlock:
         foliage_transaction_block: Union[ Optional[FoliageTransactionBlock], _Unspec] = _Unspec(),
         transactions_info: Union[ Optional[TransactionsInfo], _Unspec] = _Unspec(),
         transactions_generator: Union[ Optional[Program], _Unspec] = _Unspec(),
-        transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec()) -> UnfinishedBlock: ...
+        transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec(),
+        transactions_generator_buffer: Union[ Optional[list[uint8]], _Unspec] = _Unspec(),
+        version: Union[ uint8, _Unspec] = _Unspec()) -> UnfinishedBlock: ...
     def truncate(self, field: str, length: int) -> None: ...
 
 @final
@@ -4688,9 +4708,9 @@ class ConsensusConstants:
     PLOT_FILTER_32_HEIGHT: uint32
     MIN_PLOT_STRENGTH: uint8
     MAX_PLOT_STRENGTH: uint8
-    PLOT_FILTER_V2_FIRST_ADJUSTMENT_HEIGHT: uint32
-    PLOT_FILTER_V2_SECOND_ADJUSTMENT_HEIGHT: uint32
-    PLOT_FILTER_V2_THIRD_ADJUSTMENT_HEIGHT: uint32
+    PLOT_FILTER_V2_RELATIVE_HEIGHT: list[uint32]
+    FILTER_WINDOW_SIZE: uint8
+    MAX_EFFECTIVE_PLOT_FILTER_BITS: uint8
     TESTNET: bool
     def __new__(
         cls,
@@ -4746,9 +4766,9 @@ class ConsensusConstants:
         PLOT_FILTER_32_HEIGHT: uint32,
         MIN_PLOT_STRENGTH: uint8,
         MAX_PLOT_STRENGTH: uint8,
-        PLOT_FILTER_V2_FIRST_ADJUSTMENT_HEIGHT: uint32,
-        PLOT_FILTER_V2_SECOND_ADJUSTMENT_HEIGHT: uint32,
-        PLOT_FILTER_V2_THIRD_ADJUSTMENT_HEIGHT: uint32,
+        PLOT_FILTER_V2_RELATIVE_HEIGHT: Sequence[uint32],
+        FILTER_WINDOW_SIZE: uint8,
+        MAX_EFFECTIVE_PLOT_FILTER_BITS: uint8,
         TESTNET: bool
     ) -> Self: ...
     def __hash__(self) -> int: ...
@@ -4820,8 +4840,8 @@ class ConsensusConstants:
         PLOT_FILTER_32_HEIGHT: Union[ uint32, _Unspec] = _Unspec(),
         MIN_PLOT_STRENGTH: Union[ uint8, _Unspec] = _Unspec(),
         MAX_PLOT_STRENGTH: Union[ uint8, _Unspec] = _Unspec(),
-        PLOT_FILTER_V2_FIRST_ADJUSTMENT_HEIGHT: Union[ uint32, _Unspec] = _Unspec(),
-        PLOT_FILTER_V2_SECOND_ADJUSTMENT_HEIGHT: Union[ uint32, _Unspec] = _Unspec(),
-        PLOT_FILTER_V2_THIRD_ADJUSTMENT_HEIGHT: Union[ uint32, _Unspec] = _Unspec(),
+        PLOT_FILTER_V2_RELATIVE_HEIGHT: Union[ list[uint32], _Unspec] = _Unspec(),
+        FILTER_WINDOW_SIZE: Union[ uint8, _Unspec] = _Unspec(),
+        MAX_EFFECTIVE_PLOT_FILTER_BITS: Union[ uint8, _Unspec] = _Unspec(),
         TESTNET: Union[ bool, _Unspec] = _Unspec()) -> ConsensusConstants: ...
     def truncate(self, field: str, length: int) -> None: ...

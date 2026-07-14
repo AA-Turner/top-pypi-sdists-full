@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stone
-Version: 3.5.0
+Version: 3.5.2
 Summary: Stone is an interface description language (IDL) for APIs.
 Home-page: https://github.com/dropbox/stone
 Author: Ken Elkabany

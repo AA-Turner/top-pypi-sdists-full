@@ -3,13 +3,13 @@
  */
 
 import $ from 'jquery';
-import URL from 'urijs';
 
-import Class from 'classjs';
 import { Helpers, KEYS } from './cms.base';
 import PageTreeDropdowns from './cms.pagetree.dropdown';
 import PageTreeStickyHeader from './cms.pagetree.stickyheader';
-import { debounce, without } from 'lodash';
+// switched from commonjs 'lodash' bundle to per-method ESM imports for better tree-shaking
+import debounce from 'lodash-es/debounce.js';
+import without from 'lodash-es/without.js';
 
 import 'jstree';
 import '../libs/jstree/jstree.grid.min';
@@ -21,15 +21,14 @@ import '../libs/jstree/jstree.grid.min';
  * @class PageTree
  * @namespace CMS
  */
-var PageTree = new Class({
-    options: {
-        pasteSelector: '.js-cms-tree-item-paste'
-    },
-    initialize: function initialize(options) {
+class PageTree {
+    constructor(options) {
         // options are loaded from the pagetree html node
         var opts = $('.js-cms-pagetree').data('json');
 
-        this.options = $.extend(true, {}, this.options, opts, options);
+        this.options = $.extend(true, {}, {
+            pasteSelector: '.js-cms-tree-item-paste'
+        }, opts, options);
 
         // states and events
         this.click = 'click.cms.pagetree';
@@ -64,7 +63,7 @@ var PageTree = new Class({
         } else {
             this._setup();
         }
-    },
+    }
 
     /**
      * Stores all jQuery references within `this.ui`.
@@ -72,7 +71,7 @@ var PageTree = new Class({
      * @method _setupUI
      * @private
      */
-    _setupUI: function _setupUI() {
+    _setupUI() {
         var pagetree = $('.cms-pagetree');
 
         this.ui = {
@@ -83,18 +82,19 @@ var PageTree = new Class({
             siteForm: $('.js-cms-pagetree-site-form'),
             languagesSelect: $('.js-cms-pagetree-languages')
         };
-    },
+    }
 
-    _setupLanguages: function _setupLanguages() {
+    _setupLanguages() {
         this.ui.languagesSelect.on('change', () => {
             const newLanguage = this.ui.languagesSelect.val();
+            const url = new URL(window.location.href);
 
-            const url = new URL(window.location.href).removeSearch('language')
-                .addSearch('language', newLanguage).toString();
+            url.searchParams.delete('language');
+            url.searchParams.set('language', newLanguage);
 
-            window.location.href = url;
+            window.location.href = url.toString();
         });
-    },
+    }
 
     /**
      * Setting up the jstree and the related columns.
@@ -102,7 +102,7 @@ var PageTree = new Class({
      * @method _setup
      * @private
      */
-    _setup: function _setup() {
+    _setup() {
         var that = this;
         var columns = [];
         var obj = {
@@ -237,7 +237,7 @@ var PageTree = new Class({
                 columns: columns
             }
         });
-    },
+    }
 
     /**
      * Sets up all the event handlers, such as opening and moving.
@@ -245,7 +245,7 @@ var PageTree = new Class({
      * @method _events
      * @private
      */
-    _events: function _events() {
+    _events() {
         var that = this;
 
         // set events for the nodeId updates
@@ -341,10 +341,10 @@ var PageTree = new Class({
                 var column = $(data.data.origin.element);
 
                 var hover = ins.settings.dnd.large_drop_target ?
-                                $(data.event.target)
-                                    .closest('.jstree-node') :
-                                $(data.event.target)
-                                    .closest('.jstree-anchor').parent();
+                    $(data.event.target)
+                        .closest('.jstree-node') :
+                    $(data.event.target)
+                        .closest('.jstree-anchor').parent();
 
                 var width = root.width() - (column.width() - hover.width());
 
@@ -449,17 +449,6 @@ var PageTree = new Class({
             that._reloadHelper();
         });
 
-        // propagate the sites dropdown "li > a" entries to the hidden sites form
-        this.ui.container.find('.js-cms-pagetree-site-trigger').on(this.click, function(e) {
-            e.preventDefault();
-            var el = $(this);
-
-            // prevent if parent is active
-            if (el.parent().hasClass('active')) {
-                return false;
-            }
-            that.ui.siteForm.find('select').val(el.data().id).end().submit();
-        });
 
         // additional event handlers
         this._setupDropdowns();
@@ -474,16 +463,16 @@ var PageTree = new Class({
         this._setupStickyHeader();
 
         this.ui.tree.on('ready.jstree', () => this._getClipboard());
-    },
+    }
 
-    _getClipboard: function _getClipboard() {
+    _getClipboard() {
         this.clipboard = CMS.settings.pageClipboard || this.clipboard;
 
         if (this.clipboard.type && this.clipboard.origin) {
             this._enablePaste();
             this._updatePasteHelpersState();
         }
-    },
+    }
 
     /**
      * Helper to process the cut and copy events.
@@ -495,7 +484,7 @@ var PageTree = new Class({
      * @private
      * @returns {Boolean|void}
      */
-    _cutOrCopy: function _cutOrCopy(obj) {
+    _cutOrCopy(obj) {
         // prevent actions if you try to copy a page with an apphook
         if (obj.type === 'copy' && obj.element.data().apphook) {
             this.showError(this.options.lang.apphook);
@@ -522,7 +511,7 @@ var PageTree = new Class({
             CMS.settings.pageClipboard = this.clipboard;
             Helpers.setSettings(CMS.settings);
         }
-    },
+    }
 
     /**
      * Helper to process the paste event.
@@ -531,7 +520,7 @@ var PageTree = new Class({
      * @param {$.Event} event click event
      * @private
      */
-    _paste: function _paste(event) {
+    _paste(event) {
         // hide helpers after we picked one
         this._disablePaste();
 
@@ -572,7 +561,7 @@ var PageTree = new Class({
         this.clipboard.isPasting = false;
         CMS.settings.pageClipboard = this.clipboard;
         Helpers.setSettings(CMS.settings);
-    },
+    }
 
     /**
      * Retreives a list of nodes from local storage.
@@ -581,9 +570,9 @@ var PageTree = new Class({
      * @private
      * @returns {Array} list of ids
      */
-    _getStoredNodeIds: function _getStoredNodeIds() {
+    _getStoredNodeIds() {
         return CMS.settings.pagetree || [];
-    },
+    }
 
     /**
      * Stores a node in local storage.
@@ -593,7 +582,7 @@ var PageTree = new Class({
      * @param {String} id to be stored
      * @returns {String} id that has been stored
      */
-    _storeNodeId: function _storeNodeId(id) {
+    _storeNodeId(id) {
         var number = id;
         var storage = this._getStoredNodeIds();
 
@@ -606,7 +595,7 @@ var PageTree = new Class({
         Helpers.setSettings(CMS.settings);
 
         return number;
-    },
+    }
 
     /**
      * Removes a node in local storage.
@@ -616,7 +605,7 @@ var PageTree = new Class({
      * @param {String} id to be stored
      * @returns {String} id that has been removed
      */
-    _removeNodeId: function _removeNodeId(id) {
+    _removeNodeId(id) {
         const instance = this.ui.tree.jstree(true);
         const childrenIds = instance.get_node({
             id: CMS.$(`[data-node-id=${id}]`).attr('id')
@@ -640,7 +629,7 @@ var PageTree = new Class({
         Helpers.setSettings(CMS.settings);
 
         return id;
-    },
+    }
 
     /**
      * Moves a node after drag & drop.
@@ -653,7 +642,7 @@ var PageTree = new Class({
      * @returns {$.Deferred} ajax request object
      * @private
      */
-    _moveNode: function _moveNode(obj) {
+    _moveNode(obj) {
         var that = this;
 
         if (!obj.id && this.clipboard.type === 'cut' && this.clipboard.origin) {
@@ -678,7 +667,7 @@ var PageTree = new Class({
             .fail(function(error) {
                 that.showError(error.statusText);
             });
-    },
+    }
 
     /**
      * Copies a node into the selected node.
@@ -687,7 +676,7 @@ var PageTree = new Class({
      * @param {Object} obj page obj
      * @private
      */
-    _copyNode: function _copyNode(obj) {
+    _copyNode(obj) {
         var that = this;
         var node = { position: 0 };
 
@@ -757,7 +746,7 @@ var PageTree = new Class({
         } else {
             this._saveCopiedNode(data);
         }
-    },
+    }
 
     /**
      * Sends the request to copy a node.
@@ -767,7 +756,7 @@ var PageTree = new Class({
      * @param {Object} data node position information
      * @returns {$.Deferred}
      */
-    _saveCopiedNode: function _saveCopiedNode(data) {
+    _saveCopiedNode(data) {
         var that = this;
 
         // send the real ajax request for copying the plugin
@@ -786,7 +775,7 @@ var PageTree = new Class({
             .fail(function(error) {
                 that.showError(error.statusText);
             });
-    },
+    }
 
     /**
      * Returns element from any sub nodes.
@@ -796,12 +785,12 @@ var PageTree = new Class({
      * @param {jQuery} el jQuery node form where to search
      * @returns {String} jsTree node element id
      */
-    _getNodeId: function _getNodeId(el) {
+    _getNodeId(el) {
         var cls = el.closest('.jstree-grid-cell').attr('class');
 
         // if it's not a cell, assume it's the root node
         return cls ? cls.replace(/.*jsgrid_(.+?)_col.*/, '$1') : '#';
-    },
+    }
 
     /**
      * Gets the new node position after moving.
@@ -811,7 +800,7 @@ var PageTree = new Class({
      * @param {Object} obj jstree move object
      * @returns {Object} evaluated object with params
      */
-    _getNodePosition: function _getNodePosition(obj) {
+    _getNodePosition(obj) {
         var data = {};
         var node = this.ui.tree.jstree('get_node', obj.node.parent);
 
@@ -830,7 +819,7 @@ var PageTree = new Class({
         }
 
         return data;
-    },
+    }
 
     /**
      * Sets up general tooltips that can have a list of links or content.
@@ -838,11 +827,11 @@ var PageTree = new Class({
      * @method _setupDropdowns
      * @private
      */
-    _setupDropdowns: function _setupDropdowns() {
+    _setupDropdowns() {
         this._dropdowns = new PageTreeDropdowns({
             container: this.ui.container
         });
-    },
+    }
 
     /**
      * Handles page view click. Usual use case is that after you click
@@ -852,7 +841,7 @@ var PageTree = new Class({
      * @method _setupPageView
      * @private
      */
-    _setupPageView: function _setupPageView() {
+    _setupPageView() {
         var win = Helpers._getWindow();
         var parent = win.parent ? win.parent : win;
 
@@ -866,13 +855,13 @@ var PageTree = new Class({
                 })
             );
         });
-    },
+    }
 
     /**
      * @method _setupStickyHeader
      * @private
      */
-    _setupStickyHeader: function _setupStickyHeader() {
+    _setupStickyHeader() {
         var that = this;
 
         that.ui.tree.on('ready.jstree', function() {
@@ -880,7 +869,7 @@ var PageTree = new Class({
                 container: that.ui.container
             });
         });
-    },
+    }
 
     /**
      * Triggers the links `href` as ajax post request.
@@ -889,7 +878,7 @@ var PageTree = new Class({
      * @private
      * @param {jQuery} trigger jQuery link target
      */
-    _setAjaxPost: function _setAjaxPost(trigger) {
+    _setAjaxPost(trigger) {
         var that = this;
 
         this.ui.container.on(this.click, trigger, function(e) {
@@ -919,7 +908,7 @@ var PageTree = new Class({
             }
             try {
                 window.top.CMS.API.Toolbar.showLoader();
-            } catch (err) {}
+            } catch {}
 
             $.ajax({
                 method: 'post',
@@ -928,7 +917,7 @@ var PageTree = new Class({
                 .done(function() {
                     try {
                         window.top.CMS.API.Toolbar.hideLoader();
-                    } catch (err) {}
+                    } catch {}
 
                     if (window.self === window.top) {
                         // simply reload the page
@@ -940,11 +929,11 @@ var PageTree = new Class({
                 .fail(function(error) {
                     try {
                         window.top.CMS.API.Toolbar.hideLoader();
-                    } catch (err) {}
+                    } catch {}
                     that.showError(error.responseText ? error.responseText : error.statusText);
                 });
         });
-    },
+    }
 
     /**
      * Sets events for the search on the header.
@@ -952,7 +941,7 @@ var PageTree = new Class({
      * @method _setupSearch
      * @private
      */
-    _setupSearch: function _setupSearch() {
+    _setupSearch() {
         var that = this;
         var click = this.click + '.search';
 
@@ -1014,7 +1003,7 @@ var PageTree = new Class({
 
         // add hidden fields to the form to maintain filter params
         visibleForm.append(hiddenForm.find('input[type="hidden"]'));
-    },
+    }
 
     /**
      * Shows paste helpers.
@@ -1023,7 +1012,7 @@ var PageTree = new Class({
      * @param {String} [selector=this.options.pasteSelector] jquery selector
      * @private
      */
-    _enablePaste: function _enablePaste(selector) {
+    _enablePaste(selector) {
         var sel = typeof selector === 'undefined'
             ? this.options.pasteSelector
             : selector + ' ' + this.options.pasteSelector;
@@ -1046,7 +1035,7 @@ var PageTree = new Class({
         }
         // not loaded actions dropdown have to be updated as well
         $(dropdownSel).data('lazyUrlData', data);
-    },
+    }
 
     /**
      * Hides paste helpers.
@@ -1055,7 +1044,7 @@ var PageTree = new Class({
      * @param {String} [selector=this.options.pasteSelector] jquery selector
      * @private
      */
-    _disablePaste: function _disablePaste(selector) {
+    _disablePaste(selector) {
         var sel = typeof selector === 'undefined'
             ? this.options.pasteSelector
             : selector + ' ' + this.options.pasteSelector;
@@ -1071,7 +1060,7 @@ var PageTree = new Class({
 
         // not loaded actions dropdown have to be updated as well
         $(dropdownSel).removeData('lazyUrlData');
-    },
+    }
 
     /**
      * Updates the current state of the helpers after `after_open.jstree`
@@ -1080,7 +1069,7 @@ var PageTree = new Class({
      * @method _updatePasteHelpersState
      * @private
      */
-    _updatePasteHelpersState: function _updatePasteHelpersState() {
+    _updatePasteHelpersState() {
         var that = this;
 
         if (this.clipboard.type && this.clipboard.id) {
@@ -1104,7 +1093,7 @@ var PageTree = new Class({
                 that._disablePaste('.jsgrid_' + id + '_col');
             });
         }
-    },
+    }
 
     /**
      * Shows success message on node after successful action.
@@ -1113,7 +1102,7 @@ var PageTree = new Class({
      * @param {Number} id id of the element to add the success class
      * @private
      */
-    _showSuccess: function _showSuccess(id) {
+    _showSuccess(id) {
         var element = this.ui.tree.find('li[data-id="' + id + '"]');
 
         element.addClass('cms-tree-node-success');
@@ -1123,7 +1112,7 @@ var PageTree = new Class({
         // hide elements
         this._disablePaste();
         this.clipboard.id = null;
-    },
+    }
 
     /**
      * Checks if we should reload the iframe or entire window. For this we
@@ -1132,13 +1121,13 @@ var PageTree = new Class({
      * @method _reloadHelper
      * @private
      */
-    _reloadHelper: function _reloadHelper() {
+    _reloadHelper() {
         if (window.self === window.top) {
             Helpers.reloadBrowser();
         } else {
             window.location.reload();
         }
-    },
+    }
 
     /**
      * Displays an error within the django UI.
@@ -1146,7 +1135,7 @@ var PageTree = new Class({
      * @method showError
      * @param {String} message string message to display
      */
-    showError: function showError(message) {
+    showError(message) {
         var messages = $('.messagelist');
         var breadcrumb = $('.breadcrumbs');
         var reload = this.options.lang.reload;
@@ -1167,7 +1156,7 @@ var PageTree = new Class({
         } else {
             breadcrumb.after(msg);
         }
-    },
+    }
 
     /**
      * @method _getDescendantsIds
@@ -1175,9 +1164,9 @@ var PageTree = new Class({
      * @param {String} nodeId jstree id of the node, e.g. j1_3
      * @returns {String[]} array of ids
      */
-    _getDescendantsIds: function _getDescendantsIds(nodeId) {
+    _getDescendantsIds(nodeId) {
         return this.ui.tree.jstree(true).get_node(nodeId).children_d;
-    },
+    }
 
     /**
      * @method _hasPermision
@@ -1186,7 +1175,7 @@ var PageTree = new Class({
      * @param {String} permission move / add
      * @returns {Boolean}
      */
-    _hasPermission: function _hasPermision(node, permission) {
+    _hasPermission(node, permission) {
         if (node.id === '#' && permission === 'add') {
             return this.options.hasAddRootPermission;
         } else if (node.id === '#') {
@@ -1195,11 +1184,11 @@ var PageTree = new Class({
 
         return node.li_attr['data-' + permission + '-permission'] === 'true';
     }
-});
 
-PageTree._init = function() {
-    new PageTree();
-};
+    static _init() {
+        new PageTree();
+    }
+}
 
 // shorthand for jQuery(document).ready();
 $(function() {
@@ -1221,5 +1210,10 @@ $(function() {
     // autoload the pagetree
     CMS.PageTree._init();
 });
+
+// Define default options on the prototype for test compatibility
+PageTree.prototype.options = {
+    pasteSelector: '.js-cms-tree-item-paste'
+};
 
 export default PageTree;

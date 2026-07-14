@@ -2,15 +2,15 @@
 Cement dummy extension module.
 """
 
-from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from ..core.mail import MailHandler
 from ..core.output import OutputHandler
 from ..core.template import TemplateHandler
-from ..core.mail import MailHandler
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -34,7 +34,7 @@ class DummyOutputHandler(OutputHandler):
         #: to override the ``output_handler`` via command line options.
         overridable = False
 
-    def render(self, data: Dict[str, Any], **kw: Any) -> None:
+    def render(self, data: dict[str, Any], **kw: Any) -> None:
         """
         This implementation does not actually render anything to output, but
         rather logs it to the debug facility.
@@ -68,7 +68,7 @@ class DummyTemplateHandler(TemplateHandler):
         #: The string identifier of this handler.
         label = 'dummy'
 
-    def render(self, content: Union[str, bytes], data: Dict[str, Any]) -> None:
+    def render(self, content: str | bytes, data: dict[str, Any]) -> None:
         """
         This implementation does not actually render anything, but
         rather logs it to the debug facility.
@@ -85,10 +85,10 @@ class DummyTemplateHandler(TemplateHandler):
     def copy(self,
              src: str,
              dest: str,
-             data: Dict[str, Any],
+             data: dict[str, Any],
              force: bool = False,
-             exclude: Optional[List[str]] = None,
-             ignore: Optional[List[str]] = None) -> bool:
+             exclude: list[str] | None = None,
+             ignore: list[str] | None = None) -> bool:
         """
         This implementation does not actually copy anything, but rather logs it
         to the debug facility.
@@ -204,7 +204,7 @@ class DummyMailHandler(MailHandler):
         #: Unique identifier for this handler
         label = 'dummy'
 
-    def _get_params(self, **kw: Any) -> Dict[str, Any]:
+    def _get_params(self, **kw: Any) -> dict[str, Any]:
         params = dict()
         for item in ['to', 'from_addr', 'cc', 'bcc', 'subject']:
             config_item = self.app.config.get(self._meta.config_section, item)
@@ -271,11 +271,11 @@ class DummyMailHandler(MailHandler):
 
         msg += "\n" + "-" * 77 + "\n"
 
-        print(msg)
+        print(msg)  # noqa: T201 - DummyMailHandler intentionally prints message to stdout (no real send)
         return True
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(DummyOutputHandler)
     app.handler.register(DummyTemplateHandler)
     app.handler.register(DummyMailHandler)

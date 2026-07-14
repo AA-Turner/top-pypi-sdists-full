@@ -53,7 +53,7 @@ class NetworksWirelessSsidsVpn(object):
             concentrator=params.get("concentrator"),
             splitTunnel=params.get("splitTunnel"),
             failover=params.get("failover"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -146,7 +146,9 @@ class NetworksWirelessSsidsVpn(object):
         obj_params = [
             ("concentrator", "concentrator"),
             ("splitTunnel", "splitTunnel"),
-            ("failover", "failover"), ("number", "number"),
+            ("failover", "failover"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

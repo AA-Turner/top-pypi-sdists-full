@@ -32,51 +32,20 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+# The result dataclasses live in the leaf module ``plato.agents.review_models``
+# (re-exported here for back-compat) so result-only consumers — notably
+# ``plato.workflows.structured`` — never import this module, whose ``AgentTask``
+# import would close the ``plato.agents.task`` → ``plato.cli`` →
+# ``plato.workflows`` → ``review_gate`` import cycle.
+from plato.agents.review_models import ReviewGateMergeResult, ReviewGateResult
 from plato.agents.task import AgentTask
 
+__all__ = ["ReviewGateResult", "ReviewGateMergeResult", "attach_review_gate"]
+
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ReviewGateResult:
-    """Result from a review function.
-
-    Attributes:
-        passed: Whether the review passed (agent work is acceptable).
-        feedback: Human-readable feedback for the agent on failure.
-        result_data: Arbitrary JSON-serializable dict with full review details.
-            Attached to the OTel span as ``plato.review.result_json``.
-        score: Optional numeric score (0.0-1.0).
-        verdict: Optional verdict string (e.g. "pass", "fail").
-        failure_kind: Optional machine-readable failure class.
-        exhaustion_policy_override: Optional per-result override for what to do
-            when review continuations are exhausted.
-        continuation_cap_cost: Cost charged against the continuation budget
-            for this review outcome. Use ``0.0`` for failures that should
-            keep looping without consuming the PR-review cap.
-    """
-
-    passed: bool
-    feedback: str = ""
-    result_data: dict[str, Any] = field(default_factory=dict)
-    score: float | None = None
-    verdict: str | None = None
-    failure_kind: str = ""
-    exhaustion_policy_override: Literal["fail", "merge", "raise"] | None = None
-    continuation_cap_cost: float = 1.0
-
-
-@dataclass(frozen=True)
-class ReviewGateMergeResult:
-    """Outcome of the post-review merge attempt."""
-
-    merged: bool
-    conflict_files: list[str] = field(default_factory=list)
-    error: str = ""
 
 
 def attach_review_gate(

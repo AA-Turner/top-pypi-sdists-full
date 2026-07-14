@@ -1,3 +1,4 @@
+from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as _backfill_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -81,25 +82,44 @@ class DeleteFeatureObservationsResponse(_message.Message):
     def __init__(self, errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...) -> None: ...
 
 class GetIncrementalProgressRequest(_message.Message):
-    __slots__ = ("resolver_fqn", "query_name")
+    __slots__ = ("resolver_fqn", "query_name", "scheduled_aggregate_backfill_name")
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
     resolver_fqn: str
     query_name: str
-    def __init__(self, resolver_fqn: _Optional[str] = ..., query_name: _Optional[str] = ...) -> None: ...
+    scheduled_aggregate_backfill_name: str
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        scheduled_aggregate_backfill_name: _Optional[str] = ...,
+    ) -> None: ...
 
 class GetIncrementalProgressResponse(_message.Message):
-    __slots__ = ("environment_id", "resolver_fqn", "query_name", "max_ingested_timestamp", "last_execution_timestamp")
+    __slots__ = (
+        "environment_id",
+        "resolver_fqn",
+        "query_name",
+        "max_ingested_timestamp",
+        "last_execution_timestamp",
+        "scheduled_aggregate_backfill_name",
+        "aggregate_groups",
+    )
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     MAX_INGESTED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     LAST_EXECUTION_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_GROUPS_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
     resolver_fqn: str
     query_name: str
     max_ingested_timestamp: _timestamp_pb2.Timestamp
     last_execution_timestamp: _timestamp_pb2.Timestamp
+    scheduled_aggregate_backfill_name: str
+    aggregate_groups: _containers.RepeatedCompositeFieldContainer[ScheduledAggregateBackfillIncrementalProgress]
     def __init__(
         self,
         environment_id: _Optional[str] = ...,
@@ -107,22 +127,51 @@ class GetIncrementalProgressResponse(_message.Message):
         query_name: _Optional[str] = ...,
         max_ingested_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         last_execution_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        scheduled_aggregate_backfill_name: _Optional[str] = ...,
+        aggregate_groups: _Optional[_Iterable[_Union[ScheduledAggregateBackfillIncrementalProgress, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ScheduledAggregateBackfillIncrementalProgress(_message.Message):
+    __slots__ = ("features", "storage_targets", "max_ingested_timestamp", "last_execution_timestamp")
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_TARGETS_FIELD_NUMBER: _ClassVar[int]
+    MAX_INGESTED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    LAST_EXECUTION_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.RepeatedScalarFieldContainer[str]
+    storage_targets: _containers.RepeatedScalarFieldContainer[_backfill_pb2.AggregateBackfillTarget]
+    max_ingested_timestamp: _timestamp_pb2.Timestamp
+    last_execution_timestamp: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        features: _Optional[_Iterable[str]] = ...,
+        storage_targets: _Optional[_Iterable[_Union[_backfill_pb2.AggregateBackfillTarget, str]]] = ...,
+        max_ingested_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        last_execution_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class SetIncrementalProgressRequest(_message.Message):
-    __slots__ = ("resolver_fqn", "query_name", "max_ingested_timestamp", "last_execution_timestamp")
+    __slots__ = (
+        "resolver_fqn",
+        "query_name",
+        "scheduled_aggregate_backfill_name",
+        "max_ingested_timestamp",
+        "last_execution_timestamp",
+    )
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
     MAX_INGESTED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     LAST_EXECUTION_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     resolver_fqn: str
     query_name: str
+    scheduled_aggregate_backfill_name: str
     max_ingested_timestamp: _timestamp_pb2.Timestamp
     last_execution_timestamp: _timestamp_pb2.Timestamp
     def __init__(
         self,
         resolver_fqn: _Optional[str] = ...,
         query_name: _Optional[str] = ...,
+        scheduled_aggregate_backfill_name: _Optional[str] = ...,
         max_ingested_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         last_execution_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
@@ -132,12 +181,19 @@ class SetIncrementalProgressResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class DeleteIncrementalProgressRequest(_message.Message):
-    __slots__ = ("resolver_fqn", "query_name")
+    __slots__ = ("resolver_fqn", "query_name", "scheduled_aggregate_backfill_name")
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
     resolver_fqn: str
     query_name: str
-    def __init__(self, resolver_fqn: _Optional[str] = ..., query_name: _Optional[str] = ...) -> None: ...
+    scheduled_aggregate_backfill_name: str
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        scheduled_aggregate_backfill_name: _Optional[str] = ...,
+    ) -> None: ...
 
 class DeleteIncrementalProgressResponse(_message.Message):
     __slots__ = ()

@@ -9,25 +9,21 @@ import json
 import attrs
 import pytest
 
+from aiohttp import ClientSession
+from aiohttp.web import (
+    Application,
+    AppRunner,
+    Request,
+    Response,
+    TCPSite,
+    json_response,
+)
+from yarl import URL
+
 import svcs
 
 from tests.fake_factories import async_int_factory
 from tests.ifaces import Service
-
-
-try:
-    from aiohttp import ClientSession
-    from aiohttp.web import (
-        Application,
-        AppRunner,
-        Request,
-        Response,
-        TCPSite,
-        json_response,
-    )
-    from yarl import URL
-except ImportError:
-    pytest.skip("AIOHTTP not installed", allow_module_level=True)
 
 
 @attrs.define
@@ -121,7 +117,7 @@ class TestAIOHTTP:
         svcs.aiohttp.register_factory(app, int, async_int_factory)
 
         server = await AppServer.start(app)
-        resp, text = await get(server.base_url)
+        _resp, text = await get(server.base_url)
 
         await server.aclose()
 
@@ -148,7 +144,7 @@ class TestAIOHTTP:
         svcs.aiohttp.register_factory(app, int, async_int_factory, ping=aping)
 
         server = await AppServer.start(app)
-        resp, text = await get(server.base_url)
+        _resp, text = await get(server.base_url)
 
         assert {"builtins.int": None} == json.loads(text)
 

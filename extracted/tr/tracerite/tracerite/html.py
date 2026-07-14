@@ -6,8 +6,23 @@ from typing import Any, cast
 
 from html5tagger import HTML, Document, E, Template
 
-from .chain_analysis import build_chronological_frames
-from .trace import build_chain_header, chainmsg, extract_chain, symbols, symdesc
+from .trace.core import (
+    EMPHASIS_BEG,
+    EMPHASIS_FIN,
+    HIGHLIGHT_RELEVANCES,
+    chainmsg,
+    symbols,
+    symdesc,
+)
+from .trace.finalize import (
+    build_chain_header,
+    call_run_ranges,
+    exception_info,
+    extract_chain,
+    extract_chain_exceptions,
+    function_display,
+    normalize_variable,
+)
 
 style = files(cast(str, __package__)).joinpath("style.css").read_text(encoding="UTF-8")
 javascript = (
@@ -65,9 +80,11 @@ def html_page(
     slots of `Page` are empty by default so callers can inject site-wide
     header/footer content.
     """
-    chain = extract_chain(exc=exc, **extract_args)[-3:] if chain is None else chain
+    chain = extract_chain(exc=exc, **extract_args) if chain is None else chain
     page_title = (
-        title if title is not None else (chain[-1]["type"] if chain else "TraceRite")
+        title
+        if title is not None
+        else (chain[-1].get("exception", {}).get("type") if chain else "TraceRite")
     )
     page_heading = heading if heading is not None else page_title
     page_ingress = (
@@ -95,49 +112,21 @@ def html_page(
 def _collapse_call_runs(
     frames: list[dict[str, Any]], min_run_length: int = 10
 ) -> list[Any]:
-    """Collapse consecutive runs of 'call' frames, keeping first and last of each run.
-
-    Only collapses runs of frames with relevance='call'. Non-call frames
-    (error, warning, stop) are never collapsed.
-    """
+    """Collapse consecutive runs of 'call' frames, keeping first and last of each run."""
     if not frames:
         return frames
 
     result = []
-    run_start = None
-
-    for i, frinfo in enumerate(frames):
-        if frinfo["relevance"] == "call":
-            if run_start is None:
-                run_start = i
-        else:
-            # End of a call run - process it
-            if run_start is not None:
-                run_length = i - run_start
-                skipped = run_length - 2
-                if run_length >= min_run_length and skipped > 0:
-                    # Keep first and last of the run, add ellipsis with count
-                    result.append(frames[run_start])
-                    result.append((..., skipped))
-                    result.append(frames[i - 1])
-                else:
-                    # Run too short, keep all
-                    result.extend(frames[run_start:i])
-                run_start = None
-            # Add the non-call frame
-            result.append(frinfo)
-
-    # Handle final run at end
-    if run_start is not None:
-        run_length = len(frames) - run_start
+    prev_end = 0
+    for start, end in call_run_ranges(frames, min_run_length):
+        result.extend(frames[prev_end:start])
+        run_length = end - start + 1
         skipped = run_length - 2
-        if run_length >= min_run_length and skipped > 0:
-            result.append(frames[run_start])
-            result.append((..., skipped))
-            result.append(frames[-1])
-        else:
-            result.extend(frames[run_start:])
-
+        result.append(frames[start])
+        result.append((..., skipped))
+        result.append(frames[end])
+        prev_end = end + 1
+    result.extend(frames[prev_end:])
     return result
 
 
@@ -160,8 +149,7 @@ def html_traceback(
     set ``include_js_css=False`` when embedding it in a page that already
     provides them.
     """
-    chain = chain or extract_chain(exc=exc, **extract_args)[-3:]
-    # Chain is oldest-first from extract_chain
+    chain = chain or extract_chain(exc=exc, **extract_args)
     classes = "tracerite autodark" if autodark else "tracerite"
     with E.div(
         class_=classes,
@@ -177,7 +165,11 @@ def html_traceback(
         if msg:
             doc.h2(msg)
 
-        _chronological_output(doc, chain, local_urls=local_urls)
+        if chain:
+            _chronological_output(doc, chain, local_urls=local_urls)
+        elif exc is not None:
+            for exc_dict in extract_chain_exceptions(exc):
+                _exception_banner(doc, exception_info(exc_dict))
 
         if include_js_css:
             doc._script(javascript)
@@ -191,20 +183,7 @@ def _chronological_output(
     local_urls: bool = False,
 ) -> None:
     """Output frames in chronological order with exception info after error frames."""
-    chrono_frames = build_chronological_frames(chain)
-    if not chrono_frames:
-        # No frames, but still show exception banners for any exceptions in chain
-        for exc in chain:
-            exc_info = {
-                "type": exc.get("type"),
-                "message": exc.get("message"),
-                "summary": exc.get("summary"),
-                "from": exc.get("from"),
-            }
-            _exception_banner(doc, exc_info)
-        return
-
-    _render_frame_list(doc, chrono_frames, local_urls=local_urls)
+    _render_frame_list(doc, chain, local_urls=local_urls)
 
 
 def _render_frame_list(
@@ -276,10 +255,7 @@ def _render_parallel_branches(
     *,
     local_urls: bool = False,
 ) -> None:
-    """Render parallel exception branches from an ExceptionGroup.
-
-    Each branch is rendered side by side.
-    """
+    """Render parallel exception branches from an ExceptionGroup."""
     with doc.div(class_="parallel-branches"):
         for branch in branches:
             with doc.div(class_="parallel-branch"):
@@ -325,16 +301,12 @@ def _exception_banner(doc: Any, exc_info: dict[str, Any]) -> None:
 
 
 def _compact_code_line(doc: Any, frinfo: dict[str, Any]) -> None:
-    """Render compact one-liner showing all marked code regions.
-
-    Em parts (typically function arguments) longer than 20 chars are
-    collapsed to show only first and last char with ellipsis.
-    """
+    """Render compact one-liner showing all marked code regions."""
     fragments = frinfo["fragments"]
     relevance = frinfo["relevance"]
     symbol = symbols.get(relevance, symbols["call"])
     # Use highlight styling (yellow bg, red caret) for error/stop frames
-    use_highlight = relevance in ("error", "stop")
+    use_highlight = relevance in HIGHLIGHT_RELEVANCES
 
     if fragments:
         # First pass: collect text and track em ranges
@@ -460,14 +432,9 @@ def _frame_label(
     local_urls: bool = False,
     toggle_id: str | None = None,
 ) -> None:
-    function_name = frinfo["function"]
-    function_suffix = frinfo.get("function_suffix", "")
-    if function_name:
-        function_display = f"{function_name}{function_suffix}"
-    elif function_suffix:
-        function_display = function_suffix
-    else:
-        function_display = None  # No function to display
+    function_label = function_display(
+        frinfo["function"], frinfo.get("function_suffix", "")
+    )
 
     # Location comes first, with line number for non-notebook frames
     # Notebook cells (In [N]) don't need line numbers displayed
@@ -504,17 +471,17 @@ def _frame_label(
     if toggle_id:
         # Wrap both location and function in a label for click-to-toggle
         with doc.label(for_=toggle_id, class_="frame-label-wrapper"):
-            if function_display:
+            if function_label:
                 render_location()
-                doc.span(function_display, colon, class_="frame-function")
+                doc.span(function_label, colon, class_="frame-function")
             else:
                 # No function: colon goes with location, empty span for grid column 2
                 render_location(with_colon=True)
                 doc.span(class_="frame-function")
     else:
-        if function_display:
+        if function_label:
             render_location()
-            doc.span(function_display, colon, class_="frame-function")
+            doc.span(function_label, colon, class_="frame-function")
         else:
             # No function: colon goes with location, empty span for grid column 2
             render_location(with_colon=True)
@@ -529,18 +496,18 @@ def _render_fragment(doc: Any, fragment: dict[str, Any]) -> None:
     em = fragment.get("em")
 
     # Render opening tags for "mark" and "em" if applicable
-    if mark in ["solo", "beg"]:
+    if mark in EMPHASIS_BEG:
         doc(HTML("<mark>"))
-    if em in ["solo", "beg"]:
+    if em in EMPHASIS_BEG:
         doc(HTML("<em>"))
 
     # Render the code
     doc(code)
 
     # Render closing tags for "mark" and "em" if applicable
-    if em in ["fin", "solo"]:
+    if em in EMPHASIS_FIN:
         doc(HTML("</em>"))
-    if mark in ["fin", "solo"]:
+    if mark in EMPHASIS_FIN:
         doc(HTML("</mark>"))
 
 
@@ -549,18 +516,7 @@ def variable_inspector(doc: Any, variables: list[Any]) -> None:
         return
     with doc.dl(class_="inspector"):
         for var_info in variables:
-            # Handle both old tuple format and new VarInfo namedtuple
-            if hasattr(var_info, "name"):
-                n, t, v, fmt = (
-                    var_info.name,
-                    var_info.typename,
-                    var_info.value,
-                    var_info.format_hint,
-                )
-            else:
-                # Backwards compatibility with old tuple format
-                n, t, v = var_info
-                fmt = "inline"
+            n, t, v, fmt = normalize_variable(var_info)
 
             doc.dt.span(n, class_="var")
             if t:

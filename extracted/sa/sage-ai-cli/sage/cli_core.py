@@ -1021,7 +1021,12 @@ def run(
 
     # ── Billing check: CLI requires paid plan ──────────────────────────────
     try:
-        from sage.core.cli_auth import check_cli_access, check_token_quota
+        from sage.core.cli_auth import check_cli_access, check_token_quota, sync_on_reconnect
+        # Best-effort sync: fetch latest tier/limits + push offline usage
+        try:
+            sync_on_reconnect()
+        except Exception:
+            pass  # Don't block CLI startup if sync fails
         check_cli_access()
         check_token_quota()  # warn/block if token limit exceeded
     except RuntimeError as _billing_err:

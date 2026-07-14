@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cement
-Version: 3.0.14
+Version: 3.0.16
 Summary: Application Framework for Python
 Keywords: python,module,cli framework
 Author-Email: "Data Folk Labs, LLC" <derks@datafolklabs.com>
@@ -36,7 +36,7 @@ Classifier: License :: OSI Approved :: BSD License
 Project-URL: homepage, https://builtoncement.com
 Project-URL: documentation, https://docs.builtoncement.com
 Project-URL: repository, https://github.com/datafolklabs/cement
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Provides-Extra: alarm
 Provides-Extra: argparse
 Provides-Extra: colorlog
@@ -79,7 +79,6 @@ Description-Content-Type: text/markdown
 
 [![Built on Cement™](https://img.shields.io/badge/Built%20on%20Cement%E2%84%A2-3.0-yellow)](https://builtoncement.com)
 [![PyPi Downloads](https://img.shields.io/pypi/dm/cement)](https://pypistats.org/packages/cement)
-[![Continuous Integration Status](https://app.travis-ci.com/datafolklabs/cement.svg?branch=master)](https://app.travis-ci.com/github/datafolklabs/cement/)
 
 
 Cement is an advanced Application Framework for Python, with a primary focus on Command Line Interfaces (CLI).  Its goal is to introduce a standard and feature-full platform for both simple and complex command line applications as well as support rapid development needs without sacrificing quality.  Cement is flexible, and its use cases span from the simplicity of a micro-framework to the complexity of a mega-framework. Whether it's a single file script or a multi-tier application, Cement is the foundation you've been looking for.
@@ -119,7 +118,7 @@ Cement core features include (but are not limited to):
 - 100% PEP8 compliance (`ruff`)
 - Type annotation compliance (`mypy`)
 - Extensive API Reference (`sphinx`)
-- Tested on Python 3.8+
+- Tested on Python 3.10+
 
 
 ## Optional Extensions
@@ -134,7 +133,6 @@ See: [https://docs.builtoncement.com/extensions](https://docs.builtoncement.com/
 - [Official Website / Developer Documentation](http://builtoncement.com/)
 - [PyPi Packages](http://pypi.python.org/pypi/cement/)
 - [Github Source Code / Issue Tracking](http://github.com/datafolklabs/cement/)
-- [Travis CI](https://travis-ci.org/datafolklabs/cement/)
 - [Slack Channel](https://join.slack.com/t/cementframework/shared_invite/enQtMzU0OTc5MDQ4NDA0LWMwMzZiOTczZjM4ZjFiZDE3MDk4MzA5ZmYxNmZjNTk4NzUwMzcyN2VlMDc5NzIxYjQ1NzlmNzgyNDFjMWJmMWY)
 
 
@@ -145,9 +143,50 @@ The Cement CLI Application Framework is Open Source and is distributed under the
 
 ## Development
 
+### Devbox / Process Compose
+ 
+ *This is now the recommended development setup.*
+ 
+[Devbox](https://www.jetify.com/devbox) provides a fully local development environment with all required services and dependencies, without the need for Docker containers. Everything runs natively on your machine.
+
+**Prerequisites:**
+
+- [Devbox](https://www.jetify.com/devbox/docs/installing_devbox/)
+- [DirEnv](https://direnv.net/) (recommended) — automatically activates the Devbox environment when you `cd` into the project directory. If you don't use DirEnv, you can manually run `source .envrc` or `devbox shell` instead.
+
+**Setup:**
+
+Initialize the Devbox environment and install dependencies:
+
+```
+make init
+```
+
+If using DirEnv, the environment activates automatically on `cd`. Otherwise, run `source .envrc` or `devbox shell` to activate it.
+
+**Running Services and Tests:**
+
+In one terminal, start the required services (Redis, Memcached, Mailpit) via Process Compose:
+
+```
+make up
+```
+
+In another terminal, run the test suite:
+
+```
+make test
+```
+
+Or run cement commands:
+
+```
+pdm run cement --help
+```
+
 ### Docker
 
-This project includes a Docker Compose configuration that sets up all required services, and dependencies for development and testing.  This is the recommended path for local development, and is the only fully supported option.
+This project includes a Docker Compose configuration that sets up all required services, and dependencies for development and testing.  This method is still supported, but may become deprecated in favor of Devbox.
 
 The following creates all required docker containers, and launches an BASH shell within the `cement` dev container for development.
 ```
@@ -169,25 +208,24 @@ All execution is done *inside the docker containers*.
 
 **Testing Alternative Versions of Python**
 
-The latest stable version of Python 3 is the default, and target version accessible as the `cement` container within Docker Compose.  For testing against alternative versions of python, additional containers are created (ex: `cement-py38`, `cement-py39`, etc). You can access these containers via:
+The latest stable version of Python 3 is the default, and target version accessible as the `cement` container within Docker Compose.  For testing against alternative versions of python, additional containers are created (ex: `cement-py310`, `cement-py311`, etc). You can access these containers via:
 
 ```
 $ docker-compose ps
         Name                      Command               State     Ports
 -------------------------------------------------------------------------
-cement_cement-py38_1    /bin/bash                        Up
-cement_cement-py39_1    /bin/bash                        Up
 cement_cement-py310_1   /bin/bash                        Up
 cement_cement-py311_1   /bin/bash                        Up
 cement_cement-py312_1   /bin/bash                        Up
+cement_cement-py313_1   /bin/bash                        Up
 cement_cement_1         /bin/bash                        Up
 cement_memcached_1      docker-entrypoint.sh memcached   Up       11211/tcp
 cement_redis_1          docker-entrypoint.sh redis ...   Up       6379/tcp
 
 
-$ docker-compose exec cement-py39 /bin/bash
+$ docker-compose exec cement-py310 /bin/bash
 
-|> cement-py39 <| src #
+|> cement-py310 <| src #
 ```
 
 

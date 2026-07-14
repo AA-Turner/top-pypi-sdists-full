@@ -111,6 +111,14 @@ class GatewayConfigurationSettingsParam(TypedDict, total=False):
     inspection: Optional[Inspection]
     """Define the proxy inspection mode."""
 
+    max_ttl_secs: Optional[int]
+    """Account-level cap on DNS response TTLs, in seconds.
+
+    Gateway rewrites DNS responses so returned record TTLs do not exceed this value.
+    Null means no cap. Each DNS location can inherit, override, or disable it
+    through the location `max_ttl` setting.
+    """
+
     protocol_detection: Optional[ProtocolDetectionParam]
     """Specify whether to detect protocols from the initial bytes of client traffic."""
 

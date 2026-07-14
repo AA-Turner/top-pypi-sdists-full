@@ -11,17 +11,18 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
+import logging
 import os
 import sys
-import logging
 from typing import TYPE_CHECKING
+
 from colorlog import ColoredFormatter
+
 from ..ext.ext_logging import LoggingLogHandler
 from ..utils.misc import is_true
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 
 class ColorLogHandler(LoggingLogHandler):
@@ -73,7 +74,7 @@ class ColorLogHandler(LoggingLogHandler):
     _meta: Meta
 
     def _get_console_format(self) -> str:
-        format = super(ColorLogHandler, self)._get_console_format()
+        format = super()._get_console_format()
         colorize = self.app.config.get(self._meta.config_section,
                                        'colorize_console_log')
         if sys.stdout.isatty() or 'CEMENT_TEST' in os.environ:
@@ -82,7 +83,7 @@ class ColorLogHandler(LoggingLogHandler):
         return format
 
     def _get_file_format(self) -> str:
-        format = super(ColorLogHandler, self)._get_file_format()
+        format = super()._get_file_format()
         colorize = self.app.config.get(self._meta.config_section,
                                        'colorize_file_log')
         if is_true(colorize):
@@ -102,8 +103,8 @@ class ColorLogHandler(LoggingLogHandler):
             else:
                 formatter = self._meta.formatter_class_without_color(format)
         else:
-            klass = self._meta.formatter_class_without_color  # pragma: nocover
-            formatter = klass(format)                         # pragma: nocover
+            klass = self._meta.formatter_class_without_color  # pragma: nocover  # defensive: unreachable  # noqa: E501
+            formatter = klass(format)  # pragma: nocover  # defensive: unreachable
 
         return formatter
 
@@ -122,5 +123,5 @@ class ColorLogHandler(LoggingLogHandler):
         return formatter
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(ColorLogHandler)

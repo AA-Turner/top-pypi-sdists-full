@@ -17,7 +17,13 @@ from mindroom.agents import show_tool_calls_for_agent
 from mindroom.ai import ResponseTurnContext, ai_response, build_matrix_run_metadata, stream_agent_response
 from mindroom.ai_run_metadata import ai_run_extra_content_from_metadata
 from mindroom.background_tasks import create_background_task
-from mindroom.constants import ATTACHMENT_IDS_KEY, ORIGINAL_SENDER_KEY, ROUTER_AGENT_NAME
+from mindroom.constants import (
+    ATTACHMENT_IDS_KEY,
+    ORIGINAL_SENDER_KEY,
+    ROUTER_AGENT_NAME,
+    STREAM_STATUS_KEY,
+    STREAM_STATUS_PENDING,
+)
 from mindroom.entity_resolution import entity_identity_registry
 from mindroom.final_delivery import FinalDeliveryOutcome, StreamTransportOutcome
 from mindroom.history.interrupted_replay import persist_interrupted_replay_snapshot
@@ -72,6 +78,7 @@ from .delivery_gateway import (
     FinalizeStreamedResponseRequest,
     MatrixCompactionLifecycle,
     ResponseIdentity,
+    SendTextRequest,
     StreamingDeliveryRequest,
 )
 from .media_inputs import MediaInputs
@@ -95,6 +102,7 @@ if TYPE_CHECKING:
     from mindroom.constants import RuntimePaths
     from mindroom.conversation_resolver import ConversationResolver
     from mindroom.conversation_state_writer import ConversationStateWriter
+    from mindroom.dispatch_source import ScheduledHistoryBudget
     from mindroom.history.types import HistoryScope
     from mindroom.hooks import EnrichmentItem, MessageEnvelope
     from mindroom.knowledge import KnowledgeAccessSupport
@@ -261,6 +269,7 @@ class ResponseRequest:
     matrix_run_metadata: Mapping[str, Any] | None = None
     system_enrichment_items: tuple[EnrichmentItem, ...] = ()
     requires_model_history_refresh: bool = False
+    scheduled_history_budget: ScheduledHistoryBudget | None = None
     payload_preparation: ResponsePayloadPreparation | None = None
     current_timestamp_ms: float | None = None
     current_prompt_is_structured: bool = False
@@ -289,6 +298,24 @@ class ResponseRequest:
 
 class PostLockRequestPreparationError(RuntimeError):
     """Raised when post-lock request preparation fails before generation starts."""
+
+    def __init__(
+        self,
+        message: str = "Post-lock request preparation failed",
+        *,
+        placeholder_event_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.placeholder_event_id = placeholder_event_id
+
+
+@dataclass
+class _EarlyPlaceholderState:
+    """Track an early placeholder until normal response settlement takes ownership."""
+
+    placeholder_event_id: str | None = None
+    request: ResponseRequest | None = None
+    settlement_started: bool = False
 
 
 @dataclass
@@ -701,18 +728,72 @@ class ResponseRunner:
         self,
         request: ResponseRequest,
         *,
-        locked_operation: Callable[[MessageTarget], Awaitable[str | None]],
+        response_kind: str,
+        locked_operation: Callable[[MessageTarget, _EarlyPlaceholderState], Awaitable[str | None]],
     ) -> str | None:
         """Run one locked response operation with shared queued-message bookkeeping."""
         resolved_target = request.response_envelope.target
-        return await self._lifecycle_coordinator.run_locked_response(
-            target=resolved_target,
-            response_envelope=request.response_envelope,
-            queued_notice_reservation=request.queued_notice_reservation,
-            pipeline_timing=request.pipeline_timing,
-            locked_operation=locked_operation,
-            signal_queued_message=request.sync_restart_retry_source_event_id is None,
-        )
+        early_placeholder = _EarlyPlaceholderState()
+        try:
+            return await self._lifecycle_coordinator.run_locked_response(
+                target=resolved_target,
+                response_envelope=request.response_envelope,
+                queued_notice_reservation=request.queued_notice_reservation,
+                pipeline_timing=request.pipeline_timing,
+                locked_operation=lambda target: locked_operation(target, early_placeholder),
+                signal_queued_message=request.sync_restart_retry_source_event_id is None,
+            )
+        except asyncio.CancelledError as error:
+            if early_placeholder.placeholder_event_id is not None and not early_placeholder.settlement_started:
+                await self._finalize_early_placeholder_cancellation(
+                    early_placeholder,
+                    error,
+                    response_kind=response_kind,
+                )
+            raise
+        except Exception as error:
+            already_linked = (
+                isinstance(error, PostLockRequestPreparationError) and error.placeholder_event_id is not None
+            )
+            if early_placeholder.placeholder_event_id is None or early_placeholder.settlement_started or already_linked:
+                raise
+            cause = (
+                error.__cause__
+                if isinstance(error, PostLockRequestPreparationError) and isinstance(error.__cause__, Exception)
+                else error
+            )
+            raise PostLockRequestPreparationError(
+                placeholder_event_id=early_placeholder.placeholder_event_id,
+            ) from cause
+
+    async def _finalize_early_placeholder_cancellation(
+        self,
+        state: _EarlyPlaceholderState,
+        error: asyncio.CancelledError,
+        *,
+        response_kind: str,
+    ) -> None:
+        """Best-effort terminalize an early placeholder before attempt settlement starts."""
+        request = state.request
+        event_id = state.placeholder_event_id
+        assert request is not None
+        assert event_id is not None
+        try:
+            await self.deps.delivery_gateway.deliver_cancelled_visible_note(
+                CancelledVisibleNoteRequest(
+                    target=request.response_envelope.target,
+                    event_id=event_id,
+                    existing_event_is_placeholder=True,
+                    cancel_source=classify_cancel_source(error),
+                    identity=self._response_identity(request, response_kind=response_kind),
+                ),
+            )
+        except Exception:
+            self.deps.logger.exception(
+                "Failed to finalize early placeholder after cancellation",
+                event_id=event_id,
+                response_kind=response_kind,
+            )
 
     def _request_with_locked_target(
         self,
@@ -822,6 +903,8 @@ class ResponseRunner:
     async def _refresh_model_history_after_lock(
         self,
         request: ResponseRequest,
+        *,
+        exclude_event_id: str | None = None,
     ) -> ResponseRequest:
         """Refresh model-facing thread history once this turn owns the lifecycle lock."""
         if request.thread_id is None:
@@ -843,6 +926,10 @@ class ResponseRunner:
                 error=str(exc),
             )
             return request
+        if exclude_event_id is not None:
+            filtered_history = [message for message in refreshed_history if message.event_id != exclude_event_id]
+            if len(filtered_history) != len(refreshed_history):
+                refreshed_history = replace(refreshed_history, messages=filtered_history)
         return replace(
             request,
             thread_history=refreshed_history,
@@ -852,10 +939,19 @@ class ResponseRunner:
     async def _prepare_request_after_lock(
         self,
         request: ResponseRequest,
+        *,
+        exclude_history_event_id: str | None = None,
     ) -> ResponseRequest:
         """Refresh thread history and rebuild any history-derived payload once locked."""
         try:
-            request = await self._refresh_model_history_after_lock(request)
+            if request.pipeline_timing is not None:
+                request.pipeline_timing.mark("thread_refresh_start")
+            request = await self._refresh_model_history_after_lock(
+                request,
+                exclude_event_id=exclude_history_event_id,
+            )
+            if request.pipeline_timing is not None:
+                request.pipeline_timing.mark("thread_refresh_ready")
             if request.payload_preparation is None:
                 return request
             return await self.deps.request_preparer.prepare(request)
@@ -911,6 +1007,7 @@ class ResponseRunner:
             matrix_run_metadata=_materialize_matrix_run_metadata(request.matrix_run_metadata),
             active_event_ids=frozenset(active_event_ids),
             system_enrichment_items=tuple(system_enrichment_items),
+            scheduled_history_budget=request.scheduled_history_budget,
         )
 
     def _notify_sync_restart_cancelled(
@@ -941,8 +1038,11 @@ class ResponseRunner:
         resolved_target: MessageTarget,
         history_scope: HistoryScope,
         execution_identity: ToolExecutionIdentity,
+        placeholder_message: str | None = None,
+        early_placeholder_state: _EarlyPlaceholderState | None = None,
     ) -> ResponseRequest | None:
-        """Run the shared post-lock request preparation for one locked turn."""
+        """Expose a locked turn before running its potentially slow preparation."""
+        placeholder_state = early_placeholder_state or _EarlyPlaceholderState()
         if request.on_lifecycle_lock_acquired is not None:
             request.on_lifecycle_lock_acquired()
         request = self._request_with_locked_target(request, resolved_target)
@@ -952,11 +1052,39 @@ class ResponseRunner:
             execution_identity=execution_identity,
         ):
             return None
-        request = await self._prepare_request_after_lock(request)
-        request = self._request_with_locked_target(request, resolved_target)
-        if request.pipeline_timing is not None:
-            request.pipeline_timing.mark("thread_refresh_ready")
-        return request
+        placeholder_event_id = None
+        if (
+            placeholder_message is not None
+            and request.existing_event_id is None
+            and not self._has_queued_forced_compaction(
+                session_id=resolved_target.session_id,
+                scope=history_scope,
+                execution_identity=execution_identity,
+            )
+        ):
+            placeholder_event_id = await self.deps.delivery_gateway.send_text(
+                SendTextRequest(
+                    target=resolved_target,
+                    response_text=placeholder_message,
+                    extra_content={STREAM_STATUS_KEY: STREAM_STATUS_PENDING},
+                ),
+            )
+            if placeholder_event_id is not None:
+                placeholder_state.placeholder_event_id = placeholder_event_id
+                placeholder_state.request = request
+                request = replace(
+                    request,
+                    existing_event_id=placeholder_event_id,
+                    existing_event_is_placeholder=True,
+                )
+                if request.pipeline_timing is not None:
+                    request.pipeline_timing.mark("placeholder_sent")
+                    request.pipeline_timing.mark_first_visible_reply("placeholder")
+        request = await self._prepare_request_after_lock(
+            request,
+            exclude_history_event_id=placeholder_event_id,
+        )
+        return self._request_with_locked_target(request, resolved_target)
 
     def _sync_restart_retry_is_current(
         self,
@@ -1288,9 +1416,11 @@ class ResponseRunner:
         )
         return await self._run_locked_response_lifecycle(
             request,
-            locked_operation=lambda resolved_target: self.generate_team_response_helper_locked(
+            response_kind="team",
+            locked_operation=lambda resolved_target, early_placeholder_state: self.generate_team_response_helper_locked(
                 team_request,
                 resolved_target=resolved_target,
+                early_placeholder_state=early_placeholder_state,
             ),
         )
 
@@ -1303,7 +1433,8 @@ class ResponseRunner:
         """Finalize an empty prompt through the locked lifecycle before setup side effects."""
         return await self._run_locked_response_lifecycle(
             request,
-            locked_operation=lambda resolved_target: self._finalize_empty_prompt_locked(
+            response_kind=response_kind,
+            locked_operation=lambda resolved_target, _early_placeholder_state: self._finalize_empty_prompt_locked(
                 request,
                 resolved_target=resolved_target,
                 response_kind=response_kind,
@@ -1315,8 +1446,10 @@ class ResponseRunner:
         team_request: _TeamResponseRequest,
         *,
         resolved_target: MessageTarget,
+        early_placeholder_state: _EarlyPlaceholderState | None = None,
     ) -> str | None:
         """Generate a team response once the per-thread lifecycle lock is held."""
+        placeholder_state = early_placeholder_state or _EarlyPlaceholderState()
         request = team_request.request
         retry_execution_identity = self.deps.tool_runtime.build_execution_identity(
             target=resolved_target,
@@ -1339,6 +1472,8 @@ class ResponseRunner:
             resolved_target=resolved_target,
             history_scope=session_scope,
             execution_identity=retry_execution_identity,
+            placeholder_message="🤝 Team Response: Thinking...",
+            early_placeholder_state=placeholder_state,
         )
         if prepared_request is None:
             return None
@@ -1458,6 +1593,7 @@ class ResponseRunner:
             matrix_run_metadata=matrix_run_metadata,
             active_event_ids=frozenset(active_event_ids),
             system_enrichment_items=tuple(request.system_enrichment_items),
+            scheduled_history_budget=request.scheduled_history_budget,
         )
         team_turn_recorder = self._build_turn_recorder(
             user_message=request.prompt,
@@ -1793,6 +1929,7 @@ class ResponseRunner:
                 memory_thread_history=_memory_thread_history,
             )
 
+        placeholder_state.settlement_started = True
         return await self._run_and_settle_locked_response(
             request,
             target=delivery_target,
@@ -2471,9 +2608,11 @@ class ResponseRunner:
         """Generate and send/edit an agent response with lifecycle locking."""
         return await self._run_locked_response_lifecycle(
             request,
-            locked_operation=lambda resolved_target: self.generate_response_locked(
+            response_kind="ai",
+            locked_operation=lambda resolved_target, early_placeholder_state: self.generate_response_locked(
                 request,
                 resolved_target=resolved_target,
+                early_placeholder_state=early_placeholder_state,
             ),
         )
 
@@ -2482,8 +2621,10 @@ class ResponseRunner:
         request: ResponseRequest,
         *,
         resolved_target: MessageTarget,
+        early_placeholder_state: _EarlyPlaceholderState | None = None,
     ) -> str | None:
         """Generate one agent response after acquiring the per-thread lock."""
+        placeholder_state = early_placeholder_state or _EarlyPlaceholderState()
         history_scope = self.deps.state_writer.history_scope()
         execution_identity = self.deps.tool_runtime.build_execution_identity(
             target=resolved_target,
@@ -2502,6 +2643,8 @@ class ResponseRunner:
             resolved_target=resolved_target,
             history_scope=history_scope,
             execution_identity=execution_identity,
+            placeholder_message="Thinking...",
+            early_placeholder_state=placeholder_state,
         )
         if prepared_request is None:
             return None
@@ -2630,6 +2773,7 @@ class ResponseRunner:
                 memory_thread_history=memory_thread_history,
             )
 
+        placeholder_state.settlement_started = True
         return await self._run_and_settle_locked_response(
             request,
             target=resolved_target,

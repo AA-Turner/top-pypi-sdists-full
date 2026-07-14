@@ -242,12 +242,12 @@ def _get_attrs(
         attrs['description'] = parsed_args.description
     # "router set" command doesn't support setting project.
     if 'project' in parsed_args and parsed_args.project is not None:
-        identity_client = client_manager.identity
-        project_id = identity_common.find_project(
+        identity_client = client_manager.sdk_connection.identity
+        project_id = identity_common.find_project_id_sdk(
             identity_client,
             parsed_args.project,
             parsed_args.project_domain,
-        ).id
+        )
         attrs['project_id'] = project_id
 
     attrs.update(_get_external_gateway_attrs(client_manager, parsed_args))
@@ -262,12 +262,29 @@ def _get_attrs(
         flavor = n_client.find_flavor(parsed_args.flavor, ignore_missing=False)
         attrs['flavor_id'] = flavor.id
 
-    for attr in ('enable_default_route_bfd', 'enable_default_route_ecmp'):
+    for attr in (
+        'enable_default_route_bfd',
+        'enable_default_route_ecmp',
+        'evpn_vni',
+    ):
         value = getattr(parsed_args, attr, None)
         if value is not None:
             attrs[attr] = value
 
     return attrs
+
+
+def _parse_evpn_vni(value: str) -> int:
+    try:
+        vni = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            _("'%(value)s' is not a valid VNI (use a positive integer)")
+            % {'value': value}
+        )
+    if vni <= 0:
+        raise argparse.ArgumentTypeError(_("VNI must be a positive integer"))
+    return vni
 
 
 def _parser_add_bfd_ecmp_arguments(parser: argparse.ArgumentParser) -> None:
@@ -369,15 +386,36 @@ class AddSubnetToRouter(command.Command):
             metavar='<subnet>',
             help=_("Subnet to be added (name or ID)"),
         )
+        parser.add_argument(
+            '--advertise-host',
+            action='store_true',
+            default=False,
+            dest='advertise_host',
+            help=_(
+                "Mark the subnet's prefixes to be advertised as host "
+                "routes within the router's EVPN VNI. "
+                "Only valid for EVPN routers."
+            ),
+        )
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.network
         subnet = client.find_subnet(parsed_args.subnet, ignore_missing=False)
-        client.add_interface_to_router(
-            client.find_router(parsed_args.router, ignore_missing=False),
-            subnet=subnet.id,
-        )
+        if parsed_args.advertise_host:
+            # TODO(evpn): switch to client.add_interface_to_router() once
+            # openstacksdk supports the advertise_host parameter.
+            router = client.find_router(
+                parsed_args.router, ignore_missing=False
+            )
+            router.add_interface(
+                client, subnet_id=subnet.id, advertise_host=True
+            )
+        else:
+            client.add_interface_to_router(
+                client.find_router(parsed_args.router, ignore_missing=False),
+                subnet=subnet.id,
+            )
 
 
 class AddExtraRoutesToRouter(command.ShowOne):
@@ -611,6 +649,24 @@ class CreateRouter(command.ShowOne, common.NeutronCommandWithExtraArgs):
             metavar='<qos-policy>',
             help=_('Attach QoS policy to router gateway IPs'),
         )
+        evpn_group = parser.add_mutually_exclusive_group()
+        evpn_group.add_argument(
+            '--evpn-vni',
+            metavar='<vni>',
+            default=None,
+            type=_parse_evpn_vni,
+            dest='evpn_vni',
+            help=_("Associate the router with an EVPN identified by a VNI."),
+        )
+        evpn_group.add_argument(
+            '--auto-evpn-vni',
+            action='store_const',
+            dest='evpn_vni',
+            const=0,
+            help=_(
+                "Associate the router with an EVPN using an auto-assigned VNI."
+            ),
+        )
 
         return parser
 
@@ -763,7 +819,6 @@ class ListRouter(command.Lister):
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
-        identity_client = self.app.client_manager.identity
         client = self.app.client_manager.network
 
         columns: tuple[str, ...] = (
@@ -794,11 +849,12 @@ class ListRouter(command.Lister):
             args['is_admin_state_up'] = False
 
         if parsed_args.project:
-            project_id = identity_common.find_project(
+            identity_client = self.app.client_manager.sdk_connection.identity
+            project_id = identity_common.find_project_id_sdk(
                 identity_client,
                 parsed_args.project,
                 parsed_args.project_domain,
-            ).id
+            )
             args['project_id'] = project_id
 
         if parsed_args.marker is not None:

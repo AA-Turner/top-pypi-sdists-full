@@ -87,7 +87,7 @@ def create_loa_request(request: HttpRequest):
             loa: LeaveOfAbsence = form.save()
             messages.info(
                 request,
-                format_html(_("Your request has been submitted for review: %s") % loa),
+                _("Your request has been submitted for review: %s") % loa,
             )
             message = _("New request: %s") % loa
             Webhook.objects.send_message_to_active_webhooks(
@@ -108,7 +108,7 @@ def cancel_loa_request(request: HttpRequest, loa_request_pk: int):
     """Render view to cancel a loa request."""
     loa = get_object_or_404(LeaveOfAbsence, pk=loa_request_pk, user=request.user)
     loa.delete()
-    messages.info(request, format_html(_("%s has been canceled.") % loa))
+    messages.info(request, _("%s has been canceled.") % loa)
     return redirect("inactivity:index")
 
 
@@ -170,7 +170,7 @@ def approve_loa_request(request: HttpRequest, loa_request_pk: int):
     loa: LeaveOfAbsence = get_object_or_404(LeaveOfAbsence, pk=loa_request_pk)
     loa.approver = request.user
     loa.save()
-    messages.success(request, format_html(_("Your have approved: %s") % loa))
+    messages.success(request, _("You have approved: %s") % loa)
     message = _("%(loa)s has been approved by %(approver_name)s") % {
         "loa": loa,
         "approver_name": loa.approver_name,

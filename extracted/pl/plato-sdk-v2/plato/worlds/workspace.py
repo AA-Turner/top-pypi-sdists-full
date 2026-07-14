@@ -231,6 +231,7 @@ class Workspace:
         git_config: Any = None,
         nfs_server: NFSTransport | None = None,
         export_fsid: int = 0,
+        readonly: bool = False,
     ) -> NFSTransport | None:
         """Create and initialize the transport for this workspace.
 
@@ -254,6 +255,12 @@ class Workspace:
             return nfs_server
 
         effective_mode = marker_transport or transport_mode
+
+        if readonly and effective_mode != "nfs_kernel":
+            raise ValueError(
+                f"Workspace '{self.name}': readonly=True is only supported for the NFS transport, "
+                f"got transport '{effective_mode}'"
+            )
 
         if effective_mode == "git":
             from plato.transports.git import GitTransport
@@ -279,12 +286,12 @@ class Workspace:
 
         # NFS mode — share a single server across workspaces
         if nfs_server is None:
-            nfs_server = NFSTransport(str(self.path), hostname, ssh_key)
+            nfs_server = NFSTransport(str(self.path), hostname, ssh_key, readonly=readonly)
             await nfs_server.initialize()
         else:
-            await nfs_server.add_export(str(self.path), fsid=export_fsid)
+            await nfs_server.add_export(str(self.path), fsid=export_fsid, readonly=readonly)
 
-        t = nfs_server.with_path(str(self.path))
+        t = nfs_server.with_path(str(self.path), readonly=readonly)
         t.mount_path = self.mount_path
         self.transport = t
         return nfs_server

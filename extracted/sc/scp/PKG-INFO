@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: scp
-Version: 0.15.0
+Version: 0.16.0
 Summary: scp module for paramiko
 Home-page: https://github.com/jbardin/scp.py
 Author: James Bardin
@@ -20,6 +20,18 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet
 License-File: LICENSE.txt
 Requires-Dist: paramiko
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: summary
 
 Pure python scp module
 ======================

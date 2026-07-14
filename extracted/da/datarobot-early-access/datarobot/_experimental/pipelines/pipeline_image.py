@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
 import trafaret as t
 
@@ -33,12 +33,15 @@ class PipelineImageVersion:
     ----------
     version : int
         Monotonically increasing version number.
-    packages : list of str
-        Pip package specifiers for this version.
+    definition : dict
+        The canonical image definition (``name``, ``packages``,
+        ``python_base_image``, ...) round-tripped from create/update.
     status : str
         Build status (CREATING, READY, ERROR).
     error_detail : str or None
         Build error message when status is ERROR.
+    image_uri : str or None
+        The built image URI, populated once the build completes successfully.
     created_at : str
         When the version was created.
     updated_at : str
@@ -48,19 +51,26 @@ class PipelineImageVersion:
     def __init__(
         self,
         version: int,
-        packages: List[str],
         status: PipelineImageStatus,
+        definition: Optional[Dict[str, Any]] = None,
         error_detail: Optional[str] = None,
+        image_uri: Optional[str] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         self.version = version
-        self.packages = packages
+        self.definition = definition or {}
         self.status = status
         self.error_detail = error_detail
+        self.image_uri = image_uri
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def packages(self) -> List[str]:
+        """Pip package specifiers from the image definition."""
+        return list(self.definition.get("packages") or [])
 
     def __repr__(self) -> str:
         return f"PipelineImageVersion(version={self.version}, status={self.status!r})"
@@ -134,6 +144,7 @@ class PipelineImage(APIObject):
         cls: Type[TPipelineImage],
         name: str,
         packages: List[str],
+        python_base_image: Optional[str] = None,
         description: Optional[str] = None,
     ) -> TPipelineImage:
         """Create a named execution image with an initial build.
@@ -144,6 +155,8 @@ class PipelineImage(APIObject):
             Image name (unique per user).
         packages : list of str
             Pip package specifiers (e.g., ['numpy>=1.24', 'pandas']).
+        python_base_image : str, optional
+            Base Docker image to build on top of.
         description : str, optional
             Human-readable description.
 
@@ -152,6 +165,8 @@ class PipelineImage(APIObject):
         image : PipelineImage
         """
         data: Dict[str, Any] = {"name": name, "packages": packages}
+        if python_base_image is not None:
+            data["python_base_image"] = python_base_image
         if description is not None:
             data["description"] = description
         response = cls._client.post(cls._path, data=rawdict(data))
@@ -202,22 +217,36 @@ class PipelineImage(APIObject):
     def update(
         self: TPipelineImage,
         packages: List[str],
+        name: Optional[str] = None,
+        python_base_image: Optional[str] = None,
     ) -> TPipelineImage:
-        """Add packages to this image, creating a new immutable version.
+        """Create a new immutable version of this image.
+
+        The PATCH body is a complete redefinition (not a merge): the new
+        version carries exactly the definition supplied here. Because the
+        server requires ``name``, it defaults to this image's current name
+        when not provided.
 
         Parameters
         ----------
         packages : list of str
-            Pip package specifiers to merge into the latest version.
+            Pip package specifiers for the new version.
+        name : str, optional
+            Image name. Defaults to this image's current name.
+        python_base_image : str, optional
+            Base Docker image to build on top of.
 
         Returns
         -------
         image : PipelineImage
             The updated image with the new version.
         """
+        data: Dict[str, Any] = {"name": name or self.name, "packages": packages}
+        if python_base_image is not None:
+            data["python_base_image"] = python_base_image
         response = self._client.patch(
             f"{self._path}{self.image_id}/",
-            data=rawdict({"packages": packages}),
+            data=rawdict(data),
         )
         updated = self.from_server_data(response.json())
         self.__dict__.update(updated.__dict__)
@@ -239,3 +268,19 @@ class PipelineImage(APIObject):
             The version number to delete.
         """
         self._client.delete(f"{self._path}{self.image_id}/versions/{version_id}/")
+
+    def get_version_logs(self, version_id: int) -> str:
+        """Get the raw build logs for a specific version of this image.
+
+        Parameters
+        ----------
+        version_id : int
+            The version number.
+
+        Returns
+        -------
+        logs : str
+            The raw build output.
+        """
+        response = self._client.get(f"{self._path}{self.image_id}/versions/{version_id}/logs/")
+        return cast(str, response.json().get("logs") or "")

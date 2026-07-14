@@ -150,6 +150,16 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
         """
         ...
 
+    @staticmethod
+    def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.QuoteBarConsolidator:
+        """
+        Create a new QuoteBarConsolidator for the desired resolution
+        
+        :param resolution: The resolution desired
+        :returns: A consolidator that produces data on the resolution interval.
+        """
+        ...
+
 
 class BaseDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.BaseData]):
     """Type capable of consolidating trade bars from any base data instance"""
@@ -216,7 +226,7 @@ class BaseDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorB
     @staticmethod
     def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.BaseDataConsolidator:
         """
-        Create a new TickConsolidator for the desired resolution
+        Create a new BaseDataConsolidator for the desired resolution
         
         :param resolution: The resolution desired
         :returns: A consolidator that produces data on the resolution interval.

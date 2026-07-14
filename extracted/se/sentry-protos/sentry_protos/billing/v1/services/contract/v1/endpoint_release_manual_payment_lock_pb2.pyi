@@ -12,10 +12,16 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing.final
 class ReleaseManualPaymentLockRequest(google.protobuf.message.Message):
-    """Clears manual_payment_started_at on an unpaid invoice. Used by the manual
-    Pay Now endpoint when ``start_manual_payment`` was acquired pre-Stripe and
-    the Stripe PaymentIntent.create then failed -- releasing keeps the
-    inline-cutoff window from delaying automated retries by up to 24h.
+    """DEPRECATED: replaced by ReleaseChargeLockRequest /
+    ReleaseChargeLockResponse in endpoint_release_charge_lock.proto.
+    The rename generalized the semantics from a "manual payment lock"
+    (implying manual-only) to a shared "charge lock" that both the
+    manual Pay Now flow and the automated invoicing job write against
+    the same column (manual_payment_started_at).
+
+    The messages are retained here (rather than being deleted) so buf's
+    breaking-change check stays green while consumers migrate. Remove on the
+    next major version bump.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -37,10 +43,6 @@ class ReleaseManualPaymentLockResponse(google.protobuf.message.Message):
 
     UPDATED_FIELD_NUMBER: builtins.int
     updated: builtins.bool
-    """False when no row was updated -- the invoice no longer exists or has
-    already been flipped paid. Callers can treat this as "nothing to
-    release" and proceed.
-    """
     def __init__(
         self,
         *,

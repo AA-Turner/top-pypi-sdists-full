@@ -97,6 +97,24 @@ class GitTransport(Transport):
         digest = hashlib.sha1(workspace_path.encode("utf-8")).hexdigest()[:16]
         return f"/tmp/plato-git/{digest}/.git-bare"
 
+    @staticmethod
+    def _local_worktree_git_path(workspace_path: str) -> str:
+        """Local-disk git dir for the repo/ working tree (gitfile layout).
+
+        Sibling of :meth:`_local_bare_path` under the same digest dir; used
+        when ``git_config.worktree_git_off_fuse`` is enabled so the worktree's
+        object/ref/index I/O never traverses the FUSE workspace mount. Like the
+        bare, it is disposable per-VM state: on resume it is rebuilt from the
+        local bare (itself hydrated from the persisted mirror).
+        """
+        digest = hashlib.sha1(workspace_path.encode("utf-8")).hexdigest()[:16]
+        return f"/tmp/plato-git/{digest}/.repo-git"
+
+    @property
+    def worktree_git_dir(self) -> str:
+        """Local-disk git dir backing repo/ when ``worktree_git_off_fuse`` is on."""
+        return self._local_worktree_git_path(self.path)
+
     @property
     def bare_repo_path(self) -> str:
         """Active bare on local VM disk — what agents clone/push and what
@@ -284,12 +302,72 @@ class GitTransport(Transport):
         )
         self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
 
+    def _remove_worktree_git(self, repo_dir: Path) -> None:
+        """Remove repo/'s git identity, whatever its layout.
+
+        Handles the legacy in-FUSE ``.git`` directory, the gitfile layout
+        (``.git`` file + off-FUSE git dir), and a dangling gitfile left by a
+        checkpoint restore onto a fresh VM.
+        """
+        git_link = repo_dir / ".git"
+        if git_link.is_dir():
+            shutil.rmtree(git_link, ignore_errors=True)
+        elif git_link.exists():
+            git_link.unlink(missing_ok=True)
+        shutil.rmtree(self.worktree_git_dir, ignore_errors=True)
+
+    def _setup_worktree_git_off_fuse(self, repo_dir: Path) -> None:
+        """Attach repo/ to an off-FUSE git dir via a ``.git`` gitfile.
+
+        Git pack/ref/index writes into an in-FUSE ``.git`` (post-receive hook
+        fetches on every agent push, post-merge worktree refreshes) race the
+        workspace checkpoint machinery over the overlay backing store and get
+        truncated — the journal O_APPEND bug's pack-sized sibling (see
+        ``plato.workflows.journal.Journal.append``). A truncated pack is then
+        persisted to S3 by the checkpoint and re-served on every restore.
+        The gitfile layout keeps all git object I/O on local disk; only the
+        checked-out tree traverses FUSE.
+
+        Idempotent. Any existing in-FUSE ``.git`` directory (fresh restore of a
+        legacy checkpoint — possibly carrying corrupt packs) is DISCARDED and
+        the worktree is re-attached to the authoritative local bare; a dangling
+        gitfile (restore onto a fresh VM whose /tmp lacks the git dir) is
+        rebuilt the same way. The caller runs ``checkout_main_from_bare``
+        afterwards to fetch + hard-reset the tree.
+        """
+        git_link = repo_dir / ".git"
+        git_dir = Path(self.worktree_git_dir)
+        if git_link.is_file():
+            try:
+                target = git_link.read_text().strip().removeprefix("gitdir:").strip()
+            except OSError:
+                target = ""
+            if target == str(git_dir) and (git_dir / "HEAD").exists():
+                trust_git_directory(repo_dir)
+                trust_git_directory(git_dir)
+                return
+            logger.info("Rebuilding dangling off-FUSE worktree git dir for %s", repo_dir)
+        elif git_link.is_dir():
+            logger.info(
+                "Migrating in-FUSE worktree git dir %s to off-FUSE gitfile layout at %s",
+                git_link,
+                git_dir,
+            )
+        self._remove_worktree_git(repo_dir)
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        git_dir.parent.mkdir(parents=True, exist_ok=True)
+        Repo.init(repo_dir, initial_branch="main", separate_git_dir=str(git_dir))
+        trust_git_directory(repo_dir)
+        trust_git_directory(git_dir)
+        # Origin remote + fetch + reset are handled by checkout_main_from_bare.
+
     async def _init_bare_repo(self, workspace_path: str) -> None:
         await self._ensure_git_installed_local()
         workspace_dir = Path(workspace_path)
         repo_dir = workspace_dir / "repo"
         mirror_dir = Path(f"{workspace_path}/.git-bare")
         bare_dir = Path(self._local_bare_path(workspace_path))
+        worktree_off_fuse = self._git_config.worktree_git_off_fuse
 
         # The active bare lives on local VM disk (off the FUSE workspace mount):
         # keeps git's object store and every agent push's index-pack write off
@@ -305,6 +383,8 @@ class GitTransport(Transport):
         if (bare_dir / "HEAD").exists():
             logger.info("Active bare repo present at %s, skipping re-init", bare_dir)
             if repo_dir.exists():
+                if worktree_off_fuse:
+                    await asyncio.to_thread(self._setup_worktree_git_off_fuse, repo_dir)
                 trust_git_directory(repo_dir)
                 checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
             self._write_post_receive_hook(bare_dir, repo_dir)
@@ -320,14 +400,20 @@ class GitTransport(Transport):
         # otherwise create an empty initial commit.
         if repo_dir.exists() and any(repo_dir.iterdir()):
             trust_git_directory(repo_dir)
-            shutil.rmtree(repo_dir / ".git", ignore_errors=True)
-            seed = Repo.init(repo_dir, initial_branch="main")
+            self._remove_worktree_git(repo_dir)
+            if worktree_off_fuse:
+                # Seed via the off-FUSE git dir too: keeps even the one-shot
+                # seed commit's object/index writes off the overlay.
+                seed = Repo.init(repo_dir, initial_branch="main", separate_git_dir=self.worktree_git_dir)
+                trust_git_directory(self.worktree_git_dir)
+            else:
+                seed = Repo.init(repo_dir, initial_branch="main")
             gitignore_lines = list(WorkspaceMarker.DEFAULT_DVCIGNORE)
             (repo_dir / ".gitignore").write_text("\n".join(gitignore_lines) + "\n")
             seed.git.add(A=True)
             seed.index.commit("Initial workspace state", author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
             seed.create_remote("origin", str(bare_dir)).push(refspec="main:main")
-            shutil.rmtree(repo_dir / ".git")
+            self._remove_worktree_git(repo_dir)
         else:
             # Empty seed so bare has a main branch
             import tempfile
@@ -342,7 +428,15 @@ class GitTransport(Transport):
         # Clone bare → repo/ as a proper git working tree
         shutil.rmtree(repo_dir, ignore_errors=True)
         trust_git_directory(bare_dir)
-        Repo.clone_from(str(bare_dir), str(repo_dir))
+        if worktree_off_fuse:
+            # init --separate-git-dir + fetch/reset instead of clone: the git
+            # dir (objects, refs, index) lands on local disk; only the checked
+            # out tree is written through the workspace mount.
+            repo_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(self._setup_worktree_git_off_fuse, repo_dir)
+            checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
+        else:
+            Repo.clone_from(str(bare_dir), str(repo_dir))
 
         # Post-receive hook: update repo/ working tree from bare on push
         self._write_post_receive_hook(bare_dir, repo_dir)
@@ -716,6 +810,98 @@ class GitTransport(Transport):
                     retries,
                     exc_info=True,
                 )
+
+    @staticmethod
+    def _salvage_ref_name(sync_target: str | None) -> str:
+        """Discoverable salvage ref for a failed agent, derived from its sync target.
+
+        The salvage ref is a *sibling* of the (never-published-on-failure)
+        success ref, NOT nested under it: pushing ``<target>/salvage`` while
+        ``<target>`` itself is a ref would be a git directory/file conflict on
+        any future success. Inserting a ``salvage/`` segment before the leaf
+        keeps them disjoint and groups salvages under one browsable prefix
+        (``git for-each-ref refs/plato/wf/salvage/``):
+
+        * ``refs/plato/wf/<call>``            -> ``refs/plato/wf/salvage/<call>``
+        * ``refs/plato/tasks/<task>-<uuid>``  -> ``refs/plato/tasks/salvage/<task>-<uuid>``
+        """
+        if sync_target:
+            target = sync_target.rstrip("/")
+            prefix, _, leaf = target.rpartition("/")
+            if prefix:
+                return f"{prefix}/salvage/{leaf}"
+            return f"salvage/{target}"
+        return "refs/plato/salvage/unknown"
+
+    async def salvage_sync(
+        self,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> GitPublishedRef | None:
+        """Best-effort capture of a FAILED agent's git state to a salvage ref.
+
+        Runs while the agent VM is still alive (before the execution manager
+        destroys it), so a crashed / non-zero-exit / raised-mid-run agent's work
+        is not lost. Commits BOTH dirty tracked changes AND untracked files
+        (``git add -A``, gitignore honored — see ``git_ops.repo.auto_commit``)
+        then force-pushes ``HEAD`` to a discoverable salvage ref WITHOUT merging
+        to main. Returns the published :class:`GitPublishedRef`, or ``None`` when
+        there is nothing to salvage (agent made no changes) or the mount is not a
+        publishable git mount.
+
+        NEVER raises: salvage is best-effort and must not mask the original agent
+        failure — the caller re-raises that. Any error here is logged and folded
+        into a ``None`` return.
+        """
+        _sync_mode, sync_target, _sync_exact = self._sync_policy(mount)
+        if mount.git_sync is None:
+            return None
+        remote = mount.agent_path
+        salvage_ref = self._salvage_ref_name(sync_target)
+        compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
+        # Serialize against every other push into the shared bare repo — the
+        # same packfile-index race documented in sync_back applies to salvage
+        # pushes racing a sibling agent's success sync.
+        if self._sync_lock:
+            async with self._sync_lock:
+                return await self._salvage_sync_impl(hostname, remote, salvage_ref, compare_ref)
+        return await self._salvage_sync_impl(hostname, remote, salvage_ref, compare_ref)
+
+    async def _salvage_sync_impl(
+        self,
+        hostname: str,
+        remote: str,
+        salvage_ref: str,
+        compare_ref: str,
+    ) -> GitPublishedRef | None:
+        try:
+            # Always commit (regardless of commit_on_sync): the whole point of
+            # salvage is to preserve uncommitted work the agent left behind.
+            await self._auto_commit_changes(remote, hostname, "wf-salvage: failed agent git state")
+            head_sha = await self._git_rev_parse(remote, hostname, "HEAD")
+            compare = await self._run_remote_git(
+                hostname,
+                request=GitOpRequest.head_diff(remote, compare_ref),
+                timeout=10,
+            )
+            if compare.ok and bool(compare.noop):
+                logger.info("Salvage: agent %s produced no changes to salvage (head=%s)", hostname, head_sha)
+                return None
+            await self._push_head_to_ref(remote, hostname, salvage_ref)
+            logger.info(
+                "Salvaged failed agent %s git state: commit %s -> %s",
+                hostname,
+                head_sha,
+                salvage_ref,
+            )
+            return GitPublishedRef(commit_sha=head_sha, ref=salvage_ref)
+        except Exception:
+            logger.warning(
+                "Salvage sync failed for agent %s (best-effort; original error preserved)",
+                hostname,
+                exc_info=True,
+            )
+            return None
 
     async def _refresh_local_workspace_from_main(self) -> None:
         await asyncio.to_thread(

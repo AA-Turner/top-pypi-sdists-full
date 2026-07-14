@@ -13,13 +13,15 @@
 
 import type { Plugin } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
-import { execSync, exec, spawnSync } from "node:child_process";
+import { execSync, exec, spawn, spawnSync } from "node:child_process";
 import {
   readFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   realpathSync,
+  unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,7 +109,11 @@ function recentMemoryPreviewLines(content: string, maxLines: number): string[] {
   return sections.flat().slice(-maxLines);
 }
 
-function getRecentMemories(
+export function isDailyJournalFile(file: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}\.md$/.test(file);
+}
+
+export function getRecentMemories(
   memDir: string,
   count = 2,
   maxLinesPerFile = 30
@@ -115,7 +121,7 @@ function getRecentMemories(
   if (!existsSync(memDir)) return "";
 
   const files = readdirSync(memDir)
-    .filter((f) => f.endsWith(".md"))
+    .filter(isDailyJournalFile)
     .sort()
     .slice(-count);
 
@@ -144,6 +150,34 @@ function shellEscape(s: string): string {
   return s.replace(/'/g, "'\\''");
 }
 
+/** Marks the start of memsearch's injected block within a system message. */
+export const MEMSEARCH_SYSTEM_MARKER = "[memsearch] Memory available.";
+
+/**
+ * Merge memsearch's memory context into an `output.system` array without
+ * growing it. Some backends (litellm/vllm serving e.g. Qwen models) reject a
+ * multi-entry `output.system` array with "system message must be first", so
+ * the memory block is folded into the first entry instead of pushed as a new
+ * one. If a memsearch block from a previous transform call is already present
+ * (identified by MEMSEARCH_SYSTEM_MARKER), it is replaced in place rather than
+ * appended again, so repeated calls against the same output stay idempotent.
+ */
+export function mergeSystemMemoryContext(
+  system: string[] | undefined,
+  memoryText: string
+): string[] {
+  if (!Array.isArray(system) || system.length === 0) {
+    return [memoryText];
+  }
+  const result = [...system];
+  const existing = result[0];
+  const markerIndex = existing.indexOf(MEMSEARCH_SYSTEM_MARKER);
+  const base =
+    markerIndex === -1 ? existing : existing.slice(0, markerIndex).replace(/\n+$/, "");
+  result[0] = base ? `${base}\n\n${memoryText}` : memoryText;
+  return result;
+}
+
 /**
  * Start the capture daemon as a background process.
  * The daemon polls OpenCode's SQLite for completed turns and writes to daily .md files.
@@ -153,6 +187,7 @@ function startCaptureDaemon(
   collectionName: string,
   memsearchCmd: string
 ): void {
+  const stateDir = join(projectDir, ".memsearch");
   const pidFile = join(projectDir, ".memsearch", ".capture.pid");
   const daemonScript = join(PLUGIN_DIR, "scripts", "capture-daemon.py");
 
@@ -167,21 +202,40 @@ function startCaptureDaemon(
           return; // Already running
         } catch {
           // Process is dead, clean up stale PID file
+          try { unlinkSync(pidFile); } catch { /* ignore */ }
         }
       }
     } catch { /* ignore */ }
   }
 
-  // Start daemon in background
-  exec(
-    `python3 "${daemonScript}" "${projectDir}" "${collectionName}" ` +
-      `--memsearch-cmd "${shellEscape(memsearchCmd)}" --poll-interval 10 &`,
-    {
-      timeout: 5000,
-      env: { ...process.env, MEMSEARCH_NO_WATCH: "1" },
-    },
-    () => { /* ignore */ }
-  );
+  try {
+    mkdirSync(stateDir, { recursive: true });
+    const child = spawn(
+      "python3",
+      [
+        daemonScript,
+        projectDir,
+        collectionName,
+        "--memsearch-cmd",
+        memsearchCmd,
+        "--poll-interval",
+        "10",
+        "--parent-pid",
+        String(process.pid),
+      ],
+      {
+        detached: true,
+        stdio: "ignore",
+        env: { ...process.env, MEMSEARCH_NO_WATCH: "1" },
+      }
+    );
+    child.unref();
+    if (child.pid) {
+      try { writeFileSync(pidFile, String(child.pid), "utf-8"); } catch { /* ignore */ }
+    }
+  } catch {
+    // Capture is best-effort; tools still work without the background daemon.
+  }
 }
 
 /**
@@ -380,9 +434,10 @@ const MemsearchPlugin: Plugin = async ({ project, directory, worktree }) => {
             try {
               const context = getRecentMemories(memoryDir);
               if (context) {
-                output.system.push(
-                  `[memsearch] Memory available. You have access to memory_search, memory_get, and memory_transcript tools for recalling past sessions.\n\n${context}`
-                );
+                const memoryText =
+                  `${MEMSEARCH_SYSTEM_MARKER} You have access to memory_search, ` +
+                  `memory_get, and memory_transcript tools for recalling past sessions.\n\n${context}`;
+                output.system = mergeSystemMemoryContext(output.system, memoryText);
               }
             } catch { /* ignore */ }
           },

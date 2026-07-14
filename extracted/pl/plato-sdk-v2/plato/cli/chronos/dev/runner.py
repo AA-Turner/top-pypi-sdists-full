@@ -1233,7 +1233,13 @@ class DevRunner:
             stdout = self._world_process.stdout
             if stdout:
                 while True:
-                    line = await stdout.readline()
+                    try:
+                        line = await stdout.readline()
+                    except ValueError:
+                        # oversized line: drain buffered bytes, keep streaming
+                        line = await stdout.read(2**16)
+                        if not line:
+                            break
                     if not line:
                         break
                     sys.stdout.write(line.decode(errors="replace"))

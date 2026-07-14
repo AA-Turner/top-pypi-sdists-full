@@ -243,6 +243,11 @@ workspace_case_dashboard:
   org_id: wildcard
   ws_id: wildcard
   dashboard_id: wildcard
+workspace_analytics_dashboard:
+  # read: can view flow analytics dashboards
+  # write: can create, update and delete flow analytics dashboards
+  org_id: wildcard
+  ws_id: wildcard
 workspace_user_impersonation:
   # write: can mint JWTs on behalf of workspace users
   org_id: wildcard

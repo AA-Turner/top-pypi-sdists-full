@@ -11,18 +11,19 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
 import os
+from typing import TYPE_CHECKING, Any
+
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
-from typing import Any, List, Optional, Type, TYPE_CHECKING
-from ..core.meta import MetaMixin
+
 from ..core.exc import FrameworkError
-from ..utils.misc import minimal_logger
+from ..core.meta import MetaMixin
 from ..utils import fs
+from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -37,12 +38,12 @@ class WatchdogEventHandler(FileSystemEventHandler):
 
     """
 
-    def __init__(self, app: App, *args: Any, **kw: Any) -> None:
-        super(WatchdogEventHandler, self).__init__(*args, **kw)
+    def __init__(self, app: "App", *args: Any, **kw: Any) -> None:
+        super().__init__(*args, **kw)
         self.app = app
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        self.app.log.debug(f"Watchdog Event: {event}")  # pragma: nocover
+        self.app.log.debug(f"Watchdog Event: {event}")  # pragma: nocover  # defensive: unreachable
 
 
 class WatchdogManager(MetaMixin):
@@ -69,15 +70,15 @@ class WatchdogManager(MetaMixin):
 
     _meta: Meta  # type: ignore
 
-    def __init__(self, app: App, *args: Any, **kw: Any) -> None:
-        super(WatchdogManager, self).__init__(*args, **kw)
+    def __init__(self, app: "App", *args: Any, **kw: Any) -> None:
+        super().__init__(*args, **kw)
         self.app = app
-        self.paths: List[str] = []
+        self.paths: list[str] = []
         self.observer = self._meta.observer()
 
     def add(self,
             path: str,
-            event_handler: Optional[Type] = None,
+            event_handler: type | None = None,
             recursive: bool = True) -> bool:
         """
         Add a directory path and event handler to the observer.
@@ -102,7 +103,7 @@ class WatchdogManager(MetaMixin):
         if event_handler is None:
             event_handler = self._meta.default_event_handler
         LOG.debug(f'adding path {path} with event handler {event_handler}')
-        self.observer.schedule(event_handler(self.app), path, recursive=recursive)  # type: ignore
+        self.observer.schedule(event_handler(self.app), path, recursive=recursive)
         return True
 
     def start(self, *args: Any, **kw: Any) -> None:
@@ -111,11 +112,11 @@ class WatchdogManager(MetaMixin):
         to the backend observer.
         """
 
-        for res in self.app.hook.run('watchdog_pre_start', self.app):
+        for _res in self.app.hook.run('watchdog_pre_start', self.app):
             pass
         LOG.debug('starting watchdog observer')
-        self.observer.start(*args, **kw)  # type: ignore
-        for res in self.app.hook.run('watchdog_post_start', self.app):
+        self.observer.start(*args, **kw)
+        for _res in self.app.hook.run('watchdog_post_start', self.app):
             pass
 
     def stop(self, *args: Any, **kw: Any) -> None:
@@ -124,11 +125,11 @@ class WatchdogManager(MetaMixin):
         to the backend observer.
         """
 
-        for res in self.app.hook.run('watchdog_pre_stop', self.app):
+        for _res in self.app.hook.run('watchdog_pre_stop', self.app):
             pass
         LOG.debug('stopping watchdog observer')
-        self.observer.stop(*args, **kw)  # type: ignore
-        for res in self.app.hook.run('watchdog_post_stop', self.app):
+        self.observer.stop(*args, **kw)
+        for _res in self.app.hook.run('watchdog_post_stop', self.app):
             pass
 
     def join(self, *args: Any, **kw: Any) -> None:
@@ -137,45 +138,45 @@ class WatchdogManager(MetaMixin):
         ``**kwargs`` are passed down to the backend observer.
         """
 
-        for res in self.app.hook.run('watchdog_pre_join', self.app):
+        for _res in self.app.hook.run('watchdog_pre_join', self.app):
             pass
         LOG.debug('joining watchdog observer')
         self.observer.join(*args, **kw)
-        for res in self.app.hook.run('watchdog_post_join', self.app):
+        for _res in self.app.hook.run('watchdog_post_join', self.app):
             pass
 
 
-def watchdog_extend_app(app: App) -> None:
+def watchdog_extend_app(app: "App") -> None:
     app.extend('watchdog', WatchdogManager(app))
 
 
-def watchdog_start(app: App) -> None:
+def watchdog_start(app: "App") -> None:
     app.watchdog.start()
 
 
-def watchdog_cleanup(app: App) -> None:
+def watchdog_cleanup(app: "App") -> None:
     if app.watchdog.observer.is_alive():
         app.watchdog.stop()
         app.watchdog.join()
 
 
-def watchdog_add_paths(app: App) -> None:
+def watchdog_add_paths(app: "App") -> None:
     if hasattr(app._meta, 'watchdog_paths'):
         for path_spec in app._meta.watchdog_paths:
             # odd... if a tuple is a single item it ends up as a str?
             # FIXME: coverage gets lots in testing
             if isinstance(path_spec, str):
-                app.watchdog.add(path_spec)  # pragma: nocover
+                app.watchdog.add(path_spec)  # pragma: nocover  # defensive: unreachable
             elif isinstance(path_spec, tuple):
-                app.watchdog.add(*path_spec)  # pragma: nocover
+                app.watchdog.add(*path_spec)  # pragma: nocover  # defensive: unreachable
             else:
                 raise FrameworkError(
-                    "Watchdog path spec must be a tuple, not '%s' in: %s" %
-                    (type(path_spec).__name__, path_spec)
+                    f"Watchdog path spec must be a tuple, not "
+                    f"'{type(path_spec).__name__}' in: {path_spec}"
                 )
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.hook.define('watchdog_pre_start')
     app.hook.define('watchdog_post_start')
     app.hook.define('watchdog_pre_stop')

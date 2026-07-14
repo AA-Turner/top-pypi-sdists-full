@@ -93,17 +93,13 @@ pub fn compute_plot_id_v1(
     ctx.finalize().into()
 }
 
-pub fn compute_plot_id_v2(
+pub fn compute_plot_group_id_v2(
     strength: u8,
     plot_pk: &G1Element,
     pool_pk: Option<&G1Element>,
     pool_contract: Option<&Bytes32>,
-    plot_index: u16,
-    meta_group: u8,
 ) -> Bytes32 {
-    let mut ctx = Sha256::new();
     // plot_group_id = sha256( strength + plot_pk + (pool_pk | contract_ph) )
-    // plot_id = sha256( plot_group_id + plot_index + meta_group)
     let mut group_ctx = Sha256::new();
     strength.update_digest(&mut group_ctx);
     plot_pk.update_digest(&mut group_ctx);
@@ -113,10 +109,23 @@ pub fn compute_plot_id_v2(
         contract_ph.update_digest(&mut group_ctx);
     } else {
         panic!(
-            "failed precondition of compute_plot_id_2(). Either pool-public-key or pool-contract-hash must be specified"
+            "failed precondition of compute_plot_group_id_v2(). Either pool-public-key or pool-contract-hash must be specified"
         );
     }
-    let plot_group_id: Bytes32 = group_ctx.finalize().into();
+    group_ctx.finalize().into()
+}
+
+pub fn compute_plot_id_v2(
+    strength: u8,
+    plot_pk: &G1Element,
+    pool_pk: Option<&G1Element>,
+    pool_contract: Option<&Bytes32>,
+    plot_index: u16,
+    meta_group: u8,
+) -> Bytes32 {
+    let mut ctx = Sha256::new();
+    // plot_id = sha256( plot_group_id + plot_index + meta_group)
+    let plot_group_id = compute_plot_group_id_v2(strength, plot_pk, pool_pk, pool_contract);
 
     plot_group_id.update_digest(&mut ctx);
     plot_index.update_digest(&mut ctx);
@@ -207,7 +216,7 @@ impl ProofOfSpace {
 // ProofOfSpace was updated in Chia 3.0 to support v2 proofs. In order to stay
 // backwards compatible with the network protocol and the block hashes of
 // previous versions, for v1 proofs, some care has to be taken.
-// Optional fields are serialized with a 1-byte prefix indicating whether the
+// Option fields are serialized with a 1-byte prefix indicating whether the
 // field is set or not. This byte is either 0 or 1. This leaves 7 unused bits.
 // We use bit 2 in the byte prefix for the pool_contract_puzzle_hash field to
 // indicate whether this is a v2 proof or not. v1 proofs leave this bit as 0,
@@ -368,7 +377,7 @@ mod tests {
         )
     }
 
-    // Locate the pool_contract_puzzle_hash Optional prefix byte (which also
+    // Locate the pool_contract_puzzle_hash Option prefix byte (which also
     // encodes the version) by finding where a contract-present and a
     // contract-absent serialization first differ.
     fn prefix_offset() -> usize {
@@ -392,6 +401,30 @@ mod tests {
             _ => panic!("unknown v1 variant: {variant}"),
         };
         let result = compute_plot_id_v1(&plot_pk(), pool_pk.as_ref(), pool_contract.as_ref());
+        assert_eq!(result, Bytes32::new(expected));
+    }
+
+    #[rstest]
+    #[case(0, "pool_pk", hex!("5457cccc4cd79900da4235cf5ca7d978a1993581376e76dfb089c274225419d1"))]
+    #[case(10, "pool_pk", hex!("e9d517de0ccfa94baf9e94b39dd0e8afce0451ec27635f43f2aa9b2f429d0501"))]
+    #[case(0, "contract_ph", hex!("210d1a307d26acb3fcfa02208061fc6b80e3fbb9ca5f3e4a596b7521d87ccd79"))]
+    #[case(5, "contract_ph", hex!("824d7b67ab4269c91eb0a2fe10cb48a1c1ad8cfa8a642387d49d5c3c3acbc3bd"))]
+    fn test_compute_plot_group_id_v2(
+        #[case] strength: u8,
+        #[case] variant: &str,
+        #[case] expected: [u8; 32],
+    ) {
+        let (pool_pk, pool_contract) = match variant {
+            "pool_pk" => (Some(pool_pk()), None),
+            "contract_ph" => (None, Some(Bytes32::new([1u8; 32]))),
+            _ => panic!("unknown v2 variant: {variant}"),
+        };
+        let result = compute_plot_group_id_v2(
+            strength,
+            &plot_pk(),
+            pool_pk.as_ref(),
+            pool_contract.as_ref(),
+        );
         assert_eq!(result, Bytes32::new(expected));
     }
 
@@ -495,7 +528,7 @@ mod tests {
     }
 
     // Round-trip every accepted prefix-byte combination. For v0 (legacy v1
-    // proofs) the pool_contract Optional is lenient and accepts any of
+    // proofs) the pool_contract Option is lenient and accepts any of
     // {neither, pool_pk, contract, both}, exactly like the original plain
     // Option<> derive. For v1 (v2 proofs) the size field is not stored and
     // collapses to 0 on parse.
@@ -547,10 +580,10 @@ mod tests {
         }
     }
 
-    // The version flag is packed into the pool_contract_puzzle_hash Optional
-    // prefix byte. Only bit 0 (the Optional flag) and bit 1 (the version) carry
+    // The version flag is packed into the pool_contract_puzzle_hash Option
+    // prefix byte. Only bit 0 (the Option flag) and bit 1 (the version) carry
     // meaning. The high bits (2..=7) must be rejected for both versions,
-    // matching the strictness of a plain Optional<> prefix in earlier protocol
+    // matching the strictness of a plain Option<> prefix in earlier protocol
     // versions where this byte could only ever be 0 or 1.
     #[rstest]
     fn high_prefix_bits_rejected(#[values(0, 1)] version: u8, #[values(2, 3, 4, 5, 6, 7)] bit: u8) {

@@ -31,6 +31,16 @@ For usage details:
     >>> from tdda import rexpy
     >>> help(rexpy)
 
+
+tdda.rexpy also includes Xerpy, which generates example strings
+matching a regular expression -- the inverse of rexpy's own
+inference.
+
+For usage details:
+
+    >>> from tdda.rexpy import Xerpy
+    >>> help(Xerpy)
+
 """
 
 import sys

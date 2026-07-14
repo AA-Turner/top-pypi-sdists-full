@@ -2,26 +2,25 @@
 Cement daemon extension module.
 """
 
-from __future__ import annotations
-import os
-import sys
-import io
-import pwd
 import grp
-from typing import Any, Dict, TYPE_CHECKING
+import io
+import os
+import pwd
+import sys
+from typing import TYPE_CHECKING, Any
+
 from ..core import exc
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
-LOG = minimal_logger(__name__)
 LOG = minimal_logger(__name__)
 CEMENT_DAEMON_ENV = None
-CEMENT_DAEMON_APP: App = None  # type: ignore
+CEMENT_DAEMON_APP: "App" = None  # type: ignore
 
 
-class Environment(object):
+class Environment:
 
     """
     This class provides a mechanism for altering the running processes
@@ -59,15 +58,19 @@ class Environment(object):
 
         try:
             self.user = pwd.getpwnam(self.user)
-        except KeyError:
-            raise exc.FrameworkError(f"Daemon user '{self.user}' doesn't exist.")
+        except KeyError as e:
+            raise exc.FrameworkError(
+                f"Daemon user '{self.user}' doesn't exist."
+            ) from e
 
         try:
             self.group = kw.get('group',
                                 grp.getgrgid(self.user.pw_gid).gr_name)
             self.group = grp.getgrnam(self.group)
-        except KeyError:
-            raise exc.FrameworkError(f"Daemon group '{self.group}' doesn't exist.")
+        except KeyError as e:
+            raise exc.FrameworkError(
+                f"Daemon group '{self.group}' doesn't exist."
+            ) from e
 
     def _write_pid_file(self) -> None:
         """
@@ -91,8 +94,7 @@ class Environment(object):
         current pid out to ``self.pid_file``.
         """
         # set the running uid/gid
-        LOG.debug('setting process uid(%s) and gid(%s)' %
-                  (self.user.pw_uid, self.group.gr_gid))
+        LOG.debug(f'setting process uid({self.user.pw_uid}) and gid({self.group.gr_gid})')
         os.setgid(self.group.gr_gid)
         os.setuid(self.user.pw_uid)
         os.environ['HOME'] = self.user.pw_dir
@@ -102,7 +104,7 @@ class Environment(object):
         else:
             self._write_pid_file()
 
-    def daemonize(self) -> None:  # pragma: no cover
+    def daemonize(self) -> None:  # pragma: no cover  # defensive: unreachable
         """
         Fork the current process into a daemon.
 
@@ -125,8 +127,9 @@ class Environment(object):
                 LOG.debug('successfully detached from first parent')
                 os._exit(os.EX_OK)
         except OSError as e:
-            sys.stderr.write("Fork #1 failed: (%d) %s\n" %
-                             (e.errno, e.strerror))  # type: ignore
+            sys.stderr.write(
+                f"Fork #1 failed: ({e.errno}) {e.strerror}\n"
+            )
             sys.exit(1)
 
         # Decouple from parent environment.
@@ -141,12 +144,13 @@ class Environment(object):
                 LOG.debug('successfully detached from second parent')
                 os._exit(os.EX_OK)
         except OSError as e:
-            sys.stderr.write("Fork #2 failed: (%d) %s\n" %
-                             (e.errno, e.strerror))  # type: ignore
+            sys.stderr.write(
+                f"Fork #2 failed: ({e.errno}) {e.strerror}\n"
+            )
             sys.exit(1)
 
         # Redirect standard file descriptors.
-        stdin = open(self.stdin, 'r')
+        stdin = open(self.stdin)
         stdout = open(self.stdout, 'a+')
         stderr = open(self.stderr, 'a+')
 
@@ -173,7 +177,7 @@ class Environment(object):
         self._write_pid_file()
 
 
-def daemonize() -> None:  # pragma: no cover
+def daemonize() -> None:  # pragma: no cover  # defensive: unreachable
     """
     This function switches the running user/group to that configured in
     ``config['daemon']['user']`` and ``config['daemon']['group']``.  The
@@ -211,7 +215,7 @@ def daemonize() -> None:  # pragma: no cover
         CEMENT_DAEMON_ENV.daemonize()
 
 
-def extend_app(app: App) -> None:
+def extend_app(app: "App") -> None:
     """
     Adds the ``--daemon`` argument to the argument object, and sets the
     default ``[daemon]`` config section options.
@@ -227,7 +231,7 @@ def extend_app(app: App) -> None:
     user = pwd.getpwuid(os.getuid())
     group = grp.getgrgid(user.pw_gid)
 
-    defaults: Dict[str, Any] = dict()
+    defaults: dict[str, Any] = dict()
     defaults['daemon'] = dict()
     defaults['daemon']['user'] = user.pw_name
     defaults['daemon']['group'] = group.gr_name
@@ -238,7 +242,7 @@ def extend_app(app: App) -> None:
     app.extend('daemonize', daemonize)
 
 
-def cleanup(app: App) -> None:  # pragma: no cover
+def cleanup(app: "App") -> None:  # pragma: no cover  # defensive: unreachable
     """
     After application run time, this hook just attempts to clean up the
     pid_file if one was set, and exists.
@@ -249,13 +253,13 @@ def cleanup(app: App) -> None:  # pragma: no cover
     if CEMENT_DAEMON_ENV and CEMENT_DAEMON_ENV.pid_file:
         if os.path.exists(CEMENT_DAEMON_ENV.pid_file):
             LOG.debug('Cleaning up pid_file...')
-            pid = open(CEMENT_DAEMON_ENV.pid_file, 'r').read().strip()
+            pid = open(CEMENT_DAEMON_ENV.pid_file).read().strip()
 
             # only remove it if we created it.
             if int(pid) == int(os.getpid()):
                 os.remove(CEMENT_DAEMON_ENV.pid_file)
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.hook.register('post_setup', extend_app)
     app.hook.register('pre_close', cleanup)

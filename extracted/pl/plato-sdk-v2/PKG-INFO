@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.108.5
+Version: 2.109.0
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -24,6 +24,7 @@ Requires-Dist: gitpython==3.1.50
 Requires-Dist: google-genai==1.59.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: jinja2==3.1.6
+Requires-Dist: jsonschema==4.23.0
 Requires-Dist: litellm==1.90.0
 Requires-Dist: openapi-pydantic==0.5.1
 Requires-Dist: opentelemetry-api==1.39.1

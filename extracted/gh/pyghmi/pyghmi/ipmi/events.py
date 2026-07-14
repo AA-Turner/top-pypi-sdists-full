@@ -516,15 +516,28 @@ class EventHandler(object):
         selentry = bytearray(origselentry)
         event = {}
         event['record_id'] = struct.unpack_from('<H', origselentry[:2])[0]
-        if selentry[2] == 2 or (0xc0 <= selentry[2] <= 0xdf):
+        if selentry[2] < 0xe0 and len(selentry) >= 7:
             # Either standard, or at least the timestamp is standard
             event['timecode'] = struct.unpack_from('<I', buffer(selentry[3:7])
                                                    )[0]
-        if selentry[2] == 2:  # ipmi defined standard format
-            self._decode_standard_event(selentry[7:], event)
+        if selentry[2] < 0xc0:  # ipmi defined standard format
+            try:
+                self._decode_standard_event(selentry[7:], event)
+            except Exception:
+                for key in list(event):
+                    if key not in ('record_id', 'timecode'):
+                        del event[key]
+                    event['oemdata'] = selentry[3:]
         elif 0xc0 <= selentry[2] <= 0xdf:
             event['oemid'] = selentry[7:10]
             event['oemdata'] = selentry[10:]
+        elif selentry[2] == 0xf0:
+            # Linux kernel panic
+            event['event'] = 'Linux kernel panic: {0}'.format(
+                selentry[5:16].partition(b'\x00')[0].decode(
+                    'utf-8', 'replace'))
+            event['severity'] = pygconst.Health.Critical
+            return event
         elif selentry[2] >= 0xe0:
             # In this class of OEM message, all bytes are OEM, interpretation
             # is wholly left up to the OEM layer, using the OEM ID of the BMC

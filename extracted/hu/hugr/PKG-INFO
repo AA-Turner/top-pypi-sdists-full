@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hugr
-Version: 0.18.0
+Version: 0.18.1
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -18,11 +18,11 @@ Requires-Dist: graphviz>=0.20.3
 Requires-Dist: pydantic~=2.8
 Requires-Dist: pydantic-extra-types~=2.9
 Requires-Dist: semver~=3.0
-Requires-Dist: typing-extensions~=4.12
+Requires-Dist: typing-extensions~=4.16
 Requires-Dist: sphinx>=8.1.3,<10 ; extra == 'docs'
 Requires-Dist: furo ; extra == 'docs'
 Requires-Dist: myst-parser>=4.0,<6 ; extra == 'docs'
-Requires-Dist: sphinxcontrib-mermaid>=1,<3 ; extra == 'docs'
+Requires-Dist: sphinxcontrib-mermaid>=2.0.3,<3 ; extra == 'docs'
 Requires-Dist: sphinx-favicon~=1.1.0 ; extra == 'docs'
 Requires-Dist: pytket>=1.34.0 ; extra == 'pytket'
 Provides-Extra: docs

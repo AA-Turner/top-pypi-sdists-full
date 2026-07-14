@@ -22,6 +22,8 @@ from chalk._gen.chalk.server.v1.scheduler_pb2 import (
     ListScheduledResolverRunsResponse,
     ManualTriggerCronResolverRequest,
     ManualTriggerCronResolverResponse,
+    ManualTriggerScheduledAggregateBackfillRequest,
+    ManualTriggerScheduledAggregateBackfillResponse,
     ManualTriggerScheduledQueryRequest,
     ManualTriggerScheduledQueryResponse,
     UpdateScheduledResolverControlRequest,
@@ -43,6 +45,10 @@ class SchedulerServiceStub:
     ManualTriggerScheduledQuery: UnaryUnaryMultiCallable[
         ManualTriggerScheduledQueryRequest,
         ManualTriggerScheduledQueryResponse,
+    ]
+    ManualTriggerScheduledAggregateBackfill: UnaryUnaryMultiCallable[
+        ManualTriggerScheduledAggregateBackfillRequest,
+        ManualTriggerScheduledAggregateBackfillResponse,
     ]
     GetScheduledResolverRun: UnaryUnaryMultiCallable[
         GetScheduledResolverRunRequest,
@@ -86,6 +92,12 @@ class SchedulerServiceServicer(metaclass=ABCMeta):
         request: ManualTriggerScheduledQueryRequest,
         context: ServicerContext,
     ) -> ManualTriggerScheduledQueryResponse: ...
+    @abstractmethod
+    def ManualTriggerScheduledAggregateBackfill(
+        self,
+        request: ManualTriggerScheduledAggregateBackfillRequest,
+        context: ServicerContext,
+    ) -> ManualTriggerScheduledAggregateBackfillResponse: ...
     @abstractmethod
     def GetScheduledResolverRun(
         self,

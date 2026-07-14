@@ -11,14 +11,15 @@ extensions.
   dependencies.
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
+
 import redis
-from typing import Any, Optional, TYPE_CHECKING
+
 from ..core import cache
 from ..utils.misc import minimal_logger
 
 if TYPE_CHECKING:
-    from ..core.foundation import App  # pragma: nocover
+    from ..core.foundation import App  # pragma: nocover  # TYPE_CHECKING import
 
 LOG = minimal_logger(__name__)
 
@@ -46,11 +47,11 @@ class RedisCacheHandler(cache.CacheHandler):
     _meta: Meta  # type: ignore
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(RedisCacheHandler, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.mc = None
 
     def _setup(self, *args: Any, **kw: Any) -> None:
-        super(RedisCacheHandler, self)._setup(*args, **kw)
+        super()._setup(*args, **kw)
         self.r = redis.StrictRedis(
             host=self._config('host', default='127.0.0.1'),
             port=self._config('port', default=6379),
@@ -92,9 +93,9 @@ class RedisCacheHandler(cache.CacheHandler):
         if res is None:
             return fallback
         else:
-            return res.decode('utf-8')
+            return res.decode('utf-8')  # type: ignore[union-attr]
 
-    def set(self, key: str, value: Any, time: Optional[int] = None, **kw: Any) -> None:
+    def set(self, key: str, value: Any, time: int | None = None, **kw: Any) -> None:
         """
         Set a value in the cache for the given ``key``.  Additional
         keyword arguments are ignored.
@@ -128,7 +129,7 @@ class RedisCacheHandler(cache.CacheHandler):
             otherwise
         """
         res = self.r.delete(key)
-        return int(res) > 0
+        return int(res) > 0  # type: ignore[arg-type]
 
     def purge(self, **kw: Any) -> None:
         """
@@ -139,8 +140,8 @@ class RedisCacheHandler(cache.CacheHandler):
         """
         keys = self.r.keys('*')
         if keys:
-            self.r.delete(*keys)
+            self.r.delete(*keys)  # type: ignore[misc]
 
 
-def load(app: App) -> None:
+def load(app: "App") -> None:
     app.handler.register(RedisCacheHandler)

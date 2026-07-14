@@ -69,7 +69,7 @@ class ActionModule(ActionBase):
         new_object = dict(
             name=params.get("name"),
             content=params.get("content"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
             theme_identifier=params.get("themeIdentifier"),
         )
         return new_object

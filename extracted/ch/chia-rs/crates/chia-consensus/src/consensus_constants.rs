@@ -9,7 +9,7 @@ use hex_literal::hex;
 /// tests, simulations and testnets.
 #[cfg_attr(
     feature = "py-bindings",
-    pyo3::pyclass(module = "chia_rs"),
+    pyo3::pyclass(module = "chia_rs", from_py_object),
     derive(PyJsonDict, PyStreamable, PyGetters),
     py_uppercase,
     py_pickle
@@ -166,9 +166,16 @@ pub struct ConsensusConstants {
     min_plot_strength: u8,
     max_plot_strength: u8,
 
-    plot_filter_v2_first_adjustment_height: u32,
-    plot_filter_v2_second_adjustment_height: u32,
-    plot_filter_v2_third_adjustment_height: u32,
+    /// relative heights from hard fork 2 activation, where the plot filter
+    /// tightens. Ordered in reverse chronological order, the first height is
+    /// the last to activate
+    plot_filter_v2_relative_height: [u32; 9],
+
+    /// SPs per plot filter window (64 SPs / 4 windows), v2 plots
+    filter_window_size: u8,
+
+    /// effective plot filter cap
+    max_effective_plot_filter_bits: u8,
 
     /// Whether we're running on a testnet (or in tests) as opposed to mainnet.
     testnet: bool,
@@ -249,9 +256,19 @@ pub const TEST_CONSTANTS: ConsensusConstants = ConsensusConstants {
     min_plot_strength: 2,
     max_plot_strength: 32,
 
-    plot_filter_v2_first_adjustment_height: 0xffff_ffff, // placeholder
-    plot_filter_v2_second_adjustment_height: 0xffff_ffff, // placeholder
-    plot_filter_v2_third_adjustment_height: 0xffff_ffff, // placeholder
+    plot_filter_v2_relative_height: [
+        50_494_000_u32,
+        45_444_000,
+        40_394_000,
+        35_343_000,
+        30_298_000,
+        25_247_000,
+        20_197_000,
+        15_146_000,
+        10_101_000,
+    ],
+    filter_window_size: 16,
+    max_effective_plot_filter_bits: 13,
 
     testnet: true,
 };

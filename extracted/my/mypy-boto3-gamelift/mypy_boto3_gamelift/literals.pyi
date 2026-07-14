@@ -136,11 +136,11 @@ ComputeTypeType = Literal["ANYWHERE", "EC2"]
 ContainerDependencyConditionType = Literal["COMPLETE", "HEALTHY", "START", "SUCCESS"]
 ContainerFleetBillingTypeType = Literal["ON_DEMAND", "SPOT"]
 ContainerFleetLocationStatusType = Literal[
-    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "PENDING", "UPDATING"
+    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "EXPIRED", "PENDING", "UPDATING"
 ]
 ContainerFleetRemoveAttributeType = Literal["PER_INSTANCE_CONTAINER_GROUP_DEFINITION"]
 ContainerFleetStatusType = Literal[
-    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "PENDING", "UPDATING"
+    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "EXPIRED", "PENDING", "UPDATING"
 ]
 ContainerGroupDefinitionStatusType = Literal["COPYING", "FAILED", "READY"]
 ContainerGroupTypeType = Literal["GAME_SERVER", "PER_INSTANCE"]
@@ -689,6 +689,7 @@ EventCodeType = Literal[
     "FLEET_CREATION_RUNNING_INSTALLER",
     "FLEET_CREATION_VALIDATING_RUNTIME_CONFIG",
     "FLEET_DELETED",
+    "FLEET_EXPIRED",
     "FLEET_INITIALIZATION_FAILED",
     "FLEET_NEW_GAME_SESSION_PROTECTION_POLICY_UPDATED",
     "FLEET_SCALING_EVENT",
@@ -744,6 +745,7 @@ FleetStatusType = Literal[
     "DELETING",
     "DOWNLOADING",
     "ERROR",
+    "EXPIRED",
     "NEW",
     "NOT_FOUND",
     "TERMINATED",
@@ -1160,8 +1162,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1188,6 +1188,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1255,10 +1257,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1341,7 +1343,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1362,6 +1363,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

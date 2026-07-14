@@ -257,6 +257,8 @@ class Networks(object):
             ("timeZone", "timeZone"),
             ("copyFromNetworkId", "copyFromNetworkId"),
             ("notes", "notes"),
+            ("organizationId", "organizationId"),
+            ("networkId", "networkId"),
             ("enrollmentString", "enrollmentString"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params

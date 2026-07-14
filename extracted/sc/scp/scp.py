@@ -5,7 +5,7 @@
 Utilities for sending files over ssh using the scp1 protocol.
 """
 
-__version__ = '0.15.0'
+__version__ = '0.16.0'
 
 import locale
 import os
@@ -116,7 +116,7 @@ class SCPClient(object):
     """
     def __init__(self, transport, buff_size=16384, socket_timeout=10.0,
                  progress=None, progress4=None, sanitize=_sh_quote, limit_bw=None):
-        # type: (paramiko.transport.Transport, int, float, Optional[Callable[[bytes, int, int], None]], Optional[Callable[[bytes, int, int, Tuple[str, int]], None]], Callable[[bytes], bytes]) -> None
+        # type: (paramiko.transport.Transport, int, Optional[float], Optional[Callable[[bytes, int, int], None]], Optional[Callable[[bytes, int, int, Tuple[str, int]], None]], Callable[[bytes], bytes], Optional[int]) -> None
         """
         Create an scp1 client.
 
@@ -125,7 +125,7 @@ class SCPClient(object):
         @param buff_size: size of the scp send buffer.
         @type buff_size: int
         @param socket_timeout: channel socket timeout in seconds
-        @type socket_timeout: float
+        @type socket_timeout: Optional[float]
         @param progress: callback - called with (filename, size, sent) during
             transfers
         @param progress4: callback - called with (filename, size, sent, peername)
@@ -296,6 +296,11 @@ class SCPClient(object):
     def close(self):
         """close scp channel"""
         if self.channel is not None:
+            try:
+                self.channel.shutdown_write()
+                self.channel.recv_exit_status()
+            except (EOFError, OSError, paramiko.SSHException):
+                pass
             self.channel.close()
             self.channel = None
 

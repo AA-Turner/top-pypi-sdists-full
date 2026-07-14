@@ -90,6 +90,19 @@ class PipelineInput(APIObject):
             return f"{_BASE_PATH}{pipeline_id}/versions/{version_id}/inputs/"
         return f"{_BASE_PATH}{pipeline_id}/inputs/"
 
+    @staticmethod
+    def _with_version_number(obj: TPipelineInput, version_id: Optional[int]) -> TPipelineInput:
+        """Pin the version *number* used in the request path onto the object.
+
+        Locked-version endpoints take the version number in the URL, but the
+        response body returns the internal version row id in ``version_id``.
+        Overwrite it with the number the caller used so instance-scoped writes
+        (:meth:`update`, :meth:`delete`) rebuild the correct version-scoped URL.
+        """
+        if version_id is not None:
+            obj.version_id = version_id
+        return obj
+
     @classmethod
     def create(
         cls: Type[TPipelineInput],
@@ -114,7 +127,7 @@ class PipelineInput(APIObject):
         """
         path = cls._inputs_path(pipeline_id, version_id)
         response = cls._client.post(path, data=rawdict({"payload": payload}))
-        return cls.from_server_data(response.json())
+        return cls._with_version_number(cls.from_server_data(response.json()), version_id)
 
     @classmethod
     def list(
@@ -144,7 +157,9 @@ class PipelineInput(APIObject):
         path = cls._inputs_path(pipeline_id, version_id)
         params: Dict[str, int] = {"offset": offset, "limit": limit}
         response = cls._client.get(path, params=params)
-        return [cls.from_server_data(item) for item in response.json().get("data", [])]
+        return [
+            cls._with_version_number(cls.from_server_data(item), version_id) for item in response.json().get("data", [])
+        ]
 
     @classmethod
     def get(
@@ -170,7 +185,7 @@ class PipelineInput(APIObject):
         """
         path = cls._inputs_path(pipeline_id, version_id)
         response = cls._client.get(f"{path}{input_id}/")
-        return cls.from_server_data(response.json())
+        return cls._with_version_number(cls.from_server_data(response.json()), version_id)
 
     def update(self: TPipelineInput, payload: Dict[str, Any]) -> TPipelineInput:
         """Update a draft input set.
@@ -185,10 +200,16 @@ class PipelineInput(APIObject):
         input : PipelineInput
             The updated input.
         """
-        path = self._inputs_path(self.pipeline_id, self.version_id)
+        # ``self.version_id`` is the pinned version *number* (see
+        # _with_version_number); preserve it across the response merge, which
+        # would otherwise restore the API's internal row id and break the URL
+        # for a subsequent version-scoped call (delete, etc.).
+        version_number = self.version_id
+        path = self._inputs_path(self.pipeline_id, version_number)
         response = self._client.patch(f"{path}{self.input_id}/", data=rawdict({"payload": payload}))
         updated = self.from_server_data(response.json())
         self.__dict__.update(updated.__dict__)
+        self.version_id = version_number
         return self
 
     def delete(self) -> None:

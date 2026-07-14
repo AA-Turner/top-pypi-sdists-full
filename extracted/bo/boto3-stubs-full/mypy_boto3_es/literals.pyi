@@ -31,8 +31,10 @@ __all__ = (
     "DescribePackagesFilterNameType",
     "DescribeReservedElasticsearchInstanceOfferingsPaginatorName",
     "DescribeReservedElasticsearchInstancesPaginatorName",
+    "DomainEngineModeType",
     "DomainPackageStatusType",
     "DomainProcessingStatusTypeType",
+    "DomainUseCaseType",
     "ESPartitionInstanceTypeType",
     "ESWarmPartitionInstanceTypeType",
     "ElasticsearchServiceServiceName",
@@ -102,6 +104,7 @@ DescribeReservedElasticsearchInstanceOfferingsPaginatorName = Literal[
 DescribeReservedElasticsearchInstancesPaginatorName = Literal[
     "describe_reserved_elasticsearch_instances"
 ]
+DomainEngineModeType = Literal["GENERAL", "OPTIMIZED"]
 DomainPackageStatusType = Literal[
     "ACTIVE", "ASSOCIATING", "ASSOCIATION_FAILED", "DISSOCIATING", "DISSOCIATION_FAILED"
 ]
@@ -114,6 +117,7 @@ DomainProcessingStatusTypeType = Literal[
     "UpdatingServiceSoftware",
     "UpgradingEngineVersion",
 ]
+DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 ESPartitionInstanceTypeType = Literal[
     "c4.2xlarge.elasticsearch",
     "c4.4xlarge.elasticsearch",

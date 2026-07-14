@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefb_admin
 version_added: '1.8.0'
-short_description: Configure Everpure FlashBlade Global Admin settings
+short_description: Configure Pure Storage FlashBlade Global Admin settings
 description:
 - Set global admin settings for the FlashBlade
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   max_login:
     description:
@@ -56,20 +56,17 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient.flashblade import AdminSetting
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -85,7 +82,7 @@ def main():
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURESTORAGE:
         module.fail_json(msg="py-pure-client sdk is required for this module")
     if module.params["lockout"] and not 1 <= module.params["lockout"] <= 7776000:
         module.fail_json(msg="Lockout must be between 1 and 7776000 seconds")
@@ -125,7 +122,7 @@ def main():
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to change Global Admin settings. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)

@@ -7,7 +7,6 @@ from typing_extensions import Literal
 from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
-from ..r2.buckets.provider import Provider
 
 __all__ = [
     "InstanceReadResponse",
@@ -26,7 +25,6 @@ __all__ = [
     "SourceParamsWebCrawler",
     "SourceParamsWebCrawlerParseOptions",
     "SourceParamsWebCrawlerParseOptionsContentSelector",
-    "SourceParamsWebCrawlerStoreOptions",
 ]
 
 
@@ -95,6 +93,14 @@ class PublicEndpointParams(BaseModel):
     authorized_hosts: Optional[List[str]] = None
 
     chat_completions_endpoint: Optional[PublicEndpointParamsChatCompletionsEndpoint] = None
+
+    custom_domains: Optional[List[str]] = None
+    """Custom domain hostnames that alias this public endpoint.
+
+    GET and create responses return the current set; on update (PUT) this field is
+    only echoed back when supplied in the request body, otherwise it is null (omit
+    it to leave domains unchanged).
+    """
 
     enabled: Optional[bool] = None
 
@@ -186,20 +192,10 @@ class SourceParamsWebCrawlerParseOptions(BaseModel):
     use_browser_rendering: Optional[bool] = None
 
 
-class SourceParamsWebCrawlerStoreOptions(BaseModel):
-    storage_id: str
-
-    r2_jurisdiction: Optional[str] = None
-
-    storage_type: Optional[Provider] = None
-
-
 class SourceParamsWebCrawler(BaseModel):
     parse_options: Optional[SourceParamsWebCrawlerParseOptions] = None
 
-    parse_type: Optional[Literal["sitemap", "feed-rss", "crawl"]] = None
-
-    store_options: Optional[SourceParamsWebCrawlerStoreOptions] = None
+    parse_type: Optional[Literal["sitemap", "crawl"]] = None
 
 
 class SourceParams(BaseModel):
@@ -292,11 +288,13 @@ class InstanceReadResponse(BaseModel):
     embedding_model: Optional[
         Literal[
             "@cf/qwen/qwen3-embedding-0.6b",
+            "@cf/qwen/qwen3-vl-embedding-2b",
             "@cf/baai/bge-m3",
             "@cf/baai/bge-large-en-v1.5",
             "@cf/google/embeddinggemma-300m",
             "google-ai-studio/gemini-embedding-001",
             "google-ai-studio/gemini-embedding-2-preview",
+            "google-ai-studio/gemini-embedding-2",
             "openai/text-embedding-3-small",
             "openai/text-embedding-3-large",
             "",

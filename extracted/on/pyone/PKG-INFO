@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyone
-Version: 7.2.0
+Version: 7.3.80
 Summary: Python Bindings for OpenNebula XML-RPC API
 Home-page: http://opennebula.io
 Author: Rafael del Valle
@@ -11,6 +11,7 @@ License-File: LICENSE
 Requires-Dist: lxml
 Requires-Dist: dict2xml
 Requires-Dist: xmltodict
+Requires-Dist: six
 Requires-Dist: tblib
 Requires-Dist: requests
 Requires-Dist: grpcio

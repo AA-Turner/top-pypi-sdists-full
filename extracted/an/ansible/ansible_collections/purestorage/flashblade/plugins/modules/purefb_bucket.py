@@ -20,10 +20,10 @@ DOCUMENTATION = """
 ---
 module: purefb_bucket
 version_added: "1.0.0"
-short_description:  Manage Object Store Buckets on a  Everpure FlashBlade.
+short_description:  Manage Object Store Buckets on a  Pure Storage FlashBlade.
 description:
-    - This module managess object store (s3) buckets on Everpure FlashBlade.
-author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module managess object store (s3) buckets on Pure Storage FlashBlade.
+author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -245,7 +245,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
 )
 from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
     human_to_bytes,
-    get_error_message,
 )
 
 SEC_PER_DAY = 86400000
@@ -355,7 +354,7 @@ def create_bucket(module, blade):
                 module.fail_json(
                     msg="Object Store Bucket {0} creation failed. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
             if module.params["versioning"] != "absent":
@@ -389,12 +388,12 @@ def create_bucket(module, blade):
                             ],
                             default_retention=module.params["default_retention"],
                         ),
-                        versioning=None,
+                        versioning="none",
                     )
                 else:
                     bucket = BucketPatch(
                         retention_lock=module.params["retention_lock"],
-                        versioning=None,
+                        versioning="none",
                     )
 
             if CONTEXT_API_VERSION in api_version:
@@ -409,7 +408,7 @@ def create_bucket(module, blade):
                 module.fail_json(
                     msg="Object Store Bucket {0} creation update failed. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
         else:
@@ -429,7 +428,7 @@ def create_bucket(module, blade):
                 module.fail_json(
                     msg="Object Store Bucket {0} creation failed. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
             if module.params["versioning"] != "absent":
@@ -447,7 +446,7 @@ def create_bucket(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Object Store Bucket {0} created but versioning state failed. Error: {1}".format(
-                            module.params["name"], get_error_message(res)
+                            module.params["name"], res.errors[0].message
                         )
                     )
         if MODE_VERSION in api_version:
@@ -473,8 +472,8 @@ def create_bucket(module, blade):
                 res = blade.patch_buckets(bucket=pac, names=[module.params["name"]])
             if res.status_code != 200:
                 module.warn(
-                    "Failed to set Public Access config correctly for bucket {0}. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    msg="Failed to set Public Access config correctly for bucket {0}. "
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
             if (
                 not module.params["block_public_access"]
@@ -497,8 +496,8 @@ def create_bucket(module, blade):
                     )
                 if res.status_code != 200:
                     module.warn(
-                        "Failed to set bucket access policy for bucket {0}. Error: {1}".format(
-                            module.params["name"], get_error_message(res)
+                        msg="Failed to set bucket access policy for bucket {0}. Error: {1}".format(
+                            module.params["name"], res.errors[0].message
                         )
                     )
                 rule = BucketAccessPolicyRulePost(
@@ -522,8 +521,8 @@ def create_bucket(module, blade):
                     )
                 if res.status_code != 200:
                     module.warn(
-                        "Failed to set bucket access policy rule for bucket {0}. Error: {1}".format(
-                            module.params["name"], get_error_message(res)
+                        msg="Failed to set bucket access policy rule for bucket {0}. Error: {1}".format(
+                            module.params["name"], res.errors[0].message
                         )
                     )
         if WORM_VERSION in api_version and module.params["eradication_mode"]:
@@ -554,8 +553,8 @@ def create_bucket(module, blade):
                 res = blade.patch_buckets(bucket=worm, names=[module.params["name"]])
             if res.status_code != 200:
                 module.warn(
-                    "Failed to set Bucket Eradication config correctly for bucket {0}. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    msg="Failed to set Bucket Eradication config correctly for bucket {0}. "
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
     module.exit_json(changed=changed)
 
@@ -599,8 +598,8 @@ def delete_bucket(module, blade):
             )
         if res.status_code != 200:
             module.warn(
-                "Deletion for bucket {0} failed. "
-                "Error: {1}".format(module.params["name"], get_error_message(res))
+                msg="Deletion for bucket {0} failed. "
+                "Error: {1}".format(module.params["name"], res.errors[0].message)
             )
         if module.params["eradicate"]:
             if CONTEXT_API_VERSION in api_version:
@@ -612,8 +611,8 @@ def delete_bucket(module, blade):
                 res = blade.delete_buckets(names=[module.params["name"]])
             if res.status_code != 200:
                 module.warn(
-                    "Eradication for bucket {0} failed. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    msg="Eradication for bucket {0} failed. "
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
     module.exit_json(changed=changed)
 
@@ -636,7 +635,7 @@ def recover_bucket(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Object Store Bucket {0} Recovery failed. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -714,7 +713,7 @@ def update_bucket(module, blade, bucket):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Object Store Bucket {0} versioning change failed. Error: {1}".format(
-                            module.params["name"], get_error_message(res)
+                            module.params["name"], res.errors[0].message
                         )
                     )
     elif module.params["versioning"] != "absent":
@@ -734,7 +733,7 @@ def update_bucket(module, blade, bucket):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Object Store Bucket {0} versioning change failed. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     if QUOTA_VERSION in api_version:
@@ -782,7 +781,7 @@ def update_bucket(module, blade, bucket):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update quota settings correctly for bucket {0}. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
     if MODE_VERSION in api_version:
         current_pac = {
@@ -821,7 +820,7 @@ def update_bucket(module, blade, bucket):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update Public Access config correctly for bucket {0}. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
     if WORM_VERSION in api_version:
         current_worm = {
@@ -873,7 +872,7 @@ def update_bucket(module, blade, bucket):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update Eradication config correctly for bucket {0}. "
-                    "Error: {1}".format(module.params["name"], get_error_message(res))
+                    "Error: {1}".format(module.params["name"], res.errors[0].message)
                 )
     module.exit_json(changed=(changed or change_pac or change_worm or change_quota))
 
@@ -892,7 +891,7 @@ def eradicate_bucket(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Object Store Bucket {0} eradication failed. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)

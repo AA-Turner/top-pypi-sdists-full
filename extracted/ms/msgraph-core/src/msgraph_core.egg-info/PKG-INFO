@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgraph-core
-Version: 1.4.0
+Version: 1.5.1
 Summary: Core component of the Microsoft Graph Python SDK
 Author-email: Microsoft <graphtooling+python@microsoft.com>
 License-Expression: MIT
@@ -17,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-kiota-abstractions<2.0.0,>=1.10.1
-Requires-Dist: microsoft-kiota-authentication-azure<2.0.0,>=1.10.1
-Requires-Dist: microsoft-kiota-http<2.0.0,>=1.10.1
+Requires-Dist: microsoft-kiota-abstractions<2.0.0,>=1.11.6
+Requires-Dist: microsoft-kiota-authentication-azure<2.0.0,>=1.11.6
+Requires-Dist: microsoft-kiota-http<2.0.0,>=1.11.6
 Requires-Dist: httpx[http2]>=0.23.0
 Provides-Extra: dev
 Requires-Dist: yapf; extra == "dev"

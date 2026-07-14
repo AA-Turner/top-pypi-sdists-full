@@ -1,7 +1,7 @@
+from collections import OrderedDict
 import os.path
 import logging
 
-from wsme.utils import OrderedDict
 from wsme.protocol import CallContext, Protocol, media_type_accept
 
 import wsme.rest

@@ -72,12 +72,16 @@ class PipelineDispatch(APIObject):
         The pipeline version (None for draft dispatches).
     input_id : str
         The input set used for this dispatch.
+    image_id : str or None
+        The execution image used for this dispatch.
+    image_version : int or None
+        The image version used for this dispatch.
     covalent_dispatch_id : str or None
         The underlying covalent dispatch ID.
     triggered_by : str
         How the dispatch was triggered ('api' or 'schedule').
     status : str
-        Current status (PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, ERRORED).
+        Current status (PENDING, PREPARING, RUNNING, COMPLETED, FAILED, CANCELLED, ERRORED).
     error_detail : str or None
         Error message if the dispatch failed.
     created_at : str
@@ -91,6 +95,8 @@ class PipelineDispatch(APIObject):
         t.Key("pipeline_id"): String(),
         t.Key("version_id", optional=True, default=None): t.Or(t.Int(), t.Null()),
         t.Key("input_id"): String(),
+        t.Key("image_id", optional=True, default=None): t.Or(String(), t.Null()),
+        t.Key("image_version", optional=True, default=None): t.Or(t.Int(), t.Null()),
         t.Key("covalent_dispatch_id", optional=True, default=None): t.Or(String(), t.Null()),
         t.Key("triggered_by"): t.Enum(*enum_to_list(PipelineDispatchTrigger)),
         t.Key("status"): t.Enum(*enum_to_list(PipelineDispatchStatusEnum)),
@@ -107,6 +113,8 @@ class PipelineDispatch(APIObject):
         triggered_by: PipelineDispatchTrigger,
         status: PipelineDispatchStatusEnum,
         version_id: Optional[int] = None,
+        image_id: Optional[str] = None,
+        image_version: Optional[int] = None,
         covalent_dispatch_id: Optional[str] = None,
         error_detail: Optional[str] = None,
         created_at: Optional[str] = None,
@@ -117,6 +125,8 @@ class PipelineDispatch(APIObject):
         self.pipeline_id = pipeline_id
         self.version_id = version_id
         self.input_id = input_id
+        self.image_id = image_id
+        self.image_version = image_version
         self.covalent_dispatch_id = covalent_dispatch_id
         self.triggered_by = triggered_by
         self.status = status
@@ -133,11 +143,25 @@ class PipelineDispatch(APIObject):
             return f"{_BASE_PATH}{pipeline_id}/versions/{version_id}/dispatches/"
         return f"{_BASE_PATH}{pipeline_id}/dispatches/"
 
+    @staticmethod
+    def _with_version_number(obj: TPipelineDispatch, version_id: Optional[int]) -> TPipelineDispatch:
+        """Pin the version *number* used in the request path onto the object.
+
+        Locked-version endpoints take the version number in the URL, but the
+        response body returns the internal version row id in ``version_id``.
+        Overwrite it with the number the caller used so instance-scoped calls
+        (:meth:`get_status`, :meth:`cancel`) rebuild the correct URL.
+        """
+        if version_id is not None:
+            obj.version_id = version_id
+        return obj
+
     @classmethod
     def create(
         cls: Type[TPipelineDispatch],
         pipeline_id: str,
         input_id: str,
+        image_id: str,
         version_id: Optional[int] = None,
     ) -> TPipelineDispatch:
         """Create a dispatch to run a pipeline.
@@ -148,6 +172,9 @@ class PipelineDispatch(APIObject):
             The pipeline ID.
         input_id : str
             The input set ID to use for this dispatch.
+        image_id : str
+            The execution image ID to run the dispatch on. The prep Pod runs
+            the user's chosen image and cannot be launched without one.
         version_id : int, optional
             The version to dispatch. If None, dispatches the draft.
 
@@ -156,8 +183,11 @@ class PipelineDispatch(APIObject):
         dispatch : PipelineDispatch
         """
         path = cls._dispatches_path(pipeline_id, version_id)
-        response = cls._client.post(path, data=rawdict({"input_id": input_id}))
-        return cls.from_server_data(response.json())
+        response = cls._client.post(
+            path,
+            data=rawdict({"input_id": input_id, "image_id": image_id}),
+        )
+        return cls._with_version_number(cls.from_server_data(response.json()), version_id)
 
     @classmethod
     def list(
@@ -187,7 +217,9 @@ class PipelineDispatch(APIObject):
         path = cls._dispatches_path(pipeline_id, version_id)
         params: Dict[str, int] = {"offset": offset, "limit": limit}
         response = cls._client.get(path, params=params)
-        return [cls.from_server_data(item) for item in response.json().get("data", [])]
+        return [
+            cls._with_version_number(cls.from_server_data(item), version_id) for item in response.json().get("data", [])
+        ]
 
     @classmethod
     def get(
@@ -213,7 +245,7 @@ class PipelineDispatch(APIObject):
         """
         path = cls._dispatches_path(pipeline_id, version_id)
         response = cls._client.get(f"{path}{dispatch_id}/")
-        return cls.from_server_data(response.json())
+        return cls._with_version_number(cls.from_server_data(response.json()), version_id)
 
     def get_status(self) -> PipelineDispatchStatus:
         """Get the current status of this dispatch (lightweight polling).

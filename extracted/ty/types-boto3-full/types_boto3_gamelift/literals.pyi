@@ -136,11 +136,11 @@ ComputeTypeType = Literal["ANYWHERE", "EC2"]
 ContainerDependencyConditionType = Literal["COMPLETE", "HEALTHY", "START", "SUCCESS"]
 ContainerFleetBillingTypeType = Literal["ON_DEMAND", "SPOT"]
 ContainerFleetLocationStatusType = Literal[
-    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "PENDING", "UPDATING"
+    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "EXPIRED", "PENDING", "UPDATING"
 ]
 ContainerFleetRemoveAttributeType = Literal["PER_INSTANCE_CONTAINER_GROUP_DEFINITION"]
 ContainerFleetStatusType = Literal[
-    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "PENDING", "UPDATING"
+    "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "EXPIRED", "PENDING", "UPDATING"
 ]
 ContainerGroupDefinitionStatusType = Literal["COPYING", "FAILED", "READY"]
 ContainerGroupTypeType = Literal["GAME_SERVER", "PER_INSTANCE"]
@@ -689,6 +689,7 @@ EventCodeType = Literal[
     "FLEET_CREATION_RUNNING_INSTALLER",
     "FLEET_CREATION_VALIDATING_RUNTIME_CONFIG",
     "FLEET_DELETED",
+    "FLEET_EXPIRED",
     "FLEET_INITIALIZATION_FAILED",
     "FLEET_NEW_GAME_SESSION_PROTECTION_POLICY_UPDATED",
     "FLEET_SCALING_EVENT",
@@ -744,6 +745,7 @@ FleetStatusType = Literal[
     "DELETING",
     "DOWNLOADING",
     "ERROR",
+    "EXPIRED",
     "NEW",
     "NOT_FOUND",
     "TERMINATED",

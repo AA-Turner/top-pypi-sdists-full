@@ -29,7 +29,6 @@ from wtforms import (
     Form,
     IntegerField,
     StringField,
-    TextAreaField,
     TimeField,
     validators,
 )
@@ -57,6 +56,7 @@ from sqladmin.fields import (
     QuerySelectMultipleField,
     Select2TagsField,
     SelectField,
+    TextAreaField,
     UuidField,
 )
 from sqladmin.helpers import (
@@ -313,6 +313,9 @@ class ModelConverterBase:
         if override is not None:
             if not issubclass(override, Field):
                 raise TypeError("Expected Field, got %s" % type(override))
+
+            if loader:
+                kwargs.setdefault("loader", loader)
 
             return override(**kwargs)
 

@@ -27,7 +27,10 @@ __all__ = (
     "AutoEnableMembersType",
     "CloudProviderType",
     "ClusterStatusType",
+    "ConfidenceLevelType",
     "ConfidenceType",
+    "ContentPolicyFilterActionType",
+    "ContentPolicyFilterTypeType",
     "CoverageFilterCriterionKeyType",
     "CoverageSortKeyType",
     "CoverageStatisticsTypeType",
@@ -54,6 +57,8 @@ __all__ = (
     "FreeTrialFeatureResultType",
     "GroupByTypeType",
     "GuardDutyServiceName",
+    "GuardrailActionType",
+    "GuardrailSourceType",
     "IndicatorTypeType",
     "InvestigationSortFieldType",
     "InvestigationStatusType",
@@ -122,7 +127,12 @@ AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
 CloudProviderType = Literal["AWS"]
 ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
+ConfidenceLevelType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 ConfidenceType = Literal["High", "Low", "Medium", "Unknown"]
+ContentPolicyFilterActionType = Literal["BLOCKED", "NONE"]
+ContentPolicyFilterTypeType = Literal[
+    "HATE", "INSULTS", "JAILBREAK", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
+]
 CoverageFilterCriterionKeyType = Literal[
     "ACCOUNT_ID",
     "ADDON_VERSION",
@@ -167,6 +177,7 @@ DestinationTypeType = Literal["S3"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
 DetectorFeatureResultType = Literal[
     "AI_ANALYST",
+    "AI_PROTECTION",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
@@ -180,6 +191,7 @@ DetectorFeatureResultType = Literal[
 ]
 DetectorFeatureType = Literal[
     "AI_ANALYST",
+    "AI_PROTECTION",
     "EBS_MALWARE_PROTECTION",
     "EKS_AUDIT_LOGS",
     "EKS_RUNTIME_MONITORING",
@@ -219,6 +231,7 @@ FindingResourceTypeType = Literal[
 ]
 FindingStatisticTypeType = Literal["COUNT_BY_SEVERITY"]
 FreeTrialFeatureResultType = Literal[
+    "AI_PROTECTION",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
@@ -232,6 +245,8 @@ FreeTrialFeatureResultType = Literal[
     "S3_DATA_EVENTS",
 ]
 GroupByTypeType = Literal["ACCOUNT", "DATE", "FINDING_TYPE", "RESOURCE", "SEVERITY"]
+GuardrailActionType = Literal["GUARDRAIL_INTERVENED", "NONE"]
+GuardrailSourceType = Literal["INPUT", "OUTPUT"]
 IndicatorTypeType = Literal[
     "ATTACK_TACTIC",
     "ATTACK_TECHNIQUE",
@@ -321,6 +336,7 @@ OrgFeatureAdditionalConfigurationType = Literal[
 ]
 OrgFeatureStatusType = Literal["ALL", "NEW", "NONE"]
 OrgFeatureType = Literal[
+    "AI_PROTECTION",
     "EBS_MALWARE_PROTECTION",
     "EKS_AUDIT_LOGS",
     "EKS_RUNTIME_MONITORING",
@@ -329,8 +345,8 @@ OrgFeatureType = Literal[
     "RUNTIME_MONITORING",
     "S3_DATA_EVENTS",
 ]
-ProfileSubtypeType = Literal["FREQUENT", "INFREQUENT", "RARE", "UNSEEN"]
-ProfileTypeType = Literal["FREQUENCY"]
+ProfileSubtypeType = Literal["AVERAGE", "COUNT", "FREQUENT", "INFREQUENT", "RARE", "UNSEEN"]
+ProfileTypeType = Literal["FREQUENCY", "VOLUME"]
 PublicAccessStatusType = Literal["ALLOWED", "BLOCKED"]
 PublicAclIgnoreBehaviorType = Literal["IGNORED", "NOT_IGNORED"]
 PublicBucketRestrictBehaviorType = Literal["NOT_RESTRICTED", "RESTRICTED"]
@@ -393,6 +409,7 @@ TrustedEntitySetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
 ]
 UsageFeatureType = Literal[
+    "AI_PROTECTION",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
