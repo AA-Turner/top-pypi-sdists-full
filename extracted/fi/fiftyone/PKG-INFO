@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.18.0
+Version: 1.19.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -57,7 +57,7 @@ Requires-Dist: retrying<2,>=1
 Requires-Dist: sseclient-py<2,>=1.7.2
 Requires-Dist: sse-starlette<4,>=0.10.3
 Requires-Dist: starlette<1.1,>=0.49.1
-Requires-Dist: strawberry-graphql<0.317.0,>=0.312.3
+Requires-Dist: strawberry-graphql<0.317.0,>=0.315.7
 Requires-Dist: tabulate<0.11,>=0.7
 Requires-Dist: tqdm<5,>=2
 Requires-Dist: xmltodict<2,>=1
@@ -73,8 +73,10 @@ Requires-Dist: scipy<2
 Requires-Dist: fiftyone-brain<0.23,>=0.22.0
 Requires-Dist: fiftyone-db<2.0,>=0.4
 Requires-Dist: voxel51-eta<0.17,>=0.16.0
+Provides-Extra: multimodal-mcap
+Requires-Dist: protobuf==6.33.6; extra == "multimodal-mcap"
 Provides-Extra: multimodal
-Requires-Dist: protobuf==7.35.0; extra == "multimodal"
+Requires-Dist: fiftyone[multimodal-mcap]; extra == "multimodal"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

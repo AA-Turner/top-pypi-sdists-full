@@ -61,6 +61,10 @@ from testmu._helpers.vision import (
 from testmu._helpers.smartui import smartui_snapshot
 from testmu._helpers.textual_analyzer import textual_analyzer
 
+# Derivation recompute — re-evaluate recorded code_js derivations at replay
+# time instead of asserting stale recorded literals
+from testmu._helpers.derive import condition_compute, derive
+
 # Smart-gated — real implementations
 from testmu._helpers.network import evaluate_network_assertion, network_query
 from testmu._helpers.wait import check_until_condition

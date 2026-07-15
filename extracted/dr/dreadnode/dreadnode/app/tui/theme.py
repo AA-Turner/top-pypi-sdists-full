@@ -12,14 +12,30 @@ from __future__ import annotations
 # Single source of truth.  When changing values here, also update the matching
 # CSS variables in dreadnode.tcss (they cannot be auto-generated).
 
-BG = "#0b0f14"
-BG_LIGHT = "#0f141c"
-BG_LIGHTER = "#141922"
+BG = "#17191c"
+BG_LIGHT = "#1f2226"
+BG_LIGHTER = "#292c31"
 
-FG = "#e2e7ec"
-FG_SUBTLE = "#c1c6cc"
-FG_MUTED = "#9da0a5"
-FG_FAINTEST = "#686d73"
+# Foreground ramp — even ~17 L* steps (perceptual lightness) on the dark BG so
+# each tier is equally distinguishable; all clear WCAG AA. FG is a crisp, faintly
+# cool near-white (L*97); the tail stays quiet for secondary/faint roles.
+FG = "#f2f7fc"
+FG_SUBTLE = "#c2c7cc"
+FG_MUTED = "#95999e"
+FG_FAINTEST = "#696d72"
+
+# Inline `code` and fenced blocks — near-white text on a raised background
+# "pill". The pill carries the "this is code" affordance, so the text stays in
+# the prose family instead of a saturated accent (which is reserved for tool
+# calls). Aliased to the palette by design; set to a literal hex to diverge.
+# Keep in sync with $code / $code-bg in dreadnode.tcss.
+CODE = FG
+CODE_BG = BG_LIGHT
+
+# Links — near-white text; the underline carries the affordance. Warm accent is
+# reserved for tool calls, so links stay quiet and hover to $accent.
+# Keep in sync with $link in dreadnode.tcss.
+LINK = FG
 
 BORDER = "#2b343f"
 BORDER_LIGHT = "#434a55"

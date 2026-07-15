@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte-internal-ops
-Version: 0.77.0
+Version: 0.78.0
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -22,7 +22,7 @@ Requires-Dist: cloud-sql-python-connector[pg8000]<2.0,>=1.7.0
 Requires-Dist: cyclopts<5.0,>=4.0.0
 Requires-Dist: docker<7.0,>=6.0
 Requires-Dist: dpath<3.0,>=2.1.5
-Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.7.0
+Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.10.0
 Requires-Dist: fastmcp<4.0,>=3.0
 Requires-Dist: fsspec>=2024.0.0
 Requires-Dist: gcsfs>=2024.0.0
@@ -64,6 +64,7 @@ MCP and API interfaces that let the agents do the admin work.
 
 - [CLI Reference](https://airbytehq.github.io/airbyte-ops-mcp/airbyte_ops_mcp/cli.html) — `airbyte-ops` command-line interface
 - [MCP Tools Reference](https://airbytehq.github.io/airbyte-ops-mcp/airbyte_ops_mcp/mcp.html) — Model Context Protocol server tools
+- [Authentication](./docs/authentication.md) — client auth options (stdio, interactive OIDC, headless bearer token)
 - [Network Security](./infra/NETWORK_SECURITY.md) — access controls and auth model for `internal.airbyte.ai` services
 
 ## Ops Repo Subprojects

@@ -19,7 +19,7 @@
     - result is changed
     - result.result != []
 
-- name: Create dabase
+- name: Create database
   community.clickhouse.clickhouse_client:
     execute: CREATE DATABASE foo
 
@@ -59,8 +59,8 @@
 - name: Check the result
   ansible.builtin.assert:
     that:
-      - result.substituted_query == "INSERT INTO test_table_1 (x) VALUES ('one'), ('two'), ('three')"
       - result.statistics["processed_rows"] == 3
+      - result.substituted_query == "INSERT INTO test_table_1 (x) VALUES ('one'), ('two'), ('three')"
 
 - name: Check rows were inserted into test table 
   register: result

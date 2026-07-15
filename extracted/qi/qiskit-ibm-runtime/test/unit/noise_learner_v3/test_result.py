@@ -13,16 +13,11 @@
 """Tests the classes `NoiseLearnerV3Result` and `NoiseLearnerV3Results`."""
 
 import numpy as np
-
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import PauliLindbladMap, QubitSparsePauliList
 from samplomatic import InjectNoise, Twirl
 
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import QubitSparsePauliList, PauliLindbladMap
-
-from qiskit_ibm_runtime.results.noise_learner_v3 import (  # type: ignore[attr-defined]
-    NoiseLearnerV3Result,
-    NoiseLearnerV3Results,
-)
+from qiskit_ibm_runtime.results.noise_learner_v3 import NoiseLearnerV3Result, NoiseLearnerV3Results
 
 from ...ibm_test_case import IBMTestCase
 
@@ -130,7 +125,7 @@ class TestNoiseLearnerV3Results(IBMTestCase):
             NoiseLearnerV3Result.from_generators(self.generators, rates) for rates in self.rates
         ]
         self.pauli_lindblad_maps = [result.to_pauli_lindblad_map() for result in self.results]
-        self.inject_noise_annotations = [InjectNoise(ref) for ref in ["hi", "bye"]]
+        self.inject_noise_annotations = [InjectNoise(ref, site="after") for ref in ["hi", "bye"]]
 
     def test_properties_of_iterable(self):
         """Test elementary methods of ``NoiseLearnerV3Results``.

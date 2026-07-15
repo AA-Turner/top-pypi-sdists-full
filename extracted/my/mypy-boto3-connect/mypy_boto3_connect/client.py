@@ -100,6 +100,7 @@ from .paginator import (
     SearchQuickConnectsPaginator,
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
+    SearchRulesPaginator,
     SearchSecurityProfilesPaginator,
     SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
@@ -582,6 +583,8 @@ from .type_defs import (
     SearchResourceTagsResponseTypeDef,
     SearchRoutingProfilesRequestTypeDef,
     SearchRoutingProfilesResponseTypeDef,
+    SearchRulesRequestTypeDef,
+    SearchRulesResponseTypeDef,
     SearchSecurityProfilesRequestTypeDef,
     SearchSecurityProfilesResponseTypeDef,
     SearchTestCasesRequestTypeDef,
@@ -3605,6 +3608,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_routing_profiles)
         """
 
+    def search_rules(
+        self, **kwargs: Unpack[SearchRulesRequestTypeDef]
+    ) -> SearchRulesResponseTypeDef:
+        """
+        Searches rules in an Connect Customer instance, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_rules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_rules)
+        """
+
     def search_security_profiles(
         self, **kwargs: Unpack[SearchSecurityProfilesRequestTypeDef]
     ) -> SearchSecurityProfilesResponseTypeDef:
@@ -5458,6 +5471,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_routing_profiles"]
     ) -> SearchRoutingProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_rules"]
+    ) -> SearchRulesPaginator:
         """
         Create a paginator for an operation.
 

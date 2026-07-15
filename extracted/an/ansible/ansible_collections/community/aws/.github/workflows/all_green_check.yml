@@ -1,0 +1,38 @@
+---
+name: all_green
+
+concurrency:
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - labeled
+      - unlabeled
+      - synchronize
+    branches:
+      - main
+      - 'stable-*'
+    tags:
+      - '*'
+
+jobs:
+  changelog-and-linters:
+    uses: ./.github/workflows/changelog_and_linters.yml  # use the callable changelog_and_linters job to run tests
+  ansible-test:
+    uses: ./.github/workflows/ansible-test.yml  # use the callable ansible-test workflow to run sanity and unit tests
+  all_green:
+    if: ${{ always() }}
+    needs:
+      - changelog-and-linters
+      - ansible-test
+    runs-on: ubuntu-latest
+    steps:
+      - run: >-
+          python -c "assert set([
+          '${{ needs.changelog-and-linters.result }}',
+          '${{ needs.ansible-test.result }}'
+          ]) == {'success'}"

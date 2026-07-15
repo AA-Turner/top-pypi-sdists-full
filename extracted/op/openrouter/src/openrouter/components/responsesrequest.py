@@ -53,6 +53,7 @@ from .legacy_websearchservertool import (
 )
 from .mcpservertool import McpServerTool, McpServerToolTypedDict
 from .moderationplugin import ModerationPlugin, ModerationPluginTypedDict
+from .namespacetool import NamespaceTool, NamespaceToolTypedDict
 from .openairesponsestoolchoice_union import (
     OpenAIResponsesToolChoiceUnion,
     OpenAIResponsesToolChoiceUnionTypedDict,
@@ -219,8 +220,8 @@ ResponsesRequestToolUnionTypedDict = TypeAliasType(
         CodexLocalShellToolTypedDict,
         ApplyPatchServerToolTypedDict,
         ShellServerToolTypedDict,
-        FusionServerToolOpenRouterTypedDict,
-        ImageGenerationServerToolOpenRouterTypedDict,
+        FilesServerToolTypedDict,
+        SubagentServerToolOpenRouterTypedDict,
         ShellServerToolOpenRouterTypedDict,
         BashServerToolTypedDict,
         CodeInterpreterServerToolTypedDict,
@@ -228,16 +229,17 @@ ResponsesRequestToolUnionTypedDict = TypeAliasType(
         WebSearchServerToolOpenRouterTypedDict,
         WebFetchServerToolTypedDict,
         SearchModelsServerToolOpenRouterTypedDict,
-        FilesServerToolTypedDict,
+        ImageGenerationServerToolOpenRouterTypedDict,
+        FusionServerToolOpenRouterTypedDict,
         DatetimeServerToolTypedDict,
         AdvisorServerToolOpenRouterTypedDict,
-        SubagentServerToolOpenRouterTypedDict,
+        NamespaceToolTypedDict,
         CustomToolTypedDict,
         ComputerUseServerToolTypedDict,
         ResponsesRequestToolFunctionTypedDict,
         FileSearchServerToolTypedDict,
-        PreviewWebSearchServerToolTypedDict,
         WebSearchServerToolTypedDict,
+        PreviewWebSearchServerToolTypedDict,
         Preview20250311WebSearchServerToolTypedDict,
         LegacyWebSearchServerToolTypedDict,
         McpServerToolTypedDict,
@@ -264,6 +266,7 @@ ResponsesRequestToolUnion = Annotated[
         Annotated[ShellServerTool, Tag("shell")],
         Annotated[ApplyPatchServerTool, Tag("apply_patch")],
         Annotated[CustomTool, Tag("custom")],
+        Annotated[NamespaceTool, Tag("namespace")],
         Annotated[AdvisorServerToolOpenRouter, Tag("openrouter:advisor")],
         Annotated[SubagentServerToolOpenRouter, Tag("openrouter:subagent")],
         Annotated[DatetimeServerTool, Tag("openrouter:datetime")],
@@ -291,7 +294,7 @@ class ResponsesRequestTypedDict(TypedDict):
 
     background: NotRequired[Nullable[bool]]
     cache_control: NotRequired[AnthropicCacheControlDirectiveTypedDict]
-    r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. Currently supported for Anthropic Claude models."""
+    r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. When set on an individual content block, it marks an explicit cache breakpoint; block-level markers also work on OpenAI models that support explicit prompt caching — OpenRouter converts them to the provider's native format."""
     debug: NotRequired[ChatDebugOptionsTypedDict]
     r"""Debug options for inspecting request transformations (streaming only)"""
     frequency_penalty: NotRequired[Nullable[float]]
@@ -351,7 +354,7 @@ class ResponsesRequest(BaseModel):
     background: OptionalNullable[bool] = UNSET
 
     cache_control: Optional[AnthropicCacheControlDirective] = None
-    r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. Currently supported for Anthropic Claude models."""
+    r"""Enable automatic prompt caching. When set at the top level, the system automatically applies cache breakpoints to the last cacheable block in the request. When set on an individual content block, it marks an explicit cache breakpoint; block-level markers also work on OpenAI models that support explicit prompt caching — OpenRouter converts them to the provider's native format."""
 
     debug: Optional[ChatDebugOptions] = None
     r"""Debug options for inspecting request transformations (streaming only)"""

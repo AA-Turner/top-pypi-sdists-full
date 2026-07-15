@@ -36,6 +36,26 @@ class ExecutionOptions:
     Default is given by ``backend.default_rep_delay``.
     """
 
+    scheduler_timing: bool = False
+    """Whether to return circuit schedule timing of each provided quantum circuit.
+
+    Setting this value to ``True`` will cause corresponding metadata of every program item to be
+    populated in the returned data.
+
+    .. note::
+        This feature is experimental and subject to change without notice.
+    """
+
+    stretch_values: bool = False
+    """Whether to return numeric resolutions of stretches for each provided quantum circuit.
+
+    Setting this value to ``True`` will cause corresponding metadata of every program item to be
+    populated in the returned data.
+
+    .. note::
+        This feature is experimental and subject to change without notice.
+    """
+
 
 @dataclass(config=PRIMITIVES_CONFIG)
 class SamplerExecutionOptions(ExecutionOptions):
@@ -56,3 +76,13 @@ class SamplerExecutionOptions(ExecutionOptions):
     """
 
     meas_type: Literal["classified", "kerneled", "avg_kerneled"] = "classified"
+    """How to process and return measurement results.
+
+    This option sets the return type of all classical registers in all sampler pub results.
+
+    * ``"classified"``: Returns a BitArray with classified measurement outcomes.
+    * ``"kerneled"``: Returns complex IQ data points from kerneling the measurement
+        trace, in arbitrary units.
+    * ``"avg_kerneled"``: Returns complex IQ data points averaged over shots,
+        in arbitrary units.
+    """

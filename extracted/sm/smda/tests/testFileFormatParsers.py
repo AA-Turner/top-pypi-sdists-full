@@ -349,6 +349,7 @@ class SmdaIntegrationTestSuite(unittest.TestCase):
                 loader._loadFile(binary)
                 self.assertEqual(loader.getArchitecture(), architecture)
                 self.assertEqual(loader.getBitness(), bitness)
+                self.assertEqual(loader.getHasBackend(), has_backend)
 
     def test_elf_real_binaries_without_backend_yield_controlled_error_report(self):
         for fixture_name, (architecture, _, has_backend) in self.MIRAI_ELF_FIXTURES.items():
@@ -365,6 +366,7 @@ class SmdaIntegrationTestSuite(unittest.TestCase):
                 # the controlled error report must also serialize cleanly
                 self.assertIsNotNone(report.timestamp)
                 self.assertEqual(report.toDict()["status"], "error")
+                self.assertIn(f"No disassembly backend available for architecture '{architecture}'", report.message)
 
     def test_elf_real_intel_binaries_disassemble(self):
         for fixture_name, (architecture, bitness, has_backend) in self.MIRAI_ELF_FIXTURES.items():

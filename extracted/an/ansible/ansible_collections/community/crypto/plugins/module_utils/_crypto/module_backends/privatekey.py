@@ -20,6 +20,11 @@ from ansible_collections.community.crypto.plugins.module_utils._argspec import (
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
+from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (
+    HAS_MLDSA44,
+    HAS_MLDSA65,
+    HAS_MLDSA87,
+)
 from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.privatekey_info import (
     PrivateKeyConsistencyError,
     PrivateKeyParseError,
@@ -36,19 +41,17 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-if t.TYPE_CHECKING:
-    from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
+if t.TYPE_CHECKING:  # pragma: no cover
+    from ansible.module_utils.basic import AnsibleModule
+    from cryptography.hazmat.primitives.asymmetric.types import (
         PrivateKeyTypes,
     )
 
-    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
+    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (
         AnsibleActionModule,
     )
 
-    GeneralAnsibleModule = t.Union[  # noqa: UP007
-        AnsibleModule, AnsibleActionModule
-    ]  # pragma: no cover
+    GeneralAnsibleModule = t.Union[AnsibleModule, AnsibleActionModule]  # noqa: UP007
 
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
@@ -66,6 +69,12 @@ try:
     import cryptography.hazmat.primitives.asymmetric.x448
     import cryptography.hazmat.primitives.asymmetric.x25519
     import cryptography.hazmat.primitives.serialization
+except ImportError:
+    pass
+
+try:
+    # cryptography 37.0.0+:
+    import cryptography.hazmat.primitives.asymmetric.mldsa
 except ImportError:
     pass
 
@@ -134,7 +143,16 @@ class PrivateKeyBackend:
     def __init__(self, *, module: GeneralAnsibleModule) -> None:
         self.module = module
         self.type: t.Literal[
-            "DSA", "ECC", "Ed25519", "Ed448", "RSA", "X25519", "X448"
+            "DSA",
+            "ECC",
+            "Ed25519",
+            "Ed448",
+            "RSA",
+            "X25519",
+            "X448",
+            "ML-DSA-44",
+            "ML-DSA-65",
+            "ML-DSA-87",
         ] = module.params["type"]
         self.size: int = module.params["size"]
         self.curve: str | None = module.params["curve"]
@@ -179,6 +197,15 @@ class PrivateKeyBackend:
         self._add_curve("brainpoolP384r1", "BrainpoolP384R1", deprecated=True)
         self._add_curve("brainpoolP512r1", "BrainpoolP512R1", deprecated=True)
 
+        if (
+            (self.type == "ML-DSA-44" and not HAS_MLDSA44)
+            or (self.type == "ML-DSA-65" and not HAS_MLDSA65)
+            or (self.type == "ML-DSA-87" and not HAS_MLDSA87)
+        ):
+            self.module.fail_json(
+                msg=f"A newer cryptography version, or one built with an appropriate backend, is needed for type={self.type}"
+            )
+
     def _get_info(self, *, data: bytes | None) -> dict[str, t.Any]:
         if data is None:
             return {}
@@ -204,7 +231,15 @@ class PrivateKeyBackend:
     def _get_wanted_format(self) -> t.Literal["pkcs1", "pkcs8", "raw"]:
         if self.format not in ("auto", "auto_ignore"):
             return self.format  # type: ignore
-        if self.type in ("X25519", "X448", "Ed25519", "Ed448"):
+        if self.type in (
+            "X25519",
+            "X448",
+            "Ed25519",
+            "Ed448",
+            "ML-DSA-44",
+            "ML-DSA-65",
+            "ML-DSA-87",
+        ):
             return "pkcs8"
         return "pkcs1"
 
@@ -251,6 +286,18 @@ class PrivateKeyBackend:
                             size=self.size, module=self.module
                         ),
                     )
+                )
+            if self.type == "ML-DSA-44":
+                self.private_key = (
+                    cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA44PrivateKey.generate()
+                )
+            if self.type == "ML-DSA-65":
+                self.private_key = (
+                    cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA65PrivateKey.generate()
+                )
+            if self.type == "ML-DSA-87":
+                self.private_key = (
+                    cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA87PrivateKey.generate()
                 )
         except cryptography.exceptions.UnsupportedAlgorithm:
             self.module.fail_json(
@@ -461,6 +508,21 @@ class PrivateKeyBackend:
             return self.curves[self.curve].verify(
                 privatekey=self.existing_private_key, module=self.module
             )
+        if HAS_MLDSA44 and isinstance(
+            self.existing_private_key,
+            cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA44PrivateKey,
+        ):
+            return self.type == "ML-DSA-44"
+        if HAS_MLDSA65 and isinstance(
+            self.existing_private_key,
+            cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA65PrivateKey,
+        ):
+            return self.type == "ML-DSA-65"
+        if HAS_MLDSA87 and isinstance(
+            self.existing_private_key,
+            cryptography.hazmat.primitives.asymmetric.mldsa.MLDSA87PrivateKey,
+        ):
+            return self.type == "ML-DSA-87"
 
         return False
 
@@ -592,7 +654,18 @@ def get_privatekey_argument_spec() -> ArgumentSpec:
             "type": {
                 "type": "str",
                 "default": "RSA",
-                "choices": ["DSA", "ECC", "Ed25519", "Ed448", "RSA", "X25519", "X448"],
+                "choices": [
+                    "DSA",
+                    "ECC",
+                    "Ed25519",
+                    "Ed448",
+                    "RSA",
+                    "X25519",
+                    "X448",
+                    "ML-DSA-44",
+                    "ML-DSA-65",
+                    "ML-DSA-87",
+                ],
             },
             "curve": {
                 "type": "str",

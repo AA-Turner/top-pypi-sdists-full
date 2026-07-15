@@ -19,7 +19,7 @@ repos:
   hooks:
   - id: yamllint
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.10
+  rev: v0.15.21
   hooks:
   - id: ruff-check
     args:
@@ -37,16 +37,6 @@ repos:
     args: [--autofix, --indent, '2']
   - id: pretty-format-toml
     args: [--autofix]
-- repo: https://github.com/executablebooks/mdformat
-  rev: 1.0.0
-  hooks:
-  - id: mdformat
-    additional_dependencies:
-    - mdformat-gfm==1.0.0
-- repo: https://github.com/igorshubovych/markdownlint-cli
-  rev: v0.48.0
-  hooks:
-  - id: markdownlint
 - repo: https://github.com/fsfe/reuse-tool
   rev: v6.2.0
   hooks:
@@ -56,13 +46,18 @@ repos:
   hooks:
   - id: actionlint
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
-  rev: v1.23.1
+  rev: v1.27.0
   hooks:
   - id: zizmor
 - repo: https://github.com/mongodb/kingfisher
-  rev: v1.95.0
+  rev: v1.106.0
   hooks:
   - id: kingfisher-auto
+- repo: https://github.com/rvben/rumdl-pre-commit
+  rev: v0.2.33
+  hooks:
+  - id: rumdl
+  - id: rumdl-fmt
 ci:
   autoupdate_schedule: quarterly
   skip:

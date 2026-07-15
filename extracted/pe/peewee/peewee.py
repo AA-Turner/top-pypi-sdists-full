@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.2.2'
+__version__ = '4.2.3'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -1033,8 +1033,9 @@ class Table(_HashableSource, BaseTable):
 
     @__bind_database__
     def select(self, *columns):
-        if not columns and self._columns:
-            columns = [Column(self, column) for column in self._columns]
+        if not columns:
+            columns = ([Column(self, column) for column in self._columns]
+                       if self._columns else (SQL('*'),))
         return Select((self,), columns)
 
     @__bind_database__
@@ -1142,7 +1143,7 @@ class CTE(_HashableSource, Source):
     def __init__(self, name, query, recursive=False, columns=None,
                  materialized=None):
         self._alias = name
-        self._query = query
+        self._query = query = query.clone()
         self._recursive = recursive
         self._materialized = materialized
         if columns is not None:
@@ -2431,12 +2432,24 @@ class CompoundSelectQuery(SelectBase):
 
         outer_parens = ctx.subquery or (ctx.scope == SCOPE_SOURCE)
         with ctx(parentheses=outer_parens):
+            # Snapshot the aliases assigned by the enclosing scope before
+            # rendering either side. A correlated reference from the right-hand
+            # query must resolve to one of these outer aliases; otherwise the
+            # right-hand query's fresh alias scope assigns the outer source a
+            # new, dangling alias. The left-hand query shares the enclosing
+            # scope, so only the right-hand query needs the seed.
+            outer_aliases = dict(ctx.alias_manager.mapping)
+
             # Should the left-hand query be wrapped in parentheses?
             lhs_parens = self._wrap_parens(ctx, self.lhs)
             with ctx.scope_normal(parentheses=lhs_parens, subquery=False):
                 ctx.sql(self.lhs)
             ctx.literal(' %s ' % self.op)
             with ctx.push_alias():
+                # Seed with only the outer aliases (not the left-hand query's
+                # own sources) so the right-hand query's own sources still
+                # receive fresh aliases.
+                ctx.alias_manager.mapping.update(outer_aliases)
                 # Should the right-hand query be wrapped in parentheses?
                 rhs_parens = self._wrap_parens(ctx, self.rhs)
                 with ctx.scope_normal(parentheses=rhs_parens, subquery=False):
@@ -2904,10 +2917,9 @@ class Insert(_WriteQuery):
             return ctx.sql(CommaNodeList(all_values))
 
     def _query_insert(self, ctx):
-        return (ctx
-                .sql(EnclosedNodeList(self._columns))
-                .literal(' ')
-                .sql(self._insert))
+        if self._columns:
+            ctx.sql(EnclosedNodeList(self._columns)).literal(' ')
+        return ctx.sql(self._insert)
 
     def _default_values(self, ctx):
         if not self._database:

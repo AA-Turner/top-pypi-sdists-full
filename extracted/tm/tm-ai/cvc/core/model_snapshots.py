@@ -37,11 +37,18 @@ Usage:
     store.append(model, trigger="post_session", commit_hash="...")
     history = store.list(limit=20)
     historical = store.reconstruct_at(timestamp=1234567890.0)
+
+Phase F caching (v3.4.24):
+  - In-memory index cache (TTL 30s, invalidate on append).
+  - Reduces repeated ``_read_index()`` JSON parse cost on hot paths
+    (list/stats/list_day_index called per dashboard request).
+  - Diff pre-compute is deferred — not on a blocking path today.
 """
 from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -51,6 +58,10 @@ logger = logging.getLogger("cvc.model_snapshots")
 
 SNAPSHOT_DIR = "user_model_snapshots"
 SNAPSHOT_INDEX = "user_model_snapshots_index.json"
+
+# Phase F: index cache TTL. Append-only invariant lets us cache aggressively;
+# any append() invalidates synchronously so stale reads are impossible.
+_INDEX_CACHE_TTL_SECONDS = 30.0
 
 Trigger = Literal["manual", "auto", "post_session", "correction", "preservation_freeze", "import", "per_turn_auto", "per_turn_cleanup", "manual_refresh", "day_canonical"]
 
@@ -68,6 +79,12 @@ class SnapshotStore:
         self._dir = self.cvc_root / SNAPSHOT_DIR
         self._dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self._dir / SNAPSHOT_INDEX
+        # Phase F: in-memory index cache. Process-local, append-only
+        # invariant means a stale read is only possible across processes
+        # or after a TTL window — both acceptable for dashboard reads.
+        self._index_cache: dict[str, Any] | None = None
+        self._index_cache_at: float = 0.0
+        self._index_cache_lock = threading.RLock()
         if not self._index_path.exists():
             self._write_index({"snapshots": [], "schema_version": 1})
 
@@ -236,13 +253,30 @@ class SnapshotStore:
         return snaps[-1]["snapshot_id"] if snaps else None
 
     def _read_index(self) -> dict[str, Any]:
+        # Phase F: serve from cache if fresh, else parse + cache.
+        # Append-only invariant + per-write invalidation keeps reads correct.
+        with self._index_cache_lock:
+            now = time.monotonic()
+            if (
+                self._index_cache is not None
+                and (now - self._index_cache_at) < _INDEX_CACHE_TTL_SECONDS
+            ):
+                return self._index_cache
         try:
-            return json.loads(self._index_path.read_text(encoding="utf-8"))
+            parsed = json.loads(self._index_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return {"snapshots": [], "schema_version": 1}
+            parsed = {"snapshots": [], "schema_version": 1}
+        with self._index_cache_lock:
+            self._index_cache = parsed
+            self._index_cache_at = time.monotonic()
+        return parsed
 
     def _write_index(self, data: dict[str, Any]) -> None:
         # Atomic-ish: write to temp, rename
         tmp = self._index_path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         tmp.replace(self._index_path)
+        # Phase F: invalidate cache so the next read sees the new index.
+        with self._index_cache_lock:
+            self._index_cache = data
+            self._index_cache_at = time.monotonic()

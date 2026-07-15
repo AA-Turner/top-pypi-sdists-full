@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_maintenance
 version_added: '1.7.0'
-short_description: Configure Pure Storage FlashArray Maintenance Windows
+short_description: Configure Everpure FlashArray Maintenance Windows
 description:
-- Configuration for Pure Storage FlashArray Maintenance Windows.
+- Configuration for Everpure FlashArray Maintenance Windows.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -76,6 +76,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
     get_array,
     purefa_argument_spec,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 
 def delete_window(module, array):
@@ -102,8 +105,7 @@ def set_window(module, array):
         state = array.post_maintenance_windows(
             names=["environment"], maintenance_window=window
         )
-        if state.status_code != 200:
-            module.fail_json(msg="Setting maintenance window failed")
+        check_response(state, module, "Setting maintenance window failed")
     module.exit_json(changed=changed)
 
 

@@ -22,7 +22,7 @@ short_description: Manage FlashBlade object lifecycles
 description:
 - Manage lifecycles for object buckets
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -132,15 +132,20 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
+from ansible_collections.purestorage.flashblade.plugins.module_utils.time_utils import (
+    time_to_milliseconds,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 from datetime import datetime
-
 
 CONTEXT_API_VERSION = "2.17"
 
 
 def _get_bucket(module, blade):
     api_version = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in api_version:
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         res = blade.get_buckets(
             names=[module.params["bucket"]], context_names=[module.params["context"]]
         )
@@ -165,34 +170,12 @@ def _convert_date_to_epoch(module):
     return epoch_milliseconds
 
 
-def _convert_to_millisecs(day):
-    """Convert a string like '2w' or '3d' into milliseconds."""
-    if not day:
-        return 0
-    multipliers = {
-        "w": 7 * 86400000,  # one week
-        "d": 86400000,  # one day
-    }
-
-    unit = day[-1].lower()
-    number = day[:-1]
-
-    return int(number) * multipliers.get(unit, 0)
-
-
-def _findstr(text, match):
-    for line in text.splitlines():
-        if match in line:
-            found = line
-    return found
-
-
 def delete_rule(module, blade):
     """Delete lifecycle rule"""
     changed = True
     api_version = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in api_version:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.delete_lifecycle_rules(
                 names=[module.params["bucket"] + "/" + module.params["name"]],
                 context_names=[module.params["context"]],
@@ -206,7 +189,7 @@ def delete_rule(module, blade):
                 msg="Failed to delete lifecycle rule {0} for bucket {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["bucket"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -230,20 +213,26 @@ def create_rule(module, blade):
         attr = LifecycleRulePost(
             bucket=ReferenceWritable(name=module.params["bucket"]),
             rule_id=module.params["name"],
-            keep_previous_version_for=_convert_to_millisecs(
-                module.params["keep_previous_for"]
+            keep_previous_version_for=(
+                time_to_milliseconds(module.params["keep_previous_for"])
+                if module.params["keep_previous_for"]
+                else 0
             ),
             keep_current_version_until=module.params["keep_current_until"],
-            keep_current_version_for=_convert_to_millisecs(
-                module.params["keep_current_for"]
+            keep_current_version_for=(
+                time_to_milliseconds(module.params["keep_current_for"])
+                if module.params["keep_current_for"]
+                else 0
             ),
-            abort_incomplete_multipart_uploads_after=_convert_to_millisecs(
-                module.params["abort_uploads_after"]
+            abort_incomplete_multipart_uploads_after=(
+                time_to_milliseconds(module.params["abort_uploads_after"])
+                if module.params["abort_uploads_after"]
+                else 0
             ),
             prefix=module.params["prefix"],
         )
         if attr.keep_current_version_until:
-            if CONTEXT_API_VERSION in api_version:
+            if CONTEXT_API_VERSION in api_version and module.params["context"]:
                 res = blade.post_lifecycle_rules(
                     rule=attr,
                     confirm_date=True,
@@ -252,7 +241,7 @@ def create_rule(module, blade):
             else:
                 res = blade.post_lifecycle_rules(rule=attr, confirm_date=True)
         else:
-            if CONTEXT_API_VERSION in api_version:
+            if CONTEXT_API_VERSION in api_version and module.params["context"]:
                 res = blade.post_lifecycle_rules(
                     rule=attr, context_names=[module.params["context"]]
                 )
@@ -263,12 +252,12 @@ def create_rule(module, blade):
                 msg="Failed to create lifecycle rule {0} for bucket {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["bucket"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
         if not module.params["enabled"]:
             attr = LifecycleRulePatch(enabled=module.params["enabled"])
-            if CONTEXT_API_VERSION in api_version:
+            if CONTEXT_API_VERSION in api_version and module.params["context"]:
                 res = blade.patch_lifecycle_rules(
                     names=[module.params["bucket"] + "/" + module.params["name"]],
                     lifecycle=attr,
@@ -306,17 +295,15 @@ def update_rule(module, blade, rule):
     if not module.params["keep_previous_for"]:
         keep_previous_for = current_rule["keep_previous_version_for"]
     else:
-        keep_previous_for = _convert_to_millisecs(module.params["keep_previous_for"])
+        keep_previous_for = time_to_milliseconds(module.params["keep_previous_for"])
     if not module.params["keep_current_for"]:
         keep_current_for = current_rule["keep_current_version_for"]
     else:
-        keep_current_for = _convert_to_millisecs(module.params["keep_current_for"])
+        keep_current_for = time_to_milliseconds(module.params["keep_current_for"])
     if not module.params["abort_uploads_after"]:
         abort_uploads_after = current_rule["abort_incomplete_multipart_uploads_after"]
     else:
-        abort_uploads_after = _convert_to_millisecs(
-            module.params["abort_uploads_after"]
-        )
+        abort_uploads_after = time_to_milliseconds(module.params["abort_uploads_after"])
     if not module.params["keep_current_until"]:
         keep_current_until = current_rule["keep_current_version_until"]
     else:
@@ -343,7 +330,7 @@ def update_rule(module, blade, rule):
                 enabled=new_rule["enabled"],
             )
             if attr.keep_current_version_until:
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     res = blade.patch_lifecycle_rules(
                         names=[module.params["bucket"] + "/" + module.params["name"]],
                         lifecycle=attr,
@@ -357,7 +344,7 @@ def update_rule(module, blade, rule):
                         confirm_date=True,
                     )
             else:
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     res = blade.patch_lifecycle_rules(
                         names=[module.params["bucket"] + "/" + module.params["name"]],
                         lifecycle=attr,
@@ -373,7 +360,7 @@ def update_rule(module, blade, rule):
                     msg="Failed to update lifecycle rule {0} for bucket {1}. Error: {2}".format(
                         module.params["name"],
                         module.params["bucket"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -410,6 +397,11 @@ def main():
     state = module.params["state"]
     blade = get_system(module)
     api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version and not module.params["context"]:
+        # If no context is provided set the context to the local array name
+        fleet_res = blade.get_fleets()
+        if fleet_res.status_code == 200 and list(fleet_res.items):
+            module.params["context"] = list(blade.get_arrays().items)[0].name
 
     if module.params["keep_previous_for"] and not module.params["keep_previous_for"][
         -1:
@@ -437,7 +429,7 @@ def main():
     rule = None
     if module.params["keep_current_until"]:
         module.params["keep_current_until"] = _convert_date_to_epoch(module)
-    if CONTEXT_API_VERSION in api_version:
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         res = blade.get_lifecycle_rules(
             names=[module.params["bucket"] + "/" + module.params["name"]],
             context_names=[module.params["context"]],

@@ -29,7 +29,11 @@ from glide_shared import (
     BitOverflowControl,
     BitwiseOperation,
     ByAddressRoute,
+    CircuitBreakerError,
+    ClientCircuitBreakerConfiguration,
+    ClientPauseMode,
     ClientSideCache,
+    ClientTrackingInfo,
     ClosingError,
     ClusterBatch,
     ClusterBatchOptions,
@@ -89,12 +93,18 @@ from glide_shared import (
     JsonArrIndexOptions,
     JsonArrPopOptions,
     JsonGetOptions,
+    LatencyEntry,
+    LatencyEventInfo,
     LexBoundary,
     Limit,
     ListDirection,
     LoggerError,
     MaxId,
+    MemoryStats,
+    MemoryStatsDb,
+    MigrateOptions,
     MinId,
+    MonitorMsg,
     NodeAddress,
     NodeDiscoveryMode,
     NumericField,
@@ -168,6 +178,7 @@ from glide_shared import (
 from .glide_client import GlideClient, GlideClusterClient, TGlideClient
 from .logger import Level as LogLevel
 from .logger import Logger
+from .monitor_client import MonitorClient
 from .opentelemetry import OpenTelemetry
 from .sync_commands import (
     ft,
@@ -200,6 +211,7 @@ __all__ = [
     "GlideClientConfiguration",
     "GlideClusterClientConfiguration",
     "BackoffStrategy",
+    "ClientCircuitBreakerConfiguration",
     "CompressionBackend",
     "CompressionConfiguration",
     "ReadFrom",
@@ -246,6 +258,7 @@ __all__ = [
     "SignedEncoding",
     "UnsignedEncoding",
     "ScoreBoundary",
+    "ClientPauseMode",
     "ConditionalChange",
     "OnlyIfEqual",
     "ExpireOptions",
@@ -265,6 +278,11 @@ __all__ = [
     "InfBound",
     "InfoSection",
     "InsertPosition",
+    "LatencyEntry",
+    "LatencyEventInfo",
+    "MemoryStats",
+    "MemoryStatsDb",
+    "MigrateOptions",
     "LexBoundary",
     "Limit",
     "ListDirection",
@@ -294,6 +312,9 @@ __all__ = [
     "ALL_CHANNELS",
     "ALL_PATTERNS",
     "ALL_SHARDED_CHANNELS",
+    # Monitor
+    "MonitorClient",
+    "MonitorMsg",
     # Json
     "glide_json",
     "json_batch",
@@ -311,6 +332,7 @@ __all__ = [
     "SlotIdRoute",
     "TSingleNodeRoute",
     # Exceptions
+    "CircuitBreakerError",
     "ClosingError",
     "ConfigurationError",
     "ConnectionError",
@@ -366,5 +388,6 @@ __all__ = [
     "ClusterScanCursor",
     # Cache
     "ClientSideCache",
+    "ClientTrackingInfo",
     "EvictionPolicy",
 ]

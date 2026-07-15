@@ -237,6 +237,7 @@ def auto_train(
     cat_features: list = None,
     monotonic_features: list = None,
     seed: int = 0,
+    cubist_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -641,13 +642,17 @@ def auto_train(
             # for climate-driven yield anomalies that exceed the training range.
             # unbiased=True: yield is right-skewed; default minimizes MAE and
             # underestimates the high tail.
-            model = Cubist(
-                n_committees=10,
-                auto=True,
-                extrapolation=0.10,
-                unbiased=True,
-                random_state=seed,
-            )
+            # These defaults suit data-rich crops; small-n crops override them
+            # via [ML] cubist_* config (e.g. poppy: n_committees=1,
+            # extrapolation=0.0) — see cubist_params in geocif.py.
+            cub = dict(n_committees=10, auto=True, extrapolation=0.10, unbiased=True)
+            cub.update(cubist_params or {})
+            # `neighbors` (composite instance-based correction) requires
+            # auto=False; flip it defensively so a config that sets neighbors
+            # without auto=False doesn't raise mid-run.
+            if cub.get("neighbors") is not None and cub.get("auto", True):
+                cub["auto"] = False
+            model = Cubist(random_state=seed, **cub)
         elif model_name == "gpr":
             from sklearn.gaussian_process import GaussianProcessRegressor
             from sklearn.gaussian_process.kernels import (

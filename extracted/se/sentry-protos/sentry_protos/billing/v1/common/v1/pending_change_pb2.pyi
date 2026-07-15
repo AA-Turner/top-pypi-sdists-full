@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -26,12 +27,17 @@ class PendingChange(google.protobuf.message.Message):
     PACKAGE_ID_FIELD_NUMBER: builtins.int
     USER_CONFIGS_FIELD_NUMBER: builtins.int
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
+    SPONSORED_TYPE_FIELD_NUMBER: builtins.int
     package_id: builtins.str
     """The package the subscription will switch to. Unset means the package is
     not changing.
     """
     month_interval: builtins.int
     """New contract month_interval. Used for downgrades from annual to monthly"""
+    sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType
+    """Next contract's sponsored_type. SPONSORED_TYPE_UNSPECIFIED clears the
+    sponsorship; an unset field leaves it unchanged.
+    """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PendingUserConfig]:
         """Pending PAYG-budget and reservation overrides, grouped by the set of line
@@ -49,13 +55,16 @@ class PendingChange(google.protobuf.message.Message):
         package_id: builtins.str | None = ...,
         user_configs: collections.abc.Iterable[global___PendingUserConfig] | None = ...,
         month_interval: builtins.int | None = ...,
+        sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "month_interval", b"month_interval", "package_id", b"package_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "month_interval", b"month_interval", "package_id", b"package_id", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "package_id", b"package_id", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "package_id", b"package_id", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_month_interval", b"_month_interval"]) -> typing.Literal["month_interval"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_package_id", b"_package_id"]) -> typing.Literal["package_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_sponsored_type", b"_sponsored_type"]) -> typing.Literal["sponsored_type"] | None: ...
 
 global___PendingChange = PendingChange
 

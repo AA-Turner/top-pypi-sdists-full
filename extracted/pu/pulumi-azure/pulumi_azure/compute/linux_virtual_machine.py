@@ -77,12 +77,12 @@ class LinuxVirtualMachineArgs:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] network_interface_ids: . A list of Network Interface IDs which should be attached to this Virtual Machine. The first Network Interface ID in this list will be the Primary Network Interface on the Virtual Machine.
         :param pulumi.Input['LinuxVirtualMachineOsDiskArgs'] os_disk: A `os_disk` block as defined below.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group in which the Linux Virtual Machine should be exist. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         :param pulumi.Input['LinuxVirtualMachineAdditionalCapabilitiesArgs'] additional_capabilities: A `additional_capabilities` block as defined below.
         :param pulumi.Input[_builtins.str] admin_password: The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
                
                > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-               > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+               **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         :param pulumi.Input[Sequence[pulumi.Input['LinuxVirtualMachineAdminSshKeyArgs']]] admin_ssh_keys: One or more `admin_ssh_key` blocks as defined below. Changing this forces a new resource to be created.
                
                > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
@@ -306,7 +306,7 @@ class LinuxVirtualMachineArgs:
     @pulumi.getter
     def size(self) -> pulumi.Input[_builtins.str]:
         """
-        The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         """
         return pulumi.get(self, "size")
 
@@ -333,7 +333,7 @@ class LinuxVirtualMachineArgs:
         The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
 
         > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-        > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+        **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         """
         return pulumi.get(self, "admin_password")
 
@@ -974,7 +974,7 @@ class _LinuxVirtualMachineState:
         :param pulumi.Input[_builtins.str] admin_password: The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
                
                > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-               > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+               **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         :param pulumi.Input[Sequence[pulumi.Input['LinuxVirtualMachineAdminSshKeyArgs']]] admin_ssh_keys: One or more `admin_ssh_key` blocks as defined below. Changing this forces a new resource to be created.
                
                > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
@@ -1045,7 +1045,7 @@ class _LinuxVirtualMachineState:
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group in which the Linux Virtual Machine should be exist. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input['LinuxVirtualMachineSecretArgs']]] secrets: One or more `secret` blocks as defined below.
         :param pulumi.Input[_builtins.bool] secure_boot_enabled: Specifies whether secure boot should be enabled on the virtual machine. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         :param pulumi.Input[_builtins.str] source_image_id: The ID of the Image which this Virtual Machine should be created from. Changing this forces a new resource to be created. Possible Image ID types include `Image ID`s, `Shared Image ID`s, `Shared Image Version ID`s, `Community Gallery Image ID`s, `Community Gallery Image Version ID`s, `Shared Gallery Image ID`s and `Shared Gallery Image Version ID`s.
                
                > **NOTE:** One of either `source_image_id` or `source_image_reference` must be set.
@@ -1200,7 +1200,7 @@ class _LinuxVirtualMachineState:
         The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
 
         > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-        > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+        **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         """
         return pulumi.get(self, "admin_password")
 
@@ -1744,7 +1744,7 @@ class _LinuxVirtualMachineState:
     @pulumi.getter
     def size(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         """
         return pulumi.get(self, "size")
 
@@ -1991,7 +1991,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
             name="example-machine",
             resource_group_name=example.name,
             location=example.location,
-            size="Standard_F2",
+            size="Standard_D4_v5",
             admin_username="adminuser",
             network_interface_ids=[example_network_interface.id],
             admin_ssh_keys=[{
@@ -2032,7 +2032,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] admin_password: The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
                
                > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-               > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+               **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         :param pulumi.Input[Sequence[pulumi.Input[Union['LinuxVirtualMachineAdminSshKeyArgs', 'LinuxVirtualMachineAdminSshKeyArgsDict']]]] admin_ssh_keys: One or more `admin_ssh_key` blocks as defined below. Changing this forces a new resource to be created.
                
                > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
@@ -2099,7 +2099,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group in which the Linux Virtual Machine should be exist. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[Union['LinuxVirtualMachineSecretArgs', 'LinuxVirtualMachineSecretArgsDict']]]] secrets: One or more `secret` blocks as defined below.
         :param pulumi.Input[_builtins.bool] secure_boot_enabled: Specifies whether secure boot should be enabled on the virtual machine. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         :param pulumi.Input[_builtins.str] source_image_id: The ID of the Image which this Virtual Machine should be created from. Changing this forces a new resource to be created. Possible Image ID types include `Image ID`s, `Shared Image ID`s, `Shared Image Version ID`s, `Community Gallery Image ID`s, `Community Gallery Image Version ID`s, `Shared Gallery Image ID`s and `Shared Gallery Image Version ID`s.
                
                > **NOTE:** One of either `source_image_id` or `source_image_reference` must be set.
@@ -2176,7 +2176,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
             name="example-machine",
             resource_group_name=example.name,
             location=example.location,
-            size="Standard_F2",
+            size="Standard_D4_v5",
             admin_username="adminuser",
             network_interface_ids=[example_network_interface.id],
             admin_ssh_keys=[{
@@ -2426,7 +2426,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] admin_password: The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
                
                > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-               > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+               **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         :param pulumi.Input[Sequence[pulumi.Input[Union['LinuxVirtualMachineAdminSshKeyArgs', 'LinuxVirtualMachineAdminSshKeyArgsDict']]]] admin_ssh_keys: One or more `admin_ssh_key` blocks as defined below. Changing this forces a new resource to be created.
                
                > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
@@ -2497,7 +2497,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group in which the Linux Virtual Machine should be exist. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[Union['LinuxVirtualMachineSecretArgs', 'LinuxVirtualMachineSecretArgsDict']]]] secrets: One or more `secret` blocks as defined below.
         :param pulumi.Input[_builtins.bool] secure_boot_enabled: Specifies whether secure boot should be enabled on the virtual machine. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        :param pulumi.Input[_builtins.str] size: The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         :param pulumi.Input[_builtins.str] source_image_id: The ID of the Image which this Virtual Machine should be created from. Changing this forces a new resource to be created. Possible Image ID types include `Image ID`s, `Shared Image ID`s, `Shared Image Version ID`s, `Community Gallery Image ID`s, `Community Gallery Image Version ID`s, `Shared Gallery Image ID`s and `Shared Gallery Image Version ID`s.
                
                > **NOTE:** One of either `source_image_id` or `source_image_reference` must be set.
@@ -2595,7 +2595,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
         The Password which should be used for the local-administrator on this Virtual Machine. Changing this forces a new resource to be created.
 
         > **NOTE:** When an `admin_password` is specified `disable_password_authentication` must be set to `false`.
-        > **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
+        **NOTE:** One of either `admin_password` or `admin_ssh_key` must be specified.
         """
         return pulumi.get(self, "admin_password")
 
@@ -2967,7 +2967,7 @@ class LinuxVirtualMachine(pulumi.CustomResource):
     @pulumi.getter
     def size(self) -> pulumi.Output[_builtins.str]:
         """
-        The SKU which should be used for this Virtual Machine, such as `Standard_F2`.
+        The SKU which should be used for this Virtual Machine, such as `Standard_D4_v5`.
         """
         return pulumi.get(self, "size")
 

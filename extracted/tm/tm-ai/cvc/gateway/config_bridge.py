@@ -35,6 +35,7 @@ PROVIDER_ENV_VARS: dict[str, str] = {
     "xai": "XAI_API_KEY",
     "mistral": "MISTRAL_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 PROVIDER_BASE_URLS: dict[str, str] = {
@@ -47,6 +48,7 @@ PROVIDER_BASE_URLS: dict[str, str] = {
     "xai": "https://api.x.ai/v1",
     "mistral": "https://api.mistral.ai/v1",
     "deepseek": "https://api.deepseek.com/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
 }
 
 
@@ -168,6 +170,7 @@ def load_runtime_config() -> dict[str, Any]:
             "google": "gemini-2.0-flash",
             "gemini": "gemini-2.0-flash",
             "copilot": "gpt-4o",
+            "openrouter": "anthropic/claude-sonnet-4.6",
         }.get(provider.lower(), "gpt-4o")
 
     # Pass through platform_toolsets (CVC's config) so the vendored runtime

@@ -165,7 +165,7 @@ class Runners:
         data = self._http.get("/api/v1/runners")
         return RunnerListResponse.model_validate(data).runners
 
-    def release(self, runner_id: str | None = None, *, session_id: str | None = None) -> bool:
+    def release(self, runner_id: str | None = None, *, session_id: str | None = None, async_: bool = False) -> bool:
         body: dict[str, str] = {}
         if session_id:
             body["session_id"] = session_id
@@ -173,10 +173,13 @@ class Runners:
             body["runner_id"] = runner_id
         else:
             raise ValueError("runner_id or session_id is required")
-        data = self._http.post("/api/v1/runners/release", json_body=body)
+        path = "/api/v1/runners/release"
+        if async_:
+            path += "?async=true"
+        data = self._http.post(path, json_body=body)
         cache_key = session_id or runner_id or ""
         self._host_cache.pop(cache_key, None)
-        return bool(data.get("success", False))
+        return bool(data.get("success", False) or data.get("accepted", False))
 
     def pause(
         self,
@@ -200,6 +203,23 @@ class Runners:
             timeout=self._http.operation_timeout,
         )
         return PauseResult.model_validate(data)
+
+    def resume(self, session_id: str, *, request_id: str | None = None) -> AllocateRunnerResponse:
+        """Resume a suspended session. Reuses the allocate endpoint, which resolves the
+        original workload_key from the session snapshot, so only session_id is required."""
+        body: dict[str, Any] = {"session_id": session_id}
+        if request_id:
+            body["request_id"] = request_id
+        data = self._http.post(
+            "/api/v1/runners/allocate",
+            json_body=body,
+            timeout=self._http.startup_timeout,
+            retry_policy=_ALLOCATE_REQUEST_RETRY_POLICY,
+        )
+        resp = AllocateRunnerResponse.model_validate(data)
+        if resp.host_address:
+            self._host_cache[session_id] = resp.host_address
+        return resp
 
     def fork(
         self,
@@ -641,10 +661,18 @@ class Runners:
         host = self._resolve_host(session_id)
         return self._http.resolve_data_plane_target(host)
 
+    def _resume_host_route(self, session_id: str) -> tuple[str, dict[str, str]]:
+        """Resume a suspended session and return its new (base_url, headers)."""
+        self.resume(session_id)
+        return self._resolve_host_route(session_id)
+
     def _exec_with_host_retry(self, session_id: str, body: dict[str, Any]) -> Iterator[ExecEvent]:
-        """Attempt exec; on 503 from host, reconnect and retry once."""
-        host, hdrs = self._resolve_host_route(session_id)
+        """Attempt exec; if the session is suspended or its host is gone, resume and retry once."""
         url = f"/api/v1/sessions/{session_id}/exec"
+        try:
+            host, hdrs = self._resolve_host_route(session_id)
+        except CapsuleServiceUnavailable:
+            host, hdrs = self._resume_host_route(session_id)
 
         received_any = False
         try:
@@ -657,11 +685,11 @@ class Runners:
                 received_any = True
                 yield ExecEvent.model_validate(event_dict)
             return
-        except CapsuleServiceUnavailable:
+        except (CapsuleServiceUnavailable, CapsuleConnectionError):
             if received_any:
                 raise
             self._host_cache.pop(session_id, None)
-            new_host, new_hdrs = self._resolve_host_route(session_id)
+            new_host, new_hdrs = self._resume_host_route(session_id)
             for event_dict in self._http.post_stream_ndjson(
                 url,
                 json_body=body,

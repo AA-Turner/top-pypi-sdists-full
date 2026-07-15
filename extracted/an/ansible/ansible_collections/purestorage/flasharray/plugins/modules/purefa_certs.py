@@ -22,7 +22,7 @@ short_description: Manage FlashArray SSL Certificates
 description:
 - Create, delete, import and export FlashArray SSL Certificates
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -199,6 +199,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 MIN_REQUIRED_API_VERSION = "2.4"
 
@@ -207,68 +210,64 @@ def update_cert(module, array):
     """Update existing SSL Certificate"""
     changed = False
     current_cert = list(array.get_certificates(names=[module.params["name"]]).items)[0]
-    new_cert = current_cert
-    if module.params["common_name"] and module.params["common_name"] != getattr(
-        current_cert, "common_name", None
-    ):
-        new_cert.common_name = module.params["common_name"]
-    else:
-        new_cert.common_name = getattr(current_cert, "common_name", None)
-    if module.params["country"] and module.params["country"] != getattr(
-        current_cert, "country", None
-    ):
-        new_cert.country = module.params["country"]
-    else:
-        new_cert.country = getattr(current_cert, "country")
-    if module.params["email"] and module.params["email"] != getattr(
-        current_cert, "email", None
-    ):
-        new_cert.email = module.params["email"]
-    else:
-        new_cert.email = getattr(current_cert, "email", None)
-    if module.params["key_size"] and module.params["key_size"] != getattr(
-        current_cert, "key_size", None
-    ):
-        new_cert.key_size = module.params["key_size"]
-    else:
-        new_cert.key_size = getattr(current_cert, "key_size", None)
-    if module.params["locality"] and module.params["locality"] != getattr(
-        current_cert, "locality", None
-    ):
-        new_cert.locality = module.params["locality"]
-    else:
-        new_cert.locality = getattr(current_cert, "locality", None)
-    if module.params["province"] and module.params["province"] != getattr(
-        current_cert, "state", None
-    ):
-        new_cert.state = module.params["province"]
-    else:
-        new_cert.state = getattr(current_cert, "state", None)
-    if module.params["organization"] and module.params["organization"] != getattr(
-        current_cert, "organization", None
-    ):
-        new_cert.organization = module.params["organization"]
-    else:
-        new_cert.organization = getattr(current_cert, "organization", None)
-    if module.params["org_unit"] and module.params["org_unit"] != getattr(
-        current_cert, "organizational_unit", None
-    ):
-        new_cert.organizational_unit = module.params["org_unit"]
-    else:
-        new_cert.organizational_unit = getattr(
-            current_cert, "organizational_unit", None
-        )
-    if new_cert != current_cert:
+
+    # Build new values, tracking if any changes are needed
+    new_common_name = getattr(current_cert, "common_name", None)
+    if module.params["common_name"] and module.params["common_name"] != new_common_name:
+        new_common_name = module.params["common_name"]
         changed = True
+
+    new_country = getattr(current_cert, "country", None)
+    if module.params["country"] and module.params["country"] != new_country:
+        new_country = module.params["country"]
+        changed = True
+
+    new_email = getattr(current_cert, "email", None)
+    if module.params["email"] and module.params["email"] != new_email:
+        new_email = module.params["email"]
+        changed = True
+
+    new_key_size = getattr(current_cert, "key_size", None)
+    if module.params["key_size"] and module.params["key_size"] != new_key_size:
+        new_key_size = module.params["key_size"]
+        changed = True
+
+    new_locality = getattr(current_cert, "locality", None)
+    if module.params["locality"] and module.params["locality"] != new_locality:
+        new_locality = module.params["locality"]
+        changed = True
+
+    new_state = getattr(current_cert, "state", None)
+    if module.params["province"] and module.params["province"] != new_state:
+        new_state = module.params["province"]
+        changed = True
+
+    new_organization = getattr(current_cert, "organization", None)
+    if (
+        module.params["organization"]
+        and module.params["organization"] != new_organization
+    ):
+        new_organization = module.params["organization"]
+        changed = True
+
+    new_organizational_unit = getattr(current_cert, "organizational_unit", None)
+    if (
+        module.params["org_unit"]
+        and module.params["org_unit"] != new_organizational_unit
+    ):
+        new_organizational_unit = module.params["org_unit"]
+        changed = True
+
+    if changed:
         certificate = flasharray.CertificatePost(
-            common_name=new_cert.common_name,
-            country=getattr(new_cert, "country", None),
-            email=getattr(new_cert, "email", None),
-            key_size=getattr(new_cert, "key_size", None),
-            locality=getattr(new_cert, "locality", None),
-            organization=getattr(new_cert, "organization", None),
-            organizational_unit=getattr(new_cert, "organizational_unit", None),
-            state=getattr(new_cert, "state", None),
+            common_name=new_common_name,
+            country=new_country,
+            email=new_email,
+            key_size=new_key_size,
+            locality=new_locality,
+            organization=new_organization,
+            organizational_unit=new_organizational_unit,
+            state=new_state,
         )
         if not module.check_mode:
             res = array.patch_certificates(
@@ -276,12 +275,11 @@ def update_cert(module, array):
                 certificate=certificate,
                 generate_new_key=module.params["generate"],
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Updating existing SSL certificate {0} failed. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
-                    )
-                )
+            check_response(
+                res,
+                module,
+                f"Updating existing SSL certificate {module.params['name']} failed",
+            )
 
     module.exit_json(changed=changed)
 
@@ -304,12 +302,11 @@ def create_cert(module, array):
         res = array.post_certificates(
             names=[module.params["name"]], certificate=certificate
         )
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Creating SSL certificate {0} failed. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
-                )
-            )
+        check_response(
+            res,
+            module,
+            f"Creating SSL certificate {module.params['name']} failed",
+        )
 
     module.exit_json(changed=changed)
 
@@ -320,12 +317,11 @@ def delete_cert(module, array):
         module.fail_json(msg="management SSL cannot be deleted")
     if not module.check_mode:
         res = array.delete_certificates(names=[module.params["name"]])
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Failed to delete {0} SSL certificate. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
-                )
-            )
+        check_response(
+            res,
+            module,
+            f"Failed to delete {module.params['name']} SSL certificate",
+        )
     module.exit_json(changed=changed)
 
 
@@ -348,12 +344,7 @@ def import_cert(module, array, reimport=False):
             res = array.post_certificates(
                 names=[module.params["name"]], certificate=certificate
             )
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Importing Certificate failed. Error: {0}".format(
-                    res.errors[0].message
-                )
-            )
+        check_response(res, module, "Importing Certificate failed")
     module.exit_json(changed=changed)
 
 
@@ -362,12 +353,7 @@ def export_cert(module, array):
     changed = True
     if not module.check_mode:
         ssl = array.get_certificates(names=[module.params["name"]])
-        if ssl.status_code != 200:
-            module.fail_json(
-                msg="Exporting Certificate failed. Error: {0}".format(
-                    ssl.errors[0].message
-                )
-            )
+        check_response(ssl, module, "Exporting Certificate failed")
         with open(module.params["export_file"], "w", encoding="utf-8") as ssl_file:
             ssl_file.write(list(ssl.items)[0].certificate)
     module.exit_json(changed=changed)

@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "anomalo"
-version = "0.45.1"
+version = "0.45.2"
 description = "Python bindings for the Anomalo API"
 homepage = "https://anomalo.com"
 license = "Apache-2.0"

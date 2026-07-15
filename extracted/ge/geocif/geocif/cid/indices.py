@@ -501,6 +501,26 @@ def aggregate_eo_values(eo_vals: np.ndarray, agg_type: str) -> float:
     elif agg_type == "H-INDEX":
         # Example: multiply by 10 for the h-index logic
         return utils.compute_h_index(eo_vals * 10)
+    # --- drought depth/duration/spread family (pure per-window functions) ---
+    # P<nn>: nn-th percentile (robust drought depth for low nn).
+    elif agg_type.startswith("P") and agg_type[1:].isdigit():
+        return float(np.nanpercentile(eo_vals, int(agg_type[1:])))
+    # AUCDEF<t>: mean deficit below threshold t = mean(max(0, t - x)) — how far
+    # below t and for how much of the window (integrated drought magnitude).
+    elif agg_type.startswith("AUCDEF"):
+        thr = float(agg_type[6:])
+        return float(np.nanmean(np.clip(thr - eo_vals, 0, None)))
+    # FRACLO<t>: fraction of the window below threshold t (drought duration).
+    elif agg_type.startswith("FRACLO"):
+        thr = float(agg_type[6:])
+        return float(np.mean(eo_vals < thr))
+    elif agg_type == "CV":
+        m = np.nanmean(eo_vals)
+        return float(np.nanstd(eo_vals) / m) if m else float("nan")
+    elif agg_type == "IQR":
+        return float(np.nanpercentile(eo_vals, 75) - np.nanpercentile(eo_vals, 25))
+    elif agg_type == "RANGE":
+        return float(np.nanmax(eo_vals) - np.nanmin(eo_vals))
     else:
         raise ValueError(f"Invalid aggregation type: {agg_type}")
 
@@ -1659,7 +1679,19 @@ class CIDs:
 
             # Derive the numeric aggregator from iname: e.g. if it ends with MIN, MAX, etc.
             aggregator = None
-            if "MIN" in iname.upper():
+            # New drought depth/duration/spread family: parse the exact prefix
+            # (token before the first "_") FIRST, so e.g. AUCDEF40 is not
+            # swallowed by the "AUC" substring test, MAXRUN by "MAX", etc.
+            _pref = iname.split("_")[0].upper()
+            if _pref and _pref[0] == "P" and _pref[1:].isdigit():
+                aggregator = _pref                         # P05, P10, P20, P30, P70, P90
+            elif _pref.startswith("AUCDEF"):
+                aggregator = _pref                         # AUCDEF40, AUCDEF50
+            elif _pref.startswith("FRACLO"):
+                aggregator = _pref                         # FRACLO30, FRACLO40
+            elif _pref in ("CV", "IQR", "RANGE"):
+                aggregator = _pref
+            elif "MIN" in iname.upper():
                 aggregator = "MIN"
             elif "MAX" in iname.upper():
                 aggregator = "MAX"

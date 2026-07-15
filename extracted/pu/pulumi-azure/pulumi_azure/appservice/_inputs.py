@@ -2462,13 +2462,13 @@ class AppFlexConsumptionAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -2515,10 +2515,10 @@ class AppFlexConsumptionAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -2629,7 +2629,7 @@ class AppFlexConsumptionAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -2643,7 +2643,7 @@ class AppFlexConsumptionAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -2709,7 +2709,7 @@ class AppFlexConsumptionAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -2728,7 +2728,7 @@ class AppFlexConsumptionAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -2756,7 +2756,7 @@ class AppFlexConsumptionAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -3048,7 +3048,7 @@ class AppFlexConsumptionAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -3070,7 +3070,7 @@ class AppFlexConsumptionAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -3099,7 +3099,7 @@ class AppFlexConsumptionAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -3141,7 +3141,7 @@ class AppFlexConsumptionAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -3158,7 +3158,7 @@ class AppFlexConsumptionAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login..
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -3184,7 +3184,7 @@ class AppFlexConsumptionAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -3214,7 +3214,7 @@ class AppFlexConsumptionAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -3236,7 +3236,7 @@ class AppFlexConsumptionAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -3265,7 +3265,7 @@ class AppFlexConsumptionAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -3542,7 +3542,7 @@ class AppFlexConsumptionAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -3564,7 +3564,7 @@ class AppFlexConsumptionAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -3593,7 +3593,7 @@ class AppFlexConsumptionAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -3635,7 +3635,7 @@ class AppFlexConsumptionAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -3647,7 +3647,7 @@ class AppFlexConsumptionAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -3670,7 +3670,7 @@ class AppFlexConsumptionAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -6665,7 +6665,7 @@ class AppServiceSiteConfigArgsDict(TypedDict):
     """
     scm_use_main_ip_restriction: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
-    IP security restrictions for scm to use main. Defaults to `false`. 
+    IP security restrictions for scm to use main. Defaults to `false`.
 
     > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
     """
@@ -6763,7 +6763,7 @@ class AppServiceSiteConfigArgs:
                
                > **NOTE** User has to explicitly set `scm_ip_restriction` to empty slice (`[]`) to remove it.
         :param pulumi.Input[_builtins.str] scm_type: The type of Source Control enabled for this App Service. Defaults to `None`. Possible values are: `BitbucketGit`, `BitbucketHg`, `CodePlexGit`, `CodePlexHg`, `Dropbox`, `ExternalGit`, `ExternalHg`, `GitHub`, `LocalGit`, `None`, `OneDrive`, `Tfs`, `VSO`, and `VSTSRM`
-        :param pulumi.Input[_builtins.bool] scm_use_main_ip_restriction: IP security restrictions for scm to use main. Defaults to `false`. 
+        :param pulumi.Input[_builtins.bool] scm_use_main_ip_restriction: IP security restrictions for scm to use main. Defaults to `false`.
                
                > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
         :param pulumi.Input[_builtins.bool] use32_bit_worker_process: Should the App Service run in 32 bit mode, rather than 64 bit mode?
@@ -7166,7 +7166,7 @@ class AppServiceSiteConfigArgs:
     @pulumi.getter(name="scmUseMainIpRestriction")
     def scm_use_main_ip_restriction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        IP security restrictions for scm to use main. Defaults to `false`. 
+        IP security restrictions for scm to use main. Defaults to `false`.
 
         > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
         """
@@ -13544,13 +13544,13 @@ class LinuxFunctionAppAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -13597,10 +13597,10 @@ class LinuxFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -13711,7 +13711,7 @@ class LinuxFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -13725,7 +13725,7 @@ class LinuxFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -13791,7 +13791,7 @@ class LinuxFunctionAppAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -13810,7 +13810,7 @@ class LinuxFunctionAppAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -13838,7 +13838,7 @@ class LinuxFunctionAppAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -14130,7 +14130,7 @@ class LinuxFunctionAppAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -14152,7 +14152,7 @@ class LinuxFunctionAppAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -14181,7 +14181,7 @@ class LinuxFunctionAppAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -14223,7 +14223,7 @@ class LinuxFunctionAppAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -14240,7 +14240,7 @@ class LinuxFunctionAppAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login..
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -14266,7 +14266,7 @@ class LinuxFunctionAppAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -14296,7 +14296,7 @@ class LinuxFunctionAppAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -14318,7 +14318,7 @@ class LinuxFunctionAppAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -14347,7 +14347,7 @@ class LinuxFunctionAppAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -14624,7 +14624,7 @@ class LinuxFunctionAppAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -14646,7 +14646,7 @@ class LinuxFunctionAppAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -14675,7 +14675,7 @@ class LinuxFunctionAppAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -14717,7 +14717,7 @@ class LinuxFunctionAppAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -14729,7 +14729,7 @@ class LinuxFunctionAppAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -14752,7 +14752,7 @@ class LinuxFunctionAppAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -18254,13 +18254,13 @@ class LinuxFunctionAppSlotAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -18307,10 +18307,10 @@ class LinuxFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -18421,7 +18421,7 @@ class LinuxFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -18435,7 +18435,7 @@ class LinuxFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -18501,7 +18501,7 @@ class LinuxFunctionAppSlotAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -18520,7 +18520,7 @@ class LinuxFunctionAppSlotAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -18548,7 +18548,7 @@ class LinuxFunctionAppSlotAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -18840,7 +18840,7 @@ class LinuxFunctionAppSlotAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -18862,7 +18862,7 @@ class LinuxFunctionAppSlotAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -18891,7 +18891,7 @@ class LinuxFunctionAppSlotAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -18933,7 +18933,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -18950,7 +18950,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -18976,7 +18976,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -19006,7 +19006,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -19028,7 +19028,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -19057,7 +19057,7 @@ class LinuxFunctionAppSlotAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -19334,7 +19334,7 @@ class LinuxFunctionAppSlotAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -19356,7 +19356,7 @@ class LinuxFunctionAppSlotAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -19385,7 +19385,7 @@ class LinuxFunctionAppSlotAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -19427,7 +19427,7 @@ class LinuxFunctionAppSlotAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -19439,7 +19439,7 @@ class LinuxFunctionAppSlotAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -19462,7 +19462,7 @@ class LinuxFunctionAppSlotAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -23263,13 +23263,13 @@ class LinuxWebAppAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -23316,10 +23316,10 @@ class LinuxWebAppAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -23430,7 +23430,7 @@ class LinuxWebAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -23444,7 +23444,7 @@ class LinuxWebAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -23510,7 +23510,7 @@ class LinuxWebAppAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -23529,7 +23529,7 @@ class LinuxWebAppAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -23557,7 +23557,7 @@ class LinuxWebAppAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -23849,7 +23849,7 @@ class LinuxWebAppAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -23871,7 +23871,7 @@ class LinuxWebAppAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -23900,7 +23900,7 @@ class LinuxWebAppAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -23942,7 +23942,7 @@ class LinuxWebAppAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -23959,7 +23959,7 @@ class LinuxWebAppAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login..
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -23985,7 +23985,7 @@ class LinuxWebAppAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -24015,7 +24015,7 @@ class LinuxWebAppAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -24037,7 +24037,7 @@ class LinuxWebAppAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -24066,7 +24066,7 @@ class LinuxWebAppAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -24343,7 +24343,7 @@ class LinuxWebAppAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -24365,7 +24365,7 @@ class LinuxWebAppAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -24394,7 +24394,7 @@ class LinuxWebAppAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -24436,7 +24436,7 @@ class LinuxWebAppAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -24448,7 +24448,7 @@ class LinuxWebAppAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -24471,7 +24471,7 @@ class LinuxWebAppAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -26032,6 +26032,9 @@ class LinuxWebAppSiteConfigApplicationStackArgs:
         if python_version is not None:
             pulumi.set(__self__, "python_version", python_version)
         if ruby_version is not None:
+            warnings.warn("""`site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""", DeprecationWarning)
+            pulumi.log.warn("""ruby_version is deprecated: `site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""")
+        if ruby_version is not None:
             pulumi.set(__self__, "ruby_version", ruby_version)
 
     @_builtins.property
@@ -26192,6 +26195,7 @@ class LinuxWebAppSiteConfigApplicationStackArgs:
 
     @_builtins.property
     @pulumi.getter(name="rubyVersion")
+    @_utilities.deprecated("""`site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""")
     def ruby_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The version of Ruby to run. Possible values include `2.6` and `2.7`.
@@ -28679,13 +28683,13 @@ class LinuxWebAppSlotAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -28732,10 +28736,10 @@ class LinuxWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -28846,7 +28850,7 @@ class LinuxWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -28860,7 +28864,7 @@ class LinuxWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -28926,7 +28930,7 @@ class LinuxWebAppSlotAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -28945,7 +28949,7 @@ class LinuxWebAppSlotAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -28973,7 +28977,7 @@ class LinuxWebAppSlotAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -29265,7 +29269,7 @@ class LinuxWebAppSlotAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -29287,7 +29291,7 @@ class LinuxWebAppSlotAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -29316,7 +29320,7 @@ class LinuxWebAppSlotAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -29358,7 +29362,7 @@ class LinuxWebAppSlotAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -29375,7 +29379,7 @@ class LinuxWebAppSlotAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -29401,7 +29405,7 @@ class LinuxWebAppSlotAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -29431,7 +29435,7 @@ class LinuxWebAppSlotAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -29453,7 +29457,7 @@ class LinuxWebAppSlotAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -29482,7 +29486,7 @@ class LinuxWebAppSlotAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -29759,7 +29763,7 @@ class LinuxWebAppSlotAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -29781,7 +29785,7 @@ class LinuxWebAppSlotAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -29810,7 +29814,7 @@ class LinuxWebAppSlotAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -29852,7 +29856,7 @@ class LinuxWebAppSlotAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -29864,7 +29868,7 @@ class LinuxWebAppSlotAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -29887,7 +29891,7 @@ class LinuxWebAppSlotAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -31464,6 +31468,9 @@ class LinuxWebAppSlotSiteConfigApplicationStackArgs:
         if python_version is not None:
             pulumi.set(__self__, "python_version", python_version)
         if ruby_version is not None:
+            warnings.warn("""`site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""", DeprecationWarning)
+            pulumi.log.warn("""ruby_version is deprecated: `site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""")
+        if ruby_version is not None:
             pulumi.set(__self__, "ruby_version", ruby_version)
 
     @_builtins.property
@@ -31622,6 +31629,7 @@ class LinuxWebAppSlotSiteConfigApplicationStackArgs:
 
     @_builtins.property
     @pulumi.getter(name="rubyVersion")
+    @_utilities.deprecated("""`site_config.application_stack.ruby_version` has been deprecated and will be removed in v5.0 of the AzureRM provider""")
     def ruby_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The version of Ruby to run. Possible values include `2.6` and `2.7`.
@@ -34388,7 +34396,7 @@ class SlotSiteConfigArgsDict(TypedDict):
     """
     scm_use_main_ip_restriction: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
-    IP security restrictions for scm to use main. Defaults to `false`. 
+    IP security restrictions for scm to use main. Defaults to `false`.
 
     > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
     """
@@ -34488,7 +34496,7 @@ class SlotSiteConfigArgs:
                
                > **NOTE** User has to explicitly set `scm_ip_restriction` to empty slice (`[]`) to remove it.
         :param pulumi.Input[_builtins.str] scm_type: The type of Source Control enabled for this App Service Slot. Defaults to `None`. Possible values are: `BitbucketGit`, `BitbucketHg`, `CodePlexGit`, `CodePlexHg`, `Dropbox`, `ExternalGit`, `ExternalHg`, `GitHub`, `LocalGit`, `None`, `OneDrive`, `Tfs`, `VSO`, and `VSTSRM`
-        :param pulumi.Input[_builtins.bool] scm_use_main_ip_restriction: IP security restrictions for scm to use main. Defaults to `false`. 
+        :param pulumi.Input[_builtins.bool] scm_use_main_ip_restriction: IP security restrictions for scm to use main. Defaults to `false`.
                
                > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
         :param pulumi.Input[_builtins.bool] use32_bit_worker_process: Should the App Service Slot run in 32 bit mode, rather than 64 bit mode?
@@ -34893,7 +34901,7 @@ class SlotSiteConfigArgs:
     @pulumi.getter(name="scmUseMainIpRestriction")
     def scm_use_main_ip_restriction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        IP security restrictions for scm to use main. Defaults to `false`. 
+        IP security restrictions for scm to use main. Defaults to `false`.
 
         > **NOTE** Any `scm_ip_restriction` blocks configured are ignored by the service when `scm_use_main_ip_restriction` is set to `true`. Any scm restrictions will become active if this is subsequently set to `false` or removed.
         """
@@ -36244,7 +36252,7 @@ class StaticWebAppBasicAuthArgs:
 class StaticWebAppIdentityArgsDict(TypedDict):
     type: pulumi.Input[_builtins.str]
     """
-    The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned`, `UserAssigned` and `SystemAssigned, UserAssigned`.
+    The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned` and `UserAssigned`.
     """
     identity_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -36261,7 +36269,7 @@ class StaticWebAppIdentityArgs:
                  principal_id: pulumi.Input[Optional[_builtins.str]] = None,
                  tenant_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] type: The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned`, `UserAssigned` and `SystemAssigned, UserAssigned`.
+        :param pulumi.Input[_builtins.str] type: The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned` and `UserAssigned`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] identity_ids: A list of Managed Identity IDs which should be assigned to this Static Web App resource.
         """
         pulumi.set(__self__, "type", type)
@@ -36276,7 +36284,7 @@ class StaticWebAppIdentityArgs:
     @pulumi.getter
     def type(self) -> pulumi.Input[_builtins.str]:
         """
-        The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned`, `UserAssigned` and `SystemAssigned, UserAssigned`.
+        The Type of Managed Identity assigned to this Static Web App resource. Possible values are `SystemAssigned` and `UserAssigned`.
         """
         return pulumi.get(self, "type")
 
@@ -37648,13 +37656,13 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -37701,10 +37709,10 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -37815,7 +37823,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -37829,7 +37837,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -37895,7 +37903,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -37914,7 +37922,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -37942,7 +37950,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -38234,7 +38242,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -38256,7 +38264,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -38285,7 +38293,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -38327,7 +38335,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -38344,7 +38352,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -38370,7 +38378,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -38400,7 +38408,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -38422,7 +38430,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -38451,7 +38459,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -38728,7 +38736,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -38750,7 +38758,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -38779,7 +38787,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -38821,7 +38829,7 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -38833,7 +38841,7 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -38856,7 +38864,7 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -40081,7 +40089,7 @@ class WindowsFunctionAppSiteConfigApplicationStackArgsDict(TypedDict):
     """
     powershell_core_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The version of PowerShell Core to run. Possible values are `7`, `7.2`, and `7.4`.
+    The version of PowerShell Core to run. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
 
     > **Note:** A value of `7` will provide the latest stable version. `7.2` is in preview at the time of writing.
     """
@@ -40107,7 +40115,7 @@ class WindowsFunctionAppSiteConfigApplicationStackArgs:
         :param pulumi.Input[_builtins.str] dotnet_version: The version of .NET to use. Possible values include `v3.0`, `v4.0` `v6.0`, `v7.0`, `v8.0`, `v9.0` and `v10.0`. Defaults to `v4.0`.
         :param pulumi.Input[_builtins.str] java_version: The Version of Java to use. Supported versions include `1.8`, `11`, `17`, `21`, `25` (In-Preview).
         :param pulumi.Input[_builtins.str] node_version: The version of Node to run. Possible values include `~12`, `~14`, `~16`, `~18` `~20`, `~22` and `~24`.
-        :param pulumi.Input[_builtins.str] powershell_core_version: The version of PowerShell Core to run. Possible values are `7`, `7.2`, and `7.4`.
+        :param pulumi.Input[_builtins.str] powershell_core_version: The version of PowerShell Core to run. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
                
                > **Note:** A value of `7` will provide the latest stable version. `7.2` is in preview at the time of writing.
         :param pulumi.Input[_builtins.bool] use_custom_runtime: Should the Windows Function App use a custom runtime?
@@ -40166,7 +40174,7 @@ class WindowsFunctionAppSiteConfigApplicationStackArgs:
     @pulumi.getter(name="powershellCoreVersion")
     def powershell_core_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The version of PowerShell Core to run. Possible values are `7`, `7.2`, and `7.4`.
+        The version of PowerShell Core to run. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
 
         > **Note:** A value of `7` will provide the latest stable version. `7.2` is in preview at the time of writing.
         """
@@ -42160,13 +42168,13 @@ class WindowsFunctionAppSlotAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -42213,10 +42221,10 @@ class WindowsFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -42327,7 +42335,7 @@ class WindowsFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -42341,7 +42349,7 @@ class WindowsFunctionAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -42407,7 +42415,7 @@ class WindowsFunctionAppSlotAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -42426,7 +42434,7 @@ class WindowsFunctionAppSlotAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -42454,7 +42462,7 @@ class WindowsFunctionAppSlotAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -42746,7 +42754,7 @@ class WindowsFunctionAppSlotAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -42768,7 +42776,7 @@ class WindowsFunctionAppSlotAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -42797,7 +42805,7 @@ class WindowsFunctionAppSlotAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -42839,7 +42847,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -42856,7 +42864,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -42882,7 +42890,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -42912,7 +42920,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -42934,7 +42942,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -42963,7 +42971,7 @@ class WindowsFunctionAppSlotAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -43240,7 +43248,7 @@ class WindowsFunctionAppSlotAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -43262,7 +43270,7 @@ class WindowsFunctionAppSlotAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -43291,7 +43299,7 @@ class WindowsFunctionAppSlotAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -43333,7 +43341,7 @@ class WindowsFunctionAppSlotAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -43345,7 +43353,7 @@ class WindowsFunctionAppSlotAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -43368,7 +43376,7 @@ class WindowsFunctionAppSlotAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -44601,7 +44609,7 @@ class WindowsFunctionAppSlotSiteConfigApplicationStackArgsDict(TypedDict):
     """
     powershell_core_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The PowerShell Core version to use. Possible values are `7`, `7.2`, and `7.4`.
+    The PowerShell Core version to use. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
     """
     use_custom_runtime: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -44625,7 +44633,7 @@ class WindowsFunctionAppSlotSiteConfigApplicationStackArgs:
         :param pulumi.Input[_builtins.str] dotnet_version: The version of .Net. Possible values are `v3.0`, `v4.0`, `v6.0`, `v7.0`, `v8.0`, `v9.0` and `v10.0`. Defaults to `v4.0`.
         :param pulumi.Input[_builtins.str] java_version: The version of Java to use. Possible values are `1.8`, `11`, `17` and `21`.
         :param pulumi.Input[_builtins.str] node_version: The version of Node to use. Possible values are `~12`, `~14`, `~16`, `~18`, `~20`, `~22` and `~24`.
-        :param pulumi.Input[_builtins.str] powershell_core_version: The PowerShell Core version to use. Possible values are `7`, `7.2`, and `7.4`.
+        :param pulumi.Input[_builtins.str] powershell_core_version: The PowerShell Core version to use. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
         :param pulumi.Input[_builtins.bool] use_custom_runtime: Does the Function App use a custom Application Stack?
         :param pulumi.Input[_builtins.bool] use_dotnet_isolated_runtime: Should the DotNet process use an isolated runtime. Defaults to `false`.
         """
@@ -44682,7 +44690,7 @@ class WindowsFunctionAppSlotSiteConfigApplicationStackArgs:
     @pulumi.getter(name="powershellCoreVersion")
     def powershell_core_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The PowerShell Core version to use. Possible values are `7`, `7.2`, and `7.4`.
+        The PowerShell Core version to use. Possible values are `7`, `7.2`, `7.4`, and `7.6`.
         """
         return pulumi.get(self, "powershell_core_version")
 
@@ -46971,13 +46979,13 @@ class WindowsWebAppAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -47024,10 +47032,10 @@ class WindowsWebAppAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -47138,7 +47146,7 @@ class WindowsWebAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -47152,7 +47160,7 @@ class WindowsWebAppAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -47218,7 +47226,7 @@ class WindowsWebAppAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -47237,7 +47245,7 @@ class WindowsWebAppAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -47265,7 +47273,7 @@ class WindowsWebAppAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -47557,7 +47565,7 @@ class WindowsWebAppAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -47579,7 +47587,7 @@ class WindowsWebAppAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -47608,7 +47616,7 @@ class WindowsWebAppAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -47650,7 +47658,7 @@ class WindowsWebAppAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -47667,7 +47675,7 @@ class WindowsWebAppAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -47693,7 +47701,7 @@ class WindowsWebAppAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -47723,7 +47731,7 @@ class WindowsWebAppAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -47745,7 +47753,7 @@ class WindowsWebAppAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -47774,7 +47782,7 @@ class WindowsWebAppAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -48051,7 +48059,7 @@ class WindowsWebAppAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -48073,7 +48081,7 @@ class WindowsWebAppAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -48102,7 +48110,7 @@ class WindowsWebAppAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -48144,7 +48152,7 @@ class WindowsWebAppAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -48156,7 +48164,7 @@ class WindowsWebAppAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -48179,7 +48187,7 @@ class WindowsWebAppAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 
@@ -49713,7 +49721,7 @@ class WindowsWebAppSiteConfigApplicationStackArgsDict(TypedDict):
     """
     java_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The version of Java to use when `current_stack` is set to `java`. 
+    The version of Java to use when `current_stack` is set to `java`.
 
     > **Note:** For currently supported versions, please see the official documentation. Some example values include: `1.8`, `1.8.0_322`,  `11`, `11.0.14`, `17`, `17.0.2`, `21` and `25`
     """
@@ -49784,7 +49792,7 @@ class WindowsWebAppSiteConfigApplicationStackArgs:
                .NET 9 (STS) | v9.0
                .NET 10 (LTS) | v10.0
         :param pulumi.Input[_builtins.bool] java_embedded_server_enabled: Should the Java Embedded Server (Java SE) be used to run the app.
-        :param pulumi.Input[_builtins.str] java_version: The version of Java to use when `current_stack` is set to `java`. 
+        :param pulumi.Input[_builtins.str] java_version: The version of Java to use when `current_stack` is set to `java`.
                
                > **Note:** For currently supported versions, please see the official documentation. Some example values include: `1.8`, `1.8.0_322`,  `11`, `11.0.14`, `17`, `17.0.2`, `21` and `25`
         :param pulumi.Input[_builtins.str] node_version: The version of node to use when `current_stack` is set to `node`. Possible values are `~12`, `~14`, `~16`, `~18`, `~20` and `~22`.
@@ -49972,7 +49980,7 @@ class WindowsWebAppSiteConfigApplicationStackArgs:
     @pulumi.getter(name="javaVersion")
     def java_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The version of Java to use when `current_stack` is set to `java`. 
+        The version of Java to use when `current_stack` is set to `java`.
 
         > **Note:** For currently supported versions, please see the official documentation. Some example values include: `1.8`, `1.8.0_322`,  `11`, `11.0.14`, `17`, `17.0.2`, `21` and `25`
         """
@@ -52795,13 +52803,13 @@ class WindowsWebAppSlotAuthSettingsV2ActiveDirectoryV2ArgsDict(TypedDict):
     """
     The thumbprint of the certificate used for signing purposes.
 
-    !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+    > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
     """
     client_secret_setting_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The App Setting name that contains the client secret of the Client.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     jwt_allowed_client_applications: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -52848,10 +52856,10 @@ class WindowsWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_identities: The list of allowed Identities for the Default Authorisation Policy.
         :param pulumi.Input[_builtins.str] client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes.
                
-               !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+               > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The App Setting name that contains the client secret of the Client.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] jwt_allowed_groups: A list of Allowed Groups in the JWT Claim.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
@@ -52962,7 +52970,7 @@ class WindowsWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The thumbprint of the certificate used for signing purposes.
 
-        !> **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
+        > **Note:** If one `client_secret_setting_name` or `client_secret_certificate_thumbprint` is specified, terraform won't write the client secret or secret certificate thumbprint back to `app_setting`, so make sure they are existed in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_certificate_thumbprint")
 
@@ -52976,7 +52984,7 @@ class WindowsWebAppSlotAuthSettingsV2ActiveDirectoryV2Args:
         """
         The App Setting name that contains the client secret of the Client.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -53042,7 +53050,7 @@ class WindowsWebAppSlotAuthSettingsV2AppleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Apple Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -53061,7 +53069,7 @@ class WindowsWebAppSlotAuthSettingsV2AppleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Apple web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Apple Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: A list of Login Scopes provided by this Authentication Provider.
                
                > **Note:** This is configured on the Authentication Provider side and is Read Only here.
@@ -53089,7 +53097,7 @@ class WindowsWebAppSlotAuthSettingsV2AppleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Apple Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -53381,7 +53389,7 @@ class WindowsWebAppSlotAuthSettingsV2FacebookV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `app_secret` value used for Facebook Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     graph_api_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -53403,7 +53411,7 @@ class WindowsWebAppSlotAuthSettingsV2FacebookV2Args:
         :param pulumi.Input[_builtins.str] app_id: The App ID of the Facebook app used for login.
         :param pulumi.Input[_builtins.str] app_secret_setting_name: The app setting name that contains the `app_secret` value used for Facebook Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[_builtins.str] graph_api_version: The version of the Facebook API to be used while logging in.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of scopes that should be requested as part of Facebook Login authentication.
         """
@@ -53432,7 +53440,7 @@ class WindowsWebAppSlotAuthSettingsV2FacebookV2Args:
         """
         The app setting name that contains the `app_secret` value used for Facebook Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "app_secret_setting_name")
 
@@ -53474,7 +53482,7 @@ class WindowsWebAppSlotAuthSettingsV2GithubV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for GitHub Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     login_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -53491,7 +53499,7 @@ class WindowsWebAppSlotAuthSettingsV2GithubV2Args:
         :param pulumi.Input[_builtins.str] client_id: The ID of the GitHub app used for login..
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for GitHub Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of GitHub Login authentication.
         """
         pulumi.set(__self__, "client_id", client_id)
@@ -53517,7 +53525,7 @@ class WindowsWebAppSlotAuthSettingsV2GithubV2Args:
         """
         The app setting name that contains the `client_secret` value used for GitHub Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -53547,7 +53555,7 @@ class WindowsWebAppSlotAuthSettingsV2GoogleV2ArgsDict(TypedDict):
     """
     The app setting name that contains the `client_secret` value used for Google Login.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -53569,7 +53577,7 @@ class WindowsWebAppSlotAuthSettingsV2GoogleV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OpenID Connect Client ID for the Google web application.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name that contains the `client_secret` value used for Google Login.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that should be requested as part of Google Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of OAuth 2.0 scopes that should be requested as part of Google Sign-In authentication.
         """
@@ -53598,7 +53606,7 @@ class WindowsWebAppSlotAuthSettingsV2GoogleV2Args:
         """
         The app setting name that contains the `client_secret` value used for Google Login.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -53875,7 +53883,7 @@ class WindowsWebAppSlotAuthSettingsV2MicrosoftV2ArgsDict(TypedDict):
     """
     The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
     allowed_audiences: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -53897,7 +53905,7 @@ class WindowsWebAppSlotAuthSettingsV2MicrosoftV2Args:
         :param pulumi.Input[_builtins.str] client_id: The OAuth 2.0 client ID that was created for the app used for authentication.
         :param pulumi.Input[_builtins.str] client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] login_scopes: The list of Login scopes that should be requested as part of Microsoft Account authentication.
         """
@@ -53926,7 +53934,7 @@ class WindowsWebAppSlotAuthSettingsV2MicrosoftV2Args:
         """
         The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "client_secret_setting_name")
 
@@ -53968,7 +53976,7 @@ class WindowsWebAppSlotAuthSettingsV2TwitterV2ArgsDict(TypedDict):
     """
     The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-    !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+    > **Note:** A setting with this name must exist in `app_settings` to function correctly.
     """
 
 @pulumi.input_type
@@ -53980,7 +53988,7 @@ class WindowsWebAppSlotAuthSettingsV2TwitterV2Args:
         :param pulumi.Input[_builtins.str] consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in.
         :param pulumi.Input[_builtins.str] consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
                
-               !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+               > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         pulumi.set(__self__, "consumer_key", consumer_key)
         pulumi.set(__self__, "consumer_secret_setting_name", consumer_secret_setting_name)
@@ -54003,7 +54011,7 @@ class WindowsWebAppSlotAuthSettingsV2TwitterV2Args:
         """
         The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        !> **Note:** A setting with this name must exist in `app_settings` to function correctly.
+        > **Note:** A setting with this name must exist in `app_settings` to function correctly.
         """
         return pulumi.get(self, "consumer_secret_setting_name")
 

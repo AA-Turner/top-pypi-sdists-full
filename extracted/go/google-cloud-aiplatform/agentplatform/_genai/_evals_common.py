@@ -32,6 +32,11 @@ from google.api_core import exceptions as api_exceptions
 import agentplatform
 from google.genai import types as genai_types
 from google.genai._api_client import BaseApiClient
+from google.genai._gaos.types.interactions import interaction as interaction_types
+from google.genai._gaos.types.interactions import functioncallstep
+from google.genai._gaos.types.interactions import functionresultstep
+from google.genai._gaos.types.interactions import modeloutputstep
+from google.genai._gaos.types.interactions import userinputstep
 from google.genai.models import Models
 import pandas as pd
 from tqdm import tqdm
@@ -59,6 +64,7 @@ _thread_local_data = threading.local()
 
 MAX_WORKERS = 100
 AGENT_MAX_WORKERS = 20
+_MAX_INTERACTION_CHAIN_DEPTH = 10
 CONTENT = _evals_constant.CONTENT
 PARTS = _evals_constant.PARTS
 USER_AUTHOR = _evals_constant.USER_AUTHOR
@@ -428,6 +434,15 @@ def _resolve_dataset(
 ) -> types.EvaluationRunDataSource:
     """Resolves dataset for the evaluation run."""
     if isinstance(dataset, types.EvaluationDataset):
+        # Resolve EvalCases with interactions_data_source by fetching
+        # each interaction and converting it to agent_data, then flowing
+        # through the normal DataFrame/GCS pipeline.
+        if dataset.eval_cases and _has_interactions_data_source(dataset.eval_cases):
+            resolved_cases = _resolve_interactions_to_eval_cases(
+                api_client, dataset.eval_cases
+            )
+            dataset = types.EvaluationDataset(eval_cases=resolved_cases)
+
         candidate_name = _get_candidate_name(dataset, parsed_agent_info)
         eval_df = dataset.eval_dataset_df
         if eval_df is None and dataset.eval_cases:
@@ -573,6 +588,798 @@ def _is_gemini_agent_resource(agent: str) -> bool:
         and bool(parts[3])
         and bool(parts[5])
     )
+
+
+def _step_to_agent_event(step: Any) -> Optional[types.evals.AgentEvent]:
+    """Converts a typed GenAI SDK Interaction step to an AgentEvent.
+
+    Uses ``isinstance`` checks against the GenAI SDK step classes so that
+    attribute access stays in sync with SDK/proto changes.
+
+    Args:
+        step: A step from ``Interaction.steps`` (a GenAI SDK step type).
+
+    Returns:
+        An AgentEvent, or ``None`` if the step type is not handled.
+    """
+    if isinstance(step, userinputstep.UserInputStep):
+        return _text_step_to_event(step, author="user", role="user")
+    elif isinstance(step, modeloutputstep.ModelOutputStep):
+        return _text_step_to_event(step, author="agent", role="model")
+    elif isinstance(step, functioncallstep.FunctionCallStep):
+        return _function_call_step_to_event(step)
+    elif isinstance(step, functionresultstep.FunctionResultStep):
+        return _function_response_step_to_event(step)
+    else:
+        logger.info("Skipping unhandled interaction step type: %s", type(step).__name__)
+        return None
+
+
+def _function_response_step_to_event(
+    step: functionresultstep.FunctionResultStep,
+) -> types.evals.AgentEvent:
+    """Converts a FunctionResultStep to an AgentEvent."""
+    result = step.result
+    if isinstance(result, dict):
+        result_str = json.dumps(result)
+    elif isinstance(result, str):
+        result_str = result
+    else:
+        result_str = str(result) if result is not None else ""
+    return types.evals.AgentEvent(  # pytype: disable=missing-parameter
+        author="user",
+        content=genai_types.Content(
+            role="user",
+            parts=[
+                genai_types.Part(
+                    function_response=genai_types.FunctionResponse(
+                        name=step.name or "",
+                        response={"result": result_str},
+                        id=step.call_id or "",
+                    )
+                )
+            ],
+        ),
+    )
+
+
+def _function_call_step_to_event(
+    step: functioncallstep.FunctionCallStep,
+) -> types.evals.AgentEvent:
+    """Converts a FunctionCallStep to an AgentEvent."""
+    return types.evals.AgentEvent(  # pytype: disable=missing-parameter
+        author="agent",
+        content=genai_types.Content(
+            role="model",
+            parts=[
+                genai_types.Part(
+                    function_call=genai_types.FunctionCall(
+                        name=step.name or "",
+                        args=step.arguments or {},
+                        id=step.id or "",
+                    )
+                )
+            ],
+        ),
+    )
+
+
+def _text_step_to_event(
+    step: Any, *, author: str, role: str
+) -> Optional[types.evals.AgentEvent]:
+    """Converts a text-bearing step (UserInputStep / ModelOutputStep) to an AgentEvent.
+
+    Args:
+        step: A GenAI SDK step with a ``content`` attribute.
+        author: The event author (``"user"`` or ``"agent"``).
+        role: The content role (``"user"`` or ``"model"``).
+
+    Returns:
+        An AgentEvent, or ``None`` if no text parts were found.
+    """
+    parts = []
+    for content_item in step.content or []:
+        if getattr(content_item, "text", None):
+            parts.append(genai_types.Part(text=content_item.text))
+    if not parts:
+        return None
+    return types.evals.AgentEvent(  # pytype: disable=missing-parameter
+        author=author,
+        content=genai_types.Content(role=role, parts=parts),
+    )
+
+
+def _interaction_steps_to_events(
+    steps: list[Any],
+) -> list[tuple[types.evals.AgentEvent, type]]:
+    """Converts a list of typed Interaction steps to AgentEvents.
+
+    Each step is mapped via ``_step_to_agent_event``. Steps whose type is
+    not handled are skipped with a log message.  The originating SDK step
+    class is returned alongside each event so callers can determine turn
+    boundaries without inspecting event content.
+
+    Args:
+        steps: The ``steps`` list from a GenAI SDK ``Interaction`` object.
+
+    Returns:
+        A list of ``(AgentEvent, step_class)`` tuples.
+    """
+    events: list[tuple[types.evals.AgentEvent, type]] = []
+    for step in steps:
+        event = _step_to_agent_event(step)
+        if event is not None:
+            events.append((event, type(step)))
+    return events
+
+
+def _interaction_dict_to_agent_data(
+    interaction: dict[str, Any],
+) -> types.evals.AgentData:
+    """Converts an Interaction API JSON response to an AgentData object.
+
+    Parses the raw dict into a typed ``Interaction`` object (from the GenAI
+    SDK) so that step conversion uses ``isinstance`` checks and typed
+    attribute access.  Steps are grouped into ConversationTurns -- each
+    ``UserInputStep`` starts a new turn, so multi-turn conversations
+    produce multiple turns.
+
+    Args:
+        interaction: A dict from the Interactions API GET response.
+
+    Returns:
+        An AgentData object with one or more ConversationTurns.
+    """
+    typed_interaction = interaction_types.Interaction.model_validate(interaction)
+    all_events = _interaction_steps_to_events(typed_interaction.steps or [])
+
+    # Group events into turns. Each UserInputStep starts a new turn.
+    grouped: list[list[types.evals.AgentEvent]] = []
+    for event, step_type in all_events:
+        if not grouped or step_type is userinputstep.UserInputStep:
+            grouped.append([])
+        grouped[-1].append(event)
+
+    if not grouped:
+        return types.evals.AgentData(  # pytype: disable=missing-parameter
+            turns=[
+                types.evals.ConversationTurn(  # pytype: disable=missing-parameter
+                    turn_index=0, events=[]
+                )
+            ]
+        )
+    return types.evals.AgentData(  # pytype: disable=missing-parameter
+        turns=[
+            types.evals.ConversationTurn(  # pytype: disable=missing-parameter
+                turn_index=i, events=events
+            )
+            for i, events in enumerate(grouped)
+        ]
+    )
+
+
+def _merge_text_parts_in_agent_data(
+    agent_data: types.evals.AgentData,
+) -> None:
+    """Merges consecutive text events and parts for cleaner trace display.
+
+    The Interaction API may return multiple consecutive ``model_output``
+    steps (one per paragraph) and/or multiple text content items within a
+    single step.  ``_interaction_dict_to_agent_data`` maps each step to a
+    separate event, and each content item to a separate ``part``, causing
+    the trace renderer to display them as separate visual blocks.
+
+    This function performs two merges:
+
+    1. **Event merge** -- consecutive events from the same author that
+       contain only text parts are collapsed into a single event.
+    2. **Part merge** -- within each (possibly merged) event, consecutive
+       text-only parts are collapsed into a single part.
+
+    Mutates ``agent_data`` in place.
+
+    Args:
+        agent_data: An AgentData object to merge in place.
+    """
+    for turn in agent_data.turns or []:
+        events = turn.events
+        if not events:
+            continue
+
+        # --- Pass 1: merge consecutive text-only events from the same author ---
+        merged_events: list[types.evals.AgentEvent] = []
+        for event in events:
+            parts = (event.content.parts if event.content else None) or []
+            is_text_only = parts and all(
+                p.text is not None
+                and p.function_call is None
+                and p.function_response is None
+                for p in parts
+            )
+            if (
+                merged_events
+                and is_text_only
+                and event.author == merged_events[-1].author
+            ):
+                prev_content = merged_events[-1].content
+                prev_parts = (prev_content.parts if prev_content else None) or []
+                prev_parts.extend(parts)
+                continue
+            merged_events.append(event)
+        turn.events = merged_events
+
+        # --- Pass 2: merge consecutive text parts within each event ---
+        for event in turn.events:
+            content = event.content
+            if not content:
+                continue
+            parts = content.parts
+            if not parts or len(parts) <= 1:
+                continue
+            merged_parts: list[genai_types.Part] = []
+            text_buffer: list[str] = []
+            for part in parts:
+                if (
+                    part.text is not None
+                    and part.function_call is None
+                    and part.function_response is None
+                ):
+                    text_buffer.append(part.text)
+                else:
+                    if text_buffer:
+                        merged_parts.append(
+                            genai_types.Part(text="\n".join(text_buffer))
+                        )
+                        text_buffer = []
+                    merged_parts.append(part)
+            if text_buffer:
+                merged_parts.append(genai_types.Part(text="\n".join(text_buffer)))
+            content.parts = merged_parts
+
+
+def _agent_tools_to_config_tools(
+    agent_tools: Optional[list[Any]],
+) -> Optional[list[genai_types.Tool]]:
+    """Maps Gemini Agents API tools to ``genai_types.Tool`` for an AgentConfig.
+
+    The Gemini Agents API returns built-in tool variants (``google_search``,
+    ``code_execution``, ``url_context``) whose schema differs from
+    ``genai_types.Tool``.  Each recognised built-in variant is mapped to the
+    matching ``genai_types.Tool`` field.  Tools with a non-empty body after
+    stripping the ``type`` key (e.g. ``function_declarations``) are passed
+    through ``model_validate``.  Variants without a ``genai_types.Tool``
+    equivalent (e.g. ``filesystem``, ``mcp_server``) are skipped.
+
+    Args:
+        agent_tools: The ``tools`` list from a fetched Gemini agent dict.
+
+    Returns:
+        A list of ``genai_types.Tool``, or ``None`` if there are no mappable
+        tools.
+    """
+    if not agent_tools:
+        return None
+    tools: list[genai_types.Tool] = []
+    for tool in agent_tools:
+        if not isinstance(tool, dict):
+            continue
+        tool_type = tool.get("type")
+        if tool_type == "google_search":
+            tools.append(genai_types.Tool(google_search=genai_types.GoogleSearch()))
+        elif tool_type == "code_execution":
+            tools.append(
+                genai_types.Tool(code_execution=genai_types.ToolCodeExecution())
+            )
+        elif tool_type == "url_context":
+            tools.append(genai_types.Tool(url_context=genai_types.UrlContext()))
+        else:
+            # For non-built-in tools (e.g. function_declarations), strip the
+            # type key and validate through genai_types.Tool.
+            remainder = {k: v for k, v in tool.items() if k != "type"}
+            if remainder:
+                tools.append(genai_types.Tool.model_validate(remainder))
+    return tools or None
+
+
+def _fetch_agent_config_dict(
+    api_client: BaseApiClient,
+    agent_resource_name: str,
+) -> types.evals.AgentConfig:
+    """Fetches an agent's config from the Agent API and returns an AgentConfig.
+
+    Fetches the Agent resource via ``GET agents/{id}`` and extracts the
+    system instruction, description, base agent type, and tools.  Built-in
+    tools (``google_search``, ``code_execution``, ``url_context``) are mapped
+    to their ``genai_types.Tool`` equivalents via
+    ``_agent_tools_to_config_tools``.
+
+    Args:
+        api_client: The API client used to fetch the agent.
+        agent_resource_name: Full resource name of the agent, e.g.
+            ``projects/p/locations/l/agents/my-agent``.
+
+    Returns:
+        An AgentConfig with ``agent_id`` and, when available,
+        ``instruction``, ``description``, ``agent_type``, and ``tools``.
+    """
+    agent_short_id = agent_resource_name.split("/")[-1] or "agent"
+
+    instruction: Optional[str] = None
+    description: Optional[str] = None
+    agent_type: Optional[str] = None
+    tools: Optional[list[genai_types.Tool]] = None
+
+    try:
+        agent_resp = api_client.request("get", f"agents/{agent_short_id}", {}, None)
+        if agent_resp.body:
+            agent_dict = json.loads(agent_resp.body)
+            instruction = agent_dict.get("system_instruction") or None
+            description = agent_dict.get("description") or None
+            agent_type = agent_dict.get("base_agent") or None
+            tools = _agent_tools_to_config_tools(agent_dict.get("tools"))
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Failed to fetch agent config for '%s' (continuing without it): %s",
+            agent_resource_name,
+            e,
+        )
+
+    return types.evals.AgentConfig(  # pytype: disable=missing-parameter
+        agent_id=agent_short_id,
+        instruction=instruction,
+        description=description,
+        agent_type=agent_type,
+        tools=tools,
+    )
+
+
+def _get_resolved_location(api_client: Any) -> Optional[str]:
+    """Returns the location configured on the API client."""
+    return getattr(api_client, "location", None)
+
+
+class _InteractionsRestClient:
+    """Minimal Interactions API client issued through the SDK api_client.
+
+    Calls go through `api_client.request()` (rather than the google.genai
+    `_gaos` client) so that the `ReplayApiClient` records and replays them.
+    Requests and responses are plain dicts.
+    """
+
+    def __init__(self, api_client: BaseApiClient):
+        self._api_client = api_client
+
+    def create(self, request_dict: dict[str, Any]) -> dict[str, Any]:
+        response = self._api_client.request("post", "interactions", request_dict)
+        return json.loads(response.body) if response.body else {}
+
+    def get(self, interaction_id: str) -> dict[str, Any]:
+        response = self._api_client.request("get", f"interactions/{interaction_id}", {})
+        return json.loads(response.body) if response.body else {}
+
+
+def _get_interactions_client(api_client: BaseApiClient) -> _InteractionsRestClient:
+    """Returns an Interactions API client bound to `api_client`.
+
+    The client issues calls through the SDK's existing `api_client` (a
+    `BaseApiClient`, or a `ReplayApiClient` in tests) so that replay recording
+    captures the interaction calls.
+
+    Args:
+        api_client: The API client used to issue interaction calls.
+
+    Returns:
+        An `_InteractionsRestClient`.
+    """
+    return _InteractionsRestClient(api_client)
+
+
+def _agent_data_response_text(agent_data: types.evals.AgentData) -> Optional[str]:
+    """Concatenates the text of all model-role events in an AgentData."""
+    text_parts: list[str] = []
+    for turn in agent_data.turns or []:
+        for event in turn.events or []:
+            content = event.content
+            if not content or content.role != _evals_constant.MODEL_AUTHOR:
+                continue
+            for part in content.parts or []:
+                if part.text:
+                    text_parts.append(part.text)
+    return "".join(text_parts) or None
+
+
+def _agent_resource_to_agent_info(
+    agent: str, api_client: BaseApiClient
+) -> "types.evals.AgentInfo":
+    """Builds an `AgentInfo` from a Gemini Agents API agent resource name.
+
+    Fetches the agent through the SDK's `api_client` (so replay recording is
+    preserved) via `_fetch_agent_config_dict` and derives a single-agent
+    `AgentInfo`: the agent's short name is the agents-map key and
+    `root_agent_id`.
+
+    Args:
+        agent: The Gemini Agents API agent resource name
+          (`projects/{p}/locations/{l}/agents/{name}`).
+        api_client: The API client used to fetch the agent.
+
+    Returns:
+        An `AgentInfo` describing the fetched agent.
+    """
+    agent_config = _fetch_agent_config_dict(api_client, agent)
+    short_name = agent_config.agent_id
+    return types.evals.AgentInfo(  # pytype: disable=missing-parameter
+        name=short_name,
+        agents={short_name: agent_config},
+        root_agent_id=short_name,
+    )
+
+
+_INTERACTION_TERMINAL_STATES = frozenset(
+    ["completed", "failed", "cancelled", "incomplete", "budget_exceeded"]
+)
+
+_INITIAL_POLL_INTERVAL_SECONDS = 2.0
+_MAX_POLL_INTERVAL_SECONDS = 30.0
+_POLL_BACKOFF_MULTIPLIER = 2.0
+
+
+def _await_interaction(
+    interactions_client: "_InteractionsRestClient",
+    interaction: dict[str, Any],
+    initial_poll_interval_seconds: float = _INITIAL_POLL_INTERVAL_SECONDS,
+    max_poll_interval_seconds: float = _MAX_POLL_INTERVAL_SECONDS,
+    poll_backoff_multiplier: float = _POLL_BACKOFF_MULTIPLIER,
+    timeout_seconds: float = 600.0,
+) -> dict[str, Any]:
+    """Polls a background interaction until it reaches a terminal state.
+
+    Gemini agent interactions must run in the background (`background=True`), so
+    `create` returns before the model output is ready. This polls
+    `interactions.get` until the interaction reaches a terminal state and then
+    returns the resolved interaction. The delay between polls grows
+    exponentially (capped at `max_poll_interval_seconds`) to avoid hitting rate
+    limits when evaluating large datasets.
+
+    Args:
+        interactions_client: The interactions client used to poll.
+        interaction: The interaction returned by `create`.
+        initial_poll_interval_seconds: Delay before the first poll.
+        max_poll_interval_seconds: Upper bound for the poll interval.
+        poll_backoff_multiplier: Factor the interval grows by after each poll.
+        timeout_seconds: Maximum time to wait before raising.
+
+    Returns:
+        The resolved interaction once it reaches a terminal state.
+
+    Raises:
+        TimeoutError: If the interaction does not complete within the timeout.
+    """
+    if interaction.get("status") in _INTERACTION_TERMINAL_STATES:
+        return interaction
+    interaction_id = interaction.get("id")
+    deadline = time.monotonic() + timeout_seconds
+    poll_interval = initial_poll_interval_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(poll_interval, remaining))
+        interaction = interactions_client.get(interaction_id)
+        if interaction.get("status") in _INTERACTION_TERMINAL_STATES:
+            return interaction
+        poll_interval = min(
+            poll_interval * poll_backoff_multiplier, max_poll_interval_seconds
+        )
+    raise TimeoutError(
+        f"Interaction {interaction_id} did not complete within"
+        f" {timeout_seconds} seconds."
+    )
+
+
+def _run_gemini_agent_inference(
+    *,
+    api_client: BaseApiClient,
+    gemini_agent: str,
+    prompt_dataset: pd.DataFrame,
+) -> pd.DataFrame:
+    """Runs inference against a Gemini Agents API agent via the Interactions API.
+
+    For each prompt row, creates an interaction against `gemini_agent` and
+    collects the interaction id, response text, and agent data.
+
+    Args:
+        api_client: The API client used to issue interaction calls.
+        gemini_agent: The Gemini Agents API agent resource name.
+        prompt_dataset: The prompt DataFrame. The prompt is read from the
+          `request` column if present, otherwise from the `prompt` column.
+
+    Returns:
+        A DataFrame with columns prompt, response, interaction_id, agent_data.
+    """
+    prompt_column = (
+        "request" if "request" in prompt_dataset.columns else _evals_constant.PROMPT
+    )
+    if prompt_column not in prompt_dataset.columns:
+        raise ValueError(
+            "The eval dataset provided for Gemini agent inference must contain a"
+            f" '{_evals_constant.PROMPT}' or 'request' column."
+        )
+
+    interactions_client = _get_interactions_client(api_client)
+
+    agent_short_id = gemini_agent.split("/")[-1]
+    prompts: list[str] = []
+    responses: list[Optional[str]] = []
+    interaction_ids: list[Optional[str]] = []
+    agent_data: list[dict[str, Any]] = []
+    for prompt in tqdm(
+        prompt_dataset[prompt_column].tolist(), desc="Gemini Agent Inference"
+    ):
+        prompts.append(prompt)
+        try:
+            interaction = interactions_client.create(
+                {
+                    "agent": agent_short_id,
+                    "input": [{"type": "text", "text": prompt}],
+                    "store": True,
+                    "background": True,
+                }
+            )
+            interaction = _await_interaction(interactions_client, interaction)
+            agent_data_obj = _interaction_dict_to_agent_data(interaction)
+            _merge_text_parts_in_agent_data(agent_data_obj)
+            responses.append(_agent_data_response_text(agent_data_obj))
+            interaction_ids.append(interaction.get("id"))
+            agent_data.append(agent_data_obj.model_dump(mode="json", exclude_none=True))
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "Gemini agent inference failed for a prompt (recording an empty"
+                " row and continuing): %s",
+                e,
+            )
+            responses.append(None)
+            interaction_ids.append(None)
+            agent_data.append({})
+
+    return pd.DataFrame(
+        {
+            _evals_constant.PROMPT: prompts,
+            _evals_constant.RESPONSE: responses,
+            _evals_constant.INTERACTION_ID: interaction_ids,
+            _evals_constant.AGENT_DATA: agent_data,
+        }
+    )
+
+
+def _normalize_interaction_resource(
+    interaction: str, agent: str, location: Optional[str]
+) -> str:
+    """Normalizes an interaction id into a full resource name.
+
+    A bare interaction id is expanded to
+    `projects/{project}/locations/{location}/interactions/{id}` using the
+    project and location parsed from the agent resource name. Fully-qualified
+    interaction resource names are returned unchanged.
+    """
+    if interaction.startswith("projects/"):
+        return interaction
+    parts = agent.split("/")
+    project = parts[1]
+    agent_location = parts[3] if len(parts) > 3 else (location or "global")
+    return f"projects/{project}/locations/{agent_location}/interactions/{interaction}"
+
+
+def _build_interaction_id_dataset(
+    loaded_data: list[dict[str, Any]],
+    agent: Optional[str],
+    location: Optional[str],
+) -> Optional[types.EvaluationDataset]:
+    """Builds an EvaluationDataset from rows that carry an `interaction_id`.
+
+    When the dataset contains an `interaction_id` column, each row is turned
+    into an EvalCase whose `interactions_data_source` references the interaction
+    and the Gemini agent. The backend resolves the interaction trace and agent
+    config; no client-side prompt/response is required. Returns None if the
+    data does not contain interaction ids.
+    """
+    has_interaction_id = bool(loaded_data) and any(
+        _evals_constant.INTERACTION_ID in row for row in loaded_data
+    )
+    if not has_interaction_id:
+        if agent:
+            raise ValueError(
+                "An `agent` was provided but the dataset does not contain an"
+                " `interaction_id` column. The `agent` argument is only used to"
+                " resolve an `interaction_id` dataset column (so the backend can"
+                " fetch the interaction trace and Agent config). To evaluate"
+                " with an agent, provide a dataset with an `interaction_id`"
+                " column; otherwise omit `agent`."
+            )
+        return None
+
+    if not agent:
+        raise ValueError(
+            "An `agent` resource name is required when the dataset contains an"
+            " `interaction_id` column, so the backend can resolve the Agent"
+            " config for each interaction."
+        )
+    if not _is_gemini_agent_resource(agent):
+        raise ValueError(
+            "`agent` must be a Gemini Agents API resource name of the form"
+            " projects/{project}/locations/{location}/agents/{agent} when"
+            f" evaluating interaction ids. Got: {agent}"
+        )
+
+    gemini_agent_config = types.GeminiAgentConfig(gemini_agent=agent)
+    eval_cases = []
+    for i, row in enumerate(loaded_data):
+        interaction = row.get(_evals_constant.INTERACTION_ID)
+        if not interaction:
+            raise ValueError(f"Missing `interaction_id` value for row {i}.")
+        eval_cases.append(
+            types.EvalCase(
+                eval_case_id=f"eval_case_{i}",
+                interactions_data_source=types.InteractionsDataSource(
+                    interaction=_normalize_interaction_resource(
+                        str(interaction), agent, location
+                    ),
+                    gemini_agent_config=gemini_agent_config,
+                ),
+            )
+        )
+    return types.EvaluationDataset(eval_cases=eval_cases)
+
+
+def _has_interactions_data_source(
+    eval_cases: list[types.EvalCase],
+) -> bool:
+    """Returns True if any EvalCase has interactions_data_source set."""
+    return any(case.interactions_data_source is not None for case in eval_cases)
+
+
+def _resolve_interactions_to_eval_cases(
+    api_client: BaseApiClient,
+    eval_cases: list[types.EvalCase],
+) -> list[types.EvalCase]:
+    """Resolves EvalCases with interactions_data_source to agent_data.
+
+    For each EvalCase that has interactions_data_source set, fetches the
+    Interaction via the SDK's interactions.get() API, converts the steps
+    to AgentData, and returns a new EvalCase with agent_data populated.
+
+    Args:
+        api_client: The API client (must have an interactions module).
+        eval_cases: EvalCases with interactions_data_source set.
+
+    Returns:
+        New list of EvalCases with agent_data populated from resolved
+        interactions.
+
+    Raises:
+        ValueError: If eval_cases have missing interaction references.
+    """
+    # Validate all cases up front before making any API calls.
+    for case in eval_cases:
+        ids = case.interactions_data_source
+        if ids is None:
+            raise ValueError(
+                "All eval_cases must have interactions_data_source set when"
+                " using interaction resolution. Found a case without it. Do"
+                " not mix interaction-based and prompt-based eval cases."
+            )
+        if not ids.interaction:
+            raise ValueError(
+                "interactions_data_source.interaction is required. Each"
+                " EvalCase must reference an existing Interaction resource."
+            )
+
+    resolved_cases = []
+
+    for case in eval_cases:
+        if case.agent_data:
+            resolved_cases.append(case)
+            continue
+        ids = case.interactions_data_source
+
+        # Extract the interaction short ID from the resource name.
+        # Handles both full resource names (projects/.../interactions/{id})
+        # and bare IDs by always taking the last path component.
+        interaction_id = ids.interaction.split("/")[-1]
+
+        logger.info("Fetching interaction: %s", ids.interaction)
+
+        current_interaction_id = interaction_id
+        interactions = []
+        seen_ids = set()
+        for _ in range(_MAX_INTERACTION_CHAIN_DEPTH):
+            if current_interaction_id in seen_ids:
+                break
+            seen_ids.add(current_interaction_id)
+            path = f"interactions/{current_interaction_id}"
+            response = api_client.request("get", path, {}, None)
+            if not response.body:
+                if not interactions:
+                    logger.warning(
+                        "Empty response fetching interaction %s.",
+                        ids.interaction,
+                    )
+                break
+            interaction_dict = json.loads(response.body)
+            try:
+                typed_interaction = interaction_types.Interaction.model_validate(
+                    interaction_dict
+                )
+            except Exception as e:
+                logger.warning("Failed to validate interaction model: %s", e)
+                break
+
+            interactions.append(typed_interaction)
+            if not typed_interaction.previous_interaction_id:
+                break
+            current_interaction_id = typed_interaction.previous_interaction_id.split(
+                "/"
+            )[-1]
+
+        if not interactions:
+            agent_data = types.evals.AgentData(turns=[])  # Fallback
+        else:
+            interactions.reverse()  # chronological order
+            all_steps = []
+            for i_typed in interactions:
+                all_steps.extend(i_typed.steps or [])
+
+            combined_interaction = interactions[-1].model_dump()
+            combined_interaction["steps"] = all_steps
+            agent_data = _interaction_dict_to_agent_data(combined_interaction)
+
+        # Best-effort: fetch the agent config (instruction, tools,
+        # description) from the Agent API so the display can render
+        # the System Topology section.
+        gemini_cfg = ids.gemini_agent_config
+        agent_name = gemini_cfg.gemini_agent if gemini_cfg else None
+        agent_config = _fetch_agent_config_dict(api_client, agent_name or "")
+        agent_data.agents = {agent_config.agent_id: agent_config}
+
+        # Merge consecutive text events and parts so multi-paragraph
+        # responses render as a single block in the trace display.
+        _merge_text_parts_in_agent_data(agent_data)
+
+        # Preserve all original EvalCase fields; only update agent_data
+        # and clear the now-resolved interactions_data_source.
+        resolved_cases.append(
+            case.model_copy(
+                update={
+                    "agent_data": agent_data,
+                    "interactions_data_source": None,
+                }
+            )
+        )
+
+    return resolved_cases
+
+
+def _resolve_interactions_for_display(
+    api_client: BaseApiClient,
+    dataset_list: list[types.EvaluationDataset],
+) -> list[types.EvaluationDataset]:
+    """Resolves Interaction traces for visualization."""
+    resolved_datasets = []
+    for dataset in dataset_list:
+        if dataset.eval_cases and _has_interactions_data_source(dataset.eval_cases):
+            try:
+                resolved_cases = _resolve_interactions_to_eval_cases(
+                    api_client, dataset.eval_cases
+                )
+                resolved_datasets.append(
+                    dataset.model_copy(update={"eval_cases": resolved_cases})
+                )
+            except Exception as e:
+                logger.warning("Failed to resolve interactions for display: %s", e)
+                resolved_datasets.append(dataset)
+        else:
+            resolved_datasets.append(dataset)
+    return resolved_datasets
 
 
 def _add_evaluation_run_labels(
@@ -1406,6 +2213,7 @@ def _execute_inference(
     model: Optional[Union[Callable[[Any], Any], str]] = None,
     agent_engine: Optional[Union[str, types.AgentEngine]] = None,
     agent: Optional["LlmAgent"] = None,  # type: ignore # noqa: F821
+    gemini_agent: Optional[str] = None,
     dest: Optional[str] = None,
     config: Optional[genai_types.GenerateContentConfig] = None,
     prompt_template: Optional[Union[str, types.PromptTemplateOrDict]] = None,
@@ -1424,6 +2232,8 @@ def _execute_inference(
         agent_engine: The agent engine to use for inference. Can be a resource
           name string or an `AgentEngine` instance.
         agent: The local agent to use for inference. Can be an ADK agent instance.
+        gemini_agent: The Gemini Agents API agent resource name to run inference
+          against via the Interactions API.
         dest: The destination to save the inference results. Can be a string
           representing a file path or a GCS URI.
         config: The generation configuration for the model.
@@ -1441,9 +2251,10 @@ def _execute_inference(
     if location:
         api_client = _get_api_client_with_location(api_client, location)
 
-    if sum(x is not None for x in [model, agent_engine, agent]) != 1:
+    if sum(x is not None for x in [model, agent_engine, agent, gemini_agent]) != 1:
         raise ValueError(
-            "Exactly one of model, agent_engine, or agent must be provided."
+            "Exactly one of model, agent_engine, agent, or gemini_agent must be"
+            " provided."
         )
 
     prompt_dataset = _load_dataframe(api_client, src)
@@ -1456,7 +2267,24 @@ def _execute_inference(
 
         _apply_prompt_template(prompt_dataset, prompt_template)
 
-    if model:
+    if gemini_agent:
+        start_time = time.time()
+        logger.debug("Starting Gemini Agent inference process ...")
+        results_df = _run_gemini_agent_inference(
+            api_client=api_client,
+            gemini_agent=gemini_agent,
+            prompt_dataset=prompt_dataset,
+        )
+        end_time = time.time()
+        logger.info(
+            "Gemini Agent inference completed in %.2f seconds.",
+            end_time - start_time,
+        )
+        return types.EvaluationDataset(
+            eval_dataset_df=results_df,
+            candidate_name=gemini_agent.split("/")[-1],
+        )
+    elif model:
         start_time = time.time()
         logger.debug("Starting inference process ...")
         results_df = _run_inference_internal(
@@ -1591,6 +2419,8 @@ def _resolve_dataset_inputs(
     dataset_schema: Optional[Literal["GEMINI", "FLATTEN", "OPENAI"]],
     loader: "_evals_utils.EvalDatasetLoader",
     agent_info: Optional[types.evals.AgentInfo] = None,
+    agent: Optional[str] = None,
+    api_client: Any = None,
 ) -> tuple[types.EvaluationDataset, int]:
     """Loads and processes single or multiple datasets for evaluation.
 
@@ -1639,6 +2469,21 @@ def _resolve_dataset_inputs(
 
         ds_source_for_loader = _get_dataset_source(ds_item)
         current_loaded_data = loader.load(ds_source_for_loader)
+
+        interaction_dataset = _build_interaction_id_dataset(
+            current_loaded_data, agent, _get_resolved_location(api_client)
+        )
+        if interaction_dataset is not None:
+            if dataset_schema:
+                raise ValueError(
+                    "`dataset_schema` is not supported for datasets with an"
+                    " `interaction_id` column. The interaction trace and agent"
+                    " config are resolved by the backend, so no client-side"
+                    " schema conversion is applied. Omit `dataset_schema` when"
+                    " evaluating an interaction_id dataset."
+                )
+            parsed_evaluation_datasets.append(interaction_dataset)
+            continue
 
         if dataset_schema:
             current_schema = _evals_data_converters.EvalDatasetSchema(dataset_schema)
@@ -1797,6 +2642,7 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
     api_client: Any,
     dataset: Union[types.EvaluationDataset, list[types.EvaluationDataset]],
     metrics: list[types.Metric],
+    agent: Optional[str] = None,
     dataset_schema: Optional[Literal["GEMINI", "FLATTEN", "OPENAI"]] = None,
     dest: Optional[str] = None,
     location: Optional[str] = None,
@@ -1877,6 +2723,8 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
         dataset_schema=dataset_schema,
         loader=loader,
         agent_info=validated_agent_info,
+        agent=agent,
+        api_client=api_client,
     )
 
     resolved_metrics = _resolve_metrics(metrics, api_client)
@@ -1896,6 +2744,11 @@ def _execute_evaluation(  # type: ignore[no-untyped-def]
     )
     t2 = time.perf_counter()
     logger.info("Evaluation took: %f seconds", t2 - t1)
+
+    # Resolve interactions_data_source to agent_data for display.
+    # This fetches Interaction trace data client-side so that show() can
+    # render the System Topology and Conversation Trace sections.
+    dataset_list = _resolve_interactions_for_display(api_client, dataset_list)
 
     evaluation_result.evaluation_dataset = dataset_list
     evaluation_result.agent_info = validated_agent_info

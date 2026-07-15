@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import time
 from typing import (
     Any,
@@ -20,6 +21,20 @@ from opentelemetry import context as context_api
 
 if TYPE_CHECKING:
     from .analytics import ManualSpan
+
+
+# ``finish(*, output=None, **extra)`` salvage sets (DEV-1184). ``**extra`` used
+# to be splatted straight into ``PartialTrackAIEvent(**extra)``; because the
+# models are ``extra="forbid"`` a single unknown key raised a ValidationError
+# that finish()'s crash-guard swallowed, silently dropping the ENTIRE final
+# update — output included. Instead we route each extra key: recognized
+# top-level fields pass through, known AI fields are nested under ``ai_data``
+# (the same wire contract begin(model=...) uses), and anything unknown is
+# dropped with a loud, rate-limited warning while the valid fields still ship.
+_FINISH_PASSTHROUGH_FIELDS = frozenset(
+    {"user_id", "event", "timestamp", "properties", "attachments"}
+)
+_FINISH_AI_DATA_ALIASES = frozenset({"model", "input", "convo_id"})
 
 
 class Interaction:
@@ -107,6 +122,22 @@ class Interaction:
             return
         self.set_properties({key: value})
 
+    def set_model(self, model: str) -> None:
+        """Attach (or overwrite) the AI model for this open interaction.
+
+        Companion to ``begin(model=...)`` for mid-lifecycle updates; the model
+        is nested under ``ai_data`` on the wire, matching the TS SDK.
+        """
+        if self._disabled:
+            return
+        self._analytics._track_ai_partial(
+            PartialTrackAIEvent(
+                event_id=self._event_id,
+                ai_data={"model": model},
+            ),
+            state=self._state,
+        )
+
     def finish(self, *, output: str | None = None, **extra: Any) -> None:
         """Mark the interaction complete.
 
@@ -120,28 +151,59 @@ class Interaction:
         On process shutdown, ``analytics.shutdown()`` (registered via
         ``atexit``) drains any still-pending partials before exiting, under
         the shutdown deadline.
+
+        Unknown keyword arguments in ``**extra`` never cause silent data loss
+        (DEV-1184): recognized fields (``user_id``/``event``/``timestamp``/
+        ``properties``/``attachments``) pass through, known AI fields
+        (``model``/``input``/``convo_id``) nest under ``ai_data``, and any
+        unrecognized key is dropped with a loud, rate-limited warning while
+        the valid fields — ``output`` above all — still ship.
         """
         if self._disabled:
             return
         try:
             capped_output = (
                 self._analytics._cap_text(output, state=self._state)
-            if output is not None
-            else None
+                if output is not None
+                else None
             )
-            payload = PartialTrackAIEvent(
-                event_id=self._event_id,
-                ai_data={"output": capped_output}
-                if capped_output is not None
-                else None,
-                is_pending=False,
-                **extra,
-            )
-            self._analytics._track_ai_partial(payload, state=self._state)
+
+            ai_data: Dict[str, Any] = {}
+            if capped_output is not None:
+                ai_data["output"] = capped_output
+            passthrough: Dict[str, Any] = {}
+            unknown: List[str] = []
+            for key, value in extra.items():
+                if key in _FINISH_AI_DATA_ALIASES:
+                    ai_data[key] = (
+                        self._analytics._cap_text(value, state=self._state)
+                        if key == "input" and isinstance(value, str)
+                        else value
+                    )
+                elif key in _FINISH_PASSTHROUGH_FIELDS:
+                    passthrough[key] = value
+                else:
+                    unknown.append(key)
+
+            if unknown:
+                self._analytics._rate_limited_log(
+                    "interaction-finish-unknown-kwarg",
+                    logging.WARNING,
+                    "[raindrop] finish() got unsupported keyword argument(s) "
+                    "%s for event %s; dropping only those and delivering the "
+                    "rest of the final update (including output). Pass AI "
+                    "fields such as 'model' — they are nested under ai_data — "
+                    "and see the SDK docs for supported finish() arguments.",
+                    sorted(unknown),
+                    self._event_id,
+                )
+
+            payload = self._coalesce_finish_payload(ai_data, passthrough)
+            if payload is not None:
+                self._analytics._track_ai_partial(payload, state=self._state)
         except Exception:
             # Crash protection (AGENTS.md): a telemetry finish() must never
-            # take the host app down — e.g. invalid **extra fields raising
-            # pydantic ValidationError. Log with traceback and degrade; the
+            # take the host app down. Log with traceback and degrade; the
             # finally below still cleans up the routing binding.
             self._analytics.logger.error(
                 "[raindrop] finish() failed for event %s; dropping the final "
@@ -160,6 +222,84 @@ class Interaction:
             # binding in place (see unbind_current).
             self._analytics._rd_tracing.unbind_current(self._bound_ctx)
             self._bound_ctx = None
+
+    def _coalesce_finish_payload(
+        self, ai_data: Dict[str, Any], passthrough: Dict[str, Any]
+    ) -> Optional[PartialTrackAIEvent]:
+        """Build the final ``PartialTrackAIEvent``, salvaging valid fields.
+
+        A recognized field can still carry an invalid *value* (e.g.
+        ``properties`` that isn't a dict, or a non-string ``model``) and trip
+        ``extra="forbid"`` validation. Rather than lose the whole update, fall
+        back in widening steps so the highest-value payload that validates
+        ships: drop the passthrough fields, then drop the invalid AI aliases
+        while keeping ``output`` (the crown-jewel field), then a bare close.
+        The final ``is_pending=False`` close guarantees the interaction still
+        settles instead of lingering until the inactivity timeout.
+        """
+
+        def _build(ad: Dict[str, Any], pt: Dict[str, Any]) -> PartialTrackAIEvent:
+            return PartialTrackAIEvent(
+                event_id=self._event_id,
+                ai_data=ad or None,
+                is_pending=False,
+                **pt,
+            )
+
+        # 1. Everything as supplied.
+        try:
+            return _build(ai_data, passthrough)
+        except Exception:
+            pass
+
+        # 2. A recognized top-level field carried an invalid value — drop the
+        #    passthrough fields, keep the full ai_data (output + model/...).
+        if passthrough:
+            self._analytics._rate_limited_log(
+                "interaction-finish-invalid-field",
+                logging.WARNING,
+                "[raindrop] finish() got invalid value(s) for %s on event "
+                "%s; dropping those fields and still delivering ai_data "
+                "(output/model). See the SDK docs for expected types.",
+                sorted(passthrough),
+                self._event_id,
+            )
+            try:
+                return _build(ai_data, {})
+            except Exception:
+                pass
+
+        # 3. A known AI alias (model/input/convo_id) carried an invalid value,
+        #    poisoning the whole ai_data blob. Keep only ``output`` — a capped
+        #    str that is always valid — so the crown-jewel field still ships.
+        output_only = {k: v for k, v in ai_data.items() if k == "output"}
+        if output_only != ai_data:
+            self._analytics._rate_limited_log(
+                "interaction-finish-invalid-ai-field",
+                logging.WARNING,
+                "[raindrop] finish() got invalid AI field value(s) %s on event "
+                "%s; dropping them and still delivering output. See the SDK "
+                "docs for expected types.",
+                sorted(k for k in ai_data if k != "output"),
+                self._event_id,
+            )
+            try:
+                return _build(output_only, {})
+            except Exception:
+                pass
+
+        # 4. Nothing else validates — close the interaction (is_pending=False)
+        #    without a body so it settles rather than lingering to the timeout.
+        self._analytics.logger.error(
+            "[raindrop] finish() could not build the final payload for event "
+            "%s; closing the interaction without it.",
+            self._event_id,
+            exc_info=True,
+        )
+        try:
+            return PartialTrackAIEvent(event_id=self._event_id, is_pending=False)
+        except Exception:
+            return None
 
     def start_span(
         self,

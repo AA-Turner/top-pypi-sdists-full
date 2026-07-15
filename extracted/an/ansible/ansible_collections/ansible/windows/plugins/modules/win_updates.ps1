@@ -26,7 +26,7 @@ $spec = @{
         # options used by the action plugin - ignored here
         reboot = @{ type = 'bool'; default = $false }
         reboot_timeout = @{ type = 'int'; default = 1200 }
-        _operation = @{ type = 'str'; choices = 'start', 'cancel', 'poll'; default = 'start' }
+        _operation = @{ type = 'str'; choices = 'start', 'cancel', 'poll', 'test'; default = 'start' }
         _operation_options = @{ type = 'dict' }
     }
     supports_check_mode = $true
@@ -1095,7 +1095,10 @@ Function Install-WindowsUpdate {
         $CheckMode,
 
         [Switch]
-        $LocalDebugger
+        $LocalDebugger,
+
+        [Switch]
+        $ForTesting
     )
 
     Add-CSharpType -TempPath $TempPath -References @'
@@ -1697,10 +1700,31 @@ namespace Ansible.Windows.WinUpdates
             # COMExceptions don't contain any info in the error message, we make sure we return the HResult for the
             # action plugin to properly decode
             $exitResult.exception.hresult = $_.Exception.HResult
+
+            if ($_.Exception.HResult -eq 0x8007045B) {
+                # ERROR_SHUTDOWN_IN_PROGRESS. We return the last boot time so
+                # the action plugin does not need to do it itself and risk the
+                # connection being lost.
+                $exitResult.exception._is_rebooting_last_boot_time = [string]$lastBootUpTime
+            }
         }
 
         if ($api) {
-            $api.WriteLog("Exception encountered:`r`n$($_ | Out-String)`r`nExiting...")
+            $expMsg = @(
+                "ErrorRecord:"
+                "Message: $_"
+                "FullyQualifiedErrorId: $($_.FullyQualifiedErrorId)"
+                "CategoryInfo: $($_.CategoryInfo)"
+                "TargetObject: $($_.TargetObject)"
+                "ScriptStackTrace:`r`n$($_.ScriptStackTrace)"
+                ""
+                "Exception:"
+                "Type: $($_.Exception.GetType().FullName)"
+                foreach ($prop in $_.Exception.PSObject.Properties) {
+                    "$($prop.Name): $($prop.Value)"
+                }
+            ) -join "`r`n"
+            $api.WriteLog("Exception encountered:`r`n$expMsg`r`nExiting...")
         }
         $OutputCollection.Add(@{
                 task = 'exit'
@@ -1717,6 +1741,11 @@ namespace Ansible.Windows.WinUpdates
         action = $null  # Current action, used for exception information if set
         exception = $null  # Exception info in case of a failure @{message, exception, hresult}
     }
+
+    # We query this first to make sure that if a reboot is in progress during a
+    # failure we don't waste time trying to get this value and can return
+    # quickly.
+    $lastBootUpTime = (Get-CimInstance -ClassName Win32_OperatingSystem -Property LastBootUpTime).LastBootUpTime.ToFileTime()
 
     $api = New-Object -TypeName Ansible.Windows.WinUpdates.API -ArgumentList @(
         $OutputCollection,
@@ -1743,6 +1772,15 @@ namespace Ansible.Windows.WinUpdates
     }
     $searcher.ServerSelection = $serverSelectionValue
     $api.WriteLog("Search source set to '$($ServerSelection)' (ServerSelection = $($serverSelectionValue))")
+
+    if ($ForTesting) {
+        # We use this for testing in CI to avoid actually talking to the WU
+        # endpoint. We've found the service is flaky and times out often enough
+        # to cause test failures. Instead we just test that we can access WUA
+        # in our custom wrapper.
+        $api.WriteProgress('exit', $exitResult)
+        return
+    }
 
     $query = 'IsInstalled = 0'
     $api.WriteLog("Searching for updates to install with query '$query'")
@@ -2144,6 +2182,7 @@ $updateParameters = @{
     SkipOptional = $module.Params.skip_optional
     TempPath = $module.Tmpdir
     CheckMode = $module.CheckMode
+    ForTesting = $module.Params._operation -eq 'test'
 }
 $wait = [bool]$module.Params._operation_options.wait
 

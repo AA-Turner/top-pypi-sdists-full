@@ -3362,6 +3362,16 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     EPSILON: System.Numerics.Decimal64
 
+    ONE: System.Numerics.Decimal64
+
+    NEGATIVE_ONE: System.Numerics.Decimal64
+
+    E: System.Numerics.Decimal64
+
+    PI: System.Numerics.Decimal64
+
+    TAU: System.Numerics.Decimal64
+
     def __add__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
@@ -3446,12 +3456,28 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
     def __truediv__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
+    @staticmethod
+    def abs(value: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def clamp(value: System.Numerics.Decimal64, min: System.Numerics.Decimal64, max: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def clamp_native(value: System.Numerics.Decimal64, min: System.Numerics.Decimal64, max: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
     @overload
     def compare_to(self, value: typing.Any) -> int:
         ...
 
     @overload
     def compare_to(self, other: System.Numerics.Decimal64) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Decimal64, sign: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @overload
@@ -3463,6 +3489,102 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_infinity(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_integer(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative_infinity(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_normal(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def max(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def max_native(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def max_number(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def min(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def min_native(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def min_number(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Decimal64, right: System.Numerics.Decimal64, addend: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3493,6 +3615,10 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
     @staticmethod
     @overload
     def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def sign(value: System.Numerics.Decimal64) -> int:
         ...
 
     @overload
@@ -3893,6 +4019,16 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     EPSILON: System.Numerics.Decimal32
 
+    ONE: System.Numerics.Decimal32
+
+    NEGATIVE_ONE: System.Numerics.Decimal32
+
+    E: System.Numerics.Decimal32
+
+    PI: System.Numerics.Decimal32
+
+    TAU: System.Numerics.Decimal32
+
     def __add__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
@@ -3977,12 +4113,28 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
     def __truediv__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
+    @staticmethod
+    def abs(value: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def clamp(value: System.Numerics.Decimal32, min: System.Numerics.Decimal32, max: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def clamp_native(value: System.Numerics.Decimal32, min: System.Numerics.Decimal32, max: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
     @overload
     def compare_to(self, value: typing.Any) -> int:
         ...
 
     @overload
     def compare_to(self, other: System.Numerics.Decimal32) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Decimal32, sign: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @overload
@@ -3994,6 +4146,102 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_infinity(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_integer(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative_infinity(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_normal(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def max(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def max_native(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def max_number(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def min(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def min_native(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def min_number(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Decimal32, right: System.Numerics.Decimal32, addend: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4024,6 +4272,10 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
     @staticmethod
     @overload
     def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def sign(value: System.Numerics.Decimal32) -> int:
         ...
 
     @overload
@@ -5175,6 +5427,16 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     EPSILON: System.Numerics.Decimal128
 
+    ONE: System.Numerics.Decimal128
+
+    NEGATIVE_ONE: System.Numerics.Decimal128
+
+    E: System.Numerics.Decimal128
+
+    PI: System.Numerics.Decimal128
+
+    TAU: System.Numerics.Decimal128
+
     def __add__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
@@ -5259,12 +5521,28 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
     def __truediv__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
+    @staticmethod
+    def abs(value: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def clamp(value: System.Numerics.Decimal128, min: System.Numerics.Decimal128, max: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def clamp_native(value: System.Numerics.Decimal128, min: System.Numerics.Decimal128, max: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
     @overload
     def compare_to(self, value: typing.Any) -> int:
         ...
 
     @overload
     def compare_to(self, other: System.Numerics.Decimal128) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Decimal128, sign: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @overload
@@ -5276,6 +5554,102 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_infinity(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_integer(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative_infinity(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_normal(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def max(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def max_native(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def max_number(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def min(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def min_native(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def min_number(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Decimal128, right: System.Numerics.Decimal128, addend: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -5306,6 +5680,10 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
     @staticmethod
     @overload
     def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def sign(value: System.Numerics.Decimal128) -> int:
         ...
 
     @overload

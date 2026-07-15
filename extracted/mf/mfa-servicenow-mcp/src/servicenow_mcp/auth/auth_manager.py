@@ -44,6 +44,7 @@ from ._diagnostics import (  # noqa: F401
     _format_response_diagnostic,
     _redact_value,
 )
+from ._display import _visible_browser_unavailable_reason  # noqa: F401
 from ._http_session import (  # noqa: F401
     _CROSS_ORIGIN_STRIP_HEADERS,
     _MAX_MANUAL_REDIRECTS,
@@ -60,6 +61,7 @@ from ._http_session import (  # noqa: F401
     _strip_sensitive_headers,
 )
 from ._keepalive import SessionKeepalive
+from ._process import _is_pid_alive  # noqa: F401
 from ._response_predicates import (  # noqa: F401
     _STALE_PROFILE_COOKIE_NAMES,
     _extract_bigip_routing_hint,
@@ -263,7 +265,7 @@ class AuthManager:
         # cheaply detect when a sibling process has rewritten the file
         # (rotated g_ck, fresh re-auth) so we can adopt the update before
         # firing a request with our now-stale in-memory token.
-        self._session_disk_mtime: float = 0.0
+        self._session_disk_mtime_ns: int = 0
         # v1.18.45: background server-session keep-alive (see _keepalive.py).
         # Started lazily from _mark_browser_session_recently_valid; never
         # opens a browser.
@@ -415,6 +417,15 @@ class AuthManager:
     # login runs inside the blocking tool call, so this also bounds how long
     # an abandoned window can hold that call open.
     VISIBLE_AUTH_PAGE_HARD_CAP_MS: int = 300_000  # 5 min — TOTP entry ceiling
+
+    # Cross-process login lock: how old a lock may get before any process may
+    # collect it, regardless of whether its holder's pid still looks alive.
+    # This is the backstop against pid reuse — see `_acquire_login_lock`.
+    LOGIN_LOCK_STALE_AFTER_SECONDS: float = 300.0
+    # How long a lock whose payload is unreadable is presumed to be a claim in
+    # flight rather than garbage — see `_collect_lock_with_no_timestamp`. Orders
+    # of magnitude above the two syscalls it covers, far below the ceiling above.
+    LOGIN_LOCK_CLAIM_GRACE_SECONDS: float = 5.0
 
     @classmethod
     def _compute_login_wait_budget_ms(
@@ -769,39 +780,185 @@ class AuthManager:
 
         Returns True if we got the lock (no other process is logging in).
         Returns False if another process already holds the lock.
-        Stale locks (PID dead or older than 5 minutes) are automatically cleaned up.
+
+        The lock is claimed with O_CREAT|O_EXCL, so the create IS the claim:
+        exactly one of N racing hosts can win, and the kernel decides. Checking
+        `os.path.exists()` and then writing (what this did until v1.19.11) is a
+        TOCTOU race — two MCP hosts starting together both saw "no lock", both
+        wrote it, both believed they held it, and both opened a browser window
+        for the same profile. That double window is the exact symptom the lock
+        exists to prevent (issue #30).
+
+        Stale locks (holder dead, or older than ``LOGIN_LOCK_STALE_AFTER_SECONDS``)
+        are collected, then the claim is retried exactly once. The age check runs
+        FIRST and is what makes a PID-reuse deadlock impossible: even if an
+        unrelated process inherits a crashed holder's pid and the liveness probe
+        says "alive", the lock still expires on age.
         """
-        if os.path.exists(self._login_lock_path):
+        for is_retry in (False, True):
             try:
-                with open(self._login_lock_path, "r") as f:
-                    lock_data = json.load(f)
-                lock_pid = lock_data.get("pid")
-                lock_time = lock_data.get("timestamp", 0)
-                # Stale lock: process dead or lock older than 5 minutes
-                stale = (time.time() - lock_time) > 300
-                if not stale and lock_pid:
-                    try:
-                        os.kill(lock_pid, 0)  # Check if PID is alive
-                    except OSError:
-                        stale = True  # Process is dead
-                if not stale:
-                    logger.info(
-                        "Login lock held by PID %s (age %.0fs) — "
-                        "another terminal is already logging in.",
-                        lock_pid,
-                        time.time() - lock_time,
-                    )
+                fd = os.open(
+                    self._login_lock_path,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                )
+            except FileExistsError:
+                # Someone holds it. If they're gone, collect it and retry once;
+                # a peer that collects it first simply wins the retry instead.
+                if is_retry or not self._collect_stale_login_lock():
                     return False
-                logger.info("Removing stale login lock (PID %s).", lock_pid)
-            except Exception:
-                pass  # Corrupt lock file — safe to overwrite
-        try:
-            with open(self._login_lock_path, "w") as f:
-                json.dump({"pid": os.getpid(), "timestamp": time.time()}, f)
+                continue
+            except OSError as exc:
+                logger.warning("Failed to acquire login lock: %s", exc)
+                return True  # Fail open — better to double-login than deadlock
+            try:
+                with os.fdopen(fd, "w") as f:
+                    json.dump({"pid": os.getpid(), "timestamp": time.time()}, f)
+            except OSError as exc:
+                logger.warning("Failed to write login lock: %s", exc)
             return True
-        except Exception as exc:
-            logger.warning("Failed to acquire login lock: %s", exc)
-            return True  # Fail open — better to double-login than deadlock
+        return False
+
+    def _collect_stale_login_lock(self) -> bool:
+        """Remove the login lock iff its holder is dead or it aged out.
+
+        Returns True if the lock is now gone and a fresh claim is worth trying.
+
+        Collection is serialized through its own O_EXCL marker, and that is not
+        belt-and-braces — it is load-bearing. "Read the lock, see it's stale,
+        remove it, create mine" is safe alone but not in parallel: N hosts that
+        all read the same stale lock will each remove it and each create their
+        own, and a remove landing after the winner's create wipes a LIVE lock.
+        Inside the marker only one host may look, so the host that gets in
+        re-reads the lock and is the only one that can remove it. Everyone else
+        backs off and waits — which is the correct answer anyway, because the
+        collector is about to log in.
+        """
+        marker_path = f"{self._login_lock_path}.collect"
+        try:
+            marker_fd = os.open(marker_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Another host is collecting right now — let it finish and claim.
+            # If it died mid-collect, its marker ages out and we drop it here so
+            # the stale lock can't become permanently uncollectable.
+            if not self._is_collect_marker_abandoned(marker_path):
+                return False
+            try:
+                os.remove(marker_path)
+            except OSError:
+                return False
+            return True  # retry the claim; the next pass re-enters cleanly
+        except OSError as exc:
+            logger.warning("Failed to open login-lock collect marker: %s", exc)
+            return False
+
+        try:
+            os.write(marker_fd, json.dumps({"timestamp": time.time()}).encode())
+        except OSError:
+            pass  # marker content is a courtesy; its existence is the lock
+
+        try:
+            lock_data = self._read_login_lock()
+            if lock_data is None:
+                return True  # already collected or released — claim is worth a try
+
+            lock_pid = lock_data.get("pid")
+            lock_time = lock_data.get("timestamp")
+            if not isinstance(lock_time, (int, float)):
+                return self._collect_lock_with_no_timestamp()
+
+            age = time.time() - lock_time
+            stale = age > self.LOGIN_LOCK_STALE_AFTER_SECONDS
+            if not stale and lock_pid:
+                stale = not _is_pid_alive(lock_pid)
+            if not stale:
+                logger.info(
+                    "Login lock held by PID %s (age %.0fs) — "
+                    "another terminal is already logging in.",
+                    lock_pid,
+                    age,
+                )
+                return False
+
+            logger.info("Removing stale login lock (PID %s).", lock_pid)
+            return self._remove_login_lock()
+        finally:
+            try:
+                os.close(marker_fd)
+            except OSError:
+                pass
+            try:
+                os.remove(marker_path)
+            except OSError:
+                pass
+
+    def _collect_lock_with_no_timestamp(self) -> bool:
+        """Judge a lock whose content can't say when it was claimed.
+
+        Two very different situations produce one, and they need opposite
+        answers:
+
+        * **Empty.** A peer won the O_EXCL create and hasn't written its payload
+          yet — the create and the write are two syscalls, so a 0-byte lock file
+          is a perfectly normal LIVE claim, microseconds old. Collecting it is
+          how two hosts both end up holding the lock and both open a browser.
+        * **Garbage.** A holder died mid-write, or the file was clobbered. The
+          payload is one small write() — in practice all-or-nothing — so a
+          non-empty file that won't parse is not a claim in flight. Collect it
+          immediately: a broken lock must never block logins.
+
+        Size tells them apart. Age is only the tie-breaker for the empty case,
+        in case a claimant died in the microseconds between create and write.
+        """
+        try:
+            stat_result = os.stat(self._login_lock_path)
+        except OSError:
+            return True  # vanished under us — the claim is worth a retry
+
+        if stat_result.st_size > 0:
+            logger.info("Removing unreadable login lock (garbage payload).")
+            return self._remove_login_lock()
+
+        age = time.time() - stat_result.st_mtime
+        if age <= self.LOGIN_LOCK_CLAIM_GRACE_SECONDS:
+            logger.debug("Login lock was claimed moments ago — backing off.")
+            return False
+        logger.info("Removing empty login lock abandoned mid-claim (age %.0fs).", age)
+        return self._remove_login_lock()
+
+    def _remove_login_lock(self) -> bool:
+        """Delete the lock file. True if it is gone (by our hand or a peer's)."""
+        try:
+            os.remove(self._login_lock_path)
+        except FileNotFoundError:
+            pass  # released while we looked — same outcome
+        except OSError as exc:
+            logger.warning("Failed to remove stale login lock: %s", exc)
+            return False
+        return True
+
+    def _read_login_lock(self) -> Optional[dict]:
+        """Lock file contents; None if missing, {} if corrupt (i.e. collectable)."""
+        try:
+            with open(self._login_lock_path, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return None
+        except Exception:
+            return {}  # corrupt → no live holder can be proven → treat as stale
+        return data if isinstance(data, dict) else {}
+
+    def _is_collect_marker_abandoned(self, marker_path: str) -> bool:
+        """True if a collect marker outlived any plausible collection.
+
+        The critical section is a handful of syscalls, so a marker older than
+        the lock's own staleness ceiling means its owner died holding it.
+        """
+        try:
+            age = time.time() - os.path.getmtime(marker_path)
+        except OSError:
+            return True  # vanished under us — nothing to honor
+        return age > self.LOGIN_LOCK_STALE_AFTER_SECONDS
 
     def _release_login_lock(self) -> None:
         """Release the cross-process login lock (only if we own it)."""
@@ -872,33 +1029,40 @@ class AuthManager:
         content_hash = hash((data["cookie_header"], data["user_agent"], data["session_token"]))
         if content_hash == self._session_disk_hash:
             return
+        # Write to a private temp file, then os.replace() it into place. The
+        # replace is atomic on POSIX and Windows, which matters because siblings
+        # POLL this file by mtime (`_maybe_adopt_sibling_session_update`): an
+        # in-place O_TRUNC write (what this did until v1.19.11) let a sibling
+        # stat the bumped mtime and read a half-written file — a torn cookie
+        # header reads as a corrupt session and costs everyone a fresh login.
+        # Cookies + X-UserToken are credentials, so the temp file is created
+        # owner-only (0600) via os.open: umask can't widen it, and the mode
+        # rides along through the replace.
+        # Unique per WRITER, not just per process: two threads in one host
+        # (parallel tool calls, each absorbing a token rotation) would otherwise
+        # open the same temp path, write from offset 0 over each other, and
+        # os.replace would atomically publish the interleaved garbage.
+        tmp_path = f"{self._session_cache_path}.{os.getpid()}.{threading.get_ident()}.tmp"
         try:
-            # Cookies + X-UserToken are credentials: create the file owner-only
-            # (0600) via os.open so umask can't widen it to a world-readable
-            # 0644 that a co-tenant on a shared host could copy and replay.
-            fd = os.open(
-                self._session_cache_path,
-                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                0o600,
-            )
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:
                 json.dump(data, f)
-            # Re-assert mode on an already-existing file (os.open honors the
-            # mode only on creation, so a pre-existing 0644 would survive).
-            try:
-                os.chmod(self._session_cache_path, 0o600)
-            except OSError:
-                pass
+            os.replace(tmp_path, self._session_cache_path)
             self._session_disk_hash = content_hash
             # Record our own mtime so _maybe_adopt_sibling_session_update()
             # doesn't treat this write as a sibling update on the next call.
             try:
-                self._session_disk_mtime = os.path.getmtime(self._session_cache_path)
+                self._session_disk_mtime_ns = os.stat(self._session_cache_path).st_mtime_ns
             except OSError:
                 pass
             logger.info("Browser session saved to disk: %s", self._session_cache_path)
         except Exception as exc:
             logger.warning("Failed to save browser session to disk: %s", exc)
+            # A failed write must not leave a 0600 credential fragment behind.
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
     def _cleanup_legacy_session_cache(self) -> None:
         """When the user has set SERVICENOW_BROWSER_USER_DATA_DIR, the active
@@ -1005,11 +1169,7 @@ class AuthManager:
         lock_pid = data.get("pid")
         if not isinstance(lock_pid, int) or lock_pid <= 0:
             return True
-        try:
-            os.kill(lock_pid, 0)
-        except OSError:
-            return True
-        return False
+        return not _is_pid_alive(lock_pid)
 
     @staticmethod
     def _is_session_file_expired(path: str, now: float) -> bool:
@@ -1123,7 +1283,7 @@ class AuthManager:
             # Anchor mtime so subsequent _maybe_adopt_sibling_session_update()
             # only fires when a sibling rewrites the file after this load.
             try:
-                self._session_disk_mtime = os.path.getmtime(self._session_cache_path)
+                self._session_disk_mtime_ns = os.stat(self._session_cache_path).st_mtime_ns
             except OSError:
                 pass
             logger.info("Loaded browser session from disk: %s", self._session_cache_path)
@@ -1209,7 +1369,7 @@ class AuthManager:
         disk_login_at = data.get("last_login_at")
         self._browser_last_login_at = min(disk_login_at, time.time()) if disk_login_at else None
         try:
-            self._session_disk_mtime = os.path.getmtime(self._session_cache_path)
+            self._session_disk_mtime_ns = os.stat(self._session_cache_path).st_mtime_ns
         except OSError:
             pass
         logger.info(
@@ -1240,24 +1400,29 @@ class AuthManager:
         if self.config.type != AuthType.BROWSER:
             return False
         try:
-            mtime = os.path.getmtime(self._session_cache_path)
+            mtime_ns = os.stat(self._session_cache_path).st_mtime_ns
         except OSError:
             return False
-        # Tolerance for filesystem mtime granularity (HFS+ is 1 s) and minor
-        # clock skew between writes within the same process.
-        if mtime <= self._session_disk_mtime + 0.5:
+        # Strictly newer than our watermark, with NO tolerance window. A 0.5 s
+        # tolerance lived here until v1.19.11 and it could only ever LOSE
+        # updates, never prevent spurious ones: the early return below does not
+        # advance the watermark, so a sibling write landing within 0.5 s of our
+        # own last write was skipped — and then skipped again on every later
+        # call, because the same two numbers were re-compared forever. That is
+        # exactly the case this function exists for: the sibling absorbs a token
+        # rotation moments after our write, we never adopt it, and we keep
+        # sending a dead g_ck into the invalidate→re-auth loop. Nanosecond
+        # resolution replaces the granularity guess the tolerance was hedging.
+        if mtime_ns <= self._session_disk_mtime_ns:
             return False
         adopted = self._reload_session_from_disk()
-        # Even when reload returned False (disk content unchanged or expired
-        # and deleted), bump our mtime watermark so we don't re-stat-and-parse
-        # the same unchanged file on every subsequent call.
-        try:
-            self._session_disk_mtime = os.path.getmtime(self._session_cache_path)
-        except OSError:
-            # File may have been deleted by reload (expired branch). Use the
-            # mtime we already saw to suppress repeated re-checks until a new
-            # file appears.
-            self._session_disk_mtime = mtime
+        # Watermark the version we actually READ, not a fresh stat: a sibling
+        # that replaced the file while we were parsing must stay visible to the
+        # next call. Re-stat'ing here would watermark content we never saw and
+        # lose that update permanently. Bumping even when reload returned False
+        # (unchanged content, or expired-and-deleted) keeps us from re-parsing
+        # the same file on every subsequent call.
+        self._session_disk_mtime_ns = mtime_ns
         return adopted
 
     def _start_keepalive(self) -> None:
@@ -2360,6 +2525,14 @@ class AuthManager:
                 headless_timeout or mfa_required
             )
             if should_fallback_to_interactive:
+                # A visible window is the whole point of the fallback — a human
+                # has to type the TOTP. On a display-less host there is nobody
+                # to type it, so launching Chromium visibly just burns the login
+                # budget and dies on a missing X server. Say what to do instead.
+                no_display = _visible_browser_unavailable_reason()
+                if no_display:
+                    logger.error("Cannot fall back to a visible login: %s", no_display)
+                    raise ValueError(no_display) from exc
                 if mfa_required:
                     logger.info(
                         "Headless login attempt detected MFA requirement "
@@ -3396,6 +3569,7 @@ class AuthManager:
             self._needs_full_profile_purge = True
         if os.path.exists(self._session_cache_path):
             try:
+                mtime_before_ns = os.stat(self._session_cache_path).st_mtime_ns
                 with open(self._session_cache_path, "r") as f:
                     disk_data = json.load(f)
                 disk_cookie = disk_data.get("cookie_header")
@@ -3405,11 +3579,33 @@ class AuthManager:
                         "keeping disk cache intact."
                     )
                     return
-            except Exception:
-                pass  # If we can't read, safe to remove
+            except ValueError as exc:
+                # Garbage content: nobody — us or a sibling — can use this file,
+                # so clearing it is right. The stat above already succeeded, so
+                # the rewritten-under-us check below still guards the delete.
+                logger.info("Session cache is corrupt — removing it (%s).", exc)
+            except OSError as exc:
+                # A transient read failure (EMFILE, EINTR, permissions) is NOT
+                # evidence that the file is ours to delete. Deleting on that
+                # basis is how a sibling's good session gets thrown away. Every
+                # loader treats an unreadable cache as "no session" and re-logs
+                # in anyway, so leaving it costs nothing.
+                logger.info("Session cache unreadable — leaving it in place (%s).", exc)
+                return
             try:
+                # The file could have been replaced by a sibling that finished a
+                # login while we were reading it. Delete only the exact version
+                # we inspected — a changed mtime means it is no longer ours.
+                if os.stat(self._session_cache_path).st_mtime_ns != mtime_before_ns:
+                    logger.info(
+                        "Session cache was rewritten while we inspected it "
+                        "(another terminal re-authenticated) — keeping it."
+                    )
+                    return
                 os.remove(self._session_cache_path)
                 logger.info("Session cache file removed: %s", self._session_cache_path)
+            except FileNotFoundError:
+                pass  # already gone — same outcome
             except Exception as exc:
                 logger.warning("Failed to remove session cache file: %s", exc)
 

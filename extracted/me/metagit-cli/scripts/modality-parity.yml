@@ -5,6 +5,24 @@
 version: 1
 
 features:
+  - id: atlas_local
+    description: Repository-local Atlas semantic layer (init/generate/validate/query)
+    service: metagit.core.atlas.service.AtlasService
+    reference_doc: docs/reference/atlas.md
+    surfaces:
+      cli:
+        markers:
+          - path: src/metagit/cli/commands/atlas.py
+            contains: '@atlas_group.command("generate")'
+          - path: src/metagit/cli/main.py
+            contains: atlas_group
+      documentation:
+        markers:
+          - path: docs/reference/atlas.md
+            contains: "modality:atlas_local"
+          - path: docs/agents.md
+            contains: "modality:atlas_local"
+
   - id: provider_source_sync_imperative
     description: Imperative provider discovery and manifest apply
     service: metagit.core.project.source_sync_runner.run_source_sync
@@ -517,4 +535,62 @@ features:
             contains: "modality:aos_status"
           - path: src/metagit/data/skills/metagit-cli/SKILL.md
             contains: "modality:aos_status"
+
+  - id: derived_projects
+    description: Derived surgical workspace projects with frozen membership and refreshable identity
+    service: metagit.core.workspace.derived_project_service.DerivedProjectService
+    reference_doc: docs/reference/derived-projects.md
+    surfaces:
+      cli:
+        markers:
+          - path: src/metagit/cli/commands/project_derived.py
+            contains: '@derived.command("create")'
+          - path: src/metagit/cli/commands/project.py
+            contains: project.add_command(derived)
+      mcp:
+        markers:
+          - path: src/metagit/core/mcp/tool_registry.py
+            contains: metagit_project_derived_create
+          - path: src/metagit/core/mcp/runtime.py
+            contains: metagit_project_derived_create
+      documentation:
+        markers:
+          - path: docs/reference/derived-projects.md
+            contains: "modality:derived_projects"
+          - path: docs/agents.md
+            contains: "modality:derived_projects"
+      skills:
+        markers:
+          - path: src/metagit/data/skills/metagit-projects/SKILL.md
+            contains: "modality:derived_projects"
+          - path: src/metagit/data/skills/metagit-cli/SKILL.md
+            contains: "modality:derived_projects"
+
+  - id: skills_surface
+    description: Layered on-disk and declared skill inventory across workspace/project/repo
+    service: metagit.core.skills.surface_service.SkillSurfaceService
+    reference_doc: docs/reference/skills-surface.md
+    surfaces:
+      cli:
+        markers:
+          - path: src/metagit/cli/commands/skills.py
+            contains: '@skills.command("surface")'
+      mcp:
+        markers:
+          - path: src/metagit/core/mcp/tool_registry.py
+            contains: metagit_skills_surface
+          - path: src/metagit/core/mcp/runtime.py
+            contains: metagit_skills_surface
+      documentation:
+        markers:
+          - path: docs/reference/skills-surface.md
+            contains: "modality:skills_surface"
+          - path: docs/agents.md
+            contains: "modality:skills_surface"
+      skills:
+        markers:
+          - path: src/metagit/data/skills/metagit-cli/SKILL.md
+            contains: "modality:skills_surface"
+          - path: src/metagit/data/skills/metagit-context-pack/SKILL.md
+            contains: "modality:skills_surface"
 

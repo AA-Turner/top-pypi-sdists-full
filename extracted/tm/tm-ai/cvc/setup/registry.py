@@ -117,6 +117,14 @@ PROVIDER_SPECS: tuple[ProviderSpec, ...] = (
         default_model="MiniMax-M3",
     ),
     ProviderSpec(
+        key="openrouter",
+        display_name="OpenRouter",
+        description="One key, 400+ models — Claude, GPT-5, Gemini, DeepSeek, GLM, MiniMax, Grok, Qwen, and more",
+        hint="Model ids are namespaced, e.g. anthropic/claude-sonnet-4.6 or z-ai/glm-4.6 — get a key at openrouter.ai/keys",
+        color="#6467F2",  # OpenRouter indigo
+        default_model="anthropic/claude-sonnet-4.6",
+    ),
+    ProviderSpec(
         key="google",
         display_name="Google Gemini",
         description="Gemini 3.1 Pro Preview, 2.5 Flash, Flash Lite via Google AI Studio",

@@ -199,24 +199,33 @@ options:
                 type: str
     storage_account_name:
         description:
-            - Name of a storage account that supports creation of VHD blobs.
+            - (Deprecated) Name of a storage account that supports creation of VHD blobs.
             - If not specified for a new VM, a new storage account named <vm name>01 will be created using storage type C(Standard_LRS).
+            - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+            - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
+            - This option will be removed in version 4.0.0.
         type: str
         aliases:
             - storage_account
     storage_container_name:
         description:
-            - Name of the container to use within the storage account to store VHD blobs.
+            - (Deprecated) Name of the container to use within the storage account to store VHD blobs.
             - If not specified, a default container will be created.
+            - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+            - This option will be removed in version 4.0.0.
+            - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
         default: vhds
         type: str
         aliases:
             - storage_container
     storage_blob_name:
         description:
-            - Name of the storage blob used to hold the OS disk image of the VM.
+            - (Deprecated) Name of the storage blob used to hold the OS disk image of the VM.
             - Must end with '.vhd'.
             - If not specified, defaults to the VM name + '.vhd'.
+            - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+            - This option will be removed in version 4.0.0.
+            - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
         type: str
         aliases:
             - storage_blob
@@ -224,7 +233,9 @@ options:
         description:
             - Managed OS disk type.
             - Create OS disk with managed disk if defined.
-            - If not defined, the OS disk will be created with virtual hard disk (VHD).
+            - Defaults to C(Standard_LRS) when no disk options are specified.
+            - Unmanaged disks were retired by Azure on March 31, 2026.
+            - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
         type: str
         choices:
             - Standard_LRS
@@ -307,7 +318,9 @@ options:
             managed_disk_type:
                 description:
                     - Managed data disk type.
-                    - Only used when OS disk created with managed disk.
+                    - Defaults to C(Standard_LRS) when no disk options are specified.
+                      Unmanaged disks were retired by Azure on March 31, 2026.
+                    - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
                 type: str
                 choices:
                     - Standard_LRS
@@ -318,29 +331,32 @@ options:
                     - UltraSSD_LRS
             storage_account_name:
                 description:
-                    - Name of an existing storage account that supports creation of VHD blobs.
+                    - (Deprecated) Name of an existing storage account that supports creation of VHD blobs.
                     - If not specified for a new VM, a new storage account started with I(name) will be created using storage type C(Standard_LRS).
-                    - Only used when OS disk created with virtual hard disk (VHD).
-                    - Used when I(managed_disk_type) not defined.
                     - Cannot be updated unless I(lun) updated.
+                    - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+                    - This option will be removed in version 4.0.0.
+                    - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
                 type: str
             storage_container_name:
                 description:
-                    - Name of the container to use within the storage account to store VHD blobs.
+                    - (Deprecated) Name of the container to use within the storage account to store VHD blobs.
                     - If no name is specified a default container named 'vhds' will created.
-                    - Only used when OS disk created with virtual hard disk (VHD).
-                    - Used when I(managed_disk_type) not defined.
                     - Cannot be updated unless I(lun) updated.
+                    - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+                    - This option will be removed in version 4.0.0.
+                    - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
                 type: str
                 default: vhds
             storage_blob_name:
                 description:
-                    - Name of the storage blob used to hold the OS disk image of the VM.
+                    - (Deprecated) Name of the storage blob used to hold the OS disk image of the VM.
                     - Must end with '.vhd'.
                     - Default to the I(name) + timestamp + I(lun) + '.vhd'.
-                    - Only used when OS disk created with virtual hard disk (VHD).
-                    - Used when I(managed_disk_type) not defined.
                     - Cannot be updated unless I(lun) updated.
+                    - Unmanaged disks were retired by Azure on March 31, 2026. Use I(managed_disk_type) instead.
+                    - This option will be removed in version 4.0.0.
+                    - See U(https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation).
                 type: str
             caching:
                 description:
@@ -1197,7 +1213,6 @@ try:
     from azure.core.exceptions import ResourceNotFoundError
     from azure.core.polling import LROPoller
     from azure.mgmt.core.tools import parse_resource_id
-    from datetime import datetime
 except ImportError:
     # This is handled in azure_rm_common
     pass
@@ -1542,11 +1557,11 @@ class AzureRMVirtualMachine(AzureRMModuleBase):
 
             if self.image and isinstance(self.image, dict):
                 if all(key in self.image for key in ('publisher', 'offer', 'sku', 'version')):
-                    marketplace_image = self.get_marketplace_image_version()
-
                     if self.image['version'] == 'latest':
-                        self.image['version'] = marketplace_image.name
-                        self.log("Using image version {0}".format(self.image['version']))
+                        # Pass the literal "latest" through to ARM and let it resolve the actual version.
+                        self.log("Using image version 'latest'.")
+                    else:
+                        self.get_marketplace_image_version()
 
                     image_reference = self.compute_models.ImageReference(
                         publisher=self.image['publisher'],
@@ -1579,6 +1594,25 @@ class AzureRMVirtualMachine(AzureRMModuleBase):
             if self.plan:
                 if not self.plan.get('name') or not self.plan.get('product') or not self.plan.get('publisher'):
                     self.fail("parameter error: plan must include name, product, and publisher")
+
+            # When the caller specifies no disk options at all, default to a managed
+            # Standard_LRS OS disk instead of the legacy unmanaged-VHD path. Also
+            # default delete_option to 'Delete'.
+            if (not self.managed_disk_type
+                    and not self.storage_blob_name
+                    and not self.storage_account_name):
+                self.managed_disk_type = 'Standard_LRS'
+                if not self.os_disk_delete_option:
+                    self.os_disk_delete_option = 'Delete'
+            elif not self.managed_disk_type:
+                self.module.deprecate(
+                    "Unmanaged disks (VHD page blobs attached to VMs) were retired by Azure on "
+                    "2026-03-31. The 'storage_blob_name', 'storage_account_name' and "
+                    "'storage_container_name' options for the OS disk are deprecated; use "
+                    "'managed_disk_type' instead. See "
+                    "https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation",
+                    version='4.0.0',
+                    collection_name='azure.azcollection')
 
             if not self.storage_blob_name and not self.managed_disk_type:
                 self.storage_blob_name = self.name + '.vhd'
@@ -2252,6 +2286,28 @@ class AzureRMVirtualMachine(AzureRMModuleBase):
                                 count += 1
                             else:
                                 create_option = self.compute_models.DiskCreateOptionTypes.empty
+
+                                # If the caller specified no disk options at all, default to managed Standard_LRS
+                                # and set delete_option=Delete.
+                                # If the caller explicitly opted into the unmanaged-disk path
+                                # (storage_blob_name / storage_account_name / storage_container_name),
+                                # emit a deprecation warning.
+                                if (not data_disk.get('managed_disk_type')
+                                        and not data_disk.get('storage_blob_name')
+                                        and not data_disk.get('storage_account_name')
+                                        and not data_disk.get('storage_container_name')):
+                                    data_disk['managed_disk_type'] = 'Standard_LRS'
+                                    if not data_disk.get('delete_option'):
+                                        data_disk['delete_option'] = 'Delete'
+                                elif not data_disk.get('managed_disk_type'):
+                                    self.module.deprecate(
+                                        "Unmanaged disks (VHD page blobs attached to VMs) were retired "
+                                        "by Azure on 2026-03-31. The 'storage_blob_name', "
+                                        "'storage_account_name' and 'storage_container_name' suboptions "
+                                        "of 'data_disks' are deprecated; use 'managed_disk_type' instead. "
+                                        "See https://learn.microsoft.com/azure/virtual-machines/unmanaged-disks-deprecation",
+                                        version='4.0.0',
+                                        collection_name='azure.azcollection')
 
                                 if not data_disk.get('managed_disk_type'):
                                     if not data_disk.get('storage_blob_name'):
@@ -3025,45 +3081,14 @@ class AzureRMVirtualMachine(AzureRMModuleBase):
             versions = self.compute_client.virtual_machine_images.list(self.location,
                                                                        self.image['publisher'],
                                                                        self.image['offer'],
-                                                                       self.image['sku'],
-                                                                       orderby='name')
+                                                                       self.image['sku'])
         except Exception as exc:
             self.fail("Error fetching image {0} {1} {2} - {3}".format(self.image['publisher'],
                                                                       self.image['offer'],
                                                                       self.image['sku'],
                                                                       str(exc)))
 
-        if versions and len(versions) > 0:
-            if self.image['version'] == 'latest':
-                version = versions[len(versions) - 1]
-
-                def image_timestamp_to_datetime(version_string):
-                    version_len = len(version_string)
-                    if version_len == 8:
-                        t_format = "%Y%m%d"
-                    elif version_len <= 10:
-                        t_format = "%Y%m%d%H"
-                    elif version_len <= 12:
-                        t_format = "%Y%m%d%H%M"
-                    elif version_len <= 14:
-                        t_format = "%Y%m%d%H%M%S"
-                    return datetime.strptime(version_string, t_format)
-
-                if 8 <= len(version.name.split('.')[-1]) and len(version.name.split('.')[-1]) <= 14:
-                    version_date = image_timestamp_to_datetime(version.name.split('.')[-1])
-                    for item in versions:
-                        item_date = image_timestamp_to_datetime(item.name.split('.')[-1])
-                        if item_date > version_date:
-                            version = item
-                            version_date = item_date
-                else:
-                    version_name = version.name.split('.')[-1]
-                    for item in versions:
-                        item_name = item.name.split('.')[-1]
-                        if item_name > version_name:
-                            version = item
-                            version_name = item_name
-                return version
+        if versions:
             for version in versions:
                 if version.name == self.image['version']:
                     return version

@@ -33,8 +33,8 @@ from glide_shared.routes import (
     SlotType,
     build_protobuf_route,
 )
+from glide_sync._ffi_instance import _SYNC_FFI
 
-from ._glide_ffi import _GlideFFI
 from .logger import Level, Logger
 from .sync_commands.cluster_commands import ClusterCommands
 from .sync_commands.cluster_scan_cursor import ClusterScanCursor
@@ -61,7 +61,7 @@ class BaseClient(CoreCommands):
         """
         To create a new client, use the `create` classmethod
         """
-        _glide_ffi = _GlideFFI()
+        _glide_ffi = _SYNC_FFI
         self._ffi = _glide_ffi.ffi
         self._lib = _glide_ffi.lib
         self._config: BaseClientConfiguration = config
@@ -99,6 +99,7 @@ class BaseClient(CoreCommands):
         conn_req = self._config._create_a_protobuf_conn_request(
             cluster_mode=type(self._config) is GlideClusterClientConfiguration
         )
+        conn_req.lib_name = "GlidePySync"
         conn_req_bytes = conn_req.SerializeToString()
         client_type = self._ffi.new(
             "ClientType*",
@@ -121,6 +122,7 @@ class BaseClient(CoreCommands):
             resolver_fn = self._config.address_resolver
 
             def _address_resolver_callback(
+                client_id,
                 host_ptr,
                 host_len,
                 port,
@@ -152,6 +154,7 @@ class BaseClient(CoreCommands):
             client_type,
             pubsub_callback,
             address_resolver_callback,
+            0,  # client_id is not used by the Python client
         )
 
         Logger.log(Level.INFO, "connection info", "new connection established")
@@ -417,7 +420,7 @@ class BaseClient(CoreCommands):
 
     def _execute_command(
         self,
-        request_type: RequestType.ValueType,
+        request_type: RequestType.ValueType,  # type: ignore[override]
         args: List[TEncodable],
         route: Optional[Route] = None,
         response_buffer: Optional[memoryview] = None,
@@ -459,7 +462,12 @@ class BaseClient(CoreCommands):
                 if response_buffer
                 else self._ffi.NULL
             )
-            buf_len = len(response_buffer) if response_buffer else 0
+            # Capacity must be expressed in bytes, not elements. ``len()`` on a
+            # memoryview returns the element count (``shape[0]``), which equals
+            # the byte count only for itemsize-1 formats (e.g. "B"). For any
+            # itemsize > 1 view (e.g. "I"/"Q"/float) it under-reports capacity,
+            # causing the FFI to spuriously reject values that actually fit.
+            buf_len = response_buffer.nbytes if response_buffer else 0
             result = self._lib.command_with_buffer(
                 client_adapter_ptr,
                 0,
@@ -535,7 +543,7 @@ class BaseClient(CoreCommands):
 
     def _execute_batch(
         self,
-        commands: List[Tuple[RequestType.ValueType, List[TEncodable]]],
+        commands: List[Tuple[RequestType.ValueType, List[TEncodable]]],  # type: ignore[override]
         is_atomic: bool,
         raise_on_error: bool,
         retry_server_error: bool = False,

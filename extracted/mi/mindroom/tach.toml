@@ -150,6 +150,15 @@ visibility = [
 path = "mindroom.ai_run_metadata"
 depends_on = [
     "mindroom.constants",
+    "mindroom.model_usage",
+]
+
+[[modules]]
+path = "mindroom.model_usage"
+depends_on = []
+visibility = [
+    "mindroom.ai_run_metadata",
+    "mindroom.llm_request_logging",
 ]
 
 [[modules]]
@@ -290,6 +299,8 @@ depends_on = [
     "mindroom.claude_prompt_cache",
     "mindroom.claude_stream_retry",
     "mindroom.codex_model",
+    "mindroom.openai_responses_model",
+    "mindroom.openai_tool_search",
     "mindroom.vertex_claude_compat",
 ]
 visibility = [
@@ -885,6 +896,7 @@ path = "mindroom.custom_tools.thread_tags"
 depends_on = [
     "mindroom.matrix.client_thread_history",
     "mindroom.matrix.conversation_cache",
+    "mindroom.thread_tag_vocabulary",
     "mindroom.thread_tags",
     "mindroom.tool_system.runtime_context",
 ]
@@ -2159,7 +2171,16 @@ depends_on = [
 [[modules]]
 path = "mindroom.thread_tags"
 depends_on = [
+    "mindroom.logging_config",
     "mindroom.matrix.client_thread_history",
+]
+
+[[modules]]
+path = "mindroom.thread_tag_vocabulary"
+depends_on = [
+    "mindroom.constants",
+    "mindroom.durable_write",
+    "mindroom.thread_tags",
 ]
 
 [[modules]]
@@ -2264,7 +2285,7 @@ path = "mindroom.matrix_rtc.transcript"
 depends_on = [
     "mindroom.logging_config",
     "mindroom.memory",
-    "mindroom.tool_system.worker_routing",
+    "mindroom.runtime_resolution",
 ]
 
 [[modules]]
@@ -2387,6 +2408,7 @@ depends_on = []
 [[modules]]
 path = "mindroom.cli.config"
 depends_on = [
+    "mindroom.cli.env_file",
     "mindroom.cli.owner",
     "mindroom.config.main",
     "mindroom.config.yaml_includes",
@@ -2410,6 +2432,7 @@ depends_on = [
 path = "mindroom.cli.env_file"
 depends_on = []
 visibility = [
+    "mindroom.cli.config",
     "mindroom.cli.connect",
     "mindroom.cli.local_stack",
 ]
@@ -2806,6 +2829,8 @@ depends_on = [
     "mindroom.matrix.client_delivery",
     "mindroom.model_instance_checks",
     "mindroom.model_loading",
+    "mindroom.thread_tag_vocabulary",
+    "mindroom.thread_tags",
 ]
 
 [[modules]]

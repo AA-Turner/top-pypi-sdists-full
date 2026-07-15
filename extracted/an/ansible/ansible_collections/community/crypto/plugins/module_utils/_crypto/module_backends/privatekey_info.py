@@ -33,22 +33,22 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-if t.TYPE_CHECKING:
-    from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
+if t.TYPE_CHECKING:  # pragma: no cover
+    from ansible.module_utils.basic import AnsibleModule
+    from cryptography.hazmat.primitives.asymmetric.types import (
         PrivateKeyTypes,
     )
 
-    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
+    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (
         AnsibleActionModule,
     )
-    from ansible_collections.community.crypto.plugins.plugin_utils._filter_module import (  # pragma: no cover
+    from ansible_collections.community.crypto.plugins.plugin_utils._filter_module import (
         FilterModuleMock,
     )
 
     GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule, FilterModuleMock
-    ]  # pragma: no cover
+    ]
 
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
@@ -188,7 +188,7 @@ def _is_cryptography_key_consistent(
             return True
         except cryptography.exceptions.InvalidSignature:
             return False
-    # For X25519 and X448, there's no test yet.
+    # For X25519 and X448 and ML-DSA-xx, there's no test yet.
     if warn_func is not None:
         warn_func(f"Cannot determine consistency for key of type {type(key)}")
     return None

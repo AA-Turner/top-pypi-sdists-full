@@ -955,25 +955,18 @@ def _is_ignored(
             if not p:
                 continue
 
+            # gitignore semantics: patterns from A/.gitignore apply ONLY to paths
+            # under A. Matching non-anchored patterns against root-relative paths
+            # let e.g. .hypothesis/.gitignore's bare "*" ignore the ENTIRE repo
+            # (detect() returned 0 files). The anchor dir itself is exempt — an
+            # ignore file governs its directory's contents, not the directory.
             matched = False
-            if anchored:
-                try:
-                    rel_anchor = str(target.relative_to(anchor)).replace(os.sep, "/")
-                    matched = _matches(rel_anchor, p, anchored=True)
-                except ValueError:
-                    pass
-            else:
-                try:
-                    rel = str(target.relative_to(root)).replace(os.sep, "/")
-                    matched = _matches(rel, p, anchored=False)
-                except ValueError:
-                    pass
-                if not matched and anchor != root:
-                    try:
-                        rel_anchor = str(target.relative_to(anchor)).replace(os.sep, "/")
-                        matched = _matches(rel_anchor, p, anchored=False)
-                    except ValueError:
-                        pass
+            try:
+                rel_anchor = str(target.relative_to(anchor)).replace(os.sep, "/")
+            except ValueError:
+                continue  # target outside this pattern's anchor: cannot match
+            if rel_anchor != ".":
+                matched = _matches(rel_anchor, p, anchored=anchored)
 
             if matched:
                 result = not negated  # last match wins; ! flips to un-ignore
@@ -1604,9 +1597,15 @@ def detect_incremental(
             except Exception:
                 current_mtime = 0
 
-            # Legacy manifest: plain float value — treat as ast_hash only
+            # Legacy manifest: plain float value stores only mtime.
+            # Compare with `!=` so backwards mtime motion (git checkout of an
+            # older commit, tarball restore, rsync --times) still triggers a
+            # re-extract; the previous `>` silently kept the stale cache and
+            # the graph drifted from disk (#1859). No stored hash means we
+            # cannot verify content — any mtime delta forces a re-extract,
+            # and the next save promotes the entry into the dict schema.
             if isinstance(stored, (int, float)):
-                changed = stored is None or current_mtime > stored
+                changed = current_mtime != stored
             elif isinstance(stored, dict):
                 # Normalise legacy {mtime, hash} to new schema
                 if "hash" in stored and "ast_hash" not in stored:

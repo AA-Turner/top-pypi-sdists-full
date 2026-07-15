@@ -72,6 +72,11 @@ AZURE_CREDENTIAL_ENV_MAPPING = dict(
     oidc_token_file_path='AZURE_FEDERATED_TOKEN_FILE'
 )
 
+# Fallback env-var names honoured when the primary is unset (e.g. AKS workload-identity webhook uses AZURE_TENANT_ID).
+AZURE_CREDENTIAL_ENV_MAPPING_FALLBACK = dict(
+    tenant='AZURE_TENANT_ID',
+)
+
 
 class SDKProfile(object):  # pylint: disable=too-few-public-methods
 
@@ -140,7 +145,9 @@ AZURE_API_PROFILES = {
         'BatchManagementClient': 'latest',
         'EventGridManagementClient': '2025-02-15',
         'AppConfigurationManagementClient': '2024-05-01',
-        'HybridComputeManagementClient': 'latest'
+        'HybridComputeManagementClient': 'latest',
+        'CognitiveServicesManagementClient': 'latest',
+        'AzureDatabricksManagementClient': 'latest',
     },
     '2019-03-01-hybrid': {
         'StorageManagementClient': '2017-10-01',
@@ -242,6 +249,7 @@ try:
     from azure.mgmt.managementgroups import ManagementGroupsAPI as ManagementGroupsClient
     from azure.mgmt.resource.subscriptions import SubscriptionClient
     from azure.mgmt.storage import StorageManagementClient
+    import azure.mgmt.storage.models as StorageModels
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.dns import DnsManagementClient
     from azure.mgmt.privatedns import PrivateDnsManagementClient
@@ -252,6 +260,7 @@ try:
     from azure.mgmt.marketplaceordering import MarketplaceOrderingAgreements
     from azure.mgmt.trafficmanager import TrafficManagerManagementClient
     from azure.storage.blob import BlobServiceClient
+    from azure.storage.fileshare import ShareDirectoryClient, ShareClient, ShareFileClient
     from azure.mgmt.authorization import AuthorizationManagementClient
     from azure.mgmt.sql import SqlManagementClient
     from azure.mgmt.servicebus import ServiceBusManagementClient
@@ -286,6 +295,9 @@ try:
     from azure.mgmt.resourcehealth import ResourceHealthMgmtClient
     from azure.mgmt.cdn import CdnManagementClient
     from azure.mgmt.hybridcompute import HybridComputeManagementClient
+    from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
+    from azure.mgmt.databricks import AzureDatabricksManagementClient
+    import azure.mgmt.databricks.models as DatabricksModels
 
 except ImportError as exc:
     AZURE_IMPORT_ERROR = traceback.format_exc()
@@ -447,6 +459,8 @@ class AzureRMModuleBase(object):
         self._resourcehealth_client = None
         self._cdn_client = None
         self._hybrid_compute_management_client = None
+        self._cognitive_services_management_client = None
+        self._databricks_client = None
 
         self.check_mode = self.module.check_mode
         self.api_profile = self.module.params.get('api_profile')
@@ -685,7 +699,7 @@ class AzureRMModuleBase(object):
                                                                   client_secret=self.azure_auth.credentials.get('secret'))
             else:
                 account_keys = self.storage_client.storage_accounts.list_keys(resource_group_name=resource_group_name, account_name=storage_account_name)
-                credential = account_keys.keys[0].value
+                credential = account_keys.keys_property[0].value
         except Exception as exc:
             self.fail("Error getting storage account detail for {0}: {1}".format(storage_account_name, str(exc)))
 
@@ -697,6 +711,64 @@ class AzureRMModuleBase(object):
             )
         except Exception as exc:
             self.fail("Error creating blob service client for storage account {0} - {1}".format(storage_account_name, str(exc)))
+
+    def _get_file_share_endpoint_credential(self, resource_group_name, storage_account_name):
+        '''
+        Resolve the file share data-plane endpoint and account-key credential for the
+        given storage account. Used by the file-share directory/file helpers.
+        '''
+        try:
+            account = self.storage_client.storage_accounts.get_properties(resource_group_name=resource_group_name,
+                                                                          account_name=storage_account_name)
+            account_keys = self.storage_client.storage_accounts.list_keys(resource_group_name=resource_group_name,
+                                                                          account_name=storage_account_name)
+        except Exception as exc:
+            self.fail("Error getting storage account detail for {0}: {1}".format(storage_account_name, str(exc)))
+        return account.primary_endpoints.file, account_keys.keys_property[0].value
+
+    def get_share_directory_client(self, resource_group_name, storage_account_name, share_name, directory_path):
+        '''
+        Build a ShareDirectoryClient for the given directory path inside a file share,
+        using the storage account key resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareDirectoryClient(account_url=account_url,
+                                        share_name=share_name,
+                                        directory_path=directory_path,
+                                        credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share directory client for {0}/{1}/{2}: {3}".format(
+                storage_account_name, share_name, directory_path, str(exc)))
+
+    def get_share_client(self, resource_group_name, storage_account_name, share_name):
+        '''
+        Build a ShareClient for the given file share, using the storage account key
+        resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareClient(account_url=account_url,
+                               share_name=share_name,
+                               credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share client for {0}/{1}: {2}".format(
+                storage_account_name, share_name, str(exc)))
+
+    def get_share_file_client(self, resource_group_name, storage_account_name, share_name, file_path):
+        '''
+        Build a ShareFileClient for the given file path inside a file share, using
+        the storage account key resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareFileClient(account_url=account_url,
+                                   share_name=share_name,
+                                   file_path=file_path,
+                                   credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share file client for {0}/{1}/{2}: {3}".format(
+                storage_account_name, share_name, file_path, str(exc)))
 
     def create_default_pip(self, resource_group, location, public_ip_name, allocation_method='Dynamic', sku=None):
         '''
@@ -1004,12 +1076,12 @@ class AzureRMModuleBase(object):
         if not self._storage_client:
             self._storage_client = self.get_mgmt_svc_client(StorageManagementClient,
                                                             base_url=self._cloud_environment.endpoints.resource_manager,
-                                                            api_version='2023-05-01')
+                                                            api_version='2025-08-01')
         return self._storage_client
 
     @property
     def storage_models(self):
-        return StorageManagementClient.models("2023-05-01")
+        return StorageModels
 
     @property
     def authorization_client(self):
@@ -1544,6 +1616,29 @@ class AzureRMModuleBase(object):
                                                                               base_url=self._cloud_environment.endpoints.resource_manager)
         return self._hybrid_compute_management_client
 
+    @property
+    def cognitive_services_management_client(self):
+        self.log('Getting cognitive services management client...')
+        if not self._cognitive_services_management_client:
+            self._cognitive_services_management_client = self.get_mgmt_svc_client(
+                CognitiveServicesManagementClient,
+                base_url=self._cloud_environment.endpoints.resource_manager
+            )
+        return self._cognitive_services_management_client
+
+    @property
+    def databricks_client(self):
+        self.log('Getting databricks client')
+        if not self._databricks_client:
+            self._databricks_client = self.get_mgmt_svc_client(AzureDatabricksManagementClient,
+                                                               base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._databricks_client
+
+    @property
+    def databricks_models(self):
+        self.log('Getting databricks models')
+        return DatabricksModels
+
 
 class AzureRMAuthException(Exception):
     pass
@@ -1736,8 +1831,13 @@ class AzureRMAuth(object):
         raise AzureRMAuthException(msg)
 
     def _get_env(self, module_key, default=None):
-        "Read envvar matching module parameter"
-        return os.environ.get(AZURE_CREDENTIAL_ENV_MAPPING[module_key], default)
+        "Read envvar matching module parameter, honouring fallback aliases."
+        value = os.environ.get(AZURE_CREDENTIAL_ENV_MAPPING[module_key])
+        if value is None:
+            fallback_name = AZURE_CREDENTIAL_ENV_MAPPING_FALLBACK.get(module_key)
+            if fallback_name:
+                value = os.environ.get(fallback_name)
+        return value if value is not None else default
 
     def _get_profile(self, profile="default", subscription_id=None):
         path = expanduser("~/.azure/credentials")
@@ -1831,18 +1931,23 @@ class AzureRMAuth(object):
 
     def _get_env_credentials(self, subscription_id=None):
         env_credentials = dict()
-        for attribute, env_variable in AZURE_CREDENTIAL_ENV_MAPPING.items():
-            env_credentials[attribute] = os.environ.get(env_variable, None)
+        for attribute in AZURE_CREDENTIAL_ENV_MAPPING:
+            env_credentials[attribute] = self._get_env(attribute)
 
         if env_credentials['profile']:
             credentials = self._get_profile(env_credentials['profile'], subscription_id=subscription_id)
             return credentials
 
-        if env_credentials.get('subscription_id') is None and not self.is_ad_resource:
+        # Env counts as usable auth only when client_id or ad_user is set; otherwise fall through to credential_file / az-cli.
+        if not env_credentials.get('client_id') and not env_credentials.get('ad_user'):
             return None
 
+        # Merge caller subscription_id so workload-identity flows succeed when AZURE_SUBSCRIPTION_ID is not injected.
         if subscription_id is not None:
             env_credentials['subscription_id'] = subscription_id
+
+        if env_credentials.get('subscription_id') is None and not self.is_ad_resource:
+            return None
 
         return env_credentials
 

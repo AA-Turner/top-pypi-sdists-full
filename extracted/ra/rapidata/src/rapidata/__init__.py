@@ -1,4 +1,4 @@
-__version__ = "3.16.4"
+__version__ = "3.16.5"
 
 from .rapidata_client import (
     RapidataClient,
@@ -49,7 +49,6 @@ from .rapidata_client import (
     ClassifyEquirectangularSetting,
 # --- GENERATED SETTINGS IMPORTS END ---
     CountryFilter,
-    DemographicFilter,
     LanguageFilter,
     NotFilter,
     OrFilter,

@@ -259,6 +259,14 @@ def _create_model_for_provider(  # noqa: C901, PLR0911, PLR0912, PLR0915
         return AwsBedrockClaude(id=model_id, **extra_kwargs)
 
     if canonical_provider == "openai":
+        from mindroom.openai_tool_search import openai_native_tool_search_supported  # noqa: PLC0415
+
+        base_url = extra_kwargs.get("base_url") or runtime_paths.env_value("OPENAI_BASE_URL")
+        if openai_native_tool_search_supported(canonical_provider, model_id, base_url=base_url):
+            from mindroom.openai_responses_model import MindRoomOpenAIResponses  # noqa: PLC0415
+
+            return MindRoomOpenAIResponses(id=model_id, **extra_kwargs)
+
         from agno.models.openai import OpenAIChat  # noqa: PLC0415
 
         return OpenAIChat(id=model_id, **extra_kwargs)
@@ -352,13 +360,13 @@ def get_model_instance(
         configured_id=model_id,
         effective_id=model.id,
     )
-    if config.debug.log_llm_requests:
-        install_llm_request_logging(
-            model,
-            agent_name=model_name,
-            debug_config=config.debug,
-            default_log_dir=runtime_paths.storage_root / "logs" / "llm_requests",
-        )
+    install_llm_request_logging(
+        model,
+        agent_name=model_name,
+        debug_config=config.debug,
+        default_log_dir=runtime_paths.storage_root / "logs" / "llm_requests",
+        configured_provider=provider,
+    )
     install_claude_prompt_cache_hook(model)
     install_claude_stream_retry_hook(model)
     return model

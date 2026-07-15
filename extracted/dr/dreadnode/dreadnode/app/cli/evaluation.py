@@ -670,6 +670,16 @@ def create(
     ] = None,
     concurrency: int | None = None,
     task_timeout_sec: int | None = None,
+    max_steps: t.Annotated[
+        int | None,
+        cyclopts.Parameter(
+            help=(
+                "Maximum agent tool/generation steps per sample. "
+                "Enforced via a headless session policy; the task timeout "
+                "still applies as a wall-clock bound."
+            ),
+        ),
+    ] = None,
     cleanup_policy: CleanupPolicy | None = None,
     judge_model: str | None = None,
     env_model: t.Annotated[
@@ -726,6 +736,9 @@ def create(
             `dn secret list` to discover configured names.
         concurrency: Maximum concurrent evaluation samples.
         task_timeout_sec: Timeout per task in seconds.
+        max_steps: Maximum agent tool/generation steps per sample.
+            Enforced via a headless session policy; the task timeout still
+            applies as a wall-clock bound.
         cleanup_policy: Sandbox cleanup policy.
         judge_model: Override the judge model for all tasks in this evaluation.
         wait: Block until the evaluation reaches a terminal state.
@@ -758,6 +771,8 @@ def create(
         request["concurrency"] = concurrency
     if task_timeout_sec is not None:
         request["task_timeout_sec"] = task_timeout_sec
+    if max_steps is not None:
+        request["max_steps"] = max_steps
     if cleanup_policy:
         request["cleanup_policy"] = cleanup_policy
     if judge_model:

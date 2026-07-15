@@ -50,7 +50,7 @@ _DOCX_IMPORT_ERROR: ImportError | None = None
 try:  # pragma: no cover - import-time guard
     from docx import Document
     from docx.document import Document as DocxDocument
-    from docx.oxml.table import CT_Tc
+    from docx.oxml.simpletypes import ST_Merge
     from docx.oxml.xmlchemy import BaseOxmlElement
     from docx.styles.style import ParagraphStyle
     from docx.table import Table, _Cell
@@ -1186,12 +1186,9 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         ] = []
         group_text = ""
         previous_format = None
-        last_format = None
 
         # Iterate over the runs of the paragraph and group them by format
         for text, format, hyperlink in self._iter_paragraph_content(paragraph):
-            last_format = format
-
             if (len(text.strip()) and format != previous_format) or (
                 hyperlink is not None
             ):
@@ -1213,7 +1210,7 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
 
         # Format the last group
         if len(group_text.strip()) > 0:
-            paragraph_elements.append((group_text.strip(), last_format, None))
+            paragraph_elements.append((group_text.strip(), previous_format, None))
 
         return paragraph_elements
 
@@ -2243,6 +2240,22 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         element: BaseOxmlElement,
         doc: DoclingDocument,
     ) -> list[RefItem]:
+        """Convert a ``w:tbl`` element into a Docling table.
+
+        Cells are emitted in a single pass over the rows. A row may start late
+        (``w:gridBefore``) or end early (``w:gridAfter``), so a cell's position
+        within its row does not identify its layout-grid column; the grid column
+        is therefore tracked explicitly while walking the row. A cell with
+        ``vMerge="continue"`` holds no content of its own and instead extends the
+        cell still open at the same grid column.
+
+        Args:
+            element: The ``w:tbl`` element to convert.
+            doc: The DoclingDocument being constructed.
+
+        Returns:
+            References to the items created for this table.
+        """
         elem_ref: list[RefItem] = []
         table: Table = Table(element, self.docx_obj)
         num_rows = len(table.rows)
@@ -2264,35 +2277,24 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         )
         elem_ref.append(docling_table.get_ref())
 
-        cell_set: set[CT_Tc] = set()
+        open_cells: dict[int, TableCell] = {}
         for row_idx, row in enumerate(table.rows):
-            _log.debug(f"Row index {row_idx} with {len(row.cells)} populated cells")
-            col_idx = 0
-            while col_idx < num_cols:
-                # Handle merged cells: row may have fewer cells than num_cols
-                if col_idx >= len(row.cells):
+            grid_col = row.grid_cols_before
+            for tc in row._tr.tc_lst:
+                if grid_col >= num_cols:
                     break
-                cell: _Cell = row.cells[col_idx]
-                _log.debug(
-                    f" col {col_idx} grid_span {cell.grid_span} grid_cols_before {row.grid_cols_before}"
-                )
-                if cell is None or cell._tc in cell_set:
-                    _log.debug("  skipped since repeated content")
-                    col_idx += cell.grid_span
-                    continue
-                else:
-                    cell_set.add(cell._tc)
+                col_span = tc.grid_span
 
-                spanned_idx = row_idx
-                spanned_tc: CT_Tc | None = cell._tc
-                while spanned_tc == cell._tc:
-                    spanned_idx += 1
-                    spanned_tc = (
-                        table.rows[spanned_idx].cells[col_idx]._tc
-                        if spanned_idx < num_rows
-                        else None
+                spanned = open_cells.get(grid_col)
+                if tc.vMerge == ST_Merge.CONTINUE and spanned is not None:
+                    spanned.end_row_offset_idx = row_idx + 1
+                    spanned.row_span = (
+                        spanned.end_row_offset_idx - spanned.start_row_offset_idx
                     )
-                _log.debug(f"  spanned before row {spanned_idx}")
+                    grid_col += col_span
+                    continue
+
+                cell = _Cell(tc, table)
 
                 # Detect equations in cell text
                 text, equations = self._handle_equations_in_text(
@@ -2309,12 +2311,14 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
                 if rich_table_cell:
                     with self._isolated_list_context():
                         _, provs_in_cell = self._walk_linear(cell._element, doc)
-                _log.debug(f"Table cell {row_idx},{col_idx} rich? {rich_table_cell}")
+                _log.debug(f"Table cell {row_idx},{grid_col} rich? {rich_table_cell}")
 
+                new_cell: TableCell
                 if len(provs_in_cell) > 0:
                     # Cell has multiple elements, we need to group them
-                    rich_table_cell = True
-                    group_name = f"rich_cell_group_{len(doc.tables)}_{col_idx}_{row.grid_cols_before + row_idx}"
+                    group_name = (
+                        f"rich_cell_group_{len(doc.tables)}_{grid_col}_{row_idx}"
+                    )
                     ref_for_rich_cell = MsWordDocumentBackend._group_cell_elements(
                         group_name,
                         doc,
@@ -2322,36 +2326,34 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
                         docling_table,
                         content_layer=self.content_layer,
                     )
-
-                if rich_table_cell:
-                    rich_cell = RichTableCell(
+                    new_cell = RichTableCell(
                         text=text,
-                        row_span=spanned_idx - row_idx,
-                        col_span=cell.grid_span,
-                        start_row_offset_idx=row.grid_cols_before + row_idx,
-                        end_row_offset_idx=row.grid_cols_before + spanned_idx,
-                        start_col_offset_idx=col_idx,
-                        end_col_offset_idx=col_idx + cell.grid_span,
-                        column_header=row.grid_cols_before + row_idx == 0,
+                        row_span=1,
+                        col_span=col_span,
+                        start_row_offset_idx=row_idx,
+                        end_row_offset_idx=row_idx + 1,
+                        start_col_offset_idx=grid_col,
+                        end_col_offset_idx=grid_col + col_span,
+                        column_header=row_idx == 0,
                         row_header=False,
                         ref=ref_for_rich_cell,  # points to an artificial group around children
                     )
-                    doc.add_table_cell(table_item=docling_table, cell=rich_cell)
-                    col_idx += cell.grid_span
                 else:
-                    simple_cell = TableCell(
+                    new_cell = TableCell(
                         text=text,
-                        row_span=spanned_idx - row_idx,
-                        col_span=cell.grid_span,
-                        start_row_offset_idx=row.grid_cols_before + row_idx,
-                        end_row_offset_idx=row.grid_cols_before + spanned_idx,
-                        start_col_offset_idx=col_idx,
-                        end_col_offset_idx=col_idx + cell.grid_span,
-                        column_header=row.grid_cols_before + row_idx == 0,
+                        row_span=1,
+                        col_span=col_span,
+                        start_row_offset_idx=row_idx,
+                        end_row_offset_idx=row_idx + 1,
+                        start_col_offset_idx=grid_col,
+                        end_col_offset_idx=grid_col + col_span,
+                        column_header=row_idx == 0,
                         row_header=False,
                     )
-                    doc.add_table_cell(table_item=docling_table, cell=simple_cell)
-                    col_idx += cell.grid_span
+
+                doc.add_table_cell(table_item=docling_table, cell=new_cell)
+                open_cells[grid_col] = new_cell
+                grid_col += col_span
         return elem_ref
 
     def _has_blip(self, element: BaseOxmlElement) -> bool:

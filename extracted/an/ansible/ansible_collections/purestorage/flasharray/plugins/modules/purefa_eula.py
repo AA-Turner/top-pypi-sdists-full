@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_eula
 version_added: '1.0.0'
-short_description: Sign Pure Storage FlashArray EULA
+short_description: Sign Everpure FlashArray EULA
 description:
 - Sign the FlashArray EULA for Day 0 config, or change signatory.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   company:
     description:
@@ -64,6 +64,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 HAS_PURESTORAGE = True
 try:
@@ -97,10 +100,7 @@ def set_eula(module, array):
                     )
                 )
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Signing EULA failed. Error: {0}".format(res.erroros[0].message)
-                )
+            check_response(res, module, "Signing EULA failed")
     else:
         module.warn("EULA already signed")
     module.exit_json(changed=changed)

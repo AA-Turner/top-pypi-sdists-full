@@ -82,12 +82,30 @@ def get_md5(path):
         raise
     return hashlib.md5(data).hexdigest()
 
+def _is_within_directory(directory, target):
+    """
+    Check that `target` resolves to a path inside `directory`.
+    """
+    directory = os.path.realpath(directory)
+    target = os.path.realpath(target)
+    return os.path.commonpath([directory]) == os.path.commonpath([directory, target])
+
 def unzip(path, filename):
     """
     Fully unzip a file `filename` that's in a directory `dir`.
+
+    Before unzipping, paths are checked so that a 'zip slip' error cannot happen.
+    See https://github.com/stanfordnlp/stanza/security/advisories/GHSA-2fwf-f686-7p34
     """
     logger.debug(f'Unzip: {path}/{filename}...')
     with zipfile.ZipFile(os.path.join(path, filename)) as f:
+        for member in f.namelist():
+            member_path = os.path.join(path, member)
+            if not _is_within_directory(path, member_path):
+                raise ValueError(
+                    f"Zip file {filename} contains an entry that would extract "
+                    f"outside of the target directory: {member}"
+                )
         f.extractall(path)
 
 def get_root_from_zipfile(filename):
@@ -229,6 +247,9 @@ def add_mwt(processors, resources, lang):
     tokenize and mwt pair in the resources file, mwt is added so no missing
     mwt errors are raised.
     """
+    if MWT in processors:
+        return
+
     value = processors[TOKENIZE]
     if value in resources[lang][PACKAGES] and MWT in resources[lang][PACKAGES][value]:
         logger.warning("Language %s package %s expects mwt, which has been added", lang, value)
@@ -236,6 +257,12 @@ def add_mwt(processors, resources, lang):
     elif (value in resources[lang][TOKENIZE] and MWT in resources[lang] and value in resources[lang][MWT]):
         logger.warning("Language %s package %s expects mwt, which has been added", lang, value)
         processors[MWT] = value
+    elif value in resources[lang][TOKENIZE] and MWT in resources[lang]:
+        if value.endswith("_nocharlm") or value.endswith("_charlm"):
+            value = value.rsplit("_", maxsplit=1)[0]
+            if value in resources[lang][MWT]:
+                logger.warning("Language %s package %s expects mwt, which has been added", lang, value)
+                processors[MWT] = value
 
 def maintain_processor_list(resources, lang, package, processors, allow_pretrain=False, maybe_add_mwt=True):
     """

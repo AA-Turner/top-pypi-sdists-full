@@ -1,5 +1,3 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from __future__ import annotations
 
 import os
@@ -69,8 +67,10 @@ from .types.classify_response import ClassifyResponse
 from .types.extract_build_schema_response import ExtractBuildSchemaResponse
 
 if TYPE_CHECKING:
-    from .resources import parse_jobs
+    from .resources import parse_jobs, extract_jobs
+    from .resources.v2 import V2Resource, AsyncV2Resource
     from .resources.parse_jobs import ParseJobsResource, AsyncParseJobsResource
+    from .resources.extract_jobs import ExtractJobsResource, AsyncExtractJobsResource
 _LIB_VERSION = importlib.metadata.version("landingai-ade")
 
 __all__ = [
@@ -88,16 +88,27 @@ __all__ = [
 ENVIRONMENTS: Dict[str, str] = {
     "production": "https://api.va.landing.ai",
     "eu": "https://api.va.eu-west-1.landing.ai",
+    "staging": "https://api.va.staging.landing.ai",
+    "dev": "https://api.va.dev.landing.ai",
+}
+
+V2_ENVIRONMENTS: Dict[str, str] = {
+    "production": "https://api.ade.landing.ai",
+    "eu": "https://api.ade.eu-west-1.landing.ai",
+    "staging": "https://api.ade.staging.landing.ai",
+    "dev": "https://api.ade.dev.landing.ai",
 }
 
 
-def _get_input_filename(
-    file_input: Union[FileTypes, Omit, None], url_input: Union[str, Omit, None]
-) -> str:
+def _get_input_filename(file_input: Union[FileTypes, Omit, None], url_input: Union[str, Omit, None]) -> str:
     """Extract base filename (without extension) from file or URL input."""
     if file_input is not None and not isinstance(file_input, Omit):
-        if isinstance(file_input, (Path, str)):
+        if isinstance(file_input, (Path, os.PathLike)):
             return Path(file_input).stem
+        elif isinstance(file_input, str):
+            # Strings are always treated as raw content, not file paths.
+            # File inputs should use Path objects, tuples, or IO objects.
+            pass
         elif isinstance(file_input, tuple) and len(file_input) > 0:
             # Tuple format: (filename, content, mime_type)
             return Path(str(file_input[0])).stem
@@ -122,28 +133,76 @@ def _save_response(
     method_name: str,
     result: Any,
 ) -> None:
-    """Save API response to a JSON file in the specified folder."""
+    """Save API response to a JSON file.
+
+    If save_to has a '.json' suffix (case-insensitive), it is treated as a full
+    file path and the response is written there directly. Otherwise it is
+    treated as a directory and the file is auto-named
+    '{filename}_{method_name}_output.json', except when filename is 'output'
+    (i.e. no input filename could be derived) — in that case the redundant
+    prefix is dropped and the file is named '{method_name}_output.json'.
+    """
     try:
-        folder = Path(save_to)
-        folder.mkdir(parents=True, exist_ok=True)
-        output_path = folder / f"{filename}_{method_name}_output.json"
-        output_path.write_text(result.to_json())
+        save_path = Path(save_to)
+        if save_path.suffix.lower() == ".json":
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.write_text(result.to_json(), encoding="utf-8")
+        else:
+            save_path.mkdir(parents=True, exist_ok=True)
+            if filename == "output":
+                output_path = save_path / f"{method_name}_output.json"
+            else:
+                output_path = save_path / f"{filename}_{method_name}_output.json"
+            output_path.write_text(result.to_json(), encoding="utf-8")
     except OSError as exc:
         raise LandingAiadeError(f"Failed to save {method_name} response to {save_to}: {exc}") from exc
+
+
+def _resolve_v2_base_url(
+    environment: str | NotGiven,
+    v2_base_url: str | None | NotGiven,
+    resolved_v1_base_url: str | httpx.URL,
+    v1_base_url_was_explicit: bool,
+) -> str:
+    """Resolve the V2/ADE host, no trailing slash.
+
+    Precedence: explicit v2_base_url param > LANDINGAI_ADE_V2_BASE_URL env >
+    environment map > (if only V1 base_url was set explicitly) follow it >
+    production default.
+    """
+    if is_given(v2_base_url) and v2_base_url is not None:
+        return str(v2_base_url).rstrip("/")
+
+    env_override = os.environ.get("LANDINGAI_ADE_V2_BASE_URL")
+    if env_override:
+        return env_override.rstrip("/")
+
+    if is_given(environment):
+        try:
+            return V2_ENVIRONMENTS[environment]
+        except KeyError as exc:
+            raise ValueError(f"Unknown environment: {environment}") from exc
+
+    if v1_base_url_was_explicit:
+        # Only a V1 base_url was provided (mock/proxy) — route V2 to it too.
+        return str(resolved_v1_base_url).rstrip("/")
+
+    return V2_ENVIRONMENTS["production"]
 
 
 class LandingAIADE(SyncAPIClient):
     # client options
     apikey: str
 
-    _environment: Literal["production", "eu"] | NotGiven
+    _environment: Literal["production", "eu", "staging", "dev"] | NotGiven
 
     def __init__(
         self,
         *,
         apikey: str | None = None,
-        environment: Literal["production", "eu"] | NotGiven = not_given,
+        environment: Literal["production", "eu", "staging", "dev"] | NotGiven = not_given,
         base_url: str | httpx.URL | None | NotGiven = not_given,
+        v2_base_url: str | None | NotGiven = not_given,
         timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
@@ -174,9 +233,15 @@ class LandingAIADE(SyncAPIClient):
             )
         self.apikey = apikey
 
-        self._environment = environment
+        if not is_given(environment):
+            env_name = os.environ.get("LANDINGAI_ADE_ENVIRONMENT")
+            if env_name:
+                environment = cast(Any, env_name)
+
+        self._environment = environment  # type: ignore[assignment]
 
         base_url_env = os.environ.get("LANDINGAI_ADE_BASE_URL")
+        v1_base_url_was_explicit = is_given(base_url) and base_url is not None
         if is_given(base_url) and base_url is not None:
             # cast required because mypy doesn't understand the type narrowing
             base_url = cast("str | httpx.URL", base_url)  # pyright: ignore[reportUnnecessaryCast]
@@ -200,6 +265,11 @@ class LandingAIADE(SyncAPIClient):
             except KeyError as exc:
                 raise ValueError(f"Unknown environment: {environment}") from exc
 
+        v1_base_url_was_explicit = v1_base_url_was_explicit or (
+            base_url_env is not None and not is_given(environment)
+        )
+        self._v2_base_url = _resolve_v2_base_url(environment, v2_base_url, base_url, v1_base_url_was_explicit)
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -216,6 +286,18 @@ class LandingAIADE(SyncAPIClient):
         from .resources.parse_jobs import ParseJobsResource
 
         return ParseJobsResource(self)
+
+    @cached_property
+    def extract_jobs(self) -> ExtractJobsResource:
+        from .resources.extract_jobs import ExtractJobsResource
+
+        return ExtractJobsResource(self)
+
+    @cached_property
+    def v2(self) -> V2Resource:
+        from .resources.v2 import V2Resource
+
+        return V2Resource(self)
 
     @cached_property
     def with_raw_response(self) -> LandingAIADEWithRawResponse:
@@ -249,8 +331,9 @@ class LandingAIADE(SyncAPIClient):
         self,
         *,
         apikey: str | None = None,
-        environment: Literal["production", "eu"] | None = None,
+        environment: Literal["production", "eu", "staging", "dev"] | None = None,
         base_url: str | httpx.URL | None = None,
+        v2_base_url: str | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.Client | None = None,
         max_retries: int | NotGiven = not_given,
@@ -285,6 +368,7 @@ class LandingAIADE(SyncAPIClient):
         return self.__class__(
             apikey=apikey or self.apikey,
             base_url=base_url or self.base_url,
+            v2_base_url=v2_base_url or self._v2_base_url,
             environment=environment or self._environment,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,
@@ -410,9 +494,10 @@ class LandingAIADE(SyncAPIClient):
           strict: If True, reject schemas with unsupported fields (HTTP 422). If False, prune
               unsupported fields and continue. Only applies to extract versions that support
               schema validation.
-          save_to: Optional output folder path. If provided, the response will be saved as
-              JSON to this folder with the filename format: {input_file}_extract_output.json.
-              The folder will be created if it doesn't exist.
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_extract_output.json, or extract_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
 
           extra_headers: Send extra headers
 
@@ -584,9 +669,10 @@ class LandingAIADE(SyncAPIClient):
               parameter. Set the parameter to page to split documents at the page level. The
               splits object in the API output will contain a set of data for each page.
 
-          save_to: Optional output folder path. If provided, the response will be saved as
-              JSON to this folder with the filename format: {input_file}_parse_output.json.
-              The folder will be created if it doesn't exist.
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_parse_output.json, or parse_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
 
           extra_headers: Send extra headers
 
@@ -742,9 +828,10 @@ class LandingAIADE(SyncAPIClient):
 
           model: Model version to use for split classification. Defaults to the latest version.
 
-          save_to: Optional output folder path. If provided, the response will be saved as
-              JSON to this folder with the filename format: {input_file}_split_output.json.
-              The folder will be created if it doesn't exist.
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_split_output.json, or split_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
 
           extra_headers: Send extra headers
 
@@ -823,14 +910,15 @@ class AsyncLandingAIADE(AsyncAPIClient):
     # client options
     apikey: str
 
-    _environment: Literal["production", "eu"] | NotGiven
+    _environment: Literal["production", "eu", "staging", "dev"] | NotGiven
 
     def __init__(
         self,
         *,
         apikey: str | None = None,
-        environment: Literal["production", "eu"] | NotGiven = not_given,
+        environment: Literal["production", "eu", "staging", "dev"] | NotGiven = not_given,
         base_url: str | httpx.URL | None | NotGiven = not_given,
+        v2_base_url: str | None | NotGiven = not_given,
         timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
@@ -861,9 +949,15 @@ class AsyncLandingAIADE(AsyncAPIClient):
             )
         self.apikey = apikey
 
-        self._environment = environment
+        if not is_given(environment):
+            env_name = os.environ.get("LANDINGAI_ADE_ENVIRONMENT")
+            if env_name:
+                environment = cast(Any, env_name)
+
+        self._environment = environment  # type: ignore[assignment]
 
         base_url_env = os.environ.get("LANDINGAI_ADE_BASE_URL")
+        v1_base_url_was_explicit = is_given(base_url) and base_url is not None
         if is_given(base_url) and base_url is not None:
             # cast required because mypy doesn't understand the type narrowing
             base_url = cast("str | httpx.URL", base_url)  # pyright: ignore[reportUnnecessaryCast]
@@ -887,6 +981,11 @@ class AsyncLandingAIADE(AsyncAPIClient):
             except KeyError as exc:
                 raise ValueError(f"Unknown environment: {environment}") from exc
 
+        v1_base_url_was_explicit = v1_base_url_was_explicit or (
+            base_url_env is not None and not is_given(environment)
+        )
+        self._v2_base_url = _resolve_v2_base_url(environment, v2_base_url, base_url, v1_base_url_was_explicit)
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -903,6 +1002,18 @@ class AsyncLandingAIADE(AsyncAPIClient):
         from .resources.parse_jobs import AsyncParseJobsResource
 
         return AsyncParseJobsResource(self)
+
+    @cached_property
+    def extract_jobs(self) -> AsyncExtractJobsResource:
+        from .resources.extract_jobs import AsyncExtractJobsResource
+
+        return AsyncExtractJobsResource(self)
+
+    @cached_property
+    def v2(self) -> AsyncV2Resource:
+        from .resources.v2 import AsyncV2Resource
+
+        return AsyncV2Resource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncLandingAIADEWithRawResponse:
@@ -936,8 +1047,9 @@ class AsyncLandingAIADE(AsyncAPIClient):
         self,
         *,
         apikey: str | None = None,
-        environment: Literal["production", "eu"] | None = None,
+        environment: Literal["production", "eu", "staging", "dev"] | None = None,
         base_url: str | httpx.URL | None = None,
+        v2_base_url: str | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.AsyncClient | None = None,
         max_retries: int | NotGiven = not_given,
@@ -972,6 +1084,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
         return self.__class__(
             apikey=apikey or self.apikey,
             base_url=base_url or self.base_url,
+            v2_base_url=v2_base_url or self._v2_base_url,
             environment=environment or self._environment,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,
@@ -1064,6 +1177,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
         markdown_url: Optional[str] | Omit = omit,
         model: Optional[str] | Omit = omit,
         strict: bool | Omit = omit,
+        save_to: str | Path | None = None,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1097,6 +1211,11 @@ class AsyncLandingAIADE(AsyncAPIClient):
               unsupported fields and continue. Only applies to extract versions that support
               schema validation.
 
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_extract_output.json, or extract_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1105,6 +1224,9 @@ class AsyncLandingAIADE(AsyncAPIClient):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        # Store original inputs for filename extraction before conversion
+        original_markdown = markdown
+        original_markdown_url = markdown_url
         # Convert local file paths to file parameters
         markdown, markdown_url = convert_url_to_file_if_local(markdown, markdown_url)
 
@@ -1127,7 +1249,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
             "runtime_tag": f"ade-python-v{_LIB_VERSION}",
             **(extra_headers or {}),
         }
-        return await self.post(
+        result = await self.post(
             "/v1/ade/extract",
             body=await async_maybe_transform(body, client_extract_params.ClientExtractParams),
             files=files,
@@ -1139,6 +1261,10 @@ class AsyncLandingAIADE(AsyncAPIClient):
             ),
             cast_to=ExtractResponse,
         )
+        if save_to:
+            filename = _get_input_filename(original_markdown, original_markdown_url)
+            _save_response(save_to, filename, "extract", result)
+        return result
 
     async def extract_build_schema(
         self,
@@ -1221,6 +1347,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
         model: Optional[str] | Omit = omit,
         password: Optional[str] | Omit = omit,
         split: Optional[Literal["page"]] | Omit = omit,
+        save_to: str | Path | None = None,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1259,6 +1386,11 @@ class AsyncLandingAIADE(AsyncAPIClient):
               parameter. Set the parameter to page to split documents at the page level. The
               splits object in the API output will contain a set of data for each page.
 
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_parse_output.json, or parse_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1267,6 +1399,9 @@ class AsyncLandingAIADE(AsyncAPIClient):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        # Store original inputs for filename extraction before conversion
+        original_document = document
+        original_document_url = document_url
         # Convert local file paths to file parameters
         document, document_url = convert_url_to_file_if_local(document, document_url)
 
@@ -1290,7 +1425,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
             "runtime_tag": f"ade-python-v{_LIB_VERSION}",
             **(extra_headers or {}),
         }
-        return await self.post(
+        result = await self.post(
             "/v1/ade/parse",
             body=await async_maybe_transform(body, client_parse_params.ClientParseParams),
             files=files,
@@ -1302,6 +1437,10 @@ class AsyncLandingAIADE(AsyncAPIClient):
             ),
             cast_to=ParseResponse,
         )
+        if save_to:
+            filename = _get_input_filename(original_document, original_document_url)
+            _save_response(save_to, filename, "parse", result)
+        return result
 
     async def section(
         self,
@@ -1378,6 +1517,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
         markdown: Union[FileTypes, str, None] | Omit = omit,
         markdown_url: Optional[str] | Omit = omit,
         model: Optional[str] | Omit = omit,
+        save_to: str | Path | None = None,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1405,6 +1545,11 @@ class AsyncLandingAIADE(AsyncAPIClient):
 
           model: Model version to use for split classification. Defaults to the latest version.
 
+          save_to: Optional output path. If a directory, auto-generates the filename
+              (e.g. {input_file}_split_output.json, or split_output.json when no
+              input filename is available). If a full path ending in .json, saves there
+              directly. Parent directories are created automatically.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1413,6 +1558,9 @@ class AsyncLandingAIADE(AsyncAPIClient):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        # Store original inputs for filename extraction
+        original_markdown = markdown
+        original_markdown_url = markdown_url
         body = deepcopy_with_paths(
             {
                 "split_class": split_class,
@@ -1427,7 +1575,7 @@ class AsyncLandingAIADE(AsyncAPIClient):
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
-        return await self.post(
+        result = await self.post(
             "/v1/ade/split",
             body=await async_maybe_transform(body, client_split_params.ClientSplitParams),
             files=files,
@@ -1436,6 +1584,10 @@ class AsyncLandingAIADE(AsyncAPIClient):
             ),
             cast_to=SplitResponse,
         )
+        if save_to:
+            filename = _get_input_filename(original_markdown, original_markdown_url)
+            _save_response(save_to, filename, "split", result)
+        return result
 
     @override
     def _make_status_error(
@@ -1502,6 +1654,12 @@ class LandingAIADEWithRawResponse:
 
         return ParseJobsResourceWithRawResponse(self._client.parse_jobs)
 
+    @cached_property
+    def extract_jobs(self) -> extract_jobs.ExtractJobsResourceWithRawResponse:
+        from .resources.extract_jobs import ExtractJobsResourceWithRawResponse
+
+        return ExtractJobsResourceWithRawResponse(self._client.extract_jobs)
+
 
 class AsyncLandingAIADEWithRawResponse:
     _client: AsyncLandingAIADE
@@ -1533,6 +1691,12 @@ class AsyncLandingAIADEWithRawResponse:
         from .resources.parse_jobs import AsyncParseJobsResourceWithRawResponse
 
         return AsyncParseJobsResourceWithRawResponse(self._client.parse_jobs)
+
+    @cached_property
+    def extract_jobs(self) -> extract_jobs.AsyncExtractJobsResourceWithRawResponse:
+        from .resources.extract_jobs import AsyncExtractJobsResourceWithRawResponse
+
+        return AsyncExtractJobsResourceWithRawResponse(self._client.extract_jobs)
 
 
 class LandingAIADEWithStreamedResponse:
@@ -1566,6 +1730,12 @@ class LandingAIADEWithStreamedResponse:
 
         return ParseJobsResourceWithStreamingResponse(self._client.parse_jobs)
 
+    @cached_property
+    def extract_jobs(self) -> extract_jobs.ExtractJobsResourceWithStreamingResponse:
+        from .resources.extract_jobs import ExtractJobsResourceWithStreamingResponse
+
+        return ExtractJobsResourceWithStreamingResponse(self._client.extract_jobs)
+
 
 class AsyncLandingAIADEWithStreamedResponse:
     _client: AsyncLandingAIADE
@@ -1597,6 +1767,12 @@ class AsyncLandingAIADEWithStreamedResponse:
         from .resources.parse_jobs import AsyncParseJobsResourceWithStreamingResponse
 
         return AsyncParseJobsResourceWithStreamingResponse(self._client.parse_jobs)
+
+    @cached_property
+    def extract_jobs(self) -> extract_jobs.AsyncExtractJobsResourceWithStreamingResponse:
+        from .resources.extract_jobs import AsyncExtractJobsResourceWithStreamingResponse
+
+        return AsyncExtractJobsResourceWithStreamingResponse(self._client.extract_jobs)
 
 
 Client = LandingAIADE

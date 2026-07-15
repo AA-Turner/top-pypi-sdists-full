@@ -26,7 +26,7 @@ description:
   and SUFFIX is the suffix.
 - The client visible snapshot name is CLIENT_NAME.SUFFIX.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -187,6 +187,13 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+    delete_with_context,
+    get_with_context,
+    patch_with_context,
+    post_with_context,
+)
 
 MIN_REQUIRED_API_VERSION = "2.2"
 MIN_RENAME_API_VERSION = "2.10"
@@ -195,7 +202,6 @@ CONTEXT_VERSION = "2.42"
 
 def eradicate_snap(module, array):
     """Eradicate a filesystem snapshot"""
-    api_version = array.get_rest_version()
     changed = True
     if not module.check_mode:
         snapname = (
@@ -207,24 +213,21 @@ def eradicate_snap(module, array):
             + "."
             + module.params["suffix"]
         )
-        if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-            res = array.delete_directory_snapshots(
-                names=[snapname], context_names=[module.params["context"]]
-            )
-        else:
-            res = array.delete_directory_snapshots(names=[snapname])
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Failed to eradicate filesystem snapshot {0}. Error: {1}".format(
-                    snapname, res.errors[0].message
-                )
-            )
+        res = delete_with_context(
+            array,
+            "delete_directory_snapshots",
+            CONTEXT_VERSION,
+            module,
+            names=[snapname],
+        )
+        check_response(
+            res, module, f"Failed to eradicate filesystem snapshot {snapname}"
+        )
     module.exit_json(changed=changed)
 
 
 def delete_snap(module, array):
     """Delete a filesystem snapshot"""
-    api_version = array.get_rest_version()
     changed = True
     if not module.check_mode:
         snapname = (
@@ -237,22 +240,15 @@ def delete_snap(module, array):
             + module.params["suffix"]
         )
         directory_snapshot = DirectorySnapshotPatch(destroyed=True)
-        if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-            res = array.patch_directory_snapshots(
-                names=[snapname],
-                directory_snapshot=directory_snapshot,
-                context_names=[module.params["context"]],
-            )
-        else:
-            res = array.patch_directory_snapshots(
-                names=[snapname], directory_snapshot=directory_snapshot
-            )
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Failed to delete filesystem snapshot {0}. Error: {1}".format(
-                    snapname, res.errors[0].message
-                )
-            )
+        res = patch_with_context(
+            array,
+            "patch_directory_snapshots",
+            CONTEXT_VERSION,
+            module,
+            names=[snapname],
+            directory_snapshot=directory_snapshot,
+        )
+        check_response(res, module, f"Failed to delete filesystem snapshot {snapname}")
         if module.params["eradicate"]:
             eradicate_snap(module, array)
     module.exit_json(changed=changed)
@@ -260,7 +256,6 @@ def delete_snap(module, array):
 
 def update_snap(module, array, snap_detail):
     """Update a filesystem snapshot retention time"""
-    api_version = array.get_rest_version()
     changed = False
     snapname = (
         module.params["filesystem"]
@@ -294,24 +289,16 @@ def update_snap(module, array, snap_detail):
         )
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                res = array.patch_directory_snapshots(
-                    names=[snapname],
-                    directory_snapshot=directory_snapshot,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.patch_directory_snapshots(
-                    names=[snapname], directory_snapshot=directory_snapshot
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to rename snapshot {0}. Error: {1}".format(
-                        snapname, res.errors[0].message
-                    )
-                )
-            else:
-                snapname = new_snapname
+            res = patch_with_context(
+                array,
+                "patch_directory_snapshots",
+                CONTEXT_VERSION,
+                module,
+                names=[snapname],
+                directory_snapshot=directory_snapshot,
+            )
+            check_response(res, module, f"Failed to rename snapshot {snapname}")
+            snapname = new_snapname
     if not module.params["keep_for"] or module.params["keep_for"] == 0:
         keep_for = None
     elif 300 <= module.params["keep_for"] <= 31536000:
@@ -322,86 +309,65 @@ def update_snap(module, array, snap_detail):
         changed = True
         if not module.check_mode:
             directory_snapshot = DirectorySnapshotPatch(destroyed=False)
-            if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                res = array.patch_directory_snapshots(
-                    names=[snapname],
-                    directory_snapshot=directory_snapshot,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.patch_directory_snapshots(
-                    names=[snapname], directory_snapshot=directory_snapshot
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to recover snapshot {0}. Error: {1}".format(
-                        snapname, res.errors[0].message
-                    )
-                )
+            res = patch_with_context(
+                array,
+                "patch_directory_snapshots",
+                CONTEXT_VERSION,
+                module,
+                names=[snapname],
+                directory_snapshot=directory_snapshot,
+            )
+            check_response(res, module, f"Failed to recover snapshot {snapname}")
             if keep_for != 0:  # Set a new keep-for after recovery if requested
                 directory_snapshot = DirectorySnapshotPatch(keep_for=keep_for)
-                if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                    res = array.patch_directory_snapshots(
-                        names=[snapname],
-                        directory_snapshot=directory_snapshot,
-                        context_names=[module.params["context"]],
-                    )
-                else:
-                    res = array.patch_directory_snapshots(
-                        names=[snapname], directory_snapshot=directory_snapshot
-                    )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to retention time for snapshot {0}. Error: {1}".format(
-                            snapname, res.errors[0].message
-                        )
-                    )
+                res = patch_with_context(
+                    array,
+                    "patch_directory_snapshots",
+                    CONTEXT_VERSION,
+                    module,
+                    names=[snapname],
+                    directory_snapshot=directory_snapshot,
+                )
+                check_response(
+                    res, module, f"Failed to set retention time for snapshot {snapname}"
+                )
     if keep_for:
         directory_snapshot = DirectorySnapshotPatch(keep_for=keep_for)
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                res = array.patch_directory_snapshots(
-                    names=[snapname],
-                    directory_snapshot=directory_snapshot,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.patch_directory_snapshots(
-                    names=[snapname], directory_snapshot=directory_snapshot
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to retention time for snapshot {0}. Error: {1}".format(
-                        snapname, res.errors[0].message
-                    )
-                )
+            res = patch_with_context(
+                array,
+                "patch_directory_snapshots",
+                CONTEXT_VERSION,
+                module,
+                names=[snapname],
+                directory_snapshot=directory_snapshot,
+            )
+            check_response(
+                res, module, f"Failed to set retention time for snapshot {snapname}"
+            )
     if module.params["rename"] and keep_for:
         directory_snapshot = DirectorySnapshotPatch(keep_for=keep_for)
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                res = array.patch_directory_snapshots(
-                    names=[new_snapname],
-                    directory_snapshot=directory_snapshot,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.patch_directory_snapshots(
-                    names=[new_snapname], directory_snapshot=directory_snapshot
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to retention time for renamed snapshot {0}. Error: {1}".format(
-                        snapname, res.errors[0].message
-                    )
-                )
+            res = patch_with_context(
+                array,
+                "patch_directory_snapshots",
+                CONTEXT_VERSION,
+                module,
+                names=[new_snapname],
+                directory_snapshot=directory_snapshot,
+            )
+            check_response(
+                res,
+                module,
+                f"Failed to set retention time for renamed snapshot {snapname}",
+            )
     module.exit_json(changed=changed)
 
 
 def create_snap(module, array):
     """Create a filesystem snapshot"""
-    api_version = array.get_rest_version()
     changed = True
     if not module.check_mode:
         if not module.params["keep_for"] or module.params["keep_for"] == 0:
@@ -421,22 +387,19 @@ def create_snap(module, array):
             directory_snapshot = DirectorySnapshotPost(
                 client_name=module.params["client"], keep_for=keep_for
             )
-        if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-            res = array.post_directory_snapshots(
-                source_names=[directory],
-                directory_snapshot=directory_snapshot,
-                context_names=[module.params["context"]],
-            )
-        else:
-            res = array.post_directory_snapshots(
-                source_names=[directory], directory_snapshot=directory_snapshot
-            )
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Failed to create client {0} snapshot for {1}. Error: {2}".format(
-                    module.params["client"], directory, res.errors[0].message
-                )
-            )
+        res = post_with_context(
+            array,
+            "post_directory_snapshots",
+            CONTEXT_VERSION,
+            module,
+            source_names=[directory],
+            directory_snapshot=directory_snapshot,
+        )
+        check_response(
+            res,
+            module,
+            f"Failed to create client {module.params['client']} snapshot for {directory}",
+        )
     module.exit_json(changed=changed)
 
 
@@ -515,16 +478,14 @@ def main():
         )
     state = module.params["state"]
     snapshot_root = module.params["filesystem"] + ":" + module.params["name"]
-    if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-        res = array.get_directories(
-            filter='name="' + snapshot_root + '"',
-            total_item_count=True,
-            context_names=[module.params["context"]],
-        )
-    else:
-        res = array.get_directories(
-            filter='name="' + snapshot_root + '"', total_item_count=True
-        )
+    res = get_with_context(
+        array,
+        "get_directories",
+        CONTEXT_VERSION,
+        module,
+        filter='name="' + snapshot_root + '"',
+        total_item_count=True,
+    )
     if bool(res.total_item_count == 0):
         module.fail_json(msg="Directory {0} does not exist.".format(snapshot_root))
     snap_exists = False

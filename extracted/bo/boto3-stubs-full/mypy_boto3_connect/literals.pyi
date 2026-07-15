@@ -229,6 +229,7 @@ __all__ = (
     "ResourceServiceName",
     "ResponseModeType",
     "RoutingCriteriaStepStatusType",
+    "RuleCapabilityTierType",
     "RulePublishStatusType",
     "ScreenShareCapabilityType",
     "SearchAgentStatusesPaginatorName",
@@ -248,6 +249,7 @@ __all__ = (
     "SearchQuickConnectsPaginatorName",
     "SearchResourceTagsPaginatorName",
     "SearchRoutingProfilesPaginatorName",
+    "SearchRulesPaginatorName",
     "SearchSecurityProfilesPaginatorName",
     "SearchTestCasesPaginatorName",
     "SearchUserHierarchyGroupsPaginatorName",
@@ -1025,6 +1027,7 @@ ReferenceTypeType = Literal[
 RehydrationTypeType = Literal["ENTIRE_PAST_SESSION", "FROM_SEGMENT"]
 ResponseModeType = Literal["COMPLETE", "INCREMENTAL"]
 RoutingCriteriaStepStatusType = Literal["ACTIVE", "EXPIRED", "INACTIVE", "JOINED"]
+RuleCapabilityTierType = Literal["GenerativeAI"]
 RulePublishStatusType = Literal["DRAFT", "PUBLISHED"]
 ScreenShareCapabilityType = Literal["SEND"]
 SearchAgentStatusesPaginatorName = Literal["search_agent_statuses"]
@@ -1050,6 +1053,7 @@ SearchQueuesPaginatorName = Literal["search_queues"]
 SearchQuickConnectsPaginatorName = Literal["search_quick_connects"]
 SearchResourceTagsPaginatorName = Literal["search_resource_tags"]
 SearchRoutingProfilesPaginatorName = Literal["search_routing_profiles"]
+SearchRulesPaginatorName = Literal["search_rules"]
 SearchSecurityProfilesPaginatorName = Literal["search_security_profiles"]
 SearchTestCasesPaginatorName = Literal["search_test_cases"]
 SearchUserHierarchyGroupsPaginatorName = Literal["search_user_hierarchy_groups"]
@@ -1663,6 +1667,7 @@ PaginatorName = Literal[
     "search_quick_connects",
     "search_resource_tags",
     "search_routing_profiles",
+    "search_rules",
     "search_security_profiles",
     "search_test_cases",
     "search_user_hierarchy_groups",

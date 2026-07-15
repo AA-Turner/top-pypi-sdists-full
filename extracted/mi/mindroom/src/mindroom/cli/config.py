@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -18,6 +19,7 @@ from rich.console import Console
 from rich.syntax import Syntax
 
 from mindroom import constants
+from mindroom.cli.env_file import write_private_env_text
 from mindroom.model_defaults import (
     CONFIG_INIT_MODEL_ALTERNATIVES,
     CONFIG_INIT_MODEL_PRESETS,
@@ -148,11 +150,32 @@ def _default_mind_workspace(storage_root: Path) -> Path:
     return agent_workspace_root_path(storage_root, "mind")
 
 
-def _ensure_mind_workspace(workspace_path: Path, *, force: bool) -> None:
+_MIND_CONFIG_PATH_NOTE_START = "<!-- mindroom:config-path:start -->"
+_MIND_CONFIG_PATH_NOTE_END = "<!-- mindroom:config-path:end -->"
+
+
+def _ensure_mind_workspace(workspace_path: Path, *, config_path: Path, force: bool) -> None:
     """Create the default Mind workspace files used by starter configs."""
     from mindroom.workspaces import ensure_workspace_template  # noqa: PLC0415
 
     ensure_workspace_template(workspace_path, template="mind", force=force)
+    tools_path = workspace_path / "TOOLS.md"
+    content = tools_path.read_text(encoding="utf-8")
+    note = (
+        f"{_MIND_CONFIG_PATH_NOTE_START}\n"
+        "## MindRoom Installation\n\n"
+        f"- Active config file: {json.dumps(str(config_path.resolve()))}\n"
+        f"{_MIND_CONFIG_PATH_NOTE_END}"
+    )
+    start = content.find(_MIND_CONFIG_PATH_NOTE_START)
+    end = content.find(_MIND_CONFIG_PATH_NOTE_END, start)
+    if start >= 0 and end >= 0:
+        end += len(_MIND_CONFIG_PATH_NOTE_END)
+        updated = f"{content[:start]}{note}{content[end:]}"
+    else:
+        updated = f"{content.rstrip()}\n\n{note}\n"
+    if updated != content:
+        tools_path.write_text(updated, encoding="utf-8")
 
 
 def _write_env_file(
@@ -165,7 +188,7 @@ def _write_env_file(
 ) -> bool:
     """Create or update .env and return whether the file changed."""
     if not env_path.exists():
-        env_path.write_text(_env_template(matrix_server, selected_preset, storage_root), encoding="utf-8")
+        write_private_env_text(env_path, _env_template(matrix_server, selected_preset, storage_root))
         console.print(f"[green]Env file created:[/green] {env_path}")
         return True
 
@@ -181,7 +204,7 @@ def _write_env_file(
             )
         return False
 
-    env_path.write_text(_env_template(matrix_server, selected_preset, storage_root), encoding="utf-8")
+    write_private_env_text(env_path, _env_template(matrix_server, selected_preset, storage_root))
     console.print(f"[green]Env file overwritten:[/green] {env_path}")
     return True
 
@@ -209,7 +232,7 @@ def _append_missing_env_defaults(
 
     appended_lines = [f"# {title}", *(f"{key}={value}" for key, value in missing_defaults)]
     appended_content = "\n".join(appended_lines)
-    env_path.write_text(f"{current_content}{separator}{appended_content}\n", encoding="utf-8")
+    write_private_env_text(env_path, f"{current_content}{separator}{appended_content}\n")
     console.print(f"[green]Env file updated:[/green] {env_path}")
     return True
 
@@ -457,7 +480,7 @@ def config_init(
 
         # `connect` can run before `config init`, when no config exists to patch.
         # In that order, connect persists the owner MXID in .env so init can render
-        # authorization defaults without leaving pairing placeholders behind.
+        # owner access defaults without leaving pairing placeholders behind.
         if owner_user_id := _config_init_owner_user_id(target):
             from mindroom.cli.owner import replace_owner_placeholders_in_text  # noqa: PLC0415
 
@@ -470,7 +493,7 @@ def config_init(
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
 
-    _ensure_mind_workspace(_default_mind_workspace(storage_root), force=force)
+    _ensure_mind_workspace(_default_mind_workspace(storage_root), config_path=target, force=force)
 
     env_changed = _write_env_file(
         env_path,
@@ -948,6 +971,8 @@ agents:
       - shell
       - coding
       - memory
+      - name: config_manager
+        defer: true
       - duckduckgo
       - website
       - browser
@@ -966,6 +991,8 @@ agents:
       - MEMORY.md is curated long-term memory; daily files are short-lived notes and logs.
       - Ask before external or destructive actions.
       - Before answering prior-history questions, use search_memories first.
+      - When helping with MindRoom setup, follow AGENTS.md and check the live state — don't guess.
+      - Meet the user at their technical level. If they ask you to configure something, do it; skip YAML or shell details unless they ask.
 
 router:
   model: default
@@ -973,6 +1000,9 @@ router:
 {mindroom_user_block}
 matrix_room_access:
   mode: single_user_private
+  room_admins:
+    # MindRoom Chat pairing writes the paired owner's Matrix user ID here.
+    - {constants.OWNER_MATRIX_USER_ID_PLACEHOLDER}
 
 matrix_space:
   enabled: true
@@ -1085,7 +1115,7 @@ def _provider_env_template(provider_preset: _ProviderPreset) -> str:  # noqa: PL
     """Return the provider-specific section of the starter .env file."""
     if provider_preset == "codex":
         return textwrap.dedent("""\
-        # Codex CLI subscription authentication
+        # Codex CLI ChatGPT authentication
         # Run `codex login` before starting MindRoom.
         # MindRoom reads ChatGPT OAuth tokens from ~/.codex/auth.json by default.
         # CODEX_HOME=~/.codex

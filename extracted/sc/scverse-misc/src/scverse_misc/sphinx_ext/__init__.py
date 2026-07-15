@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import re
 import sys
 import textwrap
 import warnings
 from importlib.metadata import version
+from pathlib import Path
 from textwrap import indent
 from types import MethodType
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, cast, get_origin
 
 if sys.version_info >= (3, 13):
     from warnings import deprecated as deprecated
 else:
     from typing_extensions import deprecated as deprecated
 
-from pydocstring import Docstring, Parameter, Return, Section, SectionKind, Style, emit_google, emit_numpy, parse
+from jinja2.defaults import DEFAULT_FILTERS  # type: ignore[attr-defined]
+from jinja2.utils import import_string
+from pydocstring import Document, Parsed, Style, TextBlock, emit_google, emit_numpy, parse
+from pydocstring.model import Block, Docstring, Parameter, Return, Section, SectionKind
+from sphinx.ext.napoleon import NumpyDocstring  # type: ignore[attr-defined]
 
 from .._deprecated import Deprecation, deprecated_arg
 from .._extensions import _NSInfo
@@ -30,6 +36,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import Options as AutodocOptions
     from sphinx.ext.autodoc import _AutodocObjType  # type: ignore[attr-defined]
@@ -43,8 +51,56 @@ def setup(app: Sphinx) -> ExtensionMetadata:  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
     # To go first, we use a lower number than napoleon (which uses the default, 500)
     app.connect("autodoc-process-docstring", _process_docstring, priority=100)
+    app.connect("autodoc-process-bases", _skip_private_bases)
+
+    DEFAULT_FILTERS["member_type"] = _member_type
+
+    app.config.templates_path = list(app.config.templates_path) + [str(Path(__file__).parent / "templates")]
+
+    NumpyDocstring._parse_returns_section = _parse_returns_section  # type: ignore[assignment]
 
     return {"version": version("scverse-misc"), "parallel_read_safe": True}
+
+
+def _process_return(lines: Iterable[str]) -> Generator[str, None, None]:
+    for line in lines:
+        if m := re.fullmatch(r"(?P<param>\w+)\s+:\s+(?P<type>[\w.]+)", line):
+            yield f"-{m['param']} (:class:`~{m['type']}`)"
+        else:
+            yield line
+
+
+def _parse_returns_section(self: NumpyDocstring, section: str) -> list[str]:
+    """Add support for prose return sections in Numpy-style docstrings."""
+    lines_raw = self._dedent(self._consume_to_next_section())
+    if lines_raw[0] == ":":
+        del lines_raw[0]
+    lines = self._format_block(":returns: ", list(_process_return(lines_raw)))
+    if lines and lines[-1]:
+        lines.append("")
+    return lines
+
+
+def _skip_private_bases(app: Sphinx, name: str, obj: type, _unused: Any, bases: list[type]) -> None:  # noqa: ANN401
+    bases[:] = [b for b in bases if b is not object and get_origin(b) is not Generic and not b.__name__.startswith("_")]
+
+
+def _member_type(obj_path: str) -> Literal["method", "property", "attribute"]:
+    """Determine object member type.
+
+    E.g.: `.. auto{{ fullname | member_type }}::`
+    """
+    # https://jinja.palletsprojects.com/en/stable/api/#custom-filters
+    cls_path, member_name = obj_path.rsplit(".", 1)
+    cls = import_string(cls_path)
+    member = getattr(cls, member_name, None)
+    match member:
+        case property():
+            return "property"
+        case _ if callable(member):
+            return "method"
+        case _:
+            return "attribute"
 
 
 def _process_docstring(
@@ -62,12 +118,16 @@ def _process_docstring(
             if hasattr(obj, ATTR_DEPRECATED) and isinstance(msg := getattr(obj, ATTR_DEPRECATED, None), Deprecation):
                 _process_deprecated_function(app, msg, lines)
             if (args := getattr(obj, ATTR_DEPRECATED_ARG, None)) is not None:
-                _process_deprecated_args(args, lines)
+                _process_deprecated_args(app, args, lines)
         case "data" if isinstance(obj, Settings):
             _process_settings_object(obj, name, lines)
 
 
-def _emit_docstring(app: Sphinx, model: Docstring, lines: list[str]) -> None:
+def _emit_docstring(
+    app: Sphinx,
+    model: Docstring,
+    lines: list[str],
+) -> None:
     """Emit a docstring compatible with the user settings (i.e. renderable with the chosen napoleon settings)."""
     if getattr(app.config, "napoleon_google_docstring", True):
         doc = emit_google(model)
@@ -83,56 +143,64 @@ def _emit_docstring(app: Sphinx, model: Docstring, lines: list[str]) -> None:
 
 def _process_deprecated_function(app: Sphinx, msg: Deprecation, lines: list[str]) -> None:
     parsed = parse("\n".join(lines))
+    doc = Document(parsed)
+    edits = parsed.edit()
 
-    model = parsed.to_model()
     notice = f".. version-deprecated:: {msg.version_deprecated}"
     if len(msg):
         notice += f"\n{textwrap.indent(msg._docmsg or '', 3 * ' ')}"
-    if model.extended_summary is not None:
-        notice += f"\n\n{model.extended_summary}"
-    model.extended_summary = notice
-    _emit_docstring(app, model, lines)
+    if doc.extended_summary is not None and not doc.extended_summary.is_missing():
+        notice += f"\n\n{doc.extended_summary.text}"
+        edits.replace(doc.extended_summary.range, notice)
+    elif doc.summary is not None:
+        edits.insert(doc.summary.range.end, f"\n\n{notice}")
+    else:
+        edits.insert(doc.range.start, notice)
+    lines[:] = edits.apply().splitlines()
 
 
-def _process_deprecated_args(deprecations: list[deprecated_arg], lines: list[str]) -> None:
+def _starts_own_line(parsed: Parsed, elem: TextBlock) -> bool:
+    return parsed.line_col(elem.range.start).col == len(parsed.line_indent(elem.range.start))
+
+
+def _process_deprecated_args(app: Sphinx, deprecations: list[deprecated_arg], lines: list[str]) -> None:
     parsed = parse("\n".join(lines))
     if parsed.style is Style.PLAIN:
         return
 
-    model = parsed.to_model()
-    if found := next(
-        (
-            (s, section, p, par, deprecation)
-            for s, section in enumerate(model.sections)
-            if section.kind in {SectionKind.PARAMETERS, SectionKind.KEYWORD_PARAMETERS, SectionKind.OTHER_PARAMETERS}
-            for p, par in enumerate(section.parameters)
-            for deprecation in deprecations
-            if deprecation.arg in par.names
-        ),
-        None,
+    doc = Document(parsed)
+    edits = parsed.edit()
+    for par, deprecation in (
+        (par, deprecation)
+        for section in doc.sections
+        if section.kind in {SectionKind.PARAMETERS, SectionKind.KEYWORD_PARAMETERS, SectionKind.OTHER_PARAMETERS}
+        for par in section.entries
+        for deprecation in deprecations
+        if deprecation.arg in (name.text for name in par.names)
     ):
-        s, section, p, par, deprecation = found
+        desc = par.description
 
+        # https://github.com/ryumasai/pydocstring/pull/140#issuecomment-4966943642
+        if desc is not None and _starts_own_line(parsed, desc):
+            indentation = parsed.line_indent(desc.range.start)
+        elif desc is not None and len(desc.lines) > 1:
+            indentation = parsed.line_indent(desc.lines[1].range.start)
+        else:
+            indentation = parsed.line_indent(par.range.start) + "    "
         docmsg = f".. version-deprecated:: {deprecation.msg.version_deprecated}"
         if len(deprecation.msg):
-            docmsg += f"\n   {deprecation.msg}"
-        if par.description is not None:
-            docmsg += f"\n\n{par.description}"
-        par.description = docmsg
-        params = list(section.parameters)
-        params[p] = par
-        sections = model.sections
-        sections[s] = Section(section.kind, parameters=params)
-        model.sections = sections
-    match parsed.style:
-        case Style.GOOGLE:
-            doc = emit_google(model)
-        case Style.NUMPY:
-            doc = emit_numpy(model)
-        case _:  # pragma: no cover
-            raise AssertionError
+            docmsg += f"\n{indent(deprecation.msg, '   ')}"
 
-    lines[:] = doc.strip("\n").splitlines()
+        docmsg_lines = docmsg.splitlines()
+        if len(docmsg_lines) > 1:
+            docmsg = f"\n{indentation}".join(docmsg_lines)
+
+        if desc is None:
+            edits.insert(par.range.end, f"\n{docmsg}")
+        else:
+            edits.replace(desc.range, f"{docmsg}\n\n{indentation}{desc.text}")
+
+    lines[:] = edits.apply().splitlines()
 
 
 _settings_docstring_template = """Allows users to customize settings for the `{package}` package.
@@ -208,27 +276,31 @@ def _process_settings_method(app: Sphinx, method: MethodType, lines: list[str]) 
 
 def _process_settings_method_override(app: Sphinx, method: MethodType, lines: list[str], *, add_annot: bool) -> None:
     settings = cast("Settings", method.__self__)
-    params = [
-        Parameter(
-            [fname],
-            type_annotation=type_str(type(settings), field) if add_annot else None,
-            description=field.description,
+    params: list[Block] = [
+        Block.Parameter(
+            Parameter(
+                [fname],
+                type_annotation=type_str(type(settings), field) if add_annot else None,
+                description=field.description,
+            )
         )
         for fname, field in type(settings).model_fields.items()
     ]
     model = Docstring(
         summary="Provides local override via keyword arguments as a context manager.",
-        sections=[Section(SectionKind.PARAMETERS, parameters=params)],
+        sections=[Section(SectionKind.PARAMETERS, blocks=params)],
     )
     _emit_docstring(app, model, lines)
 
 
 def _process_settings_method_reset(app: Sphinx, method: MethodType, lines: list[str], *, add_annot: bool) -> None:
     settings = cast("Settings", method.__self__)
+
     annot = f"typing.Literal[{', '.join(settings.model_fields.keys())}]" if add_annot else None
     desc = "Names of settings to reset."
     names_param = Parameter(["names"], type_annotation=annot, description=desc, is_optional=True)
-    model = Docstring(summary=method.__doc__, sections=[Section(SectionKind.PARAMETERS, parameters=[names_param])])
+    model = parse("\n".join(lines)).to_model()
+    model.sections = [Section(SectionKind.PARAMETERS, blocks=[Block.Parameter(names_param)])]
     _emit_docstring(app, model, lines)
 
 
@@ -277,28 +349,44 @@ def _process_namespace_decorator(app: Sphinx, name: str, info: _NSInfo, lines: l
         sections=[
             Section(
                 SectionKind.PARAMETERS,
-                parameters=[
-                    Parameter(
-                        names=["name"],
-                        description=_namespace_decorator_argument_description_template.format(name=info.cls.__name__),
+                blocks=[
+                    Block.Parameter(
+                        Parameter(
+                            names=["name"],
+                            description=_namespace_decorator_argument_description_template.format(
+                                name=info.cls.__name__
+                            ),
+                        )
                     )
                 ],
             ),
             Section(
                 SectionKind.RETURNS,
-                returns=[Return(description="A decorator that registers the decorated class as a custom namespace.")],
+                blocks=[
+                    Block.Return(
+                        Return(description="A decorator that registers the decorated class as a custom namespace.")
+                    )
+                ],
             ),
             Section(
                 SectionKind.NOTES,
-                body=_namespace_decorator_notes_template.format(
-                    qualname=qualname, name=info.cls.__name__, canonical_instance_name=info.name
-                ),
+                blocks=[
+                    Block.Paragraph(
+                        _namespace_decorator_notes_template.format(
+                            qualname=qualname, name=info.cls.__name__, canonical_instance_name=info.name
+                        )
+                    )
+                ],
             ),
             Section(
                 SectionKind.EXAMPLES,
-                body=_namespace_decorator_examples_template.format(
-                    decorator_name=_get_objname(name), name=info.cls.__name__, canonical_instance_name=info.name
-                ),
+                blocks=[
+                    Block.Paragraph(
+                        _namespace_decorator_examples_template.format(
+                            decorator_name=_get_objname(name), name=info.cls.__name__, canonical_instance_name=info.name
+                        )
+                    )
+                ],
             ),
         ],
     )

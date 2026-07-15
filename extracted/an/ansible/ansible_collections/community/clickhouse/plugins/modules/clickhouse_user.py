@@ -23,13 +23,20 @@ attributes:
   check_mode:
     description: Supports check_mode.
     support: full
+  idempotent:
+    support: partial
+    description:
+      - O(settings) can break idempotency when the deprecated C(list) format is used. Use the dictionary format instead.
+      - O(update_password) turns off idempotency because ClickHouse doesn't expose password hashes and the update will always be executed.
 
 author:
   - Aleksandr Vagachev (@aleksvagachev)
   - Andrew Klychkov (@Andersson007)
+  - Rafal Kozlowski (@rkozlo)
 
 extends_documentation_fragment:
   - community.clickhouse.client_inst_opts
+  - community.clickhouse.cluster_inst_opts
 
 version_added: '0.4.0'
 
@@ -49,12 +56,14 @@ options:
     required: true
   password:
     description:
+      - This option is deprecated and will be removed in 3.0.0. Use O(authentication) instead.
       - Set the user's password.
       - Password can be passed unhashed or hashed.
       - Cannot be used together with O(authentication).
     type: str
   type_password:
     description:
+      - This option is deprecated and will be removed in 3.0.0. Use O(authentication) instead.
       - The type of password being transmitted(plaintext_password, sha256_password, sha256_hash...).
       - For more details, see U(https://clickhouse.com/docs/en/sql-reference/statements/create/user).
       - Cannot be used together with O(authentication).
@@ -91,11 +100,6 @@ options:
         description:
           - Password or hash.
         type: str
-  cluster:
-    description:
-      - Run the command on all cluster hosts.
-      - If the cluster is not configured, the command will crash with an error.
-    type: str
   update_password:
     description:
       - If C(on_create), will set the password only for newly created users.
@@ -111,11 +115,12 @@ options:
   settings:
     description:
       - Settings with their constraints applied by default at user login.
-      - You can also specify the profile from which the settings will be inherited.
+      - Can pass either C(list)(obsolete) or dictionary.
+      - You can also specify the profile from which the settings will be inherited C(list).
       - When specified for an existing user, settings will only be updated if they differ from current settings.
       - The module fetches current settings from C(system.settings_profile_elements) for comparison.
-    type: list
-    elements: str
+      - If no O(profiles) or O(settings) defined setting will not remove anything. Set to {} to purge it.
+    type: raw
     version_added: '0.5.0'
   roles:
     description:
@@ -181,6 +186,14 @@ options:
         elements: str
         required: false
     version_added: '1.0.0'
+  profiles:
+    version_added: 2.2.0
+    description:
+      - Settings profiles that will be applied to role.
+      - Can be only used with O(settings) as C(dict).
+    type: list
+    elements: str
+    default: []
 '''
 
 EXAMPLES = r'''
@@ -248,10 +261,30 @@ EXAMPLES = r'''
     login_password: my_password
     name: test_user
     settings:
-      - max_memory_usage = 20000 READONLY
-      - max_threads = 8
+      max_memory_usage:
+        value: 20000
+        writability: readonly
+      max_threads:
+        value: 8
 
-- name: Create user with specific settings
+- name: Update user settings (idempotent - only updates if different)
+  community.clickhouse.clickhouse_user:
+    login_host: localhost
+    login_user: alice
+    login_db: foo
+    login_password: my_password
+    name: test_user
+    settings:
+      max_memory_usage:
+        value: 20G
+        min: 10G
+        max: 25G
+        writability: readonly
+      max_threads:
+        value: 8
+        writability: writable
+
+- name: Create user with specific settings and profile
   community.clickhouse.clickhouse_user:
     login_host: localhost
     login_user: alice
@@ -263,8 +296,13 @@ EXAMPLES = r'''
       type: sha256_hash
     cluster: test_cluster
     settings:
-      - max_memory_usage = 15000 MIN 15000 MAX 16000 READONLY
-      - PROFILE 'restricted'
+      max_memory_usage:
+        value: 15000
+        min: 15000
+        max: 16000
+        writability: readonly
+    profiles:
+      - restricted
     state: present
 
 - name: Create a user that can only connect from a specified host
@@ -330,7 +368,14 @@ executed_statements:
   - Data-modifying executed statements.
   returned: on success
   type: list
-  sample: ["CREATE USER test_user IDENTIFIED WITH ***** BY '*****'"]
+  sample: ["CREATE USER test_user IDENTIFIED WITH sha256_hash BY %(password)s"]
+query_parameters:
+  description:
+  - Query parameters passed to query from executed_statements.
+  returned: on succes
+  type: list
+  sample: [{"password": "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"}]
+  version_added: '2.3.0'
 '''
 
 from ansible.module_utils.basic import AnsibleModule
@@ -341,10 +386,14 @@ from ansible_collections.community.clickhouse.plugins.module_utils.clickhouse im
     connect_to_db_via_client,
     execute_query,
     get_main_conn_kwargs,
+    get_on_cluster_clause,
+    validate_identifier,
+    cluster_argument_spec,
 )
+from ansible_collections.community.clickhouse.plugins.module_utils.entity_settings import EntitySettings
 
-PRIV_ERR_CODE = 497
 executed_statements = []
+query_parameters = []
 
 
 class ClickHouseUser():
@@ -352,6 +401,7 @@ class ClickHouseUser():
         self.changed = False
         self.module = module
         self.client = client
+        validate_identifier(module, name, "user name")
         self.name = name
         # Set default values, then update
         self.user_exists = False
@@ -359,6 +409,8 @@ class ClickHouseUser():
         self.current_roles = []
         self.current_settings = {}
         self.current_user_hosts = {}
+        self.settings = EntitySettings(self.module, self.client, self.name, 'user')
+
         # Fetch actual values from DB and
         # update the attributes with them
         self.__populate_info()
@@ -367,14 +419,9 @@ class ClickHouseUser():
         # Collecting user information
         query = ("SELECT name, storage, auth_type, default_roles_list "
                  "FROM system.users "
-                 "WHERE name = '%s'" % self.name)
-
-        result = execute_query(self.module, self.client, query)
-
-        if result == PRIV_ERR_CODE:
-            login_user = self.module.params['login_user']
-            msg = "Not enough privileges for user: %s" % login_user
-            self.module.fail_json(msg=msg)
+                 "WHERE name = %(user)s")
+        execute_kwargs = {'params': {'user': self.name}}
+        result = execute_query(self.module, self.client, query, execute_kwargs)
 
         if result != []:
             self.user_exists = True
@@ -387,16 +434,18 @@ class ClickHouseUser():
 
     def __fetch_user_groups(self):
         query = ("SELECT granted_role_name FROM system.role_grants "
-                 "WHERE user_name = '%s'" % self.name)
-        result = execute_query(self.module, self.client, query)
+                 "WHERE user_name = %(user)s")
+        execute_kwargs = {'params': {'user': self.name}}
+        result = execute_query(self.module, self.client, query, execute_kwargs)
         return [row[0] for row in result]
 
     def __fetch_user_settings(self):
         """Fetch current user settings from system.settings_profile_elements"""
         query = ("SELECT setting_name, value, min, max, writability, inherit_profile "
                  "FROM system.settings_profile_elements "
-                 "WHERE user_name = '%s'" % self.name)
-        result = execute_query(self.module, self.client, query)
+                 "WHERE user_name = %(user)s")
+        execute_kwargs = {'params': {'user': self.name}}
+        result = execute_query(self.module, self.client, query, execute_kwargs)
 
         # Build a dict of current settings with their full definition
         settings_dict = {}
@@ -434,8 +483,9 @@ class ClickHouseUser():
     def __fetch_user_hosts(self):
         """Fetch current user host restrictions from system.users"""
         query = ("SELECT host_ip, host_names, host_names_regexp, host_names_like FROM system.users "
-                 "WHERE name = '%s'" % self.name)
-        result = execute_query(self.module, self.client, query)
+                 "WHERE name = %(user)s")
+        execute_kwargs = {'params': {'user': self.name}}
+        result = execute_query(self.module, self.client, query, execute_kwargs)
 
         user_hosts_dict = {
             'IP': set(result[0][0]),       # HOST ANY is represented by ['::/0'] in host_ip
@@ -447,11 +497,11 @@ class ClickHouseUser():
         return user_hosts_dict
 
     def create(self, type_password, password, cluster, user_hosts, settings,
-               roles, roles_mode, default_roles, default_roles_mode, authentication):
+               roles, roles_mode, default_roles, default_roles_mode, authentication, profiles):
 
-        query = "CREATE USER '%s'" % self.name
+        query = "CREATE USER `%s`" % self.name
 
-        ident_clause = self._build_identified_clause(
+        ident_clause, password_param = self._build_identified_clause(
             auth=authentication,
             legacy_type_password=type_password,
             legacy_password=password,
@@ -461,20 +511,35 @@ class ClickHouseUser():
         if user_hosts:
             query += " %s" % self.__build_user_host_clause(user_hosts)
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        query += get_on_cluster_clause(self.module, cluster)
 
-        if settings:
-            query += " SETTINGS"
-            for index, value in enumerate(settings):
-                query += " %s" % value
-                if index < len(settings) - 1:
-                    query += ","
+        if settings or profiles:
+            if isinstance(settings, list):
+                self.module.deprecate(
+                    msg="List based settings are deprecated. Use dictionary instead.",
+                    version="3.0.0",
+                    collection_name="community.clickhouse",
+                )
+                query += " SETTINGS"
+                for index, value in enumerate(settings):
+                    query += " %s" % value
+                    if index < len(settings) - 1:
+                        query += ","
+            elif isinstance(settings, dict):
+                settings_entity = self.settings.compare_and_build_clause(settings, profiles)
+                query += settings_entity[1]
+            else:
+                self.module.fail_json(msg=f"Unexpexted settings passed: {settings}. Supported list or dict.")
+
+        if password_param:
+            execute_kwargs = {"params": password_param}
+            query_parameters.append(password_param)
+        else:
+            execute_kwargs = {}
 
         executed_statements.append(query)
-
         if not self.module.check_mode:
-            execute_query(self.module, self.client, query)
+            execute_query(self.module, self.client, query, execute_kwargs)
 
         if roles and roles_mode != 'remove':
             self.__grant_roles(roles, cluster)
@@ -485,7 +550,7 @@ class ClickHouseUser():
         return True
 
     def update(self, update_password, type_password, password, cluster, user_hosts,
-               roles, roles_mode, default_roles, default_roles_mode, settings, authentication):
+               roles, roles_mode, default_roles, default_roles_mode, settings, authentication, profiles):
 
         if roles is not None:
             self.__update_roles(roles, roles_mode, cluster)
@@ -498,15 +563,14 @@ class ClickHouseUser():
         if user_hosts is not None:
             self.__update_host(user_hosts, cluster)
 
-        if settings is not None:
-            self.__update_settings(settings, cluster)
+        if settings is not None or profiles is not None:
+            self.__update_settings(settings, cluster, profiles)
 
         return self.changed
 
     def drop(self, cluster):
-        query = "DROP USER '%s'" % self.name
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        query = "DROP USER `%s`" % self.name
+        query += get_on_cluster_clause(self.module, cluster)
 
         executed_statements.append(query)
 
@@ -558,7 +622,7 @@ class ClickHouseUser():
 
         elif mode == 'listed_only':
             if desired_def_roles == [] and self.current_roles:
-                self.__unset_default_roles()
+                self.__unset_default_roles(cluster)
 
             elif desired_def_roles != [] and des != cur:
                 self.__set_default_roles(desired_def_roles, cluster)
@@ -571,23 +635,26 @@ class ClickHouseUser():
         # TODO: When ClickHouse will allow to retrieve password hashes,
         # make this idempotent, i.e. execute this only if the passwords don't match
 
-        query = "ALTER USER '%s'" % self.name
+        query = "ALTER USER `%s`" % self.name
+        query += get_on_cluster_clause(self.module, cluster)
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
-
-        ident_clause = self._build_identified_clause(
+        ident_clause, password_param = self._build_identified_clause(
             auth=authentication,
             legacy_type_password=type_pwd,
             legacy_password=pwd,
         )
 
         query += "%s" % ident_clause
-
         executed_statements.append(query)
 
+        if password_param:
+            execute_kwargs = {"params": password_param}
+            query_parameters.append(password_param)
+        else:
+            execute_kwargs = {}
+
         if not self.module.check_mode:
-            execute_query(self.module, self.client, query)
+            execute_query(self.module, self.client, query, execute_kwargs)
 
         self.changed = True
 
@@ -598,10 +665,9 @@ class ClickHouseUser():
         if des == cur:
             return
 
-        query = "ALTER USER '%s' %s" % (self.name, self.__build_user_host_clause(user_hosts))
+        query = "ALTER USER `%s` %s" % (self.name, self.__build_user_host_clause(user_hosts))
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        query += get_on_cluster_clause(self.module, cluster)
 
         executed_statements.append(query)
 
@@ -653,11 +719,11 @@ class ClickHouseUser():
         return ' '.join(clauses)
 
     def __grant_roles(self, roles_to_set, cluster):
-        query = "GRANT %s TO '%s'" % (', '.join(roles_to_set), self.name)
+        prepared_roles_to_revoke = self.__quote_elements_in_list(roles_to_set)
+        query = "GRANT %s TO `%s`" % (', '.join(prepared_roles_to_revoke), self.name)
         executed_statements.append(query)
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        query += get_on_cluster_clause(self.module, cluster)
 
         if not self.module.check_mode:
             execute_query(self.module, self.client, query)
@@ -665,11 +731,11 @@ class ClickHouseUser():
         self.changed = True
 
     def __revoke_roles(self, roles_to_revoke, cluster):
-        query = "REVOKE %s FROM '%s'" % (', '.join(roles_to_revoke), self.name)
+        prepared_roles_to_revoke = self.__quote_elements_in_list(roles_to_revoke)
+        query = "REVOKE %s FROM `%s`" % (', '.join(prepared_roles_to_revoke), self.name)
         executed_statements.append(query)
 
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        query += get_on_cluster_clause(self.module, cluster)
 
         if not self.module.check_mode:
             execute_query(self.module, self.client, query)
@@ -681,10 +747,9 @@ class ClickHouseUser():
         for role in roles_to_set:
             if role not in self.current_roles and role not in self.module.params["roles"]:
                 self.module.fail_json("User %s is not in %s role. Grant it explicitly first." % (self.name, role))
-
-        query = "ALTER USER '%s' DEFAULT ROLE %s" % (self.name, ', '.join(roles_to_set))
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
+        prepared_roles_to_set = self.__quote_elements_in_list(roles_to_set)
+        query = "ALTER USER `%s` DEFAULT ROLE %s" % (self.name, ', '.join(prepared_roles_to_set))
+        query += get_on_cluster_clause(self.module, cluster)
         executed_statements.append(query)
 
         if not self.module.check_mode:
@@ -692,8 +757,10 @@ class ClickHouseUser():
 
         self.changed = True
 
-    def __unset_default_roles(self):
-        query = "SET DEFAULT ROLE NONE TO '%s'" % self.name
+    def __unset_default_roles(self, cluster):
+        query = "ALTER USER `%s`" % self.name
+        query += get_on_cluster_clause(self.module, cluster)
+        query += " DEFAULT ROLE NONE"
         executed_statements.append(query)
 
         if not self.module.check_mode:
@@ -701,63 +768,78 @@ class ClickHouseUser():
 
         self.changed = True
 
-    def __update_settings(self, settings, cluster):
+    def __update_settings(self, settings, cluster, profiles):
         """Update user settings idempotently by comparing with current settings"""
-        # Parse desired settings into a comparable format
-        desired_settings = {}
-        desired_profiles = []
 
-        for setting in settings:
-            setting_upper = setting.upper()
-            # Handle PROFILE separately as it's not a regular setting
-            if 'PROFILE' in setting_upper:
-                # Extract profile name (handle both PROFILE 'name' and PROFILE name)
-                profile_part = setting.split(None, 1)[1].strip().strip("'\"")
-                desired_profiles.append(profile_part)
-            else:
-                # Extract setting name (first word before = or space)
-                setting_name = setting.split()[0].split('=')[0].strip()
-                # Normalize the setting string for comparison
-                normalized = ' '.join(setting.split())
-                desired_settings[setting_name] = normalized
+        if isinstance(settings, list):
+            self.module.deprecate(
+                msg="List based settings are deprecated. Use dictionary instead.",
+                version="3.0.0",
+                collection_name="community.clickhouse",
+            )
+            # Parse desired settings into a comparable format
+            desired_settings = {}
+            desired_profiles = []
 
-        # Compare current with desired
-        needs_update = False
+            for setting in settings:
+                setting_upper = setting.upper()
+                # Handle PROFILE separately as it's not a regular setting
+                if 'PROFILE' in setting_upper:
+                    # Extract profile name (handle both PROFILE 'name' and PROFILE name)
+                    profile_part = setting.split(None, 1)[1].strip().strip("'\"")
+                    desired_profiles.append(profile_part)
+                else:
+                    # Extract setting name (first word before = or space)
+                    setting_name = setting.split()[0].split('=')[0].strip()
+                    # Normalize the setting string for comparison
+                    normalized = ' '.join(setting.split())
+                    desired_settings[setting_name] = normalized
 
-        # Check if any setting values differ
-        for setting_name, desired_def in desired_settings.items():
-            current_def = self.current_settings.get(setting_name, '')
-            # Normalize both for comparison (case-insensitive, whitespace-normalized)
-            current_normalized = ' '.join(current_def.upper().split())
-            desired_normalized = ' '.join(desired_def.upper().split())
+            # Compare current with desired
+            needs_update = False
 
-            if current_normalized != desired_normalized:
-                needs_update = True
-                break
+            # Check if any setting values differ
+            for setting_name, desired_def in desired_settings.items():
+                current_def = self.current_settings.get(setting_name, '')
+                # Normalize both for comparison (case-insensitive, whitespace-normalized)
+                current_normalized = ' '.join(current_def.upper().split())
+                desired_normalized = ' '.join(desired_def.upper().split())
 
-        # Check if there are settings to remove (current has settings not in desired)
-        if not needs_update:
-            for setting_name in self.current_settings:
-                if setting_name not in desired_settings:
-                    # There's a setting currently applied that's not in desired
-                    # We need to reapply to remove it
+                if current_normalized != desired_normalized:
                     needs_update = True
                     break
 
-        # Only update if settings actually differ
-        if not needs_update:
+            # Check if there are settings to remove (current has settings not in desired)
+            if not needs_update:
+                for setting_name in self.current_settings:
+                    if setting_name not in desired_settings:
+                        # There's a setting currently applied that's not in desired
+                        # We need to reapply to remove it
+                        needs_update = True
+                        break
+
+            # Only update if settings actually differ
+            if not needs_update:
+                return
+
+            # Build the ALTER USER query
+            query = "ALTER USER `%s` SETTINGS" % self.name
+            for index, value in enumerate(settings):
+                query += " %s" % value
+                if index < len(settings) - 1:
+                    query += ","
+
+            if cluster:
+                query += " ON CLUSTER %s" % cluster
+        elif isinstance(settings, dict) or profiles:
+            query = "ALTER USER `%s`" % self.name
+            changed, settings_entity, changes = self.settings.compare_and_build_clause(settings, profiles)
+            if not changed:
+                return
+            query += settings_entity
+            query += get_on_cluster_clause(self.module, cluster)
+        else:
             return
-
-        # Build the ALTER USER query
-        query = "ALTER USER '%s' SETTINGS" % self.name
-        for index, value in enumerate(settings):
-            query += " %s" % value
-            if index < len(settings) - 1:
-                query += ","
-
-        if cluster:
-            query += " ON CLUSTER %s" % cluster
-
         executed_statements.append(query)
 
         if not self.module.check_mode:
@@ -770,34 +852,39 @@ class ClickHouseUser():
             atype = auth.get('type', '').lower().strip()
 
             if atype == "not_identified":
-                return " NOT IDENTIFIED"
+                return " NOT IDENTIFIED", None
 
             if atype == 'no_password':
-                return " IDENTIFIED WITH NO_PASSWORD"
+                return " IDENTIFIED WITH NO_PASSWORD", None
 
             if atype == 'ldap':
                 server = auth.get('server')
                 if not server:
                     self.module.fail_json(msg="authentication.type=ldap requires 'server'")
-                return f" IDENTIFIED WITH ldap SERVER '{server}'"
+                return " IDENTIFIED WITH ldap SERVER %(server)s", {'server': server}
 
             password = auth.get('password') or legacy_password
             if password is None:
                 self.module.fail_json(msg=f"type {atype} requires password")
+            pass_param = {'password': password}
 
             if atype in ('plaintext_password', 'sha256_password', 'double_sha1_password', 'bcrypt_password'):
-                return f" IDENTIFIED WITH {atype} BY '{password}'"
+                return f" IDENTIFIED WITH {atype} BY %(password)s", pass_param
 
             # Separate so maybe in future add salt here.
             if atype in ('sha256_hash', 'double_sha1_hash', 'bcrypt_hash'):
-                return f" IDENTIFIED WITH {atype} BY '{password}'"
+                return f" IDENTIFIED WITH {atype} BY %(password)s", pass_param
 
             self.module.fail_json(msg=f"type {atype} not implemented")
 
         # Backward compatibility
         if legacy_password is not None:
-            return f" IDENTIFIED WITH {legacy_type_password} BY '{legacy_password}'"
-        return ""
+            return f" IDENTIFIED WITH {legacy_type_password} BY '{legacy_password}'", None
+        return "", None
+
+    def __quote_elements_in_list(self, src):
+        '''Prepare elements for query. Closed in backticks.'''
+        return [f"`{i}`" for i in src]
 
 
 def main():
@@ -805,8 +892,20 @@ def main():
     argument_spec.update(
         state=dict(type='str', choices=['present', 'absent'], default='present'),
         name=dict(type='str', required=True),
-        password=dict(type='str', default=None, no_log=True),
-        type_password=dict(type='str', default='sha256_password', no_log=False),
+        password=dict(
+            type='str',
+            default=None,
+            no_log=True,
+            removed_in_version='3.0.0',
+            removed_from_collection='community.clickhouse'
+        ),
+        type_password=dict(
+            type='str',
+            default='sha256_password',
+            no_log=False,
+            removed_in_version='3.0.0',
+            removed_from_collection='community.clickhouse'
+        ),
         authentication=dict(
             type='dict',
             default=None,
@@ -831,21 +930,21 @@ def main():
                 password=dict(type='str', no_log=True),
             ),
         ),
-        cluster=dict(type='str', default=None),
         update_password=dict(
             type='str', choices=['always', 'on_create'],
             default='on_create', no_log=False
         ),
         user_hosts=dict(type='list', elements='dict'),
-        settings=dict(type='list', elements='str'),
+        settings=dict(type='raw'),
+        profiles=dict(type='list', elements='str', default=[]),
         roles=dict(type='list', elements='str', default=None),
         default_roles=dict(type='list', elements='str', default=None),
         roles_mode=dict(type='str', choices=['listed_only', 'append', 'remove'],
                         default='listed_only'),
         default_roles_mode=dict(type='str', choices=['listed_only', 'append', 'remove'],
-                                default='listed_only'),
+                                default='listed_only')
     )
-
+    argument_spec.update(cluster_argument_spec())
     # Instantiate an object of module class
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -868,6 +967,7 @@ def main():
     update_password = module.params['update_password']
     user_hosts = module.params['user_hosts']
     settings = module.params['settings']
+    profiles = module.params['profiles']
     roles = module.params['roles']
     roles_mode = module.params['roles_mode']
     default_roles = module.params['default_roles']
@@ -883,15 +983,14 @@ def main():
     # Do the job
     changed = False
     user = ClickHouseUser(module, client, name)
-
     if state == 'present':
         if not user.user_exists:
             changed = user.create(type_password, password, cluster, user_hosts, settings,
-                                  roles, roles_mode, default_roles, default_roles_mode, authentication)
+                                  roles, roles_mode, default_roles, default_roles_mode, authentication, profiles)
         else:
             # If user exists
             changed = user.update(update_password, type_password, password, cluster, user_hosts,
-                                  roles, roles_mode, default_roles, default_roles_mode, settings, authentication)
+                                  roles, roles_mode, default_roles, default_roles_mode, settings, authentication, profiles)
     else:
         # If state is absent
         if user.user_exists:
@@ -901,7 +1000,7 @@ def main():
     client.disconnect_connection()
 
     # Users will get this in JSON output after execution
-    module.exit_json(changed=changed, executed_statements=executed_statements)
+    module.exit_json(changed=changed, executed_statements=executed_statements, query_parameters=query_parameters)
 
 
 if __name__ == '__main__':

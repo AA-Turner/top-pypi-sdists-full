@@ -1,8 +1,10 @@
+import json
 import logging
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.cache import cache, caches
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
@@ -14,6 +16,13 @@ logger = logging.getLogger(__name__)
 class AbstractStateBackend:
     @staticmethod
     def from_bool_to_str_value(value):
+        if isinstance(value, dict):
+            raise ValueError(
+                "scheduled state is not supported by this backend, "
+                "use 'from_state_to_str_value' / 'from_str_to_state_value' "
+                "methods instead of "
+                "'from_bool_to_str_value' / 'from_str_to_bool_value' methods."
+            )
         value = str(int(value))
         if value not in ["0", "1"]:
             raise ValueError("state value is not 0|1")
@@ -26,6 +35,28 @@ class AbstractStateBackend:
             raise ValueError("state value is not 0|1")
         value = bool(int(value))
         return value
+
+    @staticmethod
+    def validate_schedule_state_value(value):
+        keys = set(value.keys())
+        if not keys.issubset({"start", "end"}) or not any(
+            value.get(key) for key in ["start", "end"]
+        ):
+            raise ValueError(f"schedule state value is invalid: {value!r}")
+        return value
+
+    @classmethod
+    def from_state_to_str_value(cls, value):
+        if isinstance(value, dict):
+            return json.dumps(cls.validate_schedule_state_value(value))
+        return cls.from_bool_to_str_value(value)
+
+    @classmethod
+    def from_str_to_state_value(cls, value):
+        value = value.strip()
+        if value.startswith("{"):
+            return cls.validate_schedule_state_value(json.loads(value))
+        return cls.from_str_to_bool_value(value)
 
     def get_value(self):
         raise NotImplementedError()
@@ -47,14 +78,14 @@ class DefaultStorageBackend(AbstractStateBackend):
         filename = self._get_filename()
         if default_storage.exists(filename):
             with default_storage.open(filename, "r") as statefile:
-                return self.from_str_to_bool_value(statefile.read())
+                return self.from_str_to_state_value(statefile.read())
         return False
 
     def set_value(self, value):
         filename = self._get_filename()
         if default_storage.exists(filename):
             default_storage.delete(filename)
-        content = ContentFile(self.from_bool_to_str_value(value).encode())
+        content = ContentFile(self.from_state_to_str_value(value).encode())
         default_storage.save(filename, content)
 
 
@@ -67,20 +98,20 @@ class StaticStorageBackend(AbstractStateBackend):
         filename = settings.MAINTENANCE_MODE_STATE_FILE_NAME
         if staticfiles_storage.exists(filename):
             with staticfiles_storage.open(filename, "r") as statefile:
-                return self.from_str_to_bool_value(statefile.read())
+                return self.from_str_to_state_value(statefile.read())
         return False
 
     def set_value(self, value):
         filename = settings.MAINTENANCE_MODE_STATE_FILE_NAME
         if staticfiles_storage.exists(filename):
             staticfiles_storage.delete(filename)
-        content = ContentFile(self.from_bool_to_str_value(value).encode())
+        content = ContentFile(self.from_state_to_str_value(value).encode())
         staticfiles_storage.save(filename, content)
 
 
 class LocalFileBackend(AbstractStateBackend):
     """
-    django-maintenance-mode backend which uses the local file-sistem.
+    django-maintenance-mode backend which uses the local file system.
     """
 
     def _get_filepath(self):
@@ -88,11 +119,11 @@ class LocalFileBackend(AbstractStateBackend):
 
     def get_value(self):
         value = read_file(self._get_filepath(), "0")
-        value = self.from_str_to_bool_value(value)
+        value = self.from_str_to_state_value(value)
         return value
 
     def set_value(self, value):
-        value = self.from_bool_to_str_value(value)
+        value = self.from_state_to_str_value(value)
         write_file(self._get_filepath(), value)
 
 
@@ -104,6 +135,15 @@ class CacheBackend(AbstractStateBackend):
 
     @staticmethod
     def get_cache():
+        cache_name = settings.MAINTENANCE_MODE_CACHE_BACKEND
+        if cache_name:
+            if cache_name not in settings.CACHES:
+                raise ImproperlyConfigured(
+                    f"Cache '{cache_name}' specified in "
+                    "'MAINTENANCE_MODE_CACHE_BACKEND' is not defined in "
+                    "settings.CACHES."
+                )
+            return caches[cache_name]
         return (
             caches["maintenance_mode"]
             if "maintenance_mode" in settings.CACHES
@@ -111,8 +151,9 @@ class CacheBackend(AbstractStateBackend):
         )
 
     def get_value(self):
+        cache = self.get_cache()
         try:
-            value = self.get_cache().get("maintenance_mode", "0")
+            value = cache.get("maintenance_mode", "0")
         except Exception as error:
             logger.warning(
                 "The following unexpected exception has been raised "
@@ -120,13 +161,14 @@ class CacheBackend(AbstractStateBackend):
                 f"\nException: {error}"
             )
             return settings.MAINTENANCE_MODE_STATE_BACKEND_FALLBACK_VALUE
-        value = self.from_str_to_bool_value(value)
+        value = self.from_str_to_state_value(value)
         return value
 
     def set_value(self, value):
-        value = self.from_bool_to_str_value(value)
+        value = self.from_state_to_str_value(value)
+        cache = self.get_cache()
         try:
-            self.get_cache().set("maintenance_mode", value, None)
+            cache.set("maintenance_mode", value, None)
         except Exception as error:
             logger.warning(
                 "The following unexpected exception has been raised "

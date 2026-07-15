@@ -19,7 +19,9 @@ def bulk_lookup(ctx, guids, **kwargs):
 
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
 
-    request = agilicus.LookupRequest(org_id=org_id, guids=guids)
+    request = agilicus.LookupRequest(guids=guids)
+    if org_id is not None:
+        request.org_id = org_id
 
     res = apiclient.lookups_api.bulk_query_org_guids(request)
     return res

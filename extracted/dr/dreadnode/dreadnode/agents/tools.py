@@ -121,8 +121,15 @@ class FunctionDefinition(BaseModel):
         if not isinstance(value, dict):
             return value
 
-        if value.get("type") == "object" and value.get("properties") == {}:
-            return None
+        # A function definition must always carry a parameters object with a
+        # `properties` key so it survives model_dump(exclude_none=True) and satisfies
+        # strict providers (e.g. Together, DeepInfra) that reject tool definitions
+        # missing the `parameters` field. Fill in an empty `properties` when absent
+        # while preserving any sibling schema keys (additionalProperties,
+        # patternProperties, required, $defs, ...) so free-form-map and strict
+        # no-arg schemas are not silently flattened.
+        if value.get("type") == "object" and not value.get("properties"):
+            return {**value, "properties": value.get("properties") or {}}
 
         return value
 

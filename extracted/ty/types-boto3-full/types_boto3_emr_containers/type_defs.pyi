@@ -308,6 +308,7 @@ class ManagedLogsTypeDef(TypedDict):
 
 class S3MonitoringConfigurationTypeDef(TypedDict):
     logUri: str
+    encryptionKeyArn: NotRequired[str]
 
 class ParametricCloudWatchMonitoringConfigurationTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -416,6 +417,7 @@ GetManagedEndpointSessionCredentialsResponseTypeDef = TypedDict(
     {
         "id": str,
         "credentials": CredentialsTypeDef,
+        "endpointCredentials": CredentialsTypeDef,
         "expiresAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -577,6 +579,7 @@ class CreateVirtualClusterRequestTypeDef(TypedDict):
     clientToken: str
     tags: NotRequired[Mapping[str, str]]
     securityConfigurationId: NotRequired[str]
+    sessionEnabled: NotRequired[bool]
 
 VirtualClusterTypeDef = TypedDict(
     "VirtualClusterTypeDef",
@@ -589,6 +592,7 @@ VirtualClusterTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "tags": NotRequired[dict[str, str]],
         "securityConfigurationId": NotRequired[str],
+        "sessionEnabled": NotRequired[bool],
     },
 )
 
@@ -611,6 +615,7 @@ EndpointTypeDef = TypedDict(
         "certificateAuthority": NotRequired[CertificateTypeDef],
         "configurationOverrides": NotRequired[ConfigurationOverridesOutputTypeDef],
         "serverUrl": NotRequired[str],
+        "authProxyUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
         "subnetIds": NotRequired[list[str]],
@@ -657,6 +662,7 @@ EndpointPaginatorTypeDef = TypedDict(
         "certificateAuthority": NotRequired[CertificateTypeDef],
         "configurationOverrides": NotRequired[ConfigurationOverridesPaginatorTypeDef],
         "serverUrl": NotRequired[str],
+        "authProxyUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
         "subnetIds": NotRequired[list[str]],
@@ -768,6 +774,7 @@ CreateManagedEndpointRequestTypeDef = TypedDict(
         "certificateArn": NotRequired[str],
         "configurationOverrides": NotRequired[ConfigurationOverridesUnionTypeDef],
         "tags": NotRequired[Mapping[str, str]],
+        "sessionIdleTimeoutInMinutes": NotRequired[int],
     },
 )
 

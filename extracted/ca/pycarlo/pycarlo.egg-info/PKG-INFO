@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycarlo
-Version: 0.15.5
+Version: 0.15.13
 Summary: Monte Carlo's Python SDK
 Home-page: https://www.montecarlodata.com/
 Author: Monte Carlo Data, Inc
@@ -60,8 +60,8 @@ returned for ease of use.
 The `features` library provides additional convenience for performing common operations like with
 dbt, circuit breaking, and pii filtering.
 
-Note that an API Key is required to use the SDK. See
-[our docs on generating API keys](https://docs.getmontecarlo.com/docs/developer-resources#creating-an-api-key)
+Note that credentials are required to use the SDK — either an API key or OAuth client credentials.
+See [our docs on API authentication](https://docs.getmontecarlo.com/docs/api-authentication)
 for details.
 
 ## Basic usage
@@ -265,6 +265,40 @@ followed by environmental variables and then any config-file options.
 Environment variables can be mixed with passed credentials, but not the config-file profile.
 
 **We do not recommend passing `mcd_token` as it is a secret and can be accidentally committed.**
+
+### Authenticating with OAuth
+
+Instead of an API key, you can authenticate with OAuth client credentials. Pass the OAuth client
+ID and secret along with your deployment's instance ID (e.g. `us1`, `eu1`):
+
+```python
+from pycarlo.core import Client, Session
+
+client = Client(session=Session(
+    mcd_oauth_client_id='foo',
+    mcd_oauth_client_secret='bar',
+    mcd_instance_id='us1',
+))
+```
+
+OAuth sessions support the following params:
+
+- `mcd_oauth_client_id`: OAuth client ID.
+- `mcd_oauth_client_secret`: OAuth client secret.
+- `mcd_instance_id`: Deployment instance ID (e.g. `us1`, `eu1`), **required** for OAuth. Found under
+  _Account Information → Instance ID_ in the app.
+- `token_endpoint` / `oauth_api_endpoint`: Optional overrides for the token and API endpoints
+  (derived from the API endpoint automatically otherwise).
+
+These can also be set via environment variables:
+
+- `MCD_DEFAULT_OAUTH_CLIENT_ID`
+- `MCD_DEFAULT_OAUTH_CLIENT_SECRET`
+- `MCD_DEFAULT_INSTANCE_ID`
+
+or stored in a profile via [`montecarlo configure --oauth`](https://docs.getmontecarlo.com/docs/using-the-cli#configure-with-oauth).
+The SDK requests a short-lived access token and refreshes it automatically. As with API keys,
+prefer a profile or environment variables over passing the secret directly.
 
 ## Integration Gateway API
 

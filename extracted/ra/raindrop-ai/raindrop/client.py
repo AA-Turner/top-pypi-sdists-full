@@ -177,7 +177,6 @@ class Raindrop:
         event_id: Optional[str] = None,
         timestamp: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
-        convo_id: Optional[str] = None,
         attachments: Optional[List[Attachment]] = None,
     ) -> str | None:
         return _analytics.track(
@@ -186,7 +185,6 @@ class Raindrop:
             event_id=event_id,
             timestamp=timestamp,
             properties=properties,
-            convo_id=convo_id,
             attachments=attachments,
             state=self._state,
         )
@@ -271,6 +269,7 @@ class Raindrop:
         input: Optional[str] = None,
         attachments: Optional[List[Attachment]] = None,
         convo_id: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> Interaction:
         """Start an interaction bound to this client (and bind the current
         execution context to this client's project for span routing)."""
@@ -282,6 +281,7 @@ class Raindrop:
             input=input,
             attachments=attachments,
             convo_id=convo_id,
+            model=model,
             state=self._state,
         )
 

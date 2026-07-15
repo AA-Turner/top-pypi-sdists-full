@@ -8,7 +8,7 @@ skips push when intended config matches existing. Delete uses get_device_info to
 VPNs that exist on the device; skips push when none to delete (second delete is no-op).
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from .base_manager import BaseManager
 from .logger import setup_logger
 from .exceptions import ConfigurationError, DeviceNotFoundError
@@ -23,6 +23,21 @@ class SiteToSiteVpnManager(BaseManager):
     Handles the creation and deletion of Site-to-Site VPN connections,
     supporting both static and BGP routing.
     """
+
+    @staticmethod
+    def _drop_secrets(o: Any) -> Any:
+        """Recursively remove presharedKey and md5Password from a dict/list structure."""
+        if o is None:
+            return None
+        if isinstance(o, dict):
+            return {
+                k: SiteToSiteVpnManager._drop_secrets(v)
+                for k, v in o.items()
+                if k not in ("presharedKey", "md5Password")
+            }
+        if isinstance(o, list):
+            return [SiteToSiteVpnManager._drop_secrets(x) for x in o]
+        return o
 
     @staticmethod
     def _get_existing_site_to_site_vpn(gcs_device_info) -> Dict[str, Any]:
@@ -81,36 +96,45 @@ class SiteToSiteVpnManager(BaseManager):
         self, vpn_config: Dict[str, Any], vault_keys: Dict[str, Any], vault_md5_passwords: Dict[str, Any]
     ) -> None:
         """
-        Inject presharedKey and md5Password from vault only (by VPN name).
-        Config must not set these; they are overwritten from vault. Then _normalize_bgp_md5_password handles API shape.
+        Inject presharedKey and md5Password using unified precedence:
+        YAML non-null wins; vault fills null/absent; error (presharedKey) or None (md5Password) if both missing.
+        Lookup key = VPN name field.
         """
         vpn_name = vpn_config.get("name")
         if not vpn_name:
             return
-        # Preshared key: vault only (required)
-        if vpn_name in vault_keys and vault_keys[vpn_name]:
-            vpn_config["presharedKey"] = vault_keys[vpn_name]
-            LOG.debug("Injected presharedKey for VPN '%s' from vault", vpn_name)
+        # presharedKey: YAML wins if non-null, else vault, else error (required)
+        if vpn_config.get("presharedKey") is None:
+            vault_psk = vault_keys.get(vpn_name)
+            if vault_psk:
+                vpn_config["presharedKey"] = vault_psk
+                LOG.debug("Injected presharedKey for VPN '%s' from vault", vpn_name)
+            else:
+                raise ConfigurationError(
+                    f"presharedKey is required but missing for VPN '{vpn_name}'. "
+                    "Set presharedKey in the YAML config or pass it via vault_site_to_site_vpn_keys "
+                    "(see configs/vault_secrets.yml.example)."
+                )
         else:
-            raise ConfigurationError(
-                f"presharedKey is required but missing for VPN '{vpn_name}'. "
-                "Pass it via vault_site_to_site_vpn_keys from Ansible Vault (see configs/vault_secrets.yml.example)."
-            )
-        # BGP md5Password: vault only
+            LOG.debug("Using presharedKey from YAML config for VPN '%s'", vpn_name)
+        # BGP md5Password: YAML wins if non-null, else vault, else None (optional)
         routing = vpn_config.get("routing")
         if isinstance(routing, dict) and isinstance(routing.get("bgp"), dict):
             bgp = routing["bgp"]
-            if vpn_name in vault_md5_passwords and vault_md5_passwords[vpn_name]:
-                pwd = vault_md5_passwords[vpn_name]
-                bgp["md5Password"] = str(pwd).strip() if pwd else None
-                LOG.debug("Injected md5Password for VPN '%s' from vault", vpn_name)
+            if bgp.get("md5Password") is None:
+                vault_md5 = vault_md5_passwords.get(vpn_name)
+                bgp["md5Password"] = {"md5_password": str(vault_md5).strip()} if vault_md5 else None
+                if vault_md5:
+                    LOG.debug("Injected md5Password for VPN '%s' from vault", vpn_name)
             else:
-                bgp["md5Password"] = None
+                LOG.debug("Using md5Password from YAML config for VPN '%s'", vpn_name)
 
     def _normalize_bgp_md5_password(self, vpn_config: Dict[str, Any]) -> None:
         """
-        Normalize BGP md5Password for API: SDK expects ManaV2NullableMd5Password
-        (a dict with md5Password key), not a plain string.
+        Normalize BGP md5Password to the ManaV2NullableMd5Password dict form.
+
+        Accepts plain string or dict forms and normalizes to {"md5_password": value}
+        so the SDK model validates correctly on PUT /v1/devices/{device_id}/config.
         """
         routing = vpn_config.get("routing")
         if not isinstance(routing, dict) or "bgp" not in routing:
@@ -122,11 +146,11 @@ class SiteToSiteVpnManager(BaseManager):
         if md5_val is None:
             return
         if isinstance(md5_val, str):
-            bgp["md5Password"] = {"md5Password": md5_val}
+            bgp["md5Password"] = {"md5_password": md5_val}
         elif isinstance(md5_val, dict):
-            # Already a dict; ensure API shape (camelCase key)
-            if "md5Password" not in md5_val and "md5_password" in md5_val:
-                bgp["md5Password"] = {"md5Password": md5_val["md5_password"]}
+            # Normalize camelCase key to snake_case expected by ManaV2NullableMd5Password
+            plain = md5_val.get("md5_password") or md5_val.get("md5Password")
+            bgp["md5Password"] = {"md5_password": plain}
 
     def _normalize_policy_field(self, val: Any) -> Any:
         """Ensure policy is API shape: { policy: str or None }. Accepts string or dict."""
@@ -208,7 +232,7 @@ class SiteToSiteVpnManager(BaseManager):
             ConfigurationError: If configuration processing fails
             DeviceNotFoundError: If any device cannot be found
         """
-        result = {"changed": False, "created_devices": []}
+        result: Dict[str, Any] = {"changed": False, "created_devices": []}
 
         try:
             vault_keys = (vault_site_to_site_vpn_keys if vault_site_to_site_vpn_keys is not None else {}) or {}
@@ -221,6 +245,7 @@ class SiteToSiteVpnManager(BaseManager):
             # Load Site-to-Site VPN configurations
             vpn_config_data = self.render_config_file(vpn_config_file)
             output_config = {}
+            device_name_by_id: Dict[int, str] = {}
 
             # Config format: siteToSiteVpn is a list of { device_name: [ vpn_config, ... ] }
             site_to_site_vpn_list = vpn_config_data.get("siteToSiteVpn", [])
@@ -242,6 +267,7 @@ class SiteToSiteVpnManager(BaseManager):
                                 "Please check device name and enterprise credentials."
                             )
 
+                        device_name_by_id[device_id] = device_name
                         if device_id not in output_config:
                             output_config[device_id] = {"device_id": device_id, "edge": {"siteToSiteVpn": {}}}
 
@@ -275,6 +301,7 @@ class SiteToSiteVpnManager(BaseManager):
 
             # Idempotency: get device info (same as interfaces/VRRP), compare intended vs existing ipsecTunnels
             configs_to_push = {}
+            diff_plan: List[Dict[str, Any]] = []
             if output_config:
 
                 def _for_compare(cfg: Dict[str, Any], from_intended: bool) -> Dict[str, Any]:
@@ -290,18 +317,7 @@ class SiteToSiteVpnManager(BaseManager):
                             out.pop("routing", None)
                             out.pop("routingPolicy", None)
 
-                    def _drop_secrets(o: Any) -> Any:
-                        if o is None:
-                            return None
-                        if isinstance(o, dict):
-                            return {
-                                k: _drop_secrets(v) for k, v in o.items() if k not in ("presharedKey", "md5Password")
-                            }
-                        if isinstance(o, list):
-                            return [_drop_secrets(x) for x in o]
-                        return o
-
-                    result = _drop_secrets(out)
+                    result = SiteToSiteVpnManager._drop_secrets(out)
                     if (
                         not from_intended
                         and isinstance(result, dict)
@@ -391,6 +407,15 @@ class SiteToSiteVpnManager(BaseManager):
                         LOG.info("Site-to-Site VPN for device %s unchanged, Nothing to push", device_id)
                         continue
                     configs_to_push[device_id] = pl
+                    dname = device_name_by_id.get(device_id, str(device_id))
+                    diff_plan.append(
+                        {
+                            "device": dname,
+                            "branch": "edge.siteToSiteVpn",
+                            "before": {"siteToSiteVpn": existing_compare},
+                            "after": {"siteToSiteVpn": intended_compare},
+                        }
+                    )
 
             if configs_to_push:
                 validation_config = {
@@ -416,6 +441,7 @@ class SiteToSiteVpnManager(BaseManager):
             else:
                 LOG.warning("No valid device configurations found")
 
+            result["diff_plan"] = diff_plan
             return result
 
         except Exception as e:
@@ -436,12 +462,13 @@ class SiteToSiteVpnManager(BaseManager):
             ConfigurationError: If configuration processing fails
             DeviceNotFoundError: If any device cannot be found
         """
-        result = {"changed": False, "deleted_devices": []}
+        result: Dict[str, Any] = {"changed": False, "deleted_devices": []}
 
         try:
             # Load Site-to-Site VPN configurations
             vpn_config_data = self.render_config_file(vpn_config_file)
             output_config = {}
+            device_name_by_id: Dict[int, str] = {}
 
             # Config format: siteToSiteVpn is a list of { device_name: [ vpn_config, ... ] }
             site_to_site_vpn_list = vpn_config_data.get("siteToSiteVpn", [])
@@ -463,6 +490,7 @@ class SiteToSiteVpnManager(BaseManager):
                                 "Please check device name and enterprise credentials."
                             )
 
+                        device_name_by_id[device_id] = device_name
                         if device_id not in output_config:
                             output_config[device_id] = {"device_id": device_id, "edge": {"siteToSiteVpn": {}}}
 
@@ -490,6 +518,7 @@ class SiteToSiteVpnManager(BaseManager):
                         raise ConfigurationError(f"Delete failed for {device_name}: {str(e)}") from e
 
             # Idempotency: only delete VPNs that exist on the device (skip already-absent)
+            diff_plan: List[Dict[str, Any]] = []
             if output_config:
                 configs_to_delete = {}
                 for device_id, pl in output_config.items():
@@ -510,6 +539,19 @@ class SiteToSiteVpnManager(BaseManager):
                         "edge": {"siteToSiteVpn": to_delete},
                         "core": pl.get("core"),
                     }
+                    dname = device_name_by_id.get(device_id, str(device_id))
+                    diff_plan.append(
+                        {
+                            "device": dname,
+                            "branch": "edge.siteToSiteVpn",
+                            "before": {
+                                "siteToSiteVpn": {
+                                    n: SiteToSiteVpnManager._drop_secrets(existing_s2s.get(n)) for n in to_delete
+                                }
+                            },
+                            "after": {"siteToSiteVpn": {n: None for n in to_delete}},
+                        }
+                    )
                 output_config = configs_to_delete
 
             # Validate payload with SDK before push
@@ -532,6 +574,7 @@ class SiteToSiteVpnManager(BaseManager):
             else:
                 LOG.warning("No valid device configurations found")
 
+            result["diff_plan"] = diff_plan
             return result
 
         except Exception as e:

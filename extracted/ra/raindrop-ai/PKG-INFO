@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.61
+Version: 0.0.64
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -59,12 +59,15 @@ raindrop.track(
     properties={"region": "us-east-1", "tags": ["hot", "shared"]},
     event_id="event-456",       # optional; generated when omitted
     timestamp="2026-07-13T18:00:00Z",
-    convo_id="conv-789",
     attachments=[
         raindrop.Attachment(type="text", value="cached response", role="output")
     ],
 )
 ```
+
+Plain events have no conversation association — there is no `convo_id`
+parameter. To group events into a conversation, use `track_ai` / `begin`
+(partials), which carry `convo_id` on the AI-data branch.
 
 ## Instance-based clients (multiple projects in one process)
 
@@ -407,6 +410,19 @@ poetry run pytest --cov=raindrop
 # Run specific test file
 poetry run pytest tests/test_analytics.py -v
 ```
+
+### Cross-SDK conformance
+
+Beyond `pytest`, behavioral parity across Raindrop SDKs is verified by the
+cross-SDK [conformance harness](https://github.com/invisible-tools/raindrop-sdk-harness),
+which replays a shared scenario corpus against every SDK. It runs a **fault
+lane** (local capture server, on every PR) and a **prod lane** (real ingest
+verified via the public Query API readback). This SDK's
+thin driver lives in `conformance/driver.py` (public API only) and known gaps
+are ratcheted with ticket links in `conformance/failures.txt`, against a
+commit-SHA-pinned `HARNESS_REF`. See
+[AGENTS.md](AGENTS.md#conformance--cross-sdk-testing) for how to run it and how
+to add a new integration.
 
 ## License
 

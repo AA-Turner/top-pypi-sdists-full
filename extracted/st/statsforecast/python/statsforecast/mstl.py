@@ -16,14 +16,20 @@ def mstl(
     s_window: Optional[np.ndarray] = None,  # seasonal window
     stl_kwargs: Dict = dict(),
 ):
-    if s_window is None:
-        s_window = 7 + 4 * np.arange(1, 7)
     origx = x
     n = len(x)
     if isinstance(period, int):
         msts = [period]
     else:
         msts = sorted(period)
+    if s_window is None:
+        # default seasonal windows 11, 15, 19, ... following R's
+        # forecast::mstl() (7 + 4*k), see
+        # https://github.com/robjhyndman/forecast/blob/master/R/mstl.R#L29
+        # R hard-codes six windows and breaks beyond that; here we extend the
+        # pattern to len(msts) so any number of seasonal periods works.
+        # Values match R for up to six periods.
+        s_window = 7 + 4 * np.arange(1, len(msts) + 1)
     if len(msts) == 1:
         iterate = 1
     if x.ndim == 2:
@@ -32,11 +38,11 @@ def mstl(
         raise Exception(
             "`mstl` cannot handle missing values. "
             "Please raise an issue to include this feature."
-        )  # we should interpolate here
+        )
     if blambda is not None:
         raise Exception(
             "`blambda` not implemented yet. "
-            "Please rise an issue to include this feature."
+            "Please raise an issue to include this feature."
         )
     stl_kwargs = {"seasonal_deg": 0, **stl_kwargs}
     if msts[0] > 1:

@@ -40,12 +40,16 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
-    """Update simulator status with role-based transition rules.
+    """Update simulator status with role-based, per-kind transition rules.
 
-    SIM_CREATOR: not_started <-> env_in_progress <-> env_review_requested
-    ENV_REVIEWER: env_in_progress <-> env_review_requested <-> env_approved
-    SIM_DATA_GENERATOR: env_approved -> data_in_progress -> data_review_requested
-    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready, {data_review_requested,data_in_progress} -> out_of_service, data_in_progress -> env_approved -> env_review_requested -> env_in_progress"""
+    The allowed transitions depend on the simulator's ``kind`` (see
+    ``db.models.simulator_lifecycle``):
+    - oss: not_started <-> env_in_progress <-> ... (no exploration stages)
+    - webclone: not_started <-> exploration_in_progress <-> exploration_complete
+        <-> env_in_progress <-> ... (must pass sequentially through exploration)
+
+    editor owns the build-side edges; owner owns the review/terminal edges
+    (identical tail for both kinds)."""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,
@@ -66,12 +70,16 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
-    """Update simulator status with role-based transition rules.
+    """Update simulator status with role-based, per-kind transition rules.
 
-    SIM_CREATOR: not_started <-> env_in_progress <-> env_review_requested
-    ENV_REVIEWER: env_in_progress <-> env_review_requested <-> env_approved
-    SIM_DATA_GENERATOR: env_approved -> data_in_progress -> data_review_requested
-    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready, {data_review_requested,data_in_progress} -> out_of_service, data_in_progress -> env_approved -> env_review_requested -> env_in_progress"""
+    The allowed transitions depend on the simulator's ``kind`` (see
+    ``db.models.simulator_lifecycle``):
+    - oss: not_started <-> env_in_progress <-> ... (no exploration stages)
+    - webclone: not_started <-> exploration_in_progress <-> exploration_complete
+        <-> env_in_progress <-> ... (must pass sequentially through exploration)
+
+    editor owns the build-side edges; owner owns the review/terminal edges
+    (identical tail for both kinds)."""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,

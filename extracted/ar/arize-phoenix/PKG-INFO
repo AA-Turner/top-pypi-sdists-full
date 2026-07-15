@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 17.30.0
+Version: 18.0.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -62,7 +62,7 @@ Requires-Dist: sqlean-py<3.50,>=3.45.1; platform_system == 'Windows'
 Requires-Dist: sqlean-py>=3.45.1; platform_system != 'Windows' and python_version < '3.14'
 Requires-Dist: sqlean-py>=3.50; platform_system != 'Windows' and python_version >= '3.14'
 Requires-Dist: starlette>=0.37.0
-Requires-Dist: strawberry-graphql==0.319.0
+Requires-Dist: strawberry-graphql==0.320.4
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
@@ -84,16 +84,16 @@ Requires-Dist: google-genai; (python_version < '3.10') and extra == 'container'
 Requires-Dist: google-genai>=1.50.0; (python_version >= '3.10') and extra == 'container'
 Requires-Dist: modal>=1.2.0; extra == 'container'
 Requires-Dist: openai>=2.14.0; extra == 'container'
-Requires-Dist: opentelemetry-exporter-otlp==1.41.1; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-fastapi==0.62b1; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-grpc==0.62b1; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.62b1; extra == 'container'
-Requires-Dist: opentelemetry-proto==1.41.1; extra == 'container'
-Requires-Dist: opentelemetry-sdk==1.41.1; extra == 'container'
-Requires-Dist: opentelemetry-semantic-conventions==0.62b1; extra == 'container'
+Requires-Dist: opentelemetry-exporter-otlp==1.43.0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.64b0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-grpc==0.64b0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.64b0; extra == 'container'
+Requires-Dist: opentelemetry-proto==1.43.0; extra == 'container'
+Requires-Dist: opentelemetry-sdk==1.43.0; extra == 'container'
+Requires-Dist: opentelemetry-semantic-conventions==0.64b0; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
-Requires-Dist: strawberry-graphql[opentelemetry]==0.319.0; extra == 'container'
+Requires-Dist: strawberry-graphql[opentelemetry]==0.320.4; extra == 'container'
 Requires-Dist: types-aiobotocore-bedrock-runtime>=3.6.0; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
 Requires-Dist: vercel>=0.5.8; extra == 'container'

@@ -41,7 +41,7 @@ class InstancePoolArgs:
         :param pulumi.Input[Sequence[pulumi.Input['InstancePoolPlacementConfigurationArgs']]] placement_configurations: (Updatable) The placement configurations for the instance pool. Provide one placement configuration for each availability domain.
                
                To use the instance pool with a regional subnet, provide a placement configuration for each availability domain, and include the regional subnet in each placement configuration. To use compute cluster with instance pool, provide a single placement configuration.
-        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param pulumi.Input[_builtins.str] display_name: (Updatable) A user-friendly name. Does not have to be unique, and it's changeable. Avoid entering confidential information.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
@@ -50,7 +50,6 @@ class InstancePoolArgs:
         :param pulumi.Input['InstancePoolLifecycleManagementArgs'] lifecycle_management: (Updatable) The lifecycle management options for the instance pool.
         :param pulumi.Input[Sequence[pulumi.Input['InstancePoolLoadBalancerArgs']]] load_balancers: The load balancers to attach to the instance pool. (Note: From 6.16.0 load_balancers field in Core.InstancePool is changed from TypeList to TypeSet - to support load balancer insert operation. Also, LB cant by accessed by index)
         :param pulumi.Input[_builtins.str] state: (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-               
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
@@ -118,7 +117,7 @@ class InstancePoolArgs:
     @pulumi.getter
     def size(self) -> pulumi.Input[_builtins.int]:
         """
-        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         """
         return pulumi.get(self, "size")
 
@@ -216,7 +215,6 @@ class InstancePoolArgs:
         """
         (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
 
-
         ** IMPORTANT **
         Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
@@ -242,6 +240,7 @@ class _InstancePoolState:
                  lifecycle_management: pulumi.Input[Optional['InstancePoolLifecycleManagementArgs']] = None,
                  load_balancers: pulumi.Input[Optional[Sequence[pulumi.Input['InstancePoolLoadBalancerArgs']]]] = None,
                  placement_configurations: pulumi.Input[Optional[Sequence[pulumi.Input['InstancePoolPlacementConfigurationArgs']]]] = None,
+                 pool_type: pulumi.Input[Optional[_builtins.str]] = None,
                  size: pulumi.Input[Optional[_builtins.int]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None,
                  time_created: pulumi.Input[Optional[_builtins.str]] = None):
@@ -262,9 +261,9 @@ class _InstancePoolState:
         :param pulumi.Input[Sequence[pulumi.Input['InstancePoolPlacementConfigurationArgs']]] placement_configurations: (Updatable) The placement configurations for the instance pool. Provide one placement configuration for each availability domain.
                
                To use the instance pool with a regional subnet, provide a placement configuration for each availability domain, and include the regional subnet in each placement configuration. To use compute cluster with instance pool, provide a single placement configuration.
-        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        :param pulumi.Input[_builtins.str] pool_type: The type of resources managed by the pool.
+        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         :param pulumi.Input[_builtins.str] state: (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-               
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
@@ -294,6 +293,8 @@ class _InstancePoolState:
             pulumi.set(__self__, "load_balancers", load_balancers)
         if placement_configurations is not None:
             pulumi.set(__self__, "placement_configurations", placement_configurations)
+        if pool_type is not None:
+            pulumi.set(__self__, "pool_type", pool_type)
         if size is not None:
             pulumi.set(__self__, "size", size)
         if state is not None:
@@ -448,10 +449,22 @@ class _InstancePoolState:
         pulumi.set(self, "placement_configurations", value)
 
     @_builtins.property
+    @pulumi.getter(name="poolType")
+    def pool_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The type of resources managed by the pool.
+        """
+        return pulumi.get(self, "pool_type")
+
+    @pool_type.setter
+    def pool_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "pool_type", value)
+
+    @_builtins.property
     @pulumi.getter
     def size(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         """
         return pulumi.get(self, "size")
 
@@ -464,7 +477,6 @@ class _InstancePoolState:
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-
 
         ** IMPORTANT **
         Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
@@ -602,9 +614,8 @@ class InstancePool(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstancePoolPlacementConfigurationArgs', 'InstancePoolPlacementConfigurationArgsDict']]]] placement_configurations: (Updatable) The placement configurations for the instance pool. Provide one placement configuration for each availability domain.
                
                To use the instance pool with a regional subnet, provide a placement configuration for each availability domain, and include the regional subnet in each placement configuration. To use compute cluster with instance pool, provide a single placement configuration.
-        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         :param pulumi.Input[_builtins.str] state: (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-               
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
@@ -754,6 +765,7 @@ class InstancePool(pulumi.CustomResource):
             __props__.__dict__["state"] = state
             __props__.__dict__["actual_size"] = None
             __props__.__dict__["current_size"] = None
+            __props__.__dict__["pool_type"] = None
             __props__.__dict__["time_created"] = None
         super(InstancePool, __self__).__init__(
             'oci:Core/instancePool:InstancePool',
@@ -777,6 +789,7 @@ class InstancePool(pulumi.CustomResource):
             lifecycle_management: pulumi.Input[Optional[Union['InstancePoolLifecycleManagementArgs', 'InstancePoolLifecycleManagementArgsDict']]] = None,
             load_balancers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['InstancePoolLoadBalancerArgs', 'InstancePoolLoadBalancerArgsDict']]]]] = None,
             placement_configurations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['InstancePoolPlacementConfigurationArgs', 'InstancePoolPlacementConfigurationArgsDict']]]]] = None,
+            pool_type: pulumi.Input[Optional[_builtins.str]] = None,
             size: pulumi.Input[Optional[_builtins.int]] = None,
             state: pulumi.Input[Optional[_builtins.str]] = None,
             time_created: pulumi.Input[Optional[_builtins.str]] = None) -> 'InstancePool':
@@ -801,9 +814,9 @@ class InstancePool(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstancePoolPlacementConfigurationArgs', 'InstancePoolPlacementConfigurationArgsDict']]]] placement_configurations: (Updatable) The placement configurations for the instance pool. Provide one placement configuration for each availability domain.
                
                To use the instance pool with a regional subnet, provide a placement configuration for each availability domain, and include the regional subnet in each placement configuration. To use compute cluster with instance pool, provide a single placement configuration.
-        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        :param pulumi.Input[_builtins.str] pool_type: The type of resources managed by the pool.
+        :param pulumi.Input[_builtins.int] size: (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         :param pulumi.Input[_builtins.str] state: (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-               
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
@@ -825,6 +838,7 @@ class InstancePool(pulumi.CustomResource):
         __props__.__dict__["lifecycle_management"] = lifecycle_management
         __props__.__dict__["load_balancers"] = load_balancers
         __props__.__dict__["placement_configurations"] = placement_configurations
+        __props__.__dict__["pool_type"] = pool_type
         __props__.__dict__["size"] = size
         __props__.__dict__["state"] = state
         __props__.__dict__["time_created"] = time_created
@@ -929,10 +943,18 @@ class InstancePool(pulumi.CustomResource):
         return pulumi.get(self, "placement_configurations")
 
     @_builtins.property
+    @pulumi.getter(name="poolType")
+    def pool_type(self) -> pulumi.Output[_builtins.str]:
+        """
+        The type of resources managed by the pool.
+        """
+        return pulumi.get(self, "pool_type")
+
+    @_builtins.property
     @pulumi.getter
     def size(self) -> pulumi.Output[_builtins.int]:
         """
-        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute.
+        (Updatable) The number of instances that should be in the instance pool. Modifying this value will override the size of the instance pool. If the instance pool is linked with autoscaling configuration, autoscaling configuration could resize the instance pool at a later point. The instance pool's actual size may differ from the configured size if it is associated with an autoscaling configuration, instance pool's actual size will be reflected in this size attribute. For a GMC-enabled resource pool, this is the number of GMC resources that should be in the pool.
         """
         return pulumi.get(self, "size")
 
@@ -941,7 +963,6 @@ class InstancePool(pulumi.CustomResource):
     def state(self) -> pulumi.Output[_builtins.str]:
         """
         (Updatable) The target state for the instance pool update operation (ignored at create time and should not be set). Could be set to RUNNING or STOPPED.
-
 
         ** IMPORTANT **
         Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values

@@ -39,6 +39,12 @@ class TestCryptographic:
             (Algorithm.SHA512, 128),
             (Algorithm.BLAKE2S, 64),
             (Algorithm.BLAKE2B, 128),
+            (Algorithm.SHA3_224, 56),
+            (Algorithm.SHA3_256, 64),
+            (Algorithm.SHA3_384, 96),
+            (Algorithm.SHA3_512, 128),
+            (Algorithm.SHAKE128, 64),
+            (Algorithm.SHAKE256, 64),
         ],
     )
     def test_hash(self, crypto, algorithm, length):
@@ -72,7 +78,7 @@ class TestCryptographic:
         result = crypto.mnemonic_phrase()
         assert isinstance(result, str)
         phrase_len = len(result.split(" "))
-        assert phrase_len == 12 or phrase_len == 24
+        assert phrase_len in {12, 24}
 
     def test_jwt_default(self, crypto):
         result = crypto.jwt()

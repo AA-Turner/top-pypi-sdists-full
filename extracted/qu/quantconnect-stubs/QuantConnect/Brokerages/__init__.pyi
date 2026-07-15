@@ -3661,6 +3661,9 @@ class BrokerageName(IntEnum):
     PUBLIC = 36
     """Transaction and submit/execution rules will use Public.com models"""
 
+    BLOOMBERG_FIX = 37
+    """Transaction and submit/execution rules will use bloomberg fix models"""
+
 
 class WolverineBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Wolverine Brokerage model"""

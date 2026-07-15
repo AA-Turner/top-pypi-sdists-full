@@ -7,6 +7,7 @@ import builtins
 import google.protobuf.descriptor
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import sys
 import typing
 
@@ -73,7 +74,9 @@ class _SponsoredTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._
     SPONSORED_TYPE_EMPLOYEE: _SponsoredType.ValueType  # 7
 
 class SponsoredType(_SponsoredType, metaclass=_SponsoredTypeEnumTypeWrapper):
-    """The type of sponsorship associated with a contract."""
+    """Deprecated: use sentry_protos.billing.v1.common.v1.SponsoredType. Moved to
+    common/v1 so it can be shared with the pending_change service
+    """
 
 SPONSORED_TYPE_UNSPECIFIED: SponsoredType.ValueType  # 0
 SPONSORED_TYPE_EDUCATION: SponsoredType.ValueType  # 1
@@ -136,19 +139,22 @@ class SponsorshipConfig(google.protobuf.message.Message):
     SPONSORED_TYPE_FIELD_NUMBER: builtins.int
     CAN_TRIAL_FIELD_NUMBER: builtins.int
     CAN_CHECKOUT_FIELD_NUMBER: builtins.int
+    SPONSORSHIP_TYPE_FIELD_NUMBER: builtins.int
     sponsored_type: global___SponsoredType.ValueType
     can_trial: builtins.bool
     """Whether this sponsored Contract is eligible to start trials."""
     can_checkout: builtins.bool
     """Whether this sponsored Contract can checkout."""
+    sponsorship_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType
     def __init__(
         self,
         *,
         sponsored_type: global___SponsoredType.ValueType = ...,
         can_trial: builtins.bool = ...,
         can_checkout: builtins.bool = ...,
+        sponsorship_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["can_checkout", b"can_checkout", "can_trial", b"can_trial", "sponsored_type", b"sponsored_type"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["can_checkout", b"can_checkout", "can_trial", b"can_trial", "sponsored_type", b"sponsored_type", "sponsorship_type", b"sponsorship_type"]) -> None: ...
 
 global___SponsorshipConfig = SponsorshipConfig
 

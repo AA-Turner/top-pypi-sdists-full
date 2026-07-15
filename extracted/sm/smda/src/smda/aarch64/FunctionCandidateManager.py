@@ -43,6 +43,8 @@ from .definitions import (
     BR_MASK,
     BR_VALUE,
     INSTRUCTION_SIZE,
+    LDR_UNSIGNED_64_MASK,
+    LDR_UNSIGNED_64_VALUE,
     NOP,
     RET_MASK,
     RET_VALUE,
@@ -50,6 +52,8 @@ from .definitions import (
     is_bti_landing_pad,
     is_conditional_branch,
     is_function_prologue,
+    rd_field,
+    rn_field,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -71,10 +75,20 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
         # The x86-only PLT/stub-chain and PE .pdata passes do not apply and are
         # omitted; the NOP-based gap scan is disabled (see nextGapCandidate).
         self.locateSymbolCandidates()
+        if self._candidateTimeoutTripped():
+            return
         self.locateReferenceCandidates()
+        if self._candidateTimeoutTripped():
+            return
         self.locateAddressRefCandidates()
+        if self._candidateTimeoutTripped():
+            return
         self.locateDataPointerCandidates()
+        if self._candidateTimeoutTripped():
+            return
         self.locatePrologueCandidates()
+        if self._candidateTimeoutTripped():
+            return
         self.locateLangSpecCandidates()
         self.identified_alignment = self._identifyAlignment()
 
@@ -128,7 +142,9 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
             # naturally aligned, so an unaligned section start would otherwise
             # stride past every aligned pointer in the section.
             scan_start = (section_start + (pointer_size - 1)) & ~(pointer_size - 1)
-            for pointer_va in range(scan_start, section_end - (pointer_size - 1), pointer_size):
+            for match_count, pointer_va in enumerate(range(scan_start, section_end - (pointer_size - 1), pointer_size)):
+                if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                    return
                 raw = self.disassembly.getBytes(pointer_va, pointer_size)
                 if raw is None or len(raw) != pointer_size:
                     continue
@@ -173,14 +189,18 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
         for low, high in exec_ranges:
             pages = {}  # Xd -> adrp page base currently held in that register
             addr = low
+            match_count = 0
             while addr + INSTRUCTION_SIZE <= high:
+                if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                    return
+                match_count += 1
                 offset = addr - base
                 if offset < 0 or offset + INSTRUCTION_SIZE > len(binary):
                     addr += INSTRUCTION_SIZE
                     continue
                 word = int.from_bytes(binary[offset : offset + INSTRUCTION_SIZE], "little")
                 if (word & ADRP_MASK) == ADRP_VALUE:
-                    pages[word & 0x1F] = adrp_page_value(word, addr)
+                    pages[rd_field(word)] = adrp_page_value(word, addr)
                 elif (word & ADRP_MASK) == ADR_VALUE:
                     immlo = (word >> 29) & 0x3
                     immhi = (word >> 5) & 0x7FFFF
@@ -188,15 +208,15 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
                     if imm & (1 << 20):
                         imm -= 1 << 21
                     seed(addr + imm, addr)
-                    pages.pop(word & 0x1F, None)
+                    pages.pop(rd_field(word), None)
                 elif (word & ADD_IMM64_MASK) == ADD_IMM64_VALUE:
-                    rn = (word >> 5) & 0x1F
+                    rn = rn_field(word)
                     if rn in pages:
                         seed(pages[rn] + ((word >> 10) & 0xFFF), addr)
-                    pages.pop(word & 0x1F, None)
-                elif (word & 0xFFC00000) == 0xF9400000:  # ldr Xt, [Xn, #imm]
-                    rn = (word >> 5) & 0x1F
-                    rd = word & 0x1F
+                    pages.pop(rd_field(word), None)
+                elif (word & LDR_UNSIGNED_64_MASK) == LDR_UNSIGNED_64_VALUE:  # ldr Xt, [Xn, #imm]
+                    rn = rn_field(word)
+                    rd = rd_field(word)
                     if rn in pages:
                         imm = ((word >> 10) & 0xFFF) * 8
                         slot_addr = pages[rn] + imm
@@ -215,7 +235,7 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
                 ):
                     pages.clear()  # control-flow edge: register provenance no longer holds
                 else:
-                    pages.pop(word & 0x1F, None)  # any other write invalidates the dest register
+                    pages.pop(rd_field(word), None)  # any other write invalidates the dest register
                 addr += INSTRUCTION_SIZE
 
     def locateReferenceCandidates(self):
@@ -224,7 +244,9 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
         # call-reference candidate — the AArch64 analogue of the base 0xE8 scan.
         binary = self.disassembly.binary_info.binary
         base = self.disassembly.binary_info.base_addr
-        for offset in range(0, len(binary) - (INSTRUCTION_SIZE - 1), INSTRUCTION_SIZE):
+        for match_count, offset in enumerate(range(0, len(binary) - (INSTRUCTION_SIZE - 1), INSTRUCTION_SIZE)):
+            if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                return
             word = int.from_bytes(binary[offset : offset + INSTRUCTION_SIZE], "little")
             if (word & BL_MASK) != BL_VALUE:
                 continue
@@ -246,7 +268,9 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
         # see definitions.is_function_prologue for the exact encodings.
         binary = self.disassembly.binary_info.binary
         base = self.disassembly.binary_info.base_addr
-        for offset in range(0, len(binary) - (INSTRUCTION_SIZE - 1), INSTRUCTION_SIZE):
+        for match_count, offset in enumerate(range(0, len(binary) - (INSTRUCTION_SIZE - 1), INSTRUCTION_SIZE)):
+            if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                return
             word = int.from_bytes(binary[offset : offset + INSTRUCTION_SIZE], "little")
             if not is_function_prologue(word):
                 continue
@@ -322,6 +346,7 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
             0xD69F03E0,  # eret
             0xD69F0BFF,  # eretaa
             0xD69F0FFF,  # eretab
+            0xD6BF03E0,  # drps (Debug Restore PState: transfers control to ELR_ELx, same class)
         }
         return not (
             (prev_word & RET_MASK) == RET_VALUE

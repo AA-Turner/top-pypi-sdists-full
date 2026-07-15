@@ -234,6 +234,13 @@ class APIDriver:
                     .get("check_id")
                     or self.get_system_check_id(action.table_ref, action.check_ref)
                 )
+                if not check_id:
+                    print(
+                        f"Warning: Skipping labels for {action.check_ref} on "
+                        f"{action.table_ref} (check does not exist)",
+                        file=sys.stderr,
+                    )
+                    return
                 self.client.replace_labels_for_check(
                     table_id=table_id,
                     check_id=check_id,
@@ -274,6 +281,14 @@ class APIDriver:
                     .get("check_id")
                     or self.get_system_check_id(action.table_ref, action.check_ref)
                 )
+                if not check_id:
+                    print(
+                        f"Warning: Skipping notification channels for "
+                        f"{action.check_ref} on {action.table_ref} "
+                        f"(check does not exist)",
+                        file=sys.stderr,
+                    )
+                    return
                 self.client.update_check(
                     table_id=self._table_id(action.table_ref),
                     check_id=check_id,

@@ -40,10 +40,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
-    """Add a review to simulator.
-
-    review_type="env" requires ENV_REVIEWER
-    review_type="data" requires DATA_REVIEWER"""
+    """Add a review to simulator. Requires owner."""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,
@@ -64,10 +61,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
-    """Add a review to simulator.
-
-    review_type="env" requires ENV_REVIEWER
-    review_type="data" requires DATA_REVIEWER"""
+    """Add a review to simulator. Requires owner."""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,

@@ -19,12 +19,36 @@ Result classes (:mod:`qiskit_ibm_runtime.results`)
    :toctree: ../stubs/
    :nosignatures:
 
+   EstimatorPubResult
+   LayerError
+   PauliLindbladError
+   NoiseLearnerResult
    NoiseLearnerV3Result
    NoiseLearnerV3Results
    ItemMetadata
    QuantumProgramResult
    QuantumProgramItemResult
+   ChunkPart
+   ChunkSpan
+   ChunkTiming
+   ItemMetadata
+   Metadata
+   Metadata
+   SchedulerTiming
+   StretchValues
 """  # noqa: D205, D212, D415
 
+from .estimator_pub import EstimatorPubResult
+from .noise_learner import LayerError, NoiseLearnerResult, PauliLindbladError
 from .noise_learner_v3 import NoiseLearnerV3Result, NoiseLearnerV3Results
-from .quantum_program import ItemMetadata, QuantumProgramItemResult, QuantumProgramResult
+from .quantum_program import (
+    ChunkPart,
+    ChunkSpan,
+    ChunkTiming,
+    ItemMetadata,
+    Metadata,
+    QuantumProgramItemResult,
+    QuantumProgramResult,
+    SchedulerTiming,
+    StretchValues,
+)

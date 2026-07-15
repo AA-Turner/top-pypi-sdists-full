@@ -4,10 +4,16 @@ import typing as t
 import json
 import hashlib
 from collections import deque
+from functools import cached_property
 
 from dbt.contracts.graph.manifest import Manifest
 
 from dbt_state._typing import ModelOrSnapshotOrTestNode
+
+from dbt.contracts.graph.nodes import (
+    GenericTestNode,
+    ModelNode,
+)
 
 # Keys to exclude from the node config when calculating the hash.
 # ref: https://docs.getdbt.com/reference/node-selection/methods?version=2.0&name=Fusion#state
@@ -28,24 +34,25 @@ class NodeHashCalculator(ABC):
     def _calculate_hash(self, *args: object) -> str:
         return hashlib.md5("".join(str(x) for x in args).encode()).hexdigest()
 
-    def calculate_node_body_hash(self) -> t.Optional[str]:
+    @cached_property
+    def node_body_hash(self) -> t.Optional[str]:
         raw_code = getattr(self.node, "raw_code", None)
-        if raw_code is None:
+        if not raw_code:
             return None
         return self._calculate_hash(raw_code)
 
-    def calculate_node_configs_hash(self) -> t.Optional[str]:
+    @cached_property
+    def node_configs_hash(self) -> t.Optional[str]:
         unrendered_config = getattr(self.node, "unrendered_config", None)
-        if unrendered_config is None:
+        if not unrendered_config:
             return None
         filtered = {
-            k: v
-            for k, v in (unrendered_config or {}).items()
-            if k not in _CONFIG_HASH_EXCLUDED_KEYS
+            k: v for k, v in unrendered_config.items() if k not in _CONFIG_HASH_EXCLUDED_KEYS
         }
         return self._calculate_hash(json.dumps(filtered, sort_keys=True))
 
-    def calculate_node_persisted_docs_hash(self) -> t.Optional[str]:
+    @cached_property
+    def node_persisted_docs_hash(self) -> t.Optional[str]:
         persist_docs = getattr(self.node.config, "persist_docs", None)
         if not persist_docs:
             return None
@@ -62,7 +69,12 @@ class NodeHashCalculator(ABC):
             return None
         return self._calculate_hash(json.dumps(parts, sort_keys=True))
 
-    def calculate_node_macros_hash(self) -> str:
+    @cached_property
+    def node_macros_hash(self) -> t.Optional[str]:
+        depends_on_macros = getattr(self.node.depends_on, "macros", None)
+        if not depends_on_macros:
+            return None
+
         all_macros = self._get_all_macros()
         # Sort macro IDs to ensure deterministic ordering
         sorted_macro_ids = sorted(all_macros)
@@ -75,31 +87,19 @@ class NodeHashCalculator(ABC):
         return self._calculate_hash("".join(macro_sqls))
 
     def _get_all_macros(self) -> t.Set[str]:
-        visited_nodes = set()
-        visited_macros = set()
-        all_macros = set()
+        """
+        Collect all macros that affect this node's rendering.
 
-        # Phase 1: Collect macros from node graph
-        node_queue: deque[t.Any] = deque([self.node])
-        while node_queue:
-            current_node = node_queue.popleft()
-            node_id = getattr(current_node, "unique_id", id(current_node))
+        This includes:
+        1. Macros directly referenced by this node
+        2. Macros referenced by those macros (recursively)
 
-            if node_id in visited_nodes:
-                continue
-            visited_nodes.add(node_id)
+        This does NOT include macros from upstream nodes - each node's macro hash
+        should only reflect the macros used to render that specific node.
+        """
+        visited_macros: t.Set[str] = set()
+        all_macros: t.Set[str] = set(self.node.depends_on.macros)
 
-            # Add all macros this node depends on
-            all_macros.update(current_node.depends_on.macros)
-
-            # Add dependent nodes to the queue
-            for dep_node_id in current_node.depends_on.nodes:
-                if dep_node_id not in visited_nodes:
-                    dep_node = self.manifest.nodes.get(dep_node_id)
-                    if dep_node:
-                        node_queue.append(dep_node)
-
-        # Phase 2: Collect macro dependencies
         macro_queue: deque[str] = deque(all_macros)
         while macro_queue:
             macro_id = macro_queue.popleft()
@@ -124,16 +124,17 @@ class DefaultNodeHashCalculator(NodeHashCalculator):
 
     def calculate_node_hash(self) -> str:
         parts = [
-            self.calculate_node_body_hash(),
-            self.calculate_node_configs_hash(),
-            self.calculate_node_persisted_docs_hash(),
-            self.calculate_node_macros_hash(),
+            self.node_body_hash,
+            self.node_configs_hash,
+            self.node_persisted_docs_hash,
+            self.node_macros_hash,
         ]
         return self._calculate_hash(*(p for p in parts if p is not None))
 
 
 class ModelNodeHashCalculator(NodeHashCalculator):
-    def calculate_node_contract_hash(self) -> str:
+    @cached_property
+    def node_contract_hash(self) -> str:
         contract = getattr(self.node, "contract", None)
         enforced = bool(getattr(contract, "enforced", False))
         if enforced:
@@ -150,7 +151,8 @@ class ModelNodeHashCalculator(NodeHashCalculator):
 
         return self._calculate_hash(contract_state)
 
-    def calculate_node_ref_representation_hash(self) -> t.Optional[str]:
+    @cached_property
+    def node_ref_representation_hash(self) -> t.Optional[str]:
         if not hasattr(self.node, "latest_version"):
             return None
         parts = {
@@ -162,12 +164,12 @@ class ModelNodeHashCalculator(NodeHashCalculator):
 
     def calculate_node_hash(self) -> str:
         parts = [
-            self.calculate_node_body_hash(),
-            self.calculate_node_configs_hash(),
-            self.calculate_node_persisted_docs_hash(),
-            self.calculate_node_macros_hash(),
-            self.calculate_node_contract_hash(),
-            self.calculate_node_ref_representation_hash(),
+            self.node_body_hash,
+            self.node_configs_hash,
+            self.node_persisted_docs_hash,
+            self.node_macros_hash,
+            self.node_contract_hash,
+            self.node_ref_representation_hash,
         ]
         return self._calculate_hash(*(p for p in parts if p is not None))
 
@@ -175,6 +177,17 @@ class ModelNodeHashCalculator(NodeHashCalculator):
 class GenericTestNodeCalculator(NodeHashCalculator):
     def calculate_node_hash(self) -> str:
         parts = [
-            self.calculate_node_configs_hash(),
+            self.node_configs_hash,
         ]
         return self._calculate_hash(*(p for p in parts if p is not None))
+
+
+def create_node_hash_calculator(
+    node: ModelOrSnapshotOrTestNode, manifest: Manifest
+) -> NodeHashCalculator:
+    """Factory function to create the appropriate calculator for a node type."""
+    if isinstance(node, ModelNode):
+        return ModelNodeHashCalculator(node, manifest)
+    if isinstance(node, GenericTestNode):
+        return GenericTestNodeCalculator(node, manifest)
+    return DefaultNodeHashCalculator(node, manifest)

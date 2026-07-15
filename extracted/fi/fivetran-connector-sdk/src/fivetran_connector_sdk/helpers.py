@@ -188,11 +188,27 @@ def find_connector_object(project_path):
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
-        for obj in dir(module):
+        # Use type name + module check instead of isinstance to avoid circular import
+        # (Connector is defined in __init__.py which imports this file).
+        connector_instances = {}
+        for obj, obj_attr in vars(module).items():
             if not obj.startswith('__'):  # Exclude built-in attributes
-                obj_attr = getattr(module, obj)
-                if '<fivetran_connector_sdk.Connector object at' in str(obj_attr):
-                    return obj_attr
+                obj_type = type(obj_attr)
+                if obj_type.__name__ == 'Connector' and obj_type.__module__ == 'fivetran_connector_sdk':
+                    connector_instances[obj] = obj_attr
+        # The variable must be named 'connector' because production runs: from connector import connector
+        if 'connector' in connector_instances:
+            return connector_instances['connector']
+        if connector_instances:
+            names_str = ', '.join(f"'{n}'" for n in sorted(connector_instances.keys()))
+            print_library_log(
+                f"Connector object must be named 'connector', but found: {names_str}\n"
+                f"      rename it to 'connector' in connector.py\n"
+                f"      example: connector = Connector(update=update, schema=schema)\n"
+                f"      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+                Logging.Level.SEVERE)
+            return None
+
     except TypeError as e:
         tb = traceback.extract_tb(e.__traceback__)
         last_frame = tb[-1] if tb else None

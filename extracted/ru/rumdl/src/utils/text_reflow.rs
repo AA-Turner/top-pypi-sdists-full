@@ -578,13 +578,17 @@ pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
     // For sentence-per-line mode, always process regardless of length
     if options.sentence_per_line {
         let elements = parse_elements(line, options);
-        return reflow_elements_sentence_per_line(&elements, &options.abbreviations, options.require_sentence_capital);
+        return merge_block_construct_continuations(reflow_elements_sentence_per_line(
+            &elements,
+            &options.abbreviations,
+            options.require_sentence_capital,
+        ));
     }
 
     // For semantic line breaks mode, use cascading split strategy
     if options.semantic_line_breaks {
         let elements = parse_elements(line, options);
-        return reflow_elements_semantic(&elements, options);
+        return merge_block_construct_continuations(reflow_elements_semantic(&elements, options));
     }
 
     // Quick check: if line is already short enough or no wrapping requested, return as-is
@@ -597,7 +601,7 @@ pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
     let elements = parse_elements(line, options);
 
     // Reflow the elements into lines
-    reflow_elements(&elements, options)
+    merge_block_construct_continuations(reflow_elements(&elements, options))
 }
 
 /// Represents a piece of content in the markdown
@@ -694,7 +698,7 @@ impl std::fmt::Display for Element {
             Element::HugoShortcode(s) => write!(f, "{s}"),
             Element::AttrList(s) => write!(f, "{s}"),
             Element::MystRole(s) => write!(f, "{s}"),
-            Element::Code(s) => write!(f, "`{s}`"),
+            Element::Code(s) => write!(f, "{s}"),
             Element::Bold { content, underscore } => {
                 if *underscore {
                     write!(f, "__{content}__")
@@ -742,16 +746,21 @@ struct EmphasisSpan {
 /// - GFM strikethrough (~~text~~)
 ///
 /// Returns spans sorted by start position.
-fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
-    // Every emphasis, strong, or strikethrough marker starts with one of these
-    // bytes, so their absence rules out any span without running the parser.
-    if !text.contains(['*', '_', '~']) {
-        return Vec::new();
+fn extract_emphasis_and_code_spans(text: &str) -> (Vec<EmphasisSpan>, Vec<CodeSpan>) {
+    // If neither marker is present, skip the parser entirely.
+    let has_emphasis = text.contains(['*', '_', '~']);
+    let has_code = text.contains('`');
+    if !has_emphasis && !has_code {
+        return (Vec::new(), Vec::new());
     }
 
-    let mut spans = Vec::new();
+    let mut emphasis_spans = Vec::new();
+    let mut code_spans = Vec::new();
+
     let mut options = Options::empty();
-    options.insert(Options::ENABLE_STRIKETHROUGH);
+    if has_emphasis {
+        options.insert(Options::ENABLE_STRIKETHROUGH);
+    }
 
     // Stacks to track nested formatting with their start positions
     let mut emphasis_stack: Vec<(usize, bool)> = Vec::new(); // (start_byte, uses_underscore)
@@ -762,6 +771,12 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
 
     for (event, range) in parser {
         match event {
+            Event::Code(_) => {
+                code_spans.push(CodeSpan {
+                    start: range.start,
+                    end: range.end,
+                });
+            }
             Event::Start(Tag::Emphasis) => {
                 // Check if this uses underscore by looking at the original text
                 let uses_underscore = text.get(range.start..range.start + 1) == Some("_");
@@ -769,13 +784,12 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
             }
             Event::End(TagEnd::Emphasis) => {
                 if let Some((start_byte, uses_underscore)) = emphasis_stack.pop() {
-                    // Extract content between the markers (1 char marker on each side)
                     let content_start = start_byte + 1;
                     let content_end = range.end - 1;
                     if content_end > content_start
                         && let Some(content) = text.get(content_start..content_end)
                     {
-                        spans.push(EmphasisSpan {
+                        emphasis_spans.push(EmphasisSpan {
                             start: start_byte,
                             end: range.end,
                             content: content.to_string(),
@@ -788,19 +802,17 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
                 }
             }
             Event::Start(Tag::Strong) => {
-                // Check if this uses underscore by looking at the original text
                 let uses_underscore = text.get(range.start..range.start + 2) == Some("__");
                 strong_stack.push((range.start, uses_underscore));
             }
             Event::End(TagEnd::Strong) => {
                 if let Some((start_byte, uses_underscore)) = strong_stack.pop() {
-                    // Extract content between the markers (2 char marker on each side)
                     let content_start = start_byte + 2;
                     let content_end = range.end - 2;
                     if content_end > content_start
                         && let Some(content) = text.get(content_start..content_end)
                     {
-                        spans.push(EmphasisSpan {
+                        emphasis_spans.push(EmphasisSpan {
                             start: start_byte,
                             end: range.end,
                             content: content.to_string(),
@@ -817,9 +829,6 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
             }
             Event::End(TagEnd::Strikethrough) => {
                 if let Some(start_byte) = strikethrough_stack.pop() {
-                    // pulldown-cmark's GFM strikethrough accepts both ~~text~~ and
-                    // ~text~. Detect the actual marker width so single-tilde spans
-                    // keep their first and last content character.
                     let double = text.get(start_byte..start_byte + 2) == Some("~~");
                     let marker_len = if double { 2 } else { 1 };
                     let content_start = start_byte + marker_len;
@@ -827,7 +836,7 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
                     if content_end > content_start
                         && let Some(content) = text.get(content_start..content_end)
                     {
-                        spans.push(EmphasisSpan {
+                        emphasis_spans.push(EmphasisSpan {
                             start: start_byte,
                             end: range.end,
                             content: content.to_string(),
@@ -843,9 +852,8 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
         }
     }
 
-    // Sort by start position
-    spans.sort_by_key(|s| s.start);
-    spans
+    emphasis_spans.sort_by_key(|s| s.start);
+    (emphasis_spans, code_spans)
 }
 
 #[derive(Debug, Clone)]
@@ -984,7 +992,7 @@ fn extract_link_spans(text: &str, defined_references: Option<&HashSet<String>>) 
 /// a `{`, a name starting with an ASCII letter or `_` and continuing with
 /// alphanumerics / `-` / `_` / `:` / `.`, a closing `}`, then a balanced inline
 /// code span using one or more backticks. Returns `None` when any part is missing.
-fn myst_role_len_at(text: &str) -> Option<usize> {
+fn myst_role_len_at(text: &str, absolute_pos: usize, code_spans: &[CodeSpan]) -> Option<usize> {
     let bytes = text.as_bytes();
     if bytes.first() != Some(&b'{') {
         return None;
@@ -1009,29 +1017,94 @@ fn myst_role_len_at(text: &str) -> Option<usize> {
     j += 1; // past '}'
 
     // Must be immediately followed by an inline code span.
-    if bytes.get(j) != Some(&b'`') {
-        return None;
-    }
-    let backtick_start = j;
-    while bytes.get(j) == Some(&b'`') {
-        j += 1;
-    }
-    let backtick_count = j - backtick_start;
-
-    // Find the matching run of `backtick_count` backticks.
-    while j + backtick_count <= bytes.len() {
-        if bytes[j] == b'`' {
-            let close_count = bytes[j..].iter().take_while(|&&b| b == b'`').count();
-            if close_count == backtick_count {
-                return Some(j + close_count);
-            }
-            j += close_count;
-        } else {
-            j += 1;
-        }
+    let code_span_start = absolute_pos + j;
+    if let Ok(idx) = code_spans.binary_search_by_key(&code_span_start, |span| span.start) {
+        let span = &code_spans[idx];
+        let code_span_len = span.end - span.start;
+        return Some(j + code_span_len);
     }
 
     None
+}
+
+/// Byte length of an inline-math span (`$math$`) starting at the very
+/// beginning of `s`, if one starts there.
+///
+/// Mirrors INLINE_MATH_REGEX (`(?<!\$)\$(?!\$)([^\$]+)\$(?!\$)`) with the
+/// leading lookbehind dropped: callers probe only at a slice start, where
+/// the lookbehind passes vacuously.
+fn inline_math_len_at_start(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    // Opening `$` not followed by another `$` (that would be display math).
+    if bytes.first() != Some(&b'$') || bytes.get(1) == Some(&b'$') {
+        return None;
+    }
+    // Content is `[^$]+`: everything up to the closing `$`. It is non-empty
+    // whenever a closing `$` exists, because the byte at index 1 is not `$`.
+    let close = 1 + s[1..].find('$')?;
+    // Closing `$` not followed by another `$`.
+    if bytes.get(close + 1) == Some(&b'$') {
+        return None;
+    }
+    Some(close + 1)
+}
+
+/// Absolute byte offsets of a cached pattern match within the full input text.
+#[derive(Clone, Copy, Debug)]
+struct PatternMatch {
+    start: usize,
+    end: usize,
+}
+
+/// Lazily-computed earliest match of one pattern within the unparsed suffix.
+///
+/// `parse_markdown_elements_inner` probes every pattern on every loop
+/// iteration; re-running each search against the whole remaining suffix made
+/// pathological inputs quadratic. The cache keeps the previous result as
+/// absolute offsets: until the parse cursor moves past a cached match, that
+/// match is still the earliest one, so the search is skipped.
+///
+/// This is sound only for patterns whose match at a given position does not
+/// depend on where the searched slice starts (no `^`, no lookbehind): for
+/// those, a cached miss stays a miss and a cached hit stays the earliest hit
+/// as the cursor advances. A start-sensitive pattern needs a dedicated probe
+/// at the cursor first (see the inline-math call site).
+#[derive(Clone, Copy)]
+enum PatternCache {
+    Unsearched,
+    NotFound,
+    Found(PatternMatch),
+}
+
+impl PatternCache {
+    /// Returns the earliest match at or after `cursor` as offsets relative to
+    /// `remaining` (the unparsed suffix starting at `cursor`), re-running
+    /// `find` on the suffix only when the cached result no longer applies.
+    fn earliest_in(
+        &mut self,
+        remaining: &str,
+        cursor: usize,
+        find: impl FnOnce(&str) -> Option<(usize, usize)>,
+    ) -> Option<(usize, usize)> {
+        let stale = match self {
+            PatternCache::Found(pm) => pm.start < cursor,
+            PatternCache::NotFound => false,
+            PatternCache::Unsearched => true,
+        };
+        if stale {
+            *self = match find(remaining) {
+                Some((start, end)) => PatternCache::Found(PatternMatch {
+                    start: cursor + start,
+                    end: cursor + end,
+                }),
+                None => PatternCache::NotFound,
+            };
+        }
+        match self {
+            PatternCache::Found(pm) => Some((pm.start - cursor, pm.end - cursor)),
+            _ => None,
+        }
+    }
 }
 
 /// Parse markdown elements from text preserving the raw syntax.
@@ -1053,31 +1126,43 @@ fn parse_markdown_elements_inner(
     let mut elements = Vec::new();
     let mut remaining = text;
 
-    // Pre-extract emphasis spans and link spans using pulldown-cmark. These run
-    // as two separate parses rather than one shared parser: link resolution
-    // (the broken-link callback, needed to keep undefined shortcuts/references
-    // atomic) changes which bracket runs collapse into link nodes, which shifts
-    // where nearby emphasis delimiters pair up in edge cases (e.g. an unresolved
-    // shortcut containing `**`). Sharing a parser would leak that shift into
-    // emphasis_spans; each parse keeps its own event stream self-consistent.
-    let emphasis_spans = extract_emphasis_spans(text);
+    // Pre-extract emphasis spans, link spans, and code spans using pulldown-cmark.
+    // Emphasis and code spans are extracted in a single shared parse to reduce cmark overhead.
+    // Link spans must run as a separate parse because link resolution (the broken-link
+    // callback) changes bracket collapses, which shifts delimiter range boundaries.
+    let (emphasis_spans, code_spans) = extract_emphasis_and_code_spans(text);
     let link_spans = extract_link_spans(text, defined_references);
+
+    // One cache per probed pattern to avoid an O(N^2) worst case on long
+    // inputs; see PatternCache for the validity rules.
+    let mut cached_wiki_link = PatternCache::Unsearched;
+    let mut cached_display_math = PatternCache::Unsearched;
+    let mut cached_inline_math = PatternCache::Unsearched;
+    let mut cached_emoji = PatternCache::Unsearched;
+    let mut cached_html_entity = PatternCache::Unsearched;
+    let mut cached_hugo_shortcode = PatternCache::Unsearched;
+    let mut cached_html_tag = PatternCache::Unsearched;
+    let mut cached_next_curly = PatternCache::Unsearched;
+
+    // Cursor indices into the sorted span lists: spans behind the parse cursor
+    // can never match again, so each list is advanced monotonically instead of
+    // rescanned from the start on every iteration.
+    let mut link_span_idx = 0usize;
+    let mut emphasis_span_idx = 0usize;
+    let mut code_span_idx = 0usize;
 
     while !remaining.is_empty() {
         // Calculate current byte offset in original text
         let current_offset = text.len() - remaining.len();
         // Find the earliest occurrence of any markdown pattern
-        // Store (start, end, pattern_name) to unify standard Regex and FancyRegex match results
+        // Store (start, end, pattern_name) to unify regex and span-list results
         let mut earliest_match: Option<(usize, usize, &str)> = None;
 
         // Find the earliest link span
-        let mut next_link: Option<&LinkSpan> = None;
-        for span in &link_spans {
-            if span.start >= current_offset {
-                next_link = Some(span);
-                break;
-            }
+        while link_span_idx < link_spans.len() && link_spans[link_span_idx].start < current_offset {
+            link_span_idx += 1;
         }
+        let next_link: Option<&LinkSpan> = link_spans.get(link_span_idx);
 
         if let Some(span) = next_link {
             let pos_in_remaining = span.start - current_offset;
@@ -1091,73 +1176,110 @@ fn parse_markdown_elements_inner(
         }
 
         // Check for wiki-style links - [[wiki]]
-        if let Some(m) = WIKI_LINK_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        if let Some((start, end)) = cached_wiki_link.earliest_in(remaining, current_offset, |suffix| {
+            WIKI_LINK_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "wiki_link"));
+            earliest_match = Some((start, end, "wiki_link"));
         }
 
         // Check for display math first (before inline) - $$math$$
-        if let Some(m) = DISPLAY_MATH_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        if let Some((start, end)) = cached_display_math.earliest_in(remaining, current_offset, |suffix| {
+            DISPLAY_MATH_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "display_math"));
+            earliest_match = Some((start, end, "display_math"));
         }
 
         // Check for inline math - $math$
-        if let Ok(Some(m)) = INLINE_MATH_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        // INLINE_MATH_REGEX opens with the lookbehind `(?<!\$)`, which is
+        // slice-start-sensitive: at the start of the searched slice there is
+        // no preceding character, so the lookbehind trivially passes, while
+        // the cached search, anchored earlier, saw the real `$` predecessor
+        // and can have rejected the same position. Positions past the cursor
+        // are unaffected by where the slice starts, so the cache stays valid
+        // for them; only a match beginning exactly at the cursor can be
+        // missing from it. When the cursor sits directly after a `$`, probe
+        // for that one match in place, leaving the cache untouched. (Either
+        // rescanning the suffix here or storing the probe hit in the cache is
+        // quadratic on math-heavy inputs: each consumed span would trigger a
+        // fresh scan of everything that follows.)
+        let inline_math_probe = if current_offset > 0 && text.as_bytes()[current_offset - 1] == b'$' {
+            inline_math_len_at_start(remaining).map(|len| (0, len))
+        } else {
+            None
+        };
+        if let Some((start, end)) = inline_math_probe.or_else(|| {
+            cached_inline_math.earliest_in(remaining, current_offset, |suffix| {
+                INLINE_MATH_REGEX
+                    .find(suffix)
+                    .ok()
+                    .flatten()
+                    .map(|m| (m.start(), m.end()))
+            })
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "inline_math"));
+            earliest_match = Some((start, end, "inline_math"));
         }
 
         // Check for emoji shortcodes - :emoji:
-        if let Some(m) = EMOJI_SHORTCODE_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        if let Some((start, end)) = cached_emoji.earliest_in(remaining, current_offset, |suffix| {
+            EMOJI_SHORTCODE_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "emoji"));
+            earliest_match = Some((start, end, "emoji"));
         }
 
         // Check for HTML entities - &nbsp; etc
-        if let Some(m) = HTML_ENTITY_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        if let Some((start, end)) = cached_html_entity.earliest_in(remaining, current_offset, |suffix| {
+            HTML_ENTITY_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "html_entity"));
+            earliest_match = Some((start, end, "html_entity"));
         }
 
         // Check for Hugo shortcodes - {{< ... >}} or {{% ... %}}
         // Must be checked before other patterns to avoid false sentence breaks
-        if let Some(m) = HUGO_SHORTCODE_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        if let Some((start, end)) = cached_hugo_shortcode.earliest_in(remaining, current_offset, |suffix| {
+            HUGO_SHORTCODE_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
-            earliest_match = Some((m.start(), m.end(), "hugo_shortcode"));
+            earliest_match = Some((start, end, "hugo_shortcode"));
         }
 
         // Check for HTML tags - <tag> </tag> <tag/>
-        // But exclude autolinks like <https://...> or <mailto:...> or email autolinks <user@domain.com>
-        if let Some(m) = HTML_TAG_PATTERN.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
-        {
-            // Check if this is an autolink (starts with protocol or mailto:)
-            let matched_text = &remaining[m.start()..m.end()];
-            let is_url_autolink = matched_text.starts_with("<http://")
-                || matched_text.starts_with("<https://")
-                || matched_text.starts_with("<mailto:")
-                || matched_text.starts_with("<ftp://")
-                || matched_text.starts_with("<ftps://");
-
-            // Check if this is an email autolink (per CommonMark spec: <local@domain.tld>)
-            // Use centralized EMAIL_PATTERN for consistency with MD034 and other rules
-            let is_email_autolink = {
-                let content = matched_text.trim_start_matches('<').trim_end_matches('>');
-                EMAIL_PATTERN.is_match(content)
-            };
-
-            if is_url_autolink || is_email_autolink {
-                // Autolinks are handled by link_span
-            } else {
-                earliest_match = Some((m.start(), m.end(), "html_tag"));
+        // But exclude autolinks like <https://...> or <mailto:...> or email
+        // autolinks <user@domain.com>: those are left for link_span handling.
+        // The search skips past autolinks instead of giving up so the cache
+        // lands on the first real tag; bailing out at an autolink would re-run
+        // this scan from the same spot on every iteration.
+        if let Some((start, end)) = cached_html_tag.earliest_in(remaining, current_offset, |suffix| {
+            let mut from = 0;
+            while let Some(m) = HTML_TAG_PATTERN.find(&suffix[from..]) {
+                let (tag_start, tag_end) = (from + m.start(), from + m.end());
+                let tag = &suffix[tag_start..tag_end];
+                // Autolink starting with a protocol or mailto:?
+                let is_url_autolink = tag.starts_with("<http://")
+                    || tag.starts_with("<https://")
+                    || tag.starts_with("<mailto:")
+                    || tag.starts_with("<ftp://")
+                    || tag.starts_with("<ftps://");
+                // Email autolink (per CommonMark spec: <local@domain.tld>)?
+                // Use centralized EMAIL_PATTERN for consistency with MD034 and other rules
+                let is_email_autolink = {
+                    let content = tag.trim_start_matches('<').trim_end_matches('>');
+                    EMAIL_PATTERN.is_match(content)
+                };
+                if is_url_autolink || is_email_autolink {
+                    from = tag_end;
+                } else {
+                    return Some((tag_start, tag_end));
+                }
             }
+            None
+        }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
+        {
+            earliest_match = Some((start, end, "html_tag"));
         }
 
         // Find earliest non-link special characters
@@ -1167,22 +1289,35 @@ fn parse_markdown_elements_inner(
         let mut attr_list_len: usize = 0;
         let mut myst_role_len: usize = 0;
 
-        // Check for code spans (not handled by pulldown-cmark in this context)
-        if let Some(pos) = remaining.find('`')
-            && pos < next_special
-        {
-            next_special = pos;
-            special_type = "code";
+        // Check for code spans using pulldown-cmark pre-extracted spans
+        while code_span_idx < code_spans.len() && code_spans[code_span_idx].start < current_offset {
+            code_span_idx += 1;
         }
+        let next_code_span: Option<&CodeSpan> = code_spans.get(code_span_idx);
+        if let Some(span) = next_code_span {
+            let pos_in_remaining = span.start - current_offset;
+            if pos_in_remaining < next_special {
+                next_special = pos_in_remaining;
+                special_type = "pulldown_code";
+            }
+        }
+
+        // Position of the next `{`, shared by the MyST-role and attr-list
+        // probes below
+        let next_curly_pos = cached_next_curly
+            .earliest_in(remaining, current_offset, |suffix| {
+                suffix.find('{').map(|pos| (pos, pos + 1))
+            })
+            .map(|(start, _)| start);
 
         // Check for MyST inline roles - {role}`content` (e.g. {cite:p}`ref`).
         // Checked before the bare code-span handling so the role's trailing code
         // span is absorbed into the atomic role rather than split off, and before
         // attr lists since a role's `{` would otherwise be probed as an attr list.
         if myst_roles
-            && let Some(pos) = remaining.find('{')
+            && let Some(pos) = next_curly_pos
             && pos < next_special
-            && let Some(role_len) = myst_role_len_at(&remaining[pos..])
+            && let Some(role_len) = myst_role_len_at(&remaining[pos..], current_offset + pos, &code_spans)
         {
             next_special = pos;
             special_type = "myst_role";
@@ -1191,7 +1326,7 @@ fn parse_markdown_elements_inner(
 
         // Check for MkDocs/kramdown attr lists - {#id .class key="value"}
         if attr_lists
-            && let Some(pos) = remaining.find('{')
+            && let Some(pos) = next_curly_pos
             && pos < next_special
             && let Some(m) = ATTR_LIST_PATTERN.find(&remaining[pos..])
             && m.start() == 0
@@ -1202,16 +1337,15 @@ fn parse_markdown_elements_inner(
         }
 
         // Check for emphasis using pulldown-cmark's pre-extracted spans
-        // Find the earliest emphasis span that starts within remaining text
-        for span in &emphasis_spans {
-            if span.start >= current_offset && span.start < current_offset + remaining.len() {
-                let pos_in_remaining = span.start - current_offset;
-                if pos_in_remaining < next_special {
-                    next_special = pos_in_remaining;
-                    special_type = "pulldown_emphasis";
-                    pulldown_emphasis = Some(span);
-                }
-                break; // Spans are sorted by start position, so first match is earliest
+        while emphasis_span_idx < emphasis_spans.len() && emphasis_spans[emphasis_span_idx].start < current_offset {
+            emphasis_span_idx += 1;
+        }
+        if let Some(span) = emphasis_spans.get(emphasis_span_idx) {
+            let pos_in_remaining = span.start - current_offset;
+            if pos_in_remaining < next_special {
+                next_special = pos_in_remaining;
+                special_type = "pulldown_emphasis";
+                pulldown_emphasis = Some(span);
             }
         }
 
@@ -1334,11 +1468,7 @@ fn parse_markdown_elements_inner(
                     elements.push(Element::HtmlTag(remaining[pos..match_end].to_string()));
                     remaining = &remaining[match_end..];
                 }
-                _ => {
-                    // Unknown pattern, treat as text
-                    elements.push(Element::Text("[".to_string()));
-                    remaining = &remaining[1..];
-                }
+                _ => unreachable!("unknown pattern type: {}", pattern_type),
             }
         } else {
             // Process non-link special characters
@@ -1351,17 +1481,12 @@ fn parse_markdown_elements_inner(
 
             // Process the special element
             match special_type {
-                "code" => {
-                    // Find end of code
-                    if let Some(code_end) = remaining[1..].find('`') {
-                        let code = &remaining[1..=code_end];
-                        elements.push(Element::Code(code.to_string()));
-                        remaining = &remaining[1 + code_end + 1..];
-                    } else {
-                        // No closing backtick, treat as text
-                        elements.push(Element::Text(remaining.to_string()));
-                        break;
-                    }
+                "pulldown_code" => {
+                    let span = next_code_span.unwrap();
+                    let span_len = span.end - span.start;
+                    let code = &remaining[..span_len];
+                    elements.push(Element::Code(code.to_string()));
+                    remaining = &remaining[span_len..];
                 }
                 "attr_list" => {
                     elements.push(Element::AttrList(remaining[..attr_list_len].to_string()));
@@ -1373,30 +1498,25 @@ fn parse_markdown_elements_inner(
                 }
                 "pulldown_emphasis" => {
                     // Use pre-extracted emphasis/strikethrough span from pulldown-cmark
-                    if let Some(span) = pulldown_emphasis {
-                        let span_len = span.end - span.start;
-                        if span.is_strikethrough {
-                            elements.push(Element::Strikethrough {
-                                content: span.content.clone(),
-                                double: span.strikethrough_double,
-                            });
-                        } else if span.is_strong {
-                            elements.push(Element::Bold {
-                                content: span.content.clone(),
-                                underscore: span.uses_underscore,
-                            });
-                        } else {
-                            elements.push(Element::Italic {
-                                content: span.content.clone(),
-                                underscore: span.uses_underscore,
-                            });
-                        }
-                        remaining = &remaining[span_len..];
+                    let span = pulldown_emphasis.expect("pulldown_emphasis must be set");
+                    let span_len = span.end - span.start;
+                    if span.is_strikethrough {
+                        elements.push(Element::Strikethrough {
+                            content: span.content.clone(),
+                            double: span.strikethrough_double,
+                        });
+                    } else if span.is_strong {
+                        elements.push(Element::Bold {
+                            content: span.content.clone(),
+                            underscore: span.uses_underscore,
+                        });
                     } else {
-                        // Fallback - shouldn't happen
-                        elements.push(Element::Text(remaining[..1].to_string()));
-                        remaining = &remaining[1..];
+                        elements.push(Element::Italic {
+                            content: span.content.clone(),
+                            underscore: span.uses_underscore,
+                        });
                     }
+                    remaining = &remaining[span_len..];
                 }
                 _ => {
                     // No special elements found, add all remaining text
@@ -1407,7 +1527,21 @@ fn parse_markdown_elements_inner(
         }
     }
 
-    elements
+    // Merge contiguous text elements to clean up the output.
+    let mut merged_elements = Vec::new();
+    for el in elements {
+        match el {
+            Element::Text(s) => {
+                if let Some(Element::Text(last_s)) = merged_elements.last_mut() {
+                    last_s.push_str(&s);
+                } else {
+                    merged_elements.push(Element::Text(s));
+                }
+            }
+            other => merged_elements.push(other),
+        }
+    }
+    merged_elements
 }
 
 fn should_insert_space_before_join(current: &str) -> bool {
@@ -1416,6 +1550,124 @@ fn should_insert_space_before_join(current: &str) -> bool {
         && !current.ends_with('(')
         && !current.ends_with('[')
         && !current.ends_with('-')
+}
+
+/// True when `text` consists solely of setext-underline or thematic-break
+/// characters: a run of `=` or `-` (setext underline, any count, no internal
+/// spaces) or 3+ `-`/`*`/`_` optionally separated by spaces (thematic break).
+/// A paragraph-continuation line like this converts the previous line into a
+/// heading or inserts a horizontal rule.
+fn is_setext_or_thematic(text: &str) -> bool {
+    let mut marker = '\0';
+    let mut count = 0usize;
+    let mut has_space = false;
+    for c in text.chars() {
+        match c {
+            ' ' | '\t' => has_space = true,
+            '-' | '=' | '*' | '_' => {
+                if marker == '\0' {
+                    marker = c;
+                } else if c != marker {
+                    return false;
+                }
+                count += 1;
+            }
+            _ => return false,
+        }
+    }
+    match marker {
+        '=' => !has_space,
+        '-' => !has_space || count >= 3,
+        '*' | '_' => count >= 3,
+        _ => false,
+    }
+}
+
+/// True when `text`, placed at the start of a paragraph-continuation line,
+/// would be re-parsed as opening a block construct - a list item (`- `, `* `,
+/// `+ `, `1. `, `1) `), blockquote (`>`), ATX heading (`# `), code fence
+/// (3+ backticks or tildes), thematic break, setext underline, footnote or
+/// link-reference definition (`[^note]:`, `[label]: url`), or HTML block
+/// (`<div>` and the other block-level tags rumdl's parser recognizes).
+/// Reflow must never start a wrapped line with such content: prose that was
+/// harmless mid-line becomes real block syntax at line start, silently
+/// changing the document's structure (a `- ` clause becomes a nested list
+/// item, a `# ` becomes a heading, a `[ref]: url` turns a dangling reference
+/// elsewhere in the document into a live link, and so on).
+fn starts_block_construct(text: &str) -> bool {
+    let text = text.trim_start();
+    let bytes = text.as_bytes();
+    let Some(&first) = bytes.first() else {
+        return false;
+    };
+    let marker_then_boundary = |len: usize| bytes.len() == len || bytes[len] == b' ' || bytes[len] == b'\t';
+    match first {
+        // A blockquote marker needs no following space
+        b'>' => true,
+        b'-' | b'*' | b'+' => marker_then_boundary(1) || is_setext_or_thematic(text),
+        b'_' | b'=' => is_setext_or_thematic(text),
+        b'#' => {
+            let hashes = bytes.iter().take_while(|&&b| b == b'#').count();
+            hashes <= 6 && marker_then_boundary(hashes)
+        }
+        b'`' => bytes.iter().take_while(|&&b| b == b'`').count() >= 3,
+        b'~' => bytes.iter().take_while(|&&b| b == b'~').count() >= 3,
+        b'0'..=b'9' => {
+            let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+            digits <= 9
+                && bytes.len() > digits
+                && (bytes[digits] == b'.' || bytes[digits] == b')')
+                && marker_then_boundary(digits + 1)
+        }
+        // Footnote/link-reference definition: `[label]:` anchored at line
+        // start, meaning the label's own closing bracket is immediately
+        // followed by a colon ("[ref]: url", "[^1]: note" - but not
+        // "[a](b) [ref]:", whose first bracket is an inline link). rumdl's
+        // parser recognizes definitions even on paragraph-continuation lines,
+        // so hoisting one to line start reclassifies it (and can resolve
+        // dangling references elsewhere in the document).
+        b'[' => {
+            let mut escaped = false;
+            let mut label_close = None;
+            for (i, &b) in bytes.iter().enumerate().skip(1) {
+                if escaped {
+                    escaped = false;
+                } else if b == b'\\' {
+                    escaped = true;
+                } else if b == b']' {
+                    label_close = Some(i);
+                    break;
+                }
+            }
+            label_close.is_some_and(|i| bytes.get(i + 1) == Some(&b':'))
+        }
+        // Block-level HTML tag per rumdl's parser (shared predicate, so the
+        // guard cannot drift from what lint_context classifies as a block).
+        b'<' => crate::utils::html_block::parse_html_block_start(text).is_some(),
+        _ => false,
+    }
+}
+
+/// Merge any reflowed continuation line that would open a block construct back
+/// into the previous line. This is the safety net behind the per-break-site
+/// guards: no matter which emitter produced the lines, a wrapped continuation
+/// must never turn prose into a list item, heading, blockquote, code fence, or
+/// horizontal rule. The first line keeps its position - it replaces the
+/// paragraph's original start, where the source already established the
+/// context. The merged line may exceed the configured width; a long line is
+/// the correct failure direction, corrupted structure is not.
+fn merge_block_construct_continuations(lines: Vec<String>) -> Vec<String> {
+    let mut merged: Vec<String> = Vec::with_capacity(lines.len());
+    for line in lines {
+        match merged.last_mut() {
+            Some(prev) if starts_block_construct(&line) => {
+                prev.push(' ');
+                prev.push_str(line.trim_start());
+            }
+            _ => merged.push(line),
+        }
+    }
+    merged
 }
 
 /// Reflow elements for sentence-per-line mode
@@ -2224,17 +2476,20 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
 }
 
 /// Find the last space in `line` that is safe to split at.
-/// Safe spaces are those NOT inside rendered non-Text elements.
-/// `element_spans` contains (start, end) byte ranges of non-Text elements in the line.
-/// Find the last space in `line` that is not inside any element span.
-/// Spans use exclusive bounds (pos > start && pos < end) because element
-/// delimiters (e.g., `[`, `]`, `(`, `)`, `<`, `>`, `` ` ``) are never
-/// spaces, so only interior positions need protection.
+/// Safe spaces are those NOT inside rendered non-Text elements and whose
+/// suffix would not open a block construct when placed at line start.
+/// `element_spans` contains (start, end) byte ranges of non-Text elements in
+/// the line. Spans use exclusive bounds (pos > start && pos < end) because
+/// element delimiters (e.g., `[`, `]`, `(`, `)`, `<`, `>`, `` ` ``) are never
+/// spaces, so only interior positions need protection. The scan keeps looking
+/// left past construct-leading suffixes (e.g. a trailing `- `), so a usable
+/// earlier break point is found instead of forcing an overlong line.
 fn rfind_safe_space(line: &str, element_spans: &[(usize, usize)]) -> Option<usize> {
-    line.char_indices()
-        .rev()
-        .map(|(pos, _)| pos)
-        .find(|&pos| line.as_bytes()[pos] == b' ' && !element_spans.iter().any(|(s, e)| pos > *s && pos < *e))
+    line.char_indices().rev().map(|(pos, _)| pos).find(|&pos| {
+        line.as_bytes()[pos] == b' '
+            && !element_spans.iter().any(|(s, e)| pos > *s && pos < *e)
+            && !starts_block_construct(&line[pos + 1..])
+    })
 }
 
 /// Reflow elements into lines that fit within the line length
@@ -2290,6 +2545,7 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                     if current_length + word_len > options.line_length && current_length > 0 {
                         // Would exceed — break before the adjacent group
                         // Use element-aware space search to avoid splitting inside links/code/etc.
+                        // Never hoist text that would open a block construct to line start.
                         if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
                             let before = current_line[..last_space].trim_end().to_string();
                             let after = current_line[last_space + 1..].to_string();
@@ -2309,11 +2565,33 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                     && current_length + 1 + word_len > options.line_length
                     && !is_trailing_punct
                 {
-                    // Start a new line (but never for trailing punctuation)
-                    lines.push(current_line.trim().to_string());
-                    current_line = word.to_string();
-                    current_length = word_len;
-                    current_line_element_spans.clear();
+                    if !starts_block_construct(word) {
+                        // Start a new line (but never for trailing punctuation)
+                        lines.push(current_line.trim().to_string());
+                        current_line = word.to_string();
+                        current_length = word_len;
+                        current_line_element_spans.clear();
+                    } else if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
+                        // The overflowing word would open a block construct at line
+                        // start. Break one word earlier instead so the marker stays
+                        // mid-line: "... and then" + "- clause" becomes "... and" +
+                        // "then - clause".
+                        let before = current_line[..last_space].trim_end().to_string();
+                        let after = current_line[last_space + 1..].to_string();
+                        lines.push(before);
+                        current_line = format!("{after} {word}");
+                        current_length = display_len(&current_line, length_mode);
+                        current_line_element_spans.clear();
+                    } else {
+                        // No safe earlier break point — keep the marker attached and
+                        // accept the long line rather than corrupt the structure.
+                        if i > 0 || has_leading_space {
+                            current_line.push(' ');
+                            current_length += 1;
+                        }
+                        current_line.push_str(word);
+                        current_length += word_len;
+                    }
                 } else {
                     // Add a space only where the source had whitespace at this position.
                     // For the first word of a text run (i == 0) that means the source had a
@@ -2379,7 +2657,10 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                         current_length > 0
                     };
 
-                    if needs_space && current_length + 1 + word_len > options.line_length {
+                    if needs_space
+                        && current_length + 1 + word_len > options.line_length
+                        && !starts_block_construct(&word_str)
+                    {
                         lines.push(current_line.trim_end().to_string());
                         current_line = word_str;
                         current_length = word_len;
@@ -2403,6 +2684,7 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                 if current_length + element_len > options.line_length {
                     // Would exceed limit — break before the adjacent word group
                     // Use element-aware space search to avoid splitting inside links/code/etc.
+                    // Never hoist text that would open a block construct to line start.
                     if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
                         let before = current_line[..last_space].trim_end().to_string();
                         let after = current_line[last_space + 1..].to_string();
@@ -2427,12 +2709,39 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                     current_line_element_spans.push((start, current_line.len()));
                 }
             } else if current_length > 0 && current_length + 1 + element_len > options.line_length {
-                // Not adjacent, would exceed — start new line
-                lines.push(current_line.trim().to_string());
-                current_line.clone_from(&element_str);
-                current_length = element_len;
-                current_line_element_spans.clear();
-                current_line_element_spans.push((0, element_str.len()));
+                if !starts_block_construct(&element_str) {
+                    // Not adjacent, would exceed — start new line
+                    lines.push(current_line.trim().to_string());
+                    current_line.clone_from(&element_str);
+                    current_length = element_len;
+                    current_line_element_spans.clear();
+                    current_line_element_spans.push((0, element_str.len()));
+                } else if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
+                    // The overflowing element would open a block construct at
+                    // line start (e.g. an HtmlTag like `<div>`). Break one word
+                    // earlier instead so the element stays mid-line.
+                    let before = current_line[..last_space].trim_end().to_string();
+                    let after = current_line[last_space + 1..].to_string();
+                    lines.push(before);
+                    current_line = format!("{after} {element_str}");
+                    current_length = display_len(&current_line, length_mode);
+                    current_line_element_spans.clear();
+                    let start = after.len() + 1;
+                    current_line_element_spans.push((start, start + element_str.len()));
+                } else {
+                    // No safe earlier break point — keep the element attached
+                    // and accept the long line rather than corrupt the structure.
+                    let ends_with_opener =
+                        current_line.ends_with('(') || current_line.ends_with('[') || current_line.ends_with('{');
+                    if !ends_with_opener {
+                        current_line.push(' ');
+                        current_length += 1;
+                    }
+                    let start = current_line.len();
+                    current_line.push_str(&element_str);
+                    current_length += element_len;
+                    current_line_element_spans.push((start, current_line.len()));
+                }
             } else {
                 // Not adjacent, fits — add with space
                 let ends_with_opener =
@@ -3666,5 +3975,346 @@ mod tests {
         // Line 3 is the div marker — should not be reflowed
         let result = reflow_paragraph_at_line(content, 3, 80);
         assert!(result.is_none(), "Div marker line should not be reflowed");
+    }
+
+    #[test]
+    fn starts_block_construct_detects_block_openers() {
+        // Bullet list markers: marker char followed by space or end
+        for case in ["- item", "-", "* item", "*", "+ item", "+", "-\titem"] {
+            assert!(starts_block_construct(case), "bullet: {case:?}");
+        }
+        // Ordered list markers: up to 9 digits, `.` or `)`, then space or end
+        for case in ["1. item", "1) item", "9. x", "123456789. x", "1.", "42) x"] {
+            assert!(starts_block_construct(case), "ordered: {case:?}");
+        }
+        // Blockquote: `>` needs no following space
+        for case in ["> quote", ">quote", ">"] {
+            assert!(starts_block_construct(case), "blockquote: {case:?}");
+        }
+        // ATX headings: 1-6 hashes then space or end
+        for case in ["# heading", "###### h6", "#", "##"] {
+            assert!(starts_block_construct(case), "heading: {case:?}");
+        }
+        // Code fences: 3+ backticks or tildes
+        for case in ["```", "```rust", "````", "~~~", "~~~text"] {
+            assert!(starts_block_construct(case), "fence: {case:?}");
+        }
+        // Setext underlines and thematic breaks
+        for case in ["---", "--", "===", "=", "***", "___", "_ _ _", "- - -"] {
+            assert!(starts_block_construct(case), "setext/thematic: {case:?}");
+        }
+        // Footnote and link-reference definitions: hoisting one to line start
+        // reclassifies it and can resolve dangling references elsewhere
+        for case in [
+            "[^1]: text",
+            "[^note]:",
+            "[ref]: http://example.com",
+            "[wat]: url follows",
+        ] {
+            assert!(starts_block_construct(case), "definition: {case:?}");
+        }
+        // Block-level HTML tags (rumdl parser's HTML block classification)
+        for case in ["<div>content", "</div>", "<p>text", "<table>", "<pre>code", "<h1>x"] {
+            assert!(starts_block_construct(case), "html block: {case:?}");
+        }
+    }
+
+    #[test]
+    fn starts_block_construct_allows_ordinary_prose() {
+        for case in [
+            "",
+            "word",
+            "-5 degrees",
+            "--flag",
+            "-item",
+            "#hashtag",
+            "####### seven hashes is not a heading",
+            "1.5 million",
+            "1234567890. ten digits is not a list marker",
+            "1:30 pm",
+            "*emphasis*",
+            "**bold** text",
+            "__bold__ text",
+            "_emphasis_ text",
+            "`code` span",
+            "`` double backtick span ``",
+            "~~strikethrough~~",
+            "=x",
+            "== ==",
+            "(parenthetical)",
+            "[link](url)",
+            "[text][ref] more",
+            "[bracketed] aside",
+            "[a](b) [ref]: first bracket is a link, not a label",
+            "[esc\\]: not a close] text",
+            "<span>inline</span>",
+            "<b>bold</b>",
+            "<https://example.com> autolink",
+            "<mailto:a@b.com>",
+            "<notarealtag>",
+        ] {
+            assert!(!starts_block_construct(case), "prose: {case:?}");
+        }
+    }
+
+    #[test]
+    fn merge_block_construct_continuations_merges_marker_led_lines() {
+        let lines = vec![
+            "First sentence?".to_string(),
+            "- looks like a list item".to_string(),
+            "Second sentence.".to_string(),
+        ];
+        assert_eq!(
+            merge_block_construct_continuations(lines),
+            vec![
+                "First sentence? - looks like a list item".to_string(),
+                "Second sentence.".to_string(),
+            ]
+        );
+
+        // The first line keeps its position: it replaces the paragraph's
+        // original start, where the source already established the context.
+        let lines = vec!["- real list content".to_string(), "continuation".to_string()];
+        assert_eq!(
+            merge_block_construct_continuations(lines.clone()),
+            lines,
+            "first line must never be merged"
+        );
+    }
+
+    #[test]
+    fn wrap_never_starts_a_line_with_a_block_marker() {
+        let options = ReflowOptions {
+            line_length: 25,
+            ..Default::default()
+        };
+        // The dash lands exactly at the wrap point; the wrapper must break one
+        // word earlier so the dash stays mid-line.
+        let lines = reflow_line(
+            "Some words here and then - a dash clause that wraps around the limit.",
+            &options,
+        );
+        assert_eq!(
+            lines,
+            vec![
+                "Some words here and",
+                "then - a dash clause that",
+                "wraps around the limit."
+            ]
+        );
+
+        // Every marker category must stay mid-line in wrap mode, whatever the width.
+        for input in [
+            "Alpha beta gamma delta epsilon - dash clause here to wrap",
+            "Alpha beta gamma delta epsilon > quote lookalike here to wrap",
+            "Alpha beta gamma delta epsilon # heading lookalike here to wrap",
+            "Alpha beta gamma delta epsilon 1. ordered lookalike here to wrap",
+            "Alpha beta gamma delta epsilon * star clause here to wrap",
+            "Alpha beta gamma delta epsilon + plus clause here to wrap",
+        ] {
+            for width in 10..40 {
+                let options = ReflowOptions {
+                    line_length: width,
+                    ..Default::default()
+                };
+                for line in reflow_line(input, &options) {
+                    assert!(
+                        !starts_block_construct(&line),
+                        "width {width}: wrapped line opens a block construct: {line:?} (input {input:?})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn sentence_per_line_keeps_block_markers_mid_line() {
+        let options = ReflowOptions {
+            line_length: 80,
+            sentence_per_line: true,
+            ..Default::default()
+        };
+        // A sentence "starting" with a dash must stay attached to the previous
+        // sentence instead of becoming a list item (issue #728).
+        let lines = reflow_line(
+            "Google Calendar (Can't we get rid of this dependency? - I don't really see the need)",
+            &options,
+        );
+        assert_eq!(
+            lines,
+            vec!["Google Calendar (Can't we get rid of this dependency? - I don't really see the need)".to_string()]
+        );
+
+        // Same for heading, blockquote, and ordered-list lookalikes.
+        let lines = reflow_line("See section 4? # is the marker we use. Fine.", &options);
+        assert_eq!(lines, vec!["See section 4? # is the marker we use.", "Fine."]);
+
+        let lines = reflow_line("Is this a problem? > I quote someone here.", &options);
+        assert_eq!(lines, vec!["Is this a problem? > I quote someone here."]);
+
+        let lines = reflow_line("Another case! 1. Not a list. More text follows here.", &options);
+        for line in &lines {
+            assert!(
+                !starts_block_construct(line),
+                "sentence-per-line output opens a block construct: {line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn inline_math_directly_after_display_math_stays_atomic() {
+        // The inline-math regex's lookbehind `(?<!\$)` is slice-start-sensitive:
+        // a search anchored at the cursor accepts a `$` whose real predecessor
+        // is a `$` (the lookbehind sees nothing before the slice), while a
+        // cached search anchored earlier sees the `$` and rejects it. After
+        // display math consumes `$$a$$`, the cursor sits directly after a `$`;
+        // the match cache must re-search there or `$bb cc dd$` degrades to
+        // plain text and gets wrapped apart, breaking math rendering.
+        let options = ReflowOptions {
+            line_length: 8,
+            ..Default::default()
+        };
+        let lines = reflow_line("$$a$$$bb cc dd$ x", &options);
+        assert_eq!(lines, vec!["$$a$$$bb cc dd$".to_string(), "x".to_string()]);
+    }
+
+    #[test]
+    fn test_code_span_parsing() {
+        // 1. Single backtick
+        let elements = parse_markdown_elements_inner("`code`", false, false, None);
+        assert_eq!(elements.len(), 1);
+        assert!(matches!(&elements[0], Element::Code(s) if s == "`code`"));
+
+        // 2. Double backtick
+        let elements = parse_markdown_elements_inner("``code``", false, false, None);
+        assert_eq!(elements.len(), 1);
+        assert!(matches!(&elements[0], Element::Code(s) if s == "``code``"));
+
+        // 3. Double backtick with single backtick inside
+        let elements = parse_markdown_elements_inner("``code`inside``", false, false, None);
+        assert_eq!(elements.len(), 1);
+        assert!(matches!(&elements[0], Element::Code(s) if s == "``code`inside``"));
+
+        // 4. Spaces inside
+        let elements = parse_markdown_elements_inner("`` code ``", false, false, None);
+        assert_eq!(elements.len(), 1);
+        assert!(matches!(&elements[0], Element::Code(s) if s == "`` code ``"));
+
+        // 5. Unclosed backtick (should be parsed as Text)
+        let elements = parse_markdown_elements_inner("`unclosed", false, false, None);
+        assert_eq!(elements.len(), 1);
+        assert!(matches!(&elements[0], Element::Text(s) if s == "`unclosed"));
+
+        // 6. Unclosed backtick followed by a link (the link should be parsed as Link, not Text)
+        let elements = parse_markdown_elements_inner("`unclosed [link](url)", false, false, None);
+        // We expect: Text("`unclosed "), Link("[link](url)")
+        assert_eq!(elements.len(), 2);
+        assert!(matches!(&elements[0], Element::Text(s) if s == "`unclosed "));
+        assert!(matches!(&elements[1], Element::Link(s) if s == "[link](url)"));
+    }
+
+    #[test]
+    fn test_reflow_performance_long_input() {
+        // Generate a string with many distinct unclosed backtick runs to test worst-case performance.
+        // E.g., "` `` ` `` ` ...`"
+        let mut text = String::new();
+        for i in 1..400 {
+            let backticks = "`".repeat(i);
+            text.push_str(&backticks);
+            text.push(' ');
+        }
+
+        let start = std::time::Instant::now();
+        let elements = parse_markdown_elements_inner(&text, false, false, None);
+        let duration = start.elapsed();
+
+        // Ensure it completes in under 100ms.
+        assert!(duration.as_millis() < 100, "Parsing took too long: {duration:?}");
+        assert!(!elements.is_empty());
+    }
+
+    #[test]
+    fn test_reflow_performance_display_math_heavy() {
+        // Every consumed `$$a$$` leaves the cursor directly after a `$`. The
+        // inline-math slice-start probe must run in place at the cursor; a
+        // suffix rescan there makes this input quadratic (~9s in a debug
+        // build for these 4000 spans).
+        let text = "$$a$$".repeat(4000);
+
+        let start = std::time::Instant::now();
+        let elements = parse_markdown_elements_inner(&text, false, false, None);
+        let duration = start.elapsed();
+
+        assert!(duration.as_millis() < 100, "Parsing took too long: {duration:?}");
+        assert_eq!(elements.len(), 4000);
+    }
+
+    #[test]
+    fn inline_math_len_at_start_matches_regex_at_slice_start() {
+        // Exhaustive parity with INLINE_MATH_REGEX over short `$`-soup
+        // strings: the helper must equal "regex match starting at position 0"
+        // exactly, since the regex's leading lookbehind is vacuous at a slice
+        // start. Any drift silently changes which math spans stay atomic.
+        let alphabet = ['$', 'a', ' '];
+        let mut inputs: Vec<String> = vec![String::new()];
+        let mut frontier: Vec<String> = vec![String::new()];
+        for _ in 0..6 {
+            let mut longer = Vec::new();
+            for prefix in &frontier {
+                for ch in alphabet {
+                    let mut s = prefix.clone();
+                    s.push(ch);
+                    longer.push(s);
+                }
+            }
+            inputs.extend(longer.iter().cloned());
+            frontier = longer;
+        }
+        // Multi-byte content must count bytes, not characters.
+        inputs.push("$αβ$x".to_string());
+        inputs.push("$α$$".to_string());
+
+        for s in &inputs {
+            let expected = INLINE_MATH_REGEX
+                .find(s)
+                .ok()
+                .flatten()
+                .filter(|m| m.start() == 0)
+                .map(|m| m.end());
+            assert_eq!(inline_math_len_at_start(s), expected, "input: {s:?}");
+        }
+    }
+
+    #[test]
+    fn inline_math_probe_after_dollar_matches_uncached_parse() {
+        // Expected element lists verified against the uncached parser (the
+        // parent of the match-cache commit): when a consumed span leaves the
+        // cursor directly after a `$`, the at-cursor probe must reproduce
+        // exactly what rescanning the suffix used to find - both the hits
+        // (the lookbehind is vacuous at the cursor) and the misses.
+        let cases = [
+            ("$$a$$$b c$ x", r#"[DisplayMath("a"), InlineMath("b c"), Text(" x")]"#),
+            (
+                "$$a$$$b$ $$a$$$b$",
+                r#"[DisplayMath("a"), InlineMath("b"), Text(" "), DisplayMath("a"), InlineMath("b")]"#,
+            ),
+            // Probe hit whose content is only whitespace.
+            (
+                "$$a$$$ x $y z$",
+                r#"[DisplayMath("a"), InlineMath(" x "), Text("y z$")]"#,
+            ),
+            // Probe miss: `$$` after the cursor is not inline math.
+            ("$$a$$$$ x", r#"[DisplayMath("a"), Text("$$ x")]"#),
+            ("$$a$$$$b$$ x", r#"[DisplayMath("a"), DisplayMath("b"), Text(" x")]"#),
+            // Probe miss: the trailing lookahead rejects `$c$$`.
+            (
+                "$a$$b$$c$$d$ tail",
+                r#"[Text("$a"), DisplayMath("b"), Text("c$$d$ tail")]"#,
+            ),
+        ];
+        for (input, expected) in cases {
+            let elements = parse_markdown_elements_inner(input, false, false, None);
+            assert_eq!(format!("{elements:?}"), expected, "input: {input:?}");
+        }
     }
 }

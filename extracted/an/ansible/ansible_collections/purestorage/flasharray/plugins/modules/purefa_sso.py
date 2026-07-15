@@ -22,13 +22,13 @@ deprecated:
     removed_in: '2.0.0'
     why: Superseded by M(purestorage.flasharray.purefa_admin)
     alternative: Use M(purestorage.flasharray.purefa_admin) instead.
-short_description: Configure Pure Storage FlashArray Single Sign-On
+short_description: Configure Everpure FlashArray Single Sign-On
 description:
 - Enable or disable Single Sign-On (SSO) to give LDAP users the ability
   to navigate seamlessly from Pure1 Manage to the current array through a
   single login.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -72,6 +72,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 SSO_API_VERSION = "2.2"
 
@@ -105,12 +108,7 @@ def main():
                         single_sign_on_enabled=bool(state == "present")
                     )
                 )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to change Single Sign-On status. Error: {0}".format(
-                            res.errors[0].message
-                        )
-                    )
+                check_response(res, module, "Failed to change Single Sign-On status")
     else:
         module.fail_json(msg="Purity version does not support Single Sign-On")
     module.exit_json(changed=changed)

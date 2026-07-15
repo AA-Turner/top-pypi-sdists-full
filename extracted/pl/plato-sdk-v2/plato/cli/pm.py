@@ -31,6 +31,7 @@ from plato._generated.models import (
     Outcome,
     ReviewType,
     SimReviewComment,
+    Status,
     UpdateStatusRequest,
     UpdateTagRequest,
 )
@@ -1075,7 +1076,7 @@ async def _handle_data_level_reject(
         await update_simulator_status.asyncio(
             client=client,
             simulator_id=simulator_id,
-            body=UpdateStatusRequest(status=target_status),
+            body=UpdateStatusRequest(status=Status(target_status)),
             x_api_key=api_key,
         )
     await add_simulator_review.asyncio(
@@ -1215,7 +1216,7 @@ async def _handle_env_level_reject(
         await update_simulator_status.asyncio(
             client=client,
             simulator_id=simulator_id,
-            body=UpdateStatusRequest(status=target_status),
+            body=UpdateStatusRequest(status=Status(target_status)),
             x_api_key=api_key,
         )
 
@@ -1980,7 +1981,7 @@ def start_env(
                     await update_simulator_status.asyncio(
                         client=client,
                         simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="env_in_progress"),
+                        body=UpdateStatusRequest(status=Status("env_in_progress")),
                         x_api_key=api_key,
                     )
 
@@ -2194,7 +2195,7 @@ def start_data(
                     await update_simulator_status.asyncio(
                         client=client,
                         simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="data_in_progress"),
+                        body=UpdateStatusRequest(status=Status("data_in_progress")),
                         x_api_key=api_key,
                     )
                 else:
@@ -2924,7 +2925,7 @@ def set_status(
                         client=client,
                         simulator_id=sim.id,
                         x_api_key=api_key,
-                        body=UpdateStatusRequest(status=status),
+                        body=UpdateStatusRequest(status=Status(status)),
                     )
                     console.print(f"[green]✅ {sim_name}:[/green] → {status}")
                 except Exception as e:
@@ -3095,7 +3096,7 @@ def archive(
                     await update_simulator_status.asyncio(
                         client=client,
                         simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="out_of_service"),
+                        body=UpdateStatusRequest(status=Status("out_of_service")),
                         x_api_key=api_key,
                     )
                 console.print(f"[green]✅ {s['name']}:[/green] {s['status']} → out_of_service")
@@ -3626,7 +3627,7 @@ def review_env(
                     await update_simulator_status.asyncio(
                         client=api_client,
                         simulator_id=simulator_id,
-                        body=UpdateStatusRequest(status=new_status),
+                        body=UpdateStatusRequest(status=Status(new_status)),
                         x_api_key=api_key,
                     )
 
@@ -3730,7 +3731,7 @@ def review_env(
                         await update_simulator_status.asyncio(
                             client=api_client,
                             simulator_id=simulator_id,
-                            body=UpdateStatusRequest(status="data_in_progress"),
+                            body=UpdateStatusRequest(status=Status("data_in_progress")),
                             x_api_key=api_key,
                         )
                         console.print(f"[cyan]Status:[/cyan] {new_status} → data_in_progress")
@@ -4399,7 +4400,7 @@ def submit_env():
             await update_simulator_status.asyncio(
                 client=client,
                 simulator_id=simulator_id,
-                body=UpdateStatusRequest(status="env_review_requested"),
+                body=UpdateStatusRequest(status=Status("env_review_requested")),
                 x_api_key=api_key,
             )
 
@@ -4472,7 +4473,7 @@ def submit_data(
             await update_simulator_status.asyncio(
                 client=client,
                 simulator_id=simulator_id,
-                body=UpdateStatusRequest(status="data_review_requested"),
+                body=UpdateStatusRequest(status=Status("data_review_requested")),
                 x_api_key=api_key,
             )
 

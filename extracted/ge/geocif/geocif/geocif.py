@@ -354,6 +354,25 @@ class Geocif:
             self.parser.getfloat("ML", "cluster_analysis_variance")
             if self.parser.has_option("ML", "cluster_analysis_variance") else 0.85
         )
+        # Optional per-project Cubist hyperparameter overrides. Absent keys
+        # fall back to the trainers.py defaults (n_committees=10,
+        # extrapolation=0.10, unbiased=True, auto=True), so crops that don't
+        # set them are unaffected. Small-n crops (e.g. poppy, ~56 region-years)
+        # do materially better with n_committees=1 + extrapolation=0.0 — the
+        # 10-committee/0.10-extrapolation defaults over-boost and over-clip a
+        # tiny sample (surrogate LOOCV R^2 0.468 -> 0.611 on MIN_ESI4WK).
+        self.cubist_params: dict = {}
+        for _opt, _cast in (
+            ("cubist_n_committees", self.parser.getint),
+            ("cubist_n_rules", self.parser.getint),
+            ("cubist_neighbors", self.parser.getint),
+            ("cubist_extrapolation", self.parser.getfloat),
+            ("cubist_sample", self.parser.getfloat),
+            ("cubist_unbiased", self.parser.getboolean),
+            ("cubist_auto", self.parser.getboolean),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.cubist_params[_opt.replace("cubist_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -5175,8 +5194,9 @@ class ModelTrainer:
             optimize=self.obj.optimize,
             fraction_loocv=self.obj.fraction_loocv,
             cat_features=self.obj.cat_features,
+            cubist_params=getattr(self.obj, "cubist_params", None),
         )
-    
+
     def _add_confidence_intervals_if_needed(self, X_train=None):
         """Wrap model with confidence interval estimator."""
         if not self.obj.estimate_ci:

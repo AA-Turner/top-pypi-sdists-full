@@ -48,7 +48,7 @@ from fivetran_connector_sdk.connector_helper import (
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.10.1"
+__version__ = "2.10.2"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [Logging, Operations]]

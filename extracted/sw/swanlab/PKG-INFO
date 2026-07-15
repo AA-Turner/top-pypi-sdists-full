@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swanlab
-Version: 0.8.4
+Version: 0.8.5
 Summary: Python library for streamlined tracking and management of AI training processes.
 Project-URL: Homepage, https://swanlab.cn
 Project-URL: Source, https://github.com/SwanHubX/SwanLab
@@ -34,6 +34,7 @@ Requires-Dist: protobuf!=6.31.0,<7,>=6.31.1; python_version == '3.9' and sys_pla
 Requires-Dist: protobuf!=6.31.0,<7,>=6.31.1; python_version > '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=6.31.0,<7,>=6.31.1; sys_platform != 'linux'
 Requires-Dist: psutil>=5.0.0
+Requires-Dist: pwinput>=1.0.3
 Requires-Dist: pydantic-settings>=2.8.1
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pyecharts>=2.0.0

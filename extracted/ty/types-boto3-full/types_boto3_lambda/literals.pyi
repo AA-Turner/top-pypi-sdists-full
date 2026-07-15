@@ -154,6 +154,7 @@ KafkaSchemaRegistryAuthTypeType = Literal[
 KafkaSchemaValidationAttributeType = Literal["KEY", "VALUE"]
 LastUpdateStatusReasonCodeType = Literal[
     "CapacityProviderScalingLimitExceeded",
+    "DependencyError",
     "DisabledKMSKey",
     "DisallowedByVpcEncryptionControl",
     "EC2RequestLimitExceeded",
@@ -287,6 +288,7 @@ SourceAccessTypeType = Literal[
 StateReasonCodeType = Literal[
     "CapacityProviderScalingLimitExceeded",
     "Creating",
+    "DependencyError",
     "DisabledKMSKey",
     "DisallowedByVpcEncryptionControl",
     "DrainingDurableExecutions",

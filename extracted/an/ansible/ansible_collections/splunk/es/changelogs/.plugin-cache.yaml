@@ -1,12 +1,10 @@
-objects:
-  role: {}
+objects: {}
 plugins:
   become: {}
   cache: {}
   callback: {}
   cliconf: {}
   connection: {}
-  filter: {}
   httpapi:
     splunk:
       description: HttpApi Plugin for Splunk
@@ -105,6 +103,5 @@ plugins:
   netconf: {}
   shell: {}
   strategy: {}
-  test: {}
   vars: {}
-version: 6.0.0
+version: 6.0.1

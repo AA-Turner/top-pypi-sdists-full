@@ -68,6 +68,10 @@ import type {
   SoulPreservationEnableRequest,
   SoulPreservationEnableResponse,
   SoulPreservationResponse,
+  WorldModelResponse,
+  ProbeListResponse,
+  ProbeGradeResponse,
+  ProbeGenerateResponse,
   SoulPreservationSummarizeRequest,
   SoulPreservationSummarizeResponse,
   SoulWillArtifact,
@@ -1074,6 +1078,31 @@ export const api = {
     body: SoulPreservationSummarizeRequest = {},
   ): Promise<SoulPreservationSummarizeResponse> {
     return post("/soul/preservation/summarize", body);
+  },
+
+  // ── mind: world model + counterfactual self-test loop (Fable5) ──────
+  worldModel(): Promise<WorldModelResponse> {
+    return get("/mind/world-model");
+  },
+  resolveUncertaintyFlag(flagId: string): Promise<{ ok: boolean; error?: string }> {
+    return post("/mind/world-model/resolve-flag", { flag_id: flagId });
+  },
+  listProbes(status: "pending" | "graded" = "pending"): Promise<ProbeListResponse> {
+    return get(`/mind/probes?status=${status}`);
+  },
+  gradeProbe(
+    probeId: string,
+    status: "confirmed" | "corrected" | "skipped",
+    ownerResponse = "",
+  ): Promise<ProbeGradeResponse> {
+    return post("/mind/probes/grade", {
+      probe_id: probeId,
+      status,
+      owner_response: ownerResponse,
+    });
+  },
+  generateProbeNow(): Promise<ProbeGenerateResponse> {
+    return post("/mind/probes/generate", {});
   },
 
   // ── universal adapter system (Phase 7.1) ──────────────────────────────

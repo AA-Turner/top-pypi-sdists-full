@@ -1,5 +1,6 @@
 // Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
+pub mod circuit_breaker;
 mod types;
 
 use crate::cluster_scan_container::insert_cluster_scan_cursor;
@@ -28,13 +29,15 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::runtime::{Builder, Handle};
 pub use types::*;
 
 use self::value_conversion::{convert_to_expected_type, expected_type_for_cmd, get_value_type};
 mod reconnecting_connection;
 pub use reconnecting_connection::IAMTokenHandle;
+pub mod monitor_client;
+pub use monitor_client::{MonitorClient, MonitorLine, MonitorLineCallback};
 mod standalone_client;
 mod value_conversion;
 use crate::pubsub::{PubSubSynchronizer, create_pubsub_synchronizer};
@@ -203,6 +206,12 @@ pub async fn get_valkey_connection_info(
             )
         });
 
+    let server_assisted_cache = connection_request
+        .client_side_cache
+        .as_ref()
+        .map(|c| c.server_assisted)
+        .unwrap_or(false);
+
     match &connection_request.authentication_info {
         Some(info) => {
             // If we have IAM configuration and a token manager, use the IAM token as password
@@ -222,6 +231,7 @@ pub async fn get_valkey_connection_info(
                     client_name,
                     lib_name,
                     cache,
+                    server_assisted_cache,
                 }
             } else {
                 // Regular password-based authentication
@@ -233,6 +243,7 @@ pub async fn get_valkey_connection_info(
                     client_name,
                     lib_name,
                     cache,
+                    server_assisted_cache,
                 }
             }
         }
@@ -242,6 +253,7 @@ pub async fn get_valkey_connection_info(
             client_name,
             lib_name,
             cache,
+            server_assisted_cache,
             ..Default::default()
         },
     }
@@ -309,6 +321,10 @@ pub struct Client {
     otel_metadata: types::OTelMetadata,
     // Optional client-side cache
     client_side_cache: Option<Arc<dyn GlideCache>>,
+    // Per-client latency tracker for timeout diagnostics
+    latency_tracker: Arc<crate::timeout_watchdog::LatencyTracker>,
+    // Optional Client-wide circuit breaker
+    circuit_breaker: Option<Arc<circuit_breaker::ClientCircuitBreaker>>,
 }
 
 async fn run_with_timeout<T>(
@@ -412,6 +428,18 @@ fn get_timeout_from_cmd_arg(
                 ),
             ))
         }
+    }
+}
+
+/// Returns true for commands with user-specified blocking timeouts that
+/// should be excluded from latency tracking (they distort p99).
+fn is_blocking_command(cmd: &Cmd) -> bool {
+    let command = cmd.command().unwrap_or_default();
+    match command.as_slice() {
+        b"BLPOP" | b"BRPOP" | b"BLMOVE" | b"BZPOPMAX" | b"BZPOPMIN" | b"BRPOPLPUSH" | b"BLMPOP"
+        | b"BZMPOP" | b"WAIT" | b"WAITAOF" => true,
+        b"XREAD" | b"XREADGROUP" => cmd.position(b"BLOCK").is_some(),
+        _ => false,
     }
 }
 
@@ -777,6 +805,57 @@ impl Client {
         }
     }
 
+    fn is_reset_command(&self, cmd: &Cmd) -> bool {
+        cmd.command().is_some_and(|bytes| bytes == b"RESET")
+    }
+
+    async fn handle_reset_command(&mut self) -> RedisResult<()> {
+        // RESET resets the connection to its initial state per the Valkey spec.
+        // https://valkey.io/commands/reset/
+        //
+        // TRACKED - glide-core updates these so reconnections restore the post-RESET state:
+        //   SELECTs database 0                       -> update_stored_database_id(0)
+        //   Clears client name                       -> update_stored_client_name(None)
+        //   Sets protocol to RESP2                   -> update_stored_protocol(RESP2)
+        //   Aborts Pub/Sub subscription state        -> remove_desired_subscriptions(all kinds)
+        //     (prevents synchronizer from resubscribing on reconnect)
+        //
+        // NOT TRACKED - no glide-core state to update:
+        //   Deauthenticates the connection           -> auth credentials kept for reconnect;
+        //     (requires AUTH to reauthenticate)         live connection is deauthed until
+        //                                               reconnect or manual AUTH call
+        //   Discards current MULTI transaction       -> glide sends MULTI+cmds+EXEC as a
+        //                                               single pipeline; no persistent state
+        //   Unwatches all WATCHed keys               -> WATCH state is per-connection,
+        //                                               not tracked by glide-core
+        //   Disables CLIENT TRACKING                 -> not tracked; gap exists if
+        //                                               client-side caching is active
+        //   Sets connection to READWRITE mode         -> not tracked; glide does not
+        //                                               persist read/write mode per connection
+        //   Cancels ASKING mode (cluster)             -> one-shot flag sent inline,
+        //                                               not persisted by glide-core
+        //   Sets CLIENT REPLY to ON                  -> not tracked; CLIENT REPLY not
+        //                                               yet supported by glide
+        //   Exits MONITOR mode                       -> not tracked; MONITOR not yet
+        //                                               supported by glide
+        //   Turns off NO-EVICT mode                  -> not tracked; per-connection hint
+        //   Turns off NO-TOUCH mode                  -> not tracked; per-connection hint
+        self.update_stored_database_id(0).await?;
+        self.update_stored_client_name(None).await?;
+        self.update_stored_protocol(redis::ProtocolVersion::RESP2)
+            .await?;
+        self.otel_metadata.db_namespace = "0".to_string();
+        for kind in [
+            redis::PubSubSubscriptionKind::Exact,
+            redis::PubSubSubscriptionKind::Pattern,
+            redis::PubSubSubscriptionKind::Sharded,
+        ] {
+            self.pubsub_synchronizer
+                .remove_desired_subscriptions(None, kind);
+        }
+        Ok(())
+    }
+
     async fn get_or_initialize_client(&self) -> RedisResult<ClientWrapper> {
         {
             let guard = self.internal_client.read().await;
@@ -947,6 +1026,9 @@ impl Client {
         if self_clone.is_hello_command(&cmd) {
             self_clone.handle_hello_command(&cmd).await?;
         }
+        if self_clone.is_reset_command(&cmd) {
+            self_clone.handle_reset_command().await?;
+        }
         Ok(value)
     }
 
@@ -977,6 +1059,14 @@ impl Client {
             }
 
             let client = self.get_or_initialize_client().await?;
+
+            // Reject immediately if circuit breaker is open.
+            if !self.is_circuit_breaker_healthy() {
+                return Err(RedisError::from((
+                    ErrorKind::CircuitBreakerOpen,
+                    "Client circuit breaker is open - core unhealthy",
+                )));
+            }
 
             if let Some(result) = self.pubsub_synchronizer.intercept_pubsub_command(cmd).await {
                 return result;
@@ -1037,44 +1127,202 @@ impl Client {
                 None
             };
             let self_clone = self.clone();
-            let owned_cmd = Arc::new(cmd.clone());
 
-            let execute = Self::execute_command_owned(
-                self_clone,
-                owned_cmd,
-                routing,
-                client,
-                compression_manager,
-            );
+            // Blocking commands have artificially long latencies; exclude from tracker.
+            let is_blocking_cmd = is_blocking_command(cmd);
+            // Propagate the blocking flag into the Cmd BEFORE cloning owned_cmd so
+            // the copy that actually travels to the multiplexed connection carries
+            // it, letting that connection suppress false-positive response-wait
+            // warnings (#6283).
+            cmd.set_is_blocking(is_blocking_cmd);
+            let owned_cmd = cmd.clone();
 
-            match request_timeout {
+            // Captured by the timeout path for watchdog-informed CB decisions.
+            let mut timeout_cause: Option<crate::timeout_watchdog::TimeoutCause> = None;
+
+            let result = match request_timeout {
                 Some(duration) => {
-                    let timeout_rx =
-                        crate::timeout_watchdog::TimeoutWatchdog::global().register(duration);
+                    // Compute inflight count (cheap atomic load)
+                    let inflight = Some(
+                        (self.inflight_requests_limit
+                            - self.inflight_requests_allowed.load(Ordering::Relaxed))
+                            as usize,
+                    );
+
+                    // Wrap Cmd in Arc so the timeout arm can still read watchdog fields after execute takes ownership
+                    let owned_cmd = Arc::new(owned_cmd);
+
+                    // Single Instant::now() shared between watchdog and latency tracking
+                    let cmd_start = Instant::now();
+
+                    let timeout_rx = crate::timeout_watchdog::TimeoutWatchdog::global()
+                        .register(duration, cmd_start);
+                    let routing_desc = routing
+                        .as_ref()
+                        .map(|r| format!("{:?}", r))
+                        .unwrap_or_else(|| "unknown".to_owned());
+                    let execute = Self::execute_command_owned(
+                        self_clone,
+                        owned_cmd.clone(),
+                        routing,
+                        client,
+                        compression_manager,
+                    );
+
                     tokio::pin!(execute);
                     tokio::select! {
-                        result = &mut execute => result,
+                        result = &mut execute => {
+                            // Record latency into per-client tracker
+                            if !is_blocking_cmd {
+                                let elapsed = cmd_start.elapsed();
+                                self.latency_tracker.record(elapsed);
+                            }
+                            result
+                        }
                         recv_result = timeout_rx => {
-                            if recv_result.is_err() {
-                                // Watchdog thread died (sender dropped). Don't spuriously
-                                // timeout — fall through to let the command complete normally
-                                // via Tokio's timer wheel as a fallback.
-                                execute.await
-                            } else {
-                                // Watchdog fired the timeout
-                                if let Err(e) = GlideOpenTelemetry::record_timeout_error() {
-                                    log_error(
-                                        "OpenTelemetry:timeout_error",
-                                        format!("Failed to record timeout error: {e}"),
-                                    );
+                            match recv_result {
+                                Err(_) => {
+                                    // Watchdog thread died — fall through to let the
+                                    // command complete via Tokio's timer as fallback.
+                                    execute.await
                                 }
-                                Err(io::Error::from(io::ErrorKind::TimedOut).into())
+                                Ok(()) => {
+                                    // Build diagnostic event on the consumer side (rare timeout path)
+                                    let actual_elapsed = cmd_start.elapsed();
+                                    let (phase, node, retry_count, command) = {
+                                        let p = owned_cmd.watchdog_phase.load(Ordering::Acquire);
+                                        let n: String = routing_desc.clone();
+                                        let r = owned_cmd.watchdog_retry_count.load(Ordering::Relaxed);
+                                        let c = owned_cmd.arg_idx(0)
+                                            .map(crate::timeout_watchdog::cmd_name_from_bytes)
+                                            .unwrap_or("UNKNOWN");
+                                        (
+                                            if p == redis::PHASE_SENT {
+                                                crate::timeout_watchdog::CommandPhase::Sent
+                                            } else {
+                                                crate::timeout_watchdog::CommandPhase::Queued
+                                            },
+                                            n,
+                                            r,
+                                            c,
+                                        )
+                                    };
+                                    let pending = crate::timeout_watchdog::pending_count();
+                                    let inflight_now = (self.inflight_requests_limit
+                                        - self.inflight_requests_allowed.load(Ordering::Relaxed))
+                                        as usize;
+                                    let p99 = self.latency_tracker.p99();
+                                    let cause = if phase == crate::timeout_watchdog::CommandPhase::Queued {
+                                        crate::timeout_watchdog::TimeoutCause::ClientBackpressure {
+                                            queue_depth: pending,
+                                            scheduling_delay: actual_elapsed,
+                                        }
+                                    } else if pending > 100 {
+                                        crate::timeout_watchdog::TimeoutCause::SystemOverload {
+                                            pending_total: pending,
+                                        }
+                                    } else {
+                                        crate::timeout_watchdog::TimeoutCause::ServerUnresponsive {
+                                            node: node.clone(),
+                                        }
+                                    };
+                                    timeout_cause = Some(cause.clone());
+                                    let event = crate::timeout_watchdog::TimeoutEvent {
+                                        cause,
+                                        command,
+                                        node,
+                                        phase,
+                                        configured_timeout: duration,
+                                        actual_elapsed,
+                                        pending_commands: pending,
+                                        recent_p99_latency: p99,
+                                        rss_bytes: crate::timeout_watchdog::get_rss(),
+                                        suggested_timeout: p99.map(|p| (p * 3).max(duration)),
+                                        inflight_at_register: inflight,
+                                        inflight_at_timeout: Some(inflight_now),
+                                        retry_count,
+                                    };
+
+                                    log_warn_rate_limited!(
+                                        "timeout_watchdog",
+                                        2,
+                                        event.to_string()
+                                    );
+                                    if let Err(e) = GlideOpenTelemetry::record_timeout_error() {
+                                        log_error(
+                                            "OpenTelemetry:timeout_error",
+                                            format!("Failed to record timeout error: {e}"),
+                                        );
+                                    }
+                                    Err(io::Error::from(io::ErrorKind::TimedOut).into())
+                                }
                             }
                         }
                     }
                 }
-                None => execute.await,
+                None => {
+                    let owned_cmd = Arc::new(owned_cmd);
+                    let execute = Self::execute_command_owned(
+                        self_clone,
+                        owned_cmd,
+                        routing,
+                        client,
+                        compression_manager,
+                    );
+                    execute.await
+                }
+            };
+
+            // Report result to client-wide circuit breaker
+            if let Some(cb) = &self.circuit_breaker {
+                let (is_error, error_kind) = match result.as_ref() {
+                    Ok(_) => (false, None),
+                    Err(e) => {
+                        let counts = if e.is_timeout() {
+                            cb.counts_timeouts()
+                        } else {
+                            matches!(
+                                e.kind(),
+                                ErrorKind::IoError
+                                    | ErrorKind::FatalSendError
+                                    | ErrorKind::FatalReceiveError
+                            ) || e.is_connection_dropped()
+                        };
+                        if counts {
+                            let kind_str = if e.is_timeout() {
+                                match &timeout_cause {
+                                    Some(
+                                        crate::timeout_watchdog::TimeoutCause::SystemOverload {
+                                            ..
+                                        },
+                                    ) => "TimeoutSystemOverload",
+                                    Some(
+                                        crate::timeout_watchdog::TimeoutCause::ClientBackpressure {
+                                            ..
+                                        },
+                                    ) => "TimeoutClientBackpressure",
+                                    _ => "TimeoutServerUnresponsive",
+                                }
+                            } else {
+                                match e.kind() {
+                                    ErrorKind::FatalSendError => "FatalSendError",
+                                    ErrorKind::FatalReceiveError => "FatalReceiveError",
+                                    _ => "IoError",
+                                }
+                            };
+                            (true, Some(kind_str))
+                        } else {
+                            (false, None)
+                        }
+                    }
+                };
+                let current_inflight = (self.inflight_requests_limit
+                    - self.inflight_requests_allowed.load(Ordering::Relaxed))
+                    as u32;
+                cb.on_result(is_error, error_kind, current_inflight);
             }
+
+            result
         })
     }
 
@@ -1468,6 +1716,17 @@ impl Client {
         self.inflight_requests_allowed.load(Ordering::Relaxed)
     }
 
+    /// Returns true if the client-wide circuit breaker allows requests.
+    /// If CB is not configured, always returns true.
+    /// Fast path (Closed state) is a single atomic load. Open state may acquire a lock
+    /// to check if transition to HalfOpen is needed.
+    #[inline]
+    pub fn is_circuit_breaker_healthy(&self) -> bool {
+        self.circuit_breaker
+            .as_ref()
+            .is_none_or(|cb| cb.is_healthy())
+    }
+
     /// Update the password used to authenticate with the servers.
     /// If None is passed, the password will be removed.
     /// If `immediate_auth` is true, the password will be used to authenticate with the servers immediately using the `AUTH` command.
@@ -1804,6 +2063,7 @@ async fn create_cluster_client(
     builder = builder.use_protocol(request.protocol.unwrap_or_default());
     builder = builder.database_id(valkey_connection_info.db);
     builder = builder.cache(valkey_connection_info.cache);
+    builder = builder.server_assisted_cache(valkey_connection_info.server_assisted_cache);
     if let Some(client_name) = valkey_connection_info.client_name {
         builder = builder.client_name(client_name);
     }
@@ -2164,6 +2424,40 @@ impl Client {
                 pubsub_synchronizer: pubsub_synchronizer.clone(),
                 otel_metadata,
                 client_side_cache,
+                latency_tracker: Arc::new(crate::timeout_watchdog::LatencyTracker::new(4096)),
+                circuit_breaker: request.client_circuit_breaker.as_ref().map(|config| {
+                    let defaults = circuit_breaker::ClientCircuitBreakerConfig::default();
+                    Arc::new(circuit_breaker::ClientCircuitBreaker::new(
+                        circuit_breaker::ClientCircuitBreakerConfig {
+                            window_size: Duration::from_millis(if config.window_size_ms > 0 {
+                                config.window_size_ms as u64
+                            } else {
+                                defaults.window_size.as_millis() as u64
+                            }),
+                            failure_rate_threshold: if config.failure_rate_threshold > 0.0 {
+                                config.failure_rate_threshold
+                            } else {
+                                defaults.failure_rate_threshold
+                            },
+                            min_errors: if config.min_errors > 0 {
+                                config.min_errors
+                            } else {
+                                defaults.min_errors
+                            },
+                            open_timeout: Duration::from_millis(if config.open_timeout_ms > 0 {
+                                config.open_timeout_ms as u64
+                            } else {
+                                defaults.open_timeout.as_millis() as u64
+                            }),
+                            count_timeouts: config.count_timeouts,
+                            consecutive_successes: if config.consecutive_successes > 0 {
+                                config.consecutive_successes
+                            } else {
+                                defaults.consecutive_successes
+                            },
+                        },
+                    ))
+                }),
             };
 
             let client_arc = Arc::new(RwLock::new(client));
@@ -2321,6 +2615,38 @@ impl GlideClientForTests for ClusterConnection {
     }
 }
 
+impl Client {
+    /// Create a Client wrapping an existing internal_client Arc and synchronizer.
+    /// Used in tests to build a Client that shares state with an existing connection.
+    #[cfg(feature = "test-util")]
+    pub fn new_for_test(
+        internal_client: Arc<RwLock<ClientWrapper>>,
+        pubsub_synchronizer: Arc<dyn PubSubSynchronizer>,
+    ) -> Self {
+        use crate::client::types::{NodeAddress, OTelMetadata};
+        Client {
+            internal_client,
+            request_timeout: Duration::from_millis(1000),
+            inflight_requests_allowed: Arc::new(AtomicIsize::new(1000)),
+            inflight_requests_limit: 1000,
+            inflight_log_interval: 100,
+            iam_token_manager: None,
+            compression_manager: None,
+            pubsub_synchronizer,
+            otel_metadata: OTelMetadata {
+                address: NodeAddress {
+                    host: "localhost".to_string(),
+                    port: 6379,
+                },
+                db_namespace: "0".to_string(),
+            },
+            client_side_cache: None,
+            latency_tracker: Arc::new(crate::timeout_watchdog::LatencyTracker::new(64)),
+            circuit_breaker: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -2330,6 +2656,7 @@ mod tests {
     use crate::client::types::{ConnectionRequest, NodeAddress, OTelMetadata};
     use crate::client::{
         BLOCKING_CMD_TIMEOUT_EXTENSION, RequestTimeoutOption, TimeUnit, get_request_timeout,
+        is_blocking_command,
     };
 
     use super::{Client, ClientWrapper, LazyClient, get_timeout_from_cmd_arg};
@@ -2614,6 +2941,8 @@ mod tests {
                 db_namespace: "0".to_string(),
             },
             client_side_cache: None,
+            latency_tracker: Arc::new(crate::timeout_watchdog::LatencyTracker::new(64)),
+            circuit_breaker: None,
         }
     }
 
@@ -2932,5 +3261,87 @@ mod tests {
                 "{cmd_name} should be detected as blocking"
             );
         }
+    }
+
+    #[test]
+    fn test_is_reset_command() {
+        let client = create_test_client();
+
+        let mut cmd = Cmd::new();
+        cmd.arg("RESET");
+        assert!(client.is_reset_command(&cmd));
+
+        let mut cmd = Cmd::new();
+        cmd.arg("PING");
+        assert!(!client.is_reset_command(&cmd));
+    }
+
+    #[test]
+    fn test_is_blocking_command() {
+        // Always-blocking commands
+        let mut cmd = Cmd::new();
+        cmd.arg("BLPOP").arg("key").arg("5");
+        assert!(is_blocking_command(&cmd));
+
+        let mut cmd = Cmd::new();
+        cmd.arg("BRPOP").arg("key").arg("5");
+        assert!(is_blocking_command(&cmd));
+
+        let mut cmd = Cmd::new();
+        cmd.arg("WAIT").arg("1").arg("5000");
+        assert!(is_blocking_command(&cmd));
+
+        // XREAD with BLOCK is blocking
+        let mut cmd = Cmd::new();
+        cmd.arg("XREAD")
+            .arg("BLOCK")
+            .arg("5000")
+            .arg("STREAMS")
+            .arg("s1")
+            .arg("$");
+        assert!(is_blocking_command(&cmd));
+
+        // XREAD without BLOCK is NOT blocking
+        let mut cmd = Cmd::new();
+        cmd.arg("XREAD")
+            .arg("COUNT")
+            .arg("10")
+            .arg("STREAMS")
+            .arg("s1")
+            .arg("$");
+        assert!(!is_blocking_command(&cmd));
+
+        // XREADGROUP with BLOCK is blocking
+        let mut cmd = Cmd::new();
+        cmd.arg("XREADGROUP")
+            .arg("GROUP")
+            .arg("g1")
+            .arg("c1")
+            .arg("BLOCK")
+            .arg("0")
+            .arg("STREAMS")
+            .arg("s1")
+            .arg(">");
+        assert!(is_blocking_command(&cmd));
+
+        // XREADGROUP without BLOCK is NOT blocking
+        let mut cmd = Cmd::new();
+        cmd.arg("XREADGROUP")
+            .arg("GROUP")
+            .arg("g1")
+            .arg("c1")
+            .arg("STREAMS")
+            .arg("s1")
+            .arg(">");
+        assert!(!is_blocking_command(&cmd));
+
+        // Non-blocking commands
+        let mut cmd = Cmd::new();
+        cmd.arg("GET").arg("key");
+        assert!(!is_blocking_command(&cmd));
+
+        let mut cmd = Cmd::new();
+        cmd.arg("SET").arg("key").arg("value");
+        assert!(!is_blocking_command(&cmd));
     }
 }

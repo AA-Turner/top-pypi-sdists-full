@@ -42,7 +42,7 @@ classifiers = [
 dependencies = [
     "jinja2",
 ]
-version = "2.6.1"
+version = "2.6.2"
 
 [project.readme]
 file = "README.md"

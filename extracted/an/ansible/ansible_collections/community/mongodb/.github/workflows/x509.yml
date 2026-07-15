@@ -13,7 +13,7 @@ jobs:
     steps:
 
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: ansible_collections/community/mongodb
 
@@ -34,7 +34,7 @@ jobs:
           driver: docker
 
       - name: Install mongodb-mongosh
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 3
           max_attempts: 3
@@ -90,10 +90,19 @@ jobs:
           make deploy IMG=test-mongodb-operator:latest
 
       - name: Debug controller
-        run: kubectl get all -n ansible-operator-system 
+        run: |
+          kubectl get all -n ansible-operator-system
+          kubectl describe deployment -n ansible-operator-system ansible-operator-controller-manager
+          kubectl describe pods -n ansible-operator-system
 
       - name: Wait for controller to be ready
-        run: kubectl wait --for=condition=available deployment/ansible-operator-controller-manager -n ansible-operator-system --timeout=120s
+        run: kubectl wait --for=condition=available deployment/ansible-operator-controller-manager -n ansible-operator-system --timeout=120s || true
+
+      - name: Debug controller 2
+        run: |
+          kubectl get all -n ansible-operator-system
+          kubectl describe deployment -n ansible-operator-system ansible-operator-controller-manager
+          kubectl describe pods -n ansible-operator-system
 
       - name: Load image into minikube
         run: |
@@ -147,12 +156,12 @@ jobs:
                     --eval "db.adminCommand('listDatabases')"
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install ansible-base devel
-        uses: nick-invision/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 3
           max_attempts: 3
@@ -171,7 +180,7 @@ jobs:
         working-directory: ansible_collections/community/mongodb
 
       - name: Install pymongo
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 3
           max_attempts: 3

@@ -14,10 +14,15 @@
 
 from pydantic import ValidationInfo, field_validator
 
-from .utils import Unset, UnsetType
-from .twirling_options import TwirlingStrategyType
 from .options import OptionsV2
-from .utils import primitive_dataclass, make_constraint_validator, skip_unset_validation
+from .twirling_options import TwirlingStrategyType
+from .utils import (
+    Unset,
+    UnsetType,
+    make_constraint_validator,
+    primitive_dataclass,
+    skip_unset_validation,
+)
 
 
 @primitive_dataclass
@@ -109,8 +114,8 @@ class NoiseLearnerOptions(OptionsV2):
     These options are subject to change without notification, and stability is not guaranteed.
     """
 
-    _gt0 = make_constraint_validator("max_layers_to_learn", ge=0)  # type: ignore[arg-type]
-    _ge0 = make_constraint_validator(
+    _ge0 = make_constraint_validator("max_layers_to_learn", ge=0)  # type: ignore[arg-type]
+    _ge1 = make_constraint_validator(
         "shots_per_randomization",
         "num_randomizations",
         ge=1,  # type: ignore[arg-type]

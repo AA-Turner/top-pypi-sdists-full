@@ -3,6 +3,9 @@
 # PUT /v1/devices/{device_id}/config — see V1DevicesDeviceIdConfigPutRequest
 #
 # device_system: list of single-key dicts (portal device name → settings)
+# IMPORTANT: Each list entry key must be the device's current hostname in the portal
+# (used for get_device_id). It is not the desired "name" after a rename — if you change
+# hostname via the API or portal, update this key to match or lookups will fail.
 # Per device:
 #   device_type: optional edge | core — if omitted, inferred from GET /v1/devices/{id} role
 #                (core → core branch, cpe → edge branch). Must match inference when set.
@@ -15,14 +18,18 @@
 device_system:
   - edge-1-sdktest:
       name: "edge-1-sdktest"
+      site:
+        name: "San Jose-sdktest"
 
   - edge-2-sdktest:
-      regionName: "us-west-2 (San Jose)"
+      name: "edge-2-sdktest"
+      site:
+        name: "New York-sdktest"
 
   - edge-3-sdktest:
       name: "edge-3-sdktest"
       regionName: "us-east-2 (Atlanta)"
-      site: 
+      site:
         name: "New York-sdktest"
 
 # Site definitions - prereq for device system settings if not already created

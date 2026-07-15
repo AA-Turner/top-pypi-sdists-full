@@ -53,7 +53,7 @@ def sync(
     """Check if the current principal has a role on a resource.
 
     Query params:
-        role: AuthorizationRole value (e.g. "simulator_env_creator")
+        role: AuthorizationRole value (e.g. "editor")
         resource_type: ResourceType value (e.g. "simulator")
         resource_id: ID of the resource (or "all")"""
 
@@ -81,7 +81,7 @@ async def asyncio(
     """Check if the current principal has a role on a resource.
 
     Query params:
-        role: AuthorizationRole value (e.g. "simulator_env_creator")
+        role: AuthorizationRole value (e.g. "editor")
         resource_type: ResourceType value (e.g. "simulator")
         resource_id: ID of the resource (or "all")"""
 

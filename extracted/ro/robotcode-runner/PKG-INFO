@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotcode-runner
-Version: 2.6.2
+Version: 2.7.0
 Summary: RobotCode runner for Robot Framework
 Project-URL: Homepage, https://robotcode.io
 Project-URL: Donate, https://opencollective.com/robotcode
@@ -25,10 +25,10 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: robotcode-modifiers==2.6.2
-Requires-Dist: robotcode-plugin==2.6.2
-Requires-Dist: robotcode-robot==2.6.2
-Requires-Dist: robotcode==2.6.2
+Requires-Dist: robotcode-modifiers==2.7.0
+Requires-Dist: robotcode-plugin==2.7.0
+Requires-Dist: robotcode-robot==2.7.0
+Requires-Dist: robotcode==2.7.0
 Requires-Dist: robotframework>=5.0.0
 Provides-Extra: html
 Requires-Dist: html-to-markdown>=2.0; extra == 'html'

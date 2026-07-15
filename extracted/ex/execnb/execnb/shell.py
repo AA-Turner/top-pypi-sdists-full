@@ -70,7 +70,7 @@ class CaptureShell(InteractiveShell):
         super().__init__(config=cfg)
         self.history_manager.enabled = history
         self.timeout = timeout
-        self.result,self.exc,self._cell_idx,self._fname = None,None,None,None
+        self.result,self.exc,self._cell_idx,self._fname,self._nested = None,None,None,None,False
         if path: self.set_path(path)
         self.display_formatter.active = True
         if not in_notebook(): InteractiveShell._instance = self
@@ -84,11 +84,22 @@ class CaptureShell(InteractiveShell):
         if profile: self.load_profile()
 
     def _run(self, raw_cell, store_history=False, silent=False, shell_futures=True, cell_id=None,
-        stdout=True, stderr=True, display=True, verbose=False):
+        stdout=True, stderr=True, display=True, timeout=None, verbose=False):
+        "Captured execution: run `raw_cell` with output capture and optional timeout, returning an `AttrDict`"
         # TODO what if there's a comment?
-        semic = raw_cell.rstrip().endswith(';')
-        with capture_output(display=display, stdout=stdout and not verbose, stderr=stderr and not verbose) as c:
-            result = super().run_cell(raw_cell, store_history, silent, shell_futures=shell_futures, cell_id=cell_id)
+        semic = raw_cell.rstrip().endswith(';') and not raw_cell.lstrip().startswith('%%')
+        if not timeout: timeout = self.timeout
+        if timeout:
+            def handler(*args): raise TimeoutError()
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(timeout)
+        try:
+            with capture_output(display=display, stdout=stdout and not verbose, stderr=stderr and not verbose) as c:
+                old,self._nested = self._nested,True
+                try: result = super().run_cell(raw_cell, store_history, silent, shell_futures=shell_futures, cell_id=cell_id)
+                finally: self._nested = old
+        finally:
+            if timeout: signal.alarm(0)
         return AttrDict(result=result, stdout='' if semic else c.stdout, stderr=c.stderr, display_objects=c.outputs,
             exception=result.error_in_exec or result.error_before_exec, quiet=semic)
 
@@ -104,15 +115,10 @@ class CaptureShell(InteractiveShell):
 @patch
 def run_cell(self:CaptureShell, raw_cell, store_history=False, silent=False, shell_futures=True, cell_id=None,
     stdout=True, stderr=True, display=True, timeout=None, verbose=False):
-    if not timeout: timeout = self.timeout
-    if timeout:
-        def handler(*args): raise TimeoutError()
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(timeout)
-    try: return self._run(raw_cell, store_history, silent, shell_futures, cell_id=cell_id,
-        stdout=stdout, stderr=stderr, display=display, verbose=verbose)
-    finally:
-        if timeout: signal.alarm(0)
+    if self._nested: return super(CaptureShell, self).run_cell(raw_cell, store_history, silent, shell_futures=shell_futures, cell_id=cell_id)
+    return self._run(raw_cell, store_history, silent, shell_futures, cell_id=cell_id,
+        stdout=stdout, stderr=stderr, display=display, timeout=timeout, verbose=verbose)
+
 
 # %% ../nbs/00_shell.ipynb #a05e1b43
 @patch
@@ -174,26 +180,30 @@ def _out_nb(o, fmt):
 
 # %% ../nbs/00_shell.ipynb #242f732f
 @patch
-def run(self:CaptureShell,
+def run(
+    self:CaptureShell,
     code:str, # Python/IPython code to run
     stdout=True, # Capture stdout and save as output?
     stderr=True, # Capture stderr and save as output?
     timeout:Optional[int]=None, # Shell command will time out after {timeout} seconds
-    verbose:bool=False): # Show stdout/stderr during execution
+    verbose:bool=False # Show stdout/stderr during execution
+):
     "Run `code`, returning a list of all outputs in Jupyter notebook format"
-    res = self.run_cell(code, stdout=stdout, stderr=stderr, timeout=timeout, verbose=verbose)
+    res = self._run(code, stdout=stdout, stderr=stderr, timeout=timeout, verbose=verbose)
     self.result = res.result.result
     self.exc = res.exception
     return _out_nb(res, self.display_formatter)
 
 # %% ../nbs/00_shell.ipynb #eaa11df9
 @patch
-async def run_async(self:CaptureShell,
+async def run_async(
+    self:CaptureShell,
     code: str,  # Python/IPython code to run
     stdout=True,  # Capture stdout and save as output?
     stderr=True,  # Capture stderr and save as output?
     timeout:Optional[int]=None, # Shell command will time out after {timeout} seconds
-    verbose:bool=False): # Show stdout/stderr during execution
+    verbose:bool=False # Show stdout/stderr during execution
+):
     return self.run(code, stdout=stdout, stderr=stderr, timeout=timeout, verbose=verbose)
 
 # %% ../nbs/00_shell.ipynb #f698a432
@@ -238,12 +248,13 @@ def cell(self:CaptureShell, cell, stdout=True, stderr=True, verbose=False):
     if cell.cell_type!='code': return
     self._cell_idx = cell.idx_ + 1
     outs = self.run(cell.source, verbose=verbose)
-    if outs: cell.outputs = _dict2obj(outs)
+    cell.outputs = _dict2obj(outs) if outs else []
 
 # %% ../nbs/00_shell.ipynb #008c0cef
-def find_output(outp, # Output from `run`
+def find_output(
+    outp, # Output from `run`
     ot='execute_result' # Output_type to find
-               ):
+):
     "Find first output of type `ot` in `CaptureShell.run` output"
     return first(o for o in outp if o['output_type']==ot)
 
@@ -289,7 +300,8 @@ def run_all(
 
 # %% ../nbs/00_shell.ipynb #70808010
 @patch
-def execute(self:CaptureShell,
+def execute(
+    self:CaptureShell,
     src:str|Path, # Notebook path to read from
     dest:str|None=None, # Notebook path to write to
     exc_stop:bool=False, # Stop on exceptions?

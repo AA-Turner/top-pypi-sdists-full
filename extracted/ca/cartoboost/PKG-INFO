@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cartoboost
-Version: 0.3.5
+Version: 0.3.8
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -10,6 +10,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: numpy>=1.23 ; python_full_version < '3.13'
@@ -337,6 +339,22 @@ explanation = loaded.explain_shap(
     background_sparse_sets={"zone_ids": zone_ids_train},
 )
 ```
+
+For a fast exact decomposition that scales with the number of rows and fitted
+trees, rather than SHAP permutation samples, request tree-component weights:
+
+```python
+explainer = loaded.make_shap_explainer(
+    X_train_dense,
+    decomposition="weights",
+)
+explanation = explainer(X_validation_dense)
+```
+
+This attributes each prediction to its initial value and each fitted tree. It
+does not attribute original input columns; use the default feature
+decomposition for that. See [SHAP support](docs/shap.md) for baseline semantics,
+sparse IDs, performance guidance, and the `TreeExplainer` compatibility limit.
 
 Model artifacts are versioned JSON and include optional metadata, feature
 schema, and training configuration fields. Graph and neural standalone artifacts

@@ -54,6 +54,7 @@ strum = "0.26"
 strum_macros = "0.26"
 zstd = { version = "0.13" }
 lz4 = { version = "1.28" }
+libc = "0.2.186"
 
 [features]
 proto = ["protobuf"]
@@ -67,9 +68,10 @@ socket-layer = [
 standalone_heartbeat = []
 iam_tests = []
 mock-pubsub = []
+test-util = []
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(standalone_heartbeat)', 'cfg(feature, values("iam_tests"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(standalone_heartbeat)', 'cfg(feature, values("iam_tests", "test-util"))'] }
 
 [lints.clippy]
 # Prevent blocking the async runtime
@@ -90,4 +92,8 @@ harness = false
 
 [[bench]]
 name = "memory_benchmark"
+harness = false
+
+[[bench]]
+name = "watchdog_register_bench"
 harness = false

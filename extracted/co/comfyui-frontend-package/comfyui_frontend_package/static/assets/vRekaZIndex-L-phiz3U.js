@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{ct as e}from"./vendor-primevue-CRrS4nsk.js";var t={mounted(t){e.set(`modal`,t,1700)},beforeUnmount(t){e.clear(t)}};export{t};
-//# sourceMappingURL=vRekaZIndex-L-phiz3U.js.map

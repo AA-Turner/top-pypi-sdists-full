@@ -59,6 +59,7 @@ def build_argparse():
     parser.add_argument('--conv_res', type=str, default=None, help="Convolutional residual layers for the RNN")
     parser.add_argument('--rnn_layers', type=int, default=1, help="Layers of RNN in the tokenizer")
     parser.add_argument('--use_dictionary', action='store_true', help="Use dictionary feature. The lexicon is created using the training data and external dict (if any) expected to be found under the same folder of training dataset, formatted as SHORTHAND-externaldict.txt where each line in this file is a word. For example, data/tokenize/zh_gsdsimp-externaldict.txt")
+    parser.add_argument('--feat_funcs', type=str, default=None, help="Comma-separated list of feature functions to use, overriding the default set (space_before,capitalized,numeric,end_of_para,start_of_para). Leave unset to keep the existing default behavior unchanged. See #1640 for the structural features (labeled_field, phone_id, date_pattern, currency) added to help the English tokenizer distinguish tabular/header text (datelines, signatures, salary tables) from narrative prose near digit-capital boundaries.")
 
     parser.add_argument('--max_grad_norm', type=float, default=1.0, help="Maximum gradient norm to clip to")
     parser.add_argument('--anneal', type=float, default=.999, help="Anneal the learning rate by this amount when dev performance deteriorate")
@@ -74,6 +75,8 @@ def build_argparse():
     parser.add_argument('--last_char_move_prob', type=float, default=0.02, help="Probability to move the sentence final punctuation of a sentence during training, uniformly at random.  Idea is to teach the tokenizer that a space separated sentence final punct still ends the sentence")
     parser.add_argument('--punct_move_back_prob', type=float, default=0.02, help="Probability to move a comma in the sentence one over, removing the previous space, during training.  Idea is to teach the tokenizer that commas can appear next to words even in languages where the dataset doesn't allow it, such as Vietnamese")
     parser.add_argument('--split_mwt_prob', type=float, default=0.01, help="Probably to split an MWT into its component pieces and turn it into separate words")
+    parser.add_argument('--comma_typo_prob', type=float, default=0.01, help="Probably to fake a comma typo - eg 'foo, bar' -> 'foo ,bar'")
+    parser.add_argument('--comma_glue_prob', type=float, default=0.01, help="Probably to fake a comma gluing - eg 'foo, bar' -> 'foo,bar'")
     parser.add_argument('--augment_final_punct_prob', type=float, default=0.02, help="Probability to replace a ? with a ？ or other similar augmentations")
     parser.add_argument('--augment_mid_punct_prob', type=float, default=0.02, help="Probability to replace a , with a – or other similar augmentations")
     parser.add_argument('--weight_decay', type=float, default=0.0, help="Weight decay")
@@ -124,6 +127,12 @@ def model_file_name(args):
         return save_name
     return os.path.join(args['save_dir'], save_name)
 
+# Base feat_funcs used when nothing else is specified. Kept at module level
+# (rather than local to main()) so other scripts -- eg run_tokenizer.py's
+# per-language additions -- can import and compose with it instead of
+# re-typing it, which would otherwise go stale silently if this list changes.
+DEFAULT_FEAT_FUNCS = ['space_before', 'capitalized', 'numeric', 'end_of_para', 'start_of_para']
+
 def main(args=None):
     args = parse_args(args=args)
 
@@ -131,7 +140,12 @@ def main(args=None):
 
     logger.info("Running tokenizer in {} mode".format(args['mode']))
 
-    args['feat_funcs'] = ['space_before', 'capitalized', 'numeric', 'end_of_para', 'start_of_para']
+    if args.get('feat_funcs'):
+        # opt-in override -- see --feat_funcs help text / #1640.
+        # Every other invocation that doesn't pass --feat_funcs is unaffected.
+        args['feat_funcs'] = [f.strip() for f in args['feat_funcs'].split(',') if f.strip()]
+    else:
+        args['feat_funcs'] = DEFAULT_FEAT_FUNCS
     args['feat_dim'] = len(args['feat_funcs'])
     args['save_name'] = model_file_name(args)
     utils.ensure_dir(os.path.split(args['save_name'])[0])

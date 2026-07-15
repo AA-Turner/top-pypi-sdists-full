@@ -2,6 +2,9 @@ import json
 import logging
 import logging.config
 import os
+import shlex
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, List, Literal, Optional
 
@@ -18,6 +21,7 @@ from robotcode.plugin import (
 from robotcode.plugin._agent_detection import is_running_in_ai_agent
 from robotcode.plugin.click_helper.aliases import AliasedGroup
 from robotcode.plugin.click_helper.types import EnumChoice
+from robotcode.plugin.click_helper.wrappable import WRAPPER_APPLIED_ENV, is_wrappable
 from robotcode.plugin.manager import PluginManager
 
 from .__version__ import __version__
@@ -44,6 +48,99 @@ class RobotCodeFormatter(logging.Formatter):
         if defaults.get("indent") is None:
             defaults["indent"] = ""
         super().__init__(*args, defaults=defaults, **kwargs)
+
+
+def _maybe_reexec_under_wrapper(
+    ctx: click.Context, app: Application, cli_wrapper: Optional[str] = None, no_wrapper: bool = False
+) -> None:
+    """Re-execute this process through a configured ``wrapper`` command.
+
+    When a ``wrapper`` is configured - either via ``--wrapper`` on the command
+    line (``cli_wrapper``) or the selected profile's ``wrapper`` (e.g. to run
+    the tests inside a specific X11/Wayland session) - and the invoked command
+    is ``@wrappable`` (i.e. it executes Robot Framework), the process
+    re-executes itself **once** through that command before Robot Framework
+    starts. ``--wrapper`` overrides the profile; ``--no-wrapper`` disables
+    wrapping for this run. The guard env var prevents infinite recursion and
+    lets an outer layer suppress the re-exec by setting it itself.
+    """
+    if no_wrapper:
+        if cli_wrapper:
+            app.warning("Ignoring --wrapper because --no-wrapper was given.")
+        return
+    if os.environ.get(WRAPPER_APPLIED_ENV):
+        return
+
+    sub_name = ctx.invoked_subcommand
+    if not sub_name:
+        return
+    # The command itself opts in via @wrappable; aliases resolve to the same
+    # command object, so this is alias-safe and needs no central name list.
+    sub_cmd = ctx.command.get_command(ctx, sub_name) if isinstance(ctx.command, click.Group) else None
+    if sub_cmd is None or not is_wrappable(sub_cmd):
+        if cli_wrapper:
+            app.warning(f"Ignoring --wrapper: '{sub_name}' does not execute Robot Framework.")
+        return
+
+    from robotcode.robot.config.loader import load_robot_config_from_path
+    from robotcode.robot.config.utils import get_config_files
+
+    profile_wrapper = None
+    try:
+        config_files, _, _ = get_config_files(
+            config_files=app.config.config_files,
+            root_folder=app.config.root,
+            no_vcs=app.config.no_vcs,
+            verbose_callback=app.verbose,
+        )
+        # `evaluated_with_env` also applies the profile's `env` to `os.environ`,
+        # so the wrapper command can rely on it.
+        profile = (
+            load_robot_config_from_path(*config_files, verbose_callback=app.verbose)
+            .combine_profiles(*(app.config.profiles or []), verbose_callback=app.verbose, error_callback=app.error)
+            .evaluated_with_env(verbose_callback=app.verbose, error_callback=app.error)
+        )
+        profile_wrapper = profile.wrapper
+    except Exception as e:
+        # Don't fail early on config problems here; the actual command loads the
+        # config again and reports errors properly. An explicit --wrapper is
+        # still honored below.
+        message = str(e)
+        app.verbose(lambda: f"Skipping profile wrapper detection: {message}")
+
+    # `--wrapper` overrides the profile's `wrapper`. The evaluated profile turns
+    # StringExpression entries into plain strings.
+    if cli_wrapper:
+        wrapper = shlex.split(cli_wrapper)
+    elif profile_wrapper:
+        wrapper = [str(w) for w in profile_wrapper]
+    else:
+        return
+
+    # Rebuild the invocation the way this process was actually started, so the
+    # re-exec finds robotcode even when it runs from a bundled path (VS Code) and
+    # is not installed in the interpreter. `launcher_script` is set only when we
+    # were started through a bundled entry (its `__main__` sets it) or an explicit
+    # `--launcher-script`; otherwise robotcode is importable directly and
+    # `-m robotcode.cli` is correct. We deliberately do NOT consult the
+    # ROBOTCODE_BUNDLED_ROBOTCODE_MAIN env var: VS Code sets it in every terminal,
+    # so a directly started robotcode would be diverted to the bundled copy.
+    # Mirrors the debug launcher's `debugger_script` handling.
+    entry = [str(app.config.launcher_script)] if app.config.launcher_script else ["-m", "robotcode.cli"]
+    command = [*wrapper, sys.executable, *entry, *sys.argv[1:]]
+    app.verbose(lambda: "Running under wrapper: " + " ".join(command))
+
+    # Run robotcode again under the wrapper; the guard env stops the spawned
+    # robotcode from wrapping a second time. On POSIX we replace this process with
+    # execvp (no extra process); Windows has no such exec, so there we spawn the
+    # command, wait, and forward its exit code.
+    os.environ[WRAPPER_APPLIED_ENV] = "1"
+    try:
+        if sys.platform == "win32":
+            sys.exit(subprocess.run(command).returncode)
+        os.execvp(command[0], command)
+    except OSError as e:
+        raise click.ClickException(f"Failed to execute wrapper command {wrapper!r}: {e}") from e
 
 
 @click.group(
@@ -128,6 +225,20 @@ class RobotCodeFormatter(logging.Formatter):
     is_flag=True,
     help="Enables verbose mode.",
     show_envvar=True,
+)
+@click.option(
+    "--wrapper",
+    type=str,
+    default=None,
+    show_envvar=True,
+    help='Command prefix to run the test execution through, e.g. `--wrapper "xvfb-run -a"`. '
+    "Split like a shell command. Applies only to commands that execute Robot Framework "
+    "(run/debug/repl). Overrides the profile's `wrapper`.",
+)
+@click.option(
+    "--no-wrapper",
+    is_flag=True,
+    help="Disable any configured `wrapper` (profile or --wrapper) for this run.",
 )
 @click.option("--log", is_flag=True, help="Enables logging.", show_envvar=True)
 @click.option(
@@ -230,7 +341,9 @@ class RobotCodeFormatter(logging.Formatter):
 )
 @click.version_option(version=__version__, prog_name="robotcode")
 @pass_application
+@click.pass_context
 def robotcode(
+    ctx: click.Context,
     app: Application,
     config_files: Optional[List[Path]],
     profiles: Optional[List[str]],
@@ -249,6 +362,8 @@ def robotcode(
     log_calls: bool,
     log_config: Optional[Path],
     default_path: Optional[List[str]],
+    wrapper: Optional[str] = None,
+    no_wrapper: bool = False,
     launcher_script: Optional[str] = None,
     debugpy: bool = False,
     debugpy_port: int = 5678,
@@ -294,6 +409,8 @@ def robotcode(
     app.config.log_enabled = log
     app.config.log_level = log_level
     app.config.log_calls = log_calls
+
+    _maybe_reexec_under_wrapper(ctx, app, wrapper, no_wrapper)
 
     if log_config:
         if log_calls:

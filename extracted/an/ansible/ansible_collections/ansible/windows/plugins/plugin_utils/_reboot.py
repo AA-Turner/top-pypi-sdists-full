@@ -15,13 +15,14 @@ interface is not final and count be subject to change.
 # Please open an issue if you have questions about this.
 
 import base64
-import datetime
 import json
 import random
 import time
 import traceback
 import uuid
 import typing as t
+
+from datetime import datetime, timedelta, timezone
 
 from ansible.errors import AnsibleConnectionFailure, AnsibleError
 from ansible.module_utils.common.text.converters import to_text
@@ -77,6 +78,8 @@ def reboot_host(
     pre_reboot_delay: int = 2,
     reboot_timeout: int = 600,
     test_command: t.Optional[str] = None,
+    last_boot_time: t.Optional[str] = None,
+    additional_test_commands: t.Optional[t.List[str]] = None,
 ) -> t.Dict[str, t.Any]:
     """Reboot a Windows Host.
 
@@ -118,6 +121,16 @@ def reboot_host(
             determines the machine is ready for management. When not defined
             the default command should wait until the reboot is complete and
             all pre-login configuration has completed.
+        last_boot_time: The last boot time of the system. If set then the host
+            has indicated it is already rebooting and we should wait for it to
+            come back online. The value should be the same result as
+            _DEFAULT_BOOT_TIME_COMMAND.
+        additional_test_commands: A list of additional commands to run after
+            the test_command to further validate the host is ready.
+            These will be run sequentially and any non-zero return codes will
+            be repeated until they return 0 or the reboot_timeout is reached.
+            This is designed to allow the default test cmd to be used alongside
+            additional caller defined commands.
 
     Returns:
         (Dict[str, Any]): The return result as a dictionary. Use the 'failed'
@@ -132,34 +145,44 @@ def reboot_host(
     }
     host_context = {"do_close_on_reset": True}
 
-    # Get current boot time. A lot of tasks that require a reboot leave the WSMan stack in a bad place. Will try to
-    # get the initial boot time 3 times before giving up.
-    try:
-        previous_boot_time = _do_until_success_or_retry_limit(
-            task_action,
-            connection,
-            host_context,
-            "pre-reboot boot time check",
-            3,
-            _get_system_boot_time,
-            task_action,
-            connection,
-            boot_time_command,
-        )
+    if last_boot_time:
+        # If an explicit last_boot_time was set we consider the host as already
+        # in the reboot cycle and skip trying to retrieve the last boot time
+        # and sending the reboot command.
+        perform_reboot = False
+        previous_boot_time = last_boot_time
 
-    except Exception as e:
-        # Report a the failure based on the last exception received.
-        if isinstance(e, _ReturnResultException):
-            result.update(e.result)
+    else:
+        # Get current boot time. A lot of tasks that require a reboot leave
+        # the WSMan stack in a bad place. Will try to get the initial boot
+        # time 3 times before giving up.
+        perform_reboot = True
+        try:
+            previous_boot_time = _do_until_success_or_retry_limit(
+                task_action,
+                connection,
+                host_context,
+                "pre-reboot boot time check",
+                3,
+                _get_system_boot_time,
+                task_action,
+                connection,
+                boot_time_command,
+            )
 
-        if isinstance(e, AnsibleConnectionFailure):
-            result["unreachable"] = True
-        else:
-            result["failed"] = True
+        except Exception as e:
+            # Report a the failure based on the last exception received.
+            if isinstance(e, _ReturnResultException):
+                result.update(e.result)
 
-        result["msg"] = str(e)
-        result["exception"] = traceback.format_exc()
-        return result
+            if isinstance(e, AnsibleConnectionFailure):
+                result["unreachable"] = True
+            else:
+                result["failed"] = True
+
+            result["msg"] = str(e)
+            result["exception"] = traceback.format_exc()
+            return result
 
     # Get the original connection_timeout option var so it can be reset after
     original_connection_timeout: t.Optional[float] = None
@@ -219,9 +242,10 @@ ConvertTo-Json -Compress -InputObject @{
 
     start = None
     try:
-        _perform_reboot(task_action, connection, reboot_command)
+        if perform_reboot:
+            _perform_reboot(task_action, connection, reboot_command)
 
-        start = datetime.datetime.utcnow()
+        start = datetime.now(timezone.utc)
         result["changed"] = True
         result["rebooted"] = True
 
@@ -272,6 +296,21 @@ ConvertTo-Json -Compress -InputObject @{
             expected=expected_test_result,
         )
 
+        if additional_test_commands:
+            for cmd in additional_test_commands:
+                display.vv(f"{task_action} running additional post reboot test command")
+                _do_until_success_or_timeout(
+                    task_action,
+                    connection,
+                    host_context,
+                    "additional post-reboot test command",
+                    reboot_timeout,
+                    _run_test_command,
+                    task_action,
+                    connection,
+                    cmd,
+                )
+
         display.vv(f"{task_action}: system successfully rebooted")
 
     except Exception as e:
@@ -283,7 +322,7 @@ ConvertTo-Json -Compress -InputObject @{
         result["exception"] = traceback.format_exc()
 
     if start:
-        elapsed = datetime.datetime.utcnow() - start
+        elapsed = datetime.now(timezone.utc) - start
         result["elapsed"] = elapsed.seconds
 
     return result
@@ -308,6 +347,7 @@ def _check_boot_time(
     current_boot_time = _get_system_boot_time(
         task_action, connection, boot_time_command
     )
+    display.vvvv(f"{task_action}: comparing current boot time {current_boot_time!r} to previous {previous_boot_time!r}")
     if current_boot_time == previous_boot_time:
         raise _TestCommandFailure("boot time has not changed")
 
@@ -350,10 +390,10 @@ def _do_until_success_or_timeout(
     **kwargs: t.Any,
 ) -> t.Optional[T]:
     """Runs the function multiple times ignoring errors until a timeout occurs"""
-    max_end_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=timeout)
+    max_end_time = datetime.now(timezone.utc) + timedelta(seconds=timeout)
 
     def wait_condition(idx):
-        return datetime.datetime.utcnow() < max_end_time
+        return datetime.now(timezone.utc) < max_end_time
 
     try:
         return _do_until_success_or_condition(
@@ -534,8 +574,28 @@ def _perform_reboot(
         )
 
         return _perform_reboot(
-            task_action, connection, reboot_command, handle_abort=False
+            task_action,
+            connection,
+            reboot_command,
+            handle_abort=False,
         )
+
+    elif rc == 1115:
+        # "A system shutdown is in progress."
+        # This means the system is already rebooting but not from something
+        # we've initiated. The best we can do is wait for it to come back
+        # online and hope it was a reboot and not a shutdown.
+        msg = (
+            "The target has reported that a reboot or shutdown is already in progress. "
+            "This has been triggered by something other than Ansible but Ansible will "
+            "attempt to wait for the system to come back online. If the system is "
+            "shutting down instead of rebooting then this will timeout waiting for "
+            "the system to come back online and report a failure. If you see this "
+            "message then you should investigate the target event logs to determine "
+            "what is causing the reboot/shutdown outside of Ansible."
+        )
+        display.warning(msg)
+        return
 
     if rc != 0:
         msg = f"{task_action}: Reboot command failed"

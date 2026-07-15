@@ -364,6 +364,12 @@ def cleanup_expired_api_access_tokens() -> int:
 def ha_recovery_for_consolidation_mode() -> None:
     """Recovery logic for consolidation mode.
 
+    Naming quirk: this path is historically called "HA recovery" because it
+    originally only applied to controllers deployed in HA mode (a k8s
+    deployment that auto-restarts). It now runs on any controller process
+    restart (e.g. a normal API-server upgrade/rollout); the recovery source
+    recorded for recoveries it forces is RecoverySource.RESTART.
+
     This should only be called from the managed-job-status-refresh-daemon, due
     so that we have correct ordering recovery -> controller start -> job status
     updates. This also should ensure correct operation during a rolling update.
@@ -848,13 +854,24 @@ def try_to_get_job_end_time(backend: 'backends.CloudVmRayBackend',
                                  cluster_name,
                                  job_id=job_id,
                                  get_end_time=True)
-    except (exceptions.CommandError, grpc.RpcError,
-            grpc.FutureTimeoutError) as e:
-        if isinstance(e, exceptions.CommandError) and e.returncode == 255 or \
-                (isinstance(e, grpc.RpcError) and e.code() in [
-                    grpc.StatusCode.UNAVAILABLE,
-                    grpc.StatusCode.DEADLINE_EXCEEDED,
-                ]) or isinstance(e, grpc.FutureTimeoutError):
+    except exceptions.CommandError as e:
+        # Any failure of the end-time probe means the instance is unreachable
+        # or gone. An SSH connection failure surfaces as returncode 255, but
+        # the instance can also disappear between the job-status check and this
+        # fetch - e.g. on Kubernetes the pod may be deleted on preemption or
+        # teardown, which fails with returncode 1 and a "pods ... not found"
+        # error. This read is best-effort, so fall back to the current time
+        # instead of crashing the controller.
+        logger.warning(
+            f'Failed to get the end time from instance {cluster_name} '
+            f'(returncode={e.returncode}); assuming the instance was '
+            f'preempted or torn down. stderr: {e.detailed_reason}')
+        return time.time()
+    except (grpc.RpcError, grpc.FutureTimeoutError) as e:
+        if (isinstance(e, grpc.RpcError) and e.code() in [
+                grpc.StatusCode.UNAVAILABLE,
+                grpc.StatusCode.DEADLINE_EXCEEDED,
+        ]) or isinstance(e, grpc.FutureTimeoutError):
             # Failed to connect - probably the instance was preempted since the
             # job completed. We shouldn't crash here, so just log and use the
             # current time.

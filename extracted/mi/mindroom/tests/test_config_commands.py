@@ -1240,6 +1240,59 @@ async def test_apply_config_change_returns_invalid_plugin_manifest_error(tmp_pat
 
 
 @pytest.mark.asyncio
+async def test_apply_config_change_preserves_call_profile_authorship(tmp_path: Path) -> None:
+    """Confirmed edits preserve complete profiles and agent assignments."""
+    config_path = tmp_path / "runtime-config.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "agents": {
+                    "inherited": {"display_name": "Inherited"},
+                    "cleared": {"display_name": "Cleared"},
+                },
+                "calls": {
+                    "enabled": True,
+                    "profiles": {
+                        "openai-realtime": {
+                            "backend": "realtime",
+                            "model": "gpt-realtime-2.1",
+                            "credentials_service": "openai-voice",
+                            "voice": "marin",
+                        },
+                    },
+                    "agents": {
+                        "inherited": "openai-realtime",
+                        "cleared": "openai-realtime",
+                    },
+                },
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    response = await apply_config_change(
+        "defaults.markdown",
+        False,
+        _runtime_paths_for_config(config_path),
+    )
+
+    saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert "Configuration updated successfully" in response
+    assert saved["calls"]["profiles"] == {
+        "openai-realtime": {
+            "backend": "realtime",
+            "model": "gpt-realtime-2.1",
+            "credentials_service": "openai-voice",
+            "voice": "marin",
+        },
+    }
+    assert saved["calls"]["agents"] == {
+        "cleared": "openai-realtime",
+        "inherited": "openai-realtime",
+    }
+
+
+@pytest.mark.asyncio
 class TestConfigCommandHandling:
     """Test the config command handler."""
 

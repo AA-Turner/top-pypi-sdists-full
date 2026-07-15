@@ -30,7 +30,6 @@ class TrackEvent(_Base):
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc).replace(microsecond=0)
     )
-    convo_id: Optional[str] = None
     attachments: Optional[List[Attachment]] = None
 
     @field_validator("user_id", "event")

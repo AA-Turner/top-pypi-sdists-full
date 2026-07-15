@@ -36,7 +36,7 @@
   input:
     state_code: TX
     housing_cost: 600 * 12
-    has_usda_elderly_disabled: true
+    has_snap_elderly_disabled_member: true
   output:
     snap_excess_shelter_expense_deduction: 600 * 12
 
@@ -80,7 +80,7 @@
     snap_region_str: GU
     housing_cost: 4_800 # 400 monthly 
     snap_utility_allowance: 300 
-    has_usda_elderly_disabled: false
+    has_snap_elderly_disabled_member: false
     is_homeless: false
   output:
     # cap at 701, 

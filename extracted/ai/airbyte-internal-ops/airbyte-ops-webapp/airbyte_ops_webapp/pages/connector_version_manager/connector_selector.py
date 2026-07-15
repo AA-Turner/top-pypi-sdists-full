@@ -234,7 +234,7 @@ def _render_active_rollouts_table() -> None:
                 ),
                 DataTableColumn(
                     key="rc_docker_image_tag",
-                    header="RC Ver",
+                    header="Version",
                     sortable=True,
                 ),
                 DataTableColumn(
@@ -254,7 +254,7 @@ def _render_active_rollouts_table() -> None:
                 ),
                 DataTableColumn(
                     key="rc_pin_count_display",
-                    header="Pins on RC",
+                    header="Version Pins",
                     sortable=True,
                     format="number",
                     align="right",

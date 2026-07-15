@@ -633,7 +633,9 @@ class MySQLMigrator(SchemaMigrator):
                     table,
                     column,
                     fk_metadata.dest_table,
-                    fk_metadata.dest_column))
+                    fk_metadata.dest_column,
+                    fk_metadata.on_delete,
+                    fk_metadata.on_update))
 
     @operation
     def drop_not_null(self, table, column):
@@ -668,7 +670,9 @@ class MySQLMigrator(SchemaMigrator):
                     table,
                     new_name,
                     fk_metadata.dest_table,
-                    fk_metadata.dest_column),
+                    fk_metadata.dest_column,
+                    fk_metadata.on_delete,
+                    fk_metadata.on_update),
             ]
         else:
             return rename_ctx
@@ -741,7 +745,8 @@ class SqliteMigrator(SchemaMigrator):
         new_column_defs = []
         new_column_names = []
         original_column_names = []
-        constraint_terms = ('foreign ', 'primary ', 'constraint ', 'check ')
+        constraint_terms = ('foreign ', 'primary ', 'constraint ', 'check ',
+                            'unique ')
 
         for column_def in column_defs:
             column_name, = self.column_name_re.match(column_def).groups()
@@ -786,7 +791,7 @@ class SqliteMigrator(SchemaMigrator):
 
         # Update the name of the new CREATE TABLE query.
         temp_table = table + '__tmp__'
-        rgx = re.compile(r'("?)%s("?)' % re.escape(table), re.I)
+        rgx = re.compile(r'("?)%s("?)\s*$' % re.escape(table), re.I)
         create = rgx.sub(
             r'\1%s\2' % temp_table,
             raw_create)

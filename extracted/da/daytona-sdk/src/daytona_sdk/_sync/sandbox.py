@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
+from typing import Callable
 
 import httpx
 from deprecated import deprecated
 from pydantic import ConfigDict, PrivateAttr
 
-from daytona_api_client import BuildInfo, CreateSandboxSnapshot, ForkSandbox, PortPreviewUrl, ResizeSandbox
+from daytona_analytics_api_client import ApiClient as AnalyticsApiClient
+from daytona_analytics_api_client import Configuration as AnalyticsConfiguration
+from daytona_analytics_api_client import TelemetryApi
+from daytona_api_client import BuildInfo, ConfigApi, CreateSandboxSnapshot, ForkSandbox, PortPreviewUrl, ResizeSandbox
 from daytona_api_client import Sandbox as SandboxDto
 from daytona_api_client import (
     SandboxApi,
@@ -33,6 +38,7 @@ from daytona_toolbox_api_client import (
     LspApi,
     ProcessApi,
     ServerApi,
+    SystemApi,
     UpdateEnvRequest,
 )
 
@@ -42,7 +48,13 @@ from .._utils.timeout import http_timeout, with_timeout
 from ..common.daytona import CODE_TOOLBOX_LANGUAGE_LABEL
 from ..common.errors import DaytonaError, DaytonaNotFoundError, DaytonaValidationError
 from ..common.lsp_server import LspLanguageId, LspLanguageIdLiteral
-from ..common.sandbox import Resources
+from ..common.sandbox import (
+    SANDBOX_METRIC_NAMES,
+    Resources,
+    SandboxMetrics,
+    pivot_sandbox_metrics,
+    sandbox_metrics_from_system_metrics,
+)
 from ..internal.toolbox_api_client_proxy import ToolboxApiClientProxy
 from .code_interpreter import CodeInterpreter
 from .computer_use import ComputerUse
@@ -83,6 +95,9 @@ class Sandbox(SandboxDto):
         backup_created_at (str | None): When the backup was created (not returned by list results;
             call `refresh_data()` on each item to populate).
         auto_stop_interval (int | None): Auto-stop interval in minutes.
+        auto_pause_interval (int | None): Auto-pause interval in minutes (0 means disabled).
+            Only supported for sandbox classes that support pausing.
+            At most one of auto_stop_interval and auto_pause_interval may be non-zero.
         auto_archive_interval (int | None): Auto-archive interval in minutes.
         auto_delete_interval (int | None): Auto-delete interval in minutes.
         volumes (list[SandboxVolume] | None): Volumes attached to the Sandbox (not returned by list
@@ -120,6 +135,7 @@ class Sandbox(SandboxDto):
         sandbox_api: SandboxApi,
         language: str,
         http_client: httpx.Client,
+        analytics_api_url_provider: Callable[[], str | None] | None = None,
     ):
         """Initialize a new Sandbox instance.
 
@@ -132,6 +148,7 @@ class Sandbox(SandboxDto):
         super().__init__(**sandbox_dto.model_dump())
         self.__process_sandbox_dto(sandbox_dto)
         self._sandbox_api: SandboxApi = sandbox_api
+        self._analytics_api_url_provider: Callable[[], str | None] | None = analytics_api_url_provider
         self._http_client: httpx.Client = http_client
         # Wrap the toolbox API client to inject the sandbox ID into the resource path
         self._toolbox_api: ToolboxApiClientProxy[ApiClient] = ToolboxApiClientProxy(
@@ -152,6 +169,7 @@ class Sandbox(SandboxDto):
         )
         self._info_api: InfoApi = InfoApi(self._toolbox_api)
         self._server_api: ServerApi = ServerApi(self._toolbox_api)
+        self._system_api: SystemApi = SystemApi(self._toolbox_api)
 
     @property
     def fs(self) -> FileSystem:
@@ -175,8 +193,14 @@ class Sandbox(SandboxDto):
 
     @intercept_errors(message_prefix="Failed to refresh sandbox data: ")
     @with_instrumentation()
-    def refresh_data(self) -> None:
+    def refresh_data(self, request_timeout: float | None = None) -> None:
         """Refreshes the Sandbox data from the API.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Example:
             ```python
@@ -186,7 +210,7 @@ class Sandbox(SandboxDto):
             print(f"Resources: {sandbox.cpu} CPU, {sandbox.memory} GiB RAM")
             ```
         """
-        instance = self._sandbox_api.get_sandbox(self.id)
+        instance = self._sandbox_api.get_sandbox(self.id, _request_timeout=http_timeout(request_timeout))
         self.__process_sandbox_dto(instance)
 
     @intercept_errors(message_prefix="Failed to get user home directory: ")
@@ -233,6 +257,70 @@ class Sandbox(SandboxDto):
         response = self._info_api.get_work_dir()
         return response.dir
 
+    @intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+    @with_instrumentation()
+    def get_metrics_latest(self) -> SandboxMetrics:
+        """Gets the most recent resource usage sample directly from the Sandbox daemon.
+
+        Unlike :meth:`get_metrics`, which returns aggregated historical samples, this returns
+        the single current reading without going through the telemetry backend.
+
+        Returns:
+            SandboxMetrics: The current CPU, memory, and disk usage sample for the Sandbox.
+        """
+        return sandbox_metrics_from_system_metrics(self._system_api.get_system_metrics())
+
+    @intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+    @with_instrumentation()
+    def get_metrics(self, start: datetime | None = None, end: datetime | None = None) -> list[SandboxMetrics]:
+        """Gets historical time-series resource usage metrics for the Sandbox.
+
+        When the deployment runs a dedicated Analytics API, metrics are fetched from it
+        directly; otherwise they are fetched through the control-plane telemetry proxy.
+
+        Args:
+            start (datetime | None): Start of the time range. Defaults to the Sandbox
+                creation time.
+            end (datetime | None): End of the time range. Defaults to the current time.
+
+        Returns:
+            list[SandboxMetrics]: Time-ordered usage samples over the requested range.
+        """
+        if end is None:
+            end = datetime.now(timezone.utc)
+        if start is None:
+            start = datetime.fromisoformat(self.created_at.replace("Z", "+00:00")) if self.created_at else end
+
+        analytics_api_url = self._get_analytics_api_url()
+        if analytics_api_url:
+            points = self._build_analytics_telemetry_api(
+                analytics_api_url
+            ).organization_organization_id_sandbox_sandbox_id_telemetry_metrics_get(
+                self.organization_id,
+                self.id,
+                var_from=start.isoformat(),
+                to=end.isoformat(),
+                metric_names=",".join(SANDBOX_METRIC_NAMES),
+            )
+            return pivot_sandbox_metrics((p.metric_name, p.timestamp, p.value) for p in points)
+
+        response = self._sandbox_api.get_sandbox_metrics(
+            self.id, var_from=start, to=end, metric_names=SANDBOX_METRIC_NAMES
+        )
+        return pivot_sandbox_metrics(
+            (s.metric_name, dp.timestamp, dp.value) for s in response.series or [] for dp in s.data_points or []
+        )
+
+    def _get_analytics_api_url(self) -> str | None:
+        if self._analytics_api_url_provider is not None:
+            return self._analytics_api_url_provider()
+        return ConfigApi(self._sandbox_api.api_client).config_controller_get_config().analytics_api_url
+
+    def _build_analytics_telemetry_api(self, analytics_api_url: str) -> TelemetryApi:
+        client = AnalyticsApiClient(AnalyticsConfiguration(host=analytics_api_url))
+        client.default_headers["Authorization"] = self._sandbox_api.api_client.default_headers["Authorization"]
+        return TelemetryApi(client)
+
     @with_instrumentation()
     def create_lsp_server(self, language_id: LspLanguageId | LspLanguageIdLiteral, path_to_project: str) -> LspServer:
         """Creates a new Language Server Protocol (LSP) server instance.
@@ -261,13 +349,17 @@ class Sandbox(SandboxDto):
 
     @intercept_errors(message_prefix="Failed to set labels: ")
     @with_instrumentation()
-    def set_labels(self, labels: dict[str, str]) -> dict[str, str]:
+    def set_labels(self, labels: dict[str, str], request_timeout: float | None = None) -> dict[str, str]:
         """Sets labels for the Sandbox.
 
         Labels are key-value pairs that can be used to organize and identify Sandboxes.
 
         Args:
             labels (dict[str, str]): Dictionary of key-value pairs representing Sandbox labels.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             dict[str, str]: Dictionary containing the updated Sandbox labels.
@@ -282,7 +374,11 @@ class Sandbox(SandboxDto):
             print(f"Updated labels: {new_labels}")
             ```
         """
-        self.labels = (self._sandbox_api.replace_labels(self.id, SandboxLabels(labels=labels))).labels
+        self.labels = (
+            self._sandbox_api.replace_labels(
+                self.id, SandboxLabels(labels=labels), _request_timeout=http_timeout(request_timeout)
+            )
+        ).labels
         return self.labels
 
     @intercept_errors(message_prefix="Failed to start sandbox: ")
@@ -446,7 +542,7 @@ class Sandbox(SandboxDto):
 
     @intercept_errors(message_prefix="Failed to set auto-stop interval: ")
     @with_instrumentation()
-    def set_autostop_interval(self, interval: int) -> None:
+    def set_autostop_interval(self, interval: int, request_timeout: float | None = None) -> None:
         """Sets the auto-stop interval for the Sandbox.
 
         The Sandbox will automatically stop after being idle (no new events) for the specified interval.
@@ -456,6 +552,10 @@ class Sandbox(SandboxDto):
         Args:
             interval (int): Number of minutes of inactivity before auto-stopping.
                 Set to 0 to disable auto-stop. Defaults to 15.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Raises:
             DaytonaValidationError: If interval is negative
@@ -471,12 +571,41 @@ class Sandbox(SandboxDto):
         if interval < 0:
             raise DaytonaValidationError("Auto-stop interval must be a non-negative integer")
 
-        _ = self._sandbox_api.set_autostop_interval(self.id, interval)
+        _ = self._sandbox_api.set_autostop_interval(self.id, interval, _request_timeout=http_timeout(request_timeout))
         self.auto_stop_interval = interval
+
+    @intercept_errors(message_prefix="Failed to set auto-pause interval: ")
+    @with_instrumentation()
+    def set_auto_pause_interval(self, interval: int) -> None:
+        """Sets the auto-pause interval for the Sandbox.
+
+        The Sandbox will automatically pause after being idle (no new events) for the specified interval.
+        Only supported for sandbox classes that support pausing.
+
+        Args:
+            interval (int): Number of minutes of inactivity before auto-pausing.
+                Set to 0 to disable auto-pause.
+
+        Raises:
+            DaytonaValidationError: If interval is negative
+
+        Example:
+            ```python
+            # Auto-pause after 1 hour
+            sandbox.set_auto_pause_interval(60)
+            # Or disable auto-pause
+            sandbox.set_auto_pause_interval(0)
+            ```
+        """
+        if interval < 0:
+            raise DaytonaValidationError("Auto-pause interval must be a non-negative integer")
+
+        _ = self._sandbox_api.set_auto_pause_interval(self.id, interval)
+        self.auto_pause_interval = interval
 
     @intercept_errors(message_prefix="Failed to set auto-archive interval: ")
     @with_instrumentation()
-    def set_auto_archive_interval(self, interval: int) -> None:
+    def set_auto_archive_interval(self, interval: int, request_timeout: float | None = None) -> None:
         """Sets the auto-archive interval for the Sandbox.
 
         The Sandbox will automatically archive after being continuously stopped for the specified interval.
@@ -484,6 +613,10 @@ class Sandbox(SandboxDto):
         Args:
             interval (int): Number of minutes after which a continuously stopped Sandbox will be auto-archived.
                 Set to 0 for the maximum interval. Default is 7 days.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Raises:
             DaytonaValidationError: If interval is negative
@@ -499,12 +632,14 @@ class Sandbox(SandboxDto):
         if interval < 0:
             raise DaytonaValidationError("Auto-archive interval must be a non-negative integer")
 
-        _ = self._sandbox_api.set_auto_archive_interval(self.id, interval)
+        _ = self._sandbox_api.set_auto_archive_interval(
+            self.id, interval, _request_timeout=http_timeout(request_timeout)
+        )
         self.auto_archive_interval = interval
 
     @intercept_errors(message_prefix="Failed to set auto-delete interval: ")
     @with_instrumentation()
-    def set_auto_delete_interval(self, interval: int) -> None:
+    def set_auto_delete_interval(self, interval: int, request_timeout: float | None = None) -> None:
         """Sets the auto-delete interval for the Sandbox.
 
         The Sandbox will automatically delete after being continuously stopped for the specified interval.
@@ -513,6 +648,10 @@ class Sandbox(SandboxDto):
             interval (int): Number of minutes after which a continuously stopped Sandbox will be auto-deleted.
                 Set to negative value to disable auto-delete. Set to 0 to delete immediately upon stopping.
                 By default, auto-delete is disabled.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Example:
             ```python
@@ -524,7 +663,9 @@ class Sandbox(SandboxDto):
             sandbox.set_auto_delete_interval(-1)
             ```
         """
-        _ = self._sandbox_api.set_auto_delete_interval(self.id, interval)
+        _ = self._sandbox_api.set_auto_delete_interval(
+            self.id, interval, _request_timeout=http_timeout(request_timeout)
+        )
         self.auto_delete_interval = interval
 
     @intercept_errors(message_prefix="Failed to update network settings: ")
@@ -535,6 +676,7 @@ class Sandbox(SandboxDto):
         network_block_all: bool | None = None,
         network_allow_list: str | None = None,
         domain_allow_list: str | None = None,
+        request_timeout: float | None = None,
     ) -> None:
         """Updates outbound network policy on the runner (block all, restore access, or CIDR allow list).
 
@@ -543,6 +685,10 @@ class Sandbox(SandboxDto):
                 outbound access (and clears a stored allow list).
             network_allow_list: Comma-separated IPv4 CIDRs to allow; implies not blocking all.
             domain_allow_list: Comma-separated domains to allow; implies not blocking all.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Raises:
             DaytonaValidationError: If neither argument is set.
@@ -563,7 +709,9 @@ class Sandbox(SandboxDto):
             network_allow_list=network_allow_list,
             domain_allow_list=domain_allow_list,
         )
-        updated = self._sandbox_api.update_network_settings(self.id, body)
+        updated = self._sandbox_api.update_network_settings(
+            self.id, body, _request_timeout=http_timeout(request_timeout)
+        )
         self.network_block_all = updated.network_block_all
         self.network_allow_list = updated.network_allow_list
         self.domain_allow_list = updated.domain_allow_list
@@ -613,13 +761,17 @@ class Sandbox(SandboxDto):
 
     @intercept_errors(message_prefix="Failed to get preview link: ")
     @with_instrumentation()
-    def get_preview_link(self, port: int) -> PortPreviewUrl:
+    def get_preview_link(self, port: int, request_timeout: float | None = None) -> PortPreviewUrl:
         """Retrieves the preview link for the sandbox at the specified port. If the port is closed,
         it will be opened automatically. For private sandboxes, a token is included to grant access
         to the URL.
 
         Args:
             port (int): The port to open the preview link on.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             PortPreviewUrl: The response object for the preview link, which includes the `url`
@@ -632,43 +784,63 @@ class Sandbox(SandboxDto):
             print(f"Token: {preview_link.token}")
             ```
         """
-        return self._sandbox_api.get_port_preview_url(self.id, port)
+        return self._sandbox_api.get_port_preview_url(self.id, port, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to create signed preview url: ")
-    def create_signed_preview_url(self, port: int, expires_in_seconds: int | None = None) -> SignedPortPreviewUrl:
+    def create_signed_preview_url(
+        self, port: int, expires_in_seconds: int | None = None, request_timeout: float | None = None
+    ) -> SignedPortPreviewUrl:
         """Creates a signed preview URL for the sandbox at the specified port.
 
         Args:
             port (int): The port to open the preview link on.
             expires_in_seconds (int | None): The number of seconds the signed preview
                 url will be valid for. Defaults to 60 seconds.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             SignedPortPreviewUrl: The response object for the signed preview url.
         """
-        return self._sandbox_api.get_signed_port_preview_url(self.id, port, expires_in_seconds=expires_in_seconds)
+        return self._sandbox_api.get_signed_port_preview_url(
+            self.id, port, expires_in_seconds=expires_in_seconds, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to expire signed preview url: ")
-    def expire_signed_preview_url(self, port: int, token: str) -> None:
+    def expire_signed_preview_url(self, port: int, token: str, request_timeout: float | None = None) -> None:
         """Expires a signed preview URL for the sandbox at the specified port.
 
         Args:
             port (int): The port to expire the signed preview url on.
             token (str): The token to expire the signed preview url on.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
-        self._sandbox_api.expire_signed_port_preview_url(self.id, port, token)
+        self._sandbox_api.expire_signed_port_preview_url(
+            self.id, port, token, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to archive sandbox: ")
     @with_instrumentation()
-    def archive(self) -> None:
+    def archive(self, request_timeout: float | None = None) -> None:
         """Archives the sandbox, making it inactive and preserving its state. When sandboxes are
         archived, the entire filesystem state is moved to cost-effective object storage, making it
         possible to keep sandboxes available for an extended period. The tradeoff between archived
         and stopped states is that starting an archived sandbox takes more time, depending on its size.
         Sandbox must be stopped before archiving.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
-        _ = self._sandbox_api.archive_sandbox(self.id)
-        self.refresh_data()
+        _ = self._sandbox_api.archive_sandbox(self.id, _request_timeout=http_timeout(request_timeout))
+        self.refresh_data(request_timeout=request_timeout)
 
     @intercept_errors(message_prefix="Failed to resize sandbox: ")
     @with_timeout()
@@ -747,47 +919,69 @@ class Sandbox(SandboxDto):
 
     @intercept_errors(message_prefix="Failed to create SSH access: ")
     @with_instrumentation()
-    def create_ssh_access(self, expires_in_minutes: int | None = None) -> SshAccessDto:
+    def create_ssh_access(
+        self, expires_in_minutes: int | None = None, request_timeout: float | None = None
+    ) -> SshAccessDto:
         """Creates an SSH access token for the sandbox.
 
         Args:
             expires_in_minutes (int | None): The number of minutes the SSH access token will be valid for.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
-        return self._sandbox_api.create_ssh_access(self.id, expires_in_minutes=expires_in_minutes)
+        return self._sandbox_api.create_ssh_access(
+            self.id, expires_in_minutes=expires_in_minutes, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to revoke SSH access: ")
     @with_instrumentation()
-    def revoke_ssh_access(self, token: str) -> None:
+    def revoke_ssh_access(self, token: str, request_timeout: float | None = None) -> None:
         """Revokes an SSH access token for the sandbox.
 
         Args:
             token (str): The token to revoke.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
-        _ = self._sandbox_api.revoke_ssh_access(self.id, token)
+        _ = self._sandbox_api.revoke_ssh_access(self.id, token, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to validate SSH access: ")
     @with_instrumentation()
-    def validate_ssh_access(self, token: str) -> SshAccessValidationDto:
+    def validate_ssh_access(self, token: str, request_timeout: float | None = None) -> SshAccessValidationDto:
         """Validates an SSH access token for the sandbox.
 
         Args:
             token (str): The token to validate.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
-        return self._sandbox_api.validate_ssh_access(token)
+        return self._sandbox_api.validate_ssh_access(token, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to refresh sandbox activity: ")
-    def refresh_activity(self) -> None:
+    def refresh_activity(self, request_timeout: float | None = None) -> None:
         """Refreshes the sandbox activity to reset the timer for automated lifecycle management actions.
 
         This method updates the sandbox's last activity timestamp without changing its state.
         It is useful for keeping long-running sessions alive while there is still user activity.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Example:
             ```python
             sandbox.refresh_activity()
             ```
         """
-        self._sandbox_api.update_last_activity(self.id)
+        self._sandbox_api.update_last_activity(self.id, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to fork sandbox: ")
     @with_timeout()
@@ -827,6 +1021,7 @@ class Sandbox(SandboxDto):
             self._sandbox_api,
             language,
             http_client=self._http_client,
+            analytics_api_url_provider=self._analytics_api_url_provider,
         )
         forked.wait_for_sandbox_start(timeout=0)
         return forked
@@ -937,6 +1132,7 @@ class Sandbox(SandboxDto):
         self.recoverable: bool | None = sandbox_dto.recoverable
         self.backup_state: str | None = sandbox_dto.backup_state
         self.auto_stop_interval: float | int | None = sandbox_dto.auto_stop_interval
+        self.auto_pause_interval: float | int | None = sandbox_dto.auto_pause_interval
         self.auto_archive_interval: float | int | None = sandbox_dto.auto_archive_interval
         self.auto_delete_interval: float | int | None = sandbox_dto.auto_delete_interval
         self.created_at: str | None = sandbox_dto.created_at

@@ -2,8 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import base64
+import json
 import re
 from collections.abc import Awaitable, Callable
+from urllib.parse import urlencode
 
 import aiohttp
 
@@ -13,7 +16,6 @@ from daytona_toolbox_api_client_async import (
     CreateSessionRequest,
     ExecuteRequest,
     ProcessApi,
-    PtyCreateRequest,
     PtyResizeRequest,
     PtySessionInfo,
     Session,
@@ -25,6 +27,7 @@ from .._utils.otel_decorator import with_instrumentation
 from .._utils.stream import std_demux_stream_aio
 from .._utils.timeout import http_timeout
 from ..common.charts import parse_chart
+from ..common.errors import create_daytona_error
 from ..common.process import (
     CodeRunParams,
     ExecuteResponse,
@@ -34,7 +37,7 @@ from ..common.process import (
     SessionExecuteRequest,
     SessionExecuteResponse,
 )
-from ..common.pty import PtySize
+from ..common.pty import PTY_EXIT_CONTROL_SUBPROTOCOL, PtySize
 from ..handle.async_pty_handle import AsyncPtyHandle
 from ..internal.shared_session import http_session_of
 
@@ -59,8 +62,11 @@ class AsyncProcess:
         self,
         url: str,
         headers: dict[str, str],
+        subprotocols: list[str] | None = None,
     ) -> aiohttp.ClientWebSocketResponse:
-        return await http_session_of(self._api_client.api_client).ws_connect(url, headers=headers)
+        return await http_session_of(self._api_client.api_client).ws_connect(
+            url, headers=headers, protocols=subprotocols or ()
+        )
 
     async def _consume_log_websocket(
         self,
@@ -240,7 +246,7 @@ class AsyncProcess:
 
     @intercept_errors(message_prefix="Failed to create session: ")
     @with_instrumentation()
-    async def create_session(self, session_id: str) -> None:
+    async def create_session(self, session_id: str, request_timeout: float | None = None) -> None:
         """Creates a new long-running background session in the Sandbox.
 
         Sessions are background processes that maintain state between commands, making them ideal for
@@ -249,6 +255,10 @@ class AsyncProcess:
 
         Args:
             session_id (str): Unique identifier for the new session.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Example:
             ```python
@@ -261,14 +271,18 @@ class AsyncProcess:
             ```
         """
         request = CreateSessionRequest(session_id=session_id)
-        await self._api_client.create_session(request=request)
+        await self._api_client.create_session(request=request, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to get session: ")
-    async def get_session(self, session_id: str) -> Session:
+    async def get_session(self, session_id: str, request_timeout: float | None = None) -> Session:
         """Gets a session in the Sandbox.
 
         Args:
             session_id (str): Unique identifier of the session to retrieve.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             Session: Session information including:
@@ -282,11 +296,17 @@ class AsyncProcess:
                 print(f"Command: {cmd.command}")
             ```
         """
-        return await self._api_client.get_session(session_id=session_id)
+        return await self._api_client.get_session(session_id=session_id, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to get sandbox entrypoint session: ")
-    async def get_entrypoint_session(self) -> Session:
+    async def get_entrypoint_session(self, request_timeout: float | None = None) -> Session:
         """Gets the sandbox entrypoint session.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             Session: Entrypoint session information including:
@@ -300,16 +320,22 @@ class AsyncProcess:
                 print(f"Command: {cmd.command}")
             ```
         """
-        return await self._api_client.get_entrypoint_session()
+        return await self._api_client.get_entrypoint_session(_request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to get session command: ")
     @with_instrumentation()
-    async def get_session_command(self, session_id: str, command_id: str) -> Command:
+    async def get_session_command(
+        self, session_id: str, command_id: str, request_timeout: float | None = None
+    ) -> Command:
         """Gets information about a specific command executed in a session.
 
         Args:
             session_id (str): Unique identifier of the session.
             command_id (str): Unique identifier of the command.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             Command: Command information including:
@@ -324,7 +350,9 @@ class AsyncProcess:
                 print(f"Command {cmd.command} completed successfully")
             ```
         """
-        return await self._api_client.get_session_command(session_id=session_id, command_id=command_id)
+        return await self._api_client.get_session_command(
+            session_id=session_id, command_id=command_id, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to execute session command: ")
     @with_instrumentation()
@@ -387,12 +415,18 @@ class AsyncProcess:
 
     @intercept_errors(message_prefix="Failed to get session command logs: ")
     @with_instrumentation()
-    async def get_session_command_logs(self, session_id: str, command_id: str) -> SessionCommandLogsResponse:
+    async def get_session_command_logs(
+        self, session_id: str, command_id: str, request_timeout: float | None = None
+    ) -> SessionCommandLogsResponse:
         """Get the logs for a command executed in a session.
 
         Args:
             session_id (str): Unique identifier of the session.
             command_id (str): Unique identifier of the command.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             SessionCommandLogsResponse: Command logs including:
@@ -410,7 +444,9 @@ class AsyncProcess:
             print(f"Command stderr: {logs.stderr}")
             ```
         """
-        response = await self._api_client.get_session_command_logs(session_id=session_id, command_id=command_id)
+        response = await self._api_client.get_session_command_logs(
+            session_id=session_id, command_id=command_id, _request_timeout=http_timeout(request_timeout)
+        )
 
         return SessionCommandLogsResponse(output=response.output, stdout=response.stdout, stderr=response.stderr)
 
@@ -456,8 +492,14 @@ class AsyncProcess:
 
     @intercept_errors(message_prefix="Failed to get entrypoint logs: ")
     @with_instrumentation()
-    async def get_entrypoint_logs(self) -> SessionCommandLogsResponse:
+    async def get_entrypoint_logs(self, request_timeout: float | None = None) -> SessionCommandLogsResponse:
         """Get the logs for the entrypoint session.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             SessionCommandLogsResponse: Command logs including:
@@ -472,7 +514,7 @@ class AsyncProcess:
             print(f"Command stderr: {logs.stderr}")
             ```
         """
-        response = await self._api_client.get_entrypoint_logs()
+        response = await self._api_client.get_entrypoint_logs(_request_timeout=http_timeout(request_timeout))
 
         return SessionCommandLogsResponse(output=response.output, stdout=response.stdout, stderr=response.stderr)
 
@@ -506,22 +548,37 @@ class AsyncProcess:
         await self._consume_log_websocket(url, headers, on_stdout, on_stderr)
 
     @intercept_errors(message_prefix="Failed to send session command input: ")
-    async def send_session_command_input(self, session_id: str, command_id: str, data: str) -> None:
+    async def send_session_command_input(
+        self, session_id: str, command_id: str, data: str, request_timeout: float | None = None
+    ) -> None:
         """Sends input data to a command executed in a session.
 
         Args:
             session_id (str): Unique identifier of the session.
             command_id (str): Unique identifier of the command.
             data (str): Input data to send.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
         """
         await self._api_client.send_input(
-            session_id=session_id, command_id=command_id, request=SessionSendInputRequest(data=data)
+            session_id=session_id,
+            command_id=command_id,
+            request=SessionSendInputRequest(data=data),
+            _request_timeout=http_timeout(request_timeout),
         )
 
     @intercept_errors(message_prefix="Failed to list sessions: ")
     @with_instrumentation()
-    async def list_sessions(self) -> list[Session]:
+    async def list_sessions(self, request_timeout: float | None = None) -> list[Session]:
         """Lists all sessions in the Sandbox.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             list[Session]: List of all sessions in the Sandbox.
@@ -534,16 +591,20 @@ class AsyncProcess:
                 print(f"  Commands: {len(session.commands)}")
             ```
         """
-        return await self._api_client.list_sessions()
+        return await self._api_client.list_sessions(_request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to delete session: ")
     @with_instrumentation()
-    async def delete_session(self, session_id: str) -> None:
+    async def delete_session(self, session_id: str, request_timeout: float | None = None) -> None:
         """Terminates and removes a session from the Sandbox, cleaning up any resources
         associated with it.
 
         Args:
             session_id (str): Unique identifier of the session to delete.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Example:
             ```python
@@ -555,7 +616,7 @@ class AsyncProcess:
             await sandbox.process.delete_session("temp-session")
             ```
         """
-        await self._api_client.delete_session(session_id=session_id)
+        await self._api_client.delete_session(session_id=session_id, _request_timeout=http_timeout(request_timeout))
 
     @intercept_errors(message_prefix="Failed to create PTY session: ")
     @with_instrumentation()
@@ -588,21 +649,70 @@ class AsyncProcess:
         Raises:
             DaytonaError: If the PTY session creation fails or the session ID is already in use.
         """
-        response = await self._api_client.create_pty_session(
-            request=PtyCreateRequest(
-                id=id,
-                cwd=cwd,
-                envs=envs,
-                cols=pty_size.cols if pty_size else None,
-                rows=pty_size.rows if pty_size else None,
-                lazy_start=True,
-            ),
-        )
+        cols = pty_size.cols if pty_size else 80
+        rows = pty_size.rows if pty_size else 24
 
-        return await self.connect_pty_session(
-            response.session_id,
-            on_data,
+        # Build query params for the combined create-connect endpoint (single round-trip)
+        params: dict[str, str] = {
+            "id": id,
+            "cols": str(cols),
+            "rows": str(rows),
+        }
+        if cwd:
+            params["cwd"] = cwd
+
+        # Derive the WS URL from the API client's base configuration
+        _, base_url, headers, *_ = self._api_client._connect_pty_session_serialize(
+            session_id="__placeholder__",
+            _request_auth=None,
+            _content_type=None,
+            _headers=None,
+            _host_index=None,
         )
+        url = base_url.replace("/process/pty/__placeholder__/connect", "/process/pty/create-connect")
+        url = re.sub(r"^http", "ws", url)
+        url = f"{url}?{urlencode(params)}"
+
+        # Envs travel as a WebSocket subprotocol token (base64url-no-pad of the JSON object)
+        # rather than the query string or a header, keeping the transport uniform across
+        # runtimes and potentially-large/secret values out of URLs and access logs.
+        subprotocols: list[str] = [PTY_EXIT_CONTROL_SUBPROTOCOL]
+        if envs:
+            encoded = base64.urlsafe_b64encode(json.dumps(envs).encode()).rstrip(b"=").decode()
+            subprotocols.append(f"X-Daytona-Pty-Envs~{encoded}")
+
+        try:
+            ws = await self._open_ws(url, headers, subprotocols)
+        except aiohttp.WSServerHandshakeError as e:
+            # A failed WS upgrade carries the HTTP response status; surface it as the matching
+            # typed Daytona exception (e.g. 404 -> DaytonaNotFoundError, 409 ->
+            # DaytonaConflictError) so callers can branch on it like any REST error.
+            status_code = e.status
+            raise create_daytona_error(
+                f"WebSocket upgrade failed with HTTP {status_code}",
+                status_code=status_code,
+                headers=e.headers,
+            ) from e
+
+        async def resize_handler(pty_size_arg: PtySize) -> PtySessionInfo:
+            return await self.resize_pty_session(id, pty_size_arg)
+
+        async def kill_handler() -> None:
+            await self.kill_pty_session(id)
+
+        handle = AsyncPtyHandle(
+            ws,
+            on_data,
+            session_id=id,
+            handle_resize=resize_handler,
+            handle_kill=kill_handler,
+        )
+        try:
+            await handle.wait_for_connection()
+        except BaseException:
+            await handle.disconnect()
+            raise
+        return handle
 
     @intercept_errors(message_prefix="Failed to connect PTY session: ")
     @with_instrumentation()
@@ -634,7 +744,7 @@ class AsyncProcess:
         )
         url = re.sub(r"^http", "ws", url)
 
-        ws = await self._open_ws(url, headers)
+        ws = await self._open_ws(url, headers, [PTY_EXIT_CONTROL_SUBPROTOCOL])
 
         async def resize_handler(pty_size: PtySize) -> PtySessionInfo:
             return await self.resize_pty_session(session_id, pty_size)
@@ -661,10 +771,16 @@ class AsyncProcess:
 
     @intercept_errors(message_prefix="Failed to list PTY sessions: ")
     @with_instrumentation()
-    async def list_pty_sessions(self) -> list[PtySessionInfo]:
+    async def list_pty_sessions(self, request_timeout: float | None = None) -> list[PtySessionInfo]:
         """Lists all PTY sessions in the Sandbox.
 
         Retrieves information about all PTY sessions in this Sandbox.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             list[PtySessionInfo]: List of PTY session information objects containing
@@ -681,11 +797,11 @@ class AsyncProcess:
                 print(f"Created: {session.created_at}")
             ```
         """
-        return (await self._api_client.list_pty_sessions()).sessions
+        return (await self._api_client.list_pty_sessions(_request_timeout=http_timeout(request_timeout))).sessions
 
     @intercept_errors(message_prefix="Failed to get PTY session info: ")
     @with_instrumentation()
-    async def get_pty_session_info(self, session_id: str) -> PtySessionInfo:
+    async def get_pty_session_info(self, session_id: str, request_timeout: float | None = None) -> PtySessionInfo:
         """Gets detailed information about a specific PTY session.
 
         Retrieves comprehensive information about a PTY session including its current state,
@@ -693,6 +809,10 @@ class AsyncProcess:
 
         Args:
             session_id: Unique identifier of the PTY session to retrieve information for.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             PtySessionInfo: Detailed information about the PTY session including ID, state,
@@ -712,11 +832,13 @@ class AsyncProcess:
             print(f"Terminal Size: {session_info.cols}x{session_info.rows}")
             ```
         """
-        return await self._api_client.get_pty_session(session_id=session_id)
+        return await self._api_client.get_pty_session(
+            session_id=session_id, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to kill PTY session: ")
     @with_instrumentation()
-    async def kill_pty_session(self, session_id: str) -> None:
+    async def kill_pty_session(self, session_id: str, request_timeout: float | None = None) -> None:
         """Kills a PTY session and terminates its associated process.
 
         Forcefully terminates the PTY session and cleans up all associated resources.
@@ -725,6 +847,10 @@ class AsyncProcess:
 
         Args:
             session_id: Unique identifier of the PTY session to kill.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Raises:
             DaytonaError: If the PTY session doesn't exist or cannot be killed.
@@ -740,11 +866,15 @@ class AsyncProcess:
                 print(f"PTY session: {pty_session.id}")
             ```
         """
-        _ = await self._api_client.delete_pty_session(session_id=session_id)
+        _ = await self._api_client.delete_pty_session(
+            session_id=session_id, _request_timeout=http_timeout(request_timeout)
+        )
 
     @intercept_errors(message_prefix="Failed to resize PTY session: ")
     @with_instrumentation()
-    async def resize_pty_session(self, session_id: str, pty_size: PtySize) -> PtySessionInfo:
+    async def resize_pty_session(
+        self, session_id: str, pty_size: PtySize, request_timeout: float | None = None
+    ) -> PtySessionInfo:
         """Resizes a PTY session's terminal dimensions.
 
         Changes the terminal size of an active PTY session. This is useful when the
@@ -754,6 +884,10 @@ class AsyncProcess:
         Args:
             session_id: Unique identifier of the PTY session to resize.
             pty_size: New terminal dimensions containing the desired columns and rows.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             PtySessionInfo: Updated session information reflecting the new terminal size.
@@ -778,4 +912,5 @@ class AsyncProcess:
         return await self._api_client.resize_pty_session(
             session_id=session_id,
             request=PtyResizeRequest(cols=pty_size.cols, rows=pty_size.rows),
+            _request_timeout=http_timeout(request_timeout),
         )

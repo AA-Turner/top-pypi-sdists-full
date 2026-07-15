@@ -199,6 +199,8 @@ class TestConfigInit:
         assert "matrix_space:" in content
         assert "matrix_space:\n  enabled: true\n  name: MindRoom" in content
         assert OWNER_MATRIX_USER_ID_PLACEHOLDER in content
+        config = yaml.safe_load(content)
+        assert config["matrix_room_access"]["room_admins"] == [OWNER_MATRIX_USER_ID_PLACEHOLDER]
 
     def test_init_defaults_to_openai_for_mindroom_chat(self, tmp_path: Path) -> None:
         """mindroom.chat should default to OpenAI without prompting for a provider."""
@@ -236,6 +238,7 @@ class TestConfigInit:
             "shell",
             "coding",
             "memory",
+            {"name": "config_manager", "defer": True},
             "duckduckgo",
             "website",
             "browser",
@@ -247,7 +250,20 @@ class TestConfigInit:
             "thread_tags",
             "thread_summary",
         ]
+        config_manager_entry = next(
+            entry for entry in load_config_yaml(target).agents["mind"].tools if entry.name == "config_manager"
+        )
+        assert config_manager_entry.defer is True
+        assert "thread_resolution" not in mind["tools"]
         assert mind["skills"] == ["mindroom-docs"]
+        assert (
+            "When helping with MindRoom setup, follow AGENTS.md and check the live state — don't guess."
+            in mind["instructions"]
+        )
+        assert (
+            "Meet the user at their technical level. If they ask you to configure something, do it; skip YAML or shell "
+            "details unless they ask." in mind["instructions"]
+        )
         assert "knowledge_bases" not in config
         assert config["memory"]["backend"] == "file"
         assert config["memory"]["embedder"]["provider"] == "sentence_transformers"
@@ -282,6 +298,8 @@ class TestConfigInit:
         assert (workspace / "HEARTBEAT.md").exists()
         assert (workspace / "MEMORY.md").exists()
         assert not (workspace / "BOOT.md").exists()
+        tools_notes = (workspace / "TOOLS.md").read_text(encoding="utf-8")
+        assert f"- Active config file: {json.dumps(str(target.resolve()))}" in tools_notes
 
     def test_init_respects_storage_path_override(
         self,
@@ -302,6 +320,13 @@ class TestConfigInit:
         assert (workspace / "memory").exists()
         assert (workspace / "SOUL.md").exists()
         assert (workspace / "MEMORY.md").exists()
+        agents_template = (workspace / "AGENTS.md").read_text(encoding="utf-8")
+        assert "## 🧭 MindRoom Setup" in agents_template
+        assert "discover and use `config_manager`" in agents_template
+        assert "active config path recorded in `TOOLS.md`" in agents_template
+        assert "`https://mindroom.chat` is the hosted Matrix homeserver" in agents_template
+        assert "`https://chat.mindroom.chat` is MindRoom Chat" in agents_template
+        assert "The MindRoom dashboard is a separate app" in agents_template
         assert "knowledge_bases" not in config
 
         env_content = (tmp_path / ".env").read_text()
@@ -514,7 +539,7 @@ class TestConfigInit:
         self,
         tmp_path: Path,
     ) -> None:
-        """Running `connect` before `config init` should still fill owner authorization."""
+        """Running `connect` before `config init` should still fill owner access settings."""
         target = tmp_path / "config.yaml"
         env_path = tmp_path / ".env"
         env_path.write_text(
@@ -545,6 +570,7 @@ class TestConfigInit:
         config_content = target.read_text(encoding="utf-8")
         config = yaml.safe_load(config_content)
         assert OWNER_MATRIX_USER_ID_PLACEHOLDER not in config_content
+        assert config["matrix_room_access"]["room_admins"] == ["@alice:mindroom.chat"]
         assert config["authorization"]["global_users"] == ["@alice:mindroom.chat"]
         assert config["authorization"]["agent_reply_permissions"]["*"] == ["@alice:mindroom.chat"]
 
@@ -994,7 +1020,10 @@ class TestConfigInit:
         assert f"#   id: {OPENAI_GPT_TERRA}" in config_text
         assert "# openai_luna:" in config_text
         assert f"#   id: {OPENAI_GPT_LUNA}" in config_text
-        assert config["matrix_room_access"] == {"mode": "single_user_private"}
+        assert config["matrix_room_access"] == {
+            "mode": "single_user_private",
+            "room_admins": [OWNER_MATRIX_USER_ID_PLACEHOLDER],
+        }
 
     def test_init_anthropic_preset_uses_anthropic_models(self, tmp_path: Path) -> None:
         """Config init --provider anthropic prepopulates Anthropic defaults."""
@@ -1093,7 +1122,7 @@ class TestConfigInit:
         assert "\n# OPENROUTER_API_KEY=your-openrouter-key-here" in f"\n{env_content}"
 
     def test_init_codex_preset_uses_codex_models(self, tmp_path: Path) -> None:
-        """Config init --provider codex uses Codex subscription defaults."""
+        """Config init --provider codex uses Codex ChatGPT-login defaults."""
         target = tmp_path / "config.yaml"
         result = runner.invoke(app, ["config", "init", "--path", str(target), "--provider", "codex"])
         assert result.exit_code == 0
@@ -3292,6 +3321,9 @@ class TestConnect:
         cfg = tmp_path / "config.yaml"
         cfg.write_text(
             "models: {}\nagents: {}\nrouter:\n  model: default\n"
+            "matrix_room_access:\n"
+            "  room_admins:\n"
+            f"    - {OWNER_MATRIX_USER_ID_PLACEHOLDER}\n"
             "authorization:\n"
             "  default_room_access: false\n"
             "  global_users:\n"
@@ -3339,6 +3371,8 @@ class TestConnect:
         updated_config = cfg.read_text()
         assert OWNER_MATRIX_USER_ID_PLACEHOLDER not in updated_config
         assert "@alice:mindroom.chat" in updated_config
+        parsed_config = yaml.safe_load(updated_config)
+        assert parsed_config["matrix_room_access"]["room_admins"] == ["@alice:mindroom.chat"]
 
     def test_connect_path_overrides_env_and_config_target(
         self,

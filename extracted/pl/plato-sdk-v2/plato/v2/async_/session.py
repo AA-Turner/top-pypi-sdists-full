@@ -102,6 +102,7 @@ from plato.v2.async_.flow_backends import (
 )
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.env_utils import is_proctor_env
+from plato.v2.models import EnvironmentContextWithMesh, context_with_mesh_ips, env_context_mesh_ip
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 from plato.v2.utils.models import (
     EnvironmentInfo,
@@ -530,7 +531,7 @@ class Session:
         if not response.context:
             raise RuntimeError("Backend did not return session context")
 
-        return response.context
+        return context_with_mesh_ips(response.context, response.results)
 
     async def wait_until_ready(
         self,
@@ -575,7 +576,7 @@ class Session:
                         raise RuntimeError(f"Environment {job_id} failed: {result.error}")
 
             if response.ready and response.context:
-                self._context = response.context
+                self._context = context_with_mesh_ips(response.context, response.results)
                 self._envs = None  # Reset cached envs
                 logger.info(f"All environments in session {self.session_id} are ready")
                 await self._connect_network_if_requested()
@@ -636,7 +637,7 @@ class Session:
                     artifact_id=ctx.artifact_id,
                     simulator=ctx.simulator,
                     status="running",
-                    mesh_ip=ctx.mesh_ip,
+                    mesh_ip=env_context_mesh_ip(ctx),
                     is_desktop=bool(ctx.is_desktop),
                     provider=ctx.provider,
                 )
@@ -1148,7 +1149,7 @@ class Session:
                 )
 
         # Update internal context with the new environment
-        new_env_context = EnvironmentContext(
+        new_env_context = EnvironmentContextWithMesh(
             job_id=job_id,
             alias=env.alias,
             artifact_id=response.env.artifact_id,
@@ -2010,10 +2011,8 @@ class Session:
             )
 
         # Rebuild context from serialized envs
-        from plato._generated.models import EnvironmentContext
-
         env_contexts = [
-            EnvironmentContext(
+            EnvironmentContextWithMesh(
                 job_id=env.job_id,
                 alias=env.alias,
                 artifact_id=env.artifact_id,

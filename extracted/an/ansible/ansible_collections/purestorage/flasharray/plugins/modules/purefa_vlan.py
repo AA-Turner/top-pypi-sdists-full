@@ -20,10 +20,10 @@ DOCUMENTATION = """
 ---
 module: purefa_vlan
 version_added: '1.0.0'
-short_description:  Manage network VLAN interfaces in a Pure Storage FlashArray
+short_description:  Manage network VLAN interfaces in a Everpure FlashArray
 description:
-    - This module manages the VLAN network interfaces on a Pure Storage FlashArray.
-author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module manages the VLAN network interfaces on a Everpure FlashArray.
+author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -106,6 +106,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
     get_array,
     purefa_argument_spec,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 
 def _get_subnet(module, array):
@@ -126,7 +129,7 @@ def _get_interface(module, array):
 
 def _get_vif(array, interface, subnet):
     """Return VLAN Interface or None"""
-    vif_name = interface["name"] + "." + str(subnet["vlan"])
+    vif_name = interface.name + "." + str(subnet.vlan)
     res = array.get_network_interfaces(names=[vif_name])
     if res.status_code != 200:
         return None
@@ -137,7 +140,7 @@ def create_vif(module, array, interface, subnet):
     """Create VLAN Interface"""
     changed = True
     if not module.check_mode:
-        vif_name = interface["name"] + "." + str(subnet["vlan"])
+        vif_name = interface.name + "." + str(subnet.vlan)
         if module.params["address"]:
             res = array.post_network_interfaces(
                 names=[vif_name],
@@ -151,12 +154,7 @@ def create_vif(module, array, interface, subnet):
                     )
                 ),
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to create VLAN interface {0}. Error: {1}".format(
-                        vif_name, res.errors[0].message
-                    )
-                )
+            check_response(res, module, f"Failed to create VLAN interface {vif_name}")
         else:
             res = array.post_network_interfaces(
                 names=[vif_name],
@@ -169,32 +167,17 @@ def create_vif(module, array, interface, subnet):
                     )
                 ),
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to create VLAN interface {0}. Error: {1}".format(
-                        vif_name, res.errors[0].message
-                    )
-                )
+            check_response(res, module, f"Failed to create VLAN interface {vif_name}")
         if not module.params["enabled"]:
             res = array.patch_network_interfaces(
                 names=[vif_name], network=NetworkInterfacePatch(enabled=False)
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to disable VLAN interface {0}. Error: {1}".format(
-                        vif_name, res.errors[0].message
-                    )
-                )
+            check_response(res, module, f"Failed to disable VLAN interface {vif_name}")
         else:
             res = array.patch_network_interfaces(
                 names=[vif_name], network=NetworkInterfacePatch(enabled=True)
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to disable VLAN interface {0}. Error: {1}".format(
-                        vif_name, res.errors[0].message
-                    )
-                )
+            check_response(res, module, f"Failed to enable VLAN interface {vif_name}")
     module.exit_json(changed=changed)
 
 
@@ -202,9 +185,9 @@ def update_vif(module, array, interface, subnet):
     """Modify VLAN Interface settings"""
     changed = False
     vif_info = _get_vif(array, interface, subnet)
-    vif_name = vif_info["name"]
+    vif_name = vif_info.name
     if module.params["address"]:
-        if module.params["address"] != vif_info["eth"]["address"]:
+        if module.params["address"] != vif_info.eth.address:
             changed = True
             if not module.check_mode:
                 res = array.patch_network_interfaces(
@@ -213,38 +196,31 @@ def update_vif(module, array, interface, subnet):
                         eth=NetworkinterfacepatchEth(address=module.params["address"])
                     ),
                 )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to change IP address for VLAN interface {0}. Error: {1}".format(
-                            subnet, res.errors[0].message
-                        )
-                    )
+                check_response(
+                    res,
+                    module,
+                    f"Failed to change IP address for VLAN interface {subnet}",
+                )
 
-    if module.params["enabled"] != vif_info["enabled"]:
+    if module.params["enabled"] != vif_info.enabled:
         if module.params["enabled"]:
             changed = True
             if not module.check_mode:
                 res = array.patch_network_interfaces(
                     names=[vif_name], network=NetworkInterfacePatch(enabled=True)
                 )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to enable VLAN interface {0}. Error: {1}".format(
-                            vif_name, res.errors[0].message
-                        )
-                    )
+                check_response(
+                    res, module, f"Failed to enable VLAN interface {vif_name}"
+                )
         else:
             changed = True
             if not module.check_mode:
                 res = array.patch_network_interfaces(
                     names=[vif_name], network=NetworkInterfacePatch(enabled=False)
                 )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to disable VLAN interface {0}. Error: {1}".format(
-                            vif_name, res.errors[0].message
-                        )
-                    )
+                check_response(
+                    res, module, f"Failed to disable VLAN interface {vif_name}"
+                )
 
     module.exit_json(changed=changed)
 
@@ -253,10 +229,9 @@ def delete_vif(module, array, subnet):
     """Delete VLAN Interface"""
     changed = True
     if not module.check_mode:
-        vif_name = module.params["name"] + "." + str(subnet["vlan"])
+        vif_name = module.params["name"] + "." + str(subnet.vlan)
         res = array.delete_network_interfaces(names=[vif_name])
-        if res.status_code != 200:
-            module.fail_json(msg="Failed to delete VLAN interface {0}".format(vif_name))
+        check_response(res, module, f"Failed to delete VLAN interface {vif_name}")
     module.exit_json(changed=changed)
 
 
@@ -282,8 +257,8 @@ def main():
         module.fail_json(msg="Invalid subnet specified.")
     if not interface:
         module.fail_json(msg="Invalid interface specified.")
-    if subnet["vlan"]:
-        vif_name = module.params["name"] + "." + str(subnet["vlan"])
+    if subnet.vlan:
+        vif_name = module.params["name"] + "." + str(subnet.vlan)
     vif = bool(array.get_network_interfaces(names=[vif_name]).status_code == 200)
 
     if state == "present" and not vif:

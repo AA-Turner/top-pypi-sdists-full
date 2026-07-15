@@ -326,6 +326,78 @@ def test_checkpoint_scopes_cache_writes_to_chunk_files(tmp_path):
     assert a_cache and any(n["id"] == "a_ok" for n in a_cache["nodes"])
 
 
+def test_omitted_documents_are_reconciled_and_warned(tmp_path, capsys):
+    """#1890: a chunk can return a clean, non-empty response that omits some of the
+    documents it was given. Those docs must not vanish silently — the run reports
+    them in `uncovered_files` and warns, instead of dropping them with no signal."""
+    from graphify.llm import extract_corpus_parallel
+
+    docs = []
+    for i in range(4):
+        f = tmp_path / f"doc{i}.md"
+        f.write_text(f"# Doc {i}\n\nsome content\n", encoding="utf-8")
+        docs.append(f)
+
+    def omit_odd(chunk, **kwargs):
+        # Return nodes only for even-numbered docs; a clean response, not a failure.
+        nodes = []
+        for u in chunk:
+            name = getattr(u, "path", u).name
+            idx = int(name[len("doc")])
+            if idx % 2 == 0:
+                nodes.append({"id": f"n{idx}", "source_file": name, "file_type": "document"})
+        return {"nodes": nodes, "edges": [], "hyperedges": [], "input_tokens": 1, "output_tokens": 1}
+
+    with patch("graphify.llm.extract_files_direct", side_effect=omit_odd):
+        result = extract_corpus_parallel(
+            docs, backend="kimi", root=tmp_path,
+            token_budget=None, chunk_size=1, max_concurrency=1,
+        )
+
+    uncovered = {Path(p).name for p in result.get("uncovered_files", [])}
+    assert uncovered == {"doc1.md", "doc3.md"}, f"reconciliation missed omissions: {uncovered}"
+    err = capsys.readouterr().err
+    assert "produced no nodes" in err and "doc1.md" in err
+
+
+def test_checkpoint_caches_sliced_document_chunks(tmp_path, capsys):
+    """#1870: the checkpoint's allowlist must resolve a FileSlice to its parent
+    path (via unit_path), not read a non-existent `.rel`. An oversized doc is
+    split into FileSlice units; before the fix each sliced chunk leaked the
+    FileSlice object into the allowlist, so save_semantic_cache raised TypeError,
+    the best-effort except swallowed it, and the slice was never checkpointed."""
+    from graphify.llm import extract_corpus_parallel, expand_oversized_files, _FILE_CHAR_CAP
+    from graphify.file_slice import FileSlice
+    from graphify.cache import load_cached
+
+    doc = tmp_path / "big.md"
+    doc.write_text("# Title\n" + ("word " * 12000) + "\n## Section\n" + ("more " * 12000))
+    # sanity: the doc really does slice into FileSlice units
+    units = expand_oversized_files([doc], _FILE_CHAR_CAP)
+    assert len(units) > 1 and all(isinstance(u, FileSlice) for u in units)
+
+    def sliced(chunk, **kwargs):
+        assert any(isinstance(c, FileSlice) for c in chunk)
+        return {
+            "nodes": [{"id": "big_title", "source_file": "big.md", "file_type": "document"}],
+            "edges": [], "hyperedges": [], "input_tokens": 1, "output_tokens": 1,
+        }
+
+    with patch("graphify.llm.extract_files_direct", side_effect=sliced):
+        extract_corpus_parallel(
+            [doc], backend="kimi", root=tmp_path,
+            token_budget=None, chunk_size=1, max_concurrency=1,
+        )
+
+    assert "incremental cache checkpoint failed" not in capsys.readouterr().err, (
+        "checkpoint raised on a FileSlice chunk (#1870)"
+    )
+    cached = load_cached(doc, tmp_path, kind="semantic")
+    assert cached and any(n["id"] == "big_title" for n in cached["nodes"]), (
+        "sliced document was never checkpointed (#1870)"
+    )
+
+
 def test_corpus_parallel_legacy_mode_when_token_budget_is_none(tmp_path):
     """token_budget=None should fall back to legacy fixed-count chunking."""
     from graphify.llm import extract_corpus_parallel

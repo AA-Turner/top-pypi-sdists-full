@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import warnings
 from typing import Mapping
 
+from argus_redact.exceptions import SecurityWarning
 from argus_redact.pure.display_marker import strip_display_markers
 from argus_redact.pure.security_events import (
+    BLOCKED,
+    COMPLETE,
     GUARD_NO_ANCHOR,
     OUT_OF_SCOPE_PSEUDONYM,
+    PARTIAL,
     PROVENANCE_FAILED,
     _auto_stacklevel,
     security_event,
     warn_security_events,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RestoreGuardError(Exception):
@@ -111,7 +118,7 @@ def restore(
     *,
     aliases: dict[str, tuple[str, ...]] | None = None,
     display_marker: str | None = None,
-    guard: bool | None = None,
+    guard: bool | None = True,
     anchor: object | None = None,
     strict: bool = False,
     detailed: bool = False,
@@ -138,12 +145,17 @@ def restore(
     `"13800138000ⓕ"`). Pass `display_marker=` only when you want the marker
     removed from the output.
 
-    Guard parameters (added v0.7.18, additive; the guard=None default flips to
-    guard=True in v0.8.0):
-        guard: when True, enables deterministic provenance (P) + scope (S) checks.
-               when None (default), emits DeprecationWarning and runs legacy restore.
-               when False, runs legacy restore (guard off) with NO warning — the
-               explicit opt-out for callers that want a plain, unchecked restore.
+    Guard parameters (added v0.7.18; the default flipped to guard=True in v0.8.0):
+        guard: when True (default, v0.8.0+), enables deterministic provenance (P) +
+               scope (S) checks. A bare restore(text, key) with no anchor now FAILS
+               CLOSED — the text is returned un-restored.
+               when None, emits a DeprecationWarning and runs the legacy (unguarded)
+               restore; if it actually substitutes at least one pseudonym it ALSO
+               emits a SecurityWarning naming the consequence (R4) — the caller has
+               not yet chosen, so the risk is surfaced.
+               when False, runs the legacy restore (guard off) with NO warning at
+               all — the explicit, informed opt-out for callers that want a plain,
+               unchecked restore.
         anchor: Anchor instance produced by make_anchor(); carries nonce + scope.
         strict: when True and guard=True, raises RestoreGuardError on any security event.
         detailed: when True, returns (result_text, {"security_events": [...]}) tuple.
@@ -168,10 +180,27 @@ def restore(
             DeprecationWarning,
             stacklevel=_auto_stacklevel(),
         )
-    if not guard:  # None (deprecated default) or False (explicit opt-out) → legacy restore
+    if not guard:  # None (deprecated) or False (explicit opt-out) → legacy restore
         result = _do_restore(text, key, aliases=aliases, display_marker=display_marker)
+        # R4: make the unguarded-restore consequence visible in production. Only the
+        # None path warns — the caller has NOT chosen, and originals were reinserted
+        # with no injection check. guard=False is the informed opt-out (the warning
+        # text itself points there), so it stays silent. Fires only when a pseudonym
+        # was actually substituted (result changed), so a no-op restore is quiet.
+        if guard is None and _warn and key and result != text:
+            warnings.warn(
+                "restore ran WITHOUT the provenance/scope guard; originals were "
+                "reinserted with no injection check — pass guard=True with an anchor, "
+                "or guard=False if you intend an unguarded restore",
+                SecurityWarning,
+                stacklevel=_auto_stacklevel(),
+            )
         if detailed:
-            return result, {"security_events": []}
+            # A legacy restore substitutes every pseudonym (no scope filter), so the
+            # outcome is COMPLETE. Emitting it here means guarded_restore never sees a
+            # None outcome from an internal caller, so warn_security_events never falls
+            # back to guessing from reason codes (see its docstring).
+            return result, {"security_events": [], "outcome": COMPLETE}
         return result
 
     # guard is True — run P + S checks
@@ -216,15 +245,22 @@ def restore(
     if strict and events:
         raise RestoreGuardError(events)
 
+    # This branch WITNESSES the outcome directly: out_of_scope_hits means some
+    # pseudonyms were withheld while the in-scope ones above WERE substituted
+    # (PARTIAL); no hits means every pseudonym in scope made it through clean
+    # (COMPLETE — any events left are advisory, e.g. from guarded_restore's H
+    # layer merged in later).
+    outcome = PARTIAL if out_of_scope_hits else COMPLETE
+
     if events and _warn:
         # Partial restore: in-scope codes were substituted, out-of-scope ones were
         # withheld. Without this the caller gets a plain str and no hint that some
         # pseudonyms were deliberately left unresolved.
         # stacklevel auto-detected — see security_events._auto_stacklevel.
-        warn_security_events(events)
+        warn_security_events(events, outcome)
 
     if detailed:
-        return result, {"security_events": events}
+        return result, {"security_events": events, "outcome": outcome}
     return result
 
 
@@ -243,10 +279,21 @@ def _fail_closed(
     # the caller cannot tell a fail-closed apart from a clean round-trip. Documented
     # in docs/security-model.md ("emits a UserWarning") — this is that warning.
     # stacklevel auto-detected — see security_events._auto_stacklevel.
+    # This function only ever runs on a TOTAL fail-closed (no anchor, or nonce
+    # mismatch) — nothing is EVER substituted here, so the outcome is always
+    # BLOCKED, never PARTIAL/COMPLETE.
     if warn:
-        warn_security_events(events)
+        warn_security_events(events, BLOCKED)
+    # Ops channel: warnings dedup per (message, module, lineno), so a loop of
+    # fail-closed restores collapses to one visible warning. logging has no such
+    # per-callsite dedup, so an operator watching the log stream sees every
+    # fail-closed. PII-free — reason codes + counts only, never `detail`.
+    logger.warning(
+        "restore fail-closed: %s",
+        ", ".join(f"{e['reason_code']}x{e['count']}" for e in events),
+    )
     if detailed:
-        return text, {"security_events": events}
+        return text, {"security_events": events, "outcome": BLOCKED}
     return text
 
 

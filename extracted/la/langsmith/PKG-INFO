@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.10.2
+Version: 0.10.4
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -29,7 +29,7 @@ Provides-Extra: google-adk
 Requires-Dist: google-adk>=1.0.0; extra == 'google-adk'
 Requires-Dist: wrapt>=1.16.0; extra == 'google-adk'
 Provides-Extra: google-adk-live
-Requires-Dist: google-adk>=1.14.0; extra == 'google-adk-live'
+Requires-Dist: google-adk>=2.3.0; extra == 'google-adk-live'
 Provides-Extra: langsmith-pyo3
 Requires-Dist: langsmith-pyo3>=0.1.0rc2; extra == 'langsmith-pyo3'
 Provides-Extra: livekit

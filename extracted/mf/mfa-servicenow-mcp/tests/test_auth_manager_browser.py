@@ -614,7 +614,7 @@ class TestCrossProcessSessionSync:
         cache_path = str(tmp_path / "session.json")
         manager._session_cache_path = cache_path
         # Anchor mtime in the past so the test write registers as newer.
-        manager._session_disk_mtime = 0.0
+        manager._session_disk_mtime_ns = 0
 
         _write_session_cache(
             cache_path,
@@ -629,7 +629,7 @@ class TestCrossProcessSessionSync:
         assert manager._browser_session_token == "SIBLING_ROTATED"
         # mtime watermark should advance so subsequent calls don't re-parse
         # the same unchanged file.
-        assert manager._session_disk_mtime > 0.0
+        assert manager._session_disk_mtime_ns > 0
 
     def test_maybe_adopt_skips_when_mtime_unchanged(self, tmp_path):
         manager = _make_browser_manager()
@@ -637,8 +637,8 @@ class TestCrossProcessSessionSync:
         manager._session_cache_path = cache_path
 
         _write_session_cache(cache_path, "OLD=COOKIE", time.time() + 1800)
-        # Pretend we've already seen this exact mtime (and the 0.5s tolerance).
-        manager._session_disk_mtime = os.path.getmtime(cache_path) + 1.0
+        # Pretend we've already seen a version at least as new as this one.
+        manager._session_disk_mtime_ns = os.stat(cache_path).st_mtime_ns + 1_000_000_000
 
         with patch.object(
             manager, "_reload_session_from_disk", wraps=manager._reload_session_from_disk
@@ -673,7 +673,7 @@ class TestCrossProcessSessionSync:
         manager = _make_browser_manager()
         cache_path = str(tmp_path / "session.json")
         manager._session_cache_path = cache_path
-        manager._session_disk_mtime = 0.0
+        manager._session_disk_mtime_ns = 0
         # Force the session to look valid so get_headers takes the fast path.
         manager._browser_last_validated_at = time.time()
 
@@ -693,14 +693,18 @@ class TestCrossProcessSessionSync:
 
 
 class TestSelfHealCounterIsPerProcess:
-    """Pins the documented R3 gap (see WEB_LOGIN_FAILURE_ANALYSIS.md):
-    `_consecutive_self_heal_count` is in-memory only and NOT persisted via
-    `_save_session_to_disk`, so a sibling MCP host that's deep into the
-    self-heal escalation ladder leaks no signal to other hosts.
+    """`_consecutive_self_heal_count` is per-process by design, not by accident.
 
-    This test documents the current behavior. If someone later adds disk
-    persistence for the counter (resolving R3), this test will fail and the
-    catalog entry should be updated accordingly.
+    It is in-memory only and NOT persisted via `_save_session_to_disk`, so a
+    sibling MCP host deep into the self-heal escalation ladder leaks no signal
+    to other hosts. That is deliberate: the cross-process login lock already
+    serializes auth recovery one host at a time, so a shared counter buys little
+    — while a shared *open* circuit would let one wedged host lock out every
+    other terminal.
+
+    This test documents the current behavior. If someone later persists the
+    counter to disk, this test will fail — which is the point: that change needs
+    a deliberate decision, not a drive-by.
     """
 
     def test_self_heal_counter_does_not_round_trip_through_disk(self, tmp_path):

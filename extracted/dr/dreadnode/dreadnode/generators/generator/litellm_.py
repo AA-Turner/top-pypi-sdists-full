@@ -247,6 +247,13 @@ class AnthropicToolResultFixup(Fixup):
     # Anthropic requires that every tool_use block has a corresponding
     # tool_result block immediately after. This fixup removes orphaned
     # tool_use blocks that don't have corresponding tool_results.
+    #
+    # This is the reactive net for the whole generator layer (any caller,
+    # keyed off the 400). The Agent path additionally repairs the same shape
+    # proactively at the provider boundary via
+    # ``dreadnode.agents.sanitize.sanitize_orphan_tool_messages`` (ENG-7343),
+    # which *synthesizes* a placeholder result rather than stripping the call.
+    # Keep the two strategies aligned when changing orphan handling.
 
     def can_fix(self, exception: Exception) -> bool:
         return "tool_use" in str(exception) and "tool_result" in str(exception)
@@ -1035,6 +1042,14 @@ class LiteLLMGenerator(Generator):
             )
 
             generated = self._parse_model_response(response)
+            # Record the requested reasoning_effort on the generation so it rides
+            # along on the assistant message metadata (agent.py merges extra into
+            # message.metadata → persisted transcript). The response never echoes
+            # it back, and for adaptive-thinking Anthropic models we pop it out of
+            # ``merged`` above — so capture it from the pre-request value here.
+            # reasoning_content/thinking_blocks are captured in _parse_model_response.
+            if isinstance(reasoning_effort, str) and reasoning_effort:
+                generated.extra.setdefault("reasoning_effort", reasoning_effort)
             self._trace_generation_meta(generated)
             self._warn_on_input_truncation(list(messages), generated)
             return generated

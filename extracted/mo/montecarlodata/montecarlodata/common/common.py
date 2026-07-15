@@ -108,16 +108,31 @@ def is_overlap(r1: str, r2: str) -> bool:
     return net1.overlaps(net2) or net2.overlaps(net1)
 
 
+def create_session(config: Config) -> Session:
+    """
+    Build a pycarlo Session from the CLI config, using OAuth client credentials when configured
+    and falling back to the mcd_id/mcd_token API key otherwise. For OAuth, the SDK derives the
+    token and OAuth GraphQL endpoints from the base API endpoint unless overridden.
+    """
+    if config.is_oauth:
+        return Session(
+            mcd_oauth_client_id=config.mcd_oauth_client_id,
+            mcd_oauth_client_secret=config.mcd_oauth_client_secret,
+            mcd_instance_id=config.mcd_instance_id,
+            endpoint=config.mcd_api_endpoint,
+            token_endpoint=config.mcd_token_endpoint,
+            oauth_api_endpoint=config.mcd_oauth_api_endpoint,
+        )
+    return Session(
+        endpoint=config.mcd_api_endpoint,
+        mcd_id=config.mcd_id,
+        mcd_token=config.mcd_token,
+    )
+
+
 def create_mc_client(ctx: Dict) -> Client:
     config: Config = ctx["config"]
-    mc_client = Client(
-        session=Session(
-            endpoint=config.mcd_api_endpoint,
-            mcd_id=config.mcd_id,
-            mcd_token=config.mcd_token,
-        )
-    )
-    return mc_client
+    return Client(session=create_session(config))
 
 
 def read_files(files: List) -> Iterator[str]:

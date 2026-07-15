@@ -18,6 +18,7 @@ class CapsuleClient:
         *,
         control_plane_addr: str | None = None,
         kms_key_name: str | None = None,
+        cloud_provider: str | None = None,
         tenant_id: str,
         api_proxy_addr: str | None = None,
         timeout: float = 30.0,
@@ -28,6 +29,7 @@ class CapsuleClient:
         self._config = ConnectionConfig.resolve(
             control_plane_addr=control_plane_addr,
             kms_key_name=kms_key_name,
+            cloud_provider=cloud_provider,
             tenant_id=tenant_id,
             api_proxy_addr=api_proxy_addr,
             timeout=timeout,

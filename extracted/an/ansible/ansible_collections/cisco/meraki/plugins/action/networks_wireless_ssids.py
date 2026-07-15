@@ -35,6 +35,7 @@ argument_spec.update(dict(
     enabled=dict(type="bool"),
     authMode=dict(type="str"),
     enterpriseAdminAccess=dict(type="str"),
+    ssidAdminAccessible=dict(type="bool"),
     encryptionMode=dict(type="str"),
     psk=dict(type="str"),
     wpaEncryptionMode=dict(type="str"),
@@ -114,6 +115,7 @@ class NetworksWirelessSsids(object):
             enabled=params.get("enabled"),
             authMode=params.get("authMode"),
             enterpriseAdminAccess=params.get("enterpriseAdminAccess"),
+            ssidAdminAccessible=params.get("ssidAdminAccessible"),
             encryptionMode=params.get("encryptionMode"),
             psk=params.get("psk"),
             wpaEncryptionMode=params.get("wpaEncryptionMode"),
@@ -173,7 +175,7 @@ class NetworksWirelessSsids(object):
             namedVlans=params.get("namedVlans"),
             localAuthFallback=params.get("localAuthFallback"),
             radiusAccountingStartDelay=params.get("radiusAccountingStartDelay"),
-            network_id=params.get("networkId"),
+            networkId=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -213,6 +215,10 @@ class NetworksWirelessSsids(object):
                 'enterprise_admin_access') is not None:
             new_object_params['enterpriseAdminAccess'] = self.new_object.get(
                 'enterpriseAdminAccess') or self.new_object.get('enterprise_admin_access')
+        if self.new_object.get('ssidAdminAccessible') is not None or self.new_object.get(
+                'ssid_admin_accessible') is not None:
+            new_object_params['ssidAdminAccessible'] = self.new_object.get(
+                'ssidAdminAccessible')
         if self.new_object.get('encryptionMode') is not None or self.new_object.get(
                 'encryption_mode') is not None:
             new_object_params['encryptionMode'] = self.new_object.get(
@@ -387,20 +393,28 @@ class NetworksWirelessSsids(object):
                 'bandSelection') or self.new_object.get('band_selection')
         if self.new_object.get('perClientBandwidthLimitUp') is not None or self.new_object.get(
                 'per_client_bandwidth_limit_up') is not None:
-            new_object_params['perClientBandwidthLimitUp'] = self.new_object.get(
-                'perClientBandwidthLimitUp') or self.new_object.get('per_client_bandwidth_limit_up')
+            if (per_client_bandwidth_limit_up := self.new_object.get('per_client_bandwidth_limit_up')):
+                new_object_params['perClientBandwidthLimitUp'] = per_client_bandwidth_limit_up
+            else:
+                new_object_params['perClientBandwidthLimitUp'] = self.new_object.get('perClientBandwidthLimitUp')
         if self.new_object.get('perClientBandwidthLimitDown') is not None or self.new_object.get(
                 'per_client_bandwidth_limit_down') is not None:
-            new_object_params['perClientBandwidthLimitDown'] = self.new_object.get(
-                'perClientBandwidthLimitDown') or self.new_object.get('per_client_bandwidth_limit_down')
+            if (per_client_bandwidth_limit_down := self.new_object.get('per_client_bandwidth_limit_down')):
+                new_object_params['perClientBandwidthLimitDown'] = per_client_bandwidth_limit_down
+            else:
+                new_object_params['perClientBandwidthLimitDown'] = self.new_object.get('perClientBandwidthLimitDown')
         if self.new_object.get('perSsidBandwidthLimitUp') is not None or self.new_object.get(
                 'per_ssid_bandwidth_limit_up') is not None:
-            new_object_params['perSsidBandwidthLimitUp'] = self.new_object.get(
-                'perSsidBandwidthLimitUp') or self.new_object.get('per_ssid_bandwidth_limit_up')
+            if (per_ssid_bandwidth_limit_up := self.new_object.get('per_ssid_bandwidth_limit_up')):
+                new_object_params['perSsidBandwidthLimitUp'] = per_ssid_bandwidth_limit_up
+            else:
+                new_object_params['perSsidBandwidthLimitUp'] = self.new_object.get('perSsidBandwidthLimitUp')
         if self.new_object.get('perSsidBandwidthLimitDown') is not None or self.new_object.get(
                 'per_ssid_bandwidth_limit_down') is not None:
-            new_object_params['perSsidBandwidthLimitDown'] = self.new_object.get(
-                'perSsidBandwidthLimitDown') or self.new_object.get('per_ssid_bandwidth_limit_down')
+            if (per_ssid_bandwidth_limit_down := self.new_object.get('per_ssid_bandwidth_limit_down')):
+                new_object_params['perSsidBandwidthLimitDown'] = per_ssid_bandwidth_limit_down
+            else:
+                new_object_params['perSsidBandwidthLimitDown'] = self.new_object.get('perSsidBandwidthLimitDown')
         if self.new_object.get('lanIsolationEnabled') is not None or self.new_object.get(
                 'lan_isolation_enabled') is not None:
             new_object_params['lanIsolationEnabled'] = self.new_object.get(
@@ -532,6 +546,7 @@ class NetworksWirelessSsids(object):
             ("enabled", "enabled"),
             ("authMode", "authMode"),
             ("enterpriseAdminAccess", "enterpriseAdminAccess"),
+            ("ssidAdminAccessible", "ssidAdminAccessible"),
             ("encryptionMode", "encryptionMode"),
             ("psk", "psk"),
             ("wpaEncryptionMode", "wpaEncryptionMode"),
@@ -590,19 +605,17 @@ class NetworksWirelessSsids(object):
             ("speedBurst", "speedBurst"),
             ("namedVlans", "namedVlans"),
             ("localAuthFallback", "localAuthFallback"),
-            ("radiusAccountingStartDelay", "radiusAccountingStartDelay"),
-            ("networkId", "networkId"),
-            ("number", "number"),
+            ("radiusAccountingStartDelay", "radiusAccountingStartDelay"), ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         current_obj["number"] = str(current_obj.get("number"))
         return any(
             not meraki_compare_equality2(
-                current_obj.get(meraki_param), requested_obj.get(ansible_param)
-            )
-            for (meraki_param, ansible_param) in obj_params
-        )
+                current_obj.get(meraki_param),
+                requested_obj.get(ansible_param)) for (
+                meraki_param,
+                ansible_param) in obj_params)
 
     def update(self):
         id = self.new_object.get("id")
@@ -630,8 +643,7 @@ class ActionModule(ActionBase):
     def __init__(self, *args, **kwargs):
         if not ANSIBLE_UTILS_IS_INSTALLED:
             raise AnsibleActionFail(
-                "ansible.utils is not installed. Execute 'ansible-galaxy collection install ansible.utils'"
-            )
+                "ansible.utils is not installed. Execute 'ansible-galaxy collection install ansible.utils'")
         super(ActionModule, self).__init__(*args, **kwargs)
         self._supports_async = False
         self._supports_check_mode = False

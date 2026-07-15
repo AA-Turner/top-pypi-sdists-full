@@ -35,24 +35,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
 
     import sqlalchemy as sa
+    from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
     from sqlalchemy.engine import Engine
-
-
-class SnowflakeFullyQualifiedName(FullyQualifiedName):
-    def __init__(
-        self,
-        *,
-        table: str | None = None,
-        schema: str | None = None,
-        database: str | None = None,
-        delimiter: str = ".",
-        dialect: SnowflakeDialect,
-    ) -> None:
-        self.dialect = dialect
-        super().__init__(table=table, schema=schema, database=database, delimiter=delimiter)
-
-    def prepare_part(self, part: str) -> str:
-        return self.dialect.identifier_preparer.quote(part)
 
 
 class JSONSchemaToSnowflake(JSONSchemaToSQL):
@@ -105,7 +89,7 @@ class SnowflakeConnector(SQLConnector):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.table_cache: dict = {}
-        self.schema_cache: dict = {}
+        self.schema_cache: list[str] = []
         self._inspector: sqlalchemy.Inspector | None = None
         super().__init__(*args, **kwargs)
 
@@ -124,7 +108,7 @@ class SnowflakeConnector(SQLConnector):
 
     def get_table_columns(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_names: list[str] | None = None,
     ) -> dict[str, sqlalchemy.Column]:
         """Return a list of table columns.
@@ -170,43 +154,58 @@ class SnowflakeConnector(SQLConnector):
 
         return sql_type
 
-    def get_private_key(self):
+    def _get_private_key_content(self) -> bytes:
         """Get private key from the right location."""
-        phrase = self.config.get("private_key_passphrase")
-        encoded_passphrase = phrase.encode() if phrase else None
         if "private_key_path" in self.config:
             self.logger.debug("Reading private key from file: %s", self.config["private_key_path"])
             key_path = Path(self.config["private_key_path"])
             if not key_path.is_file():
                 error_message = f"Private key file not found: {key_path}"
                 raise FileNotFoundError(error_message)
-            with key_path.open("rb") as key_file:
-                key_content = key_file.read()
-        else:
-            private_key = self.config["private_key"]
-            self.logger.debug("Reading private key from config")
-            if "-----BEGIN " in private_key:
-                warn(
-                    "Use base64 encoded private key instead of PEM format",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                self.logger.info("Private key is in PEM format")
-                key_content = private_key.encode()
-            else:
-                try:
-                    self.logger.debug("Private key is in base64 format")
-                    key_content = base64.b64decode(private_key)
-                except binascii.Error as e:
-                    error_message = f"Invalid private key format: {e}"
-                    raise ValueError(error_message) from e
-        p_key = serialization.load_pem_private_key(
-            key_content,
-            password=encoded_passphrase,
-            backend=default_backend(),
-        )
 
-        return p_key.private_bytes(
+            return key_path.read_bytes()
+
+        private_key: str = self.config["private_key"]
+        self.logger.debug("Reading private key from config")
+        if "-----BEGIN " in private_key:
+            warn(
+                "Use base64 encoded private key instead of PEM format",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.logger.info("Private key is in PEM format")
+            return private_key.encode()
+
+        try:
+            self.logger.debug("Private key is in base64 format")
+            key_content = base64.b64decode(private_key)
+        except binascii.Error as e:
+            error_message = f"Invalid private key format: {e}"
+            raise ValueError(error_message) from e
+
+        return key_content
+
+    def _load_private_key(self) -> PrivateKeyTypes:
+        phrase = self.config.get("private_key_passphrase")
+        encoded_passphrase = phrase.encode() if phrase else None
+        key_content = self._get_private_key_content()
+
+        try:
+            return serialization.load_der_private_key(
+                key_content,
+                password=encoded_passphrase,
+                backend=default_backend(),
+            )
+        except ValueError:
+            self.logger.debug("DER deserialization failed; retrying as PEM")
+            return serialization.load_pem_private_key(
+                key_content,
+                password=encoded_passphrase,
+                backend=default_backend(),
+            )
+
+    def get_private_key(self):
+        return self._load_private_key().private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
@@ -297,9 +296,9 @@ class SnowflakeConnector(SQLConnector):
         )
 
         # Snowflake dialect doesn't natively recognise UUID columns returned by reflection
-        engine.dialect.ischema_names["UUID"] = sqlalchemy.types.Uuid
+        engine.dialect.ischema_names["UUID"] = sqlalchemy.types.Uuid  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
         # Map Python's uuid.UUID to SQLAlchemy's UUID type when writing values
-        engine.dialect.colspecs[uuid.UUID] = sqlalchemy.types.Uuid
+        engine.dialect.colspecs[uuid.UUID] = sqlalchemy.types.Uuid  # type: ignore[index] # ty:ignore[invalid-assignment]
 
         with engine.connect() as conn:
             db_names = [db[1] for db in conn.execute(text("SHOW DATABASES;")).fetchall()]
@@ -310,7 +309,7 @@ class SnowflakeConnector(SQLConnector):
 
     def prepare_column(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
@@ -337,7 +336,7 @@ class SnowflakeConnector(SQLConnector):
 
     @staticmethod
     def get_column_rename_ddl(
-        table_name: str,
+        table_name: str | FullyQualifiedName,
         column_name: str,
         new_column_name: str,
     ) -> sqlalchemy.DDL:
@@ -352,7 +351,7 @@ class SnowflakeConnector(SQLConnector):
 
     @staticmethod
     def get_column_alter_ddl(
-        table_name: str,
+        table_name: str | FullyQualifiedName,
         column_name: str,
         column_type: sqlalchemy.types.TypeEngine,
     ) -> sqlalchemy.DDL:
@@ -409,7 +408,7 @@ class SnowflakeConnector(SQLConnector):
 
     # Custom SQL get methods
 
-    def _get_put_statement(self, sync_id: str, file_uri: str) -> tuple[text, dict]:  # noqa: ARG002
+    def _get_put_statement(self, sync_id: str, file_uri: str) -> tuple[sqlalchemy.TextClause, dict]:  # noqa: ARG002
         """Get Snowflake PUT statement."""
         return (text(f"put :file_uri '@~/target-snowflake/{sync_id}'"), {})
 
@@ -450,7 +449,7 @@ class SnowflakeConnector(SQLConnector):
 
     def _get_merge_from_stage_statement(  # noqa: ANN202
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -572,7 +571,7 @@ class SnowflakeConnector(SQLConnector):
 
     def merge_from_stage(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -599,7 +598,7 @@ class SnowflakeConnector(SQLConnector):
 
     def copy_from_stage(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -700,7 +699,7 @@ class SnowflakeConnector(SQLConnector):
 
     def _adapt_column_type(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
@@ -729,18 +728,3 @@ class SnowflakeConnector(SQLConnector):
                 sql_type,
             )
             raise
-
-    def get_fully_qualified_name(
-        self,
-        table_name: str | None = None,
-        schema_name: str | None = None,
-        db_name: str | None = None,
-        delimiter: str = ".",
-    ) -> SnowflakeFullyQualifiedName:
-        return SnowflakeFullyQualifiedName(
-            table=table_name,
-            schema=schema_name,
-            database=db_name,
-            delimiter=delimiter,
-            dialect=self._dialect,
-        )

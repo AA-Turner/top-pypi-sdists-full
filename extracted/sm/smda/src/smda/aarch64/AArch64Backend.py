@@ -7,8 +7,6 @@ from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
 from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_MEM
 
 from smda.common.arch.ArchBackend import ArchBackend
-from smda.utility.ElfFileLoader import ElfFileLoader
-from smda.utility.MachoBinary import get_macho_stub_ranges
 
 from .analyzers import AArch64IndirectCallAnalyzer, AArch64JumpTableAnalyzer, AArch64TfIdf
 from .definitions import (
@@ -21,16 +19,21 @@ from .definitions import (
     BR_VALUE,
     CALL_INS,
     COND_BRANCH_INS,
+    COND_BRANCH_PREFIXES,
     END_INS,
     EXCEPTION_RETURN_INS,
     INDIRECT_JUMP_INS,
     INSTRUCTION_SIZE,
+    LDR_UNSIGNED_64_MASK,
+    LDR_UNSIGNED_64_VALUE,
     NOP,
     RET_INS,
     UNCOND_JUMP_INS,
     adrp_page_value,
     is_bti_landing_pad,
     is_function_prologue,
+    rd_field,
+    rn_field,
 )
 from .FunctionAnalysisState import FunctionAnalysisState
 from .FunctionCandidateManager import FunctionCandidateManager
@@ -39,8 +42,6 @@ LOGGER = logging.getLogger(__name__)
 
 # capstone renders AArch64 immediates as "#0x....": match the hex operands.
 _HEX_OPERAND = re.compile(r"0x[0-9a-fA-F]+")
-_LDR_UNSIGNED_64_MASK = 0xFFC00000
-_LDR_UNSIGNED_64_VALUE = 0xF9400000
 
 
 class AArch64Backend(ArchBackend):
@@ -130,7 +131,6 @@ class AArch64Backend(ArchBackend):
     @classmethod
     def _callFallthroughFunctionStart(cls, d, addr):
         if addr in d.fc_manager.getFunctionStartCandidates():
-            print(f"found candidate at call fallthrough 0x{addr:08x}")
             return addr
 
         cursor = addr
@@ -139,12 +139,10 @@ class AArch64Backend(ArchBackend):
             skipped_nop = True
             cursor += INSTRUCTION_SIZE
         if skipped_nop and cursor in d.fc_manager.getFunctionStartCandidates():
-            print(f"skipped NOPs, found candidate at 0x{cursor:08x}")
             return cursor
         if skipped_nop and cursor % 16 == 0:
             word = cls._wordAt(d, cursor)
             if word not in (None, 0, NOP):
-                print(f"skipped NOPs, found non-NOP at 0x{cursor:08x}: 0x{word:08x}")
                 return cursor
         return None
 
@@ -197,11 +195,16 @@ class AArch64Backend(ArchBackend):
             elif target in d.fc_manager.getFunctionStartCandidates():
                 # case = "TAILCALL?" — leave for its own analysis
                 pass
-            elif state.isFirstInstruction():
-                # case = "STUB-TAILCALL!" — a lone branch stub to another function
-                pass
             else:
-                state.addBlockToQueue(target)
+                got_slot = self._resolvePltGotSlot(d, target)
+                if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+                    # case = "STUB-TAILCALL-API!"
+                    state.setSanelyEnding(True)
+                elif state.isFirstInstruction():
+                    # case = "STUB-TAILCALL!" — a lone branch stub to another function
+                    pass
+                else:
+                    state.addBlockToQueue(target)
             state.addCodeRef(i_address, target, by_jump=True)
         # an unconditional branch does not fall through
         state.setNextInstructionReachable(False)
@@ -214,7 +217,11 @@ class AArch64Backend(ArchBackend):
             return
         if i_mnemonic in END_INS or i_mnemonic in ALWAYS_BRANCH_INS or i_mnemonic in UNCOND_JUMP_INS:
             return
-        if i_mnemonic.startswith("b.") or i_mnemonic in COND_BRANCH_INS or i_mnemonic in INDIRECT_JUMP_INS:
+        if (
+            i_mnemonic.startswith(COND_BRANCH_PREFIXES)
+            or i_mnemonic in COND_BRANCH_INS
+            or i_mnemonic in INDIRECT_JUMP_INS
+        ):
             return
 
         ins_bytes = d.disassembly.getBytes(i_address, i_size)
@@ -237,37 +244,17 @@ class AArch64Backend(ArchBackend):
                 emitted.add(value)
                 state.addDataRef(i_address, value)
 
-    @staticmethod
-    def _getPltRanges(binary_info):
-        if not hasattr(binary_info, "_plt_ranges"):
-            binary_info._plt_ranges = ElfFileLoader.getPltRanges(
-                binary_info.raw_data or binary_info.binary,
-                parsed=binary_info.getLiefBinary(),
-            )
-        return binary_info._plt_ranges
-
-    @staticmethod
-    def _getMachoStubRanges(binary_info):
-        if not hasattr(binary_info, "_macho_stub_ranges"):
-            binary_info._macho_stub_ranges = get_macho_stub_ranges(
-                binary_info.getLiefBinary(),
-                base_addr=binary_info.base_addr,
-                bitness=binary_info.bitness,
-                architecture=getattr(binary_info, "architecture", ""),
-            )
-        return binary_info._macho_stub_ranges
-
     @classmethod
-    def _getImportStubRanges(cls, binary_info):
-        return cls._getPltRanges(binary_info) + cls._getMachoStubRanges(binary_info)
+    def _walkGotThunk(cls, d, addr):
+        """Walk an optional nop/bti prefix, then adrp; [add;] ldr; br from addr.
 
-    @classmethod
-    def _resolvePltGotSlot(cls, d, target):
-        binary_info = d.disassembly.binary_info
-        if not any(start <= target < end for start, end in cls._getImportStubRanges(binary_info)):
-            return None
-
-        cursor = target
+        Returns (end_addr, target_register_value) if the raw words starting at
+        addr decode to EXACTLY that shape (nothing interleaved) before hitting an
+        unrecognized word, else None. end_addr is the address right after the
+        terminating br — callers compare it against a specific instruction's end
+        to confirm nothing else follows (used by both PLT/GOT slot resolution and
+        API-thunk-body detection, which share this decode)."""
+        cursor = addr
         for _ in range(2):
             prefix = cls._wordAt(d, cursor)
             if prefix is None:
@@ -279,36 +266,44 @@ class AArch64Backend(ArchBackend):
 
         registers = {}
         for index in range(4):
-            addr = cursor + index * INSTRUCTION_SIZE
-            word = cls._wordAt(d, addr)
+            word_addr = cursor + index * INSTRUCTION_SIZE
+            word = cls._wordAt(d, word_addr)
             if word is None:
                 return None
 
-            rd = word & 0x1F
+            rd = rd_field(word)
             if (word & ADRP_MASK) == ADRP_VALUE:
-                registers[rd] = adrp_page_value(word, addr)
+                registers[rd] = adrp_page_value(word, word_addr)
             elif (word & ADD_IMM64_MASK) == ADD_IMM64_VALUE:
-                rn = (word >> 5) & 0x1F
+                rn = rn_field(word)
                 if rn not in registers:
                     return None
                 registers[rd] = registers[rn] + ((word >> 10) & 0xFFF)
-            elif (word & _LDR_UNSIGNED_64_MASK) == _LDR_UNSIGNED_64_VALUE:
-                rn = (word >> 5) & 0x1F
+            elif (word & LDR_UNSIGNED_64_MASK) == LDR_UNSIGNED_64_VALUE:
+                rn = rn_field(word)
                 if rn not in registers:
                     return None
                 registers[rd] = registers[rn] + (((word >> 10) & 0xFFF) * 8)
             elif (word & BR_MASK) == BR_VALUE:
-                rn = (word >> 5) & 0x1F
-                return registers.get(rn)
+                rn = rn_field(word)
+                return word_addr + INSTRUCTION_SIZE, registers.get(rn)
             else:
                 return None
         return None
+
+    @classmethod
+    def _resolvePltGotSlot(cls, d, target):
+        binary_info = d.disassembly.binary_info
+        if not any(start <= target < end for start, end in cls._getImportStubRanges(binary_info)):
+            return None
+        walk = cls._walkGotThunk(d, target)
+        return walk[1] if walk is not None else None
 
     # --- engine entry point ----------------------------------------------
     def analyzeInstruction(self, disassembler, instruction, state, previous_instruction, start_addr):
         del start_addr
         d = disassembler
-        i_address, _i_size, i_mnemonic, i_op_str = instruction
+        i_address, i_size, i_mnemonic, i_op_str = instruction
         # capstone arm64 mnemonics carry no prefixes, so the mnemonic is used as-is.
 
         self._recordDataRefs(d, instruction, state)
@@ -344,20 +339,34 @@ class AArch64Backend(ArchBackend):
             self._endFunction(state)
             LOGGER.debug("  analyzeFunction() found trap terminator @0x%08x", i_address)
         elif i_mnemonic in ALWAYS_BRANCH_INS:
-            # b.al / b.nv are spelled b.<cond> but always branch (no fall-through),
-            # so they are unconditional. Must precede the generic "b." test below.
+            # b.al/b.nv and FEAT_HBC's bc.al/bc.nv are spelled b.<cond>/bc.<cond> but
+            # always branch (no fall-through), so they are unconditional. Must precede
+            # the generic "b."/"bc." test below.
             self._analyzeUncondBranch(d, instruction, state)
-        elif i_mnemonic.startswith("b.") or i_mnemonic in COND_BRANCH_INS:
+        elif i_mnemonic.startswith(COND_BRANCH_PREFIXES) or i_mnemonic in COND_BRANCH_INS:
             self._analyzeCondBranch(d, instruction, state)
         elif i_mnemonic in UNCOND_JUMP_INS:
             self._analyzeUncondBranch(d, instruction, state)
         elif i_mnemonic in INDIRECT_JUMP_INS:
-            # br and the PAC indirect jumps (braa/brab/braaz/brabz): indirect branch
-            jumptable_targets = d.jumptable_analyzer.getJumpTargets(instruction, state)
-            for target in jumptable_targets:
-                if d.disassembly.isAddrWithinMemoryImage(target):
-                    state.addBlockToQueue(target)
-                    state.addCodeRef(i_address, target, by_jump=True)
+            if i_mnemonic == "br":
+                # a function whose ENTIRE body is the canonical GOT/API-import thunk
+                # (optional nop/bti landing pad, then adrp; [add;] ldr; br) is a thunk,
+                # not a real routine — same decode _resolvePltGotSlot uses for callers.
+                thunk_walk = self._walkGotThunk(d, state.start_addr)
+                if thunk_walk is not None and thunk_walk[0] == i_address + i_size:
+                    state.setThunkCall(True)
+            # br / bra*: import stubs (PLT/Mach-O) are multi-insn adrp+ldr+br sequences
+            # whose entry is in a stub range — resolve the GOT slot and attribute the API
+            # to this branch (mirrors x86 jmp [iat] thunk analysis).
+            got_slot = self._resolvePltGotSlot(d, state.start_addr)
+            if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+                state.setSanelyEnding(True)
+            else:
+                jumptable_targets = d.jumptable_analyzer.getJumpTargets(instruction, state)
+                for target in jumptable_targets:
+                    if d.disassembly.isAddrWithinMemoryImage(target):
+                        state.addBlockToQueue(target)
+                        state.addCodeRef(i_address, target, by_jump=True)
             state.setNextInstructionReachable(False)
             state.setBlockEndingInstruction(True)
         # else: SEQUENTIAL — engine books it and continues to the next instruction.

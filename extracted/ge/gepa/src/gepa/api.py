@@ -24,6 +24,7 @@ from gepa.logging.logger import Logger, LoggerProtocol, StdOutLogger
 from gepa.proposer.merge import MergeProposer
 from gepa.proposer.reflective_mutation.base import CandidateSelector, LanguageModel, ReflectionComponentSelector
 from gepa.proposer.reflective_mutation.reflective_mutation import ReflectiveMutationProposer
+from gepa.strategies.acceptance import AcceptanceCriterion, ImprovementOrEqualAcceptance, StrictImprovementAcceptance
 from gepa.strategies.batch_sampler import BatchSampler, EpochShuffledBatchSampler
 from gepa.strategies.candidate_selector import (
     CurrentBestCandidateSelector,
@@ -48,6 +49,7 @@ def optimize(
     evaluator: Evaluator | None = None,
     # Reflection-based configuration
     reflection_lm: LanguageModel | str | None = None,
+    reflection_lm_kwargs: dict[str, Any] | None = None,
     candidate_selection_strategy: CandidateSelector
     | Literal["pareto", "current_best", "epsilon_greedy", "top_k_pareto"] = "pareto",
     frontier_type: FrontierType = "instance",
@@ -65,6 +67,7 @@ def optimize(
     merge_val_overlap_floor: int = 5,
     # Budget and Stop Condition
     max_metric_calls: int | None = None,
+    max_reflection_cost: float | None = None,
     stop_callbacks: StopperProtocol | Sequence[StopperProtocol] | None = None,
     # Logging and Callbacks
     logger: LoggerProtocol | None = None,
@@ -73,10 +76,13 @@ def optimize(
     use_wandb: bool = False,
     wandb_api_key: str | None = None,
     wandb_init_kwargs: dict[str, Any] | None = None,
+    wandb_attach_existing: bool = False,
     use_mlflow: bool = False,
     mlflow_tracking_uri: str | None = None,
     mlflow_experiment_name: str | None = None,
-    track_best_outputs: bool = False,
+    mlflow_attach_existing: bool = False,
+    tracking_key_prefix: str = "",
+    track_best_outputs: bool = True,
     display_progress_bar: bool = False,
     use_cloudpickle: bool = False,
     # Evaluation caching
@@ -85,6 +91,8 @@ def optimize(
     seed: int = 0,
     raise_on_exception: bool = True,
     val_evaluation_policy: EvaluationPolicy[DataId, DataInst] | Literal["full_eval"] | None = None,
+    acceptance_criterion: AcceptanceCriterion
+    | Literal["strict_improvement", "improvement_or_equal"] = "strict_improvement",
 ) -> GEPAResult[RolloutOutput, DataId]:
     """
     GEPA is an evolutionary optimizer that evolves (multiple) text components of a complex system to optimize them towards a given metric.
@@ -159,6 +167,8 @@ def optimize(
     - use_wandb: Whether to use Weights and Biases to log the progress of the optimization.
     - wandb_api_key: The API key to use for Weights and Biases.
     - wandb_init_kwargs: Additional keyword arguments to pass to the Weights and Biases initialization.
+    - wandb_attach_existing: When True, log into the already-active W&B run without calling wandb.init() or wandb.finish(). Use when GEPA is embedded in a training loop that owns the run.
+    - mlflow_attach_existing: When True, log into the already-active MLflow run without calling mlflow.start_run() or mlflow.end_run(). Use when GEPA is embedded in a training loop that owns the run.
     - use_mlflow: Whether to use MLflow to log the progress of the optimization.
       Both wandb and mlflow can be used simultaneously if desired.
     - mlflow_tracking_uri: The tracking URI to use for MLflow.
@@ -200,43 +210,6 @@ def optimize(
     train_loader = ensure_loader(trainset)
     val_loader = ensure_loader(valset) if valset is not None else train_loader
 
-    # Comprehensive stop_callback logic
-    # Convert stop_callbacks to a list if it's not already
-    stop_callbacks_list: list[StopperProtocol] = []
-    if stop_callbacks is not None:
-        if isinstance(stop_callbacks, Sequence):
-            stop_callbacks_list.extend(stop_callbacks)
-        else:
-            stop_callbacks_list.append(stop_callbacks)
-
-    # Add file stopper if run_dir is provided
-    if run_dir is not None:
-        stop_file_path = os.path.join(run_dir, "gepa.stop")
-        file_stopper = FileStopper(stop_file_path)
-        stop_callbacks_list.append(file_stopper)
-
-    # Add max_metric_calls stopper if provided
-    if max_metric_calls is not None:
-        from gepa.utils import MaxMetricCallsStopper
-
-        max_calls_stopper = MaxMetricCallsStopper(max_metric_calls)
-        stop_callbacks_list.append(max_calls_stopper)
-
-    # Assert that at least one stopping condition is provided
-    if not stop_callbacks_list:
-        raise ValueError(
-            "The user must provide at least one of stop_callbacks or max_metric_calls to specify a stopping condition."
-        )
-
-    # Create composite stopper if multiple stoppers, or use single stopper
-    stop_callback: StopperProtocol
-    if len(stop_callbacks_list) == 1:
-        stop_callback = stop_callbacks_list[0]
-    else:
-        from gepa.utils import CompositeStopper
-
-        stop_callback = CompositeStopper(*stop_callbacks_list)
-
     # Validate that only one custom proposal method is provided
     adapter_has_propose = hasattr(active_adapter, "propose_new_texts") and active_adapter.propose_new_texts is not None
     if adapter_has_propose and custom_candidate_proposer is not None:
@@ -252,24 +225,52 @@ def optimize(
             + "GEPA will use the default proposer, which requires a reflection_lm to be specified."
         )
 
+    # Resolve reflection LM before building stoppers so cost stopper can reference it
     reflection_lm_callable: LanguageModel | None = None
     if isinstance(reflection_lm, str):
-        import litellm
+        from gepa.lm import LM
 
-        reflection_lm_name = reflection_lm
+        reflection_lm_callable = LM(reflection_lm, **(reflection_lm_kwargs or {}))
+    elif reflection_lm is not None:
+        from gepa.lm import TrackingLM
 
-        def _reflection_lm(prompt: str | list[dict[str, str]]) -> str:
-            if isinstance(prompt, str):
-                completion = litellm.completion(
-                    model=reflection_lm_name, messages=[{"role": "user", "content": prompt}]
-                )
-            else:
-                completion = litellm.completion(model=reflection_lm_name, messages=prompt)
-            return completion.choices[0].message.content  # type: ignore
-
-        reflection_lm_callable = _reflection_lm
+        reflection_lm_callable = TrackingLM(reflection_lm) if not hasattr(reflection_lm, "total_cost") else reflection_lm
     else:
-        reflection_lm_callable = reflection_lm
+        reflection_lm_callable = None
+
+    # --- Build stoppers (all in one place, after LM conversion) ---
+    stop_callbacks_list: list[StopperProtocol] = []
+    if stop_callbacks is not None:
+        if isinstance(stop_callbacks, Sequence):
+            stop_callbacks_list.extend(stop_callbacks)
+        else:
+            stop_callbacks_list.append(stop_callbacks)
+
+    if run_dir is not None:
+        stop_callbacks_list.append(FileStopper(os.path.join(run_dir, "gepa.stop")))
+
+    if max_metric_calls is not None:
+        from gepa.utils import MaxMetricCallsStopper
+
+        stop_callbacks_list.append(MaxMetricCallsStopper(max_metric_calls))
+
+    if max_reflection_cost is not None:
+        from gepa.utils import MaxReflectionCostStopper
+
+        stop_callbacks_list.append(MaxReflectionCostStopper(max_reflection_cost, reflection_lm=reflection_lm_callable))
+
+    if not stop_callbacks_list:
+        raise ValueError(
+            "The user must provide at least one of stop_callbacks, max_metric_calls, or max_reflection_cost to specify a stopping condition."
+        )
+
+    stop_callback: StopperProtocol
+    if len(stop_callbacks_list) == 1:
+        stop_callback = stop_callbacks_list[0]
+    else:
+        from gepa.utils import CompositeStopper
+
+        stop_callback = CompositeStopper(*stop_callbacks_list)
 
     if logger is None:
         if run_dir is not None:
@@ -331,13 +332,36 @@ def optimize(
             "reflection_minibatch_size only accepted if batch_sampler is 'epoch_shuffled'"
         )
 
+    acceptance_criterion_instance: AcceptanceCriterion
+    if isinstance(acceptance_criterion, str):
+        acceptance_factories: dict[str, type[AcceptanceCriterion]] = {
+            "strict_improvement": StrictImprovementAcceptance,
+            "improvement_or_equal": ImprovementOrEqualAcceptance,
+        }
+        try:
+            acceptance_criterion_instance = acceptance_factories[acceptance_criterion]()
+        except KeyError as exc:
+            raise ValueError(
+                f"Unknown acceptance_criterion: {acceptance_criterion}. "
+                "Supported strategies: 'strict_improvement', 'improvement_or_equal'"
+            ) from exc
+    elif isinstance(acceptance_criterion, AcceptanceCriterion):
+        acceptance_criterion_instance = acceptance_criterion
+    else:
+        raise TypeError(
+            "acceptance_criterion must be a supported string strategy or an instance of AcceptanceCriterion."
+        )
+
     experiment_tracker = create_experiment_tracker(
         use_wandb=use_wandb,
         wandb_api_key=wandb_api_key,
         wandb_init_kwargs=wandb_init_kwargs,
+        wandb_attach_existing=wandb_attach_existing,
         use_mlflow=use_mlflow,
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_attach_existing=mlflow_attach_existing,
+        key_prefix=tracking_key_prefix,
     )
 
     if reflection_prompt_template is not None:
@@ -404,6 +428,7 @@ def optimize(
         raise_on_exception=raise_on_exception,
         stop_callback=stop_callback,
         val_evaluation_policy=val_evaluation_policy,
+        acceptance_criterion=acceptance_criterion_instance,
         use_cloudpickle=use_cloudpickle,
         evaluation_cache=evaluation_cache,
     )

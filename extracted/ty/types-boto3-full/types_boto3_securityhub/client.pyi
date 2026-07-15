@@ -512,8 +512,7 @@ class SecurityHubClient(BaseClient):
         self, **kwargs: Unpack[CreateConnectorRequestTypeDef]
     ) -> CreateConnectorResponseTypeDef:
         """
-        Creates a cloud service provider management (CSPM) connector in Security Hub
-        CSPM.
+        Creates a connector to a third-party cloud provider in Security Hub CSPM.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_connector)

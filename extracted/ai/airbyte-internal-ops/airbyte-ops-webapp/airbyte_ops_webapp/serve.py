@@ -16,9 +16,7 @@ from fastmcp.cli.apps_dev import (
     _HOST_HTML_TEMPLATE,
     _MCP_SDK_VERSION,
     _fetch_app_bridge_bundle,
-    _inject_log_panel,
     _make_dev_app,
-    _MessageLog,
     _read_mcp_resource,
     _start_user_server,
     _wait_for_server,
@@ -71,6 +69,23 @@ SERVER_SPEC_ENV_VAR = "AIRBYTE_OPS_WEBAPP_SERVER_SPEC"
 STARTUP_TIMEOUT_ENV_VAR = "AIRBYTE_OPS_WEBAPP_STARTUP_TIMEOUT_SECONDS"
 
 
+class _NullMessageLog:
+    def log_request(self, body: dict[str, object]) -> None:
+        pass
+
+    def log_response(self, body: dict[str, object]) -> None:
+        pass
+
+    def log_bridge(self, body: dict[str, object]) -> None:
+        pass
+
+    def get_since(self, since_id: int = 0) -> list[dict[str, object]]:
+        return []
+
+    def clear(self) -> None:
+        pass
+
+
 def main() -> None:
     """Serve the webapp host and its local FastMCP backend."""
     asyncio.run(_serve())
@@ -102,7 +117,7 @@ async def _serve() -> None:
         if not ready:
             raise RuntimeError(f"User server did not start on port {mcp_port}")
 
-        app = _make_dev_app(mcp_url, app_bridge_js, import_map_tag, _MessageLog())
+        app = _make_dev_app(mcp_url, app_bridge_js, import_map_tag, _NullMessageLog())
         remove_generic_app_routes(app)
         add_home_routes(app, import_map_tag)
         add_login_routes(app, import_map_tag)
@@ -159,7 +174,15 @@ def add_oauth_routes(app: Starlette) -> None:
 
 
 def remove_generic_app_routes(app: Starlette) -> None:
-    generic_route_paths = {"/", "/picker-app", "/launch", "/api/launch"}
+    generic_route_paths = {
+        "/",
+        "/picker-app",
+        "/launch",
+        "/api/launch",
+        "/api/logs",
+        "/api/logs/bridge",
+        "/api/logs/clear",
+    }
     app.router.routes[:] = [
         route
         for route in app.routes
@@ -264,7 +287,7 @@ def _tool_host_html(
     )
     if page_title:
         host_html = _TITLE_RE.sub(f"<title>{page_title}</title>", host_html, count=1)
-    return _inject_log_panel(host_html)
+    return host_html
 
 
 def _local_display_url(webapp_port: int) -> str:

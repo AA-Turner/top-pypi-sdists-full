@@ -6,6 +6,7 @@ from montecarlodata.data_exports.fields import (
     ASSETS_DATA_EXPORT_NAME,
     EVENTS_DATA_EXPORT_NAME,
     FILE_SCHEME,
+    MONITOR_RUNS_DATA_EXPORT_NAME,
     MONITORS_DATA_EXPORT_NAME,
     S3_SCHEME,
     SCHEME_DELIM,
@@ -97,6 +98,16 @@ def get_events(ctx, **kwargs):
         config=ctx["config"],
         command_name="export get_events",
     ).get_data_export(data_export=EVENTS_DATA_EXPORT_NAME, **kwargs)
+
+
+@export.command(help=f"Export monitor runs data (private preview). {GET_VERBIAGE}")
+@add_common_options(GET_OPTIONS)
+@click.pass_obj
+def get_monitor_runs(ctx, **kwargs):
+    DataExportService(
+        config=ctx["config"],
+        command_name="export get_monitor_runs",
+    ).get_data_export(data_export=MONITOR_RUNS_DATA_EXPORT_NAME, **kwargs)
 
 
 @export.command(help=f"Export Monte Carlo objects. {GET_VERBIAGE}")

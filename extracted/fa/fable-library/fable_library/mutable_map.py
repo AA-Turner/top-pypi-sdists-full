@@ -22,7 +22,7 @@ from .types import FSharpRef as FSharpRef_1
 from .util import UNIT, Disposable, Unit, dispose, equals, get_enumerator, ignore, nullable, to_enumerable
 
 
-def _expr15(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr13(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Fable.Collections.Dictionary", Array([gen0, gen1]), Dictionary)
 
 
@@ -207,7 +207,7 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
         self.Remove(key)
 
 
-Dictionary_reflection = _expr15
+Dictionary_reflection = _expr13
 
 
 def Dictionary__ctor_6623D9B3[KEY, VALUE](
@@ -221,14 +221,14 @@ def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: 
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow17(__unit: Unit = UNIT) -> list[Any]:
+    def _arrow15(__unit: Unit = UNIT) -> list[Any]:
         return out_arg
 
-    def _arrow18(v: list[Any]) -> None:
+    def _arrow17(v: list[Any]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow17, _arrow18)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow15, _arrow17)), out_arg)
     if match_value[0]:
 
         def _arrow19(pair: Any, this: Any = this, k: Any = k) -> bool:

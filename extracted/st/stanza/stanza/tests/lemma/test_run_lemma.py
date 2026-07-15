@@ -283,7 +283,11 @@ def trained_model_path(tmp_path_factory, pretrain_file):
         # --save_dir to extra_args; since we call run_treebank directly we
         # pass --save_dir through extra_args below instead.
         save_dir=None,
+        save_name=None,
         wordvec_pretrain_file=str(pretrain_file),
+        # currently not tested
+        secondary_file=None,
+        use_secondary_file=True,
     )
 
     # extra_args are forwarded verbatim to lemmatizer.main.  The pretrain arg

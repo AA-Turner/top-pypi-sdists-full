@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: odfdo
-Version: 3.22.11
+Version: 3.22.12
 Summary: Python library for OpenDocument Format
 Keywords: python,library,ODF,OpenDocument
 Author: Jérôme Dumonteil
 Author-email: Jérôme Dumonteil <jerome.dumonteil@gmail.com>
 License-Expression: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers

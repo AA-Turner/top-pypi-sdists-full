@@ -519,6 +519,7 @@ def _resolve_produced_item_types(
     validate items of this type without ever importing capability code.
     """
     import importlib.util
+    import sys
 
     from pydantic import BaseModel
 
@@ -537,19 +538,29 @@ def _resolve_produced_item_types(
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module for produces['{type_name}']: {rel}")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        # Register in sys.modules before exec so a module using
+        # `from __future__ import annotations` (PEP 563) can resolve its own
+        # forward references when model_json_schema() builds the schema below.
+        # An unregistered module has no importable namespace, so Pydantic's
+        # deferred forward-ref resolution raises "not fully defined". Removed
+        # afterwards so we do not pollute sys.modules during the build.
+        sys.modules[mod_name] = module
+        try:
+            spec.loader.exec_module(module)
 
-        cls = getattr(module, class_name, None)
-        if not (isinstance(cls, type) and issubclass(cls, BaseModel)):
-            raise TypeError(f"produces['{type_name}'] -> {ref} is not a Pydantic BaseModel")
+            cls = getattr(module, class_name, None)
+            if not (isinstance(cls, type) and issubclass(cls, BaseModel)):
+                raise TypeError(f"produces['{type_name}'] -> {ref} is not a Pydantic BaseModel")
 
-        resolved.append(
-            {
-                "name": type_name,
-                "model_path": ref,
-                "json_schema": cls.model_json_schema(),
-            }
-        )
+            resolved.append(
+                {
+                    "name": type_name,
+                    "model_path": ref,
+                    "json_schema": cls.model_json_schema(),
+                }
+            )
+        finally:
+            sys.modules.pop(mod_name, None)
     return resolved
 
 

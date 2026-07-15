@@ -27,7 +27,7 @@ description:
   the first rule will be recovered as long replacement rule is added before
   the snapshot eradication period is exceeded (usuually 24 hours).
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -382,7 +382,7 @@ options:
       - If set to I(locked) then values of the policy attributes are not allowed to change.
       - If set to I(locked) then values of the policy attributes can be changed.
       - Changing from I(unlocked) to I(locked) is allowed, but to change from I(locked) to I(unlocked)
-        will require support from Pure Storage Technical Services.
+        will require support from Everpure Technical Services.
     type: str
     choices: [ locked, unlocked ]
     version_added: '1.19.0'
@@ -598,7 +598,7 @@ try:
         NfsExportPolicy,
         NfsExportPolicyRule,
         Policy,
-        PolicyPatch,
+        SnapshotPolicyPatch,
         PolicyRule,
         SmbSharePolicyRule,
         SmbSharePolicy,
@@ -630,7 +630,11 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     purefb_argument_spec,
 )
 from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    convert_time_to_millisecs,
+    _findstr,
+    get_error_message,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.time_utils import (
+    time_to_milliseconds,
 )
 
 NFS_POLICY_API_VERSION = "2.3"
@@ -640,24 +644,6 @@ SMB_ENCRYPT_API_VERSION = "2.11"
 NET_POLICY_API_VERSION = "2.13"
 WORM_POLICY_API_VERSION = "2.15"
 CONTEXT_API_VERSION = "2.17"
-
-
-def _convert_to_millisecs(hour_str: str) -> int:
-    """Convert a 12-hour formatted time string (e.g., '02AM', '12PM') to milliseconds since midnight."""
-    time_part = int(hour_str[:-2])
-    period = hour_str[-2:]
-
-    if period == "AM":
-        return 0 if time_part == 12 else time_part * 3600000
-    else:  # PM
-        return 12 * 3600000 if time_part == 12 else (time_part + 12) * 3600000
-
-
-def _findstr(text, match):
-    for line in text.splitlines():
-        if match in line:
-            found = line
-    return found
 
 
 def _get_local_tz(module, timezone="UTC"):
@@ -745,7 +731,7 @@ def delete_smb_share_policy(module, blade):
     policy_delete = True
     if module.params["principal"]:
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             prin_rule = blade.get_smb_share_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="principal='" + module.params["principal"] + "'",
@@ -760,7 +746,7 @@ def delete_smb_share_policy(module, blade):
             rule = list(prin_rule.items)[0]
             changed = True
             if not module.check_mode:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.delete_smb_share_policies_rules(
                         names=[rule.name], context_names=[module.params["context"]]
                     )
@@ -772,13 +758,13 @@ def delete_smb_share_policy(module, blade):
                         "Error: {2}".format(
                             module.params["principal"],
                             module.params["name"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
     if policy_delete:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.delete_smb_share_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -788,7 +774,7 @@ def delete_smb_share_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete SMB share policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -800,7 +786,7 @@ def rename_smb_share_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.patch_smb_share_policies(
                 names=[module.params["name"]],
                 policy=SmbSharePolicy(name=module.params["rename"]),
@@ -816,7 +802,7 @@ def rename_smb_share_policy(module, blade):
                 msg="Failed to rename SMB share policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -827,7 +813,7 @@ def create_smb_share_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_smb_share_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
             )
@@ -836,11 +822,11 @@ def create_smb_share_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create SMB share policy {0}.Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         if not module.params["enabled"]:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_smb_share_policies(
                     policy=SmbSharePolicy(enabled=False),
                     names=[module.params["name"]],
@@ -851,7 +837,7 @@ def create_smb_share_policy(module, blade):
                     policy=SmbSharePolicy(enabled=False), names=[module.params["name"]]
                 )
             if res.status_code != 200:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     blade.delete_smb_share_policies(
                         names=[module.params["name"]],
                         context_names=[module.params["context"]],
@@ -860,7 +846,7 @@ def create_smb_share_policy(module, blade):
                     blade.delete_smb_share_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create SMB share policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
         if not module.params["principal"]:
@@ -872,7 +858,7 @@ def create_smb_share_policy(module, blade):
                 read=module.params["read"],
                 full_control=module.params["full_control"],
             )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_smb_share_policies_rules(
                     policy_names=[module.params["name"]],
                     rule=rule,
@@ -887,7 +873,7 @@ def create_smb_share_policy(module, blade):
                 module.fail_json(
                     msg="Failed to create rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -899,7 +885,7 @@ def update_smb_share_policy(module, blade):
     changed = False
     versions = list(blade.get_versions().items)
     if module.params["principal"]:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_policy_rule = blade.get_smb_share_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="principal='" + module.params["principal"] + "'",
@@ -910,7 +896,14 @@ def update_smb_share_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="principal='" + module.params["principal"] + "'",
             )
-        if (
+        if current_policy_rule.status_code != 200:
+            module.fail_json(
+                msg="Failed to get SMB export policy rules for {0}. Error: {1}".format(
+                    module.params["name"],
+                    current_policy_rule.errors[0].message,
+                )
+            )
+        elif (
             current_policy_rule.status_code == 200
             and current_policy_rule.total_item_count == 0
         ):
@@ -926,7 +919,7 @@ def update_smb_share_policy(module, blade):
                     before_name = (
                         module.params["name"] + "." + str(module.params["before_rule"])
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_smb_share_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -940,7 +933,7 @@ def update_smb_share_policy(module, blade):
                             before_rule_name=before_name,
                         )
                 else:
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_smb_share_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -957,7 +950,7 @@ def update_smb_share_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["principal"],
                             module.params["name"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
         else:
@@ -1003,13 +996,15 @@ def update_smb_share_policy(module, blade):
             if current_rule != new_rule:
                 changed = True
                 if not module.check_mode:
+                    # Patch from the merged new_rule so unspecified fields keep
+                    # their current value rather than being reset.
                     rule = SmbSharePolicyRule(
-                        principal=module.params["principal"],
-                        change=module.params["change"],
-                        read=module.params["read"],
-                        full_control=module.params["full_control"],
+                        principal=new_rule["principal"],
+                        change=new_rule["change"],
+                        read=new_rule["read"],
+                        full_control=new_rule["full_control"],
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.patch_smb_share_policies_rules(
                             names=[
                                 module.params["name"] + "." + str(old_policy_rule.index)
@@ -1030,7 +1025,7 @@ def update_smb_share_policy(module, blade):
                                 module.params["name"]
                                 + "."
                                 + str(old_policy_rule.index),
-                                res.errors[0].message,
+                                get_error_message(res),
                             )
                         )
             if (
@@ -1042,7 +1037,7 @@ def update_smb_share_policy(module, blade):
                     before_name = (
                         module.params["name"] + "." + str(module.params["before_rule"])
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.patch_smb_share_policies_rules(
                             names=[
                                 module.params["name"] + "." + str(old_policy_rule.index)
@@ -1065,10 +1060,10 @@ def update_smb_share_policy(module, blade):
                                 module.params["name"]
                                 + "."
                                 + str(old_policy_rule.index),
-                                res.errors[0].message,
+                                get_error_message(res),
                             )
                         )
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_policy = list(
             blade.get_smb_share_policies(names=[module.params["name"]]).items,
             context_names=[module.params["context"]],
@@ -1080,7 +1075,7 @@ def update_smb_share_policy(module, blade):
     if current_policy.enabled != module.params["enabled"]:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_smb_share_policies(
                     policy=SmbSharePolicy(enabled=module.params["enabled"]),
                     names=[module.params["name"]],
@@ -1094,7 +1089,7 @@ def update_smb_share_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of SMB share policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -1111,7 +1106,7 @@ def delete_smb_client_policy(module, blade):
     policy_delete = True
     if module.params["client"]:
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_smb_client_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -1130,7 +1125,7 @@ def delete_smb_client_policy(module, blade):
                 if module.params["client"] == rule.client:
                     changed = True
                     if not module.check_mode:
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.delete_smb_client_policies_rules(
                                 names=[rule.name],
                                 context_names=[module.params["context"]],
@@ -1145,23 +1140,26 @@ def delete_smb_client_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         changed = True
                         if not module.check_mode:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.delete_smb_client_policies_rules(
-                                    names=[rules[cli].name],
+                                    names=[cli.name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_smb_client_policies_rules(
-                                    names=[rules[cli].name]
+                                    names=[cli.name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -1169,13 +1167,13 @@ def delete_smb_client_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        res.errors[0].message,
+                                        get_error_message(res),
                                     )
                                 )
     if policy_delete:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.delete_smb_client_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -1185,7 +1183,7 @@ def delete_smb_client_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete SMB client policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -1197,7 +1195,7 @@ def rename_smb_client_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.patch_smb_client_policies(
                 names=[module.params["name"]],
                 policy=SmbClientPolicy(name=module.params["rename"]),
@@ -1213,7 +1211,7 @@ def rename_smb_client_policy(module, blade):
                 msg="Failed to rename SMB client policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -1224,7 +1222,7 @@ def create_smb_client_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_smb_client_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
             )
@@ -1233,11 +1231,11 @@ def create_smb_client_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create SMB client policy {0}.Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         if not module.params["enabled"]:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_smb_client_policies(
                     policy=SmbClientPolicy(enabled=False),
                     names=[module.params["name"]],
@@ -1248,7 +1246,7 @@ def create_smb_client_policy(module, blade):
                     policy=SmbClientPolicy(enabled=False), names=[module.params["name"]]
                 )
             if res.status_code != 200:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     blade.delete_smb_client_policies(
                         names=[module.params["name"]],
                         context_names=[module.params["context"]],
@@ -1257,7 +1255,7 @@ def create_smb_client_policy(module, blade):
                     blade.delete_smb_client_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create SMB client policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
         if not module.params["client"]:
@@ -1276,7 +1274,7 @@ def create_smb_client_policy(module, blade):
                     access=module.params["access"],
                     permission=module.params["permission"],
                 )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_smb_client_policies_rules(
                     policy_names=[module.params["name"]],
                     rule=rule,
@@ -1291,7 +1289,7 @@ def create_smb_client_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -1302,7 +1300,7 @@ def create_network_access_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_network_access_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
             )
@@ -1311,11 +1309,11 @@ def create_network_access_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create network access policy {0}.Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         if not module.params["enabled"]:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_network_access_policies(
                     policy=SmbClientPolicy(enabled=False),
                     names=[module.params["name"]],
@@ -1326,7 +1324,7 @@ def create_network_access_policy(module, blade):
                     policy=SmbClientPolicy(enabled=False), names=[module.params["name"]]
                 )
             if res.status_code != 200:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     blade.delete_network_access_policies(
                         names=[module.params["name"]],
                         context_names=[module.params["context"]],
@@ -1335,7 +1333,7 @@ def create_network_access_policy(module, blade):
                     blade.delete_network_access_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create network access policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
         if not module.params["client"]:
@@ -1346,7 +1344,7 @@ def create_network_access_policy(module, blade):
                 effect=module.params["effect"],
                 interfaces=module.params["interfaces"],
             )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_network_access_policies_rules(
                     policy_names=[module.params["name"]],
                     rule=rule,
@@ -1361,7 +1359,7 @@ def create_network_access_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -1372,12 +1370,10 @@ def create_worm_data_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        min_retention = convert_time_to_millisecs(module.params["min_retention"])
-        max_retention = convert_time_to_millisecs(module.params["max_retention"])
-        default_retention = convert_time_to_millisecs(
-            module.params["default_retention"]
-        )
-        if CONTEXT_API_VERSION in versions:
+        min_retention = time_to_milliseconds(module.params["min_retention"])
+        max_retention = time_to_milliseconds(module.params["max_retention"])
+        default_retention = time_to_milliseconds(module.params["default_retention"])
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_worm_data_policies(
                 policy=WormDataPolicy(
                     enabled=module.params["enabled"],
@@ -1403,7 +1399,7 @@ def create_worm_data_policy(module, blade):
                 names=[module.params["name"]],
             )
         if res.status_code != 200:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 blade.delete_worm_data_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -1412,7 +1408,7 @@ def create_worm_data_policy(module, blade):
                 blade.delete_worm_data_policies(names=[module.params["name"]])
             module.fail_json(
                 msg="Failed to create WORM data policy {0}.Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -1424,7 +1420,7 @@ def update_smb_client_policy(module, blade):
     changed = False
     versions = list(blade.get_versions().items)
     if module.params["client"]:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_policy_rule = blade.get_smb_client_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -1435,9 +1431,13 @@ def update_smb_client_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
             )
+        # If the rule lookup fails or returns nothing then no rule exists for
+        # this client yet - some Purity//FB versions return an error rather
+        # than an empty result set - so create it. Otherwise reconcile the
+        # existing rule.
         if (
-            current_policy_rule.status_code == 200
-            and current_policy_rule.total_item_count == 0
+            current_policy_rule.status_code != 200
+            or current_policy_rule.total_item_count == 0
         ):
             if SMB_ENCRYPT_API_VERSION in versions:
                 rule = SmbClientPolicyRule(
@@ -1458,7 +1458,7 @@ def update_smb_client_policy(module, blade):
                     before_name = (
                         module.params["name"] + "." + str(module.params["before_rule"])
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_smb_client_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -1472,7 +1472,7 @@ def update_smb_client_policy(module, blade):
                             before_rule_name=before_name,
                         )
                 else:
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_smb_client_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -1489,7 +1489,7 @@ def update_smb_client_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
         else:
@@ -1497,8 +1497,8 @@ def update_smb_client_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         cli_count = cli
                 if not cli_count:
                     if SMB_ENCRYPT_API_VERSION in versions:
@@ -1518,7 +1518,10 @@ def update_smb_client_policy(module, blade):
                     changed = True
                     if not module.check_mode:
                         if module.params["before_rule"]:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_smb_client_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -1540,7 +1543,10 @@ def update_smb_client_policy(module, blade):
                                     ),
                                 )
                         else:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_smb_client_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -1557,7 +1563,7 @@ def update_smb_client_policy(module, blade):
                                 "client {0} in policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             if not done:
@@ -1600,18 +1606,20 @@ def update_smb_client_policy(module, blade):
                 if current_rule != new_rule:
                     changed = True
                     if not module.check_mode:
+                        # Patch from the merged new_rule so unspecified fields keep
+                        # their current value rather than being reset.
                         if SMB_ENCRYPT_API_VERSION in versions:
                             rule = SmbClientPolicyRule(
-                                client=module.params["client"],
-                                permission=module.params["permission"],
-                                encryption=module.params["smb_encryption"],
+                                client=new_rule["client"],
+                                permission=new_rule["permission"],
+                                encryption=new_rule["encryption"],
                             )
                         else:
                             rule = SmbClientPolicyRule(
-                                client=module.params["client"],
-                                permission=module.params["permission"],
+                                client=new_rule["client"],
+                                permission=new_rule["permission"],
                             )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_smb_client_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -1636,7 +1644,7 @@ def update_smb_client_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
                 if (
@@ -1650,7 +1658,7 @@ def update_smb_client_policy(module, blade):
                             + "."
                             + str(module.params["before_rule"])
                         )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_smb_client_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -1677,10 +1685,10 @@ def update_smb_client_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_policy = list(
             blade.get_smb_client_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
@@ -1693,7 +1701,7 @@ def update_smb_client_policy(module, blade):
     if current_policy.enabled != module.params["enabled"]:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_smb_client_policies(
                     policy=SmbClientPolicy(enabled=module.params["enabled"]),
                     names=[module.params["name"]],
@@ -1707,7 +1715,7 @@ def update_smb_client_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of SMB client policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -1724,7 +1732,7 @@ def delete_nfs_policy(module, blade):
     policy_delete = True
     if module.params["client"]:
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_nfs_export_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -1743,7 +1751,7 @@ def delete_nfs_policy(module, blade):
                 if module.params["client"] == rule.client:
                     changed = True
                     if not module.check_mode:
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.delete_nfs_export_policies_rules(
                                 names=[rule.name],
                                 context_names=[module.params["context"]],
@@ -1758,23 +1766,26 @@ def delete_nfs_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         changed = True
                         if not module.check_mode:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.delete_nfs_export_policies_rules(
-                                    names=[rules[cli].name],
+                                    names=[cli.name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_nfs_export_policies_rules(
-                                    names=[rules[cli].name]
+                                    names=[cli.name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -1782,13 +1793,13 @@ def delete_nfs_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        res.errors[0].message,
+                                        get_error_message(res),
                                     )
                                 )
     if policy_delete:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.delete_nfs_export_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -1798,7 +1809,7 @@ def delete_nfs_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete export policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -1810,7 +1821,7 @@ def update_network_access_policy(module, blade):
     changed = False
     versions = list(blade.get_versions().items)
     if module.params["client"]:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_policy_rule = blade.get_network_access_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -1821,9 +1832,13 @@ def update_network_access_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
             )
+        # If the rule lookup fails or returns nothing then no rule exists for
+        # this client yet - some Purity//FB versions return an error rather
+        # than an empty result set - so create it. Otherwise reconcile the
+        # existing rule.
         if (
-            current_policy_rule.status_code == 200
-            and current_policy_rule.total_item_count == 0
+            current_policy_rule.status_code != 200
+            or current_policy_rule.total_item_count == 0
         ):
             rule = NetworkAccessPolicyRule(
                 client=module.params["client"],
@@ -1836,7 +1851,7 @@ def update_network_access_policy(module, blade):
                     before_name = (
                         module.params["name"] + "." + str(module.params["before_rule"])
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_network_access_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -1850,7 +1865,7 @@ def update_network_access_policy(module, blade):
                             before_rule_name=before_name,
                         )
                 else:
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_network_access_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -1867,7 +1882,7 @@ def update_network_access_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
         else:
@@ -1875,8 +1890,8 @@ def update_network_access_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         cli_count = cli
                 if not cli_count:
                     rule = NetworkAccessPolicyRule(
@@ -1888,7 +1903,10 @@ def update_network_access_policy(module, blade):
                     changed = True
                     if not module.check_mode:
                         if module.params["before_rule"]:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_network_access_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -1910,7 +1928,10 @@ def update_network_access_policy(module, blade):
                                     ),
                                 )
                         else:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_network_access_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -1927,7 +1948,7 @@ def update_network_access_policy(module, blade):
                                 "client {0} in policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             if not done:
@@ -1957,12 +1978,14 @@ def update_network_access_policy(module, blade):
                 if current_rule != new_rule:
                     changed = True
                     if not module.check_mode:
+                        # Patch from the merged new_rule so unspecified fields keep
+                        # their current value rather than being reset.
                         rule = NetworkAccessPolicyRule(
-                            client=module.params["client"],
-                            effect=module.params["effect"],
-                            interfaces=module.params["interfaces"],
+                            client=new_rule["client"],
+                            effect=new_rule["effect"],
+                            interfaces=new_rule["interfaces"],
                         )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_network_access_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -1987,7 +2010,7 @@ def update_network_access_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
                 if (
@@ -2001,7 +2024,7 @@ def update_network_access_policy(module, blade):
                             + "."
                             + str(module.params["before_rule"])
                         )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_network_access_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -2028,10 +2051,10 @@ def update_network_access_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_policy = list(
             blade.get_network_access_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
@@ -2044,7 +2067,7 @@ def update_network_access_policy(module, blade):
     if current_policy.enabled != module.params["enabled"]:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_network_access_policies(
                     policy=NetworkAccessPolicy(enabled=module.params["enabled"]),
                     names=[module.params["name"]],
@@ -2058,7 +2081,7 @@ def update_network_access_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of network access policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -2075,7 +2098,7 @@ def delete_network_access_policy(module, blade):
     policy_delete = True
     if module.params["client"]:
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_network_access_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -2094,7 +2117,7 @@ def delete_network_access_policy(module, blade):
                 if module.params["client"] == rule.client:
                     changed = True
                     if not module.check_mode:
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.delete_network_access_policies_rules(
                                 names=[rule.name],
                                 context_names=[module.params["context"]],
@@ -2109,23 +2132,26 @@ def delete_network_access_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         changed = True
                         if not module.check_mode:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.delete_network_access_policies_rules(
-                                    names=[rules[cli].name],
+                                    names=[cli.name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_network_access_policies_rules(
-                                    names=[rules[cli].name]
+                                    names=[cli.name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -2133,13 +2159,13 @@ def delete_network_access_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        res.errors[0].message,
+                                        get_error_message(res),
                                     )
                                 )
     if policy_delete:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.delete_network_Access_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -2151,7 +2177,7 @@ def delete_network_access_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete network access policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -2163,7 +2189,7 @@ def delete_worm_data_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.delete_worm_data_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
             )
@@ -2172,7 +2198,7 @@ def delete_worm_data_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete WORM data policy {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -2192,7 +2218,7 @@ def rename_network_access_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.patch_network_access_policies(
                 names=[module.params["name"]],
                 policy=NfsExportPolicy(name=module.params["rename"]),
@@ -2208,7 +2234,7 @@ def rename_network_access_policy(module, blade):
                 msg="Failed to rename network access policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -2220,7 +2246,7 @@ def rename_nfs_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.patch_nfs_export_policies(
                 names=[module.params["name"]],
                 policy=NfsExportPolicy(name=module.params["rename"]),
@@ -2236,7 +2262,7 @@ def rename_nfs_policy(module, blade):
                 msg="Failed to rename NFS export policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -2247,7 +2273,7 @@ def update_worm_data_policy(module, blade):
 
     changed = False
     versions = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_policy_config = list(
             blade.get_worm_data_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
@@ -2280,26 +2306,26 @@ def update_worm_data_policy(module, blade):
         new_policy["retention_lock"] = module.params["retention_lock"]
     if (
         module.params["default_retention"]
-        and convert_time_to_millisecs(module.params["default_retention"])
+        and time_to_milliseconds(module.params["default_retention"])
         != current_policy["default_retention"]
     ):
-        new_policy["default_retention"] = convert_time_to_millisecs(
+        new_policy["default_retention"] = time_to_milliseconds(
             module.params["default_retention"]
         )
     if (
         module.params["max_retention"]
-        and convert_time_to_millisecs(module.params["max_retention"])
+        and time_to_milliseconds(module.params["max_retention"])
         != current_policy["max_retention"]
     ):
-        new_policy["max_retention"] = convert_time_to_millisecs(
+        new_policy["max_retention"] = time_to_milliseconds(
             module.params["max_retention"]
         )
     if (
         module.params["min_retention"]
-        and convert_time_to_millisecs(module.params["min_retention"])
+        and time_to_milliseconds(module.params["min_retention"])
         != current_policy["min_retention"]
     ):
-        new_policy["min_retention"] = convert_time_to_millisecs(
+        new_policy["min_retention"] = time_to_milliseconds(
             module.params["min_retention"]
         )
     if new_policy != current_policy:
@@ -2312,7 +2338,7 @@ def update_worm_data_policy(module, blade):
                 max_retention=new_policy["max_retention"],
                 default_retention=new_policy["default_retention"],
             )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_worm_data_policies(
                     names=[module.params["name"]],
                     policy=worm_policy,
@@ -2326,7 +2352,7 @@ def update_worm_data_policy(module, blade):
                 module.fail_json(
                     msg="Failed to update WORM data policy {0}. Error: {1}".format(
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -2338,7 +2364,7 @@ def update_nfs_policy(module, blade):
     changed = False
     versions = list(blade.get_versions().items)
     if module.params["client"]:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_policy_rule = blade.get_nfs_export_policies_rules(
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
@@ -2349,9 +2375,13 @@ def update_nfs_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
             )
+        # If the rule lookup fails or returns nothing then no rule exists for
+        # this client yet - some Purity//FB versions return an error rather
+        # than an empty result set - so create it. Otherwise reconcile the
+        # existing rule.
         if (
-            current_policy_rule.status_code == 200
-            and current_policy_rule.total_item_count == 0
+            current_policy_rule.status_code != 200
+            or current_policy_rule.total_item_count == 0
         ):
             rule = NfsExportPolicyRule(
                 client=module.params["client"],
@@ -2370,7 +2400,7 @@ def update_nfs_policy(module, blade):
                     before_name = (
                         module.params["name"] + "." + str(module.params["before_rule"])
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_nfs_export_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -2384,7 +2414,7 @@ def update_nfs_policy(module, blade):
                             before_rule_name=before_name,
                         )
                 else:
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.post_nfs_export_policies_rules(
                             policy_names=[module.params["name"]],
                             rule=rule,
@@ -2401,7 +2431,7 @@ def update_nfs_policy(module, blade):
                         "in export policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
         else:
@@ -2409,8 +2439,8 @@ def update_nfs_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in range(len(rules)):
-                    if rules[cli].client == "*":
+                for cli in rules:
+                    if cli.client == "*":
                         cli_count = cli
                 if not cli_count:
                     rule = NfsExportPolicyRule(
@@ -2428,7 +2458,10 @@ def update_nfs_policy(module, blade):
                     changed = True
                     if not module.check_mode:
                         if module.params["before_rule"]:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_nfs_export_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -2450,7 +2483,10 @@ def update_nfs_policy(module, blade):
                                     ),
                                 )
                         else:
-                            if CONTEXT_API_VERSION in versions:
+                            if (
+                                CONTEXT_API_VERSION in versions
+                                and module.params["context"]
+                            ):
                                 res = blade.post_nfs_export_policies_rules(
                                     policy_names=[module.params["name"]],
                                     rule=rule,
@@ -2467,12 +2503,13 @@ def update_nfs_policy(module, blade):
                                 "client {0} in export policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
             if not done:
                 old_policy_rule = rules[0]
                 current_rule = {
+                    "access": getattr(old_policy_rule, "access", None),
                     "anongid": getattr(old_policy_rule, "anongid", None),
                     "anonuid": getattr(old_policy_rule, "anonuid", None),
                     "atime": old_policy_rule.atime,
@@ -2514,7 +2551,12 @@ def update_nfs_policy(module, blade):
                     new_fileid_32bit = module.params["fileid_32bit"]
                 else:
                     new_fileid_32bit = current_rule["fileid_32bit"]
+                if module.params["access"]:
+                    new_access = module.params["access"]
+                else:
+                    new_access = current_rule["access"]
                 new_rule = {
+                    "access": new_access,
                     "anongid": new_anongid,
                     "anonuid": new_anonuid,
                     "atime": new_atime,
@@ -2527,18 +2569,21 @@ def update_nfs_policy(module, blade):
                 if current_rule != new_rule:
                     changed = True
                     if not module.check_mode:
+                        # Build the patch from the merged new_rule values, not the
+                        # raw module params, so fields the task did not specify keep
+                        # their current value instead of being reset to null.
                         rule = NfsExportPolicyRule(
-                            client=module.params["client"],
-                            permission=module.params["permission"],
-                            access=module.params["access"],
-                            anonuid=module.params["anonuid"],
-                            anongid=module.params["anongid"],
-                            fileid_32bit=module.params["fileid_32bit"],
-                            atime=module.params["atime"],
-                            secure=module.params["secure"],
-                            security=module.params["security"],
+                            client=new_rule["client"],
+                            permission=new_rule["permission"],
+                            access=new_rule["access"],
+                            anonuid=new_rule["anonuid"],
+                            anongid=new_rule["anongid"],
+                            fileid_32bit=new_rule["fileid_32bit"],
+                            atime=new_rule["atime"],
+                            secure=new_rule["secure"],
+                            security=new_rule["security"],
                         )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_nfs_export_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -2563,7 +2608,7 @@ def update_nfs_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
                 if (
@@ -2577,7 +2622,7 @@ def update_nfs_policy(module, blade):
                             + "."
                             + str(module.params["before_rule"])
                         )
-                        if CONTEXT_API_VERSION in versions:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.patch_nfs_export_policies_rules(
                                 names=[
                                     module.params["name"]
@@ -2604,10 +2649,10 @@ def update_nfs_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_policy = list(
             blade.get_nfs_export_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
@@ -2620,7 +2665,7 @@ def update_nfs_policy(module, blade):
     if current_policy.enabled != module.params["enabled"]:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_nfs_export_policies(
                     policy=NfsExportPolicy(enabled=module.params["enabled"]),
                     names=[module.params["name"]],
@@ -2634,7 +2679,7 @@ def update_nfs_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of nfs export policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -2645,7 +2690,7 @@ def create_nfs_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_nfs_export_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
             )
@@ -2654,11 +2699,11 @@ def create_nfs_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create nfs export policy {0}.Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         if not module.params["enabled"]:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_nfs_export_policies(
                     policy=NfsExportPolicy(enabled=False),
                     names=[module.params["name"]],
@@ -2669,7 +2714,7 @@ def create_nfs_policy(module, blade):
                     policy=NfsExportPolicy(enabled=False), names=[module.params["name"]]
                 )
             if res.status_code != 200:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     blade.delete_nfs_export_policies(
                         names=[module.params["name"]],
                         context_names=[module.params["context"]],
@@ -2678,7 +2723,7 @@ def create_nfs_policy(module, blade):
                     blade.delete_nfs_export_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create nfs export policy {0}.Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
         if module.params["client"]:
@@ -2693,7 +2738,7 @@ def create_nfs_policy(module, blade):
                 secure=module.params["secure"],
                 security=module.params["security"],
             )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_nfs_export_policies_rules(
                     policy_names=[module.params["name"]],
                     rule=rule,
@@ -2708,7 +2753,7 @@ def create_nfs_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -2730,7 +2775,7 @@ def delete_os_policy(module, blade):
     policy_delete = True
     if module.params["rule"]:
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_object_store_access_policies_rules(
                 policy_names=[policy_name],
                 names=[module.params["rule"]],
@@ -2743,7 +2788,7 @@ def delete_os_policy(module, blade):
         if res.status_code == 200 and res.total_item_count != 0:
             changed = True
             if not module.check_mode:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.delete_object_store_access_policies_rules(
                         policy_names=[policy_name],
                         names=[module.params["rule"]],
@@ -2756,14 +2801,14 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete users from policy {0}. Error: {1} - {2}".format(
-                            policy_name, res.errors[0].context, res.errors[0].message
+                            policy_name, res.errors[0].context, get_error_message(res)
                         )
                     )
 
     if module.params["user"]:
         member_name = module.params["account"] + "/" + module.params["user"]
         policy_delete = False
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_object_store_access_policies_object_store_users(
                 policy_names=[policy_name],
                 member_names=[member_name],
@@ -2777,7 +2822,7 @@ def delete_os_policy(module, blade):
             changed = True
             if not module.check_mode:
                 member_name = module.params["account"] + "/" + module.params["user"]
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.delete_object_store_access_policies_object_store_users(
                         policy_names=[policy_name],
                         member_names=[member_name],
@@ -2790,14 +2835,14 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete users from policy {0}. Error: {1} - {2}".format(
-                            policy_name, res.errors[0].context, res.errors[0].message
+                            policy_name, res.errors[0].context, get_error_message(res)
                         )
                     )
 
     if policy_delete:
         if module.params["account"].lower() == "pure:policy":
             module.fail_json(msg="System-Wide policies cannot be deleted.")
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             policy_users = list(
                 blade.get_object_store_access_policies_object_store_users(
                     policy_names=[policy_name], context_names=[module.params["context"]]
@@ -2812,7 +2857,7 @@ def delete_os_policy(module, blade):
         if len(policy_users) == 0:
             changed = True
             if not module.check_mode:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.delete_object_store_access_policies(
                         names=[policy_name], context_names=[module.params["context"]]
                     )
@@ -2821,35 +2866,35 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete policy {0}. Error: {1}".format(
-                            policy_name, res.errors[0].message
+                            policy_name, get_error_message(res)
                         )
                     )
         else:
             if module.params["force_delete"]:
                 changed = True
                 if not module.check_mode:
-                    for user in range(len(policy_users)):
-                        if CONTEXT_API_VERSION in versions:
+                    for user in policy_users:
+                        if CONTEXT_API_VERSION in versions and module.params["context"]:
                             res = blade.delete_object_store_access_policies_object_store_users(
-                                member_names=[policy_users[user].member.name],
+                                member_names=[user.member.name],
                                 policy_names=[policy_name],
                                 context_names=[module.params["context"]],
                             )
                         else:
                             res = blade.delete_object_store_access_policies_object_store_users(
-                                member_names=[policy_users[user].member.name],
+                                member_names=[user.member.name],
                                 policy_names=[policy_name],
                             )
                         if res.status_code != 200:
                             module.fail_json(
                                 msg="Failed to delete user {0} from policy {1}, "
                                 "Error: {2}".format(
-                                    policy_users[user].member,
+                                    user.member,
                                     policy_name,
-                                    res.errors[0].message,
+                                    get_error_message(res),
                                 )
                             )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.delete_object_store_access_policies(
                             names=[policy_name],
                             context_names=[module.params["context"]],
@@ -2861,7 +2906,7 @@ def delete_os_policy(module, blade):
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Failed to delete policy {0}. Error: {1}".format(
-                                policy_name, res.errors[0].message
+                                policy_name, get_error_message(res)
                             )
                         )
             else:
@@ -2879,7 +2924,7 @@ def create_os_policy(module, blade):
     policy_name = module.params["account"] + "/" + module.params["name"]
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_object_store_access_policies(
                 names=[policy_name],
                 policy=ObjectStoreAccessPolicyPost(description=module.params["desc"]),
@@ -2918,7 +2963,7 @@ def create_os_policy(module, blade):
                     resources=module.params["object_resources"],
                     conditions=conditions,
                 )
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_object_store_access_policies_rules(
                     policy_names=policy_name,
                     names=[module.params["rule"]],
@@ -2936,12 +2981,12 @@ def create_os_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create rule {0} to policy {1}. Error: {2}".format(
-                        module.params["rule"], policy_name, res.errors[0].message
+                        module.params["rule"], policy_name, get_error_message(res)
                     )
                 )
         if module.params["user"]:
             member_name = module.params["account"] + "/" + module.params["user"]
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.post_object_store_access_policies_object_store_users(
                     member_names=[member_name],
                     policy_names=[policy_name],
@@ -2954,7 +2999,7 @@ def create_os_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add users to policy {0}. Error: {1} - {2}".format(
-                        policy_name, res.errors[0].context, res.errors[0].message
+                        policy_name, res.errors[0].context, get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -2966,7 +3011,7 @@ def update_os_policy(module, blade):
     versions = list(blade.get_versions().items)
     policy_name = module.params["account"] + "/" + module.params["name"]
     if module.params["rule"]:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_policy_rule = blade.get_object_store_access_policies_rules(
                 policy_names=[policy_name],
                 names=[module.params["rule"]],
@@ -2989,7 +3034,7 @@ def update_os_policy(module, blade):
                     resources=module.params["object_resources"],
                     conditions=conditions,
                 )
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_object_store_access_policies_rules(
                         policy_names=policy_name,
                         names=[module.params["rule"]],
@@ -3007,7 +3052,7 @@ def update_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to create rule {0} in policy {1}. Error: {2}".format(
-                            module.params["rule"], policy_name, res.errors[0].message
+                            module.params["rule"], policy_name, get_error_message(res)
                         )
                     )
         else:
@@ -3044,7 +3089,7 @@ def update_os_policy(module, blade):
             if module.params["source_ips"]:
                 new_ips = sorted(module.params["source_ips"])
             elif current_rule["ips"]:
-                new_ips = sorted(current_rule["source_ips"])
+                new_ips = sorted(current_rule["ips"])
             else:
                 new_ips = None
             new_rule = {
@@ -3067,7 +3112,7 @@ def update_os_policy(module, blade):
                         resources=new_rule["resources"],
                         conditions=conditions,
                     )
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.patch_object_store_access_policies_rules(
                             policy_names=[policy_name],
                             names=[module.params["rule"]],
@@ -3091,12 +3136,12 @@ def update_os_policy(module, blade):
                             msg="Failed to update rule {0} in policy {1}. Error: {2}".format(
                                 module.params["rule"],
                                 policy_name,
-                                res.errors[0].message,
+                                get_error_message(res),
                             )
                         )
     if module.params["user"]:
         member_name = module.params["account"] + "/" + module.params["user"]
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.get_object_store_access_policies_object_store_users(
                 policy_names=[policy_name],
                 member_names=[member_name],
@@ -3111,7 +3156,7 @@ def update_os_policy(module, blade):
         ):
             changed = True
             if not module.check_mode:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_object_store_access_policies_object_store_users(
                         member_names=[member_name],
                         policy_names=[policy_name],
@@ -3124,7 +3169,7 @@ def update_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to add user {0} to policy {1}. Error: {2}".format(
-                            member_name, policy_name, res.errors[0].message
+                            member_name, policy_name, get_error_message(res)
                         )
                     )
     module.exit_json(changed=changed)
@@ -3137,7 +3182,7 @@ def copy_os_policy_rule(module, blade):
     policy_name = module.params["account"] + "/" + module.params["name"]
     if not module.params["target_rule"]:
         module.params["target_rule"] = module.params["rule"]
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         res = blade.get_object_store_access_policies_rules(
             policy_names=[module.params["target"]],
             names=[module.params["target_rule"]],
@@ -3153,7 +3198,7 @@ def copy_os_policy_rule(module, blade):
                 module.params["target_rule"], policy_name
             )
         )
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_rule = list(
             blade.get_object_store_access_policies_rules(
                 policy_names=[policy_name],
@@ -3178,7 +3223,7 @@ def copy_os_policy_rule(module, blade):
             resources=current_rule.resources,
             conditions=conditions,
         )
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_object_store_access_policies_rules(
                 policy_names=module.params["target"],
                 names=[module.params["target_rule"]],
@@ -3200,7 +3245,7 @@ def copy_os_policy_rule(module, blade):
                     module.params["rule"],
                     policy_name,
                     module.params["target"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_json(changed=changed)
@@ -3225,7 +3270,7 @@ def delete_snap_policy(module, blade):
     ):
         rule_delete = True
     if rule_delete:
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             current_rules = list(
                 blade.get_policies(
                     names=[module.params["name"]],
@@ -3236,27 +3281,27 @@ def delete_snap_policy(module, blade):
             current_rules = list(
                 blade.get_policies(names=[module.params["name"]]).items
             )[0].rules
-        for rule in range(len(current_rules)):
+        for rule in current_rules:
             current_rule = {
-                "at": current_rules[rule].at,
-                "every": current_rules[rule].every,
-                "keep_for": current_rules[rule].keep_for,
-                "time_zone": current_rules[rule].time_zone,
+                "at": rule.at,
+                "every": rule.every,
+                "keep_for": rule.keep_for,
+                "time_zone": rule.time_zone,
             }
             if not module.params["at"]:
-                delete_at = current_rules[rule].at
+                delete_at = rule.at
             else:
-                delete_at = _convert_to_millisecs(module.params["at"])
+                delete_at = time_to_milliseconds(module.params["at"])
             if module.params["keep_for"]:
                 delete_keep_for = module.params["keep_for"]
             else:
-                delete_keep_for = int(current_rules[rule].keep_for / 1000)
+                delete_keep_for = int(rule.keep_for / 1000)
             if module.params["every"]:
                 delete_every = module.params["every"]
             else:
-                delete_every = int(current_rules[rule].every / 1000)
+                delete_every = int(rule.every / 1000)
             if not module.params["timezone"]:
-                delete_tz = current_rules[rule].time_zone
+                delete_tz = rule.time_zone
             else:
                 delete_tz = module.params["timezone"]
             delete_rule = {
@@ -3267,9 +3312,9 @@ def delete_snap_policy(module, blade):
             }
             if current_rule == delete_rule:
                 changed = True
-                attr = PolicyPatch(remove_rules=[delete_rule])
+                attr = SnapshotPolicyPatch(remove_rules=[delete_rule])
                 if not module.check_mode:
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.patch_policies(
                             destroy_snapshots=module.params["destroy_snapshots"],
                             names=[module.params["name"]],
@@ -3285,13 +3330,13 @@ def delete_snap_policy(module, blade):
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Failed to delete policy rule {0}. Error: {1}".format(
-                                module.params["name"], res.errors[0].message
+                                module.params["name"], get_error_message(res)
                             )
                         )
     else:
         changed = True
         if not module.check_mode:
-            if CONTEXT_API_VERSION in versions:
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.delete_policies(
                     names=[module.params["name"]],
                     context_names=[module.params["context"]],
@@ -3301,7 +3346,7 @@ def delete_snap_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -3368,7 +3413,7 @@ def create_snap_policy(module, blade):
                         PolicyRule(
                             keep_for=module.params["keep_for"] * 1000,
                             every=module.params["every"] * 1000,
-                            at=_convert_to_millisecs(module.params["at"]),
+                            at=time_to_milliseconds(module.params["at"]),
                             time_zone=module.params["timezone"],
                         )
                     ],
@@ -3385,7 +3430,7 @@ def create_snap_policy(module, blade):
                 )
         else:
             attr = Policy(enabled=module.params["enabled"])
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             res = blade.post_policies(
                 names=[module.params["name"]],
                 policy=attr,
@@ -3396,12 +3441,12 @@ def create_snap_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create snapshot policy {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         if module.params["filesystem"]:
             for filesystem in module.params["filesystem"]:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.get_file_systems(
                         names=[filesystem],
                         destroyed=False,
@@ -3414,7 +3459,7 @@ def create_snap_policy(module, blade):
                         msg="Filesystems to assign to {0} does not "
                         "exist, or is deleted.".format(module.params["name"])
                     )
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_policies_file_systems(
                         policy_names=[module.params["name"]],
                         member_names=[filesystem],
@@ -3429,13 +3474,13 @@ def create_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add filesystem {0} to "
                         "policy {1}. Error: {2}.".format(
-                            filesystem, module.params["name"], res.errors[0].message
+                            filesystem, module.params["name"], get_error_message(res)
                         )
                     )
         if module.params["replica_link"]:
             repl_link = []
             for link in module.params["replica_link"]:
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.get_file_system_replica_links(
                         local_file_system_names=[link],
                         context_names=[module.params["context"]],
@@ -3450,7 +3495,7 @@ def create_snap_policy(module, blade):
                     )
                 else:
                     repl_link = list(res.items)[0]
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_policies_file_system_replica_links(
                         policy_names=[module.params["name"]],
                         local_file_system_names=[link],
@@ -3467,7 +3512,7 @@ def create_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to connect filesystem replicsa link {0} to policy {1}. "
                         "Error: {2}".format(
-                            link, module.params["name"], res.errors[0].message
+                            link, module.params["name"], get_error_message(res)
                         )
                     )
     module.exit_json(changed=changed)
@@ -3500,7 +3545,7 @@ def update_snap_policy(module, blade):
         module.fail_json(msg="`timezone` requires `at` to be provided.")
     if module.params["at"] and not module.params["every"]:
         module.fail_json(msg="`at` requires `every` to be provided.")
-    if CONTEXT_API_VERSION in versions:
+    if CONTEXT_API_VERSION in versions and module.params["context"]:
         current_rules = list(
             blade.get_policies(
                 names=[module.params["name"]], context_names=[module.params["context"]]
@@ -3511,29 +3556,41 @@ def update_snap_policy(module, blade):
             0
         ].rules
     create_new = False
-    for rule in range(len(current_rules)):
+    # Snapshot policies carry a single schedule rule. Fall back to the existing
+    # rule's value for any field the task did not specify, so a partial update
+    # (e.g. changing only keep_for) does not reset the other fields to zero.
+    existing_rule = current_rules[0] if current_rules else None
+    if module.params["at"]:
+        new_at = time_to_milliseconds(module.params["at"])
+    elif existing_rule is not None:
+        new_at = existing_rule.at
+    else:
+        new_at = None
+    if module.params["keep_for"]:
+        new_keep_for = module.params["keep_for"]
+    elif existing_rule is not None:
+        new_keep_for = int(existing_rule.keep_for / 1000)
+    else:
+        new_keep_for = 0
+    if module.params["every"]:
+        new_every = module.params["every"]
+    elif existing_rule is not None:
+        new_every = int(existing_rule.every / 1000)
+    else:
+        new_every = 0
+    if module.params["timezone"]:
+        new_tz = module.params["timezone"]
+    elif existing_rule is not None:
+        new_tz = existing_rule.time_zone
+    else:
+        new_tz = None
+    for rule in current_rules:
         current_rule = {
-            "at": current_rules[rule].at,
-            "every": current_rules[rule].every,
-            "keep_for": current_rules[rule].keep_for,
-            "time_zone": current_rules[rule].time_zone,
+            "at": rule.at,
+            "every": rule.every,
+            "keep_for": rule.keep_for,
+            "time_zone": rule.time_zone,
         }
-        if not module.params["at"]:
-            new_at = current_rules[rule].at
-        else:
-            new_at = _convert_to_millisecs(module.params["at"])
-        if module.params["keep_for"]:
-            new_keep_for = module.params["keep_for"]
-        else:
-            new_keep_for = int(current_rules[rule].keep_for / 1000)
-        if module.params["every"]:
-            new_every = module.params["every"]
-        else:
-            new_every = int(current_rules[rule].every / 1000)
-        if not module.params["timezone"]:
-            new_tz = current_rules[rule].time_zone
-        else:
-            new_tz = module.params["timezone"]
         new_rule = {
             "at": new_at,
             "every": new_every * 1000,
@@ -3546,70 +3603,55 @@ def update_snap_policy(module, blade):
     if create_new:
         changed = True
         if not module.check_mode:
-            if module.params["at"] and module.params["every"]:
-                if not module.params["every"] % 86400 == 0:
-                    module.fail_json(
-                        msg="At time can only be set if every value is a multiple of 86400"
-                    )
-                if not module.params["timezone"]:
-                    module.params["timezone"] = _get_local_tz(module)
-                    if module.params["timezone"] not in pytz.all_timezones_set:
-                        module.fail_json(
-                            msg="Timezone {0} is not valid".format(
-                                module.params["timezone"]
-                            )
-                        )
-            if not module.params["keep_for"]:
-                module.params["keep_for"] = 0
-            if not module.params["every"]:
-                module.params["every"] = 0
-            if module.params["keep_for"] < module.params["every"]:
+            # Build the new rule from the merged values above rather than the
+            # raw task parameters, so fields not set in the task keep their
+            # current value instead of being reset to zero.
+            if new_at is not None and new_every and new_every % 86400 != 0:
+                module.fail_json(
+                    msg="At time can only be set if every value is a multiple of 86400"
+                )
+            if new_at is not None and not new_tz:
+                new_tz = _get_local_tz(module)
+                if new_tz not in pytz.all_timezones_set:
+                    module.fail_json(msg="Timezone {0} is not valid".format(new_tz))
+            if new_keep_for < new_every:
                 module.fail_json(
                     msg="Retention period cannot be less than snapshot interval."
                 )
-            if module.params["at"] and not module.params["timezone"]:
-                module.params["timezone"] = _get_local_tz(module)
-                if module.params["timezone"] not in set(pytz.all_timezones_set):
-                    module.fail_json(
-                        msg="Timezone {0} is not valid".format(
-                            module.params["timezone"]
-                        )
-                    )
-
-            if module.params["keep_for"]:
-                if not 300 <= module.params["keep_for"] <= 34560000:
+            if new_keep_for:
+                if not 300 <= new_keep_for <= 34560000:
                     module.fail_json(
                         msg="keep_for parameter is out of range (300 to 34560000)"
                     )
-                if not 300 <= module.params["every"] <= 34560000:
+                if not 300 <= new_every <= 34560000:
                     module.fail_json(
                         msg="every parameter is out of range (300 to 34560000)"
                     )
-                if module.params["at"]:
-                    attr = PolicyPatch(
+                if new_at is not None:
+                    attr = SnapshotPolicyPatch(
                         enabled=module.params["enabled"],
                         add_rules=[
                             PolicyRule(
-                                keep_for=module.params["keep_for"] * 1000,
-                                every=module.params["every"] * 1000,
-                                at=_convert_to_millisecs(module.params["at"]),
-                                time_zone=module.params["timezone"],
+                                keep_for=new_keep_for * 1000,
+                                every=new_every * 1000,
+                                at=new_at,
+                                time_zone=new_tz,
                             )
                         ],
                     )
                 else:
-                    attr = PolicyPatch(
+                    attr = SnapshotPolicyPatch(
                         enabled=module.params["enabled"],
                         add_rules=[
                             PolicyRule(
-                                keep_for=module.params["keep_for"] * 1000,
-                                every=module.params["every"] * 1000,
+                                keep_for=new_keep_for * 1000,
+                                every=new_every * 1000,
                             )
                         ],
                     )
             else:
-                attr = PolicyPatch(enabled=module.params["enabled"])
-            if CONTEXT_API_VERSION in versions:
+                attr = SnapshotPolicyPatch(enabled=module.params["enabled"])
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
                 res = blade.patch_policies(
                     names=[module.params["name"]],
                     policy=attr,
@@ -3623,13 +3665,13 @@ def update_snap_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update snapshot policy {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
 
     if module.params["filesystem"]:
         current_filesystems = []
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             policy_fs_details = list(
                 blade.get_policies_file_systems(
                     policy_names=[module.params["name"]],
@@ -3642,8 +3684,8 @@ def update_snap_policy(module, blade):
                     policy_names=[module.params["name"]]
                 ).items
             )
-        for member in range(len(policy_fs_details)):
-            current_filesystems.append(policy_fs_details[member].member.name)
+        for member in policy_fs_details:
+            current_filesystems.append(member.member.name)
         if module.params["state"] == "present":
             difference_set = [
                 item
@@ -3652,7 +3694,7 @@ def update_snap_policy(module, blade):
             ]
             for new_fs in difference_set:
                 changed = True
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.get_file_systems(
                         names=[new_fs],
                         destroyed=False,
@@ -3665,7 +3707,7 @@ def update_snap_policy(module, blade):
                         msg="Filesystem {0} to assign to {1} does not "
                         "exist, or is deleted.".format(new_fs, module.params["name"])
                     )
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_policies_file_systems(
                         policy_names=[module.params["name"]],
                         member_names=[new_fs],
@@ -3680,14 +3722,14 @@ def update_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add filesystem {0} to "
                         "policy {1}. Error: {2}.".format(
-                            new_fs, module.params["name"], res.errors[0].message
+                            new_fs, module.params["name"], get_error_message(res)
                         )
                     )
         else:
             for old_fs in module.params["filesystem"]:
                 if old_fs in current_filesystems:
                     changed = True
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.delete_policies_file_systems(
                             policy_names=[module.params["name"]],
                             member_names=[old_fs],
@@ -3702,12 +3744,12 @@ def update_snap_policy(module, blade):
                         module.fail_json(
                             msg="Failed to remove filesystem {0} from "
                             "policy {1}. Error: {2}.".format(
-                                old_fs, module.params["name"], res.errors[0].message
+                                old_fs, module.params["name"], get_error_message(res)
                             )
                         )
     if module.params["replica_link"]:
         current_rls = []
-        if CONTEXT_API_VERSION in versions:
+        if CONTEXT_API_VERSION in versions and module.params["context"]:
             policy_rl_details = list(
                 blade.get_policies_file_system_replica_links(
                     policy_names=[module.params["name"]],
@@ -3720,8 +3762,8 @@ def update_snap_policy(module, blade):
                     policy_names=[module.params["name"]]
                 ).items
             )
-        for member in range(len(policy_rl_details)):
-            current_rls.append(policy_rl_details[member].member.name)
+        for member in policy_rl_details:
+            current_rls.append(member.member.name)
         if module.params["state"] == "present":
             difference_set = [
                 item
@@ -3730,7 +3772,7 @@ def update_snap_policy(module, blade):
             ]
             for new_rl in difference_set:
                 changed = True
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.get_file_systems_replica_links(
                         names=[new_rl], context_names=[module.params["context"]]
                     )
@@ -3741,7 +3783,7 @@ def update_snap_policy(module, blade):
                         msg="Replica link {0} to assign to {1} does not "
                         "exist, or is deleted.".format(new_rl, module.params["name"])
                     )
-                if CONTEXT_API_VERSION in versions:
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
                     res = blade.post_policies_file_system_replica_links(
                         policy_names=[module.params["name"]],
                         member_names=[new_rl],
@@ -3756,14 +3798,14 @@ def update_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add replica link {0} to "
                         "policy {1}. Error: {2}.".format(
-                            new_rl, module.params["name"], res.errors[0].message
+                            new_rl, module.params["name"], get_error_message(res)
                         )
                     )
         else:
             for old_rl in module.params["replica_link"]:
                 if old_rl in current_rls:
                     changed = True
-                    if CONTEXT_API_VERSION in versions:
+                    if CONTEXT_API_VERSION in versions and module.params["context"]:
                         res = blade.delete_policies_file_system_replica_links(
                             policy_names=[module.params["name"]],
                             member_names=[old_rl],
@@ -3778,7 +3820,7 @@ def update_snap_policy(module, blade):
                         module.fail_json(
                             msg="Failed to remove replica link {0} from "
                             "policy {1}. Error: {2}.".format(
-                                old_rl, module.params["name"], res.errors[0].message
+                                old_rl, module.params["name"], get_error_message(res)
                             )
                         )
 
@@ -3935,27 +3977,46 @@ def main():
     state = module.params["state"]
     blade = get_system(module)
     versions = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in versions and not module.params["context"]:
+        # Only default the context to the local array name when this array is a
+        # member of a fleet. A standalone array is "not in a fleet" and rejects
+        # fleet context, so leave context unset - no context_names is then sent.
+        fleet_res = blade.get_fleets()
+        if fleet_res.status_code == 200 and list(fleet_res.items):
+            module.params["context"] = list(blade.get_arrays().items)[0].name
     if module.params["policy_type"] == "access":
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_object_store_access_policies(
-                    names=[module.params["account"] + "/" + module.params["name"]]
-                ).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_object_store_access_policies(
+                        names=[module.params["account"] + "/" + module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_object_store_access_policies(
+                        names=[module.params["account"] + "/" + module.params["name"]]
+                    ).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["user"]:
             member_name = module.params["account"] + "/" + module.params["user"]
-            res = blade.get_object_store_users(names=[member_name])
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                res = blade.get_object_store_users(
+                    names=[member_name], context_names=[module.params["context"]]
+                )
+            else:
+                res = blade.get_object_store_users(names=[member_name])
             if res.status_code != 200:
                 module.fail_json(
                     msg="User {0} does not exist in account {1}. Error: {2}".format(
                         module.params["user"],
                         module.params["account"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
         if policy and state == "present":
@@ -3969,12 +4030,16 @@ def main():
                 module.fail_json(
                     msg='Incorrect format for target policy. Must be "<account>/<name>"'
                 )
-            if (
-                blade.get_object_store_access_policies(
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                res = blade.get_object_store_access_policies(
+                    names=[module.params["target"]],
+                    context_names=[module.params["context"]],
+                )
+            else:
+                res = blade.get_object_store_access_policies(
                     names=[module.params["target"]]
-                ).status_code
-                != 200
-            ):
+                )
+            if res.status_code != 200:
                 module.fail_json(
                     msg="Target policy {0} does not exist".format(
                         module.params["target"]
@@ -3993,28 +4058,58 @@ def main():
             )
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_nfs_export_policies(names=[module.params["name"]]).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_nfs_export_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_nfs_export_policies(names=[module.params["name"]]).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["rename"]:
             try:
-                new_policy = list(
-                    blade.get_nfs_export_policies(names=[module.params["rename"]]).items
-                )[0]
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    new_policy = list(
+                        blade.get_nfs_export_policies(
+                            names=[module.params["rename"]],
+                            context_names=[module.params["context"]],
+                        ).items
+                    )[0]
+                else:
+                    new_policy = list(
+                        blade.get_nfs_export_policies(
+                            names=[module.params["rename"]]
+                        ).items
+                    )[0]
             except AttributeError:
                 new_policy = None
         if policy and state == "present" and not module.params["rename"]:
             if module.params["before_rule"]:
-                res = blade.get_nfs_export_policies_rules(
-                    policy_names=[module.params["name"]],
-                    names=[
-                        module.params["name"] + "." + str(module.params["before_rule"])
-                    ],
-                )
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    res = blade.get_nfs_export_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.get_nfs_export_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                    )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Rule index {0} does not exist.".format(
@@ -4041,28 +4136,58 @@ def main():
             )
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_smb_client_policies(names=[module.params["name"]]).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_smb_client_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_smb_client_policies(names=[module.params["name"]]).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["rename"]:
             try:
-                new_policy = list(
-                    blade.get_smb_client_policies(names=[module.params["rename"]]).items
-                )[0]
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    new_policy = list(
+                        blade.get_smb_client_policies(
+                            names=[module.params["rename"]],
+                            context_names=[module.params["context"]],
+                        ).items
+                    )[0]
+                else:
+                    new_policy = list(
+                        blade.get_smb_client_policies(
+                            names=[module.params["rename"]]
+                        ).items
+                    )[0]
             except AttributeError:
                 new_policy = None
         if policy and state == "present" and not module.params["rename"]:
             if module.params["before_rule"]:
-                res = blade.get_smb_client_policies_rules(
-                    policy_names=[module.params["name"]],
-                    names=[
-                        module.params["name"] + "." + str(module.params["before_rule"])
-                    ],
-                )
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    res = blade.get_smb_client_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.get_smb_client_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                    )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Rule index {0} does not exist.".format(
@@ -4089,28 +4214,58 @@ def main():
             )
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_smb_share_policies(names=[module.params["name"]]).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_smb_share_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_smb_share_policies(names=[module.params["name"]]).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["rename"]:
             try:
-                new_policy = list(
-                    blade.get_smb_share_policies(names=[module.params["rename"]]).items
-                )[0]
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    new_policy = list(
+                        blade.get_smb_share_policies(
+                            names=[module.params["rename"]],
+                            context_names=[module.params["context"]],
+                        ).items
+                    )[0]
+                else:
+                    new_policy = list(
+                        blade.get_smb_share_policies(
+                            names=[module.params["rename"]]
+                        ).items
+                    )[0]
             except AttributeError:
                 new_policy = None
         if policy and state == "present" and not module.params["rename"]:
             if module.params["before_rule"]:
-                res = blade.get_smb_share_policies_rules(
-                    policy_names=[module.params["name"]],
-                    names=[
-                        module.params["name"] + "." + str(module.params["before_rule"])
-                    ],
-                )
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    res = blade.get_smb_share_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.get_smb_share_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                    )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Rule index {0} does not exist.".format(
@@ -4137,30 +4292,60 @@ def main():
             )
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_network_access_policies(names=[module.params["name"]]).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_network_access_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_network_access_policies(
+                        names=[module.params["name"]]
+                    ).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["rename"]:
             try:
-                new_policy = list(
-                    blade.get_network_access_policies(
-                        names=[module.params["rename"]]
-                    ).items
-                )[0]
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    new_policy = list(
+                        blade.get_network_access_policies(
+                            names=[module.params["rename"]],
+                            context_names=[module.params["context"]],
+                        ).items
+                    )[0]
+                else:
+                    new_policy = list(
+                        blade.get_network_access_policies(
+                            names=[module.params["rename"]]
+                        ).items
+                    )[0]
             except AttributeError:
                 new_policy = None
         if policy and state == "present" and not module.params["rename"]:
             if module.params["before_rule"]:
-                res = blade.get_network_access_policies_rules(
-                    policy_names=[module.params["name"]],
-                    names=[
-                        module.params["name"] + "." + str(module.params["before_rule"])
-                    ],
-                )
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    res = blade.get_network_access_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.get_network_access_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                    )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Rule index {0} does not exist.".format(
@@ -4187,28 +4372,58 @@ def main():
             )
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(
-                blade.get_worm_data_policies(names=[module.params["name"]]).items
-            )[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_worm_data_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(
+                    blade.get_worm_data_policies(names=[module.params["name"]]).items
+                )[0]
         except AttributeError:
             policy = None
         if module.params["rename"]:
             try:
-                new_policy = list(
-                    blade.get_worm_data_policies(names=[module.params["rename"]]).items
-                )[0]
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    new_policy = list(
+                        blade.get_worm_data_policies(
+                            names=[module.params["rename"]],
+                            context_names=[module.params["context"]],
+                        ).items
+                    )[0]
+                else:
+                    new_policy = list(
+                        blade.get_worm_data_policies(
+                            names=[module.params["rename"]]
+                        ).items
+                    )[0]
             except AttributeError:
                 new_policy = None
         if policy and state == "present" and not module.params["rename"]:
             if module.params["before_rule"]:
-                res = blade.get_worm_data_policies_rules(
-                    policy_names=[module.params["name"]],
-                    names=[
-                        module.params["name"] + "." + str(module.params["before_rule"])
-                    ],
-                )
+                if CONTEXT_API_VERSION in versions and module.params["context"]:
+                    res = blade.get_worm_data_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.get_worm_data_policies_rules(
+                        policy_names=[module.params["name"]],
+                        names=[
+                            module.params["name"]
+                            + "."
+                            + str(module.params["before_rule"])
+                        ],
+                    )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Rule index {0} does not exist.".format(
@@ -4227,9 +4442,18 @@ def main():
     else:
         if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for this module")
-        blade = get_system(module)
         try:
-            policy = list(blade.get_policies(names=[module.params["name"]]).items)[0]
+            if CONTEXT_API_VERSION in versions and module.params["context"]:
+                policy = list(
+                    blade.get_policies(
+                        names=[module.params["name"]],
+                        context_names=[module.params["context"]],
+                    ).items
+                )[0]
+            else:
+                policy = list(blade.get_policies(names=[module.params["name"]]).items)[
+                    0
+                ]
         except AttributeError:
             policy = None
         if not policy and state == "present":

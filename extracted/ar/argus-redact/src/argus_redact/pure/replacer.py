@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import warnings
+from collections.abc import Mapping
 from typing import Callable
 
 from argus_redact._core_loader import _core
@@ -14,7 +15,7 @@ from argus_redact.pure._strategy_kind import (
     VALID_STRATEGIES,
     is_strategy_reversible,
 )
-from argus_redact.pure.grammar import SELF_REF_PRONOUNS
+from argus_redact.pure.grammar import SELF_REF_PRONOUNS, normalize_grammar_en
 from argus_redact.pure.security_events import KEEP_DOWNGRADED, security_event
 
 # Rust PatternMatch class, resolved once at import (same idiom as pure/merger.py).
@@ -119,11 +120,26 @@ def keep_downgraded_event(entities, config: dict | None) -> dict | None:
     return security_event(KEEP_DOWNGRADED, count=len(ents), detail="types: " + ", ".join(types))
 
 
-def residual_personal_data(entities, config: dict | None) -> bool:
-    """True if any detected entity uses a reversible strategy (pseudonymised output
-    is still personal data under GDPR Art.4(5)). Derived from the
-    is_strategy_reversible SSOT. Empty entities → False."""
-    return any(is_strategy_reversible(_resolved_strategy(e.type, config)) for e in entities)
+def residual_personal_data(entities) -> bool:
+    """True if what ``redact()`` returns still constitutes personal data under
+    GDPR Art.4(5) — i.e. the original value is recoverable from the returned
+    artifacts, NOT whether the surrogate looks reversible on its face.
+
+    Every strategy in the current palette retains the original one way or
+    another: the substituting strategies (pseudonym/realistic/mask/remove/
+    category/name_mask/landline_mask) write ``surrogate -> original`` into
+    the ``key`` dict ``redact()`` returns, so the surrogate can be mapped
+    back even when the strategy is classified "irreversible" for LLM-restore
+    purposes (see ``is_strategy_reversible``) — a retained recovery key means
+    pseudonymised/masked output is still personal data. ``keep`` needs no key
+    at all: it leaves the original value verbatim in the output text.
+
+    So this is True whenever at least one entity was detected, and False
+    only when nothing was detected (nothing to recover). Deliberately NOT
+    derived from ``is_strategy_reversible`` — that SSOT answers a different
+    question (LLM round-trip safety), not GDPR residual-data status.
+    """
+    return bool(entities)
 
 
 DEFAULT_PREFIXES = {
@@ -192,6 +208,10 @@ def _validate_config(config: dict | None) -> None:
     """Validate user config, raise ValueError on invalid strategy."""
     if not config:
         return
+    if not isinstance(config, Mapping):
+        raise TypeError(
+            f"config must be a dict mapping entity type to settings, got {type(config).__name__}"
+        )
     for entity_type, type_config in config.items():
         if not isinstance(type_config, dict):
             continue
@@ -425,12 +445,9 @@ def replace(
     # in Rust and the historical pure-Python orchestrator has been removed.
     type_info, custom_fakers = _build_type_info(entities, config, langs)
 
-    # Person / organization pseudonym prefixes (config can override).
-    person_prefix = DEFAULT_PREFIXES["person"]
-    org_prefix = DEFAULT_PREFIXES["organization"]
-    if config:
-        person_prefix = config.get("person", {}).get("prefix", person_prefix)
-        org_prefix = config.get("organization", {}).get("prefix", org_prefix)
+    # Person / organization pseudonym prefixes (config can override) — via the
+    # SSOT so this one-shot path and the structured session builder never drift.
+    person_prefix, org_prefix = _resolve_person_org_prefixes(config)
 
     # Convert the dataclass entities into the Rust PatternMatch the binding
     # expects (same idiom as pure/merger.py). `_RustPM` is resolved at import.
@@ -474,3 +491,99 @@ def replace(
             )
 
     return redacted, result_key, aliases
+
+
+def _resolve_person_org_prefixes(config: dict | None) -> tuple[str, str]:
+    """Resolve the (person, organization) pseudonym prefixes — config override
+    else ``DEFAULT_PREFIXES``. Single source shared by ``replace`` and the
+    structured session builder so the two never drift."""
+    person_prefix = DEFAULT_PREFIXES["person"]
+    org_prefix = DEFAULT_PREFIXES["organization"]
+    if config:
+        person_prefix = config.get("person", {}).get("prefix", person_prefix)
+        org_prefix = config.get("organization", {}).get("prefix", org_prefix)
+    return person_prefix, org_prefix
+
+
+def make_structured_session(
+    *,
+    salt: int | bytes | None = None,
+    key: dict[str, str] | None = None,
+    config: dict | None = None,
+    unified_prefix: str | None = None,
+):
+    """Build a stateful ``_core.StructuredRedactor`` for a whole structured
+    document (CSV / JSON), so redacting its N cells keeps the accumulation key +
+    pseudonym generators in Rust and stays O(N) instead of O(N²).
+
+    The salt / prefixes / keep-whitelist are constant for the document (they come
+    from the one ``redact_csv`` / ``redact_json`` call), so they are fixed at
+    construction; per-cell entities + type_info are fed via ``replace_into_session``.
+    Validates ``config`` and rejects the removed ``_unified_prefix`` sentinel
+    identically to ``replace`` (so both paths raise the same way).
+    """
+    _validate_config(config)
+    if config and "_unified_prefix" in config:
+        raise ValueError(
+            "_unified_prefix is no longer accepted as a config key in v0.6.0. "
+            "Use the top-level `unified_prefix=` kwarg on redact() / "
+            "redact_pseudonym_llm() instead."
+        )
+    person_prefix, org_prefix = _resolve_person_org_prefixes(config)
+    return _core.StructuredRedactor(
+        salt=salt,
+        key=key,
+        person_prefix=person_prefix,
+        org_prefix=org_prefix,
+        unified_prefix=unified_prefix,
+        keep_whitelist=_KEEP_WHITELIST,
+    )
+
+
+def replace_into_session(
+    session,
+    text: str,
+    entities: list[PatternMatch],
+    *,
+    config: dict | None = None,
+    langs: list[str] | None = None,
+) -> str:
+    """Redact one cell/leaf through a ``make_structured_session`` session, returning
+    its redacted text. The accumulation key + generators live in the session (read
+    once at the end via ``session.into_key()``).
+
+    Byte-identical to a per-cell ``replace(...)`` call that threads the growing key
+    back in: it builds the SAME per-type info + custom fakers, drives the SAME core
+    replace engine, emits the SAME per-cell ``keep``-downgrade warnings, and applies
+    the SAME English grammar normalization — only the key stays in Rust across cells.
+    """
+    type_info, custom_fakers = _build_type_info(entities, config, langs)
+    rust_entities = [
+        _RustPM(e.text, e.type, e.start, e.end, e.confidence, e.layer) for e in entities
+    ]
+    redacted = session.redact_cell(
+        text, rust_entities, type_info, custom_fakers if custom_fakers else None
+    )
+
+    # Same per-cell keep-downgrade warning selection as `replace` (single-sourced
+    # through `_keep_downgraded_entities`); the session's cumulative flag is a
+    # cross-check, not the per-cell signal.
+    for entity in _keep_downgraded_entities(entities, config):
+        warnings.warn(
+            f"strategy='keep' is only supported for self_reference "
+            f"pronouns and kinship phrases; downgrading to default for "
+            f"type={entity.type!r}.",
+            SecurityWarning,
+            stacklevel=2,
+        )
+
+    # English article/grammar fix-up, exactly as `_replace_and_emit`. Normalize
+    # against THIS cell's own originals only — the cumulative key's extras are not
+    # present in this cell's text and so are no-ops, and calling session.into_key()
+    # per cell would re-clone and marshal the whole growing key across PyO3, which
+    # is exactly the O(N^2) blow-up the Rust session exists to avoid. zh (the common
+    # structured path) skips this entirely.
+    effective_lang = langs[0] if langs else "zh"
+    if effective_lang == "en":
+        redacted = normalize_grammar_en(redacted, [e.text for e in entities])
+    return redacted

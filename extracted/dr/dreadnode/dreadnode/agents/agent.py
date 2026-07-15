@@ -50,6 +50,7 @@ from dreadnode.agents.reactions import (
     Retry,
     RetryWithFeedback,
 )
+from dreadnode.agents.sanitize import sanitize_orphan_tool_messages
 from dreadnode.agents.tools import Tool, ToolCall, ToolMode, Toolset, discover_tools_on_obj
 from dreadnode.agents.trajectory import Trajectory
 from dreadnode.core.exceptions import warn_at_user_stacklevel
@@ -328,6 +329,12 @@ class Agent(Executor[AgentEvent, Trajectory]):
         for transform_callback in transforms:
             messages, params, post_transform = await transform_callback(messages, params)
             post_transforms.append(post_transform)
+
+        # ENG-7343 / ENG-6214: general tool-call repair at the provider boundary.
+        # Strip orphan tool_results and synthesize placeholders for tool_use
+        # blocks whose results were lost (cancel mid-tool, compaction split).
+        # Anthropic + OpenAI both 400 on the orphan shape.
+        messages = sanitize_orphan_tool_messages(messages)
 
         try:
             if self.cache is not None and self.generator.supports_prompt_caching():

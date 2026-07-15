@@ -7,6 +7,12 @@ import struct
 from typing import Iterator, List
 
 from smda.aarch64.AArch64InstructionEscaper import AArch64InstructionEscaper
+from smda.aarch64.definitions import CALL_INS as AARCH64_CALL_INS
+from smda.aarch64.definitions import EXCEPTION_RETURN_INS as AARCH64_EXCEPTION_RETURN_INS
+from smda.aarch64.definitions import INDIRECT_JUMP_INS as AARCH64_INDIRECT_JUMP_INS
+from smda.aarch64.definitions import RET_INS as AARCH64_RET_INS
+from smda.aarch64.definitions import UNCOND_JUMP_INS as AARCH64_UNCOND_JUMP_INS
+from smda.cil.CilInstructionEscaper import CilInstructionEscaper
 from smda.common.CodeXref import CodeXref
 from smda.common.DominatorTree import build_dominator_tree, get_nesting_depth
 from smda.common.ExceptionHandling import reraise_non_operational_exception
@@ -25,6 +31,15 @@ AARCH64_PIC_HASH_ESCAPE_VERSION = [4, 2, 0]
 
 
 class LazyIntKeyDict(dict):
+    def __new__(cls, data=None):
+        # Pickle reconstructs dict subclasses via __new__ + update, bypassing
+        # __init__, so the lazy-conversion state must be initialized here to
+        # survive being passed to a multiprocessing worker.
+        instance = super().__new__(cls)
+        instance._is_converted = True
+        instance._raw_data = None
+        return instance
+
     def __init__(self, data=None):
         if data:
             self._raw_data = data
@@ -119,7 +134,7 @@ class SmdaFunction:
         self._normalized_blockrefs = None
         self._basic_blocks = None
         if disassembly is not None and function_offset is not None:
-            self._escaper = self._getInstructionEscaper(disassembly.binary_info.architecture)
+            self._escaper = self.getInstructionEscaper(disassembly.binary_info.architecture)
             self.offset = function_offset
             self._parseBlocks(disassembly.getBlocksAsDict(function_offset))
             self.apirefs = disassembly.getApiRefs(function_offset)
@@ -171,11 +186,13 @@ class SmdaFunction:
         return sum(len(value) for value in self.blockrefs.values())
 
     @staticmethod
-    def _getInstructionEscaper(architecture):
+    def getInstructionEscaper(architecture):
         if architecture == "intel":
             return IntelInstructionEscaper
         if architecture == "aarch64":
             return AArch64InstructionEscaper
+        if architecture == "cil":
+            return CilInstructionEscaper
         return None
 
     @property
@@ -194,32 +211,90 @@ class SmdaFunction:
     def num_instructions(self):
         return sum(len(block) for block in self.blocks.values())
 
+    @staticmethod
+    def _baseMnemonic(mnemonic):
+        # capstone prepends mandatory prefixes (bnd/rep/lock/...) to the mnemonic string
+        return mnemonic.split(" ")[-1]
+
     @property
     def num_calls(self):
         architecture = self.smda_report.architecture if self.smda_report else ""
         if architecture == "dalvik":
             return sum(1 for block in self.blocks.values() for ins in block if ins.mnemonic.startswith("invoke-"))
-        # capstone prepends mandatory prefixes (bnd/rep/lock/...) to the mnemonic string
-        return sum(1 for block in self.blocks.values() for ins in block if ins.mnemonic.split(" ")[-1] == "call")
+        if architecture == "aarch64":
+            call_mnemonics = AARCH64_CALL_INS
+        elif architecture == "cil":
+            call_mnemonics = {"call", "calli", "callvirt"}
+        else:
+            call_mnemonics = {"call"}
+        return sum(
+            1 for block in self.blocks.values() for ins in block if self._baseMnemonic(ins.mnemonic) in call_mnemonics
+        )
 
     @property
     def num_returns(self):
         architecture = self.smda_report.architecture if self.smda_report else ""
         if architecture == "dalvik":
             return sum(1 for block in self.blocks.values() for ins in block if ins.mnemonic.startswith("return"))
-        # capstone prepends mandatory prefixes (bnd/rep/lock/...) to the mnemonic string
+        if architecture == "aarch64":
+            return_mnemonics = AARCH64_RET_INS | AARCH64_EXCEPTION_RETURN_INS
+        else:
+            return_mnemonics = {"ret", "retn"}
         return sum(
-            1 for block in self.blocks.values() for ins in block if ins.mnemonic.split(" ")[-1] in ("ret", "retn")
+            1 for block in self.blocks.values() for ins in block if self._baseMnemonic(ins.mnemonic) in return_mnemonics
         )
 
+    # AArch64 PLT/Mach-O import stubs: optional bti/nop, then adrp + add/ldr + br.
+    # Kept intentionally tight so ordinary short functions with an API call are not
+    # misclassified as thunks.
+    _AARCH64_API_THUNK_BODY = frozenset(
+        {
+            "adrp",
+            "adr",
+            "add",
+            "ldr",
+            "nop",
+            "bti",
+            "autia1716",
+            "autib1716",
+        }
+    )
+    _AARCH64_API_THUNK_MAX_INSNS = 8
+
     def isApiThunk(self):
+        if not self.apirefs:
+            return False
+        architecture = self.smda_report.architecture if self.smda_report else ""
+        if architecture == "aarch64":
+            return self._isAArch64ApiThunk()
         if self.num_instructions != 1:
             return False
-        first_ins = self.blocks[self.offset][0]
-        # capstone prepends mandatory prefixes (bnd/rep/lock/...) to the mnemonic string
-        if first_ins.mnemonic.split(" ")[-1] not in ["jmp", "call"]:
+        block = self.blocks.get(self.offset)
+        if not block:
             return False
-        return len(self.apirefs) != 0
+        first_ins = block[0]
+        if architecture == "dalvik":
+            return first_ins.mnemonic.startswith("invoke-")
+        mnemonic = self._baseMnemonic(first_ins.mnemonic)
+        if architecture == "cil":
+            return mnemonic in ("call", "calli", "callvirt", "jmp")
+        return mnemonic in ("jmp", "call")
+
+    def _isAArch64ApiThunk(self):
+        # Import stubs are a single straight-line block ending in a transfer that
+        # carries the API ref (single b/br, or multi-insn adrp+ldr+br PLT shape).
+        if self.num_blocks != 1 or self.num_instructions > self._AARCH64_API_THUNK_MAX_INSNS:
+            return False
+        block = self.blocks.get(self.offset)
+        if not block:
+            return False
+        transfer = AARCH64_CALL_INS | AARCH64_UNCOND_JUMP_INS | AARCH64_INDIRECT_JUMP_INS
+        last = block[-1]
+        if self._baseMnemonic(last.mnemonic) not in transfer:
+            return False
+        if not any(ins.offset in self.apirefs and self._baseMnemonic(ins.mnemonic) in transfer for ins in block):
+            return False
+        return all(self._baseMnemonic(ins.mnemonic) in self._AARCH64_API_THUNK_BODY for ins in block[:-1])
 
     def isExported(self):
         return self.is_exported
@@ -486,7 +561,7 @@ class SmdaFunction:
             smda_function.stringrefs = smda_function._normalizeDalvikStringRefs(stringrefs)
         else:
             smda_function.stringrefs = stringrefs
-        smda_function._escaper = cls._getInstructionEscaper(function_architecture)
+        smda_function._escaper = cls.getInstructionEscaper(function_architecture)
         hash_context = binary_info
         if (
             hash_context is None
@@ -522,7 +597,7 @@ class SmdaFunction:
                 smda_function.pic_hash = smda_function.getPicHash(hash_context)
             # as last resort, assume we analyze Intel
             elif binary_info and binary_info.architecture in (None, "intel"):
-                smda_function._escaper = IntelInstructionEscaper
+                smda_function._escaper = cls.getInstructionEscaper("intel")
                 smda_function.pic_hash = smda_function.getPicHash(binary_info)
         return smda_function
 

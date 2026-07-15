@@ -174,7 +174,12 @@ class AgmetGeo(base.BaseGeo):
         self.scale = scale
         self.crop = crop
         self.growing_season = growing_season
-        self.category = self.parser.get(country, "category")
+        # category becomes a directory-path segment (plots/{category}/...) and
+        # is matched literally by _finalize_plots against "AMIS"/"EWCM". Strip
+        # stray surrounding quotes/whitespace so a quoted config value (e.g.
+        # `category = 'EWCM'`) doesn't create a mismatched dir that silently
+        # breaks the AMIS/EWCM ZIP finalize step.
+        self.category = self.parser.get(country, "category").strip().strip("'\"")
         self.use_cropland_mask = self.parser.getboolean(country, "use_cropland_mask")
 
         self.get_dirname(country)

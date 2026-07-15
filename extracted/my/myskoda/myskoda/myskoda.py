@@ -312,6 +312,7 @@ class MySkoda:
             CapabilityId.AUXILIARY_HEATING,
             CapabilityId.CHARGING,
             CapabilityId.CHARGING_MEB,
+            CapabilityId.CHARGING_PROFILES,
             CapabilityId.PARKING_POSITION,
             CapabilityId.STATE,
             CapabilityId.TRIP_STATISTICS,
@@ -389,7 +390,7 @@ class MySkoda:
 
         request_limit: int = 50
         charging_history = await self.rest_api.get_charging_history(
-            vin, start, end, limit=request_limit
+            vin, start=start, end=end, limit=request_limit
         )
         sessions = extract_sessions(charging_history.result)
         cursor = charging_history.result.next_cursor
@@ -911,6 +912,13 @@ class MySkoda:
             self._notify_callbacks(vin)
 
     @async_debounce(immediate=True)
+    async def refresh_charging_profiles(self, vin: Vin, notify: bool = True) -> None:
+        """Refresh charging profile data for the provided Vin."""
+        new_profiles = await self.get_charging_profiles(vin)
+        if self._vehicles[vin].update_charging_profiles(new_profiles) and notify:
+            self._notify_callbacks(vin)
+
+    @async_debounce(immediate=True)
     async def refresh_status(self, vin: Vin, notify: bool = True) -> None:
         """Refresh status data for the provided Vin."""
         if self._vehicles[vin].update_status(await self.get_status(vin)) and notify:
@@ -1097,6 +1105,7 @@ class MySkoda:
             CapabilityId.VEHICLE_HEALTH_INSPECTION: self._request_health,
             CapabilityId.DEPARTURE_TIMERS: self._request_departure_info,
             CapabilityId.READINESS: self._request_connection_status,
+            CapabilityId.CHARGING_PROFILES: self._request_charging_profiles,
         }
 
         try:
@@ -1117,6 +1126,10 @@ class MySkoda:
     async def _request_charging(self, vin: Vin) -> None:
         """Update state with charging data."""
         self._vehicles[vin].charging = await self.get_charging(vin)
+
+    async def _request_charging_profiles(self, vin: Vin) -> None:
+        """Update state with charging profile data."""
+        self._vehicles[vin].charging_profiles = await self.get_charging_profiles(vin)
 
     async def _request_positions(self, vin: Vin) -> None:
         """Update state with parking position data."""
@@ -1257,6 +1270,8 @@ class MySkoda:
             await self.refresh_status(event.vin)
         elif event.operation == OperationName.UPDATE_DEPARTURE_TIMERS:
             await self.refresh_departure_info(event.vin)
+        elif event.operation == OperationName.UPDATE_CHARGING_PROFILES:
+            await self.refresh_charging_profiles(event.vin)
 
     async def _process_charging_event(
         self, event: ServiceEventChangeSoc | ServiceEventChangeChargeMode

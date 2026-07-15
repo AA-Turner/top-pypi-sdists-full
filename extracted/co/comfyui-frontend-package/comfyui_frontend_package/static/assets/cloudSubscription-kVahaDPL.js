@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{_t as e}from"./vendor-vue-core-cdiTEubU.js";import{Hi as t,Ri as n,Rn as r}from"./promotionUtils-D16_OQ9o.js";r().registerExtension({name:`Comfy.Cloud.Subscription`,setup:async()=>{let{isLoggedIn:r}=t(),{requireActiveSubscription:i}=n(),checkSubscriptionStatus=()=>{r.value&&i()};e(()=>r.value,checkSubscriptionStatus,{immediate:!0})}});
-//# sourceMappingURL=cloudSubscription-kVahaDPL.js.map

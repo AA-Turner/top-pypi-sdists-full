@@ -85,37 +85,109 @@ def _message_css_class(message: Message) -> str:
 
 
 class ThinkingBlock(Widget):
-    """First-class reasoning surface — a dim heading over guttered prose.
+    """First-class reasoning surface — dim italic, indented body with a bottom
+    "… +N more" affordance when clipped.
+
+    There is deliberately no "Reasoning" label: it would repeat dozens of times
+    a session as pure chrome. The treatment carries the meaning instead — dim
+    italic prose is distinct from the tool rows (``│ ↳``, with a coloured verb)
+    and the compaction divider (``── compacted ──``). Reasoning intentionally
+    carries *no* left gutter: the ``│`` rule reads as a tool-output signal, so
+    leaving it off keeps reasoning and tools from blurring together (the earlier
+    ENG-7463 gutter was dropped for this reason).
 
     Renders model reasoning (native ``reasoning_content`` / ``thinking_blocks``
-    and the ``think()`` tool) inline, always visible. Visibility of *native*
-    reasoning is gated upstream at capture time by ``show_thinking()``
-    (``/thinking show|hide``); this widget deliberately does **not** follow
-    ``app.output_mode`` — reasoning is a separate concern from tool-output
-    verbosity (ENG-6108), so the ^O toggle no longer hides it.
+    and the ``think()`` tool) inline. Visibility of *native* reasoning is gated
+    upstream at capture time by ``show_thinking()`` (``/thinking show|hide``).
+
+    Height follows ``app.output_mode`` (ENG-7463): in ``compact`` the body is
+    clipped to :attr:`COMPACT_MAX_HEIGHT` rows and a footer row shows how many
+    rows were hidden (``… +N more lines · ^O``); in ``expanded`` (^O) the full
+    trace is shown. This intentionally re-couples reasoning to ^O, reversing the
+    earlier ENG-6108 choice to keep it always-expanded.
+
+    The hidden-row count is *measured* from the wrapped content height, so it
+    is honest whether the overflow came from many short lines or one long
+    paragraph that soft-wraps — and it re-measures on resize.
     """
 
-    DEFAULT_CSS = """
-    ThinkingBlock {
+    #: Visible body rows before the "… +N more" cut in compact mode.
+    COMPACT_MAX_HEIGHT = 10
+
+    DEFAULT_CSS = f"""
+    ThinkingBlock {{
         height: auto;
-        margin: 0;
+        margin: 1 0;
         padding: 0;
-    }
+    }}
+    ThinkingBlock > .reasoning-body {{
+        height: auto;
+        color: {FG_MUTED};
+        text-style: italic;
+        padding-left: 2;
+    }}
+    ThinkingBlock.-compact > .reasoning-body {{
+        max-height: {COMPACT_MAX_HEIGHT};
+        overflow-y: hidden;
+    }}
+    ThinkingBlock > .reasoning-more {{
+        height: auto;
+        color: {FG_MUTED};
+        text-style: italic;
+        padding-left: 2;
+        display: none;
+    }}
+    ThinkingBlock.-truncated > .reasoning-more {{
+        display: block;
+    }}
     """
 
     def __init__(self, *, body: str, **kwargs: t.Any) -> None:
         super().__init__(**kwargs)
         self._body = body
+        self._expanded = False
+        self._content = Static(classes="reasoning-body")
+        self._more = Static(classes="reasoning-more")
 
-    def render(self) -> Text:
-        text = Text()
-        text.append("· ", style=FG_FAINTEST)
-        text.append("reasoning", style=FG_FAINTEST)
-        for line in self._body.splitlines():
-            text.append("\n")
-            text.append("  │ ", style=FG_FAINTEST)
-            text.append(line, style=FG_FAINTEST)
-        return text
+    def compose(self) -> ComposeResult:
+        yield self._content
+        yield self._more
+
+    def on_mount(self) -> None:
+        self.set_output_mode(getattr(self.app, "output_mode", "compact"))
+
+    def on_resize(self) -> None:
+        # Re-wrapping at a new width changes how many rows are hidden.
+        self.call_after_refresh(self._sync_more)
+
+    def set_output_mode(self, mode: str) -> None:
+        """Reflow for compact/expanded — called on mount and on each ^O toggle.
+
+        The body always holds the full text; compact mode clips it via CSS and
+        the footer is sized from a post-layout measurement (:meth:`_sync_more`).
+        """
+        self._expanded = mode == "expanded"
+        self._content.update(self._body)
+        self.set_class(not self._expanded, "-compact")
+        # The measurement needs a laid-out width; defer until after refresh.
+        self.call_after_refresh(self._sync_more)
+
+    def _sync_more(self) -> None:
+        """Show/size the bottom "… +N more" footer from the clipped height."""
+        content_width = self._content.content_size.width
+        if self._expanded or not content_width:
+            self.set_class(False, "-truncated")
+            return
+        full_height = self._content.get_content_height(
+            self._content.content_size, self.app.size, content_width
+        )
+        hidden = max(0, full_height - self.COMPACT_MAX_HEIGHT)
+        if hidden <= 0:
+            self.set_class(False, "-truncated")
+            return
+        noun = "line" if hidden == 1 else "lines"
+        self._more.update(Text(f"… +{hidden} more {noun} · ^O", style=FG_FAINTEST))
+        self.set_class(True, "-truncated")
 
 
 class CompactionSummary(Widget):
@@ -522,8 +594,16 @@ class ConversationView(VerticalScroll):
             w.remove()
 
     def _remove_entries(self) -> None:
-        """Remove all entry widgets, keeping StreamingDraft."""
-        for child in list(self.query(".entry")):
+        """Remove all conversation widgets, keeping only the StreamingDraft.
+
+        The previous `.entry`-only query missed the ThinkingBlock and
+        CompactionSummary widgets, which are mounted without the `.entry`
+        CSS class, causing them to survive session switches and ``/new`` —
+        most visibly as grey reasoning traces leaking from the prior session.
+        """
+        for child in list(self.children):
+            if child.id == "draft":
+                continue
             child.remove()
 
 

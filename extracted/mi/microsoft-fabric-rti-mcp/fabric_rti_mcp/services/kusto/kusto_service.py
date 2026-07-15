@@ -318,8 +318,12 @@ _BLOCKED_CRP_KEYS = frozenset(
     {
         "request_readonly",
         "request_readonly_hardline",
+        "request_is_agentic",
     }
 )
+
+_AGENT_MARKER_OPTION = "request_is_agentic"
+_AGENT_MARKER_VALUE = True
 
 _TIMESPAN_RE = re.compile(r"^(\d+):(\d{1,2}):(\d{1,2})$")
 
@@ -370,6 +374,8 @@ def _crp(
                 value = _parse_servertimeout(value)
             crp.set_option(key, value)
 
+    crp.set_option(_AGENT_MARKER_OPTION, _AGENT_MARKER_VALUE)
+
     return crp
 
 
@@ -380,6 +386,7 @@ _FORMAT_DISPATCH: dict[str, Any] = {
     "tsv": KustoFormatter.to_tsv,
     "header_arrays": KustoFormatter.to_header_arrays,
     "kusto_response": KustoFormatter.to_kusto_response,
+    "full_kusto_response": KustoFormatter.to_full_kusto_response,
 }
 
 

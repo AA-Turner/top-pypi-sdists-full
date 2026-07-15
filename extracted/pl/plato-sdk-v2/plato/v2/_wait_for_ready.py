@@ -19,7 +19,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Protocol, TypeVar
 
-from plato._generated.models import JobStatus, Status4
+from plato._generated.models import JobStatus, Status5
 
 DEFAULT_POLL_SECONDS = 300
 # Small fixed sleep between polls when the backend returns ``ready=False``.
@@ -35,7 +35,7 @@ _INTER_POLL_SLEEP_SECONDS = 1.0
 _TERMINAL_JOB_STATUSES: frozenset[JobStatus] = frozenset(
     {JobStatus.failed, JobStatus.cancelled, JobStatus.timeout, JobStatus.completed}
 )
-_TERMINAL_SESSION_STATUSES: frozenset[Status4] = frozenset({Status4.failed})
+_TERMINAL_SESSION_STATUSES: frozenset[Status5] = frozenset({Status5.failed})
 
 
 class _ReadyResponse(Protocol):
@@ -43,7 +43,7 @@ class _ReadyResponse(Protocol):
     def ready(self) -> bool: ...
 
     @property
-    def status(self) -> JobStatus | Status4 | None: ...
+    def status(self) -> JobStatus | Status5 | None: ...
 
 
 T = TypeVar("T", bound=_ReadyResponse)

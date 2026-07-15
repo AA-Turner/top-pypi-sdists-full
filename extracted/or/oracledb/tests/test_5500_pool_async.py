@@ -712,3 +712,57 @@ async def test_5546(test_env):
         async with pool.acquire():
             assert counter == i + 1
     await pool.close()
+
+
+async def test_5547(test_env):
+    "5547 - release a connection twice"
+    pool = test_env.get_pool_async(min=0, max=1, increment=1)
+    conn = await pool.acquire()
+    assert pool.opened == 1
+    await pool.release(conn)
+    with test_env.assert_raises_full_code("DPY-1001"):
+        await pool.release(conn)
+    await pool.close()
+
+
+async def test_5548(test_env):
+    "5548 - test waiting for a connection unblocks when it is released"
+    pool = test_env.get_pool_async(min=1, max=1)
+
+    async def waiter():
+        async with pool.acquire(cclass="X") as conn:
+            new_sid_serial = test_env.get_sid_serial(conn)
+            assert new_sid_serial != sid_serial
+
+    conn = await pool.acquire()
+    sid_serial = test_env.get_sid_serial(conn)
+    await asyncio.gather(waiter(), conn.close())
+    await pool.close()
+
+
+async def test_5549(test_env):
+    "5549 - Test that pool `wait_timeout` getter uses milliseconds."
+    wait_ms = 4500
+    pool = test_env.get_pool_async(
+        getmode=oracledb.POOL_GETMODE_TIMEDWAIT, min=0, wait_timeout=wait_ms
+    )
+    # getter should return the same millisecond value provided
+    assert pool.wait_timeout == wait_ms
+
+    # verify setting via property also preserves milliseconds
+    pool.wait_timeout = 3000
+    assert pool.wait_timeout == 3000
+    await pool.close()
+
+
+async def test_5550(test_env):
+    "5550 - test force closing a pool wakes waiting acquire() calls"
+    pool = test_env.get_pool_async(min=1, max=1)
+
+    async def waiter():
+        with test_env.assert_raises_full_code("DPY-1002"):
+            await pool.acquire()
+
+    conn = await pool.acquire()
+    await asyncio.gather(waiter(), pool.close(force=True))
+    await conn.close()

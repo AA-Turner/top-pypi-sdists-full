@@ -275,14 +275,12 @@
     spm_units:
       spm_unit:
         # CA delays the OBBB refugee exclusion to 2026-04-01 (ACL 25-92), and
-        # CalWORKs ($7,700/year here) counts as unearned income ($641.67/mo):
-        # Jan-Mar (refugee still in unit, size 3): net = 1,333.33 (earned after
-        # 20% deduction) + 641.67 - 209 = 1,766.00 -> EC = floor(1,766) x 0.3 =
-        # 529.50 -> 785 - 529.50 = 255.50/month. Apr-Sep (head excluded, size 2): 546 - 529.50
-        # = 16.50 < minimum allotment 23.84 -> 23.84/month. Oct-Dec: 558.24 -
-        # 528.30 = 29.94/month. Annual = 3 x 255.50 + 6 x 23.84 + 3 x 29.94 =
-        # 999.36.
-        snap: 999.36
+        # CalWORKs counts as unearned income at the unit level (in full).
+        # Jan-Mar the refugee is still in the unit (size 3) with earnings
+        # fully counted; from April the head is excluded (size 2) and their
+        # earnings count at the 2/3 prorated share under 7 CFR
+        # 273.11(c)(2)-(3), raising the benefit relative to full counting.
+        snap: 2_162.22
         is_snap_eligible: true
 - name: snap_ca_head_immigration_undocumented_calworks_interaction (ca)
   period: 2026
@@ -345,10 +343,8 @@
     spm_units:
       spm_unit:
         # Undocumented head is excluded all year (not a CFAP status): unit size
-        # 2, and the CalWORKs grant is smaller ($5,133.33/year -> $427.78/mo
-        # unearned) because the head is also excluded from the CalWORKs AU:
-        # net = 1,333.33 + 427.78 - 209 = 1,552.11 -> EC 465.60 -> 546 - 465.60
-        # = 80.40/month Jan-Sep; Oct-Dec: 558.24 - 464.10 = 94.14.
-        # Annual = 9 x 80.40 + 3 x 94.14 = 1,006.02.
-        snap: 1_006.02
+        # 2, the CalWORKs grant excludes the head from the AU but counts in
+        # full as unit-level unearned income, and the head's earnings count
+        # at the 2/3 prorated share under 7 CFR 273.11(c)(2)-(3).
+        snap: 3_002.22
         is_snap_eligible: true

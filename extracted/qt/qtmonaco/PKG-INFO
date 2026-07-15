@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qtmonaco
-Version: 0.10.0
+Version: 0.11.0
 Summary: Qt Monaco is a Python library for working with the Monaco Editor in Qt applications.
 Project-URL: Bug Tracker, https://github.com/bec-project/qtmonaco/issues
 Project-URL: Homepage, https://github.com/bec-project/qtmonaco

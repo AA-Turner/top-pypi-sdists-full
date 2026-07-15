@@ -1,0 +1,512 @@
+Metadata-Version: 2.4
+Name: matrice
+Version: 1.1.7
+Summary: Common server utilities for Matrice.ai services
+Author-email: "Matrice.ai" <dipendra@matrice.ai>
+License: MIT
+Keywords: matrice,common,utilities,mypyc,compiled
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE.txt
+Requires-Dist: matrice_common
+Provides-Extra: dev
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+Requires-Dist: pytest-timeout==2.3.1; extra == "dev"
+Requires-Dist: fakeredis>=2.20; extra == "dev"
+Requires-Dist: respx>=0.20; extra == "dev"
+Requires-Dist: ruff==0.11.12; extra == "dev"
+Requires-Dist: bandit[toml]==1.9.4; extra == "dev"
+Requires-Dist: mypy==1.13.0; extra == "dev"
+Requires-Dist: pre-commit==4.2.0; extra == "dev"
+Requires-Dist: pip-audit==2.7.3; extra == "dev"
+Requires-Dist: safety==3.2.11; extra == "dev"
+Requires-Dist: matrice_common; extra == "dev"
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: torchvision; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: scikit-learn; extra == "dev"
+Requires-Dist: structlog; extra == "dev"
+Requires-Dist: sentry-sdk; extra == "dev"
+Requires-Dist: requests; extra == "dev"
+Requires-Dist: Pillow; extra == "dev"
+Dynamic: license-file
+Dynamic: requires-python
+
+# py_matrice SDK — Comprehensive Reference
+
+**Purpose:** Python SDK for creating projects and inference pipelines using the Matrice packages. This document is a precise, scannable reference for modules, files, functions, and testing/use-case mapping.
+
+---
+
+## 1. Overview
+
+| Item | Description |
+|------|-------------|
+| **Package name** | `matrice` |
+| **Description** | Common server utilities for Matrice.ai services; SDK for projects, datasets, models, annotations, deployments, and inference pipelines |
+| **Python** | >=3.8, <4 |
+| **Source layout** | `src/matrice/` (flat package with many modules) |
+| **External deps** | `matrice_common` (session, RPC, `handle_response`, `dependencies_check`), optional: `matrice_data_processing`, `matrice_streaming`, `requests`, `Pillow` |
+
+---
+
+## 2. Repository Layout
+
+```
+py_matrice/
+├── src/matrice/           # Main package
+│   ├── __init__.py        # Entry: dependency check (requests, Pillow)
+│   ├── action.py          # Action lifecycle & account-level action APIs
+│   ├── action_tracker.py  # LocalActionTracker, ActionTracker (BYOM/local runs)
+│   ├── actionTracker.py  # (Legacy/duplicate naming; see action_tracker)
+│   ├── annotation.py     # Annotation CRUD, files, items, labels, create_dataset
+│   ├── application.py    # Application CRUD, add/delete model versions
+│   ├── app_store.py      # AppStore: list public applications, get by ID
+│   ├── camera_management.py      # Cameras, locations, groups, streams, topics
+│   ├── compute.py        # ComputeInstance, ComputeType, list/add instances
+│   ├── dataset.py        # Dataset CRUD, versions, items, splits, upload helpers
+│   ├── docker_utils.py   # Docker install/check/start/pull (local env)
+│   ├── drift_monitor.py  # DriftMonitoring (inference drift)
+│   ├── exported_model.py # ExportedModel (export lifecycle, eval, download)
+│   ├── inference_pipeline_management.py  # Pipelines, timing, cameras, start/stop
+│   ├── local_test.py     # LocalTest (local run harness)
+│   ├── metrics_calculator.py    # Detection/classification metrics (mAP, accuracy, etc.)
+│   ├── metrics_calculator_oop.py # ObjectDetectionMetrics, ClassificationMetrics classes
+│   ├── model_store.py    # Model store APIs, ModelArch, ModelFamily, BYOM
+│   ├── models.py         # Model (trained model lifecycle, eval, logs, plots)
+│   ├── pipeline.py      # Pipeline (high-level pipeline abstraction)
+│   ├── projects.py      # Projects: project CRUD, datasets, models, deployments, inference pipelines
+│   ├── scaling.py       # _Scaling (internal scaling helpers)
+│   ├── streaming_automation.py   # StreamingAutomation (gateways, cameras, pipelines)
+│   ├── streaming_benchmarking.py # StreamingBenchmarking (load testing)
+│   ├── streaming_gateway_management.py # StreamingGatewayManagement
+│   ├── testing.py        # TestingActionTracker, ModelDownloadMock, TestingMatriceDeploy
+│   └── ...
+├── examples/
+│   └── benchmark_example.py   # StreamingBenchmarking usage examples
+├── stub_generation.py    # EnhancedStubGenerator: generates .pyi stubs for src/matrice
+├── setup.py              # setuptools + optional mypyc build
+├── pyproject.toml        # Build config, mypy overrides
+├── build-config.json     # ENABLE_MYPYC fallback
+├── API_DOCUMENTATION.md  # Backend inference API (HTTP endpoints)
+├── DEPLOYMENT-GUIDE.md   # Deployment instructions
+└── src/MISSING_APIS.md   # Notes on missing/planned APIs
+```
+
+---
+
+## 3. Build and Setup
+
+| Task | How |
+|------|-----|
+| **Version** | `PACKAGE_VERSION` env var, else `0.0.0.dev0` |
+| **Pure Python build** | Default; `ENABLE_MYPYC` false or unset |
+| **Compiled build** | `ENABLE_MYPYC=true` or `build-config.json` `build.enable_mypyc: true` |
+| **Stubs** | `setup.py` runs `stub_generation.py` before build; writes `src/matrice/__init__.pyi` (and optionally per-module .pyi) |
+| **Install** | `pip install -e .` from repo root (or from `py_matrice/`) |
+
+---
+
+## 4. Module and Function Reference
+
+### 4.1 `__init__.py`
+- **Role:** Package entry; ensures optional deps available.
+- **Behavior:** `matrice_common.utils.dependencies_check(["requests", "Pillow"])`.
+
+---
+
+### 4.2 `projects.py` — **Projects**
+
+**Class:** `Projects(session, project_name=None, project_id=None)`
+
+- **Constructor:** Requires `project_name` or `project_id`; fetches project and sets `project_id`, `project_name`, `project_input`, `output_type`, `status`, etc.
+
+**Key methods (high level):**
+
+| Method | Purpose |
+|--------|--------|
+| `_get_project_by_name()` | GET project by name |
+| `_get_a_project_by_id()` | GET project by ID |
+| `get_service_action_logs(service_id, service_name)` | Service action logs |
+| `get_latest_action_record(service_id)` | Latest action for service |
+| `import_local_dataset(...)` | Create dataset from local path (via `_create_dataset`) |
+| `import_cloud_dataset(...)` | Create dataset from URL/cloud |
+| `create_annotation(project_type, ann_title, dataset_id, ...)` | Create annotation task; returns `(Annotation, Action)` |
+| `add_models_for_training(model_train_configs, primary_metric, dataset_id=None, dataset_name=None, ...)` | Submit training jobs (single or list of configs) |
+| `create_model_export(model_train_id, export_formats, model_config, ...)` | Add export config → returns `(ExportedModel, Action)` |
+| `create_fastapi_deployment(...)` | Create FastAPI deployment (wraps `_create_deployment`) |
+| `create_triton_deployment(...)` | Create Triton deployment with batching options |
+| `_create_deployment(...)` | Generic deployment (trained or exported model) |
+| `create_inference_pipeline(name, description, applications)` | Create inference pipeline from application IDs |
+| `list_inference_pipelines(page, limit, status, search)` | List project inference pipelines |
+| `delete()` | Delete project |
+| `change_status(enable=True)` | Enable/disable project |
+| `get_actions_logs(action_id)` | Action logs by record ID |
+| `list_collaborators()` | Project collaborators |
+| `invite_user_to_project(email, permissions)` | Invite user with permissions |
+| `update_permissions(collaborator_id, permissions)` | Update collaborator permissions |
+| `list_deployments(page_size, page_number)` | List deployments (returns dict of Deployment by name) |
+| `list_datasets(status, page_size, page_number)` | List datasets |
+| `list_annotations(...)` | List annotations |
+| `list_trained_models(...)` | List trained models |
+| `list_exported_models(...)` | List exported models |
+| `list_drift_monitorings(...)` | List drift monitorings (keyed by deployment name) |
+| `get_dataset(dataset_id, dataset_name)` | Return `Dataset` instance |
+| `get_annotation(dataset_id, annotation_id, annotation_name)` | Return `Annotation` instance |
+| `get_model(model_id, model_name)` | Return `Model` instance |
+| `get_exported_model(model_export_id, model_export_name)` | Return `ExportedModel` instance |
+| `get_deployment(deployment_id, deployment_name)` | Return `Deployment` (from matrice_streaming) |
+| `get_dataset_status_summary()` | Dataset status counts (OrderedDict) |
+| `get_annotations_status_summary()` | Annotation status counts |
+| `get_model_status_summary()` | Model status counts |
+| `get_model_export_status_summary()` | Export status counts |
+| `get_deployment_status_summary()` | Deployment status counts |
+| `_validate_labellers_and_reviewers(users_list)` | Resolve collaborators to IDs for annotation |
+
+---
+
+### 4.3 `dataset.py` — **Datasets**
+
+**Standalone functions:**
+- `get_dataset_size_in_mb_from_url(session, url, project_id)` — Dataset size from URL.
+- `upload_file(session, file_path)` — Upload ZIP; returns `{success, data, message}`.
+- `_get_upload_path(session, file_name)` — Get upload URL for file.
+
+**Class:** `Dataset(session, dataset_id=None, dataset_name=None)`
+
+- **Constructor:** Resolves by name or ID; loads details and sets `dataset_id`, `dataset_name`, `version_status`, `latest_version`, `no_of_samples`, `no_of_classes`, etc.
+
+| Method | Purpose |
+|--------|--------|
+| `_get_details()`, `_get_dataset()`, `_get_dataset_by_name()` | Internal fetch by ID/name |
+| `_get_summary(dataset_version)` | Version summary (counts, histogram) |
+| `get_categories(dataset_version)` | Categories for version |
+| `list_items(dataset_version, page_size, page_number)` | Paginated items (v2 API) |
+| `get_processed_versions()` | Processed version list |
+| `check_valid_spilts(dataset_version)` | Validate train/val/test splits |
+| `rename(updated_name)` | Rename dataset |
+| `update_item_label(dataset_version, item_id, label_id)` | Set item label |
+| `add_data(source, source_url, new_dataset_version, old_dataset_version, ...)` | Import new version from URL |
+| `split_data(old_version, new_version, is_random_split, train_num, val_num, test_num, transfers, ...)` | Split/transfer between splits |
+| `delete_item(dataset_version, dataset_item_ids)` | Delete items (classification or detection) |
+| `delete_version(dataset_version)` | Delete a version |
+| `delete()` | Delete entire dataset |
+
+---
+
+### 4.4 `models.py` — **Trained Models**
+
+**Class:** `Model(session, model_id=None, model_name="")`
+
+- **Constructor:** Fetches details by ID or name; populates attributes (e.g. `model_id`, `dataset_id`, `model_arch_id`, `model_inputs`, `model_outputs`, `status`, `created_at`, etc.).
+
+| Method | Purpose |
+|--------|--------|
+| `get_details()` | (data, error, message) |
+| `rename(name)` | Update model train name |
+| `delete()` | Delete trained model |
+| `get_prediction(input_path)` | Test model on file (POST file) |
+| `get_eval_result(dataset_id, dataset_version, split_type)` | Fetch eval result |
+| `plot_eval_results()` | Matplotlib eval plots |
+| `add_evaluation(dataset_id, dataset_version, split_types, ...)` | Add eval job |
+| `get_download_path()` | Presigned download URL (trained) |
+| `download_model(file_name)` | Download to local file |
+| `get_model_training_logs()` | Epoch logs |
+| `plot_epochs_losses()`, `plot_epochs_metrics()` | Training curves |
+| `model_test(model_type)` | Deployment server info for model |
+
+---
+
+### 4.5 `model_store.py` — **Model Store & BYOM**
+
+**Module-level functions:**
+
+| Function | Purpose |
+|----------|--------|
+| `list_public_model_families(session, project_type, page_size, page_num)` | Public families |
+| `list_private_model_families(session, project_id=None, project_name=None, ...)` | Private families |
+| `list_public_model_archs(session, project_type, ...)` | Public architectures |
+| `list_private_model_archs(session, project_id=None, project_name=None, ...)` | Private architectures |
+| `get_all_models(session, project_id, project_type)` | All models for project |
+| `get_all_model_families(session, project_id, project_type)` | All families |
+| `byom_status_summary(session, project_id, project_name)` | BYOM summary |
+| `check_family_exists_by_name(session, family_name)` | Bool existence |
+| `fetch_supported_runtimes_metrics(session, project_id, model_inputs, model_outputs)` | Runtimes & metrics |
+| `get_automl_config(session, project_id, model_count, recommended_runtime, performance_tradeoff, tuning_type)` | AutoML configs → (model_archs, configs, model_counts) |
+
+**Class:** `ModelArch(session, model_family_name=None, model_key=None, model_family_id=None, model_arch_id=None)`
+
+- Fetches arch, train config, export formats; exposes `model_arch_id`, `model_name`, `params_millions`, `export_formats`, `default_model_config`, `model_family` (ModelFamily).
+- **Methods:** `_get_model_arch()`, `get_export_formats()`, `get_train_config(tuning_type, model_checkpoint)`, `get_export_config(export_format)`, `get_export_action_config(export_format)`, `get_train_action_config()`.
+
+**Class:** `ModelFamily(session, model_family_name=None, model_family_id=None)`
+
+- **Methods:** `get_model_family_details()`, `get_model_archs(model_name, model_key)`, `get_model_arch(model_key)`.
+
+**Class:** `BYOM(session)`
+
+- **Methods:** `add_model_family`, `update_model_family`, `delete_model_family`, `get_model_family`, `delete_model_arch`, `add_train_action_config`, `add_export_action_config`, `delete_model_action_config`, `get_public_model_families_docker`, `use_docker_image_from_public_model_family`, `add_family_requirement_file`, `add_family_docker_file`, `upload_model_family_codebase`, `download_model_family_codebase`, `wait_for_codebase_upload`, `get_model_family_codebase_details`, `get_test_cases_by_type`, `start_test_cases`, `get_started_test_cases`, `get_model_family_actions`, `integrate_model_actions`, `publish_model_family`, `get_model_family_benchmark_results`, `update_model_family_benchmark_results`.
+
+---
+
+### 4.6 `exported_model.py` — **Exported Models**
+
+**Class:** `ExportedModel(session, model_export_id=None, model_export_name="")`
+
+- **Constructor:** Loads summary and details; sets `model_export_id`, `model_train_id`, `model_inputs`, `model_outputs`, `export_format`, `status`, etc.
+- **Methods:** `get_details()`, `rename(updated_name)`, `delete()`, `add_evaluation(...)`, `get_trained_model()`, `get_evaluation_result(...)`, `get_prediction(input_path)`, `get_download_path()`, `download_model(file_name)`.
+
+---
+
+### 4.7 `annotation.py` — **Annotations**
+
+**Class:** `Annotation(session, annotation_id=None, annotation_name=None)`
+
+- **Constructor:** Resolves by ID or name; sets `version_status`, `latest_version`, `project_type`, etc.
+- **Methods:** `_get_details()`, `_get_annotation_by_id()`, `_get_annotation_by_name()`, `rename(annotation_title)`, `delete()`, `get_annotation_files(page_size, page_number)`, `get_item_history(annotation_item_id)`, `list_items(...)`, `update_classification_item(...)`, `annotate_classification_item(...)`, `get_categories()`, `create_dataset(is_create_new, old_dataset_version, new_dataset_version, new_version_description)`, `add_label(labelname)`, `delete_item(annotation_item_id)`.
+
+---
+
+### 4.8 `action.py` — **Actions**
+
+**Class:** `Action(session, action_id)`
+- Loads action details into `action_type`, `project_id`, `user_id`, `step_code`, `status`, `created_at`, `service_name`, `action_details`, `job_params`.
+
+**Standalone functions (all return (data, error)):**
+- `get_project_id_by_service_id(session, service_id)`
+- `list_all_account_action_details(session)`
+- `get_recent_actions(session)`
+- `get_action_record_for_account_number(session)`
+- `get_action_logs_from_record_id(session, action_record_id)`
+- `get_service_action_logs(session, service_id)`
+- `get_action_logs_from_action_record_id(session, action_record_id)`
+- `get_action_details(session, action_id)`
+- `get_action_docker_logs(session, action_record_id)`
+- `get_action_graph(session, granularity, start_date, end_date)`
+- `clone_project(session, source_project_id, new_project_name)`
+- `enable_disable_project(session, type, project_id)`
+
+---
+
+### 4.9 `application.py` & `app_store.py`
+
+**application.py — Class:** `Application(session)`
+- `create_application(name, projectID, coverImage, notebookLink, blogLink)`
+- `delete_application(applicationID)`
+- `add_model_version(application_id, model_name, model_id, project_id, model_type, blog_link)`
+- `delete_model(model_id)`
+
+**app_store.py — Class:** `AppStore(session)`
+- `get_all_applications(page, limit)`
+- `get_public_application_by_id(application_id)`
+
+---
+
+### 4.10 `inference_pipeline_management.py` — **Inference Pipelines**
+
+**Class:** `InferencePipelineManagement(session)`
+
+- **Pipeline:** `create_inference_pipeline(name, project_id, cameras, user_id, description, access_scale, deploy_type, server_type, ...)`, `get_inference_pipeline_dashboard(page, limit)`, `get_inference_pipeline_by_id(pipeline_id)`, `list_inference_pipelines(project_id, page, limit, sort_by, sort_order)`, `get_applications_by_pipeline(pipeline_id)`, `get_cameras_by_streaming_gateway(pipeline_id)`, `get_cameras_without_streaming_gateway(pipeline_id)`, `start_inference_pipeline(pipeline_id, compute_alias, cluster_name)`, `stop_inference_pipeline(pipeline_id)`, `rename_inference_pipeline(pipeline_id, name)`, `update_aggregator_status(pipeline_id, aggregator_id, status, is_running)`, `add_cameras_and_applications_to_pipeline(pipeline_id, cameras, ...)`, `delete_inference_pipeline(pipeline_id)`.
+- **Timing:** `create_inference_pipeline_timing(...)`, `get_inference_pipeline_timing_by_id(timing_id)`, `get_inference_pipeline_timing_by_pipeline(pipeline_id)`, `get_latest_active_timing_by_pipeline(pipeline_id)`, `update_inference_pipeline_timing(...)`, `delete_inference_pipeline_timing(timing_id)`.
+- **Query:** `get_inference_pipelines_by_account()`, `get_streaming_gateways_by_pipeline(pipeline_id)`, `get_compute_alias_by_pipeline(pipeline_id)`.
+
+---
+
+### 4.11 `camera_management.py` — **Cameras**
+
+**Class:** `CameraManagement(session)`
+
+- **Groups:** `create_camera_group(...)`, `create_camera_group_vms(camera_ids, group_name)`, plus list/update/delete/get for groups.
+- **Locations:** create, list, update, delete, get for locations.
+- **Cameras:** create, list, update, delete, get; stream/topic helpers.
+- **Streams/Topics:** Methods for camera streams and topics (create, list, update, delete, etc.).
+
+(Exact method names follow the same pattern as other management classes; see docstrings in file.)
+
+---
+
+### 4.12 `streaming_gateway_management.py` — **Streaming Gateways**
+
+**Class:** `StreamingGatewayManagement(session)`
+
+- **Gateways:** `create_streaming_gateway(gateway_name, description, account_type, status, server_type, network_settings, compute_alias, cluster_name, video, user_id)`, plus list, get, update, delete, start, stop, heartbeat, etc.
+
+---
+
+### 4.13 `streaming_automation.py` — **Streaming Automation**
+
+**Class:** `StreamingAutomation(account_number, access_key=None, secret_key=None, project_id=None, project_name=None)`
+
+- Builds `Session`, `StreamingGatewayManagement`, `CameraManagement`, `InferencePipelineManagement`.
+- **Purpose:** End-to-end automation: gateways, locations, camera groups, cameras (including video upload), and inference pipelines.
+- **Helpers:** `_generate_tag(prefix)`, `_generate_id()`, `_is_valid_id(value)`.
+- **Main flows:** Complete setup (gateway + cameras + pipeline), auto-setup with tag, teardown, add cameras to pipeline, etc. (see class docstring and method names in file).
+
+---
+
+### 4.14 `streaming_benchmarking.py` — **Streaming Benchmarking**
+
+**Class:** `StreamingBenchmarking(video_path, compute_alias, app_name, account_number, access_key=None, secret_key=None, project_id=None, project_name=None, min_cameras=1, max_cameras=20, interval_minutes=5.0, step_size=1, metrics_interval_minutes=0.5, output_file="benchmark_results.json", ...)`
+
+- **Purpose:** Load testing by incrementally adding cameras and collecting metrics (gateway + pipeline).
+- **Key methods:** `initialize_setup()`, `start_benchmark(duration_minutes=None)`, `stop_benchmark()`, `add_camera()`, `collect_metrics()`, `export_results()`.
+- Supports mock metrics and real API; state file for resume.
+
+---
+
+### 4.15 `testing.py` — **Testing Harness**
+
+- **SplitMetricStruct:** Pydantic-like struct for split metrics (splitType, metricName, metricValue).
+- **dotdict:** Dict with dot access.
+- **TestingActionTracker(model_family_info_path, model_info_path, config_path):**
+  Loads model family/model info and action config (train/export/eval); prepares dataset; mock checkpoint/download; job params; logging to `testing_logs/`; epoch/eval result logging; dataset prep (classification, detection, YOLO from MSCOCO).
+- **ModelDownloadMock:** Mock model download to `testing_logs` folder.
+- **TestingMatriceDeploy(load_model, predict):** Runs load_model + predict on synthetic image; logs to `testing_logs/deploy.json`.
+
+---
+
+### 4.16 `action_tracker.py` — **Action Tracker**
+
+- **LocalActionTracker** / **ActionTracker:** Track action state and steps for BYOM/local runs (interface to report progress/logs).
+
+---
+
+### 4.17 `metrics_calculator.py` & `metrics_calculator_oop.py`
+
+- **metrics_calculator.py:** Functions for detection (mAP, mAR, precision/recall, IoU) and classification (accuracy, precision, recall, F1, specificity, confusion matrix, MCC, AUC-ROC, AUC-PR, Cohen's kappa, log loss). Entry points: `get_object_detection_evaluation_results`, `get_classification_evaluation_results`, `calculate_metrics`, `accuracy`.
+- **metrics_calculator_oop.py:** `ObjectDetectionMetrics`, `ClassificationMetrics` classes; plus `get_object_detection_evaluation_results`, `get_classification_evaluation_results`, `calculate_metrics`, `accuracy`.
+
+---
+
+### 4.18 `compute.py` — **Compute**
+
+- **ComputeInstance:** Represents a compute instance (attributes from API).
+- **ComputeType:** Instance type metadata.
+- **Functions:** `list_instance_types(...)`, `list_account_compute(session, status="all")`, `get_compute_status_summary(session, lease_type="on-demand")`, `add_on_demand_instance(...)`.
+
+---
+
+### 4.19 `docker_utils.py` — **Docker**
+
+- **Functions:** `pull_docker_image(...)`, `check_docker()`, `test_docker()`, `start_docker()`, `try_host_docker()`, `install_docker()`, `uninstall_docker()`, `_reinstall_docker()`.
+- **Purpose:** Local Docker availability for running jobs/containers.
+
+---
+
+### 4.20 `drift_monitor.py` — **DriftMonitoring**
+
+- **Class:** `DriftMonitoring(session, ...)` — Inference drift monitoring (see class in file for methods).
+
+---
+
+### 4.21 `pipeline.py` — **Pipeline**
+
+- **Class:** `Pipeline` — High-level pipeline abstraction (see file for current API).
+
+---
+
+### 4.22 `scaling.py` — **_Scaling**
+
+- **Class:** `_Scaling` — Internal scaling helpers (used by deployment/infra).
+
+---
+
+### 4.23 `local_test.py` — **LocalTest**
+
+- **Class:** `LocalTest` — Local execution harness for tests (see file for methods).
+
+---
+
+## 5. Root Scripts
+
+### 5.1 `stub_generation.py`
+
+- **Class:** `EnhancedStubGenerator(source_dir, target_dir, recursive=False)`
+- **Role:** Parses `src/matrice` Python files, extracts imports/definitions (constants, functions, classes), generates `__init__.pyi` (and optionally per-module `.pyi`) with type hints and docstrings.
+- **Invocation:** Run by `setup.py` before build; or `python stub_generation.py` (defaults: source_dir=`src/matrice`, target_dir=`src/matrice`, recursive=False).
+- **Output:** `src/matrice/__init__.pyi`; if recursive, one `.pyi` per module.
+
+---
+
+## 6. Examples and Notebooks
+
+| File | Purpose |
+|------|--------|
+| `examples/benchmark_example.py` | Demonstrates `StreamingBenchmarking`: basic run, fast load test, stress test, real API, manual control, analyze results (JSON). Run with optional example number: `python benchmark_example.py 1` … `6`. |
+| `streaming_benchmarking_examples.ipynb` | Notebook for streaming benchmarking examples. |
+| `streaming_automation_examples.ipynb` | Notebook for streaming automation examples. |
+
+---
+
+## 7. Quick Reference — Where to Look for Use Cases
+
+| Use case | Primary module(s) | Entry points |
+|----------|-------------------|---------------|
+| Create/list projects, get project-scoped lists | `projects.py` | `Projects(session, project_name=...)`, then e.g. `list_datasets`, `list_trained_models`, `create_inference_pipeline` |
+| Import/create datasets (local or cloud) | `projects.py`, `dataset.py` | `Projects.import_local_dataset`, `Projects.import_cloud_dataset`; `Dataset` for version/items/splits |
+| Create annotation task | `projects.py` | `Projects.create_annotation(...)` → `Annotation`, `Action` |
+| Configure and submit training | `model_store.py`, `projects.py` | `ModelArch.get_train_config`, `Projects.add_models_for_training` |
+| Export trained model | `projects.py`, `exported_model.py` | `Projects.create_model_export` → `ExportedModel` |
+| Deploy model (FastAPI / Triton) | `projects.py` | `Projects.create_fastapi_deployment`, `Projects.create_triton_deployment` |
+| Create/list inference pipelines (app-based) | `projects.py` | `Projects.create_inference_pipeline`, `Projects.list_inference_pipelines` |
+| Full inference pipeline (cameras, gateways, start/stop) | `inference_pipeline_management.py`, `camera_management.py`, `streaming_gateway_management.py` | `InferencePipelineManagement`, `CameraManagement`, `StreamingGatewayManagement` |
+| Automate gateways + cameras + pipelines | `streaming_automation.py` | `StreamingAutomation` |
+| Load test streaming (add cameras, collect metrics) | `streaming_benchmarking.py`, `examples/benchmark_example.py` | `StreamingBenchmarking` |
+| BYOM (bring your own model family/arch) | `model_store.py` | `BYOM`, `ModelFamily`, `ModelArch` |
+| Action status and logs | `action.py`, `projects.py` | `Action(session, action_id)`, `Projects.get_actions_logs` |
+| Evaluation metrics (detection/classification) | `metrics_calculator.py`, `metrics_calculator_oop.py` | `get_*_evaluation_results`, `calculate_metrics`, `accuracy`, or OOP classes |
+| Local/testing run (dataset prep, mock upload/download, logs) | `testing.py`, `action_tracker.py` | `TestingActionTracker`, `LocalActionTracker` / `ActionTracker` |
+| Compute and Docker (local/env) | `compute.py`, `docker_utils.py` | `list_account_compute`, `add_on_demand_instance`; `check_docker`, `start_docker` |
+
+---
+
+## 8. Quick Reference — Testing and Validation
+
+| Goal | File / class to use | Notes |
+|------|---------------------|------|
+| Benchmark streaming (mock or real) | `streaming_benchmarking.py` + `examples/benchmark_example.py` | Set `use_mock=True` for no real resources; run example 1–6 |
+| Train/export/eval test harness (local) | `testing.py` → `TestingActionTracker` | Needs model family/model JSON and config path (train/export/eval) |
+| Deploy test (load model + predict) | `testing.py` → `TestingMatriceDeploy` | Pass `load_model` and `predict` callables |
+| Dataset size from URL | `dataset.py` → `get_dataset_size_in_mb_from_url` | Before import |
+| Upload dataset file | `dataset.py` → `upload_file` | ZIP only |
+| Check Docker for local runs | `docker_utils.py` → `check_docker`, `test_docker` | Optional for jobs |
+| List/add compute | `compute.py` → `list_account_compute`, `add_on_demand_instance` | For deployment/inference |
+
+---
+
+## 9. API Response Convention
+
+Most SDK methods that call the backend return a **tuple** `(data, error, message)`:
+
+- **data:** Response payload (dict/list) or `None` on failure.
+- **error:** Error string or `None` if success.
+- **message:** Human-readable status.
+
+Example: `data, err, msg = project.list_datasets(); if err: ...`.
+
+---
+
+## 10. Dependencies (runtime)
+
+- **matrice_common:** Session, RPC, `handle_response`, `get_summary`, `dependencies_check`.
+- **Optional:** `matrice_data_processing` (e.g. `create_dataset` in `projects._create_dataset`), `matrice_streaming` (e.g. `Deployment` in `projects.list_deployments` / `get_deployment`).
+- **Standard:** `requests`, `Pillow` (checked in `__init__.py`).
+
+Use this document as the single place to locate modules, classes, and functions for implementing or testing flows without re-scanning the codebase.

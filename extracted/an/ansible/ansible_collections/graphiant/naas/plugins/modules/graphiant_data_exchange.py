@@ -23,7 +23,7 @@ description:
   - Enables creating and deleting Data Exchange services and customers.
   - Provides service-to-customer matching operations with automatic match response file management.
   - Supports invitation acceptance with gateway service deployment and VPN configuration.
-version_added: "25.11.0"
+version_added: "25.12.0"
 extends_documentation_fragment:
   - graphiant.naas.graphiant_portal_auth
 notes:
@@ -55,11 +55,26 @@ options:
         Configure Graphiant filters first with M(graphiant.naas.graphiant_global_config) and
         I(configure_graphiant_filters).
       - >-
+        V(update_services): Update existing Data Exchange services (Workflow 1b). Only I(prefixTags) can
+        be changed. The service must already exist; use V(create_services) for new services.
+        Configuration file must contain I(data_exchange_services) list where each entry has
+        I(serviceName) and I(policy.prefixTags). At least one prefix must remain after the update.
+        Supports C(--check) and C(--diff) to preview changes before applying.
+      - >-
         V(delete_services): Delete Data Exchange services from YAML configuration. Services must be
         deleted after customers that depend on them.
       - "V(create_customers): Create Data Exchange customers from YAML configuration (Workflow 2)."
       - "Configuration file must contain I(data_exchange_customers) list with customer definitions."
       - "Customers can be non-Graphiant peers that can be invited to connect to services."
+      - "Existing customers are skipped (idempotent). When run with C(--check) and C(--diff), detects"
+      - "I(adminEmail) drift on existing customers and surfaces it as a diff — no changes are made;"
+      - "to apply email changes use V(update_customers) instead."
+      - >-
+        V(update_customers): Update email list on existing Data Exchange customers (Workflow 2b).
+        Only I(invite.adminEmail) can be changed. The customer must already exist; use
+        V(create_customers) for new customers. Configuration file must contain
+        I(data_exchange_customers) list where each entry has I(name) and I(invite.adminEmail).
+        Supports C(--check) and C(--diff) to preview changes before applying.
       - >-
         V(delete_customers): Delete Data Exchange customers from YAML configuration. Customers must be
         deleted before services they depend on.
@@ -69,16 +84,23 @@ options:
       - "Updates existing match entries or appends new ones based on customer_name and service_name."
       - "V(accept_invitation): Accept Data Exchange service invitation (Workflow 4)."
       - "Configuration file must contain I(data_exchange_acceptances) list with acceptance details."
-      - "Requires O(matches_file) from Workflow 3 for match ID lookup."
+      - "O(matches_file) is optional: when omitted, attempts API lookup (requires service to be visible"
+      - "in the consumer tenant). When the service is not visible via API, provide O(matches_file) saved"
+      - "by Workflow 3 (V(match_service_to_customers)) with C(-e matches_file=...)."
       - "Supports dry-run mode for validation without API calls."
-      - "Configures full IPSec gateway deployment with dual tunnels, static routing, and VPN profiles."
+      - "Use I(ipsecGatewayPeers) (recommended, multi-peer, requires C(graphiant_sdk >= 26.6.0)) or"
+      - "I(ipsecGatewayDetails) (legacy, single-peer) under I(siteToSiteVpn) in the config file."
+      - "Each I(remotePeers) entry provisions one IPSec interface pair per gateway device; BGP routing"
+      - "is shared across peers; tunnel null fields are auto-filled by the playbook before the API call."
       - "For query operations (get_services_summary, get_customers_summary, get_service_health),"
       - "use M(graphiant.naas.graphiant_data_exchange_info) module instead."
     type: str
     choices:
       - create_services
+      - update_services
       - delete_services
       - create_customers
+      - update_customers
       - delete_customers
       - match_service_to_customers
       - accept_invitation
@@ -96,13 +118,14 @@ options:
   config_file:
     description:
       - Path to the YAML configuration file for the operation.
-      - Required for V(create_services), V(delete_services), V(create_customers), V(delete_customers),
-        V(match_service_to_customers), and V(accept_invitation) operations.
+      - Required for V(create_services), V(delete_services), V(create_customers), V(update_customers),
+        V(delete_customers), V(match_service_to_customers), and V(accept_invitation) operations.
       - Can be an absolute path or relative path. Relative paths are resolved using the configured config_path.
       - Configuration files support Jinja2 templating syntax for dynamic generation.
       - For V(create_services), file must contain I(data_exchange_services) list. Optional I(policy.globalObjectOps)
       - per service attaches Graphiant routing policies to devices (device names resolved to IDs).
-      - For V(create_customers) or V(delete_customers), file must contain I(data_exchange_customers) list.
+      - For V(create_customers), V(update_customers), or V(delete_customers), file must contain
+        I(data_exchange_customers) list.
       - For V(match_service_to_customers), file must contain I(data_exchange_matches) list.
       - For V(accept_invitation), file must contain I(data_exchange_acceptances) list. Optional I(globalObjectOps)
       - per acceptance attaches Graphiant routing policies to gateway devices (device names resolved to IDs).
@@ -111,9 +134,14 @@ options:
   matches_file:
     description:
       - Path to the matches responses JSON file for match ID lookup.
-      - Optional for V(accept_invitation) operation. If not provided, attempts API lookup.
+      - Optional for V(accept_invitation) operation. If not provided, attempts API lookup using the
+        service name (works when the service is already visible in the consumer tenant).
+      - When the service is not yet visible via API (e.g. during a dry-run before acceptance, or when
+        the producer has not shared the service yet), provide this file using C(-e matches_file=...).
       - Can be an absolute path or relative path. Relative paths are resolved using the configured config_path.
-      - This file is automatically generated by V(match_service_to_customers) operation (Workflow 3).
+      - This file is automatically generated by V(match_service_to_customers) operation (Workflow 3)
+        and saved to I(output/) under the config file directory (e.g.
+        I(de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json)).
       - File contains match details including I(customer_id), I(service_id), I(match_id), and I(status).
       - "Match ID resolution priority:"
       - "  1. If I(matches_file) provided with I(match_id) and I(service_id) - uses both directly"
@@ -121,6 +149,42 @@ options:
       - "  3. If I(matches_file) provided but no entry found - attempts API lookup using service name"
       - "  4. If I(matches_file) not provided - attempts API lookup (works if service is visible to consumer)"
     type: str
+  vault_data_exchange_bgp_md5_passwords:
+    description:
+      - >-
+        Dict of customer name to BGP MD5 password for V(accept_invitation).
+        Key must match the C(customerName) field in the acceptance config.
+        Precedence{{ ":" }} YAML C(md5Password) non-null wins; secrets store fills C(null)/absent;
+        absent from both means no MD5 auth (optional field).
+      - >-
+        Fetch from your organization's secrets store and pass as a module param.
+        Secrets are never written to disk — passed in memory only (C(no_log: true)).
+      - >-
+        Ansible Vault{{ ":" }} load with M(ansible.builtin.include_vars) (C(no_log: true)) and pass via
+        C(vault_data_exchange_bgp_md5_passwords{{ ":" }} "{{ vault_data_exchange_bgp_md5_passwords | default({}) }}").
+        Other secrets stores (HashiCorp Vault, AWS Secrets Manager, etc.){{ ":" }} pre-fetch and pass as an extra var.
+        See I(configs/vault_secrets.yml.example) for the expected dict structure.
+    type: dict
+    default: {}
+    required: false
+  vault_data_exchange_psk:
+    description:
+      - >-
+        Nested dict of IPSec tunnel preshared keys for V(accept_invitation) C(ipsecGatewayPeers)
+        configs. Structure{{ ":" }} C(customerName → peer name → tunnel1/tunnel2 → psk string).
+        Precedence{{ ":" }} YAML C(psk) non-null wins; secrets store fills C(null)/absent;
+        if both are null the API auto-fills the PSK (recommended fallback when vault is omitted).
+      - >-
+        Fetch from your organization's secrets store and pass as a module param.
+        Secrets are never written to disk — passed in memory only (C(no_log: true)).
+      - >-
+        Ansible Vault{{ ":" }} load with M(ansible.builtin.include_vars) (C(no_log: true)) and pass via
+        C(vault_data_exchange_psk{{ ":" }} "{{ vault_data_exchange_psk | default({}) }}").
+        Other secrets stores (HashiCorp Vault, AWS Secrets Manager, etc.){{ ":" }} pre-fetch and pass as an extra var.
+        See I(configs/vault_secrets.yml.example) for the expected dict structure.
+    type: dict
+    default: {}
+    required: false
   detailed_logs:
     description:
       - Enable detailed logging output for troubleshooting and monitoring.
@@ -138,7 +202,7 @@ attributes:
 
 requirements:
   - python >= 3.7
-  - graphiant-sdk >= 26.4.0
+  - graphiant-sdk >= 26.6.0
   - tabulate
 
 seealso:
@@ -180,6 +244,43 @@ EXAMPLES = r"""
     password: "{{ graphiant_password }}"
     detailed_logs: true
 
+- name: Workflow 1b - Preview prefixTags changes (check + diff)
+  graphiant.naas.graphiant_data_exchange:
+    operation: update_services
+    config_file: "de_workflows_configs/sample_data_exchange_services_update.yaml"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+  register: update_services_result
+  # Run playbook with: ansible-playbook playbook.yml --check --diff
+
+- name: Workflow 1b - Apply prefixTags update
+  graphiant.naas.graphiant_data_exchange:
+    operation: update_services
+    config_file: "de_workflows_configs/sample_data_exchange_services_update.yaml"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+  register: update_services_result
+
+- name: Display service update result
+  ansible.builtin.debug:
+    msg: "{{ update_services_result.msg }}"
+
+- name: Workflow 2 - Preview customer creation and detect adminEmail drift (check + diff)
+  graphiant.naas.graphiant_data_exchange:
+    operation: create_customers
+    config_file: "de_workflows_configs/sample_data_exchange_customers.yaml"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+  register: create_customers_result
+  # Run playbook with: ansible-playbook playbook.yml --check --diff
+  # Existing customers with changed adminEmail show a diff and suggest using update_customers
+
 - name: Workflow 2 - Create Data Exchange customers
   graphiant.naas.graphiant_data_exchange:
     operation: create_customers
@@ -194,7 +295,7 @@ EXAMPLES = r"""
   ansible.builtin.debug:
     msg: "{{ create_customers_result.msg }}"
 
-- name: Workflow 2 - Create customers with Jinja2 template (scale testing)
+- name: Workflow 2 - Create customers from custom config file
   graphiant.naas.graphiant_data_exchange:
     operation: create_customers
     config_file: "de_workflows_configs/sample_data_exchange_customers_scale2.yaml"
@@ -217,10 +318,13 @@ EXAMPLES = r"""
   ansible.builtin.debug:
     msg: "{{ match_result.msg }}"
 
-- name: Workflow 4 - Accept Data Exchange service invitation (check mode)
+- name: Workflow 4 - Accept invitation with matches_file (check mode; service not yet visible via API)
   graphiant.naas.graphiant_data_exchange:
     operation: accept_invitation
     config_file: "de_workflows_configs/sample_data_exchange_acceptance.yaml"
+    # matches_file is optional. Required when service is not visible via API in the consumer tenant
+    # (e.g. before the invitation is accepted). The file is saved by Workflow 3 (match_service_to_customers).
+    # Pass via: -e matches_file=de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json
     matches_file: "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
     host: "{{ graphiant_host }}"
     username: "{{ graphiant_username }}"
@@ -233,11 +337,13 @@ EXAMPLES = r"""
   ansible.builtin.debug:
     msg: "{{ accept_result.msg }}"
 
-- name: Workflow 4 - Accept Data Exchange service invitation (apply)
+- name: Workflow 4 - Accept invitation (apply; matches_file optional when service is visible via API)
   graphiant.naas.graphiant_data_exchange:
     operation: accept_invitation
     config_file: "de_workflows_configs/sample_data_exchange_acceptance.yaml"
-    matches_file: "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
+    # Omit matches_file to use API lookup (works after invitation has been accepted once,
+    # when the service is visible to the consumer tenant). Or provide it explicitly:
+    # matches_file: "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
     host: "{{ graphiant_host }}"
     username: "{{ graphiant_username }}"
     password: "{{ graphiant_password }}"
@@ -247,6 +353,25 @@ EXAMPLES = r"""
 - name: Display acceptance result
   ansible.builtin.debug:
     msg: "{{ accept_result.msg }}"
+
+- name: Workflow 4 - Accept invitation with secrets (BGP MD5 password and custom PSKs)
+  # Secrets are fetched from your secrets store and passed as module params (never written to disk).
+  # Ansible Vault: load vault_secrets.yml with include_vars (no_log: true) before this task,
+  #   then run the playbook with --vault-password-file configs/vault-password-file.sh.
+  # Other secrets stores (HashiCorp Vault, AWS Secrets Manager, etc.): pre-fetch and pass as extra vars.
+  # See configs/vault_secrets.yml.example for the expected dict structure.
+  graphiant.naas.graphiant_data_exchange:
+    operation: accept_invitation
+    config_file: "de_workflows_configs/sample_data_exchange_acceptance.yaml"
+    matches_file: "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
+    vault_data_exchange_bgp_md5_passwords: "{{ vault_data_exchange_bgp_md5_passwords | default({}) }}"
+    vault_data_exchange_psk: "{{ vault_data_exchange_psk | default({}) }}"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+  no_log: true
+  register: accept_result
 
 - name: Delete Data Exchange customers (must be deleted before services)
   graphiant.naas.graphiant_data_exchange:
@@ -301,6 +426,7 @@ EXAMPLES = r"""
       graphiant.naas.graphiant_data_exchange:
         operation: accept_invitation
         config_file: "de_workflows_configs/sample_data_exchange_acceptance.yaml"
+        # matches_file is optional; provide when service is not visible via API
         matches_file: "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
         host: "{{ graphiant_host }}"
         username: "{{ graphiant_username }}"
@@ -365,8 +491,8 @@ changed:
 operation:
   description:
     - The operation that was performed.
-    - One of V(create_services), V(delete_services), V(create_customers), V(delete_customers),
-      V(match_service_to_customers), or V(accept_invitation).
+    - One of V(create_services), V(update_services), V(delete_services), V(create_customers),
+      V(update_customers), V(delete_customers), V(match_service_to_customers), or V(accept_invitation).
   type: str
   returned: always
   sample: "create_services"
@@ -377,6 +503,25 @@ config_file:
   type: str
   returned: when applicable
   sample: "de_workflows_configs/sample_data_exchange_services.yaml"
+diff:
+  description:
+    - Ansible C(--diff) output showing before/after state for each changed item.
+    - Returned for V(create_services), V(update_services), V(create_customers), and V(update_customers)
+      when the playbook is run with C(--diff) and at least one item would change.
+    - For V(create_customers) with C(--check --diff), shows I(adminEmail) drift on existing customers
+      (C(before) = current emails, C(after) = desired emails) with a note to use V(update_customers).
+    - For new items, C(before) is empty and C(after) is the full target config.
+    - For updates and drift, C(before) shows current values and C(after) shows target values.
+  type: dict
+  returned: when playbook uses C(--diff) and V(create_services), V(update_services), V(create_customers),
+    or V(update_customers) has changes or drift
+  sample:
+    before: |
+      === de-service-1 (prefixTags) ===
+      {"prefixTags": [{"prefix": "10.1.1.0/24", "tag": "s-1-prefix1"}]}
+    after: |
+      === de-service-1 (prefixTags) ===
+      {"prefixTags": [{"prefix": "100.1.1.0/24", "tag": "new-s-1-prefix1"}]}
 """
 
 from ansible.module_utils.basic import AnsibleModule  # noqa: E402
@@ -384,6 +529,9 @@ from ansible_collections.graphiant.naas.plugins.module_utils.graphiant_utils imp
     graphiant_portal_auth_argument_spec,
     get_graphiant_connection,
     handle_graphiant_exception,
+)
+from ansible_collections.graphiant.naas.plugins.module_utils.libs.device_config_common import (  # noqa: E402
+    apply_module_diff,
 )
 from ansible_collections.graphiant.naas.plugins.module_utils.logging_decorator import capture_library_logs  # noqa: E402
 
@@ -429,8 +577,10 @@ def main():
             required=True,
             choices=[
                 "create_services",
+                "update_services",
                 "delete_services",
                 "create_customers",
+                "update_customers",
                 "delete_customers",
                 "match_service_to_customers",
                 "accept_invitation",
@@ -439,6 +589,8 @@ def main():
         state=dict(type="str", choices=["present", "absent"], default="present"),
         config_file=dict(type="str", required=False),
         matches_file=dict(type="str", required=False),
+        vault_data_exchange_bgp_md5_passwords=dict(type="dict", required=False, default={}, no_log=True),
+        vault_data_exchange_psk=dict(type="dict", required=False, default={}, no_log=True),
         detailed_logs=dict(type="bool", default=False),
     )
 
@@ -468,8 +620,10 @@ def main():
     # Validate required parameters
     if operation in [
         "create_services",
+        "update_services",
         "delete_services",
         "create_customers",
+        "update_customers",
         "delete_customers",
         "match_service_to_customers",
     ]:
@@ -485,6 +639,7 @@ def main():
         changed = False
         result_msg = ""
         result_data = {}
+        diff_plan = []
 
         if operation == "create_services":
             result = execute_with_logging(
@@ -492,9 +647,36 @@ def main():
                 graphiant_config.data_exchange.create_services,
                 config_file,
                 success_msg=f"Successfully created Data Exchange services from {config_file}",
+                diff_mode=getattr(module, "_diff", False),
             )
             changed = result["changed"]
             result_msg = result["result_msg"]
+            details = result.get("details", {})
+            diff_plan = details.get("diff_plan", [])
+            drifted = details.get("drifted", [])
+            if module.check_mode and getattr(module, "_diff", False) and drifted and not changed:
+                changed = True
+                result_msg = (
+                    f"Drift detected in {len(drifted)} service(s): {', '.join(drifted)}. "
+                    f"prefixTags differ from current state. "
+                    f"Use update_services to apply changes."
+                )
+
+        elif operation == "update_services":
+            success_msg = f"Successfully updated Data Exchange services from {config_file}"
+            if module.check_mode:
+                success_msg = (
+                    f"Check mode: validated Data Exchange service updates from {config_file} " "(API calls skipped)"
+                )
+            result = execute_with_logging(
+                module,
+                graphiant_config.data_exchange.update_services,
+                config_file,
+                success_msg=success_msg,
+            )
+            changed = result["changed"]
+            result_msg = result["result_msg"]
+            diff_plan = result.get("details", {}).get("diff_plan", [])
 
         elif operation == "delete_services":
             result = execute_with_logging(
@@ -511,10 +693,37 @@ def main():
                 module,
                 graphiant_config.data_exchange.create_customers,
                 config_file,
-                success_msg=f"Successfully created Data Exchange customers {config_file}",
+                success_msg=f"Successfully created Data Exchange customers from {config_file}",
+                diff_mode=getattr(module, "_diff", False),
             )
             changed = result["changed"]
             result_msg = result["result_msg"]
+            details = result.get("details", {})
+            diff_plan = details.get("diff_plan", [])
+            drifted = details.get("drifted", [])
+            if module.check_mode and getattr(module, "_diff", False) and drifted and not changed:
+                changed = True
+                result_msg = (
+                    f"Drift detected in {len(drifted)} customer(s): {', '.join(drifted)}. "
+                    f"adminEmail differs from current state. "
+                    f"Use update_customers to apply changes."
+                )
+
+        elif operation == "update_customers":
+            success_msg = f"Successfully updated Data Exchange customers from {config_file}"
+            if module.check_mode:
+                success_msg = (
+                    f"Check mode: validated Data Exchange customer updates from {config_file} " "(API calls skipped)"
+                )
+            result = execute_with_logging(
+                module,
+                graphiant_config.data_exchange.update_customers,
+                config_file,
+                success_msg=success_msg,
+            )
+            changed = result["changed"]
+            result_msg = result["result_msg"]
+            diff_plan = result.get("details", {}).get("diff_plan", [])
 
         elif operation == "delete_customers":
             result = execute_with_logging(
@@ -542,6 +751,8 @@ def main():
                 module.fail_json(msg="accept_invitation operation requires config_file parameter")
 
             matches_file = params.get("matches_file")
+            vault_bgp_md5 = params.get("vault_data_exchange_bgp_md5_passwords") or {}
+            vault_psk = params.get("vault_data_exchange_psk") or {}
 
             success_msg = f"Successfully accepted Data Exchange service invitation from {config_file}"
             if module.check_mode:
@@ -554,6 +765,8 @@ def main():
                 graphiant_config.data_exchange.accept_invitation,
                 config_file,
                 matches_file,
+                vault_bgp_md5,
+                vault_psk,
                 success_msg=success_msg,
             )
 
@@ -563,13 +776,14 @@ def main():
         else:
             module.fail_json(
                 msg=f"Unsupported operation: {operation}. "
-                f"Supported operations are: create_services, delete_services, create_customers, "
-                f"delete_customers, match_service_to_customers, accept_invitation. "
+                f"Supported operations are: create_services, update_services, delete_services, "
+                f"create_customers, update_customers, delete_customers, "
+                f"match_service_to_customers, accept_invitation. "
                 f"For query operations, use graphiant.naas.graphiant_data_exchange_info module."
             )
 
-        # Return success
-        module.exit_json(
+        # Build exit payload
+        exit_payload = dict(
             changed=changed,
             msg=result_msg,
             result_msg=result_msg,
@@ -577,6 +791,9 @@ def main():
             operation=operation or "unknown",
             config_file=config_file if config_file else None,
         )
+        apply_module_diff(module, exit_payload, {"diff_plan": diff_plan})
+
+        module.exit_json(**exit_payload)
 
     except Exception as e:
         error_msg = handle_graphiant_exception(e, operation or "unknown")

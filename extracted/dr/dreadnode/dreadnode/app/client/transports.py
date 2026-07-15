@@ -122,6 +122,7 @@ class StreamingASGITransport(httpx.AsyncBaseTransport):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         await loop.shutdown_asyncgens()
+        await loop.shutdown_default_executor()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         server_loop = self.require_server_loop()

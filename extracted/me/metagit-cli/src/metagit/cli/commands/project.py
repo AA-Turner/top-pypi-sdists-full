@@ -9,6 +9,7 @@ from typing import Optional
 import click
 import yaml
 
+from metagit.cli.commands.project_derived import derived
 from metagit.cli.commands.project_repo import execute_repo_select, repo
 from metagit.cli.commands.project_source import source
 from metagit.cli.json_output import (
@@ -27,7 +28,6 @@ from metagit.core.workspace.catalog_service import WorkspaceCatalogService
 from metagit.core.workspace.dedupe_resolver import resolve_dedupe_for_layout
 from metagit.core.workspace.layout_resolver import (
     active_project_resolution_error,
-    project_exists_in_manifest,
     resolve_active_project_name,
 )
 from metagit.core.workspace.layout_service import WorkspaceLayoutService
@@ -74,6 +74,7 @@ def project(ctx: click.Context, config: str, project: str = None) -> None:
 # Add repo group to project group
 project.add_command(repo)
 project.add_command(source)
+project.add_command(derived)
 
 
 @project.command("list")
@@ -82,39 +83,66 @@ project.add_command(source)
     "list_all",
     is_flag=True,
     default=False,
-    help="List all workspace projects (catalog view) instead of one project YAML",
+    help="Deprecated alias: catalog listing is now the default without -p/--project",
+)
+@click.option(
+    "--detail",
+    "show_detail",
+    is_flag=True,
+    default=False,
+    help="Dump the active/explicit project as YAML (or JSON with --json)",
 )
 @click.option("--json", "as_json", is_flag=True, default=False, help="Print JSON for agents")
 @click.pass_context
-def project_list(ctx: click.Context, list_all: bool, as_json: bool) -> None:
-    """List project configuration (YAML, JSON, or all projects)."""
+def project_list(
+    ctx: click.Context,
+    list_all: bool,
+    show_detail: bool,
+    as_json: bool,
+) -> None:
+    """List workspace projects (catalog), or one project with -p/--detail."""
     logger: UnifiedLogger = ctx.obj["logger"]
     project: str = ctx.obj["project"]
     local_config: MetagitConfig = ctx.obj["local_config"]
-    explicit_project: bool = bool(ctx.obj.get("explicit_project"))
+    config_path: str = ctx.obj["config_path"]
+    app_config: AppConfig = ctx.obj["config"]
+    explicit_project = ctx.obj.get("explicit_project")
+    _ = list_all  # retained for backward-compatible CLI flag
 
-    use_catalog = (
-        list_all
-        or project is None
-        or (project and not explicit_project and not project_exists_in_manifest(local_config, project))
-    )
-    if use_catalog:
+    # Catalog is the default. Detail/YAML dump only when -p is explicit or --detail.
+    use_detail = bool(explicit_project) or show_detail
+    if not use_detail:
         service = WorkspaceCatalogService()
+        workspace_root = str(Path(app_config.workspace.path).expanduser().resolve())
+        result = service.list_workspace(
+            local_config,
+            config_path,
+            workspace_root,
+            include_index=False,
+        )
         if as_json:
-            emit_json(service.list_projects(local_config))
+            emit_json(result)
             return
-        result = service.list_projects(local_config)
+        summary = (result.data or {}).get("summary", {})
+        click.echo(f"Definition: {summary.get('definition_path', config_path)}")
+        click.echo(f"Workspace root: {summary.get('workspace_root', workspace_root)}")
+        click.echo(f"Projects: {summary.get('project_count', 0)} | Repos: {summary.get('repo_count', 0)}")
         for entry in (result.data or {}).get("projects", []):
-            logger.echo(f"{entry.get('name')} ({entry.get('repo_count', 0)} repos)")
+            click.echo(f"  - {entry.get('name')} ({entry.get('repo_count', 0)} repos)")
         return
 
     try:
+        target = explicit_project or project
+        if not target:
+            logger.error(active_project_resolution_error(local_config))
+            ctx.abort()
+
         # Handle special "local" project case
-        if project == "local":
+        if target == "local":
             # Check if there's an existing project named "local" in workspace
             if local_config.workspace:
                 workspace_project: WorkspaceProject = next(
-                    (p for p in local_config.workspace.projects if p.name == project),
+                    (p for p in local_config.workspace.projects if p.name == target),
                     None,
                 )
                 if workspace_project:
@@ -135,11 +163,11 @@ def project_list(ctx: click.Context, list_all: bool, as_json: bool) -> None:
                 ctx.abort()
 
             workspace_project: WorkspaceProject = next(
-                (p for p in local_config.workspace.projects if p.name == project), None
+                (p for p in local_config.workspace.projects if p.name == target), None
             )
 
             if not workspace_project:
-                logger.error(f"Project '{project}' not found in workspace configuration")
+                logger.error(f"Project '{target}' not found in workspace configuration")
                 ctx.abort()
 
             project_dict = workspace_project.model_dump(exclude_none=True)

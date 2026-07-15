@@ -23,6 +23,7 @@ from .dynamical_decoupling_options import DynamicalDecouplingOptions
 from .environment_options import EnvironmentOptions, SamplerEnvironmentOptions
 from .execution_options import ExecutionOptions, SamplerExecutionOptions
 from .executor_options import ExecutorOptions
+from .simulator_options import SimulatorOptions
 from .twirling_options import TwirlingOptions
 from .utils import PRIMITIVES_CONFIG
 
@@ -45,7 +46,8 @@ class SamplerOptions:
     execution: SamplerExecutionOptions = Field(default_factory=SamplerExecutionOptions)
     """Execution options.
 
-    See :class:`~.SamplerExecutionOptions` for all available options."""
+    See :class:`~.SamplerExecutionOptions` for all available options.
+    """
 
     twirling: TwirlingOptions = Field(default_factory=TwirlingOptions)
     """Pauli twirling options.
@@ -53,18 +55,26 @@ class SamplerOptions:
     See :class:`~.TwirlingOptions` for all available options.
     """
 
-    experimental: dict | None = None
+    simulator: SimulatorOptions = Field(default_factory=SimulatorOptions)
+    """Simulator options.
+
+    See :class:`~.SimulatorOptions` for all available options.
+    """
+
+    experimental: dict = Field(default_factory=dict)
     """Experimental options."""
 
     max_execution_time: int | None = None
-    """Maximum execution time in seconds, based on system execution time (not wall clock time).
-    """
+    """Maximum execution time in seconds, based on system execution time (not wall clock time)."""
 
     environment: SamplerEnvironmentOptions = Field(default_factory=SamplerEnvironmentOptions)
     """Options related to the execution environment."""
 
     def to_executor_options(self) -> ExecutorOptions:
         """Map sampler options to executor options, ignoring all irrelevant fields.
+
+        .. note::
+            Simulator options are ignored as executor does not support local mode.
 
         Returns:
             Mapped executor options.
@@ -79,7 +89,13 @@ class SamplerOptions:
 
         executor_options.environment.max_execution_time = self.max_execution_time
         if self.experimental:
-            executor_options.environment.image = self.experimental.pop("image", None)
+            executor_options.environment.image = self.experimental.get("image", None)
             executor_options.experimental.update(self.experimental)
+
+            if execution_key := self.experimental.get("execution", {}):
+                if execution_key.get("scheduler_timing", False):
+                    executor_options.execution.scheduler_timing = True
+                if execution_key.get("stretch_values", False):
+                    executor_options.execution.stretch_values = True
 
         return executor_options

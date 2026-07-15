@@ -27,7 +27,7 @@ def _jinja2_template_exception_types() -> Tuple[Type[Exception], Type[Exception]
 
 
 try:
-    from jinja2 import Environment, FileSystemLoader
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
 
     HAS_JINJA2 = True
 except ImportError:
@@ -56,6 +56,7 @@ class ConfigTemplates:
     # Template mapping for different configuration types
     TEMPLATE_MAPPING = {
         "interface": "interface_template.yaml",
+        "backbone_interface": "backbone_interface_template.yaml",
         "lag_interfaces": "lag_interfaces_template.yaml",
         "circuit": "circuit_template.yaml",
         "global_prefix_set": "global_prefix_set_template.yaml",
@@ -81,7 +82,10 @@ class ConfigTemplates:
             TemplateError: If template directory cannot be accessed
         """
         try:
-            self.template_env = Environment(loader=FileSystemLoader(config_template_path))
+            self.template_env = Environment(
+                loader=FileSystemLoader(config_template_path),
+                autoescape=select_autoescape(["html", "xml"]),
+            )
             self.template_path = config_template_path
             LOG.debug("ConfigTemplates initialized with path: %s", config_template_path)
         except Exception as e:
@@ -167,6 +171,10 @@ class ConfigTemplates:
     def render_interface(self, **kwargs) -> Dict[str, Any]:
         """Render interface template."""
         return self.render_by_type("interface", **kwargs)
+
+    def render_backbone_interface(self, **kwargs) -> Dict[str, Any]:
+        """Render backbone (Core device) interface template."""
+        return self.render_by_type("backbone_interface", **kwargs)
 
     def render_circuit(self, **kwargs) -> Dict[str, Any]:
         """Render circuit template."""

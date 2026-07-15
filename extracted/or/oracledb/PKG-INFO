@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 4.0.1
+Version: 4.0.2
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0

@@ -17,7 +17,7 @@ from .util import UNIT, Disposable, Unit, compare, compare_primitives, get_enume
 from .util import equals as equals_1
 
 
-def _expr210() -> TypeInfo:
+def _expr209() -> TypeInfo:
     return class_type(
         "System.Collections.Generic.KeyNotFoundException", None, KeyNotFoundException, class_type("System.Exception")
     )
@@ -29,7 +29,7 @@ class KeyNotFoundException(ExceptionBase):
         pass
 
 
-KeyNotFoundException_reflection = _expr210
+KeyNotFoundException_reflection = _expr209
 
 
 def KeyNotFoundException__ctor_Z721C83C5(message: str) -> KeyNotFoundException:
@@ -40,7 +40,7 @@ def KeyNotFoundException__ctor(__unit: Unit = UNIT) -> KeyNotFoundException:
     return KeyNotFoundException__ctor_Z721C83C5(SR_Arg_KeyNotFound)
 
 
-def _expr211(gen0: TypeInfo) -> TypeInfo:
+def _expr210(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Comparer`1", Array([gen0]), Comparer_1)
 
 
@@ -57,7 +57,7 @@ class Comparer_1[T]:
         )
 
 
-Comparer_1_reflection = _expr211
+Comparer_1_reflection = _expr210
 
 
 def Comparer_1__ctor_47C913C[T](comparison: Callable[[T, T], int32]) -> Comparer_1[T]:

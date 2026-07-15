@@ -3250,6 +3250,18 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
 
+    # Bind inputs/crops/models up front so they are always defined.  The
+    # normal (else) path below overwrites all three from the gathered ML
+    # inputs, but the reuse_db path skips gathering entirely — and the
+    # optional report / report_lite blocks at the end of run() reference all
+    # three.  Without these defaults, a reuse_db rerun raises
+    # `UnboundLocalError: inputs` at the report step (crops/models are the
+    # same-shaped fallbacks the report guards fall back to).  Values come
+    # from the [DEFAULT] section, the same source gather_inputs resolves.
+    inputs = []
+    crops = ast.literal_eval(parser.get("DEFAULT", "crops", fallback="[]"))
+    models = ast.literal_eval(parser.get("DEFAULT", "models", fallback="[]"))
+
     # Set up dir_outlook early so observed-yield plots can render BEFORE
     # the ML phase starts. (The same dir is reused later for the
     # post-training plots/maps; later setup at Step-3 is now skipped

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrtcm
-Version: 1.1.12
+Version: 1.2.0
 Summary: RTCM3 protocol parser
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
@@ -30,7 +30,7 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pynmeagps>=1.1.2
+Requires-Dist: pynmeagps>=1.1.4
 Dynamic: license-file
 
 # pyrtcm
@@ -65,7 +65,7 @@ This is an independent project and we have no affiliation whatsoever with the Ra
 ![Status](https://img.shields.io/pypi/status/pyrtcm)
 ![Release](https://img.shields.io/github/v/release/semuconsulting/pyrtcm?include_prereleases)
 ![Build](https://img.shields.io/github/actions/workflow/status/semuconsulting/pyrtcm/main.yml?branch=main)
-![Codecov](https://img.shields.io/codecov/c/github/semuconsulting/pyrtcm)
+![Coverage](https://github.com/semuconsulting/pyrtcm/blob/main/images/coverage.svg?raw=true)
 ![Release Date](https://img.shields.io/github/release-date-pre/semuconsulting/pyrtcm)
 ![Last Commit](https://img.shields.io/github/last-commit/semuconsulting/pyrtcm)
 ![Contributors](https://img.shields.io/github/contributors/semuconsulting/pyrtcm.svg)
@@ -75,9 +75,9 @@ Parses RTCM3 messages into their constituent data fields - `DF002`, `DF003`, etc
 
 Sphinx API Documentation in HTML format is available at [https://www.semuconsulting.com/pyrtcm/](https://www.semuconsulting.com/pyrtcm/)
 
-Contributions welcome - please refer to [CONTRIBUTING.MD](https://github.com/semuconsulting/pyrtcm/blob/master/CONTRIBUTING.md).
+Contributions welcome - please refer to [CONTRIBUTING.MD](https://github.com/semuconsulting/pyrtcm/blob/main/CONTRIBUTING.md).
 
-[Bug reports](https://github.com/semuconsulting/pyrtcm/blob/master/.github/ISSUE_TEMPLATE/bug_report.md) and [Feature requests](https://github.com/semuconsulting/pyrtcm/blob/master/.github/ISSUE_TEMPLATE/feature_request.md) - please use the templates provided. For general queries and advice, post a message to one of the [pyrtcm Discussions](https://github.com/semuconsulting/pyrtcm/discussions) channels.
+[Bug reports](https://github.com/semuconsulting/pyrtcm/blob/main/.github/ISSUE_TEMPLATE/bug_report.md) and [Feature requests](https://github.com/semuconsulting/pyrtcm/blob/main/.github/ISSUE_TEMPLATE/feature_request.md) - please use the templates provided. For general queries and advice, post a message to one of the [pyrtcm Discussions](https://github.com/semuconsulting/pyrtcm/discussions) channels.
 
 ![No Copilot](https://github.com/semuconsulting/PyGPSClient/blob/master/images/nocopilot100.png?raw=true)
 

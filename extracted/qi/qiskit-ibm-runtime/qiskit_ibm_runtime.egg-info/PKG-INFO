@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-runtime
-Version: 0.47.0
+Version: 0.48.0
 Summary: IBM Quantum client for Qiskit Runtime.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0
@@ -27,21 +27,21 @@ License-File: LICENSE.txt
 Requires-Dist: requests>=2.32.4
 Requires-Dist: requests-ntlm>=1.1.0
 Requires-Dist: numpy>=1.26.2
+Requires-Dist: scipy>=1.5.0
 Requires-Dist: urllib3>=2.4.0
 Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: ibm-platform-services>=0.61.1
-Requires-Dist: ibm-quantum-schemas<1,>=0.7.20260419
+Requires-Dist: ibm-quantum-schemas<1,>=0.9.20260612
 Requires-Dist: pydantic>=2.11.0
-Requires-Dist: qiskit>=2.2.0
+Requires-Dist: qiskit>=2.3.0
 Requires-Dist: pybase64>=1.4.0
-Requires-Dist: samplomatic>=0.13.0
+Requires-Dist: samplomatic>=0.18.0
 Provides-Extra: common
 Requires-Dist: mypy==1.19.0; extra == "common"
 Requires-Dist: pproxy==2.7.8; extra == "common"
 Requires-Dist: nbqa==1.5.3; extra == "common"
 Requires-Dist: matplotlib>=2.1; extra == "common"
 Requires-Dist: jupyter; extra == "common"
-Requires-Dist: scipy>=1.0; extra == "common"
 Requires-Dist: nbformat>=4.4.0; extra == "common"
 Requires-Dist: nbconvert>=5.3.1; extra == "common"
 Requires-Dist: qiskit-aer>=0.17.0; extra == "common"
@@ -69,7 +69,6 @@ Provides-Extra: visualization
 Requires-Dist: plotly>=5.23.0; extra == "visualization"
 Provides-Extra: performance
 Requires-Dist: qiskit-aer>=0.17.0; extra == "performance"
-Requires-Dist: scipy>=1.15; extra == "performance"
 Provides-Extra: style
 Requires-Dist: mypy==1.19.0; extra == "style"
 Requires-Dist: pre-commit>=4; extra == "style"
@@ -93,6 +92,7 @@ Requires-Dist: packaging; extra == "doc"
 Requires-Dist: pylatexenc; extra == "doc"
 Requires-Dist: Sphinx<9,>=8; extra == "doc"
 Requires-Dist: sphinxcontrib-katex==0.9.9; extra == "doc"
+Requires-Dist: towncrier; extra == "doc"
 Provides-Extra: dev
 Requires-Dist: qiskit-ibm-runtime[doc]; extra == "dev"
 Requires-Dist: qiskit-ibm-runtime[performance]; extra == "dev"
@@ -443,6 +443,16 @@ print(backend.coupling_map)
 ## Next Steps
 
 Now you're set up and ready to check out some of the [tutorials].
+
+## Usage data collection
+
+By default, this package collects usage data and sends it to IBM Quantum as part of API request. The data includes installed Qiskit package versions (e.g. `qiskit`, `qiskit-aer`) and which Qiskit modules initiated the request. This information helps IBM improve the SDK.
+
+To opt out, set the `USAGE_DATA_OPT_OUT` environment variable to `True` before running your program:
+
+```bash
+export USAGE_DATA_OPT_OUT=True
+```
 
 ## Contribution guidelines
 

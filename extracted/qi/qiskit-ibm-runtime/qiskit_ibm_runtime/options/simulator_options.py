@@ -12,14 +12,13 @@
 
 """Simulator options."""
 
+from pydantic import field_validator
 from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.providers import BackendV2
-from qiskit.utils import optionals
 from qiskit.transpiler import CouplingMap
+from qiskit.utils import optionals
 
-from pydantic import field_validator
-
-from .utils import Unset, UnsetType, skip_unset_validation, primitive_dataclass
+from .utils import Unset, UnsetType, primitive_dataclass, skip_unset_validation
 
 
 class NoiseModel:
@@ -78,9 +77,7 @@ class SimulatorOptions:
                     "'noise_model' can only be a dictionary or qiskit_aer.noise.NoiseModel."
                 )
 
-            from qiskit_aer.noise import (
-                NoiseModel as AerNoiseModel,
-            )
+            from qiskit_aer.noise import NoiseModel as AerNoiseModel
 
             if not isinstance(model, AerNoiseModel):
                 raise ValueError(
@@ -104,9 +101,7 @@ class SimulatorOptions:
                 "qiskit-aer", "Aer provider", "pip install qiskit-aer"
             )
 
-        from qiskit_aer.noise import (
-            NoiseModel as AerNoiseModel,
-        )
+        from qiskit_aer.noise import NoiseModel as AerNoiseModel
 
         self.noise_model = AerNoiseModel.from_backend(backend)
 

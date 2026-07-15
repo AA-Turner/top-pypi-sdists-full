@@ -14,6 +14,7 @@ Usage::
 """
 
 from cvc.sdk.agent import Agent
+from cvc.sdk.ambient import AmbientChannel
 from cvc.sdk.compactor import CompactionResult, HiveCompactor
 from cvc.sdk.events import (
     AGENT_REGISTERED,
@@ -39,6 +40,8 @@ __all__ = [
     "AgentRegistry",
     "Router",
     "EventBus",
+    # Ambient legibility / telepathy (Fable5 Phase 5)
+    "AmbientChannel",
     # Compaction (Phase 7)
     "HiveCompactor",
     "CompactionResult",

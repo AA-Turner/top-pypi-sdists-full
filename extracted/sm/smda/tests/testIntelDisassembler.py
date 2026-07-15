@@ -7,6 +7,7 @@ from smda.intel.FunctionCandidate import FunctionCandidate
 from smda.intel.FunctionCandidateManager import FunctionCandidateManager
 from smda.intel.IntelDisassembler import IntelDisassembler
 from smda.intel.MnemonicTfIdf import MnemonicTfIdf
+from smda.intel.X86Backend import X86Backend
 from smda.SmdaConfig import SmdaConfig
 
 
@@ -34,6 +35,22 @@ class DummyProvider:
 
     def getFunctionSymbols(self):
         return self._symbols
+
+    def is_active(self):
+        return self._is_api or self._is_symbol
+
+
+class ImportSlotProvider(DummyProvider):
+    def __init__(self, slot, dll_name, api_name):
+        super().__init__(is_api=True)
+        self.slot = slot
+        self.dll_name = dll_name
+        self.api_name = api_name
+
+    def getApi(self, to_address, api_address=None):
+        if to_address == self.slot:
+            return (self.dll_name, self.api_name)
+        return ("", "")
 
 
 class TestIntelDisassembler(unittest.TestCase):
@@ -83,6 +100,54 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertEqual(candidate.alignment, 16)
         self.assertIsNone(candidate.getTfIdf())
+
+    def _candidate(self, buf, bitness=64, addr=0x1000, base_addr=0x1000):
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = base_addr
+        binary_info.bitness = bitness
+        return FunctionCandidate(binary_info, addr)
+
+    def test_extended_amd64_prologues_score_exact_tiers(self):
+        # endbr64; push rbp; mov rbp, rsp -- DEFAULT_PROLOGUES entry, falls back to the
+        # single-byte 0x55 tier (33) since "554889e5" itself isn't a COMMON_PROLOGUES key.
+        self.assertEqual(self._candidate(bytes.fromhex("f30f1efa554889e5")).getFunctionStartScore(), 33)
+        # push r15; push r14 -- exact 4-byte match, tier 40
+        self.assertEqual(self._candidate(bytes.fromhex("41574156")).getFunctionStartScore(), 40)
+        # push rbx; sub rsp, imm8 -- exact 5-byte match, tier 40
+        self.assertEqual(self._candidate(bytes.fromhex("40534883ec20")).getFunctionStartScore(), 40)
+        # push rbp; sub rsp, imm8 -- exact 5-byte match, tier 40
+        self.assertEqual(self._candidate(bytes.fromhex("40554883ec18")).getFunctionStartScore(), 40)
+        # endbr64 stripped, then push rbx; sub rsp, imm8 underneath -- still tier 40
+        self.assertEqual(self._candidate(bytes.fromhex("f30f1efa40534883ec20")).getFunctionStartScore(), 40)
+        # mov [rsp+disp8], rbx -- exact 4-byte match, tier 30 (below push;sub, above the
+        # single-byte 0x48 REX.W fallback, per the maintainer's lower MSVC precision for this pattern)
+        self.assertEqual(self._candidate(bytes.fromhex("48895c2408")).getFunctionStartScore(), 30)
+        # bare "sub rsp, imm8" -- no longer an independent pattern at any length; falls back
+        # to the single-byte 0x48 (REX.W) tier (21)
+        self.assertEqual(self._candidate(bytes.fromhex("4883ec20")).getFunctionStartScore(), 21)
+
+    def test_extended_amd64_prologues_negative_guards(self):
+        # push rbx; sub rsp, imm8 WITHOUT the leading bare REX (0x40) byte does not hit the
+        # tier-40 pattern -- it falls back to the single-byte 0x53 tier (6)
+        self.assertEqual(self._candidate(bytes.fromhex("534883ec20")).getFunctionStartScore(), 6)
+        # mov [rsp+disp8], rax (ModRM reg=000, not rbx's reg=011) does not alias the
+        # rbx-specific mov-spill pattern -- falls back to the single-byte 0x48 tier (21)
+        self.assertEqual(self._candidate(bytes.fromhex("4889442408")).getFunctionStartScore(), 21)
+        # mov [rsp+disp32], rbx (mod=10, ModRM 0x9c) must not alias the disp8 form (mod=01,
+        # ModRM 0x5c) -- falls back to the single-byte 0x48 tier (21)
+        self.assertEqual(self._candidate(bytes.fromhex("48899c2408000000")).getFunctionStartScore(), 21)
+
+    def test_bare_endbr64_without_recognized_continuation_scores_zero(self):
+        candidate = self._candidate(bytes.fromhex("f30f1efa9090909090"))
+        self.assertFalse(candidate.hasCommonFunctionStart())
+        self.assertEqual(candidate.getFunctionStartScore(), 0)
+
+    def test_extended_amd64_prologues_are_64bit_only(self):
+        # the exact push;sub/mov-spill patterns are REX-prefixed and must not match in 32-bit mode
+        for hexbytes in ("4883ec20", "40534883ec20", "40554883ec18", "48895c2408"):
+            with self.subTest(hexbytes=hexbytes):
+                candidate = self._candidate(bytes.fromhex(hexbytes), bitness=32)
+                self.assertFalse(candidate.hasCommonFunctionStart())
 
     def test_mnemonic_tfidf_empty_counts_returns_zero(self):
         self.assertEqual(MnemonicTfIdf().tfidf({}), 0.0)
@@ -152,6 +217,105 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertIn(0x1028, result.functions)
         self.assertIn(0x1028, result.code_refs_from.get(0x100C, set()))
+
+    def test_direct_import_stub_calls_resolve_at_original_caller(self):
+        base = 0x1000
+        import_slot = 0x2000
+        caller = (
+            b"\x55"  # 0x1000: push rbp
+            + b"\x48\x89\xe5"  # 0x1001: mov rbp, rsp
+            + b"\xe8\x17\x00\x00\x00"  # 0x1004: call 0x1020
+            + b"\x5d"  # 0x1009: pop rbp
+            + b"\xc3"  # 0x100a: ret
+        )
+        stub = b"\xff\x25\xda\x0f\x00\x00"  # 0x1020: jmp qword ptr [rip + 0xfda] -> 0x2000
+        buf = caller + b"\xcc" * (0x20 - len(caller)) + stub
+
+        for stub_kind in ("elf", "macho"):
+            with self.subTest(stub_kind=stub_kind):
+                binary_info = BinaryInfo(buf)
+                binary_info.base_addr = base
+                binary_info.bitness = 64
+                binary_info.architecture = "intel"
+                binary_info._plt_ranges = [(0x1020, 0x1020 + len(stub))] if stub_kind == "elf" else []
+                binary_info._macho_stub_ranges = [(0x1020, 0x1020 + len(stub))] if stub_kind == "macho" else []
+
+                disassembler = IntelDisassembler(SmdaConfig())
+                disassembler._registerLabelProvider(ImportSlotProvider(import_slot, "libsystem", "puts"))
+                result = disassembler.analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+                self.assertIn(0x1000, result.functions)
+                self.assertIn(0x1020, result.code_refs_from[0x1004])
+                self.assertEqual(result.getApiRefs(0x1000), {0x1004: "libsystem!puts"})
+                self.assertIn(0x1004, result.apis[import_slot]["referencing_addr"])
+
+    def test_direct_jmp_tailcall_to_stub_resolves_at_original_caller(self):
+        # A thin wrapper that tail-calls an import via a bare "jmp" (instead of
+        # "call") must resolve through the same PLT/Mach-O-stub decode as the
+        # direct-call case (sibling of PAT-SMDA-004, caught by the mandatory sweep).
+        base = 0x1000
+        import_slot = 0x2000
+        caller = (
+            b"\x55"  # 0x1000: push rbp
+            + b"\x48\x89\xe5"  # 0x1001: mov rbp, rsp
+            + b"\xe8\x0c\x00\x00\x00"  # 0x1004: call 0x1015 (calls the tailcall wrapper)
+            + b"\x5d"  # 0x1009: pop rbp
+            + b"\xc3"  # 0x100a: ret
+        )
+        wrapper = b"\xeb\x09"  # 0x1015: jmp 0x1020 (tailcall straight into the stub)
+        stub = b"\xff\x25\xda\x0f\x00\x00"  # 0x1020: jmp qword ptr [rip + 0xfda] -> 0x2000
+        buf = caller + b"\xcc" * (0x15 - len(caller)) + wrapper + b"\xcc" * (0x20 - 0x15 - len(wrapper)) + stub
+
+        for stub_kind in ("elf", "macho"):
+            with self.subTest(stub_kind=stub_kind):
+                binary_info = BinaryInfo(buf)
+                binary_info.base_addr = base
+                binary_info.bitness = 64
+                binary_info.architecture = "intel"
+                binary_info._plt_ranges = [(0x1020, 0x1020 + len(stub))] if stub_kind == "elf" else []
+                binary_info._macho_stub_ranges = [(0x1020, 0x1020 + len(stub))] if stub_kind == "macho" else []
+
+                disassembler = IntelDisassembler(SmdaConfig())
+                disassembler._registerLabelProvider(ImportSlotProvider(import_slot, "libsystem", "puts"))
+                result = disassembler.analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+                self.assertIn(0x1015, result.functions)
+                self.assertIn(0x1020, result.code_refs_from[0x1015])
+                self.assertEqual(result.getApiRefs(0x1015), {0x1015: "libsystem!puts"})
+                self.assertIn(0x1015, result.apis[import_slot]["referencing_addr"])
+
+    def test_32bit_pic_plt_call_resolves_ebx_relative_import_slot(self):
+        base = 0x1000
+        import_slot = 0x200C
+        caller = (
+            b"\x55"  # 0x1000: push ebp
+            + b"\x89\xe5"  # 0x1001: mov ebp, esp
+            + b"\xe8\x18\x00\x00\x00"  # 0x1003: call 0x1020
+            + b"\x5d"  # 0x1008: pop ebp
+            + b"\xc3"  # 0x1009: ret
+        )
+        stub = (
+            b"\xf3\x0f\x1e\xfb"  # 0x1020: endbr32
+            + b"\xf2\xff\xa3\x0c\x00\x00\x00"  # 0x1024: bnd jmp dword ptr [ebx + 0xc]
+        )
+        buf = caller + b"\xcc" * (0x20 - len(caller)) + stub
+
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = base
+        binary_info.bitness = 32
+        binary_info.architecture = "intel"
+        binary_info._plt_ranges = [(0x1020, 0x1020 + len(stub))]
+        binary_info._macho_stub_ranges = []
+        binary_info._elf_got_bases = [0x2000]
+        binary_info.imported_functions = {import_slot: ("libc.so.6", "puts")}
+
+        disassembler = IntelDisassembler(SmdaConfig())
+        disassembler._registerLabelProvider(ImportSlotProvider(import_slot, "libc.so.6", "puts"))
+        result = disassembler.analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+        self.assertIn(0x1020, result.code_refs_from[0x1003])
+        self.assertEqual(result.getApiRefs(0x1000), {0x1003: "libc.so.6!puts"})
+        self.assertIn(0x1003, result.apis[import_slot]["referencing_addr"])
 
     def test_loop_taken_edge_is_disassembled(self):
         # a forward loop target is only reachable via the taken edge; it must end up
@@ -363,6 +527,69 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertEqual(manager.nextGapCandidate(), 0x1003)
 
+    def test_locate_prologue_candidates_seeds_extended_amd64_prologues(self):
+        buf = bytes.fromhex(
+            "f30f1efa554889e5"  # 0x1000: endbr64; push rbp; mov rbp, rsp
+            "41574156"  # 0x1008: push r15; push r14
+            "40534883ec20"  # 0x100c: push rbx; sub rsp, imm8
+            "40554883ec18"  # 0x1012: push rbp; sub rsp, imm8
+        )
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = 0x1000
+        binary_info.bitness = 64
+        binary_info.binary_size = len(buf)
+
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(binary_info=binary_info, analysis_timeout=False)
+        manager.bitness = 64
+
+        manager.locatePrologueCandidates()
+
+        expected = {0x1000, 0x1008, 0x100C, 0x1012}
+        self.assertEqual(expected & manager.candidates.keys(), expected)
+
+    def test_locate_prologue_candidates_does_not_seed_common_mid_function_idioms(self):
+        # "sub rsp, imm8" alone (no leading push) and "mov [rsp+disp8], rbx" (a shadow-space
+        # register spill) are both common MID-FUNCTION idioms, not reliable independent
+        # function-start signals on their own (measured: seeding the mov-spill pattern across the
+        # Bao x64 MSVC corpus added 537 false positives corpus-wide for zero recovered true
+        # positives) -- neither must be raw-scanned as a FEP, though both are still scored via
+        # COMMON_PROLOGUES when a candidate already exists by other means. Same for a push;sub
+        # missing the leading bare-REX byte and a non-rbx register spill -- neither is one of the
+        # exact seeded patterns either.
+        for hexbytes in ("4883ec20", "534883ec20", "4889442408", "48895c2408"):
+            with self.subTest(hexbytes=hexbytes):
+                buf = bytes.fromhex(hexbytes)
+                binary_info = BinaryInfo(buf)
+                binary_info.base_addr = 0x1000
+                binary_info.bitness = 64
+                binary_info.binary_size = len(buf)
+
+                manager = FunctionCandidateManager(SmdaConfig())
+                manager.disassembly = SimpleNamespace(binary_info=binary_info, analysis_timeout=False)
+                manager.bitness = 64
+
+                manager.locatePrologueCandidates()
+
+                self.assertEqual(manager.candidates, {})
+
+    def test_locate_prologue_candidates_skips_extended_amd64_prologues_for_32bit(self):
+        for hexbytes in ("4883ec20", "40534883ec20", "48895c2408"):
+            with self.subTest(hexbytes=hexbytes):
+                buf = bytes.fromhex(hexbytes)
+                binary_info = BinaryInfo(buf)
+                binary_info.base_addr = 0x1000
+                binary_info.bitness = 32
+                binary_info.binary_size = len(buf)
+
+                manager = FunctionCandidateManager(SmdaConfig())
+                manager.disassembly = SimpleNamespace(binary_info=binary_info, analysis_timeout=False)
+                manager.bitness = 32
+
+                manager.locatePrologueCandidates()
+
+                self.assertEqual(manager.candidates, {})
+
     def test_prefixed_call_keeps_fallthrough_in_same_block(self):
         state = FunctionAnalysisState(0x1000, SimpleNamespace())
         state.instructions = [
@@ -468,6 +695,56 @@ class TestIntelDisassembler(unittest.TestCase):
         # multi-operand imul to an unrelated register does not clobber rax
         imul_other = [self._ins("mov", "rax, 0x3c"), self._ins("imul", "rbx, rcx, 2")]
         self.assertEqual(disassembler._resolveSyscallNumber(imul_other, 64), 60)
+
+    def _analyze(self, backend, mnemonic, op_str, preceding_ins, bitness=64):
+        state = FunctionAnalysisState(0x1000, SimpleNamespace())
+        state.current_block = preceding_ins
+        d = SimpleNamespace(disassembly=SimpleNamespace(binary_info=SimpleNamespace(bitness=bitness)))
+        i = self._ins(mnemonic, op_str, address=0x1010, size=2)
+        backend.analyzeInstruction(d, i, state, previous_instruction=None, start_addr=0x1000)
+        return state
+
+    def test_exit_group_syscall_ends_function(self):
+        backend = X86Backend()
+        state = self._analyze(backend, "syscall", "", [self._ins("mov", "eax, 231")])
+        self.assertTrue(state.is_sanely_ending)
+        self.assertTrue(state.is_block_ending_instruction)
+
+    def test_int0x80_exit_and_exit_group_end_function(self):
+        backend = X86Backend()
+        for eax_value in (1, 252):
+            state = self._analyze(backend, "int", "0x80", [self._ins("mov", f"eax, {eax_value}")])
+            self.assertTrue(state.is_sanely_ending, f"eax={eax_value}")
+            self.assertTrue(state.is_block_ending_instruction, f"eax={eax_value}")
+
+    def test_int0x80_resolves_full_width_rax_write(self):
+        # a 64-bit binary may still write the syscall number via the full "rax" spelling before
+        # dropping into the 32-bit int 0x80 gate; backtracking must not drop "rax" from the
+        # clobber set (that would silently walk past the real write and misresolve/miss the exit)
+        backend = X86Backend()
+        state = self._analyze(backend, "int", "0x80", [self._ins("mov", "rax, 1")])
+        self.assertTrue(state.is_sanely_ending)
+        self.assertTrue(state.is_block_ending_instruction)
+
+    def test_int0x80_truncates_wider_than_32bit_resolution(self):
+        # int 0x80 only reads the low 32 bits (eax); a resolved value wider than that must
+        # still be recognized by its low 32 bits, not compared against the raw wide integer
+        backend = X86Backend()
+        state = self._analyze(backend, "int", "0x80", [self._ins("mov", "rax, 0x100000001")])
+        self.assertTrue(state.is_sanely_ending)
+        self.assertTrue(state.is_block_ending_instruction)
+
+    def test_syscall_and_int0x80_other_numbers_do_not_end_function(self):
+        backend = X86Backend()
+        # syscall 39 (getpid) must not be treated as a program-ending syscall
+        state = self._analyze(backend, "syscall", "", [self._ins("mov", "eax, 39")])
+        self.assertFalse(state.is_sanely_ending)
+        # int 0x80 with eax=4 (write) must not end the function
+        state = self._analyze(backend, "int", "0x80", [self._ins("mov", "eax, 4")])
+        self.assertFalse(state.is_sanely_ending)
+        # other int vectors are unaffected (not treated as a syscall gate at all)
+        state = self._analyze(backend, "int", "0x2e", [self._ins("mov", "eax, 1")])
+        self.assertFalse(state.is_sanely_ending)
 
 
 if __name__ == "__main__":

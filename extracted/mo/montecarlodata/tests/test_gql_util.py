@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import click
 import requests
@@ -181,6 +181,42 @@ class GqlUtilTest(TestCase):
                 "variables": _SAMPLE_VARIABLES,
             },
         )
+
+    @patch("montecarlodata.utils.create_session")
+    def test_make_request_oauth(self, create_session_mock):
+        oauth_endpoint = "https://api.getmontecarlo.com/oauth/graphql"
+        session_mock = Mock()
+        session_mock.endpoint = oauth_endpoint
+        session_mock.get_access_token.return_value = "tok-123"
+        create_session_mock.return_value = session_mock
+
+        config = Config(
+            mcd_id=None,
+            mcd_token=None,
+            mcd_api_endpoint=_SAMPLE_ENDPOINT,
+            mcd_oauth_client_id="cid",
+            mcd_oauth_client_secret="sec",
+        )
+        service = GqlWrapper(config, command_name="test")
+        # Posts to the OAuth GraphQL endpoint resolved by the SDK session.
+        self.assertEqual(service._endpoint, oauth_endpoint)
+
+        with patch.object(GqlWrapper, "_post", return_value=MockGoodRequest) as post_mock:
+            self.assertEqual(
+                service.make_request(
+                    query=_SAMPLE_QUERY,
+                    service=_SAMPLE_SERVICE,
+                    variables=_SAMPLE_VARIABLES,
+                ),
+                _SAMPLE_RESPONSE["data"],
+            )
+
+        headers = post_mock.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer tok-123")
+        # OAuth mode must not send the API-key headers.
+        self.assertNotIn("x-mcd-id", headers)
+        self.assertNotIn("x-mcd-token", headers)
+        session_mock.get_access_token.assert_called_once()
 
     @patch.object(GqlWrapper, "_make_request", return_value=_SAMPLE_GOOD_GQL_RESPONSE)
     def test_make_request_v2(self, request_mock):

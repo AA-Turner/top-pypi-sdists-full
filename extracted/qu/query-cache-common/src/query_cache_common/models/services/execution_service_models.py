@@ -48,6 +48,7 @@ class SQLExecution(BaseSerDeModel):
     semantic_extras: t.Dict[str, str] = field(default_factory=dict)
     labels: t.Dict[str, str] = field(default_factory=dict)
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
+    default_schema: t.Optional[str] = None
 
     @classmethod
     def from_submit_sql_request(
@@ -64,6 +65,7 @@ class SQLExecution(BaseSerDeModel):
             semantic_extras=req.semantic_extras,
             labels=req.labels,
             dbt_node_state=req.dbt_node_state,
+            default_schema=req.default_schema,
         )
 
 

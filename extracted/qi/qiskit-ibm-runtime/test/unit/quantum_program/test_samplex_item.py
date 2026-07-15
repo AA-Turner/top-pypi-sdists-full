@@ -13,14 +13,11 @@
 """Tests the ``SamplexItem`` class."""
 
 import numpy as np
-
-from samplomatic import build, Twirl, InjectNoise
-
-from qiskit.circuit import QuantumCircuit, Parameter
+from qiskit.circuit import Parameter, QuantumCircuit
 from qiskit.quantum_info import PauliLindbladMap
+from samplomatic import InjectNoise, Twirl, build
 
 from qiskit_ibm_runtime.quantum_program.quantum_program import SamplexItem
-
 
 from ...ibm_test_case import IBMTestCase
 
@@ -137,10 +134,10 @@ class TestSamplexItem(IBMTestCase):
     def test_samplex_item_with_noise(self):
         """Test ``SamplexItem`` with noise annotations."""
         circuit = QuantumCircuit(2)
-        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r0")]):
+        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r0", site="after")]):
             circuit.rx(Parameter("p"), 0)
             circuit.cx(0, 1)
-        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r1")]):
+        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r1", site="after")]):
             circuit.measure_all()
 
         template_circuit, samplex = build(circuit)
@@ -180,10 +177,10 @@ class TestSamplexItem(IBMTestCase):
         a Pauli-Lindblad map for a noise annotation.
         """
         circuit = QuantumCircuit(2)
-        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r0")]):
+        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r0", site="after")]):
             circuit.rx(Parameter("p"), 0)
             circuit.cx(0, 1)
-        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r1")]):
+        with circuit.box(annotations=[Twirl(), InjectNoise(ref="r1", site="after")]):
             circuit.measure_all()
 
         template_circuit, samplex = build(circuit)

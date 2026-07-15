@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-protos
-Version: 0.43.3
+Version: 0.44.1
 Summary: Generated python code for sentry-protos
 License: # Functional Source License, Version 1.1, Apache 2.0 Future License
         

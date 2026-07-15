@@ -1126,3 +1126,63 @@ def test_2460(test_env):
         with pool.acquire():
             assert counter == i + 1
     pool.close()
+
+
+def test_2461(test_env):
+    "2461 - release a connection twice"
+    pool = test_env.get_pool(min=0, max=1, increment=1)
+    conn = pool.acquire()
+    assert pool.opened == 1
+    pool.release(conn)
+    with test_env.assert_raises_full_code("DPY-1001"):
+        pool.release(conn)
+    pool.close()
+
+
+def test_2462(test_env):
+    "2462 - test thread waiting for a connection unblocks when it is released"
+    pool = test_env.get_pool(min=1, max=1)
+
+    def waiter():
+        with pool.acquire(cclass="X") as conn:
+            new_sid_serial = test_env.get_sid_serial(conn)
+            assert new_sid_serial != sid_serial
+
+    conn = pool.acquire()
+    sid_serial = test_env.get_sid_serial(conn)
+    t = threading.Thread(target=waiter)
+    t.start()
+    conn.close()
+    t.join()
+    pool.close()
+
+
+def test_2463(test_env):
+    "2463 - Test that pool `wait_timeout` getter uses milliseconds."
+    wait_ms = 4500
+    pool = test_env.get_pool(
+        getmode=oracledb.POOL_GETMODE_TIMEDWAIT, min=0, wait_timeout=wait_ms
+    )
+    # getter should return the same millisecond value provided
+    assert pool.wait_timeout == wait_ms
+
+    # verify setting via property also preserves milliseconds
+    pool.wait_timeout = 3000
+    assert pool.wait_timeout == 3000
+    pool.close()
+
+
+def test_2464(test_env, skip_unless_thin_mode):
+    "2464 - test force closing a pool wakes waiting acquire() calls"
+    pool = test_env.get_pool(min=1, max=1)
+
+    def waiter():
+        with test_env.assert_raises_full_code("DPY-1002"):
+            pool.acquire()
+
+    conn = pool.acquire()
+    t = threading.Thread(target=waiter)
+    t.start()
+    pool.close(force=True)
+    t.join()
+    conn.close()

@@ -11,6 +11,14 @@ ifdef continue_on_errors
 	_continue_on_errors = --continue-on-error
 endif
 
+# Use ubuntu2604 for devel (ubuntu2204 is no longer supported),
+# keep ubuntu2204 for stable branches.
+ifeq ($(ansible),devel)
+	_docker_image = ubuntu2604
+else
+	_docker_image = ubuntu2204
+endif
+
 # Set command variables based on database engine
 # Required for MariaDB 11+ which no longer includes mysql named compatible
 # executable symlinks
@@ -68,9 +76,7 @@ test-integration:
 	# Setup replication and restart containers using the same subshell to keep variables alive
 	db_ver=$(db_engine_version); \
 	maj="$${db_ver%.*.*}"; \
-	maj_min="$${db_ver%.*}"; \
-	min="$${maj_min#*.}"; \
-	if [[ "$(db_engine_name)" == "mysql" && "$$maj" -eq 8 && "$$min" -ge 2 ]]; then \
+	if [[ "$(db_engine_name)" == "mysql" && "$$maj" -eq 8 ]]; then \
 		prima_conf='[mysqld]\\nserver-id=1\\nlog-bin=/var/lib/mysql/primary-bin\\nmysql-native-password=1'; \
 		repl1_conf='[mysqld]\\nserver-id=2\\nlog-bin=/var/lib/mysql/replica1-bin\\nmysql-native-password=1'; \
 		repl2_conf='[mysqld]\\nserver-id=3\\nlog-bin=/var/lib/mysql/replica2-bin\\nmysql-native-password=1'; \
@@ -100,7 +106,7 @@ test-integration:
 	https://github.com/ansible/ansible/archive/$(ansible).tar.gz; \
 	set -x; \
 	ansible-test integration $(target) -v --color --coverage --diff \
-	--docker ubuntu2204 \
+	--docker $(_docker_image) \
 	--docker-network podman $(_continue_on_errors) $(_keep_containers_alive); \
 	set +x
 	# End of venv

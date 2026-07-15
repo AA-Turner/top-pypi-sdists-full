@@ -20,11 +20,11 @@ module: purefa_snmp_agent
 version_added: '1.16.0'
 short_description: Configure the FlashArray SNMP Agent
 description:
-- Manage the I(localhost) SNMP Agent on a Pure Storage FlashArray.
+- Manage the I(localhost) SNMP Agent on a Everpure FlashArray.
 - This module is not idempotent and will always modify the SNMP Agent
   due to hidden parameters that cannot be compared to the task parameters.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     type: str
@@ -126,6 +126,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 MIN_REQUIRED_API_VERSION = "2.1"
 
@@ -149,12 +152,7 @@ def update_agent(module, array):
                     v2c=flasharray.SnmpV2c(community=community),
                 )
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to update SNMP agent.Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            check_response(res, module, "Failed to update SNMP agent")
     else:
         if module.params["state"] == "delete":
             changed = True
@@ -200,12 +198,7 @@ def update_agent(module, array):
                     v3=v3,
                 )
             )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to update SNMP agent.Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            check_response(res, module, "Failed to update SNMP agent")
 
     module.exit_json(changed=changed)
 

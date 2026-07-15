@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: capsule-sdk
-Version: 0.4.14
+Version: 0.4.15
 Summary: Python SDK for Capsule
 License-Expression: Apache-2.0
 Requires-Python: >=3.10
@@ -204,8 +204,9 @@ qualifies the config ID with the tenant project automatically.
 
 To route runner traffic through the credential broker, register a sandbox with
 QE to obtain a `sandbox_token`, then pass it as `proxy_token` during allocation.
-The control plane resolves the per-tenant proxy address from
-`tenant_credential_broker.proxy_addr`.
+The control plane resolves the per-tenant proxy address from the
+TF-managed `capsule-credential-broker-addrs` ConfigMap (mounted at
+`/etc/capsule/broker_addrs.json`, reloaded ~1 min).
 
 ```python
 with CapsuleClient() as client:

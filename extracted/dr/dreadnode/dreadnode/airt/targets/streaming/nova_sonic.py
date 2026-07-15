@@ -12,11 +12,29 @@ dynamically. Auth is AWS IAM/SigV4 via the credential chain — no API key.
 import base64
 import contextlib
 import importlib
+import importlib.util
 import os
 import typing as t
 
 from dreadnode.core.task import Task, task
 from dreadnode.generators.message import ContentAudioInput, ContentText, Message
+
+_NOVA_DEPS = ("aws_sdk_bedrock_runtime", "awscrt", "smithy_aws_core")
+
+
+def _require_nova_deps() -> None:
+    """Fail fast if the Nova Sonic streaming deps are missing.
+
+    Called at target-construction time so a missing ``dreadnode[nova-sonic]``
+    stops the run up front instead of surfacing as a mid-stream error finding.
+    """
+    for mod in _NOVA_DEPS:
+        if importlib.util.find_spec(mod) is None:
+            raise RuntimeError(
+                "Nova Sonic speech-to-speech needs the optional streaming "
+                'dependencies. Install them with:  pip install "dreadnode[nova-sonic]"'
+                f"  (requires Python >=3.12). Missing module: {mod}."
+            )
 
 
 def _ensure_aws_credentials(region: str) -> None:
@@ -69,9 +87,12 @@ def nova_sonic_target(
     decodes to it). Streams it to Nova Sonic and returns a :class:`Message` with the
     model's spoken reply (audio) and its transcript (text).
 
-    Prerequisites (see docs): ``pip install aws-sdk-bedrock-runtime awscrt``, AWS
-    credentials (env vars / profile / role), and Nova Sonic model access in the region.
+    Prerequisites (see docs): ``pip install "dreadnode[nova-sonic]"`` (Python >=3.12),
+    AWS credentials (env vars / profile / role), and Nova Sonic model access in the region.
     """
+    # Fail fast at construction so a missing dependency doesn't register a doomed
+    # assessment that only errors mid-stream.
+    _require_nova_deps()
 
     async def target(message: Message) -> Message:
         pcm = _first_audio_pcm(message)
@@ -128,10 +149,17 @@ async def _roundtrip(
     # fast with a clear error instead of hanging on the Bedrock handshake.
     _ensure_aws_credentials(region)
 
-    bedrock = importlib.import_module("aws_sdk_bedrock_runtime.client")
-    models = importlib.import_module("aws_sdk_bedrock_runtime.models")
-    config_mod = importlib.import_module("aws_sdk_bedrock_runtime.config")
-    smithy_env = importlib.import_module("smithy_aws_core.identity.environment")
+    try:
+        bedrock = importlib.import_module("aws_sdk_bedrock_runtime.client")
+        models = importlib.import_module("aws_sdk_bedrock_runtime.models")
+        config_mod = importlib.import_module("aws_sdk_bedrock_runtime.config")
+        smithy_env = importlib.import_module("smithy_aws_core.identity.environment")
+    except ModuleNotFoundError as e:
+        raise RuntimeError(
+            "Nova Sonic speech-to-speech needs the optional streaming dependencies. "
+            'Install them with:  pip install "dreadnode[nova-sonic]"  (requires Python '
+            f">=3.12). Missing module: {e.name}."
+        ) from e
 
     prompt_id, sys_id, audio_id = (str(uuid.uuid4()) for _ in range(3))
     text_out: list[str] = []
@@ -161,9 +189,14 @@ async def _roundtrip(
         while not done.is_set():
             output = await stream.await_output()
             result = await output[1].receive()
-            if not (result.value and result.value.bytes_):
+            # `result` is a union of chunk + error types; only the chunk variant
+            # carries `.value.bytes_`. Access defensively so the type checker
+            # doesn't flag the error variants (which have no such attribute).
+            value = getattr(result, "value", None)
+            payload = getattr(value, "bytes_", None)
+            if not payload:
                 continue
-            ev = json.loads(result.value.bytes_.decode("utf-8")).get("event", {})
+            ev = json.loads(payload.decode("utf-8")).get("event", {})
             if "contentStart" in ev:
                 role["v"] = ev["contentStart"].get("role")
             elif "textOutput" in ev and role["v"] == "ASSISTANT":

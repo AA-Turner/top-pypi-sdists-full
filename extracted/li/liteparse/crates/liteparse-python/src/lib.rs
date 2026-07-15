@@ -134,6 +134,8 @@ struct PyParsedPage {
     markdown: String,
     #[pyo3(get)]
     text_items: Vec<PyTextItem>,
+    #[pyo3(get)]
+    complexity: Option<PyPageComplexityStats>,
 }
 
 #[pymethods]
@@ -162,6 +164,10 @@ impl PyParsedPage {
                 .into_iter()
                 .map(PyTextItem::from_rust)
                 .collect(),
+            complexity: page
+                .complexity
+                .as_ref()
+                .map(PyPageComplexityStats::from_rust),
         }
     }
 }
@@ -458,6 +464,7 @@ impl LiteParse {
         emit_word_boxes = None,
         crop_box = None,
         skip_diagonal_text = None,
+        include_complexity = None,
     ))]
     fn new(
         ocr_language: Option<String>,
@@ -480,6 +487,7 @@ impl LiteParse {
         emit_word_boxes: Option<bool>,
         crop_box: Option<(f32, f32, f32, f32)>,
         skip_diagonal_text: Option<bool>,
+        include_complexity: Option<bool>,
     ) -> PyResult<Self> {
         let mut cfg = LiteParseConfig::default();
         if let Some(v) = ocr_language {
@@ -554,6 +562,9 @@ impl LiteParse {
         }
         if let Some(v) = skip_diagonal_text {
             cfg.skip_diagonal_text = v;
+        }
+        if let Some(v) = include_complexity {
+            cfg.include_complexity = v;
         }
 
         let inner = liteparse::parser::LiteParse::new(cfg.clone());

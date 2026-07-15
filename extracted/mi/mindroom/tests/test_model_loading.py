@@ -3,14 +3,44 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import patch
+
+from agno.models.openai import OpenAIChat
 
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig
 from mindroom.model_loading import get_model_instance
+from mindroom.openai_responses_model import MindRoomOpenAIResponses
 from tests.conftest import bind_runtime_paths, runtime_paths_for, test_runtime_paths
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def test_first_party_openai_gpt_5_4_and_newer_use_responses(tmp_path: Path) -> None:
+    """First-party current GPT uses Responses while old and compatible models keep Chat Completions."""
+    config = bind_runtime_paths(
+        Config(
+            models={
+                "current": ModelConfig(provider="openai", id="gpt-5.6", extra_kwargs={"api_key": "dummy-key"}),
+                "older": ModelConfig(provider="openai", id="gpt-4o", extra_kwargs={"api_key": "dummy-key"}),
+                "compatible": ModelConfig(
+                    provider="openai",
+                    id="gpt-5.6",
+                    extra_kwargs={"api_key": "dummy-key", "base_url": "http://localhost:9292/v1"},
+                ),
+            },
+        ),
+        test_runtime_paths(tmp_path),
+    )
+
+    current = get_model_instance(config, runtime_paths_for(config), "current")
+    older = get_model_instance(config, runtime_paths_for(config), "older")
+    compatible = get_model_instance(config, runtime_paths_for(config), "compatible")
+
+    assert isinstance(current, MindRoomOpenAIResponses)
+    assert isinstance(older, OpenAIChat)
+    assert isinstance(compatible, OpenAIChat)
 
 
 def test_vertexai_claude_gets_explicit_timeout_so_large_outputs_can_run_non_streaming(tmp_path: Path) -> None:
@@ -102,3 +132,27 @@ def test_anthropic_timeout_override_is_preserved(tmp_path: Path) -> None:
     model = get_model_instance(config, runtime_paths_for(config), "claude")
 
     assert model.timeout == 120.0
+
+
+def test_usage_telemetry_is_installed_when_full_request_logging_is_disabled(tmp_path: Path) -> None:
+    """Every configured model should get the shared usage telemetry wrapper."""
+    config = bind_runtime_paths(
+        Config(
+            models={
+                "default": ModelConfig(
+                    provider="openai",
+                    id="gpt-5.6",
+                    extra_kwargs={"api_key": "dummy-key"},
+                ),
+            },
+        ),
+        test_runtime_paths(tmp_path),
+    )
+
+    with patch("mindroom.model_loading.install_llm_request_logging") as install_logging:
+        model = get_model_instance(config, runtime_paths_for(config), "default")
+
+    install_logging.assert_called_once()
+    assert install_logging.call_args.args == (model,)
+    assert install_logging.call_args.kwargs["configured_provider"] == "openai"
+    assert install_logging.call_args.kwargs["debug_config"].log_llm_requests is False

@@ -1,5 +1,5 @@
 try:
-    from dbt_state._version import __version__
+    from dbt_state._version import __version__  # type: ignore[import]
 except ImportError:
     __version__ = "0.0.0"  # ty: ignore[invalid-assignment]
 try:

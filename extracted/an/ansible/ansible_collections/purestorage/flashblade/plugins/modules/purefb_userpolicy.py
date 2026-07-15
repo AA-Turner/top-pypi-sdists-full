@@ -22,7 +22,7 @@ short_description: Manage FlashBlade Object Store User Access Policies
 description:
 - Add or Remove FlashBlade Object Store Access Policies for Account User
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -114,13 +114,16 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 
 CONTEXT_API_VERSION = "2.17"
 
 
 def _check_valid_policy(module, blade, policy):
     api_version = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in api_version:
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         return bool(
             blade.get_object_store_access_policies(
                 names=[policy], context_names=[module.params["context"]]
@@ -135,40 +138,40 @@ def add_policy(module, blade):
     api_version = list(blade.get_versions().items)
     user_policy_list = []
     policy_list = module.params["policy"]
-    for policy in range(len(policy_list)):
-        if not _check_valid_policy(module, blade, policy_list[policy]):
-            module.fail_json(msg="Policy {0} is not valid.".format(policy_list[policy]))
+    for policy in policy_list:
+        if not _check_valid_policy(module, blade, policy):
+            module.fail_json(msg="Policy {0} is not valid.".format(policy))
     username = module.params["account"] + "/" + module.params["name"]
-    for policy in range(len(policy_list)):
-        if CONTEXT_API_VERSION in api_version:
+    for policy in policy_list:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.get_object_store_users_object_store_access_policies(
                 member_names=[username],
-                policy_names=[policy_list[policy]],
+                policy_names=[policy],
                 context_names=[module.params["context"]],
             )
         else:
             res = blade.get_object_store_users_object_store_access_policies(
-                member_names=[username], policy_names=[policy_list[policy]]
+                member_names=[username], policy_names=[policy]
             )
         if not list(res.items):
             if not module.check_mode:
                 changed = True
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     res = blade.post_object_store_access_policies_object_store_users(
                         member_names=[username],
-                        policy_names=[policy_list[policy]],
+                        policy_names=[policy],
                         context_names=[module.params["context"]],
                     )
                     res = blade.post_object_store_access_policies_object_store_users(
-                        member_names=[username], policy_names=[policy_list[policy]]
+                        member_names=[username], policy_names=[policy]
                     )
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Failed to add policy {0}. Error: {1}".format(
-                                policy_list[policy], res.errors[0].message
+                                policy, get_error_message(res)
                             )
                         )
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     user_policies = list(
                         blade.get_object_store_access_policies_object_store_users(
                             member_names=[username],
@@ -181,12 +184,12 @@ def add_policy(module, blade):
                             member_names=[username]
                         ).items
                     )
-                for user_policy in range(len(user_policies)):
-                    user_policy_list.append(user_policies[user_policy].policy.name)
+                for user_policy in user_policies:
+                    user_policy_list.append(user_policy.policy.name)
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to add policy {0} to account user {1}. Error: {2}".format(
-                            policy_list[policy], username, res.errors[0].message
+                            policy, username, get_error_message(res)
                         )
                     )
     module.exit_json(changed=changed, policy_list=user_policy_list)
@@ -198,35 +201,35 @@ def remove_policy(module, blade):
     api_version = list(blade.get_versions().items)
     user_policy_list = []
     policy_list = module.params["policy"]
-    for policy in range(len(policy_list)):
+    for policy in policy_list:
         if not _check_valid_policy(module, blade, policy):
             module.fail_json(msg="Policy {0} is not valid.".format(policy))
     username = module.params["account"] + "/" + module.params["name"]
-    for policy in range(len(policy_list)):
-        if CONTEXT_API_VERSION in api_version:
+    for policy in policy_list:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.get_object_store_users_object_store_access_policies(
                 member_names=[username],
-                policy_names=[policy_list[policy]],
+                policy_names=[policy],
                 context_names=[module.params["context"]],
             ).total_item_count
         else:
             res = blade.get_object_store_users_object_store_access_policies(
-                member_names=[username], policy_names=[policy_list[policy]]
+                member_names=[username], policy_names=[policy]
             ).total_item_count
         if res == 1:
             if not module.check_mode:
                 changed = True
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     res = blade.delete_object_store_access_policies_object_store_users(
                         member_names=[username],
-                        policy_names=[policy_list[policy]],
+                        policy_names=[policy],
                         context_names=[module.params["context"]],
                     )
                 else:
                     res = blade.delete_object_store_access_policies_object_store_users(
-                        member_names=[username], policy_names=[policy_list[policy]]
+                        member_names=[username], policy_names=[policy]
                     )
-                if CONTEXT_API_VERSION in api_version:
+                if CONTEXT_API_VERSION in api_version and module.params["context"]:
                     user_policies = list(
                         blade.get_object_store_access_policies_object_store_users(
                             member_names=[username],
@@ -239,12 +242,12 @@ def remove_policy(module, blade):
                             member_names=[username]
                         ).items
                     )
-                for user_policy in range(len(user_policies)):
-                    user_policy_list.append(user_policies[user_policy].policy.name)
+                for user_policy in user_policies:
+                    user_policy_list.append(user_policy.policy.name)
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to remove policy {0} from account user {1}. Error: {2}".format(
-                            policy_list[policy], username, res.errors[0].message
+                            policy, username, get_error_message(res)
                         )
                     )
     module.exit_json(changed=changed, policy_list=user_policy_list)
@@ -258,7 +261,7 @@ def list_policy(module, blade):
     if not module.check_mode:
         if module.params["account"] and module.params["name"]:
             username = module.params["account"] + "/" + module.params["name"]
-            if CONTEXT_API_VERSION in api_version:
+            if CONTEXT_API_VERSION in api_version and module.params["context"]:
                 user_policies = list(
                     blade.get_object_store_access_policies_object_store_users(
                         member_names=[username],
@@ -271,10 +274,10 @@ def list_policy(module, blade):
                         member_names=[username]
                     ).items
                 )
-            for user_policy in range(len(user_policies)):
-                policy_list.append(user_policies[user_policy].policy.name)
+            for user_policy in user_policies:
+                policy_list.append(user_policy.policy.name)
         else:
-            if CONTEXT_API_VERSION in api_version:
+            if CONTEXT_API_VERSION in api_version and module.params["context"]:
                 policies = blade.get_object_store_access_policies(
                     context_names=[module.params["context"]]
                 )
@@ -283,8 +286,8 @@ def list_policy(module, blade):
             p_list = list(policies.items)
             if policies.status_code != 200:
                 module.fail_json(msg="Failed to get Object Store User Access Policies")
-            for policy in range(len(p_list)):
-                policy_list.append(p_list[policy].name)
+            for policy in p_list:
+                policy_list.append(policy.name)
     module.exit_json(changed=changed, policy_list=policy_list)
 
 
@@ -310,6 +313,12 @@ def main():
     )
 
     blade = get_system(module)
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version and not module.params["context"]:
+        # If no context is provided set the context to the local array name
+        fleet_res = blade.get_fleets()
+        if fleet_res.status_code == 200 and list(fleet_res.items):
+            module.params["context"] = list(blade.get_arrays().items)[0].name
 
     state = module.params["state"]
     if (

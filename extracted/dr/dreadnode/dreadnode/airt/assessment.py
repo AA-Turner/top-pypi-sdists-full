@@ -138,6 +138,22 @@ class Assessment:
 
         self.target_config = target_config
         self.attacker_config = attacker_config
+
+        # Infer first-class model ids from the configs when not passed explicitly,
+        # so a user who only provides target_config / attacker_config still gets
+        # model metadata on the assessment header AND findings (mirrors the
+        # platform-side backfill). Keys match the capability/TUI convention.
+        if self.target_model is None and self.target_config:
+            self.target_model = self.target_config.get("model")
+        if self.attacker_model is None and self.attacker_config:
+            self.attacker_model = self.attacker_config.get("model") or self.attacker_config.get(
+                "attacker_model"
+            )
+        if self.judge_model is None and self.attacker_config:
+            self.judge_model = self.attacker_config.get(
+                "evaluator_model"
+            ) or self.attacker_config.get("judge")
+
         self._attack_manifest = attack_manifest
         self._workflow_run_id = workflow_run_id
         self._workflow_script = workflow_script
@@ -350,6 +366,15 @@ class Assessment:
             study.airt_category = self.goal_category
         if self.goal_category and not study.airt_sub_category:
             study.airt_sub_category = self.goal_category
+        # Propagate the assessment's model identifiers so findings carry the
+        # target/judge metadata without the caller passing airt_* kwargs to the
+        # attack factory (e.g. multimodal_attack, which the user builds directly).
+        if self.target_model and not study.airt_target_model:
+            study.airt_target_model = self.target_model
+        if self.judge_model and not study.airt_evaluator_model:
+            study.airt_evaluator_model = self.judge_model
+        if self.attacker_model and not study.airt_attacker_model:
+            study.airt_attacker_model = self.attacker_model
 
         from dreadnode.airt.analytics.types import GoalCategory
 

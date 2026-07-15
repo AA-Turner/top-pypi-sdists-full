@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{Rn as e}from"./promotionUtils-D16_OQ9o.js";import{n as t}from"./oauthState-CTdAbFcm.js";import{t as n}from"./useSessionCookie-BZIG_d81.js";e().registerExtension({name:`Comfy.Cloud.SessionCookie`,onAuthUserResolved:async()=>{let{createSession:e}=n();await e()},onAuthTokenRefreshed:async()=>{let{createSession:e}=n();await e()},onAuthUserLogout:async()=>{t();let{deleteSession:e}=n();await e()}});
-//# sourceMappingURL=cloudSessionCookie-B7rvgX6w.js.map

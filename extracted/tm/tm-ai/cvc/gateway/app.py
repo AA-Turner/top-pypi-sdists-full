@@ -268,6 +268,15 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning("Could not mount /api/soul router: %s", e)
 
+    # World model + counterfactual self-test loop (Fable5 Phase 5→dashboard).
+    # Values hierarchy, reasoning style, uncertainty flags, and the probe
+    # grading loop that produces the soul's calibration score.
+    try:
+        from cvc.gateway.mind import router as mind_router
+        app.include_router(mind_router, prefix="/api", tags=["mind"])
+    except Exception as e:
+        logger.warning("Could not mount /api/mind router: %s", e)
+
     # Universal adapter system (Phase 7.1) — every brain, capability matrix,
     # live health, negotiation. Powers the dashboard's "Brains" panel.
     try:

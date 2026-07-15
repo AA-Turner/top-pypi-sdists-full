@@ -49,6 +49,10 @@ class Variants(Enum):
     VERSION_DIJKSTRA_NO_HEURISTICS = variants.dijkstra_no_heuristics
     VERSION_DIJKSTRA_LESS_MEMORY = variants.dijkstra_less_memory
     VERSION_DISCOUNTED_A_STAR = variants.discounted_a_star
+    APPROX_TANDEM_REPEATS = variants.approx_tandem_repeats
+    APPROX_SLIDING_WINDOW = variants.approx_sliding_window
+    APPROX_FIXED_HORIZON = variants.approx_fixed_horizon
+
 
 class Parameters(Enum):
     PARAM_TRACE_COST_FUNCTION = "trace_cost_function"
@@ -85,6 +89,12 @@ def __variant_mapper(variant):
             variant = Variants.VERSION_DIJKSTRA_LESS_MEMORY
         elif variant == "Variants.VERSION_DISCOUNTED_A_STAR":
             variant = Variants.VERSION_DISCOUNTED_A_STAR
+        elif variant == "Variants.APPROX_TANDEM_REPEATS":
+            variant = Variants.APPROX_TANDEM_REPEATS
+        elif variant == "Variants.APPROX_SLIDING_WINDOW":
+            variant = Variants.APPROX_SLIDING_WINDOW
+        elif variant == "Variants.APPROX_FIXED_HORIZON":
+            variant = Variants.APPROX_FIXED_HORIZON
 
     return variant
 
@@ -97,12 +107,18 @@ VERSION_STATE_EQUATION_A_STAR = Variants.VERSION_STATE_EQUATION_A_STAR
 VERSION_DIJKSTRA_NO_HEURISTICS = Variants.VERSION_DIJKSTRA_NO_HEURISTICS
 VERSION_DIJKSTRA_LESS_MEMORY = Variants.VERSION_DIJKSTRA_LESS_MEMORY
 VERSION_DISCOUNTED_A_STAR = Variants.VERSION_DISCOUNTED_A_STAR
+APPROX_TANDEM_REPEATS = Variants.APPROX_TANDEM_REPEATS
+APPROX_SLIDING_WINDOW = Variants.APPROX_SLIDING_WINDOW
+APPROX_FIXED_HORIZON = Variants.APPROX_FIXED_HORIZON
 
 VERSIONS = {
     Variants.VERSION_DIJKSTRA_NO_HEURISTICS,
     Variants.VERSION_STATE_EQUATION_A_STAR,
     Variants.VERSION_DIJKSTRA_LESS_MEMORY,
     Variants.VERSION_DISCOUNTED_A_STAR,
+    Variants.APPROX_TANDEM_REPEATS,
+    Variants.APPROX_SLIDING_WINDOW,
+    Variants.APPROX_FIXED_HORIZON,
 }
 
 
@@ -158,7 +174,10 @@ def apply_trace(
     final_marking
         :class:`pm4py.objects.petri.petrinet.Marking` final marking of the net
     variant
-        selected variant of the algorithm, possible values: {\'Variants.VERSION_STATE_EQUATION_A_STAR, Variants.VERSION_DIJKSTRA_NO_HEURISTICS \'}
+        selected variant of the algorithm. Approximation-oriented values are
+        ``Variants.APPROX_TANDEM_REPEATS``,
+        ``Variants.APPROX_SLIDING_WINDOW``, and
+        ``Variants.APPROX_FIXED_HORIZON``.
     parameters
         :class:`dict` parameters of the algorithm, for key \'state_equation_a_star\':
             Parameters.ACTIVITY_KEY -> Attribute in the log that contains the activity
@@ -244,7 +263,10 @@ def apply_log(
     final_marking
         :class:`pm4py.objects.petri.petrinet.Marking` final marking of the net
     variant
-        selected variant of the algorithm, possible values: {\'Variants.VERSION_STATE_EQUATION_A_STAR, Variants.VERSION_DIJKSTRA_NO_HEURISTICS \'}
+        selected variant of the algorithm. Approximation-oriented values are
+        ``Variants.APPROX_TANDEM_REPEATS``,
+        ``Variants.APPROX_SLIDING_WINDOW``, and
+        ``Variants.APPROX_FIXED_HORIZON``.
     parameters
         :class:`dict` parameters of the algorithm,
 

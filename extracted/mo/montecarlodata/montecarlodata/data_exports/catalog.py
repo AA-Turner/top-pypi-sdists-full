@@ -29,4 +29,9 @@ DATA_EXPORT_CATALOG = [
         title="Events",
         description="All events in the last 90 days with aggregated properties.",
     ),
+    DataExport(
+        name="MONITOR_RUNS",
+        title="Monitor Runs",
+        description="Per-monitor run values and thresholds (private preview).",
+    ),
 ]

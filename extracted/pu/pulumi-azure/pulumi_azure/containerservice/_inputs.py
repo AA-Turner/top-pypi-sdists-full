@@ -4688,7 +4688,9 @@ class KubernetesClusterDefaultNodePoolArgsDict(TypedDict):
     """
     workload_runtime: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Specifies the workload runtime used by the node pool. Possible value is `OCIContainer`.
+    Specifies the workload runtime used by the node pool. Possible values are `KataVmIsolation` and `OCIContainer`.
+
+    > **Note:** `KataVmIsolation` requires `os_sku` to be set to `AzureLinux` and the selected VM size must support nested virtualization.
     """
     zones: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -4786,7 +4788,9 @@ class KubernetesClusterDefaultNodePoolArgs:
         :param pulumi.Input[_builtins.str] vnet_subnet_id: The ID of a Subnet where the Kubernetes Node Pool should exist.
                
                > **Note:** A Route Table must be configured on this Subnet.
-        :param pulumi.Input[_builtins.str] workload_runtime: Specifies the workload runtime used by the node pool. Possible value is `OCIContainer`.
+        :param pulumi.Input[_builtins.str] workload_runtime: Specifies the workload runtime used by the node pool. Possible values are `KataVmIsolation` and `OCIContainer`.
+               
+               > **Note:** `KataVmIsolation` requires `os_sku` to be set to `AzureLinux` and the selected VM size must support nested virtualization.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] zones: Specifies a list of Availability Zones in which this Kubernetes Cluster should be located. `temporary_name_for_rotation` must be specified when changing this property.
                
                > **Note:** This requires that the `type` is set to `VirtualMachineScaleSets` and that `load_balancer_sku` is set to `standard`.
@@ -5296,7 +5300,9 @@ class KubernetesClusterDefaultNodePoolArgs:
     @pulumi.getter(name="workloadRuntime")
     def workload_runtime(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies the workload runtime used by the node pool. Possible value is `OCIContainer`.
+        Specifies the workload runtime used by the node pool. Possible values are `KataVmIsolation` and `OCIContainer`.
+
+        > **Note:** `KataVmIsolation` requires `os_sku` to be set to `AzureLinux` and the selected VM size must support nested virtualization.
         """
         return pulumi.get(self, "workload_runtime")
 
@@ -7714,7 +7720,7 @@ class KubernetesClusterMaintenanceWindowAllowedArgsDict(TypedDict):
     """
     hours: pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]
     """
-    An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00m. Possible values are between `0` and `23`.
+    An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00am. Possible values are between `0` and `23`.
     """
 
 @pulumi.input_type
@@ -7724,7 +7730,7 @@ class KubernetesClusterMaintenanceWindowAllowedArgs:
                  hours: pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]):
         """
         :param pulumi.Input[_builtins.str] day: A day in a week. Possible values are `Sunday`, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday` and `Saturday`.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] hours: An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00m. Possible values are between `0` and `23`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] hours: An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00am. Possible values are between `0` and `23`.
         """
         pulumi.set(__self__, "day", day)
         pulumi.set(__self__, "hours", hours)
@@ -7745,7 +7751,7 @@ class KubernetesClusterMaintenanceWindowAllowedArgs:
     @pulumi.getter
     def hours(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]:
         """
-        An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00m. Possible values are between `0` and `23`.
+        An array of hour slots in a day. For example, specifying `1` will allow maintenance from 1:00am to 2:00am. Specifying `1`, `2` will allow maintenance from 1:00am to 3:00am. Possible values are between `0` and `23`.
         """
         return pulumi.get(self, "hours")
 
@@ -10892,7 +10898,7 @@ class KubernetesClusterUpgradeOverrideArgsDict(TypedDict):
     """
     Whether to force upgrade the cluster. Possible values are `true` or `false`.
 
-    !> **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
+    > **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
     """
     effective_until: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -10909,7 +10915,7 @@ class KubernetesClusterUpgradeOverrideArgs:
         """
         :param pulumi.Input[_builtins.bool] force_upgrade_enabled: Whether to force upgrade the cluster. Possible values are `true` or `false`.
                
-               !> **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
+               > **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
         :param pulumi.Input[_builtins.str] effective_until: Specifies the duration, in RFC 3339 format (e.g., `2025-10-01T13:00:00Z`), the `upgrade_override` values are effective. This field must be set for the `upgrade_override` values to take effect. The date-time must be within the next 30 days.
                
                > **Note:** This only matches the start time of an upgrade, and the effectiveness won't change once an upgrade starts even if the `effective_until` value expires as the upgrade proceeds.
@@ -10924,7 +10930,7 @@ class KubernetesClusterUpgradeOverrideArgs:
         """
         Whether to force upgrade the cluster. Possible values are `true` or `false`.
 
-        !> **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
+        > **Note:** The `force_upgrade_enabled` field instructs the upgrade operation to bypass upgrade protections (e.g. checking for deprecated API usage) which may render the cluster inoperative after the upgrade process has completed. Use the `force_upgrade_enabled` option with extreme caution only.
         """
         return pulumi.get(self, "force_upgrade_enabled")
 

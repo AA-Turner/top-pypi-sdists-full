@@ -1,0 +1,2 @@
+import{t as e}from"./src-B-qdC1OW.js";var t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`[[readonly]]:bg-component-node-widget-background-disabled`,`border-none`,`rounded-md`]);export{t};
+//# sourceMappingURL=layout-B3krvh0T.js.map

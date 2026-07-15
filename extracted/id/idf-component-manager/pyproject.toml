@@ -10,7 +10,7 @@ include = [
 
 [project]
 name = "idf-component-manager"
-version = "3.0.3"
+version = "3.1.0"
 authors = [
     { name = "Sergei Silnov", email = "sergei.silnov@espressif.com" },
     { name = "Fu Hanxi", email = "fuhanxi@espressif.com" },
@@ -33,33 +33,30 @@ classifiers = [
 ]
 dependencies = [
     "psutil",
-    "click",
-    "colorama",
+    "rich",
+    "rich-click",
+    "esp-pylib",
     "pyparsing",
     "ruamel.yaml",
     "requests",
     "requests-file",
     "requests-toolbelt",
-    "tqdm",
     "jsonref",
     "pydantic",
     "pydantic-core",
     "pydantic-settings",
+    "pathvalidate",
     "typing-extensions; python_version < '3.12'",
     "truststore"
 ]
 
 [project.optional-dependencies]
 docs = [
-    "sphinx",
+    "esp-docs>=2.5",
     "sphinx-click",
-    "sphinx-copybutton",
-    "sphinx-rtd-theme",
-    "sphinx-tabs",
     "sphinx_collapse",
-    "sphinxext-rediraffe",
+    "sphinx-tabs",
     "autodoc_pydantic",
-    "docutils<0.22",  # sphinx-tabs 3.4.7 incompatible with docutils 0.22+
 ]
 
 test = [
@@ -125,7 +122,6 @@ pep621_dev_dependency_groups = ["test", "docs", "dev", "all"]
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["idf_py_actions"]
-DEP002 = ["colorama"]
 
 [tool.deptry.package_module_name_map]
 "ruamel.yaml" = ["ruamel"]
@@ -197,4 +193,5 @@ ignore-variadic-names = true
 
 "idf_component_manager/version_solver/mixology/*" = [
     "S101", # use of assert
+    "ARG002", # upstream mixology keeps some unused method arguments for API compatibility
 ]

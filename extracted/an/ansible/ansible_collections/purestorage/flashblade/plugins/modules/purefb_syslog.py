@@ -18,13 +18,13 @@ DOCUMENTATION = r"""
 ---
 module: purefb_syslog
 version_added: '1.4.0'
-short_description: Configure Pure Storage FlashBlade syslog settings
+short_description: Configure Everpure FlashBlade syslog settings
 description:
-- Configure syslog configuration for Pure Storage FlashBlades.
+- Configure syslog configuration for Everpure FlashBlades.
 - Add or delete an individual syslog server to the existing
   list of serves.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -89,11 +89,11 @@ RETURN = r"""
 """
 
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import SyslogServerPost, SyslogServerPatch
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 
 from ansible.module_utils.basic import AnsibleModule
@@ -101,7 +101,9 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 
 SYSLOG_SERVICES_API = "2.14"
 
@@ -114,7 +116,7 @@ def delete_syslog(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to remove syslog server {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
 
@@ -144,7 +146,7 @@ def add_syslog(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add syslog server. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
         else:
@@ -155,7 +157,7 @@ def add_syslog(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add syslog server {0} - {1}. Error: {2}".format(
-                        module.params["name"], full_address, res.errors[0].message
+                        module.params["name"], full_address, get_error_message(res)
                     )
                 )
 
@@ -195,7 +197,7 @@ def update_syslog(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Updating syslog server {0} failed. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -205,26 +207,26 @@ def test_syslog(module, blade):
     """Test syslog configuration"""
     test_response = []
     response = list(blade.get_syslog_servers_test().items)
-    for component in range(len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": response[component].component_address,
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_address": component.component_address,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
-                "result_details": getattr(response[component], "result_details", ""),
+                "result_details": getattr(component, "result_details", ""),
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=True, test_response=test_response)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotcode
-Version: 2.6.2
+Version: 2.7.0
 Summary: Command line interface for RobotCode
 Project-URL: Homepage, https://robotcode.io
 Project-URL: Donate, https://opencollective.com/robotcode
@@ -33,35 +33,35 @@ Classifier: Topic :: Text Editors :: Integrated Development Environments (IDE)
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: robotcode-core==2.6.2
-Requires-Dist: robotcode-plugin==2.6.2
-Requires-Dist: robotcode-robot==2.6.2
+Requires-Dist: robotcode-core==2.7.0
+Requires-Dist: robotcode-plugin==2.7.0
+Requires-Dist: robotcode-robot==2.7.0
 Provides-Extra: all
 Requires-Dist: docutils; extra == 'all'
 Requires-Dist: pyyaml>=5.4; extra == 'all'
-Requires-Dist: robotcode-analyze==2.6.2; extra == 'all'
-Requires-Dist: robotcode-debugger==2.6.2; extra == 'all'
-Requires-Dist: robotcode-language-server==2.6.2; extra == 'all'
-Requires-Dist: robotcode-repl-server==2.6.2; extra == 'all'
-Requires-Dist: robotcode-repl==2.6.2; extra == 'all'
-Requires-Dist: robotcode-runner==2.6.2; extra == 'all'
+Requires-Dist: robotcode-analyze==2.7.0; extra == 'all'
+Requires-Dist: robotcode-debugger==2.7.0; extra == 'all'
+Requires-Dist: robotcode-language-server==2.7.0; extra == 'all'
+Requires-Dist: robotcode-repl-server==2.7.0; extra == 'all'
+Requires-Dist: robotcode-repl==2.7.0; extra == 'all'
+Requires-Dist: robotcode-runner==2.7.0; extra == 'all'
 Requires-Dist: robotframework-robocop>=6.0.0; extra == 'all'
 Provides-Extra: analyze
-Requires-Dist: robotcode-analyze==2.6.2; extra == 'analyze'
+Requires-Dist: robotcode-analyze==2.7.0; extra == 'analyze'
 Provides-Extra: debugger
-Requires-Dist: robotcode-debugger==2.6.2; extra == 'debugger'
+Requires-Dist: robotcode-debugger==2.7.0; extra == 'debugger'
 Provides-Extra: languageserver
-Requires-Dist: robotcode-language-server==2.6.2; extra == 'languageserver'
+Requires-Dist: robotcode-language-server==2.7.0; extra == 'languageserver'
 Provides-Extra: lint
 Requires-Dist: robotframework-robocop>=2.0.0; extra == 'lint'
 Provides-Extra: repl
-Requires-Dist: robotcode-repl==2.6.2; extra == 'repl'
+Requires-Dist: robotcode-repl==2.7.0; extra == 'repl'
 Provides-Extra: replserver
-Requires-Dist: robotcode-repl-server==2.6.2; extra == 'replserver'
+Requires-Dist: robotcode-repl-server==2.7.0; extra == 'replserver'
 Provides-Extra: rest
 Requires-Dist: docutils; extra == 'rest'
 Provides-Extra: runner
-Requires-Dist: robotcode-runner==2.6.2; extra == 'runner'
+Requires-Dist: robotcode-runner==2.7.0; extra == 'runner'
 Provides-Extra: yaml
 Requires-Dist: pyyaml>=5.4; extra == 'yaml'
 Description-Content-Type: text/markdown

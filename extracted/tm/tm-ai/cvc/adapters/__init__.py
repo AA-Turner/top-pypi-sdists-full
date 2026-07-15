@@ -15,6 +15,7 @@ Supported providers:
     - ``copilot``    — GitHub Copilot API (api.githubcopilot.com, COPILOT_GITHUB_TOKEN)
     - ``nvidia``     — NVIDIA NIM (Nemotron, Kimi K2, MiniMax M2, etc.)
     - ``minimax``  — MiniMax (M3 / M2.7 / M2.5 / M2.1 / M2) — OpenAI-compatible
+    - ``openrouter`` — OpenRouter aggregator (400+ models, namespaced ids e.g. anthropic/claude-sonnet-4.6)
     - ``passthrough``— No internal LLM; the AI tool's own key is forwarded as-is"""
 
 from __future__ import annotations
@@ -63,6 +64,10 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "minimax": {
         "model": "MiniMax-M2.7",
         "env_key": "MINIMAX_API_KEY",
+    },
+    "openrouter": {
+        "model": "anthropic/claude-sonnet-4.6",
+        "env_key": "OPENROUTER_API_KEY",
     },
     # Passthrough: CVC captures context but does not call any LLM itself.
     # The AI tool (e.g. Claude Code) uses its own subscription/API key.
@@ -220,6 +225,23 @@ def create_adapter(
         # China use the local endpoint without code changes.
         effective_base = base_url or MINIMAX_API_BASE
         return MiniMaxAdapter(api_key=api_key, model=model, base_url=effective_base)
+
+    elif provider == "openrouter":
+        from cvc.adapters.openai import OpenAIAdapter
+
+        # OpenRouter speaks the OpenAI Chat Completions wire format at
+        # https://openrouter.ai/api/v1/chat/completions. Model ids are
+        # namespaced ("anthropic/claude-sonnet-4.6", "openai/gpt-5.2",
+        # "z-ai/glm-4.6", "minimax/minimax-m2", ...) so routing through
+        # here never collides with the native anthropic/openai/minimax/
+        # zai adapters above — those are matched by exact provider name
+        # BEFORE this branch and take priority when the user picks the
+        # native provider instead of the OpenRouter aggregator.
+        return OpenAIAdapter(
+            api_key=api_key,
+            model=model,
+            base_url=base_url or "https://openrouter.ai/api",
+        )
 
     # v3.3.43 — Generic OpenAI-compatible fallback for any provider in
     # the Hermes catalog. The 30+ providers shipped via

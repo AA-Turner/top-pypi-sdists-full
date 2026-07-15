@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_admin
 version_added: '1.12.0'
-short_description: Configure Pure Storage FlashArray Global Admin settings
+short_description: Configure Everpure FlashArray Global Admin settings
 description:
 - Set global admin settings for the FlashArray
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   sso:
     description:
@@ -75,6 +75,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 )
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
+)
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
 )
 
 MIN_API_VERSION = "2.2"
@@ -166,12 +169,7 @@ def main():
                     min_password_length=min_password,
                 )
             res = array.patch_admins_settings(admin_settings=admin)
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to change Global Admin settings. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            check_response(res, module, "Failed to change Global Admin settings")
     else:
         module.fail_json(msg="Purity version does not support Global Admin settings")
     module.exit_json(changed=changed)

@@ -74,7 +74,8 @@ PydanticValidationError = _pydantic_validation_error_type()
 
 from .logger import setup_logger  # noqa: E402
 from .poller import poller  # noqa: E402
-from .exceptions import APIError  # noqa: E402
+from .exceptions import APIError, ValidationError  # noqa: E402
+from .device_config_common import format_config_payload_for_log  # noqa: E402
 
 LOG = setup_logger()
 
@@ -371,9 +372,9 @@ class GraphiantPortalClient:
         output = self.get_edges_summary()
         if not output:
             return None
-        for device_info in output:
-            LOG.debug("get_enterprise_id : %s", device_info.enterprise_id)
-            return device_info.enterprise_id
+        device_info = output[0]
+        LOG.debug("get_enterprise_id : %s", device_info.enterprise_id)
+        return device_info.enterprise_id
 
     def get_edges_summary_filter(self, role="gateway", region="us-central-1 (Chicago)", status="active"):
         """
@@ -467,7 +468,7 @@ class GraphiantPortalClient:
             LOG.info(
                 "[check_mode] put_device_config would push config for device_id=%s: %s",
                 device_id,
-                json.dumps(device_config_put_request.to_dict(), indent=2),
+                format_config_payload_for_log(device_config_put_request.to_dict()),
             )
             return None
         try:
@@ -476,7 +477,7 @@ class GraphiantPortalClient:
             LOG.info(
                 "put_device_config : config to be pushed for %s: \n%s",
                 device_id,
-                json.dumps(device_config_put_request.to_dict(), indent=2),
+                format_config_payload_for_log(device_config_put_request.to_dict()),
             )
             response = self.api.v1_devices_device_id_config_put(
                 authorization=self.bearer_token,
@@ -539,7 +540,7 @@ class GraphiantPortalClient:
             LOG.info(
                 "[check_mode] put_device_config_raw would push config for device_id=%s: %s",
                 device_id,
-                json.dumps(device_config_put_request.to_dict(), indent=2),
+                format_config_payload_for_log(device_config_put_request.to_dict()),
             )
             return None
         try:
@@ -548,7 +549,7 @@ class GraphiantPortalClient:
             LOG.info(
                 "put_device_config_raw : config to be pushed for %s: \n%s",
                 device_id,
-                json.dumps(device_config_put_request.to_dict(), indent=2),
+                format_config_payload_for_log(device_config_put_request.to_dict()),
             )
             response = self.api.v1_devices_device_id_config_put(
                 authorization=self.bearer_token,
@@ -596,20 +597,26 @@ class GraphiantPortalClient:
         edge = payload.get("edge")
         core = payload.get("core")
 
-        device_config_put_request = graphiant_sdk.V1DevicesDeviceIdConfigPutRequest(core=core, edge=edge)
+        try:
+            device_config_put_request = graphiant_sdk.V1DevicesDeviceIdConfigPutRequest(core=core, edge=edge)
 
-        # Add optional fields if present in payload
-        if "description" in payload:
-            device_config_put_request.description = payload["description"]
-        if "configurationMetadata" in payload:
-            device_config_put_request.configuration_metadata = payload["configurationMetadata"]
+            # Add optional fields if present in payload
+            if "description" in payload:
+                device_config_put_request.description = payload["description"]
+            if "configurationMetadata" in payload:
+                device_config_put_request.configuration_metadata = payload["configurationMetadata"]
 
-        # Convert to dict to validate structure
-        validated_payload_dict = device_config_put_request.to_dict()
+            # Convert to dict to validate structure
+            validated_payload_dict = device_config_put_request.to_dict()
+        except Exception as sdk_e:
+            raise ValidationError(
+                f"show_validated_payload: Payload failed SDK schema validation for device_id={device_id}: {sdk_e}"
+            ) from sdk_e
+
         LOG.info(
             "show_validated_payload : validated config for %s: \n%s",
             device_id,
-            json.dumps(validated_payload_dict, indent=2),
+            format_config_payload_for_log(validated_payload_dict),
         )
 
         LOG.info("show_validated_payload: Successfully showed validated payload for %s", device_id)
@@ -1533,13 +1540,14 @@ class GraphiantPortalClient:
                 authorization=self.bearer_token, id=customer_id
             )
 
-            if response and hasattr(response, "services"):
+            services = getattr(response, "services", None) if response else None
+            if services:
                 LOG.info(
                     "get_matched_services_for_customer: Found %s matched services for customer %s",
-                    len(response.services),
+                    len(services),
                     customer_id,
                 )
-                return response.services
+                return services
             else:
                 LOG.info("get_matched_services_for_customer: No matched services found for customer %s", customer_id)
                 return []
@@ -1630,9 +1638,104 @@ class GraphiantPortalClient:
             )
             raise e
 
-    def get_data_exchange_service_details(self, service_id: int, type: str = "peering_service"):
+    def get_data_exchange_customer_details(self, customer_id: int) -> dict:
+        """
+        Get detailed information about a specific Data Exchange customer.
+
+        GET /v1/extranets-b2b-peering/customer/{id}
+        Returns: {customerName, type, emails, numSites}
+
+        Args:
+            customer_id (int): ID of the customer to retrieve
+
+        Returns:
+            dict: Customer details response
+        """
+        try:
+            LOG.info("get_data_exchange_customer_details: Retrieving customer details for ID: %s", customer_id)
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "GET",
+                "/v1/extranets-b2b-peering/customer/{id}",
+                path_params={"id": customer_id},
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Accept": "application/json",
+                },
+                body=None,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            LOG.info(
+                "get_data_exchange_customer_details: Successfully retrieved customer details for ID: %s", customer_id
+            )
+            return json.loads(response_data.data)
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets-b2b-peering/customer/{customer_id}"
+            self._log_api_error(
+                method_name="get_data_exchange_customer_details",
+                api_url=api_url,
+                path_params={"customer_id": customer_id},
+                exception=e,
+            )
+            raise e
+
+    def edit_data_exchange_customer(self, customer_id: int, update_payload: dict):
+        """
+        Edit an existing Data Exchange customer (update adminEmail list).
+
+        PUT /v1/extranets-b2b-peering/customer/{id}
+
+        Args:
+            customer_id (int): ID of the customer to update
+            update_payload (dict): Payload: {"id": id, "status": "",
+                "invite": {"adminEmail": [...], "maximumNumberOfSites": n}}
+
+        Returns:
+            RESTResponse or MockResponse in check mode
+        """
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] edit_data_exchange_customer would update customer ID %s: %s",
+                customer_id,
+                json.dumps(update_payload, indent=2),
+            )
+            return type("MockResponse", (), {"id": customer_id})()
+        try:
+            LOG.info("edit_data_exchange_customer: Updating customer ID: %s", customer_id)
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "PUT",
+                "/v1/extranets-b2b-peering/customer/{id}",
+                path_params={"id": customer_id},
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                body=update_payload,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            LOG.info("edit_data_exchange_customer: Successfully updated customer ID: %s", customer_id)
+            return response_data
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets-b2b-peering/customer/{customer_id}"
+            self._log_api_error(
+                method_name="edit_data_exchange_customer",
+                api_url=api_url,
+                path_params={"customer_id": customer_id},
+                request_body=update_payload,
+                exception=e,
+            )
+            raise e
+
+    def get_data_exchange_service_details(self, service_id: int, type: str = "peering_service") -> dict:
         """
         Get detailed information about a specific Data Exchange service.
+
+        Uses a raw API call to avoid pydantic validation errors on optional fields
+        (natPools, servicePrefixes) that the API may return as null.
 
         Args:
             service_id (int): ID of the service to retrieve
@@ -1643,19 +1746,78 @@ class GraphiantPortalClient:
         """
         try:
             LOG.info("get_data_exchange_service_details: Retrieving service details for ID: %s", service_id)
-            response = self.api.v1_extranets_b2b_id_producer_get(
-                authorization=self.bearer_token, id=service_id, type=type
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "GET",
+                "/v1/extranets-b2b/{id}/producer",
+                path_params={"id": service_id},
+                query_params={"type": type},
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Accept": "application/json",
+                },
+                body=None,
             )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
             LOG.info("get_data_exchange_service_details: Successfully retrieved service details for ID: %s", service_id)
-            return response
+            return json.loads(response_data.data)
         except ApiException as e:
-            # Log the actual API endpoint URL with path and query parameters for debugging
             api_url = f"{self.api.api_client.configuration.host}/v1/extranets-b2b/{service_id}/producer"
             self._log_api_error(
                 method_name="get_data_exchange_service_details",
                 api_url=api_url,
                 path_params={"service_id": service_id},
                 query_params={"type": type},
+                exception=e,
+            )
+            raise e
+
+    def edit_data_exchange_service(self, service_id: int, update_payload: dict):
+        """
+        Edit an existing Data Exchange peering service (e.g., update prefixTags).
+
+        PUT /v1/extranets-b2b-peering/producer/{id}
+
+        Args:
+            service_id (int): ID of the service to update
+            update_payload (dict): Update payload containing 'id' and 'policy' fields
+
+        Returns:
+            RESTResponse or MockResponse in check mode
+        """
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] edit_data_exchange_service would update service ID %s: %s",
+                service_id,
+                json.dumps(update_payload, indent=2),
+            )
+            return type("MockResponse", (), {"id": service_id})()
+        try:
+            LOG.info("edit_data_exchange_service: Updating service ID: %s", service_id)
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "PUT",
+                "/v1/extranets-b2b-peering/producer/{id}",
+                path_params={"id": service_id},
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                body=update_payload,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            LOG.info("edit_data_exchange_service: Successfully updated service ID: %s", service_id)
+            return response_data
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets-b2b-peering/producer/{service_id}"
+            self._log_api_error(
+                method_name="edit_data_exchange_service",
+                api_url=api_url,
+                path_params={"service_id": service_id},
+                request_body=update_payload,
                 exception=e,
             )
             raise e
@@ -1734,15 +1896,45 @@ class GraphiantPortalClient:
         Returns:
             API response object
         """
+        try:
+            sdk_request = graphiant_sdk.V1ExtranetsB2bPeeringConsumerMatchIdPostRequest(
+                id=acceptance_payload.get("id"),
+                customer_id=acceptance_payload.get("customerId"),
+                site_information=acceptance_payload.get("siteInformation"),
+                nat=acceptance_payload.get("nat"),
+                policy=acceptance_payload.get("policy"),
+                site_to_site_vpn=acceptance_payload.get("siteToSiteVpn"),
+                global_object_ops=acceptance_payload.get("globalObjectOps"),
+            )
+            sdk_serialized = json.dumps(sdk_request.to_dict(), indent=2)
+        except Exception as sdk_e:
+            if getattr(self, "check_mode", False):
+                raise ValidationError(
+                    f"accept_data_exchange_service: Payload failed SDK schema validation "
+                    f"for match_id={match_id}: {sdk_e}"
+                ) from sdk_e
+            LOG.error("accept_data_exchange_service: Could not construct SDK model for logging: %s", sdk_e)
+            sdk_serialized = None
+
         if getattr(self, "check_mode", False):
             LOG.info(
                 "[check_mode] accept_data_exchange_service would accept match_id=%s: %s",
                 match_id,
-                json.dumps(acceptance_payload, indent=2),
+                (
+                    format_config_payload_for_log(json.loads(sdk_serialized))
+                    if sdk_serialized is not None
+                    else format_config_payload_for_log(acceptance_payload)
+                ),
             )
             return type("MockResponse", (), {})()
         try:
             LOG.info("accept_data_exchange_service: Accepting match %s", match_id)
+            if sdk_serialized is not None:
+                LOG.info(
+                    "accept_data_exchange_service: SDK-serialized payload for match %s:\n%s",
+                    match_id,
+                    format_config_payload_for_log(json.loads(sdk_serialized)),
+                )
             # Use the correct method with match_id as path parameter
             response = self.api.v1_extranets_b2b_peering_consumer_match_id_post(
                 authorization=self.bearer_token,
@@ -1757,6 +1949,7 @@ class GraphiantPortalClient:
                 method_name="accept_data_exchange_service",
                 api_url=api_url,
                 path_params={"match_id": match_id},
+                request_body=acceptance_payload,
                 exception=e,
             )
             raise e
@@ -2009,3 +2202,44 @@ class GraphiantPortalClient:
                 method_name="get_device_info", api_url=api_url, path_params={"device_id": device_id}, exception=e
             )
             return None
+
+    def get_macsec_status(self, device_id: int):
+        """
+        Get MACsec monitoring status for a device.
+
+        GET /v2/monitoring/macsec/{device_id}/status
+
+        Args:
+            device_id (int): The device ID
+
+        Returns:
+            dict or SDK response object with macsecStatuses list
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v2/monitoring/macsec/{device_id}/status"
+        try:
+            LOG.info("get_macsec_status: Retrieving MACsec status for device ID %s", device_id)
+            method = getattr(self.api, "v2_monitoring_macsec_device_id_status_get", None)
+            if callable(method):
+                response = method(authorization=self.bearer_token, device_id=device_id)
+                LOG.info("get_macsec_status: Successfully retrieved MACsec status for device ID %s", device_id)
+                return response
+            response_data = self.api.api_client.call_api(
+                resource_path="/v2/monitoring/macsec/{device_id}/status",
+                method="GET",
+                path_params={"device_id": device_id},
+                header_params={"Authorization": self.bearer_token},
+                response_types_map={200: "dict"},
+                _request_timeout=None,
+            )
+            LOG.info("get_macsec_status: Successfully retrieved MACsec status for device ID %s", device_id)
+            return response_data
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_macsec_status",
+                api_url=api_url,
+                path_params={"device_id": device_id},
+                exception=e,
+            )
+            raise APIError(
+                f"get_macsec_status: Failed to retrieve MACsec status for device_id={device_id}. Exception: {e}"
+            )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xee
-Version: 0.1.1
+Version: 0.1.2
 Summary: A Google Earth Engine extension for Xarray.
 Author-email: Google LLC <noreply@google.com>
 License: Apache-2.0
@@ -36,12 +36,12 @@ Requires-Dist: typing_extensions; extra == "tests"
 Provides-Extra: dataflow
 Requires-Dist: absl-py; extra == "dataflow"
 Requires-Dist: apache-beam[gcp]; extra == "dataflow"
-Requires-Dist: gcsfs<=2026.5.0; extra == "dataflow"
+Requires-Dist: gcsfs<=2026.7.0; extra == "dataflow"
 Requires-Dist: xarray-beam; extra == "dataflow"
 Provides-Extra: examples
 Requires-Dist: absl-py; extra == "examples"
 Requires-Dist: apache-beam[gcp]; extra == "examples"
-Requires-Dist: gcsfs<=2026.5.0; extra == "examples"
+Requires-Dist: gcsfs<=2026.7.0; extra == "examples"
 Requires-Dist: matplotlib; extra == "examples"
 Requires-Dist: xarray-beam; extra == "examples"
 Dynamic: license-file

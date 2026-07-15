@@ -6,7 +6,7 @@ This package contains Scala, Jackson, Commons, and other dependency JARs.
 from pathlib import Path
 from typing import List
 
-__version__ = "3.56.5"
+__version__ = "3.56.6"
 
 
 def get_jars_dir() -> Path:

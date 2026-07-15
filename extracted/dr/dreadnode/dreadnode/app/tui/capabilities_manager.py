@@ -224,6 +224,7 @@ class CapabilitiesManager:
                             "description": agent.description or "",
                             "model": agent.model or "inherit",
                             "capability": cap.name,
+                            "capability_version": getattr(cap, "version", None) or "",
                         }
                     )
                     seen.add(agent.name)

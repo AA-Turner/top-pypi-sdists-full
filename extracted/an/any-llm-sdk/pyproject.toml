@@ -7,7 +7,7 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.19.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.20.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=1.99.3",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 
 all = [
-  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,cascadia,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,requesty,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,github,zai,minimax,mzai,vllm,dashscope,deepinfra]"
+  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,cascadia,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,requesty,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,github,zai,minimax,mzai,vllm,dashscope,deepinfra,atlascloud]"
 ]
 
 platform = [
@@ -89,7 +89,7 @@ together = [
 ]
 
 ollama = [
-  "ollama>=0.5.1"
+  "ollama>=0.6.0"
 ]
 
 voyage = [
@@ -109,6 +109,7 @@ lmstudio = [
 ]
 
 # These providers don't require any additional dependencies, but are included for completeness.
+atlascloud = []
 azureopenai = []
 cascadia = []
 databricks = []
@@ -265,7 +266,7 @@ docs = [
 
 lint = [
   "pre-commit==4.6.0",
-  "pre-commit-uv==4.2.1",
+  "pre-commit-uv==4.2.2",
   "mypy",
   "types-aiofiles",
   "types-pyyaml",

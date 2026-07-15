@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpcore2
-Version: 2.5.0
+Version: 2.7.0
 Summary: A minimal low-level HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpcore2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2

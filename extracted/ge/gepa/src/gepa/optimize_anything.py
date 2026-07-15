@@ -123,6 +123,7 @@ from typing import (
 
 from gepa.adapters.optimize_anything_adapter.optimize_anything_adapter import OptimizeAnythingAdapter
 from gepa.core.adapter import DataInst, GEPAAdapter, ProposalFn
+from gepa.core.callbacks import GEPACallback
 from gepa.core.data_loader import ensure_loader
 from gepa.core.engine import GEPAEngine
 from gepa.core.result import GEPAResult
@@ -133,6 +134,7 @@ from gepa.logging.logger import Logger, LoggerProtocol, StdOutLogger
 from gepa.proposer.merge import MergeProposer
 from gepa.proposer.reflective_mutation.base import CandidateSelector, LanguageModel, ReflectionComponentSelector
 from gepa.proposer.reflective_mutation.reflective_mutation import ReflectiveMutationProposer
+from gepa.strategies.acceptance import AcceptanceCriterion, ImprovementOrEqualAcceptance, StrictImprovementAcceptance
 from gepa.strategies.batch_sampler import BatchSampler, EpochShuffledBatchSampler
 from gepa.strategies.candidate_selector import (
     CurrentBestCandidateSelector,
@@ -459,11 +461,12 @@ class EngineConfig:
     display_progress_bar: bool = False
     raise_on_exception: bool = True
     use_cloudpickle: bool = True
-    track_best_outputs: bool = False
+    track_best_outputs: bool = True
 
     # Simple stopping conditions
     max_metric_calls: int | None = None
     max_candidate_proposals: int | None = None
+    max_reflection_cost: float | None = None
 
     # Strategy selection for the engine
     val_evaluation_policy: EvaluationPolicy | Literal["full_eval"] = "full_eval"
@@ -472,9 +475,24 @@ class EngineConfig:
     ] = "pareto"
     frontier_type: FrontierType = "hybrid"
 
+    # Acceptance criterion for reflective mutation proposals
+    acceptance_criterion: AcceptanceCriterion | Literal[
+        "strict_improvement", "improvement_or_equal"
+    ] = "strict_improvement"
+
     # Parallelization settings for evaluation
     parallel: bool = True
     max_workers: int | None = field(default_factory=lambda: os.cpu_count() or 32)
+
+    # Number of parallel proposal workers per optimization step.
+    # When > 1, multiple minibatches are sampled and proposed concurrently
+    # (each with its own evaluate-propose-evaluate pipeline), then acceptances
+    # are processed sequentially.
+    # Set to "auto" to compute from max_workers and minibatch_size:
+    #   auto = max(1, max_workers // minibatch_size)
+    # Each proposal evaluates minibatch_size examples at a time, so this
+    # fills the worker pool across concurrent proposals.
+    num_parallel_proposals: int | Literal["auto"] = 1
 
     # Evaluation caching
     cache_evaluation: bool = False
@@ -716,6 +734,11 @@ class ReflectionConfig:
     reflection_minibatch_size: int | None = None  # Default: 1 for single-instance mode, 3 otherwise
     module_selector: ReflectionComponentSelector | Literal["round_robin", "all"] = "round_robin"
     reflection_lm: LanguageModel | str | None = "openai/gpt-5.1"
+    reflection_lm_kwargs: dict[str, Any] | None = None
+    """Extra keyword arguments forwarded to ``litellm.completion`` when
+    ``reflection_lm`` is a model name string (e.g.
+    ``{"reasoning_effort": "high", "temperature": 0.7}``).
+    Ignored when ``reflection_lm`` is already a callable."""
     reflection_prompt_template: str | dict[str, str] | None = optimize_anything_reflection_prompt_template
     custom_candidate_proposer: ProposalFn | None = None
 
@@ -785,9 +808,73 @@ class TrackingConfig:
     use_wandb: bool = False
     wandb_api_key: str | None = None
     wandb_init_kwargs: dict[str, Any] | None = None
+    wandb_attach_existing: bool = False
+    """Attach to an already-active W&B run without managing its lifecycle.
+
+    When ``True``, GEPA logs metrics and tables into the run that is already
+    active in the process (``wandb.run``) — it will not call ``wandb.init()``
+    on entry or ``wandb.finish()`` on exit.
+    """
+    wandb_step_metric: str | None = None
+    """Custom x-axis metric name for wandb charts.
+
+    When set, GEPA uses ``wandb.define_metric`` to declare a custom x-axis
+    for all its metrics, decoupling them from wandb's global monotonic step
+    counter.  The ``step`` value passed to ``log_metrics`` is injected as a
+    regular metric (under this name) instead of being passed as ``step=``.
+
+    **Required when embedding GEPA inside a host training loop** that manages
+    its own wandb step counter.  Without this, GEPA's ``step=1, 2, 3, ...``
+    collides with the host's ``step=100, 101, ...``, causing wandb to drop
+    GEPA's data.
+
+    Example::
+
+        TrackingConfig(
+            use_wandb=True,
+            wandb_attach_existing=True,
+            wandb_step_metric="gepa/iteration",
+        )
+    """
     use_mlflow: bool = False
     mlflow_tracking_uri: str | None = None
     mlflow_experiment_name: str | None = None
+    mlflow_attach_existing: bool = False
+    """Attach to an already-active MLflow run without managing its lifecycle.
+
+    When ``True``, GEPA logs into the run that is already active (via
+    ``mlflow.active_run()``) — it will not call ``mlflow.start_run()`` on
+    entry or ``mlflow.end_run()`` on exit.
+
+    Use this when embedding GEPA inside a training loop that manages its own
+    MLflow run::
+
+        import mlflow
+        with mlflow.start_run():          # caller owns this run
+            result = optimize_anything(
+                ...,
+                config=GEPAConfig(
+                    tracking=TrackingConfig(
+                        use_mlflow=True,
+                        mlflow_attach_existing=True,
+                    )
+                ),
+            )
+            mlflow.log_metric("train/loss", 0.1)  # still works
+    """
+    key_prefix: str = ""
+    """String prepended to every key/name logged to wandb and MLflow.
+
+    Applies uniformly to metric keys, config keys, summary keys, table names,
+    and HTML artifact keys.  Useful when running multiple GEPA optimizations in
+    the same wandb/MLflow run to keep their data namespaced::
+
+        TrackingConfig(
+            use_wandb=True,
+            wandb_attach_existing=True,
+            key_prefix="gepa/round2/",   # metrics become e.g. gepa/round2/val_score
+        )
+    """
 
 
 @dataclass
@@ -818,6 +905,24 @@ class GEPAConfig:
 
     # Complex callbacks that aren't serializable
     stop_callbacks: StopperProtocol | Sequence[StopperProtocol] | None = None
+    callbacks: "list[GEPACallback] | None" = None
+    """Observation callbacks for monitoring optimization progress.
+
+    Receive events like ``on_optimization_start``, ``on_iteration_end``,
+    ``on_candidate_accepted``, ``on_proposal_end``, etc.  See
+    :class:`~gepa.core.callbacks.GEPACallback` for the full protocol.
+
+    Example::
+
+        class MyCallback:
+            def on_candidate_accepted(self, event):
+                print(f"New candidate {event['new_candidate_idx']} accepted")
+
+        config = GEPAConfig(
+            callbacks=[MyCallback()],
+            engine=EngineConfig(max_metric_calls=100),
+        )
+    """
 
     def __post_init__(self):
         """Handle dicts passed in (e.g., from a JSON/YAML file)."""
@@ -842,24 +947,25 @@ class GEPAConfig:
         return GEPAConfig(**d)
 
 
-def make_litellm_lm(model_name: str) -> LanguageModel:
+def make_litellm_lm(model_name: str, **kwargs: Any) -> LanguageModel:
     """Convert a LiteLLM model name string to a :class:`LanguageModel` callable.
 
     The returned callable conforms to the ``LanguageModel`` protocol and
     accepts a plain ``str`` prompt, a ``list[dict]`` chat-messages list, or
     a multimodal messages list (with content arrays containing images).
+
+    Uses :class:`gepa.lm.LM` which handles reasoning model detection
+    (o1/o3/o4/gpt-5), retries with exponential backoff, truncation
+    warnings, and ``drop_params=True`` for cross-model compatibility.
+
+    Args:
+        model_name: LiteLLM model identifier (e.g. ``"openai/gpt-5"``).
+        **kwargs: Extra keyword arguments forwarded to ``litellm.completion``
+            (e.g. ``reasoning_effort="high"``, ``temperature=0.7``).
     """
-    import litellm
+    from gepa.lm import LM
 
-    def _lm(prompt: str | list[dict[str, Any]]) -> str:
-        if isinstance(prompt, str):
-            messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
-        else:
-            messages = prompt
-        completion = litellm.completion(model=model_name, messages=messages)
-        return completion.choices[0].message.content  # type: ignore[union-attr]
-
-    return _lm
+    return LM(model_name, **kwargs)
 
 
 class EvaluatorWrapper:
@@ -997,6 +1103,17 @@ class EvaluatorWrapper:
         self, candidate: Candidate, example: object | None = None, **kwargs: Any
     ) -> tuple[float, Any, SideInfo]:
         return self._wrapped(candidate, example=example, **kwargs)
+
+
+def _resolve_num_parallel_proposals(
+    value: int | Literal["auto"],
+    max_workers: int,
+    minibatch_size: int,
+) -> int:
+    """Resolve num_parallel_proposals, computing automatically if "auto"."""
+    if isinstance(value, int):
+        return value
+    return max(1, max_workers // minibatch_size)
 
 
 def optimize_anything(
@@ -1200,52 +1317,7 @@ def optimize_anything(
     train_loader = ensure_loader(effective_dataset)
     val_loader = ensure_loader(valset) if valset is not None else train_loader
 
-    # --- 1. Build stoppers from the EngineConfig and root config ---
-    stop_callbacks_list: list[StopperProtocol] = []
-
-    # Add custom stop callbacks if provided
-    if config.stop_callbacks is not None:
-        if isinstance(config.stop_callbacks, Sequence):
-            stop_callbacks_list.extend(config.stop_callbacks)
-        else:
-            stop_callbacks_list.append(config.stop_callbacks)
-
-    # Add file stopper if run_dir is provided
-    if config.engine.run_dir is not None:
-        stop_file_path = os.path.join(config.engine.run_dir, "gepa.stop")
-        file_stopper = FileStopper(stop_file_path)
-        stop_callbacks_list.append(file_stopper)
-
-    # Add max_metric_calls stopper if provided
-    if config.engine.max_metric_calls is not None:
-        from gepa.utils import MaxMetricCallsStopper
-
-        max_calls_stopper = MaxMetricCallsStopper(config.engine.max_metric_calls)
-        stop_callbacks_list.append(max_calls_stopper)
-
-    # Add max_candidate_proposals stopper if provided
-    if config.engine.max_candidate_proposals is not None:
-        from gepa.utils import MaxCandidateProposalsStopper
-
-        proposals_stopper = MaxCandidateProposalsStopper(config.engine.max_candidate_proposals)
-        stop_callbacks_list.append(proposals_stopper)
-
-    # Assert that at least one stopping condition is provided
-    if not stop_callbacks_list:
-        raise ValueError(
-            "At least one stopping condition must be provided via config.engine.max_metric_calls or config.stop_callbacks."
-        )
-
-    # Create composite stopper if multiple stoppers, or use single stopper
-    stop_callback: StopperProtocol
-    if len(stop_callbacks_list) == 1:
-        stop_callback = stop_callbacks_list[0]
-    else:
-        from gepa.utils import CompositeStopper
-
-        stop_callback = CompositeStopper(*stop_callbacks_list)
-
-    # --- 2. Validate and setup reflection LM ---
+    # --- 1. Validate and setup reflection LM ---
     if needs_seed_generation and config.reflection.reflection_lm is None:
         raise ValueError(
             "reflection_lm is required when seed_candidate is None. "
@@ -1263,7 +1335,55 @@ def optimize_anything(
 
     # Convert reflection_lm string to callable
     if isinstance(config.reflection.reflection_lm, str):
-        config.reflection.reflection_lm = make_litellm_lm(config.reflection.reflection_lm)
+        config.reflection.reflection_lm = make_litellm_lm(
+            config.reflection.reflection_lm, **(config.reflection.reflection_lm_kwargs or {})
+        )
+    elif config.reflection.reflection_lm is not None and not hasattr(config.reflection.reflection_lm, "total_cost"):
+        from gepa.lm import TrackingLM
+
+        config.reflection.reflection_lm = TrackingLM(config.reflection.reflection_lm)
+
+    # --- 2. Build stoppers (all in one place, after LM conversion) ---
+    stop_callbacks_list: list[StopperProtocol] = []
+
+    if config.stop_callbacks is not None:
+        if isinstance(config.stop_callbacks, Sequence):
+            stop_callbacks_list.extend(config.stop_callbacks)
+        else:
+            stop_callbacks_list.append(config.stop_callbacks)
+
+    if config.engine.run_dir is not None:
+        stop_callbacks_list.append(FileStopper(os.path.join(config.engine.run_dir, "gepa.stop")))
+
+    if config.engine.max_metric_calls is not None:
+        from gepa.utils import MaxMetricCallsStopper
+
+        stop_callbacks_list.append(MaxMetricCallsStopper(config.engine.max_metric_calls))
+
+    if config.engine.max_candidate_proposals is not None:
+        from gepa.utils import MaxCandidateProposalsStopper
+
+        stop_callbacks_list.append(MaxCandidateProposalsStopper(config.engine.max_candidate_proposals))
+
+    if config.engine.max_reflection_cost is not None:
+        from gepa.utils import MaxReflectionCostStopper
+
+        stop_callbacks_list.append(
+            MaxReflectionCostStopper(config.engine.max_reflection_cost, reflection_lm=config.reflection.reflection_lm)
+        )
+
+    if not stop_callbacks_list:
+        raise ValueError(
+            "At least one stopping condition must be provided via config.engine.max_metric_calls or config.stop_callbacks."
+        )
+
+    stop_callback: StopperProtocol
+    if len(stop_callbacks_list) == 1:
+        stop_callback = stop_callbacks_list[0]
+    else:
+        from gepa.utils import CompositeStopper
+
+        stop_callback = CompositeStopper(*stop_callbacks_list)
 
     # Convert refiner_lm string to LiteLLM callable (if refiner is enabled)
     if config.refiner is not None:
@@ -1335,6 +1455,27 @@ def optimize_anything(
             f"val_evaluation_policy should be 'full_eval' or an EvaluationPolicy instance, but got {type(config.engine.val_evaluation_policy)}"
         )
 
+    # --- 5b. Build acceptance criterion from EngineConfig ---
+    acceptance_criterion_instance: AcceptanceCriterion
+    if isinstance(config.engine.acceptance_criterion, str):
+        acceptance_factories: dict[str, type[AcceptanceCriterion]] = {
+            "strict_improvement": StrictImprovementAcceptance,
+            "improvement_or_equal": ImprovementOrEqualAcceptance,
+        }
+        try:
+            acceptance_criterion_instance = acceptance_factories[config.engine.acceptance_criterion]()
+        except KeyError as exc:
+            raise ValueError(
+                f"Unknown acceptance_criterion: {config.engine.acceptance_criterion}. "
+                "Supported strategies: 'strict_improvement', 'improvement_or_equal'"
+            ) from exc
+    elif isinstance(config.engine.acceptance_criterion, AcceptanceCriterion):
+        acceptance_criterion_instance = config.engine.acceptance_criterion
+    else:
+        raise TypeError(
+            "acceptance_criterion must be a supported string strategy or an instance of AcceptanceCriterion."
+        )
+
     # --- 6. Build module selector from ReflectionConfig ---
     if isinstance(config.reflection.module_selector, str):
         module_selector_cls = {
@@ -1362,9 +1503,13 @@ def optimize_anything(
         use_wandb=config.tracking.use_wandb,
         wandb_api_key=config.tracking.wandb_api_key,
         wandb_init_kwargs=config.tracking.wandb_init_kwargs,
+        wandb_attach_existing=config.tracking.wandb_attach_existing,
+        wandb_step_metric=config.tracking.wandb_step_metric,
         use_mlflow=config.tracking.use_mlflow,
         mlflow_tracking_uri=config.tracking.mlflow_tracking_uri,
         mlflow_experiment_name=config.tracking.mlflow_experiment_name,
+        mlflow_attach_existing=config.tracking.mlflow_attach_existing,
+        key_prefix=config.tracking.key_prefix,
     )
 
     # --- 9. Build reflection prompt template from objective/background if provided ---
@@ -1425,6 +1570,7 @@ def optimize_anything(
         reflection_lm=config.reflection.reflection_lm,
         reflection_prompt_template=config.reflection.reflection_prompt_template,
         custom_candidate_proposer=config.reflection.custom_candidate_proposer,
+        callbacks=config.callbacks,
     )
 
     # Define evaluator function for merge proposer
@@ -1465,13 +1611,20 @@ def optimize_anything(
         frontier_type=config.engine.frontier_type,
         logger=config.tracking.logger,
         experiment_tracker=experiment_tracker,
+        callbacks=config.callbacks,
         track_best_outputs=config.engine.track_best_outputs,
         display_progress_bar=config.engine.display_progress_bar,
         raise_on_exception=config.engine.raise_on_exception,
         stop_callback=stop_callback,
         val_evaluation_policy=config.engine.val_evaluation_policy,
+        acceptance_criterion=acceptance_criterion_instance,
         use_cloudpickle=config.engine.use_cloudpickle,
         evaluation_cache=evaluation_cache,
+        num_parallel_proposals=_resolve_num_parallel_proposals(
+            config.engine.num_parallel_proposals,
+            config.engine.max_workers or (os.cpu_count() or 32),
+            config.reflection.reflection_minibatch_size or 1,
+        ),
     )
 
     # --- 15. Run optimization ---

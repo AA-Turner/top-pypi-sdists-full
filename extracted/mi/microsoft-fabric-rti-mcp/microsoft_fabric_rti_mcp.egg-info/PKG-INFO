@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-fabric-rti-mcp
-Version: 0.6.0
+Version: 0.6.1
 Summary: Microsoft Fabric RTI MCP
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/microsoft/fabric-rti-mcp

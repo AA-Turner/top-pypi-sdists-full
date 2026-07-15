@@ -76,7 +76,7 @@ def test_download_missing_ner_model():
         # Tokenize was already present; the rest are "downloaded" by Pipeline.
         # All of them need real content because Pipeline loads every processor.
         model_rel_paths = [
-            "tokenize/combined.pt",
+            "tokenize/combined_nocharlm.pt",
             "mwt/combined.pt",
             "ner/ontonotes-ww-multi_charlm.pt",
             "forward_charlm/1billion.pt",
@@ -101,7 +101,7 @@ def test_download_missing_ner_model():
             else:
                 open(path, "wb").close()
 
-        _seed_from_models_dir(test_dir, "en", ["tokenize/combined.pt", "mwt/combined.pt"])
+        _seed_from_models_dir(test_dir, "en", ["tokenize/combined_nocharlm.pt", "mwt/combined.pt"])
 
         with patch("stanza.resources.common.request_file", side_effect=fake_request_file_with_restore):
             with patch("stanza.pipeline.core.download_resources_json", side_effect=lambda *a, **kw: fake_request_file_with_restore(None, os.path.join(a[0], "resources.json"))):
@@ -125,7 +125,7 @@ def test_download_missing_resources():
     """
     with tempfile.TemporaryDirectory(dir=TEST_WORKING_DIR) as test_dir:
         model_rel_paths = [
-            "tokenize/combined.pt",
+            "tokenize/combined_nocharlm.pt",
             "mwt/combined.pt",
             "ner/ontonotes-ww-multi_charlm.pt",
             "forward_charlm/1billion.pt",
@@ -166,7 +166,7 @@ def test_download_resources_overwrites():
     Test that the DOWNLOAD_RESOURCES method overwrites an existing resources.json
     """
     with tempfile.TemporaryDirectory(dir=TEST_WORKING_DIR) as test_dir:
-        model_rel_paths = ["tokenize/combined.pt", "mwt/combined.pt"]
+        model_rel_paths = ["tokenize/combined_nocharlm.pt", "mwt/combined.pt"]
         _seed_from_models_dir(test_dir, "en", model_rel_paths)
 
         real_files = {
@@ -228,16 +228,16 @@ def test_download_not_repeated():
     Test that a model is only downloaded once if it already matches the expected model from the resources file
     """
     with tempfile.TemporaryDirectory(dir=TEST_WORKING_DIR) as test_dir:
-        stanza.download("en", model_dir=test_dir, processors="tokenize", package="combined")
+        pipe = stanza.Pipeline("en", model_dir=test_dir, processors="tokenize", package={"tokenize": "combined_nocharlm"})
 
         assert sorted(os.listdir(test_dir)) == ['en', 'resources.json']
         en_dir = os.path.join(test_dir, 'en')
         en_dir_listing = sorted(os.listdir(en_dir))
         assert en_dir_listing == ['mwt', 'tokenize']
-        tokenize_path = os.path.join(en_dir, "tokenize", "combined.pt")
+        tokenize_path = os.path.join(en_dir, "tokenize", "combined_nocharlm.pt")
         mod_time = os.path.getmtime(tokenize_path)
 
-        pipe = stanza.Pipeline("en", model_dir=test_dir, processors="tokenize", package={"tokenize": "combined"})
+        pipe = stanza.Pipeline("en", model_dir=test_dir, processors="tokenize", package={"tokenize": "combined_nocharlm"})
         assert os.path.getmtime(tokenize_path) == mod_time
 
 def test_download_none():
@@ -275,14 +275,14 @@ def check_download_method_updates(download_method):
     Run a single test of creating a pipeline with a given download_method, checking that the model is updated
     """
     with tempfile.TemporaryDirectory(dir=TEST_WORKING_DIR) as test_dir:
-        model_rel_paths = ["tokenize/combined.pt", "mwt/combined.pt"]
+        model_rel_paths = ["tokenize/combined_nocharlm.pt", "mwt/combined.pt"]
         _seed_from_models_dir(test_dir, "en", model_rel_paths)
 
         assert sorted(os.listdir(test_dir)) == ['en', 'resources.json']
         en_dir = os.path.join(test_dir, 'en')
         en_dir_listing = sorted(os.listdir(en_dir))
         assert en_dir_listing == ['mwt', 'tokenize']
-        tokenize_path = os.path.join(en_dir, "tokenize", "combined.pt")
+        tokenize_path = os.path.join(en_dir, "tokenize", "combined_nocharlm.pt")
 
         # Build a mapping from each seeded destination path back to its real
         # source so the mock can restore real content when "re-downloading".
@@ -312,15 +312,20 @@ def check_download_method_updates(download_method):
 
         with patch("stanza.resources.common.request_file", side_effect=fake_request_file_with_restore):
             with patch("stanza.pipeline.core.download_resources_json", side_effect=lambda *a, **kw: fake_request_file_with_restore(None, os.path.join(a[0], "resources.json"))):
-                pipe = stanza.Pipeline("en", model_dir=test_dir, processors="tokenize", package={"tokenize": "combined"}, download_method=download_method)
+                pipe = stanza.Pipeline("en", model_dir=test_dir, processors="tokenize", package={"tokenize": "combined_nocharlm"}, download_method=download_method)
                 assert os.path.getmtime(tokenize_path) != mod_time
 
-def test_download_fixed():
+def test_download_fixed_reuse_resources():
     """
     Test that a model is fixed if the existing model doesn't match the md5sum
     """
-    for download_method in (core.DownloadMethod.REUSE_RESOURCES, core.DownloadMethod.DOWNLOAD_RESOURCES):
-        check_download_method_updates(download_method)
+    check_download_method_updates(core.DownloadMethod.REUSE_RESOURCES)
+
+def test_download_fixed_download_resources():
+    """
+    Test that a model is fixed if the existing model doesn't match the md5sum
+    """
+    check_download_method_updates(core.DownloadMethod.DOWNLOAD_RESOURCES)
 
 def test_download_strings():
     """

@@ -110,8 +110,8 @@
       spm_unit:
         ca_tanf: 0.0
         ca_tanf_eligible: false
-        snap: 0.0
-        is_snap_eligible: false
+        snap: 2360.52
+        is_snap_eligible: true
         lifeline: 228.0
         is_lifeline_eligible: true
         la_general_relief: 0.0

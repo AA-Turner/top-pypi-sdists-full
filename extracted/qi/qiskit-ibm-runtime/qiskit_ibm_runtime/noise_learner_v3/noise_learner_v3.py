@@ -22,7 +22,6 @@ from ..base_primitive import get_mode_service_backend
 from ..fake_provider.local_service import QiskitRuntimeLocalService
 from ..options_models.noise_learner_v3_options import NoiseLearnerV3Options
 from ..utils.default_session import get_cm_session
-from .noise_learner_v3_decoders import NoiseLearnerV3ResultDecoder
 from .params_converters import NOISE_LEARNER_V3_PARAMS_CONVERTERS
 from .validation import validate_instruction, validate_options
 
@@ -69,7 +68,6 @@ class NoiseLearnerV3:
     """
 
     _PROGRAM_ID = "noise-learner"
-    _DECODER = NoiseLearnerV3ResultDecoder
     _SCHEMA_VERSION = "v0.2"
 
     options: NoiseLearnerV3Options
@@ -104,6 +102,20 @@ class NoiseLearnerV3:
 
     def run(self, instructions: Iterable[CircuitInstruction]) -> RuntimeJobV2:
         """Submit a request to the noise learner program.
+
+        Two protocols are supported:
+
+        - Lindblad: for boxed instructions which content can be cast to
+            :class:`~.qiskit.quantum_info.Clifford` and contain a single layer of
+            (up to) two qubit gates.
+
+        - TREX: for boxed instructions which content can contain exactly one measurement per qubit.
+
+        .. note::
+
+            To minimize the number of noise learning experiments, call
+            :meth:`~samplomatic.utils.find_unique_box_instructions` before
+            running the noise learning job.
 
         Args:
             instructions: The instructions to learn the noise of.
@@ -160,7 +172,6 @@ class NoiseLearnerV3:
             program_id=self._PROGRAM_ID,
             options=runtime_options,
             inputs=inputs,
-            result_decoder=self._DECODER,
             calibration_id=getattr(self._backend, "calibration_id", None),
         )
 

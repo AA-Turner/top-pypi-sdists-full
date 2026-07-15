@@ -82,6 +82,46 @@ augment_mid_sent_punct  (augment_mid_punct_prob)
     dashes appear in real text with all of these conventions.  Eligible pairs
     are checked via augment_vocab(..., final=False).
 
+comma_typo  (comma_typo_prob)
+    Simulates a common typing mistake by moving a space from after a
+    comma to before it: "w1, w2" -> "w1 ,w2".  The comma itself stays
+    attached to w2 (no label change there) while w1's final character
+    becomes a continuation rather than a word end, and a new word-end
+    space is inserted before the comma.  Teaches the tokenizer to
+    correctly split "w1 ,w2" into three tokens (w1, comma, w2) instead
+    of treating ",w2" as a glued unit.  Eligibility (whether ',' is
+    actually used in this dataset) is checked once via augment_vocab()-
+    style logic so the augmentation is a no-op on datasets with no commas.
+
+comma_glue  (comma_glue_prob)
+    Simulates "foo, bar" -> "foo,bar", a common typing mistake where the
+    space after a comma is simply dropped.  Pure deletion: the comma and
+    surrounding word characters keep their original labels unchanged,
+    since removing a continuation-labelled space has no effect on the
+    word-end/continuation status of anything else.  Blocked when the
+    character immediately before the comma AND the character immediately
+    after the (to-be-removed) space are both digits, since that pattern
+    ("3, 000" -> "3,000") would be indistinguishable from a genuine
+    European-style thousands separator and must not be taught as a split
+    point.  Eligibility (whether ',' is used in this dataset) is checked
+    the same way as comma_typo.
+
+    This was particularly an issue for Spanish-AnCora, but it's
+    reasonable to think it could happen to any dataset.  Currently
+    this just operates on commas and ascii letters to avoid
+    accidentally squishing anything that shouldn't be squished.
+
+    UD_Spanish-AnCora 2.7 had a problem is with this sentence:
+    # orig_file_sentence 143#5
+    In this sentence, there was a comma smashed next to a token.
+
+    Fixing just this one sentence is not sufficient to tokenize
+    "asdf,zzzz" as desired, so we also augment by some fraction where
+    we have squished "asdf, zzzz" into "asdf,zzzz".
+
+    This exact example was later fixed in UD 2.8, but it should still
+    potentially be useful for compensating for typos.
+
 drop_last_char  (last_char_drop_prob)
     Drops the final character of a training window with some probability,
     relabelling the new final character as a sentence end.  Teaches the model
@@ -219,19 +259,16 @@ class TokenizationDataset:
         res = []
         funcs = []
         for feat_func in self.args['feat_funcs']:
-            if feat_func == 'end_of_para' or feat_func == 'start_of_para':
+            if feat_func in POSITION_FEAT_FUNCS:
                 # skip for position-dependent features
                 continue
-            if feat_func == 'space_before':
-                func = lambda x: 1 if x.startswith(' ') else 0
-            elif feat_func == 'capitalized':
-                func = lambda x: 1 if x[0].isupper() else 0
-            elif feat_func == 'numeric':
-                func = lambda x: 1 if (NUMERIC_RE.match(x) is not None) else 0
-            else:
+            if feat_func in STRUCTURAL_FEATURES:
+                # skip here -- these are window-based, computed separately
+                # below rather than as a per-character lambda
+                continue
+            if feat_func not in PER_CHAR_FEAT_FUNCS:
                 raise ValueError('Feature function "{}" is undefined.'.format(feat_func))
-
-            funcs.append(func)
+            funcs.append(PER_CHAR_FEAT_FUNCS[feat_func])
 
         # stacking all featurize functions
         composite_func = lambda x: [f(x) for f in funcs]
@@ -245,6 +282,24 @@ class TokenizationDataset:
         use_end_of_para = 'end_of_para' in self.args['feat_funcs']
         use_start_of_para = 'start_of_para' in self.args['feat_funcs']
         use_dictionary = self.args['use_dictionary']
+
+        # Structural/tabular features: computed once per paragraph
+        # as regex passes over the reconstructed raw text, rather than
+        # per character, since they need surrounding context (a phone number,
+        # date, or "Label:" span) that a single character can't see.
+        active_structural = [name for name in STRUCTURAL_FEATURES
+                              if name in self.args['feat_funcs']]
+        structural_masks = None
+        if active_structural:
+            raw_text = ''.join(c for c, _ in para)
+            structural_masks = {}
+            for name in active_structural:
+                mask = [0] * len(para)
+                for m in STRUCTURAL_FEATURES[name].finditer(raw_text):
+                    for pos in range(m.start(), m.end()):
+                        mask[pos] = 1
+                structural_masks[name] = mask
+
         current_units = []
         current_labels = []
         current_feats = []
@@ -257,6 +312,11 @@ class TokenizationDataset:
             if use_start_of_para:
                 f = 1 if i == 0 else 0
                 feats.append(f)
+
+            # structural/tabular window features
+            if structural_masks is not None:
+                for name in active_structural:
+                    feats.append(structural_masks[name][i])
 
             #if dictionary feature is selected
             if use_dictionary:
@@ -367,6 +427,104 @@ MID_SENT_AUGMENT_PAIRS = [
     (",", "\u2014"),   # comma -> em dash
 ]
 
+# --------------------------------------------------------------------------
+# Structural / tabular text features
+#   (see https://github.com/stanfordnlp/stanza/issues/1640)
+#
+# These target the finding that gold English tokenizer training data contains
+# many genuinely-correct sentence boundaries in document-structural text
+# (news datelines, email signature blocks, tabular salary listings) that end
+# in a digit immediately followed by a capitalized word with no intervening
+# punctuation -- the exact surface pattern that was over-generalized into
+# false splits on ordinary prose ("Pope Leo X used...", "Franz Joseph I
+# ruled..."). Unlike the existing feat_funcs (space_before/capitalized/
+# numeric), these need a local window of context rather than a single
+# character, so they're computed once per paragraph as regex passes rather
+# than as per-character lambdas.
+#
+# Each regex is matched against the whole paragraph's raw text; every
+# character position falling inside a match span gets feature value 1,
+# every other position gets 0. There is deliberately no scan radius/window
+# added around a match, and no smoothing or decay -- membership in the match
+# span is all this computes.
+#
+# NOTE ON WHY THERE'S NO EXPLICIT WINDOW PARAMETER HERE:
+# This is a boolean-per-character signal, same as the existing feat_funcs,
+# and it's fed into a *bidirectional* LSTM (see model.py). A bidirectional
+# LSTM's hidden state at any position has access to both a forward pass that
+# has already seen everything up to that point and a backward pass that has
+# already seen everything from the end back to that point, so a feature
+# turned on at one character can inform the model's decision at a different
+# character on either side, as far as the LSTM's own gates choose to carry
+# it. In other words, the "window" isn't a fixed constant anywhere in this
+# code -- it's whatever the recurrence learns to propagate, the same way it
+# already has to for space_before/capitalized/numeric. This isn't free,
+# though: the model has to see enough training examples of the pattern to
+# learn how far (and whether) to project it; a hardcoded window would
+# guarantee reach regardless of training data volume, a learned one doesn't.
+# --------------------------------------------------------------------------
+
+# Capitalized word (up to 3 title-cased words) immediately followed by a
+# colon -- "Fax:", "Cell:", "Job Group:", "Notice Regarding:". Essentially
+# never occurs in narrative prose; very common in structured/tabular fields.
+STRUCTURAL_LABELED_FIELD_RE = re.compile(
+    r'\b[A-Z][a-zA-Z]*(?:\s[A-Z][a-zA-Z]*){0,2}\s*:'
+)
+
+# Phone-number-like or short ID-like digit groups: (713) 571-9571,
+# 713-654-0365, x365. Deliberately narrow (hyphen/paren/x-prefixed digit
+# groups only) to avoid firing on ordinary numeric expressions like page
+# counts or years.
+STRUCTURAL_PHONE_ID_RE = re.compile(
+    r'\(\d{3}\)\s?\d{3}-\d{4}'      # (713) 571-9571
+    r'|\b\d{3}-\d{3}-\d{4}\b'       # 713-654-0365
+    r'|\bx\d{3,5}\b'                # x365
+)
+
+# Numeric dates: 28/10/2004, 16/11/2004, or "November 5, 1999" style.
+STRUCTURAL_DATE_RE = re.compile(
+    r'\b\d{1,2}/\d{1,2}/\d{2,4}\b'
+    r'|\b(?:January|February|March|April|May|June|July|August|September'
+    r'|October|November|December)\s+\d{1,2},?\s+\d{4}\b'
+)
+
+# Currency amounts: $62,500 / $47,500.00
+STRUCTURAL_CURRENCY_RE = re.compile(
+    r'\$\s?\d[\d,]*(?:\.\d+)?'
+)
+
+# Registry mapping feat_func name (as it would appear in args['feat_funcs'])
+# to its compiled regex. Kept separate from the per-character funcs handled
+# in para_to_sentences's composite_func, since these operate on a window.
+STRUCTURAL_FEATURES = {
+    'labeled_field': STRUCTURAL_LABELED_FIELD_RE,
+    'phone_id': STRUCTURAL_PHONE_ID_RE,
+    'date_pattern': STRUCTURAL_DATE_RE,
+    'currency': STRUCTURAL_CURRENCY_RE,
+}
+
+# The three per-character feat_funcs, as a dict rather than an if/elif
+# chain, so this dict is the actual source of truth para_to_sentences
+# dispatches from -- not a second hand-typed copy of the same three names.
+PER_CHAR_FEAT_FUNCS = {
+    'space_before': lambda x: 1 if x.startswith(' ') else 0,
+    'capitalized': lambda x: 1 if x[0].isupper() else 0,
+    'numeric': lambda x: 1 if (NUMERIC_RE.match(x) is not None) else 0,
+}
+
+# The two position-dependent feat_funcs, handled separately in
+# para_to_sentences since they depend on index rather than character.
+POSITION_FEAT_FUNCS = frozenset({'end_of_para', 'start_of_para'})
+
+# Every feat_func name para_to_sentences recognizes, derived from the three
+# registries above rather than re-typed. This is what other code (eg
+# run_tokenizer.py's EXTRA_FEAT_FUNCS, and its tests) should check against.
+KNOWN_FEAT_FUNCS = (
+    frozenset(PER_CHAR_FEAT_FUNCS.keys())
+    | POSITION_FEAT_FUNCS
+    | frozenset(STRUCTURAL_FEATURES.keys())
+)
+
 
 class DataLoader(TokenizationDataset):
     """
@@ -425,6 +583,22 @@ class DataLoader(TokenizationDataset):
         augment_mid_punct_prob = 0.0 if evaluation else args.get('augment_mid_punct_prob', 0.0)
         if augment_mid_punct_prob > 0.0:
             self.mid_sent_augmentations = self.build_mid_sent_augmentations(self.vocab, self.data, MID_SENT_AUGMENT_PAIRS)
+
+        comma_typo_prob = 0.0 if evaluation else args.get('comma_typo_prob', 0.0)
+        if comma_typo_prob > 0.0:
+            self.comma_typo_eligible = ',' in self.vocab
+            if self.comma_typo_eligible:
+                logger.debug('Based on the training data, will augment "w1, w2" -> "w1 ,w2" comma typos')
+            else:
+                logger.debug('Based on the training data, no comma found, so comma typos will not be augmented')
+
+        comma_glue_prob = 0.0 if evaluation else args.get('comma_glue_prob', 0.0)
+        if comma_glue_prob > 0.0:
+            self.comma_glue_eligible = ',' in self.vocab
+            if self.comma_glue_eligible:
+                logger.debug('Based on the training data, will augment "w1, w2" -> "w1,w2" comma glues')
+            else:
+                logger.debug('Based on the training data, no comma found, so comma glues will not be augmented')
 
     def __len__(self):
         return len(self.sentence_ids)
@@ -666,6 +840,112 @@ class DataLoader(TokenizationDataset):
             return encoded
         return None
 
+    def comma_typo(self, sentence):
+        """
+        Simulates "w1, w2" -> "w1 ,w2", a common typing mistake where the
+        space intended after the comma is instead typed before it.
+
+        Eligible positions are commas which are:
+          - preceded immediately by a non-space character (end of w1)
+          - followed immediately by a space, which is in turn followed
+            by a non-space character (start of w2)
+          - i.e. a normal "<word>, <word>" pattern
+
+        The transformation:
+          - w1's final character keeps its original word-end label (1) —
+            w1 is still a complete word, exactly as in the natural
+            "w1 , w2" pattern (space before comma) already found in the
+            data, where the space is a continuation (0) and the letter
+            before it carries the word-end label.
+          - the newly inserted space is a continuation (0), matching that
+            same natural pattern.
+          - the comma keeps its own label (still a word end) but the
+            "space" unit moves from after it to before it.
+          - w2's first character is unaffected (still a continuation/word-end
+            as it always was, since it never had a label change)
+        """
+        if not getattr(self, 'comma_typo_eligible', False):
+            return None
+        if len(sentence[3]) <= 3 or len(sentence[3]) >= self.args['max_seqlen']:
+            return None
+
+        eligible = [
+            idx for idx, char in enumerate(sentence[3])
+            if char == ','
+            and 0 < idx < len(sentence[3]) - 2
+            and sentence[3][idx - 1] != ' '
+            and sentence[1][idx - 1] != 0   # idx-1 is a genuine word end
+            and sentence[3][idx + 1] == ' '
+            and sentence[3][idx + 2] != ' '
+        ]
+        if not eligible:
+            return None
+
+        idx = random.choice(eligible)
+        all_units = [(x, int(y)) for x, y in zip(sentence[3], sentence[1])]
+
+        new_units = list(all_units)
+        # remove the space currently after the comma (at idx+1)
+        del new_units[idx + 1]
+        # insert a new space, itself a continuation, before the comma.
+        # w1's final character (at idx-1) keeps its original word-end
+        # label untouched -- w1 is still a complete word.
+        new_units.insert(idx, (' ', 0))
+
+        encoded = self.para_to_sentences(new_units)
+        if not encoded:
+            return None
+        return encoded
+
+    def comma_glue(self, sentence):
+        """
+        Simulates "w1, w2" -> "w1,w2", a common typing mistake where the
+        space after a comma is simply dropped.
+
+        Eligible positions are commas which are:
+          - preceded immediately by a non-space character (end of w1)
+          - followed immediately by a space, which is in turn followed
+            by a non-space character (start of w2)
+          - i.e. a normal "<word>, <word>" pattern (same eligibility
+            shape as comma_typo)
+          - NOT digit-adjacent on both sides: if the character before the
+            comma and the character after the space are both digits, the
+            glued result ("3,000") would be indistinguishable from a
+            genuine European-style thousands separator, so it is excluded
+
+        The transformation is a pure deletion: the space after the comma
+        is removed and nothing else changes.  Every other character keeps
+        its original label -- removing a continuation-labelled space has
+        no effect on the word-end/continuation status of the comma or of
+        w2's first character.
+        """
+        if not getattr(self, 'comma_glue_eligible', False):
+            return None
+        if len(sentence[3]) <= 3 or len(sentence[3]) >= self.args['max_seqlen']:
+            return None
+
+        eligible = [
+            idx for idx, char in enumerate(sentence[3])
+            if char == ','
+            and 0 < idx < len(sentence[3]) - 2
+            and sentence[3][idx - 1] != ' '
+            and sentence[1][idx - 1] != 0   # idx-1 is a genuine word end
+            and sentence[3][idx + 1] == ' '
+            and sentence[3][idx + 2] != ' '
+            and not (sentence[3][idx - 1].isdigit() and sentence[3][idx + 2].isdigit())
+        ]
+        if not eligible:
+            return None
+
+        idx = random.choice(eligible)
+        new_units = [(x, int(y)) for x, y in zip(sentence[3], sentence[1])]
+        # remove the space after the comma (at idx+1); nothing else changes
+        del new_units[idx + 1]
+
+        encoded = self.para_to_sentences(new_units)
+        if not encoded:
+            return None
+        return encoded
 
     def next(self, eval_offsets=None, unit_dropout=0.0, feat_unit_dropout=0.0):
         ''' Get a batch of converted and padded PyTorch data from preprocessed raw text for training/prediction. '''
@@ -684,6 +964,8 @@ class DataLoader(TokenizationDataset):
             split_mwt_prob = 0.0 if self.eval else self.args.get('split_mwt_prob', 0.0)
             augment_mid_punct_prob = 0.0 if self.eval else self.args.get('augment_mid_punct_prob', 0.0)
             augment_final_punct_prob = 0.0 if self.eval else self.args.get('augment_final_punct_prob', 0.0)
+            comma_typo_prob = 0.0 if self.eval else self.args.get('comma_typo_prob', 0.0)
+            comma_glue_prob = 0.0 if self.eval else self.args.get('comma_glue_prob', 0.0)
 
             pid, sid = id_pair if self.eval else random.choice(self.sentence_ids)
             sentences = [copy([x[offset:] for x in self.sentences[pid][sid]])]
@@ -748,6 +1030,23 @@ class DataLoader(TokenizationDataset):
                     if random.random() < augment_mid_punct_prob:
                         new_sentence = self.augment_mid_sent_punct(sentence)
                         if new_sentence is not None:
+                            sentences[sentence_idx] = new_sentence[0]
+
+            if comma_typo_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < comma_typo_prob:
+                        new_sentence = self.comma_typo(sentence)
+                        if new_sentence is not None:
+                            sentences[sentence_idx] = new_sentence[0]
+
+            if comma_glue_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < comma_glue_prob:
+                        # comma_glue deletes a character (the space), so
+                        # total_len must be adjusted, same as move_punct_back
+                        new_sentence = self.comma_glue(sentence)
+                        if new_sentence is not None:
+                            total_len = total_len + len(new_sentence[0][3]) - len(sentences[sentence_idx][3])
                             sentences[sentence_idx] = new_sentence[0]
 
             if drop_sents and len(sentences) > 1:

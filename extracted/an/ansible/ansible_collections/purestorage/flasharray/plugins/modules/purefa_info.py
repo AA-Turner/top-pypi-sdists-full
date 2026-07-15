@@ -18,15 +18,15 @@ DOCUMENTATION = r"""
 ---
 module: purefa_info
 version_added: '1.0.0'
-short_description: Collect information from Pure Storage FlashArray
+short_description: Collect information from Everpure FlashArray
 description:
-  - Collect information from a Pure Storage Flasharray running the
+  - Collect information from a Everpure Flasharray running the
     Purity//FA operating system. By default, the module will collect basic
     information including hosts, host groups, protection
     groups and volume counts. Additional information can be collected
     based on the configured set of arguments.
 author:
-  - Pure Storage ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+  - Everpure ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   gather_subset:
     description:
@@ -35,8 +35,8 @@ options:
         capacity, network, subnet, interfaces, hgroups, pgroups, hosts,
         admins, volumes, snapshots, pods, replication, vgroups, offload, apps,
         arrays, certs, kmip, clients, policies, dir_snaps, filesystems,
-        alerts, virtual_machines, subscriptions, realms, fleet, presets and
-        workloads.
+        alerts, virtual_machines, subscriptions, realms, fleet, presets,
+        workloads and tgroups.
     type: list
     elements: str
     required: false
@@ -123,6 +123,7 @@ DSROLE_POLICY_API_VERSION = "2.36"
 CONTEXT_API_VERSION = "2.38"
 QUOTA_API_VERSION = "2.42"
 TAGS_API_VERSION = "2.39"
+TGROUP_API_VERSION = "2.54"
 
 
 def _is_cbs(array):
@@ -878,18 +879,26 @@ def generate_admin_dict(array):
     for admin in admins:
         admin_name = admin.name
         admin_info[admin_name] = {
-            "type": ("remote", "local")[admin.is_local],
+            "public_key": admin.public_key,
+            "local": admin.is_local,
+            "role": admin.role.name,
             "locked": admin.locked,
-            "role": getattr(admin.role, "name", None),
-            "management_access_policy": None,
+            "lockout_remaining": getattr(admin, "lockout_remaining", None),
         }
-        if admin.is_local and LooseVersion(array.get_rest_version()) >= LooseVersion(
-            DSROLE_POLICY_API_VERSION
-        ):
-            if hasattr(admin, "management_access_policies"):
-                admin_info[admin_name]["management_access_policy"] = getattr(
-                    admin.management_access_policies[0], "name", None
-                )
+        if hasattr(admin.api_token, "expires_at"):
+            if admin.api_token.expires_at:
+                admin_info[admin_name]["token_expires"] = datetime.fromtimestamp(
+                    admin.api_token.expires_at / 1000
+                ).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            admin_info[admin_name]["token_expires"] = None
+        if hasattr(admin.api_token, "created_at"):
+            if admin.api_token.created_at:
+                admin_info[admin_name]["token_created"] = datetime.fromtimestamp(
+                    admin.api_token.created_at / 1000
+                ).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            admin_info[admin_name]["token_created"] = None
     return admin_info
 
 
@@ -3001,6 +3010,41 @@ def generate_fleet_dict(array):
     return fleet_info
 
 
+def generate_tgroups_dict(array):
+    tgroups_info = {}
+    tgroups = list(array.get_topology_groups().items)
+    for tgroup in tgroups:
+        tgroups_info[tgroup.name] = {
+            "id": getattr(tgroup, "id", None),
+            "context": tgroup.context.name,
+            "parent_topology_group": tgroup.parent_topology_group.name,
+            "arrays": [],
+            "tgroups": [],
+        }
+
+    if not tgroups_info:
+        return tgroups_info
+
+    members = list(array.get_topology_groups_members().items)
+    for member in members:
+        group_name = member.topology_group.name
+        member_ref = member.member
+        member_name = member_ref.name
+        member_type = member_ref.resource_type
+        if group_name not in tgroups_info or not member_name:
+            continue
+        member_info = {
+            "name": member_name,
+            "status": member.status,
+            "status_details": member.status_details,
+        }
+        if member_type == "remote-arrays":
+            tgroups_info[group_name]["arrays"].append(member_info)
+        elif member_type == "topology-groups":
+            tgroups_info[group_name]["tgroups"].append(member_info)
+    return tgroups_info
+
+
 def generate_preset_dict(array):
 
     def to_plain(value):
@@ -3241,6 +3285,7 @@ def main():
         "fleet",
         "presets",
         "workloads",
+        "tgroups",
     )
     subset_test = (test in valid_subsets for test in subset)
     if not all(subset_test):
@@ -3341,6 +3386,10 @@ def main():
             info["presets"] = generate_preset_dict(array)
         if "workloads" in subset or "all" in subset:
             info["workloads"] = generate_workload_dict(array)
+    if LooseVersion(TGROUP_API_VERSION) <= LooseVersion(api_version) and (
+        "tgroups" in subset or "all" in subset
+    ):
+        info["tgroups"] = generate_tgroups_dict(array)
     module.exit_json(changed=False, purefa_info=info)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: statsforecast
-Version: 2.0.3
+Version: 2.1.0
 Summary: Time series forecasting suite using statistical models
 Author-email: Nixtla <business@nixtla.io>
 License: Apache Software License 2.0
@@ -12,93 +12,24 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cloudpickle
-Requires-Dist: coreforecast>=0.0.12
-Requires-Dist: numba>=0.55.0; sys_platform != "win32" or python_version < "3.10" or python_version >= "3.12"
-Requires-Dist: numba<0.60.0,>=0.58.0; sys_platform == "win32" and python_version >= "3.10" and python_version < "3.12"
-Requires-Dist: llvmlite<0.43.0,>=0.41.0; sys_platform == "win32" and python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: coreforecast>=0.0.17
 Requires-Dist: numpy>=1.21.6
-Requires-Dist: pandas>=1.3.5
-Requires-Dist: scipy<1.16.0,>=1.7.3
-Requires-Dist: statsmodels>=0.13.2
+Requires-Dist: pandas<3.0.0
+Requires-Dist: scipy>=1.7.3
+Requires-Dist: statsmodels>=0.14.5
 Requires-Dist: tqdm
-Requires-Dist: fugue>=0.8.1
+Requires-Dist: fugue>=0.9.4
 Requires-Dist: utilsforecast>=0.1.4
 Requires-Dist: threadpoolctl>=3
-Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: datasetsforecast; extra == "dev"
-Requires-Dist: fastcore<=1.7.29; extra == "dev"
-Requires-Dist: fire; extra == "dev"
-Requires-Dist: nbformat; extra == "dev"
-Requires-Dist: nbdev_plotly; extra == "dev"
-Requires-Dist: pandas[plot]; extra == "dev"
-Requires-Dist: polars[numpy]; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: prophet; extra == "dev"
-Requires-Dist: pyarrow<21.0.0; extra == "dev"
-Requires-Dist: pybind11; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: setuptools<70; extra == "dev"
-Requires-Dist: supersmoother; extra == "dev"
-Requires-Dist: yfinance; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Provides-Extra: dask
-Requires-Dist: dask<=2024.12.1; extra == "dask"
-Requires-Dist: fugue[dask]>=0.8.1; extra == "dask"
-Provides-Extra: ray
-Requires-Dist: fugue[ray]>=0.8.1; python_version < "3.12" and extra == "ray"
-Requires-Dist: protobuf<4.0.0,>=3.15.3; python_version < "3.12" and extra == "ray"
-Requires-Dist: numpy<2; python_version < "3.12" and extra == "ray"
-Requires-Dist: pandas<2.2; python_version < "3.12" and extra == "ray"
-Requires-Dist: ray<=2.10; python_version < "3.12" and extra == "ray"
-Provides-Extra: spark
-Requires-Dist: fugue[spark]>=0.8.1; extra == "spark"
-Provides-Extra: plotly
-Requires-Dist: plotly; extra == "plotly"
-Requires-Dist: plotly-resampler; extra == "plotly"
-Provides-Extra: polars
-Requires-Dist: polars[numpy]; extra == "polars"
-Provides-Extra: all
-Requires-Dist: dask<=2024.12.1; extra == "all"
-Requires-Dist: fugue[dask]>=0.8.1; extra == "all"
-Requires-Dist: fugue[spark]>=0.8.1; extra == "all"
-Requires-Dist: plotly; extra == "all"
-Requires-Dist: plotly-resampler; extra == "all"
-Requires-Dist: polars[numpy]; extra == "all"
-Requires-Dist: black; extra == "all"
-Requires-Dist: datasetsforecast; extra == "all"
-Requires-Dist: fastcore<=1.7.29; extra == "all"
-Requires-Dist: fire; extra == "all"
-Requires-Dist: nbformat; extra == "all"
-Requires-Dist: nbdev_plotly; extra == "all"
-Requires-Dist: pandas[plot]; extra == "all"
-Requires-Dist: polars[numpy]; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: prophet; extra == "all"
-Requires-Dist: pyarrow<21.0.0; extra == "all"
-Requires-Dist: pybind11; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: pytest-cov; extra == "all"
-Requires-Dist: scikit-learn; extra == "all"
-Requires-Dist: setuptools<70; extra == "all"
-Requires-Dist: supersmoother; extra == "all"
-Requires-Dist: yfinance; extra == "all"
-Requires-Dist: fugue[ray]>=0.8.1; python_version < "3.12" and extra == "all"
-Requires-Dist: protobuf<4.0.0,>=3.15.3; python_version < "3.12" and extra == "all"
-Requires-Dist: numpy<2; python_version < "3.12" and extra == "all"
-Requires-Dist: pandas<2.2; python_version < "3.12" and extra == "all"
-Requires-Dist: ray<=2.10; python_version < "3.12" and extra == "all"
 Dynamic: license-file
 
 # Nixtla
@@ -121,7 +52,7 @@ Dynamic: license-file
 [![docs](https://github.com/Nixtla/statsforecast/actions/workflows/build-docs.yaml/badge.svg)](https://github.com/Nixtla/statsforecast/actions/workflows/build-docs.yaml)
 [![Downloads](https://pepy.tech/badge/statsforecast)](https://pepy.tech/project/statsforecast)
 
-**StatsForecast** offers a collection of widely used univariate time series forecasting models, including automatic `ARIMA`, `ETS`, `CES`, and `Theta` modeling optimized for high performance using `numba`. It also includes a large battery of benchmarking models.
+**StatsForecast** offers a collection of widely used univariate time series forecasting models, including automatic `ARIMA`, `ETS`, `CES`, and `Theta` modeling optimized for high performance. It also includes a large battery of benchmarking models.
 </div>
 
 ## Installation
@@ -138,7 +69,7 @@ or
 conda install -c conda-forge statsforecast
 ```
 
-Vist our [Installation Guide](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/0_Installation) for further instructions.
+Vist our [Installation Guide](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/installation.html) for further instructions.
 
 ## Quick Start
 
@@ -158,9 +89,9 @@ sf.fit(df)
 sf.predict(h=12, level=[95])
 ```
 
-**Get Started [quick guide](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/1_Getting_Started_short)**
+**Get Started [quick guide](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/getting_started_short.html)**
 
-**Follow this [end-to-end walkthrough](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/2_Getting_Started_complete) for best practices.**
+**Follow this [end-to-end walkthrough](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/getting_started_complete.html) for best practices.**
 
 ## Why?
 
@@ -178,32 +109,31 @@ Current Python alternatives for statistical models are slow, inaccurate and don'
 ## Highlights
 
 * Inclusion of `exogenous variables` and `prediction intervals` for ARIMA.
-* 20x [faster](./experiments/arima/) than `pmdarima`.
+* 20x [faster](https://github.com/Nixtla/statsforecast/tree/main/experiments/arima) than `pmdarima`.
 * 1.5x faster than `R`.
 * 500x faster than `Prophet`.
-* 4x [faster](./experiments/ets/) than `statsmodels`.
-* Compiled to high performance machine code through [`numba`](https://numba.pydata.org/).
+* 4x [faster](https://github.com/Nixtla/statsforecast/tree/main/experiments/ets) than `statsmodels`.
 * 1,000,000 series in [30 min](https://github.com/Nixtla/statsforecast/tree/main/experiments/ray) with [ray](https://github.com/ray-project/ray).
 * Replace FB-Prophet in two lines of code and gain speed and accuracy. Check the experiments [here](https://github.com/Nixtla/statsforecast/tree/main/experiments/arima_prophet_adapter).
-* Fit 10 benchmark models on **1,000,000** series in [under **5 min**](./experiments/benchmarks_at_scale/).
+* Fit 10 benchmark models on **1,000,000** series in [under **5 min**](https://github.com/Nixtla/statsforecast/tree/main/experiments/benchmarks_at_scale/).
 
 Missing something? Please open an issue or write us in [![Slack](https://img.shields.io/badge/Slack-4A154B?&logo=slack&logoColor=white)](https://join.slack.com/t/nixtlaworkspace/shared_invite/zt-135dssye9-fWTzMpv2WBthq8NK0Yvu6A)
 
 ## Examples and Guides
 
-📚 [End to End Walkthrough](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/2_Getting_Started_complete): Model training, evaluation and selection for multiple time series
+📚 [End to End Walkthrough](https://nixtlaverse.nixtla.io/statsforecast/docs/getting-started/getting_started_complete.html): Model training, evaluation and selection for multiple time series
 
-🔎 [Anomaly Detection](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/AnomalyDetection): detect anomalies for time series using in-sample prediction intervals.
+🔎 [Anomaly Detection](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/anomalydetection.html): detect anomalies for time series using in-sample prediction intervals.
 
-👩‍🔬 [Cross Validation](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/CrossValidation): robust model’s performance evaluation.
+👩‍🔬 [Cross Validation](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/crossvalidation.html): robust model’s performance evaluation.
 
-❄️ [Multiple Seasonalities](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/MultipleSeasonalities): how to forecast data with multiple seasonalities using an MSTL.
+❄️ [Multiple Seasonalities](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/multipleseasonalities.html): how to forecast data with multiple seasonalities using an MSTL.
 
-🔌 [Predict Demand Peaks](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/ElectricityPeakForecasting): electricity load forecasting for detecting daily peaks and reducing electric bills.
+🔌 [Predict Demand Peaks](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/electricitypeakforecasting.html): electricity load forecasting for detecting daily peaks and reducing electric bills.
 
-📈 [Intermittent Demand](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/IntermittentData): forecast series with very few non-zero observations.
+📈 [Intermittent Demand](https://nixtlaverse.nixtla.io/statsforecast/docs/tutorials/intermittentdata.html): forecast series with very few non-zero observations.
 
-🌡️ [Exogenous Regressors](https://nixtlaverse.nixtla.io/statsforecast/docs/how-to-guides/Exogenous): like weather or prices
+🌡️ [Exogenous Regressors](https://nixtlaverse.nixtla.io/statsforecast/docs/how-to-guides/exogenous.html): like weather or prices
 
 ## Models
 
@@ -213,12 +143,12 @@ Automatic forecasting tools search for the best parameters and select the best p
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[AutoARIMA](https://nixtlaverse.nixtla.io/statsforecast/models#class-autoarima)|✅|✅|✅|✅|✅|
-|[AutoETS](https://nixtlaverse.nixtla.io/statsforecast/models#class-autoets)|✅|✅|✅|✅||
-|[AutoCES](https://nixtlaverse.nixtla.io/statsforecast/models#class-autoces)|✅|✅|✅|✅||
-|[AutoTheta](https://nixtlaverse.nixtla.io/statsforecast/models#class-autotheta)|✅|✅|✅|✅||
-|[AutoMFLES](https://nixtlaverse.nixtla.io/statsforecast/models#class-automfles)|✅|✅|✅|✅|✅|
-|[AutoTBATS](https://nixtlaverse.nixtla.io/statsforecast/models#class-autotbats)|✅|✅|✅|✅||
+|[AutoARIMA](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autoarima)|✅|✅|✅|✅|✅|
+|[AutoETS](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autoets)|✅|✅|✅|✅||
+|[AutoCES](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autoces)|✅|✅|✅|✅||
+|[AutoTheta](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autotheta)|✅|✅|✅|✅||
+|[AutoMFLES](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#automfles)|✅|✅|✅|✅|✅|
+|[AutoTBATS](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autotbats)|✅|✅|✅|✅||
 
 ### ARIMA Family
 
@@ -226,8 +156,8 @@ These models exploit the existing autocorrelations in the time series.
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[ARIMA](https://nixtlaverse.nixtla.io/statsforecast/models#class-arima)|✅|✅|✅|✅|✅|
-|[AutoRegressive](https://nixtlaverse.nixtla.io/statsforecast/models#class-autoregressive)|✅|✅|✅|✅|✅|
+|[ARIMA](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#arima)|✅|✅|✅|✅|✅|
+|[AutoRegressive](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#autoregressive)|✅|✅|✅|✅|✅|
 
 ### Theta Family
 
@@ -235,10 +165,10 @@ Fit two theta lines to a deseasonalized time series, using different techniques 
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[Theta](https://nixtlaverse.nixtla.io/statsforecast/models#class-theta)|✅|✅|✅|✅|✅|
-|[OptimizedTheta](https://nixtlaverse.nixtla.io/statsforecast/models#class-optimizedtheta)|✅|✅|✅|✅||
-|[DynamicTheta](https://nixtlaverse.nixtla.io/statsforecast/models#class-dynamictheta)|✅|✅|✅|✅||
-|[DynamicOptimizedTheta](https://nixtlaverse.nixtla.io/statsforecast/models#class-dynamicoptimizedtheta)|✅|✅|✅|✅||
+|[Theta](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#theta)|✅|✅|✅|✅|✅|
+|[OptimizedTheta](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#optimizedtheta)|✅|✅|✅|✅||
+|[DynamicTheta](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#dynamictheta)|✅|✅|✅|✅||
+|[DynamicOptimizedTheta](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#dynamicoptimizedtheta)|✅|✅|✅|✅||
 
 ### Multiple Seasonalities
 
@@ -246,9 +176,9 @@ Suited for signals with more than one clear seasonality. Useful for low-frequenc
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[MSTL](https://nixtlaverse.nixtla.io/statsforecast/models#class-mstl)|✅|✅|✅|✅|If trend forecaster supports|
-|[MFLES](https://nixtlaverse.nixtla.io/statsforecast/models#class-mfles)|✅|✅|✅|✅|✅|
-|[TBATS](https://nixtlaverse.nixtla.io/statsforecast/models#class-tbats)|✅|✅|✅|✅||
+|[MSTL](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#mstl)|✅|✅|✅|✅|If trend forecaster supports|
+|[MFLES](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#mfles)|✅|✅|✅|✅|✅|
+|[TBATS](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#tbats)|✅|✅|✅|✅||
 
 ### GARCH and ARCH Models
 
@@ -256,8 +186,8 @@ Suited for modeling time series that exhibit non-constant volatility over time. 
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[GARCH](https://nixtlaverse.nixtla.io/statsforecast/models#class-garch)|✅|✅|✅|✅||
-|[ARCH](https://nixtlaverse.nixtla.io/statsforecast/models#class-arch)|✅|✅|✅|✅||
+|[GARCH](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#garch)|✅|✅|✅|✅||
+|[ARCH](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#arch)|✅|✅|✅|✅||
 
 ### Baseline Models
 
@@ -265,12 +195,12 @@ Classical models for establishing baseline.
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[HistoricAverage](https://nixtlaverse.nixtla.io/statsforecast/models#class-historicaverage)|✅|✅|✅|✅||
-|[Naive](https://nixtlaverse.nixtla.io/statsforecast/models#class-naive)|✅|✅|✅|✅||
-|[RandomWalkWithDrift](https://nixtlaverse.nixtla.io/statsforecast/models#class-randomwalkwithdrift)|✅|✅|✅|✅||
-|[SeasonalNaive](https://nixtlaverse.nixtla.io/statsforecast/models#class-seasonalnaive)|✅|✅|✅|✅||
-|[WindowAverage](https://nixtlaverse.nixtla.io/statsforecast/models#class-windowaverage)|✅|||||
-|[SeasonalWindowAverage](https://nixtlaverse.nixtla.io/statsforecast/models#class-seasonalwindowaverage)|✅|||||
+|[HistoricAverage](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#historicaverage)|✅|✅|✅|✅||
+|[Naive](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#naive)|✅|✅|✅|✅||
+|[RandomWalkWithDrift](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#randomwalkwithdrift)|✅|✅|✅|✅||
+|[SeasonalNaive](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#seasonalnaive)|✅|✅|✅|✅||
+|[WindowAverage](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#windowaverage)|✅|||||
+|[SeasonalWindowAverage](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#seasonalwindowaverage)|✅|||||
 
 ### Exponential Smoothing
 
@@ -278,12 +208,12 @@ Uses a weighted average of all past observations where the weights decrease expo
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[SimpleExponentialSmoothing](https://nixtlaverse.nixtla.io/statsforecast/models#class-simpleexponentialsmoothing)|✅||✅|||
-|[SimpleExponentialSmoothingOptimized](https://nixtlaverse.nixtla.io/statsforecast/models#class-simpleexponentialsmoothingoptimized)|✅||✅|||
-|[SeasonalExponentialSmoothing](https://nixtlaverse.nixtla.io/statsforecast/models#class-seasonalexponentialsmoothing)|✅||✅|||
-|[SeasonalExponentialSmoothingOptimized](https://nixtlaverse.nixtla.io/statsforecast/models#class-seasonalexponentialsmoothingoptimized)|✅||✅|||
-|[Holt](https://nixtlaverse.nixtla.io/statsforecast/models#class-holt)|✅|✅|✅|✅||
-|[HoltWinters](https://nixtlaverse.nixtla.io/statsforecast/models#class-holtwinters)|✅|✅|✅|✅||
+|[SimpleExponentialSmoothing](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#simpleexponentialsmoothing)|✅||✅|||
+|[SimpleExponentialSmoothingOptimized](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#simpleexponentialsmoothingoptimized)|✅||✅|||
+|[SeasonalExponentialSmoothing](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#seasonalexponentialsmoothing)|✅||✅|||
+|[SeasonalExponentialSmoothingOptimized](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#seasonalexponentialsmoothingoptimized)|✅||✅|||
+|[Holt](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#holt)|✅|✅|✅|✅||
+|[HoltWinters](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#holtwinters)|✅|✅|✅|✅||
 
 ### Sparse or Inttermitent
 
@@ -291,12 +221,12 @@ Suited for series with very few non-zero observations
 
 |Model | Point Forecast | Probabilistic Forecast | Insample fitted values | Probabilistic fitted values |Exogenous features|
 |:------|:-------------:|:----------------------:|:---------------------:|:----------------------------:|:----------------:|
-|[ADIDA](https://nixtlaverse.nixtla.io/statsforecast/models#class-adida)|✅||✅|✅||
-|[CrostonClassic](https://nixtlaverse.nixtla.io/statsforecast/models#class-crostonclassic)|✅||✅|✅||
-|[CrostonOptimized](https://nixtlaverse.nixtla.io/statsforecast/models#class-crostonoptimized)|✅||✅|✅||
-|[CrostonSBA](https://nixtlaverse.nixtla.io/statsforecast/models#class-crostonsba)|✅||✅|✅||
-|[IMAPA](https://nixtlaverse.nixtla.io/statsforecast/models#class-imapa)|✅||✅|✅||
-|[TSB](https://nixtlaverse.nixtla.io/statsforecast/models#class-tsb)|✅||✅|✅||
+|[ADIDA](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#adida)|✅||✅|✅||
+|[CrostonClassic](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#crostonclassic)|✅||✅|✅||
+|[CrostonOptimized](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#crostonoptimized)|✅||✅|✅||
+|[CrostonSBA](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#crostonsba)|✅||✅|✅||
+|[IMAPA](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#imapa)|✅||✅|✅||
+|[TSB](https://nixtlaverse.nixtla.io/statsforecast/src/core/models.html#tsb)|✅||✅|✅||
 
 ## 🔨 How to contribute
 

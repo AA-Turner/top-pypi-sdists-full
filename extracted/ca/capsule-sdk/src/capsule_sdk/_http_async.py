@@ -22,7 +22,8 @@ from capsule_sdk._errors import (
     CapsuleRequestTimeoutError,
     CapsuleServiceUnavailable,
 )
-from capsule_sdk._kms_signer import AsyncKMSSigner
+from capsule_sdk._kms_signer import AsyncSigner, new_async_signer
+from capsule_sdk._trace import trace_headers
 
 _RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
 _MAX_RETRIES = 3
@@ -64,10 +65,10 @@ class AsyncHttpClient:
             timeout=httpx.Timeout(config.request_timeout),
         )
 
-        self._signer: AsyncKMSSigner | None = None
+        self._signer: AsyncSigner | None = None
         if config.kms_key_name:
             try:
-                self._signer = AsyncKMSSigner(config.kms_key_name)
+                self._signer = new_async_signer(config.cloud_provider, config.kms_key_name)
             except Exception as exc:
                 logger.warning(
                     "KMS signer unavailable (%s); proceeding without request signing. "
@@ -167,7 +168,7 @@ class AsyncHttpClient:
         extra_headers: dict[str, str] | None = None,
     ) -> bytes:
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id}
+        headers = {"X-Request-Id": request_id, **trace_headers()}
         if self._signer:
             sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
@@ -205,7 +206,7 @@ class AsyncHttpClient:
         extra_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id, "Content-Type": "application/octet-stream"}
+        headers = {"X-Request-Id": request_id, "Content-Type": "application/octet-stream", **trace_headers()}
         if self._signer:
             sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
@@ -241,7 +242,7 @@ class AsyncHttpClient:
         extra_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id}
+        headers = {"X-Request-Id": request_id, **trace_headers()}
         if self._signer:
             sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
@@ -277,7 +278,7 @@ class AsyncHttpClient:
         extra_headers: dict[str, str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id, "Accept": "application/x-ndjson"}
+        headers = {"X-Request-Id": request_id, "Accept": "application/x-ndjson", **trace_headers()}
         if self._signer:
             sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
@@ -328,7 +329,7 @@ class AsyncHttpClient:
 
         body_bytes = json.dumps(json_body, separators=(",", ":")).encode() if json_body else b""
 
-        req_headers: dict[str, str] = {"X-Request-Id": request_id}
+        req_headers: dict[str, str] = {"X-Request-Id": request_id, **trace_headers()}
         if self._signer:
             sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             req_headers["X-KMS-Signature"] = sig

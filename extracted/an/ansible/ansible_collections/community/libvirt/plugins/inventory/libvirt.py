@@ -25,8 +25,7 @@ options:
     inventory_hostname:
         description: |
             What to register as the inventory hostname.
-            If set to 'uuid' the uuid of the server will be used and a
-            group will be created for the server name.
+            If set to 'uuid' the uuid of the server will be used.
             If set to 'name' the name of the server will be used unless
             there are more than one server with the same name in which
             case the 'uuid' logic will be used.
@@ -36,6 +35,21 @@ options:
             - name
             - uuid
         default: "name"
+    alternate_id_groups:
+        description: |
+            Determines whether groups will be created using the alternate id
+            (hostname or UUID)
+        type: bool
+        default: true
+    filter:
+        description: |
+            Regex applied to each domain's name or UUID (whichever
+            ``inventory_hostname`` selects). Domains are skipped unless
+            the regex matches. Uses Python ``re.search`` semantics, so
+            anchor with ``^`` / ``$`` for an exact match.
+        type: str
+        default: ".*"
+        version_added: '2.3.0'
 '''
 
 EXAMPLES = r'''
@@ -46,11 +60,17 @@ uri: 'lxc:///'
 # Connect to qemu
 plugin: community.libvirt.libvirt
 uri: 'qemu:///system'
+
+# Only include domains whose names start with "prod-"
+plugin: community.libvirt.libvirt
+uri: 'qemu:///system'
+filter: '^prod-'
 '''
+
+import re
 
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 from ansible.errors import AnsibleError
-from ansible.module_utils.six import raise_from
 
 try:
     import libvirt
@@ -67,9 +87,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
     def parse(self, inventory, loader, path, cache=True):
         if LIBVIRT_IMPORT_ERROR:
-            raise_from(
-                AnsibleError('libvirt python bindings must be installed to use this plugin'),
-                LIBVIRT_IMPORT_ERROR)
+            raise AnsibleError('libvirt python bindings must be installed to use this plugin') \
+                from LIBVIRT_IMPORT_ERROR
 
         super(InventoryModule, self).parse(
             inventory,
@@ -98,7 +117,19 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             'QEMU': 'community.libvirt.libvirt_qemu'
         }).get(connection.getType())
 
+        # Catch bad regex
+        try:
+            domain_filter = re.compile(self.get_option('filter'))
+        except re.error as e:
+            raise AnsibleError(f"invalid 'filter' regex: {e}") from e
+
         for server in connection.listAllDomains():
+            match_target = (server.UUIDString()
+                            if self.get_option('inventory_hostname') == 'uuid'
+                            else server.name())
+            if not domain_filter.search(match_target):
+                continue
+
             inventory_hostname = dict({
                 'uuid': server.UUIDString(),
                 'name': server.name()
@@ -116,8 +147,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             # TODO(daveol): Fix "Invalid characters were found in group names"
             # This warning is generated because of uuid's
             self.inventory.add_host(inventory_hostname)
-            self.inventory.add_group(inventory_hostname_alias)
-            self.inventory.add_child(inventory_hostname_alias, inventory_hostname)
+
+            if self.get_option('alternate_id_groups'):
+                self.inventory.add_group(inventory_hostname_alias)
+                self.inventory.add_child(inventory_hostname_alias, inventory_hostname)
 
             if connection_plugin is not None:
                 self.inventory.set_variable(
@@ -162,8 +195,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                 # This needs the guest powered on, 'qemu-guest-agent' installed and the org.qemu.guest_agent.0 channel configured.
                 domain_guestInfo = ''
                 try:
-                    # type==0 returns all types (users, os, timezone, hostname, filesystem, disks, interfaces)
-                    domain_guestInfo = domain.guestInfo(types=0)
+                    if _domain_state != libvirt.VIR_DOMAIN_SHUTOFF:
+                        # type==0 returns all types (users, os, timezone, hostname, filesystem, disks, interfaces)
+                        domain_guestInfo = domain.guestInfo(types=0)
+                    else:
+                        domain_guestInfo = {"error": "Skipped guest agent query: Domain is not running"}
                 except libvirt.libvirtError as e:
                     domain_guestInfo = {"error": str(e)}
                 finally:
@@ -176,7 +212,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                 # This needs the guest powered on, 'qemu-guest-agent' installed and the org.qemu.guest_agent.0 channel configured.
                 domain_interfaceAddresses = ''
                 try:
-                    domain_interfaceAddresses = domain.interfaceAddresses(source=libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT)
+                    if _domain_state != libvirt.VIR_DOMAIN_SHUTOFF:
+                        domain_interfaceAddresses = domain.interfaceAddresses(source=libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT)
+                    else:
+                        domain_interfaceAddresses = {"error": "Skipped guest agent query: Domain is not running"}
                 except libvirt.libvirtError as e:
                     domain_interfaceAddresses = {"error": str(e)}
                 finally:

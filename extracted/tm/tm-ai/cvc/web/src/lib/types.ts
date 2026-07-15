@@ -1839,3 +1839,104 @@ export interface SoulPersonaPreviewResponse {
   user_model_name: string;
   error?: string;
 }
+
+// ── Mind: world model + counterfactual self-test loop (Fable5) ────────────
+
+export interface WorldModelConflict {
+  value_a: string;
+  value_b: string;
+  winner: string;
+  situation: string;
+  resolution: string;
+  confidence: number;
+}
+
+export interface ValuesHierarchy {
+  revision_id: string;
+  created_at: number;
+  ranking: Record<string, number>;
+  conflicts: WorldModelConflict[];
+  context_overrides: Record<string, Record<string, number>>;
+  narrative: string;
+  supersedes: string | null;
+}
+
+export interface ReasoningStyle {
+  revision_id: string;
+  created_at: number;
+  top_down_vs_bottom_up: number;
+  data_vs_precedent: number;
+  fast_revise_vs_slow_commit: number;
+  risk_posture: number;
+  decision_autonomy: number;
+  confidence: Record<string, number>;
+  narrative: string;
+  supersedes: string | null;
+}
+
+export interface UncertaintyFlag {
+  flag_id: string;
+  created_at: number;
+  kind: string;
+  description: string;
+  resolved: boolean;
+  resolved_at: number | null;
+  resolved_by: string | null;
+}
+
+export interface WorldModelResponse {
+  ok: boolean;
+  values_hierarchy: ValuesHierarchy | null;
+  reasoning_style: ReasoningStyle | null;
+  uncertainty_flags: UncertaintyFlag[];
+  resolved_flags_count: number;
+  hierarchy_history: string[];
+  style_history: string[];
+  injection_preview: string;
+  error?: string;
+}
+
+export interface CounterfactualProbe {
+  probe_id: string;
+  created_at: number;
+  target_kind: string;
+  target_id: string;
+  scenario: string;
+  prediction: string;
+  prediction_reasoning: string;
+  confidence: number;
+  status: "pending" | "confirmed" | "corrected" | "skipped";
+  owner_response: string;
+  graded_at: number | null;
+}
+
+export interface CalibrationRecord {
+  total_probes: number;
+  confirmed: number;
+  corrected: number;
+  skipped: number;
+  brier_sum: number;
+  accuracy: number;
+  brier_score: number;
+}
+
+export interface ProbeListResponse {
+  ok: boolean;
+  probes: CounterfactualProbe[];
+  calibration: CalibrationRecord;
+  summary: string;
+  error?: string;
+}
+
+export interface ProbeGradeResponse {
+  ok: boolean;
+  probe?: CounterfactualProbe;
+  calibration?: CalibrationRecord;
+  error?: string;
+}
+
+export interface ProbeGenerateResponse {
+  ok: boolean;
+  probe?: CounterfactualProbe;
+  error?: string;
+}

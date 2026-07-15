@@ -11,10 +11,10 @@ from fabric_rti_mcp.services.kusto.kusto_config import KustoConfig
 from fabric_rti_mcp.services.kusto.kusto_service import (
     KustoConnectionManager,
     kusto_command,
-    kusto_show_command,
     kusto_diagnostics,
     kusto_known_services,
     kusto_query,
+    kusto_show_command,
     kusto_show_queryplan,
 )
 
@@ -188,6 +188,13 @@ def test_kusto_known_services_probe_mode_env_overrides_default() -> None:
     assert config.should_probe_known_services(CredentialSource.LOCAL_DEVELOPER) is True
 
 
+@patch.dict("os.environ", {"FABRIC_RTI_KUSTO_RESPONSE_FORMAT": "full_kusto_response"}, clear=True)
+def test_response_format_env_accepts_full_kusto_response() -> None:
+    config = KustoConfig.from_env()
+
+    assert config.response_format == "full_kusto_response"
+
+
 @patch("fabric_rti_mcp.services.kusto.kusto_service.CONFIG")
 @patch("fabric_rti_mcp.services.kusto.kusto_service.get_kusto_connection")
 def test_execute_basic_query(
@@ -231,6 +238,7 @@ def test_execute_basic_query(
     assert crp.application == f"fabric-rti-mcp{{{__version__}}}"
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_query:")  # type: ignore
     assert crp.has_option("request_readonly")
+    assert crp._options["request_is_agentic"] is True
 
     # Verify result format
     assert result["format"] == "columnar"
@@ -286,6 +294,7 @@ def test_execute_with_custom_client_request_properties(
     assert crp.application == f"fabric-rti-mcp{{{__version__}}}"
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_query:")  # type: ignore
     assert crp.has_option("request_readonly")
+    assert crp._options["request_is_agentic"] is True
 
     # Verify custom properties are set
     assert crp.has_option("request_timeout")
@@ -336,6 +345,7 @@ def test_execute_without_client_request_properties_preserves_behavior(
     assert crp.application == f"fabric-rti-mcp{{{__version__}}}"
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_query:")  # type: ignore
     assert crp.has_option("request_readonly")
+    assert crp._options["request_is_agentic"] is True
 
     # Verify result format
     assert isinstance(result, dict)
@@ -388,6 +398,7 @@ def test_destructive_operation_with_custom_client_request_properties(
     # Verify default properties are still set
     assert crp.application == f"fabric-rti-mcp{{{__version__}}}"
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_command:")  # type: ignore
+    assert crp._options["request_is_agentic"] is True
 
     # For destructive operations, request_readonly should NOT be set
     assert not crp.has_option("request_readonly")
@@ -416,6 +427,7 @@ def test_blocked_crp_keys_raise_error(
     blocked_keys = [
         "request_readonly",
         "request_readonly_hardline",
+        "request_is_agentic",
     ]
 
     for key in blocked_keys:
@@ -457,6 +469,7 @@ def test_show_command_crp(
     assert isinstance(crp, ClientRequestProperties)
     assert crp.has_option("request_readonly")
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_show_command:")  # type: ignore
+    assert crp._options["request_is_agentic"] is True
 
 
 @patch("fabric_rti_mcp.services.kusto.kusto_service.get_kusto_connection")
@@ -628,6 +641,36 @@ def test_execute_kusto_response_format(
     assert isinstance(result["data"]["rows"], list)
 
 
+@patch("fabric_rti_mcp.services.kusto.kusto_service.CONFIG")
+@patch("fabric_rti_mcp.services.kusto.kusto_service.get_kusto_connection")
+def test_execute_full_kusto_response_format(
+    mock_get_kusto_connection: Mock,
+    mock_config: MagicMock,
+    sample_cluster_uri: str,
+    mock_kusto_response: KustoResponseDataSet,
+) -> None:
+    """Test that _execute returns all Kusto response tables when configured."""
+    mock_client = MagicMock()
+    mock_client.execute.return_value = mock_kusto_response
+
+    mock_connection = MagicMock()
+    mock_connection.query_client = mock_client
+    mock_connection.default_database = "default_db"
+    mock_get_kusto_connection.return_value = mock_connection
+
+    mock_config.response_format = "full_kusto_response"
+    mock_config.timeout_seconds = None
+
+    result = kusto_query("TestTable | take 10", sample_cluster_uri, database="test_db")
+
+    assert result["format"] == "full_kusto_response"
+    assert "tables" in result["data"]
+    assert result["data"]["tables"][0]["name"] == "Table_0"
+    assert result["data"]["tables"][0]["kind"] == "PrimaryResult"
+    assert result["data"]["tables"][0]["columns"] == [{"ColumnName": "TestColumn", "DataType": "string"}]
+    assert result["data"]["tables"][0]["rows"] == [["TestValue"]]
+
+
 # ── kusto_show_queryplan tests ───────────────────────────────────────────────────
 
 
@@ -661,6 +704,7 @@ def test_show_queryplan_constructs_correct_command(
     crp = args[2]
     assert isinstance(crp, ClientRequestProperties)
     assert crp.client_request_id.startswith("KFRTI_MCP.kusto_show_queryplan:")
+    assert crp._options["request_is_agentic"] is True
 
     assert result["query_text"] == "StormEvents | count"
     assert result["stats"]["PlanSize"] == 9487

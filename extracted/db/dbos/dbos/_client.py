@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from dbos._context import MaxPriority, MinPriority
+from dbos._context import MaxPriority, MinPriority, validate_workflow_id
 from dbos._core import DEFAULT_POLLING_INTERVAL
 from dbos._queue import (
     Queue,
@@ -95,6 +95,9 @@ def validate_enqueue_options(options: EnqueueOptions) -> None:
         raise DBOSException(
             f"Invalid priority {priority}. Priority must be between {MinPriority}~{MaxPriority}."
         )
+    workflow_id = options.get("workflow_id")
+    if workflow_id is not None:
+        validate_workflow_id(workflow_id)
 
 
 class WorkflowHandleClientPolling(Generic[R]):
@@ -145,6 +148,10 @@ class WorkflowHandleClientAsyncPolling(Generic[R]):
         return status
 
 
+# Client system DB pool size; polling reads default to half of it (see PollingLimiter).
+DEFAULT_CLIENT_POOL_SIZE = 5
+
+
 class DBOSClient:
 
     def __init__(
@@ -156,6 +163,8 @@ class DBOSClient:
         application_database_url: Optional[str] = None,
         dbos_system_schema: Optional[str] = "dbos",
         serializer: Serializer = DefaultSerializer(),
+        system_database_pool_size: Optional[int] = None,
+        system_database_polling_concurrency: Optional[int] = None,
     ):
         self._serializer = serializer
         if system_database_engine:
@@ -181,16 +190,20 @@ class DBOSClient:
                 "connect_args": {"application_name": "dbos_transact_client"},
                 "pool_timeout": 30,
                 "max_overflow": 0,
-                "pool_size": 2,
+                "pool_size": (
+                    system_database_pool_size
+                    if system_database_pool_size is not None
+                    else DEFAULT_CLIENT_POOL_SIZE
+                ),
                 "pool_pre_ping": True,
             },
             engine=system_database_engine,
             schema=dbos_system_schema,
             serializer=serializer,
             executor_id=None,
-            # The client does not run a notification listener thread, so stream
-            # reads cannot be woken by LISTEN/NOTIFY and instead poll the offset.
+            # No notification listener in the client, so stream reads poll the offset.
             use_listen_notify=False,
+            polling_concurrency=system_database_polling_concurrency,
         )
         self._sys_db.check_connection()
 
@@ -271,6 +284,9 @@ class DBOSClient:
             "delay_until_epoch_ms": delay_until_epoch_ms,
             "attributes": options.get("attributes"),
             "schedule_name": None,
+            # Set only by the debouncer via _enqueue_debounced, never from options.
+            "debounce_deadline_epoch_ms": None,
+            "is_debounced": False,
         }
         return workflow_id, status
 
@@ -298,6 +314,30 @@ class DBOSClient:
             conn_or_session,
             max_recovery_attempts=None,
             owner_xid=None,
+        )
+        return workflow_id
+
+    def _enqueue_debounced(
+        self,
+        options: EnqueueOptions,
+        debounce_deadline_epoch_ms: Optional[int],
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
+        """Internal: enqueue a debounced workflow for DebouncerClient.
+
+        The debounce fields are not part of the public EnqueueOptions API, so
+        they are stamped onto the built status here rather than passed in options.
+        """
+        workflow_id, status = self._build_enqueue_status(options, *args, **kwargs)
+        status["debounce_deadline_epoch_ms"] = debounce_deadline_epoch_ms
+        status["is_debounced"] = True
+        self._sys_db.init_workflow(
+            status,
+            max_recovery_attempts=None,
+            owner_xid=None,
+            is_dequeued_request=False,
+            is_recovery_request=False,
         )
         return workflow_id
 
@@ -1398,7 +1438,7 @@ class DBOSClient:
         Atomically create or replace a set of schedules.
 
         Args:
-            schedules: A list of schedule inputs, each containing ``schedule_name``, ``workflow_name``, ``schedule`` (cron), and ``context``.
+            schedules: A list of schedule inputs, each containing the required fields ``schedule_name``, ``workflow_name``, and ``schedule`` (cron), plus optional fields including ``context``.
 
         Raises:
             DBOSException: If a cron expression is invalid
@@ -1434,7 +1474,7 @@ class DBOSClient:
                     workflow_class_name=entry.get("workflow_class_name"),
                     schedule=cron,
                     status="ACTIVE",
-                    context=self._sys_db.serializer.serialize(entry["context"]),
+                    context=self._sys_db.serializer.serialize(entry.get("context")),
                     last_fired_at=None,
                     automatic_backfill=entry.get("automatic_backfill", False),
                     cron_timezone=cron_timezone,

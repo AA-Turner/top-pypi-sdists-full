@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.message import Message
 from textual.widgets.option_list import Option
 
-from dreadnode.app.tui.theme import BRAND, FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE
+from dreadnode.app.tui.theme import ACCENT, BRAND, FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE
 from dreadnode.app.tui.widgets.overlay_mixin import OverlayMixin
 
 
@@ -58,10 +58,15 @@ class AgentDialog(OverlayMixin):
                 label.append(" \u25cb ", style=FG_FAINTEST)
                 label.append(name, style=FG_SUBTLE)
 
-            # Capability source — separated
+            # Capability source — separated. Show the version installed in
+            # the user's local environment in the brand orange so it stands
+            # out against the gray capability name.
             cap = agent.get("capability", "")
             if cap and cap != "built-in":
                 label.append(f"  \u00b7  {cap}", style=FG_FAINTEST)
+                cap_version = agent.get("capability_version", "")
+                if cap_version:
+                    label.append(f" v{cap_version}", style=ACCENT)
 
             # Description — same line, truncated
             desc = agent.get("description", "")

@@ -3,6 +3,7 @@
 """Core module of component manager"""
 
 import functools
+import json
 import os
 import re
 import secrets
@@ -17,13 +18,18 @@ from functools import lru_cache
 from pathlib import Path
 
 import requests
+from esp_pylib.logger import log
 from requests_toolbelt import MultipartEncoderMonitor
 from ruamel.yaml import YAML, CommentedMap
 
 from idf_component_manager.utils import ComponentSource, VersionSolverResolution
 from idf_component_tools import ComponentManagerSettings, debug
 from idf_component_tools.archive_tools import pack_archive, unpack_archive
-from idf_component_tools.build_system_tools import build_name, get_idf_path, is_component
+from idf_component_tools.build_system_tools import (
+    build_name,
+    get_idf_path,
+    is_component,
+)
 from idf_component_tools.config import root_managed_components_dir
 from idf_component_tools.constants import MANIFEST_FILENAME
 from idf_component_tools.debugger import KCONFIG_CONTEXT
@@ -35,6 +41,7 @@ from idf_component_tools.errors import (
     VersionAlreadyExistsError,
 )
 from idf_component_tools.file_tools import (
+    check_examples_folder,
     copy_filtered_directory,
     prepare_empty_directory,
 )
@@ -53,7 +60,7 @@ from idf_component_tools.manifest import (
     WEB_DEPENDENCY_REGEX,
     Manifest,
 )
-from idf_component_tools.messages import notice, warn
+from idf_component_tools.messages import error, notice, warn
 from idf_component_tools.registry.client_errors import (
     APIClientError,
     ComponentNotFound,
@@ -64,9 +71,14 @@ from idf_component_tools.registry.service_details import (
     get_api_client,
     get_storage_client,
 )
+from idf_component_tools.root_managed_components import (
+    RootManagedComponentRecord,
+    RootManagedComponentsStateManager,
+    validate_root_manifest,
+)
 from idf_component_tools.semver.base import Version
 from idf_component_tools.sources import GitSource, WebServiceSource
-from idf_component_tools.utils import ProjectRequirements
+from idf_component_tools.utils import ProjectRequirements, canonical_component_name
 
 from .cmake_component_requirements import (
     CMakeRequirementsManager,
@@ -75,10 +87,8 @@ from .cmake_component_requirements import (
     handle_project_requirements,
 )
 from .core_utils import (
-    ProgressBar,
     _create_manifest_if_missing,
     archive_filename,
-    check_examples_folder,
     dist_name,
     get_validated_manifest,
     load_project_description_file,
@@ -89,6 +99,7 @@ from .core_utils import (
 )
 from .dependencies import download_project_dependencies
 from .local_component_list import parse_component_list
+from .manifest_lint import LINT_PROBLEMS_EXIT_CODE, collect_manifests_for_lint
 from .sync import sync_components
 
 try:
@@ -104,6 +115,9 @@ except ImportError:
 
 CHECK_INTERVAL = 3
 MAX_PROGRESS = 100  # Expected progress is in percent
+
+# Mapping of canonical build-name -> override metadata persisted for the CMake side.
+OverrideRequirements = t.Dict[str, t.Dict[str, t.Union[str, bool]]]
 
 
 def general_error_handler(func):
@@ -207,11 +221,6 @@ class ComponentManager:
 
         return str(root_managed_components_dir())
 
-    @property
-    @lru_cache(1)
-    def root_managed_components_lock_path(self) -> str:
-        return os.path.join(self.root_managed_components_dir, 'dependencies.lock')
-
     def _get_manifest(
         self, component: str = 'main', path: t.Optional[str] = None
     ) -> t.Tuple[str, bool]:
@@ -226,6 +235,52 @@ class ComponentManager:
         manifest_filepath, created = self._get_manifest(component=component, path=path)
         if not created:
             notice(f'"{manifest_filepath}" already exists, skipping...')
+
+    @general_error_handler
+    def lint_manifest(
+        self,
+        paths: t.Optional[t.Iterable[str]] = None,
+    ) -> None:
+        """
+        Validate manifest files without modifying them, like a standard linter.
+
+        - With no ``paths``: recursively discover and validate every manifest
+          under the working directory.
+        - A ``path`` that points to a file: validate that manifest directly.
+        - A ``path`` that points to a directory: discover and validate every
+          manifest under it recursively.
+
+        Downloaded dependencies (``managed_components``), packaging artifacts
+        (``dist``), and hidden directories are skipped during discovery. Valid
+        manifests produce no output.
+
+        :param paths: Manifest files or directories to validate. Defaults to the
+            working directory.
+        :raises FatalError: With exit code ``LINT_PROBLEMS_EXIT_CODE`` (1) if any
+            manifest is invalid; with the default exit code for usage errors such
+            as a missing path or a file that is not a manifest.
+        """
+        raw_paths = list(paths) if paths else [str(self.path)]
+        manifest_paths = collect_manifests_for_lint(raw_paths)
+        if not manifest_paths:
+            raise FatalError(f'No manifest files ({MANIFEST_FILENAME}) found')
+
+        invalid_count = 0
+        for manifest_path in manifest_paths:
+            manifest_manager = ManifestManager(manifest_path, manifest_path.parent.name)
+            if manifest_manager.is_valid:
+                continue
+
+            invalid_count += 1
+            error(f'Manifest file "{manifest_path}" is not valid:')
+            for validation_error in manifest_manager.validation_errors:
+                error(validation_error)
+
+        if invalid_count:
+            raise FatalError(
+                f'{invalid_count} of {len(manifest_paths)} manifest files are not valid',
+                exit_code=LINT_PROBLEMS_EXIT_CODE,
+            )
 
     @general_error_handler
     def create_project_from_example(
@@ -595,8 +650,8 @@ class ComponentManager:
         notice(f'{info_message} archive {archive}')
 
         file_stat = os.stat(archive)  # type: ignore
-        with ProgressBar(
-            total=file_stat.st_size, unit='B', unit_scale=True, leave=False
+        with log.progress(
+            total=file_stat.st_size, description='Uploading', unit='B'
         ) as progress_bar:
             memo = {'progress': 0}
 
@@ -616,8 +671,6 @@ class ComponentManager:
                     callback=callback,
                 )
 
-            progress_bar.close()
-
         # Wait for processing
         profile_text = (
             ''
@@ -634,7 +687,8 @@ class ComponentManager:
 
         try:
             warnings = set()
-            with ProgressBar(total=MAX_PROGRESS, unit='%', leave=False) as progress_bar:
+            memo = {'progress': 0}
+            with log.progress(total=MAX_PROGRESS, description='Processing') as progress_bar:
                 while True:
                     if datetime.now() > timeout_at:
                         raise TimeoutError()
@@ -645,7 +699,6 @@ class ComponentManager:
                             warnings.add(warning)
 
                     if status.status == 'failure' or status.status == 'success':
-                        progress_bar.close()
                         for warning in warnings:
                             warn(warning)
 
@@ -664,8 +717,9 @@ class ComponentManager:
                         notice(status.message)
                         return
 
-                    progress_bar.set_description(status.message)
-                    progress_bar.update_to(status.progress)
+                    advance = status.progress - memo['progress']
+                    progress_bar.update(advance, description=status.message)
+                    memo['progress'] = status.progress
 
                     time.sleep(CHECK_INTERVAL)
         except TimeoutError:
@@ -697,21 +751,26 @@ class ComponentManager:
         local_components_list_file=None,
     ):
         """Process all manifests and download all dependencies"""
-        # root core components
-        # root deps are only downloaded, but not doing anything else
-        # let the build system decide what to do with them
+        # Root managed components are installed ahead of configure time (via
+        # `compote cooking stock`). During configure we resolve the active target
+        # graph against the already-installed inventory.
+        root_managed_components: t.List[RootManagedComponentRecord] = []
         root_manifest_filepath = os.path.join(get_idf_path(), 'tools', 'idf_extra_components.yml')
         if os.path.isfile(root_manifest_filepath):
             manifest = ManifestManager(
                 root_manifest_filepath,
                 'root',
             ).load()
+            validate_root_manifest(manifest)
+            state_manager = RootManagedComponentsStateManager()
             if manifest.dependencies:
-                download_project_dependencies(
-                    ProjectRequirements([manifest]),
-                    self.root_managed_components_lock_path,
-                    self.root_managed_components_dir,
+                state = state_manager.load_required_current(
+                    manifest.manifest_hash, root_manifest_filepath
                 )
+                root_managed_components = state.select_for_manifest(manifest)
+            elif state_manager.exists():
+                # Require the installed state to match so a stale install is noticed.
+                state_manager.load_required_current(manifest.manifest_hash, root_manifest_filepath)
 
         # Find all components
         local_components = []
@@ -738,6 +797,7 @@ class ComponentManager:
 
         downloaded_components = set()
         manifests = []
+        override_requirements = {}
         if local_components:
             for component in local_components:
                 manifests.append(
@@ -748,6 +808,7 @@ class ComponentManager:
                 )
 
             project_requirements = ProjectRequirements(manifests)
+            override_requirements = self._cmake_override_requirements(project_requirements)
             downloaded_components = download_project_dependencies(
                 project_requirements,
                 str(self.lock_path),
@@ -775,6 +836,23 @@ class ComponentManager:
                         f'idf_component_set_property({requirement.name} COMPONENT_VERSION "{requirement.version}")\n'
                     )
 
+            if root_managed_components and self.interface_version >= 6:
+                for record in root_managed_components:
+                    file.write(
+                        f'    idf_build_component("{record.posix_path}" "idf_managed_components")\n'
+                    )
+
+                for record in root_managed_components:
+                    file.write(
+                        f'idf_component_set_property({record.build_name} COMPONENT_VERSION "{record.version}")\n'
+                    )
+
+                    if record.targets:
+                        rec_targets = ' '.join(record.targets)
+                        file.write(
+                            f'idf_component_set_property({record.build_name} REQUIRED_IDF_TARGETS "{rec_targets}")\n'
+                        )
+
             for downloaded_component in downloaded_components:
                 file.write(
                     f'idf_build_component("{downloaded_component.abs_posix_path}" "project_managed_components")\n'
@@ -797,11 +875,58 @@ class ComponentManager:
         # Saving list of all components with manifests for use on requirements injection step
         all_components = sorted(
             {component.abs_path for component in downloaded_components}.union(
-                component['path'] for component in local_components
-            )
+                record.path for record in root_managed_components
+            ).union(component['path'] for component in local_components)
         )
         with open(component_list_file, mode='w', encoding='utf-8') as file:
             file.write('\n'.join(all_components))
+
+        with open(
+            self._override_requirements_file(component_list_file), mode='w', encoding='utf-8'
+        ) as file:
+            json.dump(override_requirements, file)
+
+    @staticmethod
+    def _override_requirements_file(component_list_file: t.Union[Path, str]) -> str:
+        return f'{component_list_file}.overrides'
+
+    @staticmethod
+    def _cmake_override_requirements(
+        project_requirements: ProjectRequirements,
+    ) -> OverrideRequirements:
+        override_requirements: OverrideRequirements = {}
+        for rule in project_requirements.override_rules.values():
+            requirement: t.Dict[str, t.Union[str, bool]] = {
+                'name': build_name(rule.replacement_name)
+            }
+
+            if rule.origin == 'overrides':
+                replacement_fields = rule.replacement.model_fields_set
+                if 'public' in replacement_fields or 'require' in replacement_fields:
+                    requirement['is_public'] = rule.replacement.is_public
+                if 'require' in replacement_fields:
+                    requirement['is_required'] = rule.replacement.is_required
+
+            override_requirements[build_name(rule.name)] = requirement
+
+        return override_requirements
+
+    def _load_override_requirements(
+        self, component_list_file: t.Union[Path, str]
+    ) -> OverrideRequirements:
+        # The sidecar file is intentionally left in place: inject_requirements may be
+        # invoked several times for the same build, and each call needs to read it.
+        override_requirements_file = self._override_requirements_file(component_list_file)
+        try:
+            with open(override_requirements_file, encoding='utf-8') as f:
+                override_requirements = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+        if not isinstance(override_requirements, dict):
+            return {}
+
+        return override_requirements
 
     @general_error_handler
     def inject_requirements(
@@ -824,6 +949,8 @@ class ComponentManager:
                 'Please make sure this script is executed from CMake'
             )
 
+        override_requirements = self._load_override_requirements(component_list_file)
+
         for component in components_with_manifests:
             component = component.strip()
             name = os.path.basename(component)
@@ -835,12 +962,26 @@ class ComponentManager:
                 if dep.meta:
                     continue
 
+                dependency_name = build_name(dep.name)
+                is_required = dep.is_required
+                is_public = dep.is_public
+
+                # Look up the override by its canonical build name.
+                override_requirement = override_requirements.get(
+                    build_name(canonical_component_name(dep.name))
+                )
+                if override_requirement:
+                    dependency_name = t.cast(str, override_requirement['name'])
+                    if 'is_required' in override_requirement:
+                        is_required = bool(override_requirement['is_required'])
+                    if 'is_public' in override_requirement:
+                        is_public = bool(override_requirement['is_public'])
+
                 # No required dependencies shouldn't be added to the build system
-                if not dep.is_required:
+                if not is_required:
                     continue
 
-                dependency_name = build_name(dep.name)
-                requirement_key = 'REQUIRES' if dep.is_public else 'PRIV_REQUIRES'
+                requirement_key = 'REQUIRES' if is_public else 'PRIV_REQUIRES'
 
                 def add_req(key: str) -> None:
                     if key not in requirements[name_key]:

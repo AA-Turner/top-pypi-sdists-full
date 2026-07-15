@@ -63,15 +63,17 @@ class DataExportServiceTest(TestCase):
 
         self._service.echo_data_exports(table_format="plain")
         click_mock.echo.assert_called_once_with(
-            "Data Export (Name)    Description\n"
-            "Monitors (MONITORS)   "
+            "Data Export (Name)           Description\n"
+            "Monitors (MONITORS)          "
             "All monitors with aggregated properties, excluding deleted monitors.\n"
-            "Assets (ASSETS)       "
+            "Assets (ASSETS)              "
             "All assets with aggregated properties, excluding deleted assets.\n"
-            "Alerts (ALERTS)       "
+            "Alerts (ALERTS)              "
             "All alerts in the last 90 days with aggregated properties.\n"
-            "Events (EVENTS)       "
-            "All events in the last 90 days with aggregated properties."
+            "Events (EVENTS)              "
+            "All events in the last 90 days with aggregated properties.\n"
+            "Monitor Runs (MONITOR_RUNS)  "
+            "Per-monitor run values and thresholds (private preview)."
         )
 
     def test_get_data_export_with_bad_scheme(self):

@@ -10,18 +10,21 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import re
+
 from ansible.module_utils.basic import missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 Client = None
 try:
     from clickhouse_driver import Client
+    from clickhouse_driver.errors import ServerException
     from clickhouse_driver import __version__ as driver_version
     HAS_DB_DRIVER = True
 except ImportError:
     HAS_DB_DRIVER = False
 
-PRIV_ERR_CODE = 497
+VALID_IDENTIFIER_PATTERN = re.compile(r'^[^`\\]+$')
 
 
 def client_common_argument_spec():
@@ -37,6 +40,13 @@ def client_common_argument_spec():
         login_user=dict(type='str', default=None),
         login_password=dict(type='str', default=None, no_log=True),
         client_kwargs=dict(type='dict', default={}),
+        success_on=dict(type='list', elements='int', default=[497]),
+    )
+
+
+def cluster_argument_spec():
+    return dict(
+        cluster=dict(type='str', default=None),
     )
 
 
@@ -85,13 +95,18 @@ def connect_to_db_via_client(module, main_conn_kwargs, client_kwargs):
         # when unpacking them separately to Client()
         client_kwargs.update(main_conn_kwargs)
         client = Client(**client_kwargs)
+        client.connection.connect()
     except Exception as e:
         module.fail_json(msg="Failed to connect to database: %s" % to_native(e))
 
+    # Display warning about using unsuporrted server version.
+    server_version = get_server_version(module, client)
+    if server_version['year'] < 24 or server_version['year'] == 24 and server_version['feature'] < 8:
+        module.warn("Used server version is not activately maintained with this collection. Some features may not work properly.")
     return client
 
 
-def execute_query(module, client, query, execute_kwargs=None, set_settings=None):
+def execute_query(module, client, query, execute_kwargs=None, set_settings=None, custom_message=None):
     """Execute query.
 
     Returns rows returned in response.
@@ -110,11 +125,17 @@ def execute_query(module, client, query, execute_kwargs=None, set_settings=None)
             for setting in set_settings:
                 client.execute("SET %s = '%s'" % (setting, set_settings[setting]))
         result = client.execute(query, **execute_kwargs)
-    except Exception as e:
-        if "Not enough privileges" in to_native(e):
-            return PRIV_ERR_CODE
-        module.fail_json(msg="Failed to execute query: %s" % to_native(e))
-
+    except ServerException as e:
+        if e.code in module.params['success_on']:
+            module.exit_json(changed=False, msg="Code %i defined as success." % e.code, custom_message=custom_message)
+        module.fail_json(
+            msg="Failed to execute query.",
+            exception=to_native(e),
+            code=e.code,
+            message=e.message,
+            query=query,
+            custom_message=custom_message
+        )
     return result
 
 
@@ -123,27 +144,48 @@ def get_server_version(module, client):
 
     Returns a dictionary with server version.
     """
-    result = execute_query(module, client, "SELECT version()")
-
-    if result == PRIV_ERR_CODE:
-        return {PRIV_ERR_CODE: "Not enough privileges"}
-
-    raw = result[0][0]
-    split_raw = raw.split('.')
+    result = client.connection.server_info.version_tuple()
 
     version = {}
-    version["raw"] = raw
 
-    version["year"] = int(split_raw[0])
-    version["feature"] = int(split_raw[1])
-    version["maintenance"] = int(split_raw[2])
-
-    if '-' in split_raw[3]:
-        tmp = split_raw[3].split('-')
-        version["build"] = int(tmp[0])
-        version["type"] = tmp[1]
-    else:
-        version["build"] = int(split_raw[3])
-        version["type"] = None
+    version["year"] = result[0]
+    version["feature"] = result[1]
+    version["maintenance"] = result[2]
 
     return version
+
+
+def get_on_cluster_clause(module, cluster):
+    if not cluster:
+        return ""
+    validate_identifier(module, cluster, "cluster name")
+    return f" ON CLUSTER `{cluster}`"
+
+
+def validate_identifier(module, name, context="identifier"):
+    if not name:
+        module.fail_json(msg=f"{context.capitalize()} cannot be empty")
+    elif not VALID_IDENTIFIER_PATTERN.match(name):
+        module.fail_json(msg=f"Invalid {context}: '{name}'")
+    return name
+
+
+def normalize_db_table(module, client, database, table):
+    """We want to make sure target is correct.
+    When passed without db, default for session will apply and it can break idempotency.
+    Ex:
+        db, table → `db`.`table`
+        None, table    → `default`.`table`
+        db, *     → `db`.*
+        db, None → `db`.*
+    """
+    if not database:
+        query = "SELECT currentDatabase()"
+        database = execute_query(module, client, query)[0][0]
+    else:
+        validate_identifier(module, database)
+    if not table or table == '*':
+        return f"`{database}`.*"
+    else:
+        validate_identifier(module, table)
+    return f"`{database}`.`{table}`"

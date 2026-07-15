@@ -804,10 +804,12 @@
       spm_unit:
         # OBBB (PL 119-21, eff. 2025-07-04) removed refugees from SNAP-eligible
         # immigration statuses: the refugee head is excluded (unit size 2, max
-        # allotment 546) but their earnings still count in full (they meet work
-        # requirements, so no income proration). Same math as the childless-
-        # couple 20k case: annual = 9 x 208.80 + 3 x 222.54 = 2,546.82.
-        snap: 2_546.82
+        # allotment 546) and their earnings count at the 2/3 prorated share
+        # under 7 CFR 273.11(c)(2)-(3) (TX prorates): counted earnings
+        # 1,111.11/mo, net income 679.89 -> EC = floor(679.89) x 0.3 = 203.70
+        # -> 546 - 203.70 = 342.30/month Jan-Sep; Oct-Dec (FY2027): 558.24 -
+        # 202.50 = 355.74. Annual = 9 x 342.30 + 3 x 355.74 = 4,147.92.
+        snap: 4_147.92
         is_snap_eligible: true
 - name: snap_head_immigration_undocumented_excluded (federal)
   period: 2026
@@ -870,9 +872,9 @@
     spm_units:
       spm_unit:
         # Undocumented head is excluded from the unit (size 2) with earnings
-        # fully counted; identical arithmetic to the refugee case:
-        # annual = 9 x 208.80 + 3 x 222.54 = 2,546.82.
-        snap: 2_546.82
+        # counted at the 2/3 prorated share; identical arithmetic to the
+        # refugee case: annual = 9 x 342.30 + 3 x 355.74 = 4,147.92.
+        snap: 4_147.92
         is_snap_eligible: true
 - name: snap_abawd_zero_hours_fails_work_requirements (federal)
   period: 2026
@@ -1424,4 +1426,63 @@
         # 785 - 205.80 = 579.20/month Jan-Sep; Oct-Dec (LUA uprated to 408.97):
         # 802.60 - 201.00 = 601.60. Annual = 9 x 579.20 + 3 x 601.60 = 7,017.60.
         snap: 7_017.59
+        is_snap_eligible: true
+
+- name: snap_ineligible_student_income_excluded_mixed_household (federal)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 20_000
+      student:
+        age: 20
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        is_full_time_college_student: true
+        weekly_hours_worked_before_lsr: 0
+        employment_income_before_lsr: 10_000
+    households:
+      household:
+        members: &id903
+        - head
+        - student
+        state_code: TX
+        zip_code: '75201'
+        county_str: DALLAS_COUNTY_TX
+    spm_units:
+      spm_unit:
+        members: *id903
+        snap_assets: 500
+    tax_units:
+      tax_unit:
+        members: *id903
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id903
+    marital_units:
+      mu_head:
+        members:
+        - head
+      mu_student:
+        members:
+        - student
+  output:
+    spm_units:
+      spm_unit:
+        # The ineligible student is a nonhousehold member (7 CFR 273.11(d)):
+        # their $10,000 earnings are excluded entirely and the unit size is 1;
+        # the 130%-FPG gross test passes only because of the exclusion, and
+        # the unit receives the 1-2 person minimum allotment.
+        snap: 287.68
         is_snap_eligible: true

@@ -76,3 +76,5 @@ def test_graphiant_config_init_succeeds_when_bearer_succeeds(
     assert st.get("global_config") is True
     assert st.get("sites") is True
     assert st.get("device_system") is True
+    assert st.get("traffic_policy") is True
+    assert st.get("prefix_port_list") is True

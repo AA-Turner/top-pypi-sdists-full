@@ -1,4 +1,4 @@
-__all__ = ['StatsForecast']
+__all__ = ["StatsForecast"]
 
 
 import datetime as dt
@@ -463,6 +463,71 @@ class GroupedArray(BaseGroupedArray):
             target_col=target_col,
         )
 
+    def simulate(
+        self,
+        h,
+        n_paths,
+        models,
+        X=None,
+        seed=None,
+        seeds=None,
+        error_distribution="normal",
+        error_params=None,
+    ):
+        n_groups = self.n_groups
+        n_models = len(models)
+        if seeds is None and seed is not None:
+            np.random.seed(seed)
+            seeds = np.random.randint(0, 2**31, size=n_groups)
+        out = np.full(
+            (n_groups * n_paths * h, n_models), fill_value=np.nan, dtype=self.data.dtype
+        )
+        for i_model, model in enumerate(models):
+            for i, grp in enumerate(self):
+                y = grp[:, 0] if grp.ndim == 2 else grp
+                X_in = grp[:, 1:] if (grp.ndim == 2 and grp.shape[1] > 1) else None
+                if X is not None:
+                    X_future = X[i]
+                else:
+                    X_future = None
+
+                group_seed = seeds[i] if seeds is not None else None
+                paths = model.simulate(
+                    h=h,
+                    n_paths=n_paths,
+                    y=y,
+                    X=X_in,
+                    X_future=X_future,
+                    seed=group_seed,
+                    error_distribution=error_distribution,
+                    error_params=error_params,
+                )
+                out[i * n_paths * h : (i + 1) * n_paths * h, i_model] = paths.flatten()
+        return {"forecasts": out, "cols": [repr(m) for m in models]}
+
+    @_controller.wrap(limits=1)
+    def _single_threaded_simulate(
+        self,
+        h,
+        n_paths,
+        models,
+        X=None,
+        seed=None,
+        seeds=None,
+        error_distribution="normal",
+        error_params=None,
+    ):
+        return self.simulate(
+            h=h,
+            n_paths=n_paths,
+            models=models,
+            X=X,
+            seed=seed,
+            seeds=seeds,
+            error_distribution=error_distribution,
+            error_params=error_params,
+        )
+
 
 def _get_n_jobs(n_groups, n_jobs):
     if n_jobs == -1 or (n_jobs is None):
@@ -472,41 +537,16 @@ def _get_n_jobs(n_groups, n_jobs):
     return min(n_groups, actual_n_jobs)
 
 
-_param_descriptions = {
-    "freq": """freq (str or int): Frequency of the data. Must be a valid pandas or polars offset alias, or an integer.""",
-    "df": """df (pandas or polars DataFrame): DataFrame with ids, times, targets and exogenous.""",
-    "fallback_model": """fallback_model (Any, optional): Model to be used if a model fails.
-            Only works with the `forecast` and `cross_validation` methods. Defaults to None.""",
-    "id_col": """id_col (str): Column that identifies each serie. Defaults to 'unique_id'.""",
-    "time_col": """time_col (str): Column that identifies each timestep, its values can be timestamps or integers. Defaults to 'ds'.""",
-    "target_col": """target_col (str): Column that contains the target. Defaults to 'y'.""",
-    "h": """h (int): Forecast horizon.""",
-    "X_df": """X_df (pandas or polars DataFrame, optional): DataFrame with ids, times and future exogenous. Defaults to None.""",
-    "level": """level (List[float], optional): Confidence levels between 0 and 100 for prediction intervals. Defaults to None.""",
-    "prediction_intervals": """prediction_intervals (ConformalIntervals, optional): Configuration to calibrate prediction intervals (Conformal Prediction). Defaults to None.""",
-    "fitted": """fitted (bool): Store in-sample predictions. Defaults to False.""",
-    "n_jobs": """n_jobs (int): Number of jobs used in the parallel processing, use -1 for all cores. Defaults to 1.""",
-    "verbose": """verbose (bool): Prints TQDM progress bar when `n_jobs=1`. Defaults to True.""",
-    "models": """models (List[Any]): List of instantiated objects models.StatsForecast.""",
-    "n_windows": """n_windows (int): Number of windows used for cross validation. Defaults to 1.""",
-    "step_size": """step_size (int): Step size between each window. Defaults to 1.""",
-    "test_size": """test_size (int, optional): Length of test size. If passed, set `n_windows=None`. Defaults to None.""",
-    "input_size": """input_size (int, optional): Input size for each window, if not none rolled windows. Defaults to None.""",
-    "refit": """refit (bool or int): Wether or not refit the model for each window.
-            If int, train the models every `refit` windows. Defaults to True.""",
-}
-
-
 class _StatsForecast:
     """The `StatsForecast` class allows you to efficiently fit multiple `StatsForecast` models
-    for large sets of time series. It operates on a DataFrame `df` with at least three columns
-    ids, times and targets.
+    for large sets of time series. It operates on a DataFrame `df` with at least three columns:
+    ids, times, and targets.
 
-    The class has memory-efficient `StatsForecast.forecast` method that avoids storing partial
-    model outputs. While the `StatsForecast.fit` and `StatsForecast.predict` methods with
+    The class has a memory-efficient `StatsForecast.forecast` method that avoids storing partial
+    model outputs, while the `StatsForecast.fit` and `StatsForecast.predict` methods with the
     Scikit-learn interface store the fitted models.
 
-    The `StatsForecast` class offers parallelization utilities with Dask, Spark and Ray back-ends.
+    The `StatsForecast` class offers parallelization utilities with Dask, Spark, and Ray back-ends.
     See distributed computing example [here](https://github.com/Nixtla/statsforecast/tree/main/experiments/ray).
     """
 
@@ -518,17 +558,30 @@ class _StatsForecast:
         fallback_model: Optional[Any] = None,
         verbose: bool = False,
     ):
-        """Train statistical models.
+        """Initialize StatsForecast with models and configuration.
+
+        The StatsForecast class enables efficient fitting and forecasting of multiple
+        statistical models across large sets of time series. It provides memory-efficient
+        methods, parallel processing support, and integrates with distributed computing
+        frameworks like Dask, Spark, and Ray.
 
         Args:
-            {models}
-            {freq}
-            {n_jobs}
-            {df}
-            {fallback_model}
-            {verbose}
+            models (List[Any]): List of instantiated StatsForecast model objects.
+                Each model should implement the forecast interface. Models must have
+                unique names, which can be set using the `alias` parameter.
+            freq (str or int): Frequency of the time series data. Must be a valid
+                pandas or polars offset alias (e.g., 'D' for daily, 'M' for monthly,
+                'H' for hourly), or an integer representing the number of observations
+                per cycle.
+            n_jobs (int, optional): Number of jobs to use for parallel processing.
+                Use -1 to utilize all available CPU cores.
+            fallback_model (Any, optional): Model to use when a primary model fails during
+                fitting or forecasting. Only works with the `forecast` and `cross_validation`
+                methods. If None, exceptions from failing models will be raised.
+            verbose (bool, optional): If True, displays TQDM progress bar during single-job
+                execution (when n_jobs=1).
+
         """
-        # TODO @fede: needed for residuals, think about it later
         self.models = models
         self._validate_model_names()
         self.freq = freq
@@ -536,12 +589,14 @@ class _StatsForecast:
         self.fallback_model = fallback_model
         self.verbose = verbose
 
-    __init__.__doc__ = __init__.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
-
     def _validate_model_names(self):
-        # Some test models don't have alias
-        names = [getattr(model, "alias", lambda: None) for model in self.models]
-        names = [x for x in names if x is not None]
+
+        names = []
+        for model in self.models:
+            name = getattr(model, "alias", None)
+            if name is None:
+                name = repr(model)
+            names.append(name)
         if len(names) != len(set(names)):
             raise ValueError(
                 "Model names must be unique. You can use `alias` to set a unique name for each model."
@@ -613,20 +668,29 @@ class _StatsForecast:
         time_col: str = "ds",
         target_col: str = "y",
     ):
-        """Fit statistical models.
+        """Fit statistical models to time series data.
 
-        Fit `models` to a large set of time series from DataFrame `df`
-        and store fitted models for later inspection.
+        Fits all models specified in the constructor to each time series in the input
+        DataFrame. The fitted models are stored internally and can be used later with
+        the `predict` method. This follows the scikit-learn fit/predict interface.
 
         Args:
-            {df}
-            {prediction_intervals}
-            {id_col}
-            {time_col}
-            {target_col}
+            df (DataFrame): Input DataFrame containing time series data.
+                Must have columns for series identifiers, timestamps, and target values.
+                Can optionally include exogenous features.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction. If provided,
+                the models will be prepared to generate prediction intervals.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices. Values can be timestamps (datetime) or integers.
+            target_col (str, optional): Name of the column containing the target variable
+                to forecast.
 
         Returns:
-            StatsForecast: Returns with stored `StatsForecast` fitted `models`.
+            StatsForecast (StatsForecast): Returns self with fitted models stored in the `fitted_` attribute.
+                This allows for method chaining.
         """
         self._prepare_fit(
             df=df, id_col=id_col, time_col=time_col, target_col=target_col
@@ -641,8 +705,6 @@ class _StatsForecast:
             self.fitted_ = self._fit_parallel()
         return self
 
-    fit.__doc__ = fit.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
-
     def _make_future_df(self, h: int):
         start_dates = ufp.offset_times(self.last_dates, freq=self.freq, n=1)
         dates = ufp.time_ranges(start_dates, freq=self.freq, periods=h)
@@ -652,9 +714,30 @@ class _StatsForecast:
             df = df.reset_index(drop=True)
         return df
 
+    @staticmethod
+    def _validate_level(level: Optional[List[int]]) -> None:
+        if level is None or len(level) == 0:
+            return
+        try:
+            arr = np.asarray(level, dtype=float)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Every value in `level` must be a finite real number. Got: {list(level)}"
+            )
+        if not np.isfinite(arr).all():
+            raise ValueError(
+                f"Every value in `level` must be a finite real number. Got: {list(level)}"
+            )
+        if np.any((arr <= 0) | (arr >= 100)):
+            raise ValueError(
+                "Every value in `level` must be between 0 and 100 (exclusive). "
+                f"Got: {list(level)}"
+            )
+
     def _parse_X_level(
         self, h: int, X: Optional[DataFrame], level: Optional[List[int]]
     ):
+        self._validate_level(level)
         if level is None:
             level = []
         if X is None:
@@ -685,19 +768,28 @@ class _StatsForecast:
         h: int,
         X_df: Optional[DataFrame] = None,
         level: Optional[List[int]] = None,
-    ):
-        """Predict statistical models.
+    ) -> DataFrame:
+        """Generate forecasts using previously fitted models.
 
-        Use stored fitted `models` to predict large set of time series from DataFrame `df`.
+        Uses the models fitted via the `fit` method to generate predictions for the
+        specified forecast horizon. This follows the scikit-learn fit/predict interface.
 
         Args:
-            {h}
-            {X_df}
-            {level}
+            h (int): Forecast horizon, the number of time steps ahead to predict.
+            X_df (DataFrame, optional): DataFrame containing
+                future exogenous variables. Required if any models use exogenous features.
+                Must have the same structure as training data and include future values for
+                all time series and forecast horizon.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95] for 80% and 95% intervals).
+                If provided with models configured for prediction intervals, the output
+                will include lower and upper bounds.
 
         Returns:
-            pandas or polars DataFrame: DataFrame with `models` columns for point predictions and probabilistic
-                predictions for all fitted `models`.
+            DataFrame with forecasts for each model.
+                Contains the series identifiers, future timestamps, and one column per model
+                with point predictions. If `level` is specified, includes additional columns
+                for prediction interval bounds (e.g., 'model-lo-95', 'model-hi-95').
         """
         if not hasattr(self, "fitted_"):
             raise ValueError("You must call the fit method before calling predict.")
@@ -722,8 +814,6 @@ class _StatsForecast:
         fcsts_df[cols] = fcsts
         return fcsts_df
 
-    predict.__doc__ = predict.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
-
     def fit_predict(
         self,
         h: int,
@@ -735,27 +825,36 @@ class _StatsForecast:
         time_col: str = "ds",
         target_col: str = "y",
     ) -> DataFrame:
-        """Fit and Predict with statistical models.
+        """Fit models and generate predictions in a single step.
 
-        This method avoids memory burden due from object storage.
-        It is analogous to Scikit-Learn `fit_predict` without storing information.
-        It requires the forecast horizon `h` in advance.
-
-        In contrast to `StatsForecast.forecast` this method stores partial models outputs.
+        Combines the `fit` and `predict` methods in a single operation. The fitted models
+        are stored internally in the `fitted_` attribute for later use, making this method
+        suitable when you need both training and immediate predictions.
 
         Args:
-            {h}
-            {df}
-            {X_df}
-            {level}
-            {prediction_intervals}
-            {id_col}
-            {time_col}
-            {target_col}
+            h (int): Forecast horizon, the number of time steps ahead to predict.
+            df (DataFrame): Input DataFrame containing time series
+                data. Must have columns for series identifiers, timestamps, and target values.
+                Can optionally include exogenous features.
+            X_df (DataFrame, optional): DataFrame containing
+                future exogenous variables. Required if any models use exogenous features.
+                Must include future values for all time series and forecast horizon.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95]). Required if `prediction_intervals`
+                is specified.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices. Values can be timestamps (datetime) or integers.
+            target_col (str, optional): Name of the column containing the target variable
+                to forecast.
 
         Returns:
-            pandas or polars DataFrame: DataFrame with `models` columns for point predictions and probabilistic
-                predictions for all fitted `models`.
+            DataFrame with forecasts containing series
+                identifiers, future timestamps, and predictions from each model. Includes
+                prediction intervals if `level` is specified.
         """
         self._prepare_fit(
             df=df, id_col=id_col, time_col=time_col, target_col=target_col
@@ -780,8 +879,6 @@ class _StatsForecast:
         fcsts_df[cols] = fcsts
         return fcsts_df
 
-    fit_predict.__doc__ = fit_predict.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
-
     def forecast(
         self,
         h: int,
@@ -794,26 +891,38 @@ class _StatsForecast:
         time_col: str = "ds",
         target_col: str = "y",
     ) -> DataFrame:
-        """Memory Efficient predictions.
+        """Generate forecasts with memory-efficient model training.
 
-        This method avoids memory burden due from object storage.
-        It is analogous to Scikit-Learn `fit_predict` without storing information.
-        It requires the forecast horizon `h` in advance.
+        This is the primary forecasting method that trains models and generates predictions
+        without storing fitted model objects. It is more memory-efficient than `fit_predict`
+        when you don't need to inspect or reuse the fitted models. Models are trained and
+        used for forecasting within each time series, then discarded.
 
         Args:
-            {h}
-            {df}
-            {X_df}
-            {level}
-            {fitted}
-            {prediction_intervals}
-            {id_col}
-            {time_col}
-            {target_col}
+            h (int): Forecast horizon, the number of time steps ahead to predict.
+            df (DataFrame): Input DataFrame containing time series
+                data. Must have columns for series identifiers, timestamps, and target values.
+                Can optionally include exogenous features for training.
+            X_df (DataFrame, optional): DataFrame containing
+                future exogenous variables. Required if any models use exogenous features.
+                Must include future values for all time series and forecast horizon.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95]).
+            fitted (bool, optional): If True, stores in-sample (fitted) predictions which
+                can be retrieved using `forecast_fitted_values()`.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices. Values can be timestamps (datetime) or integers.
+            target_col (str, optional): Name of the column containing the target variable
+                to forecast.
 
         Returns:
-            pandas or polars DataFrame: DataFrame with `models` columns for point predictions and probabilistic
-                predictions for all fitted `models`.
+            DataFrame with forecasts containing series
+                identifiers, future timestamps, and predictions from each model. Includes
+                prediction intervals if `level` is specified.
         """
         self.__dict__.pop("fcst_fitted_values_", None)
         self._prepare_fit(
@@ -851,19 +960,150 @@ class _StatsForecast:
         self.forecast_times_ = res_fcsts["times"]
         return fcsts_df
 
-    forecast.__doc__ = forecast.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
+    def _simulate_parallel(
+        self, h, n_paths, X, seed, error_distribution="normal", error_params=None
+    ):
+        gas, Xs = self._get_gas_Xs(X=X, tasks_per_job=1)
 
-    def forecast_fitted_values(self):
-        """Access insample predictions.
+        # Pre-calculate seeds for each group to ensure consistency across models
+        # and different seeds across groups even in parallel
+        if seed is not None:
+            np.random.seed(seed)
+            all_seeds = np.random.randint(0, 2**31, size=self.ga.n_groups)
+        else:
+            all_seeds = None
 
-        After executing `StatsForecast.forecast`, you can access the insample
-        prediction values for each model. To get them, you need to pass `fitted=True`
-        to the `StatsForecast.forecast` method and then use the
-        `StatsForecast.forecast_fitted_values` method.
+        results = [None] * len(gas)
+        cumsum_groups = np.cumsum([0] + [ga.n_groups for ga in gas])
+
+        with ProcessPoolExecutor(self.n_jobs) as executor:
+            future2pos = {
+                executor.submit(
+                    ga._single_threaded_simulate,
+                    h=h,
+                    n_paths=n_paths,
+                    models=self.models,
+                    X=X,
+                    seed=None,  # Already handled by passing seeds
+                    seeds=all_seeds[cumsum_groups[i] : cumsum_groups[i + 1]]
+                    if all_seeds is not None
+                    else None,
+                    error_distribution=error_distribution,
+                    error_params=error_params,
+                ): i
+                for i, (ga, X) in enumerate(zip(gas, Xs))
+            }
+            iterable = tqdm(
+                as_completed(future2pos),
+                disable=not self.verbose,
+                total=len(future2pos),
+                desc="Simulate",
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}{postfix}]",
+            )
+            for future in iterable:
+                i = future2pos[future]
+                results[i] = future.result()
+
+        return {
+            "cols": results[0]["cols"],
+            "forecasts": np.vstack([r["forecasts"] for r in results]),
+        }
+
+    def simulate(
+        self,
+        h: int,
+        df: DataFrame,
+        X_df: Optional[DataFrame] = None,
+        n_paths: int = 1,
+        id_col: str = "unique_id",
+        time_col: str = "ds",
+        target_col: str = "y",
+        seed: Optional[int] = None,
+        error_distribution: str = "normal",
+        error_params: Optional[Dict] = None,
+    ) -> DataFrame:
+        """Generate sample trajectories (simulated paths).
+
+        This method generates `n_paths` simulated trajectories for each time series
+        in the input DataFrame. It's useful for scenario planning and risk analysis.
+
+        Args:
+            h (int): Forecast horizon.
+            df (DataFrame): Input DataFrame containing time series data.
+            X_df (DataFrame, optional): Future exogenous variables.
+            n_paths (int): Number of paths to simulate.
+            id_col (str): Name of the column containing unique identifiers.
+            time_col (str): Name of the column containing timestamps.
+            target_col (str): Name of the column containing target values.
+            seed (int, optional): Random seed for reproducibility.
+            error_distribution (str, optional): Error distribution for the simulation.
+                Options: 'normal', 't', 'bootstrap', 'laplace', 'skew-normal', 'ged'.
+            error_params (dict, optional): Distribution-specific parameters.
 
         Returns:
-            pandas.DataFrame | polars.DataFrame: DataFrame with insample `models` columns for point predictions and probabilistic
-                predictions for all fitted `models`.
+            DataFrame with simulated paths, including a `sample_id` column.
+        """
+        self._prepare_fit(df, id_col, time_col, target_col)
+        total_points = len(self.uids) * n_paths * h
+        if total_points > 100_000:
+            warnings.warn(
+                f"Generating {total_points:,} simulation points. "
+                "Large simulations may consume significant memory and time."
+            )
+        self._validate_exog(X_df)
+        X, _ = self._parse_X_level(h, X_df, None)
+
+        if self.n_jobs == 1:
+            res_sim = self.ga.simulate(
+                h=h,
+                n_paths=n_paths,
+                models=self.models,
+                X=X,
+                seed=seed,
+                error_distribution=error_distribution,
+                error_params=error_params,
+            )
+        else:
+            res_sim = self._simulate_parallel(
+                h=h,
+                n_paths=n_paths,
+                X=X,
+                seed=seed,
+                error_distribution=error_distribution,
+                error_params=error_params,
+            )
+
+        fcsts = res_sim["forecasts"]
+        cols = res_sim["cols"]
+
+        uids = np.repeat(self.uids, n_paths * h)
+        dates = np.tile(
+            self._make_future_df(h)[self.time_col].to_numpy().reshape(-1, h),
+            (1, n_paths),
+        ).flatten()
+
+        res_dict = {
+            self.id_col: uids,
+            self.time_col: dates,
+            "sample_id": np.tile(np.repeat(np.arange(n_paths), h), len(self.uids)),
+        }
+        for i, col in enumerate(cols):
+            res_dict[col] = fcsts[:, i]
+
+        return self.df_constructor(res_dict)
+
+    def forecast_fitted_values(self):
+        """Retrieve in-sample predictions from the forecast method.
+
+        Returns the fitted (in-sample) predictions generated during the last call to
+        `forecast()`. These are the model's predictions on the training data, useful
+        for assessing model fit quality and identifying patterns in residuals.
+
+        Returns:
+            pandas.DataFrame or polars.DataFrame: DataFrame containing in-sample predictions
+                with columns for series identifiers, timestamps, target values, and fitted
+                predictions from each model. Includes prediction intervals if they were
+                requested during forecasting.
         """
         if not hasattr(self, "fcst_fitted_values_"):
             raise Exception("Please run `forecast` method using `fitted=True`")
@@ -895,33 +1135,47 @@ class _StatsForecast:
         time_col: str = "ds",
         target_col: str = "y",
     ) -> DataFrame:
-        """Temporal Cross-Validation.
+        """Perform temporal cross-validation for model evaluation.
 
-        Efficiently fits a list of `StatsForecast`
-        models through multiple training windows, in either chained or rolled manner.
-
-        `StatsForecast.models`' speed allows to overcome this evaluation technique
-        high computational costs. Temporal cross-validation provides better model's
-        generalization measurements by increasing the test's length and diversity.
+        Evaluates model performance across multiple time windows using a time series
+        cross-validation approach. This method trains models on expanding or rolling
+        windows and generates forecasts for each validation period, providing robust
+        assessment of forecast accuracy and generalization.
 
         Args:
-            {h}
-            {df}
-            {n_windows}
-            {step_size}
-            {test_size}
-            {input_size}
-            {level}
-            {fitted}
-            {refit}
-            {prediction_intervals}
-            {id_col}
-            {time_col}
-            {target_col}
+            h (int): Forecast horizon for each validation window.
+            df (pandas.DataFrame or polars.DataFrame): Input DataFrame containing time series
+                data with columns for series identifiers, timestamps, and target values.
+            n_windows (int, optional): Number of validation windows to create. Cannot be
+                specified together with `test_size`.
+            step_size (int, optional): Number of time steps between consecutive validation
+                windows. Smaller values create overlapping windows.
+            test_size (int, optional): Total size of the test period. If provided, `n_windows`
+                is computed automatically. Overrides `n_windows` if specified.
+            input_size (int, optional): Maximum number of training observations to use for
+                each window. If None, uses expanding windows with all available history.
+                If specified, uses rolling windows of fixed size.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95]).
+            fitted (bool, optional): If True, stores in-sample predictions for each window,
+                accessible via `cross_validation_fitted_values()`.
+            refit (bool or int, optional): Controls model refitting frequency. If True,
+                refits models for every window. If False, fits once and uses the forward
+                method. If an integer n, refits every n windows. Models must implement the
+                `forward` method when refit is not True.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction. Requires
+                `level` to be specified.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices.
+            target_col (str, optional): Name of the column containing the target variable.
 
         Returns:
-            pandas or polars DataFrame: DataFrame with insample `models` columns for point predictions and probabilistic
-                predictions for all fitted `models`.
+            DataFrame with cross-validation results
+                including series identifiers, cutoff dates (last training observation),
+                forecast dates, actual values, and predictions from each model for all windows.
         """
         if n_windows is None and test_size is None:
             raise ValueError("you must define `n_windows` or `test_size`")
@@ -1006,19 +1260,18 @@ class _StatsForecast:
         )
         return fcsts_df
 
-    cross_validation.__doc__ = cross_validation.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
-
     def cross_validation_fitted_values(self) -> DataFrame:
-        """Access insample cross validated predictions.
+        """Retrieve in-sample predictions from cross-validation.
 
-        After executing `StatsForecast.cross_validation`, you can access the insample
-        prediction values for each model and window. To get them, you need to pass `fitted=True`
-        to the `StatsForecast.cross_validation` method and then use the
-        `StatsForecast.cross_validation_fitted_values` method.
+        Returns the fitted (in-sample) predictions for each cross-validation window.
+        These are the model's predictions on the training data for each window,
+        useful for analyzing how model fit changes across different training periods.
 
         Returns:
-            pandas or polars DataFrame: DataFrame with insample `models` columns for point predictions
-                and probabilistic predictions for all fitted `models`.
+            pandas.DataFrame or polars.DataFrame: DataFrame containing in-sample predictions
+                for each cross-validation window. Includes columns for series identifiers,
+                timestamps, cutoff dates (last training observation of each window), actual
+                values, and fitted predictions from each model.
         """
         if not hasattr(self, "cv_fitted_values_"):
             raise Exception("Please run `cross_validation` method using `fitted=True`")
@@ -1224,25 +1477,44 @@ class _StatsForecast:
         target_col: str = "y",
         resampler_kwargs: Optional[Dict] = None,
     ):
-        """Plot forecasts and insample values.
+        """Visualize time series data with forecasts and prediction intervals.
+
+        Creates plots showing historical data, forecasts, and optional prediction intervals
+        for time series. Supports multiple plotting engines and interactive visualization.
 
         Args:
-            {df}
-            forecasts_df (pandas or polars DataFrame, optional): DataFrame ids, times and models. Defaults to None.
-            unique_ids (list of str, optional): ids to plot. If None, they're selected randomly. Defaults to None.
-            plot_random (bool): Select time series to plot randomly. Defaults to True.
-            models (List[str], optional): List of models to plot. Defaults to None.
-            level (List[float], optional): List of prediction intervals to plot if paseed. Defaults to None.
-            max_insample_length (int, optional): Max number of train/insample observations to be plotted. Defaults to None.
-            plot_anomalies (bool): Plot anomalies for each prediction interval. Defaults to False.
-            engine (str): Library used to plot. 'plotly', 'plotly-resampler' or 'matplotlib'. Defaults to 'matplotlib'.
-            {id_col}
-            {time_col}
-            {target_col}
-            resampler_kwargs (dict): Kwargs to be passed to plotly-resampler constructor.
-                For further custumization ("show_dash") call the method,
-                store the plotting object and add the extra arguments to
-                its `show_dash` method.
+            df (DataFrame): Input DataFrame containing historical
+                time series data with columns for series identifiers, timestamps, and target values.
+            forecasts_df (DataFrame, optional): DataFrame with forecast
+                results from `forecast()` or `cross_validation()`. Should contain series identifiers,
+                timestamps, and model predictions.
+            unique_ids (List[str] or numpy.ndarray, optional): Specific series identifiers to plot.
+                If None and `plot_random` is True, series are selected randomly.
+            plot_random (bool, optional): Whether to randomly select series to plot when
+                `unique_ids` is not specified.
+            models (List[str], optional): Names of specific models to include in the plot.
+                If None, plots all models present in `forecasts_df`.
+            level (List[float], optional): Confidence levels to plot as shaded regions around
+                forecasts (e.g., [80, 95]). Only applicable if prediction intervals are present
+                in `forecasts_df`.
+            max_insample_length (int, optional): Maximum number of historical observations to
+                display. Useful for focusing on recent history when series are long.
+            plot_anomalies (bool, optional): If True, highlights observations that fall outside
+                prediction intervals as anomalies.
+            engine (str, optional): Plotting library to use. Options are 'matplotlib' (static plots),
+                'plotly' (interactive plots), or 'plotly-resampler' (interactive with downsampling
+                for large datasets).
+            id_col (str, optional): Name of the column containing series identifiers.
+            time_col (str, optional): Name of the column containing timestamps.
+            target_col (str, optional): Name of the column containing the target variable.
+            resampler_kwargs (Dict, optional): Additional keyword arguments passed to the
+                plotly-resampler constructor when `engine='plotly-resampler'`. For further
+                customization (e.g., 'show_dash'), call this method, store the returned object,
+                and add arguments to its `show_dash` method.
+
+        Returns:
+            Plotting object from the selected engine (matplotlib Figure, plotly Figure, or
+            FigureResampler object), which can be further customized or displayed.
         """
         from utilsforecast.plotting import plot_series
 
@@ -1272,15 +1544,22 @@ class _StatsForecast:
         max_size: Optional[str] = None,
         trim: bool = False,
     ):
-        """Function that will save StatsForecast class with certain settings to make it
-        reproducible.
+        """Save the StatsForecast instance to disk using pickle.
+
+        Serializes the StatsForecast object including all fitted models and configuration
+        to a file for later use. The saved object can be loaded with the `load()` method
+        to restore the exact state for making predictions.
 
         Args:
-            path (str or pathlib.Path, optional): Path of the file to be saved. If `None` will create one in the current
-                directory using the current UTC timestamp. Defaults to None.
-            max_size (str, optional): StatsForecast object should not exceed this size.
-                Available byte naming: ['B', 'KB', 'MB', 'GB']. Defaults to None.
-            trim (bool): Delete any attributes not needed for inference. Defaults to False.
+            path (str or pathlib.Path, optional): File path where the object will be saved.
+                If None, creates a filename in the current directory using the format
+                'StatsForecast_YYYY-MM-DD_HH-MM-SS.pkl' with the current UTC timestamp.
+            max_size (str, optional): Maximum allowed size for the serialized object.
+                Should be specified as a number followed by a unit: 'B', 'KB', 'MB', or 'GB'
+                (e.g., '100MB', '1.5GB'). If the object exceeds this size, an OSError is raised.
+            trim (bool, optional): If True, removes fitted values from `forecast()` and
+                `cross_validation()` before saving to reduce file size. These values are
+                not needed for generating new predictions.
         """
         # Will be used to find the size of the fitted models
         # Never expecting anything higher than GB (even that's a lot')
@@ -1350,14 +1629,19 @@ class _StatsForecast:
 
     @staticmethod
     def load(path: Union[Path, str]):
-        """
-        Automatically loads the model into ready StatsForecast.
+        """Load a previously saved StatsForecast instance from disk.
+
+        Deserializes a StatsForecast object that was saved using the `save()` method,
+        restoring all fitted models and configuration. The loaded object is ready to
+        generate predictions immediately.
 
         Args:
-            path (str or pathlib.Path): Path to saved StatsForecast file.
+            path (str or pathlib.Path): File path to the saved StatsForecast pickle file.
+                Must point to a file created by the `save()` method.
 
         Returns:
-            StatsForecast: Previously saved StatsForecast
+            StatsForecast: The deserialized StatsForecast instance with all fitted models
+                and configuration restored, ready for prediction.
         """
         if not Path(path).exists():
             raise ValueError("Specified path does not exist, check again and retry.")
@@ -1366,9 +1650,6 @@ class _StatsForecast:
 
     def __repr__(self):
         return f"StatsForecast(models=[{','.join(map(repr, self.models))}])"
-
-
-_StatsForecast.plot.__doc__ = _StatsForecast.plot.__doc__.format(**_param_descriptions)  # type: ignore[union-attr]
 
 
 class ParallelBackend:
@@ -1464,7 +1745,40 @@ class StatsForecast(_StatsForecast):
         id_col: str = "unique_id",
         time_col: str = "ds",
         target_col: str = "y",
-    ):
+    ) -> DataFrame:
+        """Generate forecasts with memory-efficient model training.
+
+        This is the primary forecasting method that trains models and generates predictions
+        without storing fitted model objects. It is more memory-efficient than `fit_predict`
+        when you don't need to inspect or reuse the fitted models. Models are trained and
+        used for forecasting within each time series, then discarded.
+
+        Args:
+            h (int): Forecast horizon, the number of time steps ahead to predict.
+            df (DataFrame): Input DataFrame containing time series
+                data. Must have columns for series identifiers, timestamps, and target values.
+                Can optionally include exogenous features for training.
+            X_df (DataFrame, optional): DataFrame containing
+                future exogenous variables. Required if any models use exogenous features.
+                Must include future values for all time series and forecast horizon.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95]).
+            fitted (bool, optional): If True, stores in-sample (fitted) predictions which
+                can be retrieved using `forecast_fitted_values()`.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices. Values can be timestamps (datetime) or integers.
+            target_col (str, optional): Name of the column containing the target variable
+                to forecast.
+
+        Returns:
+            DataFrame with forecasts containing series
+                identifiers, future timestamps, and predictions from each model. Includes
+                prediction intervals if `level` is specified.
+        """
         if prediction_intervals is not None and level is None:
             raise ValueError(
                 "You must specify `level` when using `prediction_intervals`"
@@ -1499,6 +1813,72 @@ class StatsForecast(_StatsForecast):
             target_col=target_col,
         )
 
+    def simulate(
+        self,
+        h: int,
+        df: Any,
+        X_df: Optional[DataFrame] = None,
+        n_paths: int = 1,
+        id_col: str = "unique_id",
+        time_col: str = "ds",
+        target_col: str = "y",
+        seed: Optional[int] = None,
+        error_distribution: str = "normal",
+        error_params: Optional[Dict] = None,
+    ) -> DataFrame:
+        """Generate sample trajectories (simulated paths).
+
+        This method generates `n_paths` simulated trajectories for each time series
+        in the input DataFrame. It's useful for scenario planning and risk analysis.
+
+        Args:
+            h (int): Forecast horizon, the number of time steps ahead to predict.
+            df (DataFrame): Input DataFrame containing time series data. Must have
+                columns for series identifiers, timestamps, and target values.
+            X_df (DataFrame, optional): DataFrame containing future exogenous variables.
+            n_paths (int): Number of paths to simulate.
+            id_col (str, optional): Name of the column containing unique identifiers.
+            time_col (str, optional): Name of the column containing timestamps.
+            target_col (str, optional): Name of the column containing target values.
+            seed (int, optional): Random seed for reproducibility.
+            error_distribution (str, optional): Error distribution for the simulation.
+                Options: 'normal', 't', 'bootstrap', 'laplace', 'skew-normal', 'ged'.
+            error_params (dict, optional): Distribution-specific parameters.
+
+        Returns:
+            DataFrame with simulated paths, including a `sample_id` column.
+        """
+        if self._is_native(df=df):
+            return super().simulate(
+                h=h,
+                df=df,
+                X_df=X_df,
+                n_paths=n_paths,
+                id_col=id_col,
+                time_col=time_col,
+                target_col=target_col,
+                seed=seed,
+                error_distribution=error_distribution,
+                error_params=error_params,
+            )
+        assert df is not None
+        # Distributed simulation not implemented yet, fallback to native if possible or raise
+        warnings.warn(
+            "Distributed simulation is not yet implemented. Falling back to native execution."
+        )
+        return super().simulate(
+            h=h,
+            df=df,
+            X_df=X_df,
+            n_paths=n_paths,
+            id_col=id_col,
+            time_col=time_col,
+            target_col=target_col,
+            seed=seed,
+            error_distribution=error_distribution,
+            error_params=error_params,
+        )
+
     def forecast_fitted_values(self):
         if hasattr(self, "_backend"):
             res = self._backend.forecast_fitted_values()
@@ -1521,7 +1901,49 @@ class StatsForecast(_StatsForecast):
         id_col: str = "unique_id",
         time_col: str = "ds",
         target_col: str = "y",
-    ):
+    ) -> DataFrame:
+        """Perform temporal cross-validation for model evaluation.
+
+        Evaluates model performance across multiple time windows using a time series
+        cross-validation approach. This method trains models on expanding or rolling
+        windows and generates forecasts for each validation period, providing robust
+        assessment of forecast accuracy and generalization.
+
+        Args:
+            h (int): Forecast horizon for each validation window.
+            df (DataFrame): Input DataFrame containing time series
+                data with columns for series identifiers, timestamps, and target values.
+            n_windows (int, optional): Number of validation windows to create. Cannot be
+                specified together with `test_size`.
+            step_size (int, optional): Number of time steps between consecutive validation
+                windows. Smaller values create overlapping windows.
+            test_size (int, optional): Total size of the test period. If provided, `n_windows`
+                is computed automatically. Overrides `n_windows` if specified.
+            input_size (int, optional): Maximum number of training observations to use for
+                each window. If None, uses expanding windows with all available history.
+                If specified, uses rolling windows of fixed size.
+            level (List[float], optional): Confidence levels between 0 and 100 for
+                prediction intervals (e.g., [80, 95]).
+            fitted (bool, optional): If True, stores in-sample predictions for each window,
+                accessible via `cross_validation_fitted_values()`.
+            refit (bool or int, optional): Controls model refitting frequency. If True,
+                refits models for every window. If False, fits once and uses the forward
+                method. If an integer n, refits every n windows. Models must implement the
+                `forward` method when refit is not True.
+            prediction_intervals (ConformalIntervals, optional): Configuration for
+                calibrating prediction intervals using Conformal Prediction. Requires
+                `level` to be specified.
+            id_col (str, optional): Name of the column containing unique identifiers for
+                each time series.
+            time_col (str, optional): Name of the column containing timestamps or time
+                indices.
+            target_col (str, optional): Name of the column containing the target variable.
+
+        Returns:
+            DataFrame with cross-validation results
+                including series identifiers, cutoff dates (last training observation),
+                forecast dates, actual values, and predictions from each model for all windows.
+        """
         if self._is_native(df=df):
             return super().cross_validation(
                 h=h,

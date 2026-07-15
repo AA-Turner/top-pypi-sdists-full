@@ -23,7 +23,7 @@
   output:
     meets_snap_work_exception: true
 
-- name: Case 4, work-requirement-ineligible adult earned income is prorated.
+- name: Case 4, ABAWD time-limit-ineligible adult earned income is prorated.
   period: 2024-01
   absolute_error_margin: 0.01
   input:
@@ -38,11 +38,12 @@
         is_tax_unit_dependent: false
         employment_income:
           2024: 12_000
-        meets_snap_general_work_requirements: false
+        meets_snap_general_work_requirements: true
         meets_snap_abawd_work_requirements: false
     spm_units:
       spm_unit:
         members: [person1, person2]
   output:
-    snap_work_requirement_income_proration_fraction: [1, 0.5]
+    snap_prorated_income_fraction: 0.5
+    snap_income_counted_share: [1, 0.5]
     snap_earned_income: 500

@@ -10,9 +10,11 @@ import pytest
 from capsule_sdk._config import ConnectionConfig
 from capsule_sdk._errors import (
     CapsuleAllocationTimeoutError,
+    CapsuleConnectionError,
     CapsuleNotFound,
     CapsuleOperationTimeoutError,
     CapsuleRunnerUnavailableError,
+    CapsuleServiceUnavailable,
 )
 from capsule_sdk._http import HttpClient
 from capsule_sdk.models.layered_config import CreateConfigResponse
@@ -169,6 +171,49 @@ class TestRunners:
         assert isinstance(result, PauseResult)
         assert result.success is True
         assert result.layer == 2
+
+    def test_resume(self, runners: Runners, http_client: HttpClient) -> None:
+        resp_data = {"runner_id": "r-2", "host_address": "10.0.0.2:8080", "session_id": "s-1", "resumed": True}
+        mock_resp = httpx.Response(200, json=resp_data)
+        with patch.object(http_client._client, "request", return_value=mock_resp) as request:
+            result = runners.resume("s-1")
+        assert isinstance(result, AllocateRunnerResponse)
+        assert result.resumed is True
+        assert runners._host_cache["s-1"] == "10.0.0.2:8080"
+        body = json.loads(request.call_args.kwargs["content"])
+        assert body["session_id"] == "s-1"
+        assert "workload_key" not in body
+        assert urlparse(request.call_args.args[1]).path == "/api/v1/runners/allocate"
+
+    def test_exec_resumes_on_connection_error(self, runners: Runners) -> None:
+        events = [{"type": "stdout", "data": "resumed\n"}, {"type": "exit", "code": 0}]
+        with (
+            patch.object(runners, "_resolve_host_route", return_value=("h:8080", {})),
+            patch.object(runners, "resume") as resume,
+            patch.object(
+                runners._http,
+                "post_stream_ndjson",
+                side_effect=[CapsuleConnectionError("host down"), iter(events)],
+            ),
+        ):
+            out = list(runners.exec("s-1", ["echo", "hi"]))
+        resume.assert_called_once_with("s-1")
+        assert [e.data for e in out if e.type == "stdout"] == ["resumed\n"]
+
+    def test_exec_resumes_when_no_live_host(self, runners: Runners) -> None:
+        events = [{"type": "exit", "code": 0}]
+        with (
+            patch.object(
+                runners,
+                "_resolve_host_route",
+                side_effect=[CapsuleServiceUnavailable("no host"), ("h2:8080", {})],
+            ),
+            patch.object(runners, "resume") as resume,
+            patch.object(runners._http, "post_stream_ndjson", return_value=iter(events)),
+        ):
+            out = list(runners.exec("s-1", ["echo", "hi"]))
+        resume.assert_called_once_with("s-1")
+        assert [e.code for e in out if e.type == "exit"] == [0]
 
     def test_resolve_host_uses_cache(self, runners: Runners) -> None:
         runners._host_cache["r-1"] = "cached-host:8080"

@@ -224,6 +224,7 @@ def _transcript_from_messages(
     messages: list[dict[str, t.Any]],
     *,
     report_url: str | None = None,
+    show_thinking: bool = True,
 ) -> list[Message]:
     """Build :class:`Message` objects from a server ``/messages`` response.
 
@@ -262,9 +263,24 @@ def _transcript_from_messages(
             out.append(Message(role="user", content=content))
             continue
         if role == "assistant":
-            if not content.strip():
-                continue  # Skip empty assistant messages (tool-only turns)
-            out.append(Message(role="assistant", content=content))
+            # Native reasoning is persisted onto the assistant message metadata
+            # (``reasoning_content`` / ``thinking_blocks``, merged from the
+            # generation ``extra`` — ENG-7368). Surface it as a reasoning block
+            # *ahead* of the answer so a resumed session shows the same
+            # ThinkingBlock the live turn did, in the same order, instead of
+            # dropping it to a plain assistant message. Gated on ``show_thinking``
+            # to mirror the live GenerationContent path (``/thinking hide``).
+            reasoning = _reasoning_from_extra(metadata) if show_thinking else None
+            if reasoning:
+                out.append(
+                    Message(
+                        role="assistant",
+                        content=reasoning,
+                        metadata={"thinking": True},
+                    )
+                )
+            if content.strip():
+                out.append(Message(role="assistant", content=content))
             continue
         if role == "tool":
             tool_name = msg.get("tool_name") or "tool"
@@ -1203,12 +1219,12 @@ class SessionsManager:
             conversation = self._ui.query_conversation()
         except Exception:
             return  # Widget already torn down during shutdown
-        # Rebuilding removes every ``.entry`` widget — including any
-        # in-flight ``ToolCall`` mounted by ``ToolStart``. The cache still
-        # holding those references would let a later ``ToolEnd`` call
-        # ``complete()`` on an orphan, silently dropping the tool result
-        # from the UI. Drop the cache here so the cache-miss fallback
-        # in the ``ToolEnd`` branch appends a fresh entry instead.
+        # Rebuilding removes every conversation widget (keeping only the
+        # streaming draft) — including any in-flight ``ToolCall`` mounted by
+        # ``ToolStart``. The cache still holding those references would let a
+        # later ``ToolEnd`` call ``complete()`` on an orphan, silently dropping
+        # the tool result from the UI. Drop the cache here so the cache-miss
+        # fallback in the ``ToolEnd`` branch appends a fresh entry instead.
         self._tool_call_widgets.clear()
         session = self.active_session()
         if session is None:
@@ -1259,6 +1275,7 @@ class SessionsManager:
             session.transcript = _transcript_from_messages(
                 messages,
                 report_url=self._context.report_url(session_id),
+                show_thinking=self._context.show_thinking(),
             )
             self._seed_state_from_session_info(session_id, session.info)
 

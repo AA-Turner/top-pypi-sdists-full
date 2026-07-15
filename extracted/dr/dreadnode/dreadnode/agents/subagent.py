@@ -11,6 +11,7 @@ from textwrap import dedent
 
 from loguru import logger
 
+from dreadnode.agents.events import AgentEnd
 from dreadnode.agents.tools import Toolset, tool_method
 from dreadnode.core.meta import Config
 from dreadnode.generators.message import Message
@@ -207,6 +208,21 @@ class SubAgentToolset(Toolset):
             logger.error(f"Sub-agent failed: {e}")
             return f"Sub-agent failed: {e}"
         else:
+            terminal_event = next(
+                (event for event in reversed(trajectory.events) if isinstance(event, AgentEnd)),
+                None,
+            )
+            if terminal_event is not None and terminal_event.error:
+                error_text = str(terminal_event.error)
+                logger.error(
+                    "Sub-agent ended with error | type={} | message={}",
+                    type(terminal_event.error).__name__
+                    if isinstance(terminal_event.error, BaseException)
+                    else "error",
+                    error_text,
+                )
+                return f"Sub-agent failed: {error_text}"
+
             # Get the last assistant message content as the response
             last_message = trajectory.messages[-1] if trajectory.messages else None
             response = str(last_message.content) if last_message else ""

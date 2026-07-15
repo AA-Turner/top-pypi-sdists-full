@@ -21,6 +21,13 @@ MCD_DEFAULT_API_ID = os.getenv("MCD_DEFAULT_API_ID")
 # MCD API Token. Overwrites config-file
 MCD_DEFAULT_API_TOKEN = os.getenv("MCD_DEFAULT_API_TOKEN")
 
+# MCD OAuth client credentials. Overwrites config-file
+MCD_DEFAULT_OAUTH_CLIENT_ID = os.getenv("MCD_DEFAULT_OAUTH_CLIENT_ID")
+MCD_DEFAULT_OAUTH_CLIENT_SECRET = os.getenv("MCD_DEFAULT_OAUTH_CLIENT_SECRET")
+
+# MCD deployment instance ID (e.g. us1, eu1) for OAuth routing. Overwrites config-file
+MCD_DEFAULT_INSTANCE_ID = os.getenv("MCD_DEFAULT_INSTANCE_ID")
+
 # MCD Agent image host. Overwrites config-file
 MCD_AGENT_IMAGE_HOST = os.getenv("MCD_AGENT_IMAGE_HOST")
 

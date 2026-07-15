@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotcode-robot
-Version: 2.6.2
+Version: 2.7.0
 Summary: Support classes for RobotCode for handling Robot Framework projects.
 Project-URL: Homepage, https://robotcode.io
 Project-URL: Donate, https://opencollective.com/robotcode
@@ -26,7 +26,7 @@ Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: platformdirs>=4.3
-Requires-Dist: robotcode-core==2.6.2
+Requires-Dist: robotcode-core==2.7.0
 Requires-Dist: robotframework>=5.0.0
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Description-Content-Type: text/markdown

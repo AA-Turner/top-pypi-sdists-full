@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 from ophyd import Component as Cpt
 from ophyd import Device, EpicsSignal, Signal
+from ophyd_devices import PSIDeviceBase
 
 from bec_lib.bec_errors import DeviceConfigError
 from bec_server.device_server.devices.device_serializer import get_device_info
@@ -84,6 +85,30 @@ class DummyDeviceWithAliasedSignalNames(Device):
     signal_alias = signal = Cpt(Signal, value=1)
 
 
+class DummyReadOnlySignal(Signal):
+    @property
+    def write_access(self):
+        return False
+
+
+class DummyWritableSignal(Signal):
+    @property
+    def write_access(self):
+        return True
+
+
+class DummyExplicitOwnershipDevice(Device):
+    ownership_mode = "free"
+
+
+class DummyInvalidOwnershipDevice(Device):
+    ownership_mode = "not-a-mode"
+
+
+class DummyPSIDevice(PSIDeviceBase):
+    pass
+
+
 @pytest.mark.parametrize(
     "obj",
     [
@@ -132,3 +157,45 @@ def test_get_device_info_allows_aliased_signal_names():
 
     assert info["device_info"]["signals"]["signal"]["obj_name"] == "test_signal"
     assert info["device_info"]["signals"]["signal_alias"]["obj_name"] == "test_signal"
+
+
+def test_get_device_info_marks_read_only_plain_signal_as_free():
+    signal = DummyReadOnlySignal(name="test")
+
+    info = get_device_info(signal, connect=False)
+
+    assert info["device_info"]["ownership_mode"] == "free"
+
+
+def test_get_device_info_marks_writable_plain_signal_as_claimable():
+    signal = DummyWritableSignal(name="test")
+
+    info = get_device_info(signal, connect=False)
+
+    assert info["device_info"]["ownership_mode"] == "claimable"
+
+
+def test_get_device_info_marks_psi_devices_as_pinned():
+    device = DummyPSIDevice(name="test")
+
+    info = get_device_info(device, connect=False)
+
+    assert info["device_info"]["ownership_mode"] == "pinned"
+
+
+def test_get_device_info_prefers_explicit_class_ownership_mode():
+    device = DummyExplicitOwnershipDevice(name="test")
+
+    info = get_device_info(device, connect=False)
+
+    assert info["device_info"]["ownership_mode"] == "free"
+
+
+def test_get_device_info_raises_device_config_error_for_invalid_explicit_ownership_mode():
+    device = DummyInvalidOwnershipDevice(name="test")
+
+    with pytest.raises(
+        DeviceConfigError,
+        match="Invalid ownership_mode 'not-a-mode' configured on DummyInvalidOwnershipDevice",
+    ):
+        get_device_info(device, connect=False)

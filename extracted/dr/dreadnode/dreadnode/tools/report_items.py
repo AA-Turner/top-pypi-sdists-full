@@ -463,6 +463,7 @@ def link_items(
 def _resolve_produces_models(capability: t.Any) -> dict[str, type[BaseModel]]:
     """Import the capability's `produces` Pydantic classes from its on-disk code."""
     import importlib.util
+    import sys
     from pathlib import Path
 
     from dreadnode.items.config import custom_item_type_refs
@@ -480,18 +481,29 @@ def _resolve_produces_models(capability: t.Any) -> dict[str, type[BaseModel]]:
         if not file_path.is_file():
             logger.warning("produces[{}] module not found: {}", type_name, rel)
             continue
-        spec = importlib.util.spec_from_file_location(
-            f"_dn_produces_rt_{type_name}_{file_path.stem}", file_path
-        )
+        mod_name = f"_dn_produces_rt_{type_name}_{file_path.stem}"
+        spec = importlib.util.spec_from_file_location(mod_name, file_path)
         if spec is None or spec.loader is None:
             continue
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        cls = getattr(module, class_name, None)
-        if isinstance(cls, type) and issubclass(cls, BaseModel):
-            out[type_name] = cls
-        else:
-            logger.warning("produces[{}] -> {} is not a Pydantic model", type_name, ref)
+        # Register in sys.modules before exec so a module that uses
+        # `from __future__ import annotations` (PEP 563) can resolve its own
+        # forward references. Pydantic defers forward-ref resolution until the
+        # first model_json_schema()/model_rebuild(); without an importable
+        # namespace that raises "not fully defined". We force resolution here,
+        # while the module is registered, then remove it so we do not pollute
+        # sys.modules for the rest of the process.
+        sys.modules[mod_name] = module
+        try:
+            spec.loader.exec_module(module)
+            cls = getattr(module, class_name, None)
+            if isinstance(cls, type) and issubclass(cls, BaseModel):
+                cls.model_rebuild()
+                out[type_name] = cls
+            else:
+                logger.warning("produces[{}] -> {} is not a Pydantic model", type_name, ref)
+        finally:
+            sys.modules.pop(mod_name, None)
     return out
 
 

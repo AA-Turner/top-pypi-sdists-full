@@ -331,11 +331,25 @@ def register_all_hermes_profiles() -> int:
             models_dev_raw=mdev_raw,
         )
         # Resolve aliases — every alias that maps to this canonical id
-        # becomes a CVC alias on the profile.
+        # becomes a CVC alias on the profile. IMPORTANT: never let an
+        # aggregator alias (e.g. Hermes's bare "openai" -> "openrouter")
+        # shadow a provider CVC already owns by hand. register_provider()
+        # indexes aliases into the SAME flat dict as canonical names, so
+        # an unchecked alias here would silently overwrite get_provider
+        # ("openai") with the OpenRouter profile and corrupt routing/
+        # metadata lookups for every other provider that collides.
         cvc_aliases: list[str] = []
         for alias, target in aliases.items():
-            if target == canonical_id:
-                cvc_aliases.append(alias)
+            if target != canonical_id:
+                continue
+            if get_provider(alias) is not None:
+                logger.debug(
+                    "hermes_catalog: skipping alias %r -> %r (collides with "
+                    "an existing hand-written or already-registered profile)",
+                    alias, canonical_id,
+                )
+                continue
+            cvc_aliases.append(alias)
         profile.aliases = cvc_aliases
 
         register_provider(profile)

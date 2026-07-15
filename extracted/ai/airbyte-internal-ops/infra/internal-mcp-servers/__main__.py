@@ -13,6 +13,8 @@ with path-based routing and URL rewriting at the load balancer:
 - `/ops-mcp-preview/*`   -> ops-mcp preview (rewritten to `/*`)
 - `/cloud-mcp/*`         -> cloud-mcp prod (rewritten to `/*`)
 - `/cloud-mcp-preview/*` -> cloud-mcp preview (rewritten to `/*`)
+- `/agent-mcp/*`         -> agent-mcp prod (rewritten to `/*`)
+- `/agent-mcp-preview/*` -> agent-mcp preview (rewritten to `/*`)
 
 Canonical hosts:
 - `mcp.internal.airbyte.ai` (internal hosted MCP servers)
@@ -62,8 +64,20 @@ CLOUD_MCP_SERVICE_NAME = "cloud-mcp"
 CLOUD_MCP_PREVIEW_SERVICE_NAME = "cloud-mcp-preview"
 CLOUD_MCP_PATH_PREFIX = "/cloud-mcp"
 CLOUD_MCP_PREVIEW_PATH_PREFIX = "/cloud-mcp-preview"
+
 CLOUD_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PATH_PREFIX}"
 CLOUD_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PREVIEW_PATH_PREFIX}"
+
+# Agent MCP is the PyAirbyte-based hosted MCP served publicly at
+# `mcp.airbyte.ai` for the Agents product. This internal deployment pair lets
+# us offer alternative auth methods and stage updates internally before they
+# reach end users.
+AGENT_MCP_SERVICE_NAME = "agent-mcp"
+AGENT_MCP_PREVIEW_SERVICE_NAME = "agent-mcp-preview"
+AGENT_MCP_PATH_PREFIX = "/agent-mcp"
+AGENT_MCP_PREVIEW_PATH_PREFIX = "/agent-mcp-preview"
+AGENT_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PATH_PREFIX}"
+AGENT_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PREVIEW_PATH_PREFIX}"
 
 OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
 
@@ -71,11 +85,27 @@ OPS_MCP_CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
     f"/{OPS_MCP_SERVICE_NAME}:latest"
 )
+"""Placeholder (dummy) image tag for Ops MCP.
+
+The `deploy-mcp-command` workflow manages the actual image via
+`gcloud run services update --image=<sha-tag>`. Pulumi ignores changes to the
+container image (see `ignore_changes` on the Cloud Run service) so it never
+overwrites the deploy workflow's SHA-tagged revision. See
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full deploy-vs-Pulumi ownership
+rules.
+"""
 
 CLOUD_MCP_CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{CLOUD_MCP_SERVICE_NAME}"
     f"/{CLOUD_MCP_SERVICE_NAME}:latest"
 )
+"""Placeholder (dummy) image tag for Cloud MCP. See `OPS_MCP_CONTAINER_IMAGE`."""
+
+AGENT_MCP_CONTAINER_IMAGE = (
+    f"{REGION}-docker.pkg.dev/{PROJECT}/{AGENT_MCP_SERVICE_NAME}"
+    f"/{AGENT_MCP_SERVICE_NAME}:latest"
+)
+"""Placeholder (dummy) image tag for Agent MCP. See `OPS_MCP_CONTAINER_IMAGE`."""
 
 LB_PREFIX = "internal-mcp"
 
@@ -215,6 +245,8 @@ def define_mcp_cloud_run_service(
             ignore_changes=[
                 "client",
                 "clientVersion",
+                "scaling",
+                "template.containers[*].image",
                 "template.containers[0].startupProbe",
             ],
         ),
@@ -324,20 +356,42 @@ def _define_neg_and_backend(
         port_name="http",
         security_policy=armor_policy.self_link,
         backends=[gcp.compute.BackendServiceBackendArgs(group=neg.id)],
-        opts=pulumi.ResourceOptions(depends_on=[neg]),
+        opts=pulumi.ResourceOptions(
+            depends_on=[neg],
+        ),
     )
 
     return backend
 
 
+def _stamp_route_rule_priorities(
+    rules: list[gcp.compute.URLMapPathMatcherRouteRuleArgs],
+) -> None:
+    """Assign each route rule a `priority` equal to its 1-based list position.
+
+    GCP requires route rules within a pathMatcher to have unique priorities
+    that strictly increase in list order. Deriving priority from position
+    (rather than hardcoding literals) keeps that invariant true by construction
+    when rules are added or reordered. Rules are built with a placeholder
+    `priority` (`priority` is a required constructor argument) that this
+    function overwrites.
+    """
+    for index, rule in enumerate(rules, start=1):
+        rule.priority = index
+
+
 def _mcp_path_route_rule(
-    priority: int,
     path_prefix: str,
     backend: gcp.compute.BackendService,
 ) -> gcp.compute.URLMapPathMatcherRouteRuleArgs:
-    """Create a URL Map route rule that matches a path prefix and rewrites to root."""
+    """Create a URL Map route rule that matches a path prefix and rewrites to root.
+
+    The rule's `priority` is constructed with a placeholder `0` (not a valid
+    final value) and overwritten by list position in `define_load_balancer` --
+    see `_stamp_route_rule_priorities`.
+    """
     return gcp.compute.URLMapPathMatcherRouteRuleArgs(
-        priority=priority,
+        priority=0,
         match_rules=[
             gcp.compute.URLMapPathMatcherRouteRuleMatchRuleArgs(
                 prefix_match=f"{path_prefix}/",
@@ -353,6 +407,65 @@ def _mcp_path_route_rule(
         ),
         service=backend.self_link,
     )
+
+
+def _oauth_discovery_route_rules(
+    *,
+    path_prefix: str,
+    backend: gcp.compute.BackendService,
+) -> tuple[
+    gcp.compute.URLMapPathMatcherRouteRuleArgs,
+    gcp.compute.URLMapPathMatcherRouteRuleArgs,
+]:
+    """Route a routed-root MCP server's OAuth discovery documents to its backend.
+
+    An MCP server mounted under `path_prefix` (e.g. `/cloud-mcp`) advertises its
+    OAuth metadata at origin-root well-known paths that fall outside its own
+    prefix. Those requests would otherwise hit the load balancer's default
+    service (`ops-mcp`) and 404, so a routed-root server needs explicit rules:
+
+    - protected-resource metadata is forwarded verbatim (no rewrite);
+    - authorization-server metadata is rewritten to the origin-root path the
+      server actually serves it at.
+
+    `ops-mcp` needs no such rules because it is the load balancer default
+    service and already receives these origin-root paths.
+
+    Returns the (protected-resource, authorization-server) rule pair.
+    """
+    server_suffix = path_prefix.lstrip("/")
+    prm_path = f"/.well-known/oauth-protected-resource/{server_suffix}"
+    as_path = f"/.well-known/oauth-authorization-server/{server_suffix}"
+    protected_resource_rule = gcp.compute.URLMapPathMatcherRouteRuleArgs(
+        priority=0,
+        match_rules=[
+            gcp.compute.URLMapPathMatcherRouteRuleMatchRuleArgs(
+                prefix_match=f"{prm_path}/",
+            ),
+            gcp.compute.URLMapPathMatcherRouteRuleMatchRuleArgs(
+                full_path_match=prm_path,
+            ),
+        ],
+        service=backend.self_link,
+    )
+    authorization_server_rule = gcp.compute.URLMapPathMatcherRouteRuleArgs(
+        priority=0,
+        match_rules=[
+            gcp.compute.URLMapPathMatcherRouteRuleMatchRuleArgs(
+                prefix_match=f"{as_path}/",
+            ),
+            gcp.compute.URLMapPathMatcherRouteRuleMatchRuleArgs(
+                full_path_match=as_path,
+            ),
+        ],
+        route_action=gcp.compute.URLMapPathMatcherRouteRuleRouteActionArgs(
+            url_rewrite=gcp.compute.URLMapPathMatcherRouteRuleRouteActionUrlRewriteArgs(
+                path_prefix_rewrite="/.well-known/oauth-authorization-server",
+            ),
+        ),
+        service=backend.self_link,
+    )
+    return protected_resource_rule, authorization_server_rule
 
 
 def define_load_balancer(
@@ -394,29 +507,88 @@ def define_load_balancer(
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
 
-    # MCP path-based route rules (longer prefixes get higher priority)
+    # Every routed-root MCP server needs explicit OAuth discovery rules;
+    # only `ops-mcp` is exempt because it is the LB default service and
+    # already receives origin-root well-known paths. That includes all the
+    # preview services (they are routed-root, not the default), so without
+    # these rules a preview's OAuth discovery falls through to `ops-mcp` and
+    # 404s -- breaking interactive login against any preview endpoint.
+    (
+        cloud_mcp_prm_rule,
+        cloud_mcp_as_rule,
+    ) = _oauth_discovery_route_rules(
+        path_prefix=CLOUD_MCP_PATH_PREFIX,
+        backend=mcp_backends[CLOUD_MCP_SERVICE_NAME],
+    )
+    (
+        agent_mcp_prm_rule,
+        agent_mcp_as_rule,
+    ) = _oauth_discovery_route_rules(
+        path_prefix=AGENT_MCP_PATH_PREFIX,
+        backend=mcp_backends[AGENT_MCP_SERVICE_NAME],
+    )
+    (
+        ops_mcp_preview_prm_rule,
+        ops_mcp_preview_as_rule,
+    ) = _oauth_discovery_route_rules(
+        path_prefix=OPS_MCP_PREVIEW_PATH_PREFIX,
+        backend=mcp_backends[OPS_MCP_PREVIEW_SERVICE_NAME],
+    )
+    (
+        cloud_mcp_preview_prm_rule,
+        cloud_mcp_preview_as_rule,
+    ) = _oauth_discovery_route_rules(
+        path_prefix=CLOUD_MCP_PREVIEW_PATH_PREFIX,
+        backend=mcp_backends[CLOUD_MCP_PREVIEW_SERVICE_NAME],
+    )
+    (
+        agent_mcp_preview_prm_rule,
+        agent_mcp_preview_as_rule,
+    ) = _oauth_discovery_route_rules(
+        path_prefix=AGENT_MCP_PREVIEW_PATH_PREFIX,
+        backend=mcp_backends[AGENT_MCP_PREVIEW_SERVICE_NAME],
+    )
+
+    # MCP path-based route rules. Priority is derived from list position (see
+    # `_stamp_route_rule_priorities`), so the ordering here IS the precedence --
+    # GCP requires strictly increasing, unique priorities within a pathMatcher.
     mcp_route_rules = [
+        cloud_mcp_prm_rule,
         _mcp_path_route_rule(
-            priority=1,
             path_prefix=OPS_MCP_PREVIEW_PATH_PREFIX,
             backend=mcp_backends[OPS_MCP_PREVIEW_SERVICE_NAME],
         ),
         _mcp_path_route_rule(
-            priority=2,
             path_prefix=OPS_MCP_PATH_PREFIX,
             backend=mcp_backends[OPS_MCP_SERVICE_NAME],
         ),
         _mcp_path_route_rule(
-            priority=3,
             path_prefix=CLOUD_MCP_PREVIEW_PATH_PREFIX,
             backend=mcp_backends[CLOUD_MCP_PREVIEW_SERVICE_NAME],
         ),
         _mcp_path_route_rule(
-            priority=4,
             path_prefix=CLOUD_MCP_PATH_PREFIX,
             backend=mcp_backends[CLOUD_MCP_SERVICE_NAME],
         ),
+        cloud_mcp_as_rule,
+        _mcp_path_route_rule(
+            path_prefix=AGENT_MCP_PREVIEW_PATH_PREFIX,
+            backend=mcp_backends[AGENT_MCP_PREVIEW_SERVICE_NAME],
+        ),
+        _mcp_path_route_rule(
+            path_prefix=AGENT_MCP_PATH_PREFIX,
+            backend=mcp_backends[AGENT_MCP_SERVICE_NAME],
+        ),
+        agent_mcp_prm_rule,
+        agent_mcp_as_rule,
+        ops_mcp_preview_prm_rule,
+        ops_mcp_preview_as_rule,
+        cloud_mcp_preview_prm_rule,
+        cloud_mcp_preview_as_rule,
+        agent_mcp_preview_prm_rule,
+        agent_mcp_preview_as_rule,
     ]
+    _stamp_route_rule_priorities(mcp_route_rules)
 
     url_map = gcp.compute.URLMap(
         f"{LB_PREFIX}-url-map",
@@ -562,12 +734,33 @@ def main() -> None:
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         **mcp_common,
     )
+    agent_mcp = define_mcp_cloud_run_service(
+        service_name=AGENT_MCP_SERVICE_NAME,
+        description="Airbyte Agents MCP hosted server (internal mirror of mcp.airbyte.ai)",
+        container_image=AGENT_MCP_CONTAINER_IMAGE,
+        public_url=AGENT_MCP_PUBLIC_URL,
+        oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
+        oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        min_instances=MIN_INSTANCES,
+        **mcp_common,
+    )
+    agent_mcp_preview = define_mcp_cloud_run_service(
+        service_name=AGENT_MCP_PREVIEW_SERVICE_NAME,
+        description="Airbyte Agents MCP preview server for PR deploys",
+        container_image=AGENT_MCP_CONTAINER_IMAGE,
+        public_url=AGENT_MCP_PREVIEW_PUBLIC_URL,
+        oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
+        oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        **mcp_common,
+    )
 
     mcp_services = {
         OPS_MCP_SERVICE_NAME: ops_mcp,
         OPS_MCP_PREVIEW_SERVICE_NAME: ops_mcp_preview,
         CLOUD_MCP_SERVICE_NAME: cloud_mcp,
         CLOUD_MCP_PREVIEW_SERVICE_NAME: cloud_mcp_preview,
+        AGENT_MCP_SERVICE_NAME: agent_mcp,
+        AGENT_MCP_PREVIEW_SERVICE_NAME: agent_mcp_preview,
     }
 
     armor_policy = define_cloud_armor_policy(api_services)
@@ -594,12 +787,21 @@ def main() -> None:
         "cloud_mcp_preview_service_name": cloud_mcp_preview.name,
         "cloud_mcp_preview_service_url": cloud_mcp_preview.uri,
         "cloud_mcp_preview_url": CLOUD_MCP_PREVIEW_PUBLIC_URL,
+        "agent_mcp_service_name": agent_mcp.name,
+        "agent_mcp_service_url": agent_mcp.uri,
+        "agent_mcp_url": AGENT_MCP_PUBLIC_URL,
+        "agent_mcp_preview_service_name": agent_mcp_preview.name,
+        "agent_mcp_preview_service_url": agent_mcp_preview.uri,
+        "agent_mcp_preview_url": AGENT_MCP_PREVIEW_PUBLIC_URL,
         "mcp_domain": MCP_DOMAIN,
         "ops_mcp_artifact_registry": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
         ),
         "cloud_mcp_artifact_registry": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{CLOUD_MCP_SERVICE_NAME}"
+        ),
+        "agent_mcp_artifact_registry": (
+            f"{REGION}-docker.pkg.dev/{PROJECT}/{AGENT_MCP_SERVICE_NAME}"
         ),
         "cloud_armor_policy": armor_policy.name,
         **lb_outputs,

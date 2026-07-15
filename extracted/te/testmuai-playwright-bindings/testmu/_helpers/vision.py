@@ -61,6 +61,19 @@ async def _post_analyzer(
         return await resp.json()
 
 
+async def _derive_if_recorded(page, code_js: str | None, value):
+    """Recompute a recorded derivation over a freshly extracted raw value.
+
+    No code_js — or an empty one — means the recording had nothing to derive:
+    the raw value IS the operand.
+    """
+    if not code_js:
+        return value
+    from testmu._helpers.derive import derive
+
+    return await derive(page, code_js, str(value))
+
+
 async def _check_wait_condition(
     session: aiohttp.ClientSession, screenshot_b64: str, query: str
 ) -> dict:
@@ -211,6 +224,7 @@ async def vision_query(
     description: str,
     return_type: str,
     expected_value: str | None = None,
+    code_js: str | None = None,
 ):
     """Extract a value from the page using a screenshot + analyzer API.
 
@@ -224,9 +238,16 @@ async def vision_query(
             visibility/state check. The backend analyzer activates its
             boolean-check path and returns 'true'/'false' instead
             of free-form page text. None for value extraction.
+        code_js: The recorded derivation, if this extraction had one. Its
+            PRESENCE (even as '') tells the backend which extraction contract
+            authored this recording, so the raw value it returns is shaped the
+            way the derivation expects; the derivation itself is recomputed
+            here, in the browser, over that fresh raw value. Absent for
+            recordings made before derivations existed.
 
     Returns:
-        Extracted value as a string, or None when smart is OFF.
+        Extracted value as a string (derived when code_js is set), or None when
+        smart is OFF.
     """
     if not _config.smart:
         return None
@@ -292,7 +313,7 @@ async def vision_query(
             )
         extracted = _cast_v3_vision_query_result(raw, return_type)
         _log_v3.info("    [vision_query] result=%s", repr(extracted)[:120])
-        return extracted
+        return await _derive_if_recorded(page, code_js, extracted)
 
     # VQ must not throw on invisibility — fall through with the last screenshot
     # so the analyzer still gets a chance to extract.
@@ -309,13 +330,15 @@ async def vision_query(
     }
     if expected_value is not None:
         body["expected_value"] = expected_value
+    if code_js is not None:
+        body["code_js"] = code_js
 
     async with create_session() as session:
         result = await _post_analyzer(session, body, timeout=_QUERY_TIMEOUT)
 
     extracted = result.get("extracted_value", "")
     _log.info("    [vision_query] result=%s", repr(extracted)[:120])
-    return extracted
+    return await _derive_if_recorded(page, code_js, extracted)
 
 
 

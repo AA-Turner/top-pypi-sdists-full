@@ -554,29 +554,38 @@ PLACED_TYPES: dict[OrderType, type[PlacedOrder]] = {
 }
 
 
-class UnplacedComplexOrder(TastytradeData):
+class BasePlacedComplexOrder(TastytradeData):
     """
-    Dataclass containing information about a test (dry run) complex order.
+    Base class for placed complex orders. For internal use.
     """
 
     account_number: str
     type: ComplexOrderType
-    orders: list[UnplacedOrder]
-    trigger_order: UnplacedOrder | None = None
-    terminal_at: str | None = None
+    terminal_at: datetime | None = None
     ratio_price_threshold: Decimal | None = None
     ratio_price_comparator: str | None = None
     ratio_price_is_threshold_based_on_notional: bool | None = None
     related_orders: list[dict[str, str]] | None = None
 
 
-class PlacedComplexOrder(UnplacedComplexOrder):
+class UnplacedComplexOrder(BasePlacedComplexOrder):
+    """
+    Dataclass containing information about a test (dry run) complex order.
+    """
+
+    orders: list[UnplacedOrder]
+    trigger_order: UnplacedOrder | None = None
+
+
+class PlacedComplexOrder(BasePlacedComplexOrder):
     """
     Dataclass containing information about an already placed complex order.
     """
 
     #: the ID of the complex order
     id: int
+    orders: list[PlacedOrder]
+    trigger_order: PlacedOrder | None = None
 
 
 class PlacedOTOOrder(PlacedComplexOrder):
@@ -597,7 +606,7 @@ class PlacedOTOCOOrder(PlacedOCOOrder):
     trigger_order: PlacedOrder  # pyright: ignore
 
 
-C = TypeVar("C", bound=UnplacedComplexOrder)
+C = TypeVar("C", bound=BasePlacedComplexOrder)
 PLACED_COMPLEX_TYPES: dict[type[BaseComplexOrder], type[PlacedComplexOrder]] = {
     OCOOrder: PlacedOCOOrder,
     OTOOrder: PlacedOTOOrder,

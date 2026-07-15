@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cornac"
-version = "2.5.0"
+version = "2.6.0"
 description = "A Comparative Framework for Multimodal Recommender Systems"
 readme = "README.md"
 dependencies = [
@@ -50,7 +50,6 @@ Homepage = "https://cornac.preferred.ai"
 [project.optional-dependencies]
 tests = [
     "pytest",
-    "pytest-pep8",
     "pytest-xdist",
     "pytest-cov",
     "Flask",

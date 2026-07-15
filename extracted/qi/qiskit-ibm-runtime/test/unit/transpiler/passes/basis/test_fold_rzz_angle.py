@@ -12,25 +12,26 @@
 
 """Test folding Rzz angle into calibrated range."""
 
-from math import pi
-from itertools import chain
 import unittest
-import numpy as np
-from ddt import ddt, named_data, data, unpack
+from itertools import chain
+from math import pi
 
+import numpy as np
+from ddt import data, ddt, named_data, unpack
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.parameter import Parameter
+from qiskit.quantum_info import Operator, SparsePauliOp
 from qiskit.transpiler.passmanager import PassManager
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-from qiskit.quantum_info import Operator, SparsePauliOp
 
 from qiskit_ibm_runtime import EstimatorV2, SamplerV2
+from qiskit_ibm_runtime.fake_provider import FakeFractionalBackend
 from qiskit_ibm_runtime.transpiler.passes.basis.fold_rzz_angle import (
     FoldRzzAngle,
     convert_to_rzz_valid_pub,
 )
-from qiskit_ibm_runtime.fake_provider import FakeFractionalBackend
 from qiskit_ibm_runtime.utils.utils import is_valid_rzz_pub
+
 from .....ibm_test_case import IBMTestCase
 
 
@@ -55,6 +56,15 @@ class TestFoldRzzAngle(IBMTestCase):
         ("quad2_12pi_wrap", 23 * pi / 2 + 0.1),
         ("quad3_12pi_wrap", 11 * pi + 0.1),
         ("quad4_12pi_wrap", -12 * pi - 0.1),
+        # Odd-winding multiples of pi that wrap exactly onto the +-pi boundary. These drop
+        # an odd number of 2*pi windings, so the folded circuit must re-add a global phase
+        # of pi to remain unitary-equivalent (not merely equivalent up to global phase).
+        ("3pi_pos", 3 * pi),
+        ("3pi_neg", -3 * pi),
+        ("7pi_pos", 7 * pi),
+        ("7pi_neg", -7 * pi),
+        ("5pi_pos", 5 * pi),
+        ("5pi_neg", -5 * pi),
     )
     def test_folding_rzz_angles(self, angle):
         """Test folding gate angle into calibrated range."""
@@ -105,21 +115,22 @@ class TestFoldRzzAngle(IBMTestCase):
 
         self.assertEqual(isa, expected)
 
-    def test_fractional_plugin(self):
+    @data(-1, -1 + 4 * np.pi)
+    def test_fractional_plugin(self, rzz_angle):
         """Verify that a pass manager for a fractional backend applies the rzz folding pass."""
         circ = QuantumCircuit(2)
-        circ.rzz(7, 0, 1)
+        circ.rzz(rzz_angle, 0, 1)
 
         pm = generate_preset_pass_manager(
-            optimization_level=0,
+            optimization_level=2,
             backend=FakeFractionalBackend(),
-            translation_method="ibm_dynamic_and_fractional",
+            translation_method="ibm_dynamic_circuits",
         )
         isa_circ = pm.run(circ)
 
-        self.assertEqual(isa_circ.data[0].operation.name, "global_phase")
+        self.assertEqual(len(isa_circ.data), 3)
         self.assertEqual(isa_circ.data[1].operation.name, "rzz")
-        self.assertTrue(np.isclose(isa_circ.data[1].operation.params[0], 7 - 2 * pi))
+        self.assertTrue(np.isclose(isa_circ.data[1].operation.params[0], 1))
 
     @data(
         [0.2, 0.1, 0.4, 0.3, 2],  # no modification in circuit

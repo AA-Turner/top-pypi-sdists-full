@@ -35,11 +35,12 @@ options:
     default: present
     version_added: 1.3.0
   fstype:
-    choices: [bcachefs, btrfs, ext2, ext3, ext4, ext4dev, f2fs, lvm, ocfs2, reiserfs, xfs, vfat, swap, ufs]
+    choices: [bcachefs, btrfs, ext2, ext3, ext4, ext4dev, f2fs, lvm, ocfs2, reiserfs, xfs, vfat, swap, ufs, gfs2]
     description:
       - Filesystem type to be created. This option is required with O(state=present) (or if O(state) is omitted).
       - V(ufs) support has been added in community.general 3.4.0.
       - V(bcachefs) support has been added in community.general 8.6.0.
+      - V(gfs2) support has been added in community.general 13.1.0.
     type: str
     aliases: [type]
   dev:
@@ -79,11 +80,19 @@ options:
       - The UUID options specified in O(opts) take precedence over this value.
       - See xfs_admin(8) (C(xfs)), tune2fs(8) (C(ext2), C(ext3), C(ext4), C(ext4dev)) for possible values.
       - For O(fstype=lvm) the value is ignored, it resets the PV UUID if set.
-      - Supported for O(fstype) being one of V(bcachefs), V(ext2), V(ext3), V(ext4), V(ext4dev), V(lvm), or V(xfs).
+      - Supported for O(fstype) being one of V(bcachefs), V(ext2), V(ext3), V(ext4), V(ext4dev), V(lvm), V(gfs2) or V(xfs).
       - This is B(not idempotent). Specifying this option always results in a change.
       - Mutually exclusive with O(resizefs).
     type: str
     version_added: 7.1.0
+  label:
+    description:
+      - Set filesystem's label to the given value.
+      - The label options specified in O(opts) take precedence over this value.
+      - Supported for O(fstype) being one of V(gfs2). Support for other filesystems might be added later.
+      - On GFS2 this sets the lock table with the C(-t) option of mkfs.gfs2(8). It has to be in the form V(CLUSTERNAME:LOCKSPACE).
+    type: str
+    version_added: 13.1.0
 requirements:
   - Uses specific tools related to the O(fstype) for creating or resizing a filesystem (from packages e2fsprogs, xfsprogs,
     dosfstools, and so on).
@@ -205,6 +214,7 @@ class Filesystem:
     MKFS_FORCE_FLAGS: list[str] | None = []
     MKFS_SET_UUID_OPTIONS: list[str] | None = None
     MKFS_SET_UUID_EXTRA_OPTIONS: list[str] | None = []
+    MKFS_SET_LABEL_OPTIONS: list[str] | None = None
     INFO: str | None = None
     GROW: str | None = None
     GROW_SLACK: int = 0
@@ -231,13 +241,16 @@ class Filesystem:
         """
         raise NotImplementedError()
 
-    def create(self, opts, dev, uuid=None):
+    def create(self, opts, dev, uuid=None, label=None):
         if self.module.check_mode:
             return
 
         if uuid and self.MKFS_SET_UUID_OPTIONS:
             if not (set(self.MKFS_SET_UUID_OPTIONS) & set(opts)):
                 opts += [self.MKFS_SET_UUID_OPTIONS[0], uuid] + self.MKFS_SET_UUID_EXTRA_OPTIONS
+        if label is not None and self.MKFS_SET_LABEL_OPTIONS:
+            if not (set(self.MKFS_SET_LABEL_OPTIONS) & set(opts)):
+                opts += [self.MKFS_SET_LABEL_OPTIONS[0], label]
 
         mkfs = self.module.get_bin_path(self.MKFS, required=True)
         cmd = [mkfs] + self.MKFS_FORCE_FLAGS + opts + [str(dev)]
@@ -409,6 +422,36 @@ class Bcachefs(Filesystem):
     GROW = "bcachefs"
     GROW_MAX_SPACE_FLAGS = ["device", "resize"]
 
+    SIZE_PATTERN = re.compile(r"Size:\s+(?P<value>[\d.]+)\s*(?P<unit>\S+)")
+
+    UNIT_FACTORS = {
+        "B": 1,
+        "k": 1024,
+        "M": 1024**2,
+        "G": 1024**3,
+        "T": 1024**4,
+        "P": 1024**5,
+        "E": 1024**6,
+        "Z": 1024**7,
+        "Y": 1024**8,
+        "KiB": 1024,
+        "MiB": 1024**2,
+        "GiB": 1024**3,
+        "TiB": 1024**4,
+        "PiB": 1024**5,
+        "EiB": 1024**6,
+        "ZiB": 1024**7,
+        "YiB": 1024**8,
+        "kB": 1000,
+        "MB": 1000**2,
+        "GB": 1000**3,
+        "TB": 1000**4,
+        "PB": 1000**5,
+        "EB": 1000**6,
+        "ZB": 1000**7,
+        "YB": 1000**8,
+    }
+
     def get_fs_size(self, dev):
         """Return size in bytes of filesystem on device (integer)."""
         dummy, stdout, dummy = self.module.run_command(
@@ -416,30 +459,15 @@ class Bcachefs(Filesystem):
         )
 
         for line in stdout.splitlines():
-            if "Size: " in line:
-                parts = line.split()
-                unit = parts[2]
-
-                base = None
-                exp = None
-
-                units_2 = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]
-                units_10 = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-
-                try:
-                    exp = units_2.index(unit)
-                    base = 1024
-                except ValueError:
-                    exp = units_10.index(unit)
-                    base = 1000
-
-                if exp == 0:
-                    value = int(parts[1])
-                else:
-                    value = float(parts[1])
-
-                if base is not None and exp is not None:
-                    return int(value * pow(base, exp))
+            match = self.SIZE_PATTERN.search(line)
+            if match:
+                value_str = match.group("value")
+                unit = match.group("unit")
+                factor = self.UNIT_FACTORS.get(unit)
+                if factor is None:
+                    raise ValueError(repr(stdout))
+                value = int(value_str) if factor == 1 else float(value_str)
+                return int(value * factor)
 
         raise ValueError(repr(stdout))
 
@@ -611,6 +639,13 @@ class UFS(Filesystem):
         return fragmentsize * providersize
 
 
+class GFS2(Filesystem):
+    MKFS = "mkfs.gfs2"
+    MKFS_FORCE_FLAGS = ["-O"]
+    MKFS_SET_UUID_OPTIONS = ["-U"]
+    MKFS_SET_LABEL_OPTIONS = ["-t"]
+
+
 FILESYSTEMS = {
     "bcachefs": Bcachefs,
     "ext2": Ext2,
@@ -626,6 +661,7 @@ FILESYSTEMS = {
     "LVM2_member": LVM,
     "swap": Swap,
     "ufs": UFS,
+    "gfs2": GFS2,
 }
 
 
@@ -646,6 +682,7 @@ def main():
             force=dict(type="bool", default=False),
             resizefs=dict(type="bool", default=False),
             uuid=dict(type="str"),
+            label=dict(type="str"),
         ),
         required_if=[("state", "present", ["fstype"])],
         mutually_exclusive=[
@@ -661,6 +698,7 @@ def main():
     force = module.params["force"]
     resizefs = module.params["resizefs"]
     uuid = module.params["uuid"]
+    label = module.params["label"]
 
     mkfs_opts = []
     if opts is not None:
@@ -683,6 +721,11 @@ def main():
     cmd = module.get_bin_path("blkid", required=True)
     rc, raw_fs, err = module.run_command([cmd, "-c", os.devnull, "-o", "value", "-s", "TYPE", str(dev)])
     fs = raw_fs.strip()
+    # BusyBox blkid may ignore -o/-s flags and output the full device info line,
+    # e.g. '/dev/sda2: UUID="..." TYPE="btrfs"' instead of just 'btrfs'
+    if fs and " " in fs:
+        type_match = re.search(r'\bTYPE="?([^"\s]+)"?', raw_fs)
+        fs = type_match.group(1) if type_match else ""
     if not fs and platform.system() == "FreeBSD":
         cmd = module.get_bin_path("fstyp", required=True)
         rc, raw_fs, err = module.run_command([cmd, str(dev)])
@@ -723,7 +766,7 @@ def main():
             module.fail_json(msg=f"'{dev}' is already used as {fs}, use force=true to overwrite", rc=rc, err=err)
 
         # create fs
-        filesystem.create(opts=mkfs_opts, dev=dev, uuid=uuid)
+        filesystem.create(opts=mkfs_opts, dev=dev, uuid=uuid, label=label)
         changed = True
 
     elif fs:

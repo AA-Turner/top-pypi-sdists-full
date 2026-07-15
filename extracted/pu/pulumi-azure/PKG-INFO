@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_azure
-Version: 6.38.0
+Version: 6.39.0
 Summary: A Pulumi package for creating and managing Microsoft Azure cloud resources, based on the Terraform azurerm provider. We recommend using the [Azure Native provider](https://github.com/pulumi/pulumi-azure-native) to provision Azure infrastructure. Azure Native provides complete coverage of Azure resources and same-day access to new resources and resource updates.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

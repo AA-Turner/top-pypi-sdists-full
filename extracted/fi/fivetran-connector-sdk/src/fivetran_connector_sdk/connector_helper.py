@@ -898,7 +898,7 @@ def log_connection_success(response: rq.Response, is_new_connection: bool, conne
     print_library_log(f"naming strategy: {data['destination_schema_names']}",
                       level=Logging.Level.INFO, indent=True)
     print_library_log(f"visit the Fivetran dashboard {dashboard_action}:")
-    print_library_log(f"https://fivetran.com/dashboard/connectors/{conn_id}/status")
+    print_library_log(f"https://fivetran.com/dashboard/connections/{conn_id}/status")
 
 
 def handle_connection_response(

@@ -48,6 +48,7 @@ pub struct ConnectionRequest {
     pub client_side_cache: Option<ClientSideCache>,
     pub node_discovery_mode: NodeDiscoveryMode,
     pub address_resolver: Option<Arc<dyn AddressResolver>>,
+    pub client_circuit_breaker: Option<ClientCircuitBreakerConfig>,
 }
 
 /// Default connection timeout used when not specified in the request.
@@ -64,6 +65,17 @@ impl ConnectionRequest {
     }
 }
 
+/// Configuration for the client-wide circuit breaker.
+#[derive(Debug, Clone)]
+pub struct ClientCircuitBreakerConfig {
+    pub window_size_ms: u32,
+    pub failure_rate_threshold: f32,
+    pub min_errors: u32,
+    pub open_timeout_ms: u32,
+    pub count_timeouts: bool,
+    pub consecutive_successes: u32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClientSideCache {
     pub cache_id: String,
@@ -72,6 +84,7 @@ pub struct ClientSideCache {
     pub entry_ttl_ms: u64,
     pub eviction_policy: Option<EvictionPolicy>,
     pub enable_metrics: bool,
+    pub server_assisted: bool,
 }
 
 /// Authentication information for connecting to Redis/Valkey servers
@@ -367,6 +380,7 @@ impl From<protobuf::ConnectionRequest> for ConnectionRequest {
                         protobuf::EvictionPolicy::LFU => EvictionPolicy::Lfu,
                     }),
                 enable_metrics: proto_cache.enable_metrics,
+                server_assisted: proto_cache.server_assisted,
             });
 
         // Convert protobuf compression config to internal compression config
@@ -446,6 +460,16 @@ impl From<protobuf::ConnectionRequest> for ConnectionRequest {
             node_discovery_mode,
             // Address resolver is not set from protobuf - it's set programmatically
             address_resolver: None,
+            client_circuit_breaker: value.client_circuit_breaker.into_option().map(|cb| {
+                ClientCircuitBreakerConfig {
+                    window_size_ms: cb.window_size_ms,
+                    failure_rate_threshold: cb.failure_rate_threshold,
+                    min_errors: cb.min_errors,
+                    open_timeout_ms: cb.open_timeout_ms,
+                    count_timeouts: cb.count_timeouts,
+                    consecutive_successes: cb.consecutive_successes,
+                }
+            }),
         }
     }
 }

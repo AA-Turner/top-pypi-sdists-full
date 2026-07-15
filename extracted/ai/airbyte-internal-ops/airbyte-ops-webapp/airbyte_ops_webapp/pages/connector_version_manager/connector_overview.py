@@ -143,11 +143,11 @@ def _render_active_rollout_detail() -> None:
         Column(gap=0),
     ):
         H3("Rollout Status", css_class="text-sm mb-1")
-        _pivoted_row("RC", STATE.rollout_summary.rc_version)
+        _pivoted_row("Version", STATE.rollout_summary.rc_version)
         _pivoted_row("Tiers", STATE.rollout_summary.tier_summary)
         _pivoted_row("Autopilot", STATE.rollout_summary.autopilot)
         _pivoted_row("Updated", STATE.rollout_summary.updated_at)
-        _pivoted_row("Pins on RC", STATE.rollout_summary.total_rc_pins)
+        _pivoted_row("Version Pins", STATE.rollout_summary.total_rc_pins)
 
         # Action buttons
         _render_rollout_action_buttons()

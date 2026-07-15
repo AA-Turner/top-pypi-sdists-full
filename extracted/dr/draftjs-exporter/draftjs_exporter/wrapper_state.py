@@ -1,21 +1,24 @@
-from typing import List, Optional, Sequence, Union
+"""Build block-level elements and manage nesting of wrapper elements."""
 
 from draftjs_exporter.constants import BLOCK_TYPES
 from draftjs_exporter.dom import DOM
+from draftjs_exporter.engines.base import DOMEngine
 from draftjs_exporter.options import Options, OptionsMap
 from draftjs_exporter.types import Block, Element, Props, RenderableType
 
 
 class Wrapper:
-    """
-    A wrapper is an element that wraps other nodes. It gets created
-    when the depth of a block is different than 0, so the DOM elements
-    have the appropriate amount of nesting.
-    """
+    """Represent a single wrapper element that nests blocks at a given depth."""
 
     __slots__ = ("depth", "last_child", "type", "props", "elt")
 
-    def __init__(self, depth: int, options: Optional[Options] = None) -> None:
+    def __init__(self, depth: int, options: Options | None = None) -> None:
+        """Initialize a wrapper at the given depth.
+
+        Parameters:
+            depth: The nesting depth this wrapper represents.
+            options: Block options defining the wrapper element, or None for a placeholder.
+        """
         self.depth = depth
         self.last_child = None
 
@@ -33,40 +36,76 @@ class Wrapper:
             self.elt = DOM.create_element()
 
     def is_different(
-        self, depth: int, type_: RenderableType, props: Optional[Props]
+        self, depth: int, type_: RenderableType, props: Props | None
     ) -> bool:
+        """Return whether the requested wrapper differs from this one.
+
+        Parameters:
+            depth: The depth to compare.
+            type_: The wrapper element type to compare.
+            props: The wrapper props to compare.
+
+        Returns:
+            True when the depth, wrapper type, or props do not match.
+        """
         return depth > self.depth or type_ != self.type or props != self.props
 
 
 class WrapperStack:
-    """
-    Stack data structure for element wrappers.
-    The bottom of the stack contains the elements closest to the page body.
-    The top of the stack contains the most nested nodes.
-    """
+    """Track nested wrapper elements from the page body to the most nested node."""
 
     __slots__ = "stack"
 
     def __init__(self) -> None:
-        self.stack: List[Wrapper] = []
+        """Initialize an empty wrapper stack."""
+        self.stack: list[Wrapper] = []
 
     def __str__(self) -> str:
+        """Return a string representation of the wrapper stack."""
         return str(self.stack)
 
     def length(self) -> int:
+        """Return the number of wrappers on the stack.
+
+        Returns:
+            The current stack depth.
+        """
         return len(self.stack)
 
     def append(self, wrapper: Wrapper) -> None:
+        """Push a wrapper onto the top of the stack.
+
+        Parameters:
+            wrapper: The wrapper to append.
+        """
         return self.stack.append(wrapper)
 
     def get(self, index: int) -> Wrapper:
+        """Return the wrapper at the given index.
+
+        Parameters:
+            index: The zero-based index into the stack.
+
+        Returns:
+            The wrapper at that index.
+        """
         return self.stack[index]
 
     def slice(self, length: int) -> None:
+        """Truncate the stack to the given length.
+
+        Parameters:
+            length: The desired stack length.
+        """
         self.stack = self.stack[:length]
 
     def head(self) -> Wrapper:
-        if self.length() > 0:
+        """Return the topmost wrapper, or a placeholder if the stack is empty.
+
+        Returns:
+            The most nested wrapper, or a depth -1 placeholder when empty.
+        """
+        if self.stack:
             wrapper = self.stack[-1]
         else:
             wrapper = Wrapper(-1)
@@ -74,31 +113,52 @@ class WrapperStack:
         return wrapper
 
     def tail(self) -> Wrapper:
+        """Return the bottommost wrapper.
+
+        Returns:
+            The wrapper closest to the page body.
+        """
         return self.stack[0]
 
 
 class WrapperState:
-    """
-    This class does the initial node building for the tree.
-    It sets elements with the right tag, text content, and props.
-    It adds a wrapper element around elements, if required.
-    """
+    """Build block-level elements and add wrapper elements where required."""
 
-    __slots__ = ("block_options", "blocks", "stack")
+    __slots__ = ("block_options", "blocks", "dom", "stack")
 
-    def __init__(self, block_options: OptionsMap, blocks: Sequence[Block]) -> None:
+    def __init__(
+        self, block_options: OptionsMap, blocks: list[Block], dom: type[DOMEngine]
+    ) -> None:
+        """Initialize wrapper state for the given blocks and DOM engine.
+
+        Parameters:
+            block_options: Normalized configuration for block rendering.
+            blocks: All blocks in the content state.
+            dom: The active DOM engine.
+        """
         self.block_options = block_options
         self.blocks = blocks
+        self.dom = dom
         self.stack = WrapperStack()
 
     def __str__(self) -> str:
+        """Return a string representation of the wrapper state."""
         return f"<WrapperState: {self.stack}>"
 
     def element_for(
-        self, block: Block, block_content: Union[Element, Sequence[Element]]
+        self, block: Block, block_content: Element | list[Element]
     ) -> Element:
-        type_ = block["type"] if "type" in block else "unstyled"
-        depth = block["depth"] if "depth" in block else 0
+        """Create the wrapped element for a block.
+
+        Parameters:
+            block: The block to render.
+            block_content: The rendered content of the block.
+
+        Returns:
+            The block element, nested inside any required wrapper elements.
+        """
+        type_ = block.get("type", "unstyled")
+        depth = block.get("depth", 0)
         options = Options.get(self.block_options, type_, BLOCK_TYPES.FALLBACK)
         props = dict(options.props)
         props["block"] = block
@@ -112,19 +172,38 @@ class WrapperState:
         return parent
 
     def parent_for(self, options: Options, depth: int, elt: Element) -> Element:
+        """Return the parent element for the given block element.
+
+        Parameters:
+            options: The block options.
+            depth: The block depth.
+            elt: The block element.
+
+        Returns:
+            The wrapped parent element, or the element itself if no wrapper is used.
+        """
         if options.wrapper:
             parent = self.get_wrapper_elt(options, depth)
-            DOM.append_child(parent, elt)
+            self.dom.append_child(parent, elt)
             self.stack.stack[-1].last_child = elt
         else:
             # Reset the stack if there is no wrapper.
-            if self.stack.length() > 0:
+            if self.stack.stack:
                 self.stack = WrapperStack()
             parent = elt
 
         return parent
 
     def get_wrapper_elt(self, options: Options, depth: int) -> Element:
+        """Return the wrapper element for the given options and depth.
+
+        Parameters:
+            options: The block options defining the wrapper.
+            depth: The block depth.
+
+        Returns:
+            The wrapper element at the requested depth.
+        """
         head = self.stack.head()
         if head.is_different(depth, options.wrapper, options.wrapper_props):
             self.update_stack(options, depth)
@@ -136,6 +215,12 @@ class WrapperState:
         return self.stack.get(depth).elt
 
     def update_stack(self, options: Options, depth: int) -> None:
+        """Ensure the wrapper stack matches the requested depth.
+
+        Parameters:
+            options: The block options defining the wrapper.
+            depth: The requested depth.
+        """
         if depth >= self.stack.length():
             # If the depth is gte the stack length, we need more wrappers.
             depth_levels = range(self.stack.length(), depth + 1)
@@ -155,13 +240,13 @@ class WrapperState:
                     }
                     props["blocks"] = self.blocks
 
-                    wrapper_parent = DOM.create_element(options.element, props)
-                    DOM.append_child(self.stack.head().elt, wrapper_parent)
+                    wrapper_parent = DOM.create_element(options.element, props, "")
+                    self.dom.append_child(self.stack.head().elt, wrapper_parent)
                 else:
                     # Otherwise we can append at the end of the last child.
                     wrapper_parent = self.stack.head().last_child
 
-                DOM.append_child(wrapper_parent, new_wrapper.elt)
+                self.dom.append_child(wrapper_parent, new_wrapper.elt)
 
                 self.stack.append(new_wrapper)
         else:

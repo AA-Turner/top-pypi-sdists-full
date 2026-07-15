@@ -23,7 +23,7 @@ description:
 - Create or delete an API token for an existing admin user.
 - Uses username/password to create/delete the API token.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -98,6 +98,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.common import (
     convert_time_to_millisecs,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 from os import environ
 import platform
 
@@ -170,7 +173,7 @@ def get_session(module):
             system.get()
         except Exception:
             module.fail_json(
-                msg="Pure Storage FlashArray authentication failed. Check your credentials"
+                msg="Everpure FlashArray authentication failed. Check your credentials"
             )
     else:
         module.fail_json(msg="purestorage SDK is not installed.")
@@ -226,14 +229,8 @@ def main():
             changed = True
             array6.delete_admins_api_tokens(names=[username])
             res = array6.post_admins_api_tokens(names=[username], timeout=ttl)
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to set token lifetime. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
-            else:
-                api_token = list(res.items)[0].api_token.token
+            check_response(res, module, "Failed to set token lifetime")
+            api_token = list(res.items)[0].api_token.token
     module.exit_json(changed=changed, purefa_token=api_token)
 
 

@@ -4,6 +4,65 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from plato._generated.models import EnvironmentContext, SessionContext, WaitForReadyResult
+
+
+class EnvironmentContextWithMesh(EnvironmentContext):
+    """EnvironmentContext plus the SDK-local ``mesh_ip``.
+
+    The backend's canonical EnvironmentContext schema carries no ``mesh_ip`` —
+    the SDK resolves it client-side (from wait-for-ready / job info) and keeps
+    it on the context for SSH-user registration and host resolution. Contexts
+    parsed from server responses stay plain EnvironmentContext (``extra="allow"``
+    preserves any extras); locally built contexts use this subclass so the
+    field is typed instead of smuggled through pydantic extras.
+    """
+
+    mesh_ip: str | None = None
+
+
+def env_context_mesh_ip(ctx: EnvironmentContext) -> str | None:
+    """Read ``mesh_ip`` off any EnvironmentContext variant, or None.
+
+    Locally built contexts are EnvironmentContextWithMesh (typed field);
+    server-parsed contexts are plain EnvironmentContext, where a mesh_ip in the
+    payload survives only as a pydantic extra — and plain attribute access
+    raises AttributeError when it's absent entirely.
+    """
+    if isinstance(ctx, EnvironmentContextWithMesh):
+        return ctx.mesh_ip
+    mesh_ip = (ctx.model_extra or {}).get("mesh_ip")
+    return mesh_ip if isinstance(mesh_ip, str) else None
+
+
+def context_with_mesh_ips(
+    context: SessionContext,
+    results: dict[str, WaitForReadyResult] | None,
+) -> SessionContext:
+    """Fold each job's ``mesh_ip`` from the wait-for-ready results into its env context.
+
+    The backend delivers ``mesh_ip`` on the per-job wait-for-ready result
+    (``WaitForReadyResult.mesh_ip``), never on ``EnvironmentContext``. The
+    ``create`` / ``wait_until_ready`` paths otherwise assign ``response.context``
+    verbatim, leaving envs with no mesh address — unlike ``add_env``, which
+    populates it. This upgrades each env to ``EnvironmentContextWithMesh`` with
+    the resolved ``mesh_ip`` so ``Environment.mesh_ip`` and mesh networking work
+    on every code path.
+    """
+    if not context.envs:
+        return context
+    results = results or {}
+    envs: list[EnvironmentContext] = []
+    for ctx in context.envs:
+        data = ctx.model_dump()
+        result = results.get(ctx.job_id)
+        # Prefer the wait-for-ready mesh_ip; fall back to any server-sent extra.
+        data["mesh_ip"] = (result.mesh_ip if result else None) or data.get("mesh_ip")
+        envs.append(EnvironmentContextWithMesh(**data))
+    context.envs = envs
+    return context
+
+
 # ============================================================================
 # Configuration Models
 # ============================================================================

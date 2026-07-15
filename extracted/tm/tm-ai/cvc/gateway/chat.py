@@ -72,8 +72,69 @@ _KEEPALIVE_SECONDS = 30.0
 # delivering one big text event with the whole response.
 _DELTA_COUNT: "list[int]" = [0]
 _DELTA_TOTAL_CHARS: "list[int]" = [0]
+# v3.5.2 — Chunked-event counter. Counts every event the chunker emits
+# downstream of one provider delta. If chunking is disabled this equals
+# _DELTA_COUNT; with chunking it can be 5-10x larger. Lets operators
+# verify "feels instant" rather than "one big pop".
+_DELTA_CHUNKED_COUNT: "list[int]" = [0]
 _TOOL_COUNT: "list[int]" = [0]
 _TURN_COUNT: "list[int]" = [0]
+
+# v3.5.2 — Target chunk size (in chars) when splitting a single provider
+# delta into multiple outbox events. The agent often emits one big string
+# per turn (e.g. 800 chars when thinking ends); consumers (TypewriterText,
+# Telegram edit/draft streams) display big deltas as a single "pop".
+# 24 chars ≈ 3-5 words; small enough to feel word-by-word, large enough
+# to keep outbox throughput modest. Tunable per-channel via the consumer.
+_DELTA_CHUNK_TARGET = 24
+
+
+def _chunk_delta(delta: str, target: int = _DELTA_CHUNK_TARGET) -> "list[str]":
+    """Split a single provider delta into smaller chunks for smoother streaming.
+
+    Splits at word/space boundaries when possible so each chunk ends on a
+    visually clean cut (no mid-word breaks, no leading-space-only chunks).
+    Deltas shorter than or equal to ``target`` pass through as a single
+    element. Empty deltas return an empty list (caller already filters
+    those, but be defensive).
+
+    Designed for the dashboard SSE and Telegram draft/edit paths — both
+    want a steady trickle of small text events instead of one giant burst.
+    """
+    if not delta:
+        return []
+    if len(delta) <= target:
+        return [delta]
+    chunks: list[str] = []
+    i = 0
+    n = len(delta)
+    while i < n:
+        # If remaining text fits in one chunk, take it all.
+        if n - i <= target:
+            chunks.append(delta[i:])
+            break
+        # Find a good split point near ``target``: prefer the last space
+        # within the window so chunks end on word boundaries. Fall back
+        # to ``target`` if no space exists in the window.
+        window_end = i + target
+        split = window_end
+        # Scan backwards from window_end to i+1 for a whitespace char.
+        for j in range(window_end, i, -1):
+            ch = delta[j - 1]
+            if ch.isspace():
+                split = j
+                break
+        # Avoid infinite loop if no whitespace in the whole remaining
+        # string — fall back to hard cut at target.
+        if split <= i:
+            split = window_end
+        chunks.append(delta[i:split])
+        # Skip past leading whitespace on the next chunk so we don't emit
+        # chunks that are just spaces.
+        i = split
+        while i < n and delta[i].isspace():
+            i += 1
+    return chunks
 
 
 # -----------------------------------------------------------------------------
@@ -479,8 +540,28 @@ def _attach_outbox_callbacks(
                 )
         except Exception:
             pass
-        outbox.streamed_text.append(delta)
-        outbox.put({"type": "text", "content": delta})
+        # v3.5.2 — Root-cause fix for "complete thinking pops out at
+        # once" symptom on both dashboard (TypewriterText) and Telegram
+        # (edit_message_text). The provider/agent often flushes one big
+        # delta per turn (e.g. 800 chars when thinking ends), which
+        # downstream renderers display as a single giant update.
+        #
+        # Solution: split large deltas into ~24-char chunks at word/space
+        # boundaries BEFORE enqueueing. Consumers see a steady stream of
+        # small chunks instead of one big bang. Order is preserved; total
+        # chars are unchanged; small deltas (<= target) pass through
+        # untouched. This affects:
+        #   - Dashboard SSE → TypewriterText 32ms passthrough → smooth
+        #   - Telegram drafts → more monotonic updates via draft_id
+        #   - Telegram edits → word-by-word visible stream (was "pops")
+        #   - Any future channel adapter → inherits the same granularity
+        for chunk in _chunk_delta(delta, _DELTA_CHUNK_TARGET):
+            try:
+                _DELTA_CHUNKED_COUNT[0] += 1
+            except Exception:
+                pass
+            outbox.streamed_text.append(chunk)
+            outbox.put({"type": "text", "content": chunk})
 
     def _on_tool_start(call_id, name, args):
         # Mirror the upstream api_server's _on_tool_start: skip
@@ -2078,6 +2159,13 @@ async def chat_diagnostics_endpoint():
     return {
         "deltas_total": _DELTA_COUNT[0],
         "delta_chars_total": _DELTA_TOTAL_CHARS[0],
+        # v3.5.2 — Count of events actually emitted to consumers AFTER
+        # the delta chunker split each provider delta into smaller
+        # pieces. With chunking, this is ~5-10x _DELTA_COUNT; with it
+        # disabled (CHUNK_TARGET set very high), they should be equal.
+        # If they diverge wildly you get the "feels instant" stream;
+        # if they're equal you get the "one big pop" symptom.
+        "delta_chunks_total": _DELTA_CHUNKED_COUNT[0],
         "tools_total": _TOOL_COUNT[0],
         "turns_total": _TURN_COUNT[0],
     }

@@ -12,18 +12,24 @@
 
 """Utilities for data validation."""
 
-from typing import Any
-from collections.abc import Sequence
-import warnings
+from __future__ import annotations
+
 import keyword
+import warnings
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
 
-from qiskit import QuantumCircuit
-from qiskit.transpiler import Target
-from qiskit.primitives.containers.sampler_pub import SamplerPub
-from qiskit.primitives.containers.estimator_pub import EstimatorPub
-from qiskit_ibm_runtime.utils.utils import is_isa_circuit, are_circuits_dynamic, is_valid_rzz_pub
 from qiskit_ibm_runtime.exceptions import IBMInputValueError
+from qiskit_ibm_runtime.utils.utils import are_circuits_dynamic, is_isa_circuit, is_valid_rzz_pub
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from qiskit import QuantumCircuit
+    from qiskit.primitives.containers.estimator_pub import EstimatorPub
+    from qiskit.primitives.containers.sampler_pub import SamplerPub
+    from qiskit.transpiler import Target
 
 
 def validate_classical_registers(pubs: list[SamplerPub]) -> None:
@@ -76,8 +82,12 @@ def validate_estimator_pubs(pubs: list[EstimatorPub]) -> None:
 
     Raises:
         IBMInputValueError: If any observable array is of size 0
+        IBMInputValueError: If any precision value is not greater than 0
     """
     for pub in pubs:
+        if pub.precision is not None and pub.precision <= 0:
+            raise IBMInputValueError("The precision value must be strictly greater than 0.")
+
         if pub.observables.shape == (0,):
             raise IBMInputValueError("Empty observables array is not allowed")
 

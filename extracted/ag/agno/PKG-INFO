@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.7.2
+Version: 2.7.3
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -407,6 +407,8 @@ Requires-Dist: parallel-web>=1.0; extra == "parallel"
 Provides-Extra: psycopg
 Requires-Dist: psycopg-binary; extra == "psycopg"
 Requires-Dist: psycopg; extra == "psycopg"
+Provides-Extra: redmine
+Requires-Dist: python-redmine; extra == "redmine"
 Provides-Extra: redshift
 Requires-Dist: redshift-connector; extra == "redshift"
 Provides-Extra: reportlab
@@ -465,6 +467,8 @@ Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy; extra == "sqlite"
 Requires-Dist: aiosqlite; extra == "sqlite"
+Provides-Extra: valkey
+Requires-Dist: valkey-glide-sync>=2.1.0; extra == "valkey"
 Provides-Extra: cassandra
 Requires-Dist: cassio; extra == "cassandra"
 Provides-Extra: chromadb
@@ -586,6 +590,7 @@ Requires-Dist: agno[opencv]; extra == "tools"
 Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[parallel]; extra == "tools"
 Requires-Dist: agno[psycopg]; extra == "tools"
+Requires-Dist: agno[redmine]; extra == "tools"
 Requires-Dist: agno[redshift]; extra == "tools"
 Requires-Dist: agno[reportlab]; extra == "tools"
 Requires-Dist: agno[salesforce]; extra == "tools"
@@ -614,6 +619,7 @@ Requires-Dist: agno[postgres]; extra == "storage"
 Requires-Dist: agno[redis]; extra == "storage"
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[sqlite]; extra == "storage"
+Requires-Dist: agno[valkey]; extra == "storage"
 Provides-Extra: vectordbs
 Requires-Dist: agno[cassandra]; extra == "vectordbs"
 Requires-Dist: agno[chromadb]; extra == "vectordbs"
@@ -630,6 +636,7 @@ Requires-Dist: agno[redis]; extra == "vectordbs"
 Requires-Dist: agno[singlestore]; extra == "vectordbs"
 Requires-Dist: agno[surrealdb]; extra == "vectordbs"
 Requires-Dist: agno[upstash]; extra == "vectordbs"
+Requires-Dist: agno[valkey]; extra == "vectordbs"
 Requires-Dist: agno[weaviate]; extra == "vectordbs"
 Provides-Extra: knowledge
 Requires-Dist: agno[chonkie]; extra == "knowledge"
@@ -721,30 +728,21 @@ Dynamic: license-file
 
 ## Introduction
 
-Agno is an SDK for building agent platforms.
+Agno is a framework and runtime for building agent platforms.
 
-- Build agents using any agent framework.
-- Run them as production services with tracing, scheduling, and RBAC.
-- Manage using a single control plane.
+- Build your agent platform using the Agno SDK.
+- Run your agent platform using the AgentOS runtime.
+- Manage everything using the AgentOS control plane.
 
-Agno allows you to own your agent stack. Maintain control of your data, context, tools, permissions, memory and human-review loops. Run your platform in your cloud, and manage it using a beautiful UI.
+Agno allows you to own your agent stack. Maintain control of your data, context, tools, permissions, memory and human-review loops. Run your platform in your own cloud, and manage it using a beautiful UI.
 
 <img width="3192" height="2038" alt="demo-os" src="https://github.com/user-attachments/assets/6d21e6bc-111f-4b81-ba29-6550fead89b2" />
-
-## What you can build
-
-Agno can bring any agent to life, here are some examples:
-
-- [Coda →](https://docs.agno.com/tutorials/coda/overview) A code companion that lives in Slack and works alongside your team.
-- [Dash →](https://docs.agno.com/tutorials/dash/overview) A self-learning data agent that grounds answers in 6 layers of context.
-- [Scout →](https://docs.agno.com/tutorials/scout/overview) A context agent that navigates Slack and Google Drive to answer questions.
-- [Auto Improving Agent Platform →](https://docs.agno.com/tutorials/starter/overview) Build your own agent platform with an auto-improvement loop.
 
 ## Get started
 
 - [Read the docs](https://docs.agno.com)
 - [Build your first agent in 20 lines of code.](https://docs.agno.com/first-agent)
-- [Build an auto-improving agent platform managed entirely by claude code.](https://docs.agno.com/tutorials/starter/overview)
+- [Build your own agent platform.](https://docs.agno.com/agent-platform/overview)
 
 ## Features
 

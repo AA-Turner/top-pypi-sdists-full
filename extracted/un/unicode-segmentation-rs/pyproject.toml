@@ -4,7 +4,7 @@ requires = ["maturin>=1.10.0,<2.0"]
 
 [dependency-groups]
 build = [
-  "maturin==1.13.1"
+  "maturin==1.14.1"
 ]
 dev = [
   {include-group = "build"},
@@ -12,11 +12,11 @@ dev = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "prek==0.3.8"
+  "prek==0.4.9"
 ]
 test = [
-  "pytest-github-actions-annotate-failures==0.4.0",
-  "pytest==9.0.3"
+  "pytest-github-actions-annotate-failures==0.4.2",
+  "pytest==9.1.1"
 ]
 
 [project]
@@ -28,7 +28,7 @@ classifiers = [
 ]
 description = "Unicode segmentation and width for Python using Rust"
 dynamic = ["version"]
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 name = "unicode-segmentation-rs"
 readme = "README.md"
@@ -49,3 +49,17 @@ Twitter = "https://twitter.com/WeblateOrg"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [
+  # Allow HTML
+  "MD033"
+]

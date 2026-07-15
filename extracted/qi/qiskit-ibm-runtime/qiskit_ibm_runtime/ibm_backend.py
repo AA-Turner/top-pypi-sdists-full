@@ -15,36 +15,27 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
-from datetime import datetime as python_datetime
 from copy import deepcopy
+from datetime import datetime as python_datetime
+from typing import TYPE_CHECKING, Any
 
-from qiskit.result import MeasLevel, MeasReturnType
 from qiskit.providers.backend import BackendV2 as Backend
 from qiskit.providers.options import Options
+from qiskit.result import MeasLevel, MeasReturnType
 
-from .exceptions import (
-    IBMBackendApiProtocolError,
-    IBMBackendError,
-)
-from .models import (
-    BackendStatus,
-    GateConfig,
-    QasmBackendConfiguration,
-)
+from .exceptions import IBMBackendApiProtocolError, IBMBackendError
+from .models import BackendStatus, GateConfig, QasmBackendConfiguration
 from .utils import local_to_utc
 from .utils.backend_converter import convert_to_target
-from .utils.backend_decoder import (
-    configuration_from_server_data,
-    properties_from_server_data,
-)
+from .utils.backend_decoder import configuration_from_server_data, properties_from_server_data
 
 if TYPE_CHECKING:
     from qiskit import QuantumCircuit
     from qiskit.transpiler.target import Target
+
     from . import QiskitRuntimeService
-    from .models import BackendProperties
     from .api.clients import RuntimeClient
+    from .models import BackendProperties
 
 
 logger = logging.getLogger(__name__)
@@ -496,9 +487,7 @@ class IBMBackend(Backend):
 
     def get_translation_stage_plugin(self) -> str:
         """Return the default translation stage plugin name for IBM backends."""
-        if not self.options.use_fractional_gates:
-            return "ibm_dynamic_circuits"
-        return "ibm_dynamic_and_fractional"
+        return "ibm_dynamic_circuits"
 
 
 class IBMRetiredBackend(IBMBackend):

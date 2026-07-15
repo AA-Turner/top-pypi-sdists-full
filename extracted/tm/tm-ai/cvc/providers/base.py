@@ -249,6 +249,30 @@ def _bootstrap_defaults() -> None:
     ))
 
     register_provider(ProviderProfile(
+        name="openrouter",
+        aliases=[],
+        env_vars=["OPENROUTER_API_KEY"],
+        base_url="https://openrouter.ai/api",
+        auth_type=AUTH_BEARER,
+        api_mode=API_MODE_CHAT_COMPLETIONS,
+        fallback_models=[
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-opus-4.6",
+            "openai/gpt-5.2",
+            "openai/gpt-5.2-codex",
+            "google/gemini-3-pro-preview",
+            "google/gemini-3-flash-preview",
+            "deepseek/deepseek-v3.2",
+            "x-ai/grok-4",
+            "qwen/qwen3-max",
+            "minimax/minimax-m2",
+            "z-ai/glm-4.6",
+        ],
+        default_max_tokens=8192,
+        supports_reasoning=True,
+    ))
+
+    register_provider(ProviderProfile(
         name="ollama",
         env_vars=[],
         base_url="http://localhost:11434",

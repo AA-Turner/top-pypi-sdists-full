@@ -4147,6 +4147,230 @@ class TestEvalsRunInference:
         assert call_kwargs["model"] == "gpt-4o"
         pd.testing.assert_frame_equal(call_kwargs["prompt_dataset"], mock_df)
 
+    @mock.patch.object(_evals_common, "_get_interactions_client")
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_run_inference_with_gemini_agent(
+        self, mock_eval_dataset_loader, mock_get_interactions_client
+    ):
+        mock_df = pd.DataFrame({"prompt": ["p1", "p2"]})
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        def make_interaction(interaction_id, prompt_text, output_text):
+            return {
+                "id": interaction_id,
+                "status": "completed",
+                "steps": [
+                    {
+                        "type": "user_input",
+                        "content": [{"type": "text", "text": prompt_text}],
+                    },
+                    {
+                        "type": "model_output",
+                        "content": [{"type": "text", "text": output_text}],
+                    },
+                ],
+            }
+
+        mock_interactions = mock.Mock()
+        mock_interactions.create.side_effect = [
+            make_interaction("interaction-1", "p1", "response 1"),
+            make_interaction("interaction-2", "p2", "response 2"),
+        ]
+        mock_get_interactions_client.return_value = mock_interactions
+
+        inference_result = self.client.evals.run_inference(
+            src=mock_df,
+            agent=_TEST_GEMINI_AGENT,
+        )
+
+        result_df = inference_result.eval_dataset_df
+        assert set(result_df.columns) == {
+            "prompt",
+            "response",
+            "interaction_id",
+            "agent_data",
+        }
+        assert result_df["prompt"].tolist() == ["p1", "p2"]
+        assert result_df["response"].tolist() == ["response 1", "response 2"]
+        assert result_df["interaction_id"].tolist() == [
+            "interaction-1",
+            "interaction-2",
+        ]
+        assert mock_interactions.create.call_count == 2
+        first_call_request = mock_interactions.create.call_args_list[0].args[0]
+        assert first_call_request["agent"] == _TEST_GEMINI_AGENT.split("/")[-1]
+        assert first_call_request["input"] == [{"type": "text", "text": "p1"}]
+        assert first_call_request["background"] is True
+        agent_data_0 = result_df["agent_data"].tolist()[0]
+        turn_events = agent_data_0["turns"][0]["events"]
+        assert turn_events[0]["author"] == "user"
+        assert turn_events[0]["content"]["parts"][0]["text"] == "p1"
+        assert turn_events[1]["content"]["role"] == "model"
+        assert turn_events[1]["content"]["parts"][0]["text"] == "response 1"
+        assert inference_result.candidate_name == "test-agent"
+
+    @mock.patch.object(_evals_common, "_get_interactions_client")
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_run_inference_gemini_agent_continues_on_failure(
+        self, mock_eval_dataset_loader, mock_get_interactions_client
+    ):
+        mock_df = pd.DataFrame({"prompt": ["p1", "p2"]})
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        mock_interactions = mock.Mock()
+        mock_interactions.create.side_effect = [
+            RuntimeError("interaction failed"),
+            {
+                "id": "interaction-2",
+                "status": "completed",
+                "steps": [
+                    {
+                        "type": "model_output",
+                        "content": [{"type": "text", "text": "response 2"}],
+                    }
+                ],
+            },
+        ]
+        mock_get_interactions_client.return_value = mock_interactions
+
+        inference_result = self.client.evals.run_inference(
+            src=mock_df,
+            agent=_TEST_GEMINI_AGENT,
+        )
+
+        result_df = inference_result.eval_dataset_df
+        assert result_df["prompt"].tolist() == ["p1", "p2"]
+        assert pd.isna(result_df["response"].iloc[0])
+        assert result_df["response"].iloc[1] == "response 2"
+        assert pd.isna(result_df["interaction_id"].iloc[0])
+        assert result_df["interaction_id"].iloc[1] == "interaction-2"
+        assert result_df["agent_data"].tolist()[0] == {}
+        assert mock_interactions.create.call_count == 2
+
+    @mock.patch.object(_evals_common, "_get_interactions_client")
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    @mock.patch.object(_evals_common.agentplatform, "Client")
+    def test_run_inference_non_gemini_agent_routes_to_agent_engine(
+        self,
+        mock_agentplatform_client,
+        mock_eval_dataset_loader,
+        mock_get_interactions_client,
+    ):
+        mock_df = pd.DataFrame({"prompt": ["agent prompt"]})
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+
+        mock_agent_engine = mock.Mock()
+        mock_agent_engine.create_session.return_value = {"id": "session1"}
+        mock_agent_engine.stream_query.return_value = iter(
+            [
+                {
+                    "id": "1",
+                    "content": {"parts": [{"text": "agent response"}]},
+                    "timestamp": 124,
+                    "author": "model",
+                }
+            ]
+        )
+        mock_agentplatform_client.return_value.agent_engines.get.return_value = (
+            mock_agent_engine
+        )
+
+        self.client.evals.run_inference(
+            src=mock_df,
+            agent=_TEST_AGENT_ENGINE,
+        )
+
+        mock_agentplatform_client.return_value.agent_engines.get.assert_called_once_with(
+            name=_TEST_AGENT_ENGINE
+        )
+        mock_get_interactions_client.assert_not_called()
+
+
+@pytest.mark.usefixtures("google_auth_mock")
+class TestAwaitInteraction:
+    """Unit tests for _await_interaction polling behavior."""
+
+    def test_await_interaction_returns_immediately_when_terminal(self):
+        client = mock.Mock()
+        interaction = {"id": "i1", "status": "completed"}
+        result = _evals_common._await_interaction(client, interaction)
+        assert result is interaction
+        client.get.assert_not_called()
+
+    def test_await_interaction_polls_with_exponential_backoff(self):
+        client = mock.Mock()
+        client.get.side_effect = [
+            {"id": "i1", "status": "in_progress"},
+            {"id": "i1", "status": "in_progress"},
+            {"id": "i1", "status": "completed"},
+        ]
+        sleeps = []
+        with mock.patch.object(_evals_common.time, "sleep", sleeps.append):
+            result = _evals_common._await_interaction(
+                client,
+                {"id": "i1", "status": "in_progress"},
+                initial_poll_interval_seconds=2.0,
+                max_poll_interval_seconds=30.0,
+                poll_backoff_multiplier=2.0,
+            )
+        assert result["status"] == "completed"
+        assert sleeps == [2.0, 4.0, 8.0]
+
+    def test_await_interaction_caps_poll_interval(self):
+        client = mock.Mock()
+        client.get.side_effect = [
+            {"id": "i1", "status": "in_progress"},
+            {"id": "i1", "status": "completed"},
+        ]
+        sleeps = []
+        with mock.patch.object(_evals_common.time, "sleep", sleeps.append):
+            _evals_common._await_interaction(
+                client,
+                {"id": "i1", "status": "in_progress"},
+                initial_poll_interval_seconds=25.0,
+                max_poll_interval_seconds=30.0,
+                poll_backoff_multiplier=2.0,
+            )
+        assert sleeps == [25.0, 30.0]
+
+    def test_await_interaction_clamps_sleep_to_deadline(self):
+        client = mock.Mock()
+        client.get.return_value = {"id": "i1", "status": "in_progress"}
+        # monotonic: 0 (deadline calc) -> 0 (loop check, remaining=5) -> 5
+        # (loop check, remaining=0 -> break).
+        times = iter([0.0, 0.0, 5.0])
+        sleeps = []
+        with (
+            mock.patch.object(_evals_common.time, "monotonic", lambda: next(times)),
+            mock.patch.object(_evals_common.time, "sleep", sleeps.append),
+        ):
+            with pytest.raises(TimeoutError, match="did not complete"):
+                _evals_common._await_interaction(
+                    client,
+                    {"id": "i1", "status": "in_progress"},
+                    initial_poll_interval_seconds=30.0,
+                    timeout_seconds=5.0,
+                )
+        # Sleep is clamped to the 5s remaining, never the full 30s interval.
+        assert sleeps == [5.0]
+
+    def test_await_interaction_raises_on_timeout(self):
+        client = mock.Mock()
+        client.get.return_value = {"id": "i1", "status": "in_progress"}
+        with mock.patch.object(_evals_common.time, "sleep"):
+            with pytest.raises(TimeoutError, match="did not complete"):
+                _evals_common._await_interaction(
+                    client,
+                    {"id": "i1", "status": "in_progress"},
+                    timeout_seconds=-1.0,
+                )
+
 
 @pytest.mark.usefixtures("google_auth_mock")
 class TestEvalsMetricHandlers:
@@ -5913,12 +6137,16 @@ class TestAgentInfo:
 
         assert len(agent_info.agents["mock_agent"].tools) == 2
         # First tool: ADK tool with _get_declaration
-        adk_declarations = agent_info.agents["mock_agent"].tools[0].function_declarations
+        adk_declarations = (
+            agent_info.agents["mock_agent"].tools[0].function_declarations
+        )
         assert len(adk_declarations) == 1
         assert adk_declarations[0] is mock_adk_declaration
         mock_adk_tool._get_declaration.assert_called_once()
         # Second tool: plain callable converted to FunctionDeclaration
-        plain_declarations = agent_info.agents["mock_agent"].tools[1].function_declarations
+        plain_declarations = (
+            agent_info.agents["mock_agent"].tools[1].function_declarations
+        )
         assert len(plain_declarations) == 1
         assert isinstance(plain_declarations[0], genai_types.FunctionDeclaration)
         assert plain_declarations[0].name == "my_plain_tool"
@@ -8335,7 +8563,7 @@ class TestEvalsRunEvaluation:
         with mock.patch(
             "agentplatform._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
-        # fmt: on
+            # fmt: on
             mock_llm_process.side_effect = [
                 agentplatform_genai_types.EvalCaseMetricResult(
                     metric_name="error_fallback_quality", score=0.9
@@ -8381,7 +8609,7 @@ class TestEvalsRunEvaluation:
         with mock.patch(
             "agentplatform._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
-        # fmt: on
+            # fmt: on
             mock_llm_process.return_value = (
                 agentplatform_genai_types.EvalCaseMetricResult(
                     metric_name="invalid_type_fallback", score=0.8
@@ -8415,7 +8643,7 @@ class TestEvalsRunEvaluation:
         with mock.patch(
             "agentplatform._genai.evals.Evals._evaluate_instances"
         ) as mock_evaluate_instances_unified:
-        # fmt: on
+            # fmt: on
             mock_evaluate_instances_unified.return_value = (
                 agentplatform_genai_types.EvaluateInstancesResponse(
                     metric_results=[
@@ -8461,7 +8689,7 @@ class TestEvalsRunEvaluation:
         with mock.patch(
             "agentplatform._genai.evals.Evals._evaluate_instances"
         ) as mock_evaluate_instances_unified:
-        # fmt: on
+            # fmt: on
             mock_evaluate_instances_unified.return_value = (
                 agentplatform_genai_types.EvaluateInstancesResponse(
                     metric_results=[
@@ -8984,6 +9212,68 @@ class TestEvalsGenerateConversationScenarios:
         call_args = self.mock_api_client.async_request.call_args
         request_body = call_args[0][2]  # Third positional arg is the request dict
         assert request_body.get("allowCrossRegionModel") is True
+
+    @mock.patch.object(_evals_common, "_fetch_agent_config_dict")
+    def test_generate_conversation_scenarios_from_gemini_agent(
+        self, mock_fetch_agent_config
+    ):
+        mock_fetch_agent_config.return_value = (
+            agentplatform_genai_types.evals.AgentConfig(
+                agent_id="test-agent",
+                instruction="You are a helpful travel assistant.",
+                description="An agent that books flights.",
+                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+            )
+        )
+
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        with mock.patch.object(
+            evals_module, "_generate_user_scenarios"
+        ) as mock_generate_user_scenarios:
+            mock_generate_user_scenarios.return_value = self.mock_response
+            evals_module.generate_conversation_scenarios(
+                agent=_TEST_GEMINI_AGENT,
+                config={"count": 2},
+            )
+
+        mock_fetch_agent_config.assert_called_once_with(
+            self.mock_api_client, _TEST_GEMINI_AGENT
+        )
+        call_kwargs = mock_generate_user_scenarios.call_args.kwargs
+        assert call_kwargs["root_agent_id"] == "test-agent"
+        agents = call_kwargs["agents"]
+        assert "test-agent" in agents
+        derived_config = agents["test-agent"]
+        assert derived_config.instruction == "You are a helpful travel assistant."
+        assert derived_config.description == "An agent that books flights."
+        assert derived_config.tools is not None
+        assert derived_config.tools[0].google_search is not None
+
+    def test_generate_conversation_scenarios_agent_and_agent_info_raises(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+        with pytest.raises(ValueError, match="not both"):
+            evals_module.generate_conversation_scenarios(
+                agent=_TEST_GEMINI_AGENT,
+                agent_info=agentplatform_genai_types.evals.AgentInfo(
+                    agents={"agent_1": {}},
+                    root_agent_id="agent_1",
+                ),
+                config={"count": 2},
+            )
+
+    def test_generate_conversation_scenarios_no_agent_raises(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+        with pytest.raises(ValueError, match="must be provided"):
+            evals_module.generate_conversation_scenarios(config={"count": 2})
+
+    def test_generate_conversation_scenarios_non_gemini_agent_raises(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+        with pytest.raises(ValueError, match="Gemini Agents API"):
+            evals_module.generate_conversation_scenarios(
+                agent=_TEST_AGENT_ENGINE,
+                config={"count": 2},
+            )
 
 
 class TestTransformDataframe:
@@ -9559,6 +9849,224 @@ class TestResolveDataset:
         assert "conversation_history" in ptd_values
 
 
+class TestResolveDatasetWithInteractions:
+    """Tests for resolving interactions_data_source in _resolve_dataset."""
+
+    def setup_method(self):
+        self.mock_api_client = mock.Mock()
+        self.mock_api_client.project = "test-project"
+        self.mock_api_client.location = "us-central1"
+
+    def test_has_interactions_data_source_true(self):
+        cases = [
+            agentplatform_genai_types.EvalCase(
+                interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                    gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                        gemini_agent="projects/p/locations/l/agents/a"
+                    ),
+                    interaction="projects/p/locations/l/interactions/i1",
+                )
+            )
+        ]
+        assert _evals_common._has_interactions_data_source(cases)
+
+    def test_has_interactions_data_source_false(self):
+        cases = [
+            agentplatform_genai_types.EvalCase(
+                prompt=genai_types.Content(parts=[genai_types.Part(text="test")]),
+            )
+        ]
+        assert not _evals_common._has_interactions_data_source(cases)
+
+    def test_resolve_rejects_mixed_cases(self):
+        """Mixing interaction-based and prompt-based cases raises ValueError."""
+        cases = [
+            agentplatform_genai_types.EvalCase(
+                interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                    interaction="projects/p/locations/l/interactions/i1",
+                )
+            ),
+            agentplatform_genai_types.EvalCase(
+                prompt=genai_types.Content(parts=[genai_types.Part(text="test")]),
+            ),
+        ]
+        with pytest.raises(ValueError, match="interactions_data_source"):
+            _evals_common._resolve_interactions_to_eval_cases(
+                self.mock_api_client, cases
+            )
+
+    def test_resolve_rejects_missing_interaction(self):
+        """EvalCase with interactions_data_source but no interaction raises."""
+        cases = [
+            agentplatform_genai_types.EvalCase(
+                interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                    gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                        gemini_agent="projects/p/locations/l/agents/a"
+                    ),
+                )
+            ),
+        ]
+        with pytest.raises(ValueError, match="interaction is required"):
+            _evals_common._resolve_interactions_to_eval_cases(
+                self.mock_api_client, cases
+            )
+
+    def test_interaction_dict_to_agent_data_text_conversation(self):
+        """Converts user_input + model_output steps to agent_data."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Hello agent"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Hello! How can I help?"}],
+                },
+            ],
+        }
+
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+
+        assert len(result.turns) == 1
+        events = result.turns[0].events
+        assert len(events) == 2
+        assert events[0].author == "user"
+        assert events[0].content.parts[0].text == "Hello agent"
+        assert events[1].author == "agent"
+        assert events[1].content.parts[0].text == "Hello! How can I help?"
+
+    def test_interaction_dict_to_agent_data_with_tool_calls(self):
+        """Converts function_call + function_result steps."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "function_call",
+                    "name": "get_weather",
+                    "arguments": {"city": "NYC"},
+                    "id": "call_1",
+                },
+                {
+                    "type": "function_result",
+                    "name": "get_weather",
+                    "call_id": "call_1",
+                    "result": {"temp": "72F"},
+                },
+            ],
+        }
+
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+
+        events = result.turns[0].events
+        assert len(events) == 2
+        fc_event = events[0]
+        assert fc_event.author == "agent"
+        assert fc_event.content.parts[0].function_call.name == "get_weather"
+        fr_event = events[1]
+        assert fr_event.content.parts[0].function_response.id == "call_1"
+
+    def test_resolve_interactions_to_eval_cases_happy_path(self):
+        """Fetches an interaction and populates agent_data on the EvalCase."""
+        interaction_body = json.dumps(
+            {
+                "status": "completed",
+                "steps": [
+                    {
+                        "type": "user_input",
+                        "content": [{"type": "text", "text": "What is the weather?"}],
+                    },
+                    {
+                        "type": "model_output",
+                        "content": [{"type": "text", "text": "It is sunny."}],
+                    },
+                ],
+            }
+        )
+        agent_body = json.dumps(
+            {
+                "system_instruction": "You are helpful.",
+                "base_agent": "gemini-2.0-flash",
+            }
+        )
+
+        def mock_request(method, path, *args, **kwargs):
+            resp = mock.MagicMock()
+            if path.startswith("interactions/"):
+                resp.body = interaction_body
+            elif path.startswith("agents/"):
+                resp.body = agent_body
+            else:
+                resp.body = None
+            return resp
+
+        self.mock_api_client.request.side_effect = mock_request
+
+        original_case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/my-agent",
+                ),
+                interaction="projects/p/locations/l/interactions/i1",
+            ),
+        )
+
+        resolved = _evals_common._resolve_interactions_to_eval_cases(
+            self.mock_api_client, [original_case]
+        )
+
+        assert len(resolved) == 1
+        result_case = resolved[0]
+
+        # interactions_data_source should be cleared after resolution.
+        assert result_case.interactions_data_source is None
+
+        # agent_data should be populated with the interaction content.
+        agent_data = result_case.agent_data
+        assert agent_data is not None
+        assert len(agent_data.turns) == 1
+        events = agent_data.turns[0].events
+        assert len(events) == 2
+        assert events[0].author == "user"
+        assert events[0].content.parts[0].text == "What is the weather?"
+        assert events[1].author == "agent"
+        assert events[1].content.parts[0].text == "It is sunny."
+
+        # agents map should be populated with config from the Agent API.
+        assert "my-agent" in agent_data.agents
+        agent_config = agent_data.agents["my-agent"]
+        assert agent_config.agent_id == "my-agent"
+        assert agent_config.instruction == "You are helpful."
+        assert agent_config.agent_type == "gemini-2.0-flash"
+
+    def test_resolve_preserves_original_eval_case_fields(self):
+        """Fields other than agent_data are preserved on the resolved EvalCase."""
+        interaction_body = json.dumps({"status": "completed", "steps": []})
+
+        def mock_request(method, path, *args, **kwargs):
+            resp = mock.MagicMock()
+            resp.body = interaction_body
+            return resp
+
+        self.mock_api_client.request.side_effect = mock_request
+
+        original_case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/i1",
+            ),
+        )
+
+        resolved = _evals_common._resolve_interactions_to_eval_cases(
+            self.mock_api_client, [original_case]
+        )
+
+        assert len(resolved) == 1
+        # agent_data is populated and interactions_data_source cleared.
+        assert resolved[0].agent_data is not None
+        assert resolved[0].interactions_data_source is None
+
+
 class TestRateLimiter:
     """Tests for the RateLimiter class in _evals_utils."""
 
@@ -9839,3 +10347,938 @@ class TestAllowCrossRegionModel:
             request_body.get("evaluationConfig", {}).get("allowCrossRegionModel")
             is True
         )
+
+
+_TEST_INTERACTION = (
+    "projects/test-project/locations/us-central1/interactions/test-interaction"
+)
+_TEST_GEMINI_AGENT = "projects/test-project/locations/us-central1/agents/test-agent"
+_TEST_AGENT_ENGINE = "projects/test-project/locations/us-central1/reasoningEngines/123"
+
+
+class TestIsGeminiAgentResource:
+    """Tests for the _is_gemini_agent_resource helper."""
+
+    def test_gemini_agent_resource_is_detected(self):
+        assert _evals_common._is_gemini_agent_resource(_TEST_GEMINI_AGENT) is True
+
+    def test_agent_engine_resource_is_not_gemini(self):
+        assert _evals_common._is_gemini_agent_resource(_TEST_AGENT_ENGINE) is False
+
+    def test_non_resource_string_is_not_gemini(self):
+        assert _evals_common._is_gemini_agent_resource("test-agent") is False
+
+
+class TestEvaluateInstancesInteractionsDataSource:
+    """CUJ1: BYO interaction id evaluated via evaluate_instances."""
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps({})
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_evaluate_instances_sends_interactions_data_source(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        instance = agentplatform_genai_types.EvaluationInstance(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction=_TEST_INTERACTION,
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent=_TEST_GEMINI_AGENT,
+                ),
+            )
+        )
+        metric_config = agentplatform_genai_types._EvaluateInstancesRequestParameters(
+            metrics=[
+                agentplatform_genai_types.Metric(name="multi_turn_task_success_v1")
+            ],
+            instance=instance,
+        )
+
+        evals_module.evaluate_instances(metric_config=metric_config)
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        path = call_args[0][1]
+        request_body = call_args[0][2]
+        assert path.endswith(":evaluateInstances")
+        data_source = request_body["instance"]["interactionsDataSource"]
+        assert data_source["interaction"] == _TEST_INTERACTION
+        assert data_source["gemini_agent_config"]["gemini_agent"] == _TEST_GEMINI_AGENT
+
+
+class TestEvaluateInteractionIdDataset:
+    """CUJ1 via evaluate(): interaction_id column + agent -> data source."""
+
+    def test_build_interaction_id_dataset_from_column(self):
+        loaded = [
+            {"interaction_id": "abc123"},
+            {"interaction_id": ("projects/p/locations/global/interactions/def456")},
+        ]
+        dataset = _evals_common._build_interaction_id_dataset(
+            loaded, _TEST_GEMINI_AGENT, "global"
+        )
+
+        assert dataset is not None
+        assert len(dataset.eval_cases) == 2
+        ds0 = dataset.eval_cases[0].interactions_data_source
+        assert ds0.gemini_agent_config.gemini_agent == _TEST_GEMINI_AGENT
+        assert ds0.interaction == (
+            "projects/test-project/locations/us-central1/interactions/abc123"
+        )
+        assert (
+            dataset.eval_cases[1].interactions_data_source.interaction
+            == "projects/p/locations/global/interactions/def456"
+        )
+        assert dataset.eval_cases[0].agent_data is None
+
+    def test_build_interaction_id_dataset_requires_agent(self):
+        with pytest.raises(ValueError, match="agent.*required"):
+            _evals_common._build_interaction_id_dataset(
+                [{"interaction_id": "abc123"}], None, "global"
+            )
+
+    def test_build_interaction_id_dataset_rejects_non_gemini_agent(self):
+        with pytest.raises(ValueError, match="Gemini Agents API resource name"):
+            _evals_common._build_interaction_id_dataset(
+                [{"interaction_id": "abc123"}],
+                "projects/p/locations/us-central1/reasoningEngines/123",
+                "global",
+            )
+
+    def test_build_interaction_id_dataset_none_without_column_and_no_agent(self):
+        assert (
+            _evals_common._build_interaction_id_dataset(
+                [{"prompt": "hi", "response": "yo"}], None, "global"
+            )
+            is None
+        )
+
+    def test_build_interaction_id_dataset_agent_without_column_raises(self):
+        with pytest.raises(ValueError, match="interaction_id"):
+            _evals_common._build_interaction_id_dataset(
+                [{"prompt": "hi", "response": "yo"}], _TEST_GEMINI_AGENT, "global"
+            )
+
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_evaluate_agent_without_interaction_id_column_raises(
+        self, mock_eval_dataset_loader
+    ):
+        agentplatform.init(project=_TEST_PROJECT, location=_TEST_LOCATION)
+        client = agentplatform.Client(project=_TEST_PROJECT, location=_TEST_LOCATION)
+        mock_df = pd.DataFrame([{"prompt": "p1", "response": "r1"}])
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_dataset_df=mock_df)
+
+        with pytest.raises(ValueError, match="interaction_id"):
+            client.evals.evaluate(
+                dataset=dataset,
+                metrics=[agentplatform_genai_types.Metric(name="exact_match")],
+                agent=_TEST_GEMINI_AGENT,
+            )
+
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_evaluate_interaction_id_with_dataset_schema_raises(
+        self, mock_eval_dataset_loader
+    ):
+        agentplatform.init(project=_TEST_PROJECT, location=_TEST_LOCATION)
+        client = agentplatform.Client(project=_TEST_PROJECT, location=_TEST_LOCATION)
+        mock_df = pd.DataFrame([{"interaction_id": "i1"}])
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_dataset_df=mock_df)
+
+        with pytest.raises(ValueError, match="dataset_schema"):
+            client.evals.evaluate(
+                dataset=dataset,
+                metrics=[agentplatform_genai_types.Metric(name="exact_match")],
+                agent=_TEST_GEMINI_AGENT,
+                config=agentplatform_genai_types.EvaluateMethodConfig(
+                    dataset_schema="GEMINI"
+                ),
+            )
+
+
+class TestCreateEvaluationRunGeminiAgent:
+    """CUJ2: scrape a Gemini agent via create_evaluation_run."""
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "name": "projects/123/locations/us-central1/evaluationRuns/456",
+                "displayName": "test_run",
+                "state": "PENDING",
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def _get_create_run_body(self):
+        for call_args in self.mock_api_client.request.call_args_list:
+            method, path = call_args[0][0], call_args[0][1]
+            if method == "post" and path == "evaluationRuns":
+                return call_args[0][2]
+        raise AssertionError("evaluationRuns create call was not made")
+
+    def _agent_run_config(self, request_body):
+        inference_configs = request_body["inferenceConfigs"]
+        candidate = next(iter(inference_configs.values()))
+        return candidate["agentRunConfig"]
+
+    def test_create_evaluation_run_builds_gemini_agent_config(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            agent_info=agentplatform_genai_types.evals.AgentInfo(name="gemini-agent"),
+            agent=_TEST_GEMINI_AGENT,
+        )
+
+        request_body = self._get_create_run_body()
+        agent_run_config = self._agent_run_config(request_body)
+        assert (
+            agent_run_config["gemini_agent_config"]["gemini_agent"]
+            == _TEST_GEMINI_AGENT
+        )
+        assert "agent_engine" not in agent_run_config
+
+    def test_create_evaluation_run_agent_engine_does_not_set_gemini(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            agent_info=agentplatform_genai_types.evals.AgentInfo(name="ae-agent"),
+            agent=_TEST_AGENT_ENGINE,
+        )
+
+        request_body = self._get_create_run_body()
+        agent_run_config = self._agent_run_config(request_body)
+        assert "gemini_agent_config" not in agent_run_config
+        assert agent_run_config["agent_engine"] == _TEST_AGENT_ENGINE
+
+
+class TestResolveInteractionsForDisplay:
+    """Tests for _resolve_interactions_for_display."""
+
+    def _make_api_response(self, body_dict):
+        """Create a mock API response with a JSON body."""
+        resp = mock.MagicMock()
+        resp.body = json.dumps(body_dict)
+        return resp
+
+    def test_no_interactions_data_source_is_noop(self):
+        """Cases without interactions_data_source are returned as-is."""
+        case = agentplatform_genai_types.EvalCase(
+            prompt=genai_types.Content(parts=[genai_types.Part(text="hello")]),
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+        mock_api_client = mock.MagicMock()
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        assert result[0].eval_cases[0] is case
+        mock_api_client.request.assert_not_called()
+
+    def test_resolves_interaction_to_agent_data(self):
+        """When interactions_data_source is present, agent_data is populated."""
+        case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction=("projects/p/locations/l/interactions/test-id"),
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/my-agent",
+                ),
+            )
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+
+        interaction_json = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "hello"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "hi there"}],
+                },
+            ],
+        }
+        agent_json = {"system_instruction": "Be helpful"}
+
+        def mock_request(method, path, *args, **kwargs):
+            if "interactions/" in path:
+                return self._make_api_response(interaction_json)
+            if "agents/" in path:
+                return self._make_api_response(agent_json)
+            return self._make_api_response({})
+
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = mock_request
+
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        resolved_case = result[0].eval_cases[0]
+        assert resolved_case.agent_data is not None
+        assert "my-agent" in resolved_case.agent_data.agents
+
+        # Verify the interaction and agent were fetched.
+        assert mock_api_client.request.call_count == 2
+        mock_api_client.request.assert_any_call("get", "interactions/test-id", {}, None)
+        mock_api_client.request.assert_any_call("get", "agents/my-agent", {}, None)
+
+    def test_agents_map_populated_with_full_config(self):
+        """The agents dict includes instruction and tools from the Agent API."""
+        case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/i1",
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/weather-bot",
+                ),
+            )
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+        interaction_json = {"status": "completed", "steps": []}
+        agent_json = {
+            "system_instruction": "You are a weather assistant.",
+            "description": "Helps with weather queries.",
+            "base_agent": "gemini-2.0-flash",
+            "tools": [
+                {"type": "code_execution"},
+                {"type": "google_search"},
+                {
+                    "type": "function",
+                    "function_declarations": [
+                        {"name": "get_weather", "description": "Get weather"}
+                    ],
+                },
+            ],
+        }
+
+        def mock_request(method, path, *args, **kwargs):
+            if "interactions/" in path:
+                return self._make_api_response(interaction_json)
+            if "agents/" in path:
+                return self._make_api_response(agent_json)
+            return self._make_api_response({})
+
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = mock_request
+
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        resolved_case = result[0].eval_cases[0]
+        agent_cfg = resolved_case.agent_data.agents["weather-bot"]
+        assert agent_cfg.agent_id == "weather-bot"
+        assert agent_cfg.instruction == "You are a weather assistant."
+        assert agent_cfg.description == "Helps with weather queries."
+        assert agent_cfg.agent_type == "gemini-2.0-flash"
+        # Built-in tools are mapped to typed Tool objects; function tool also included.
+        assert agent_cfg.tools is not None
+        assert len(agent_cfg.tools) == 3
+        assert any(t.code_execution is not None for t in agent_cfg.tools)
+        assert any(t.google_search is not None for t in agent_cfg.tools)
+        assert any(t.function_declarations is not None for t in agent_cfg.tools)
+
+    def test_consecutive_model_output_steps_merged(self):
+        """Multiple consecutive model_output steps are merged into one event."""
+        case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/i1",
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/a",
+                ),
+            )
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+        # Simulate multiple model_output steps (one per paragraph).
+        interaction_json = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Paragraph 1."}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Paragraph 2."}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Paragraph 3."}],
+                },
+            ],
+        }
+
+        def mock_request(method, path, *args, **kwargs):
+            if "interactions/" in path:
+                return self._make_api_response(interaction_json)
+            return self._make_api_response({})
+
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = mock_request
+
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        resolved_case = result[0].eval_cases[0]
+        events = resolved_case.agent_data.turns[0].events
+        # All three model_output steps should be merged into one event.
+        assert len(events) == 1
+        text_parts = [
+            p for p in events[0].content.parts if hasattr(p, "text") and p.text
+        ]
+        assert len(text_parts) == 1
+        assert "Paragraph 1." in text_parts[0].text
+        assert "Paragraph 2." in text_parts[0].text
+        assert "Paragraph 3." in text_parts[0].text
+
+    def test_existing_agent_data_not_overwritten(self):
+        """Cases that already have agent_data are not resolved again."""
+        existing_ad = agentplatform_genai_types.evals.AgentData(
+            turns=[
+                agentplatform_genai_types.evals.ConversationTurn(
+                    turn_index=0, events=[]
+                )
+            ],
+            agents={
+                "existing": agentplatform_genai_types.evals.AgentConfig(
+                    agent_id="existing"
+                )
+            },
+        )
+        case = agentplatform_genai_types.EvalCase(
+            agent_data=existing_ad,
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/test-id",
+            ),
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+
+        mock_api_client = mock.MagicMock()
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        # Should not have called request since agent_data already exists.
+        mock_api_client.request.assert_not_called()
+        assert result[0].eval_cases[0].agent_data is existing_ad
+
+    def test_interaction_fetch_failure_returns_original(self):
+        """If fetching the interaction fails, the original case is returned."""
+        case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/bad-id",
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/my-agent",
+                ),
+            )
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = RuntimeError("API error")
+
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        # Original case returned (no agent_data).
+        resolved_case = result[0].eval_cases[0]
+        assert resolved_case.agent_data is None
+
+    def test_agent_fetch_failure_still_shows_trace(self):
+        """If fetching the agent config fails, trace is still populated."""
+        case = agentplatform_genai_types.EvalCase(
+            interactions_data_source=agentplatform_genai_types.InteractionsDataSource(
+                interaction="projects/p/locations/l/interactions/i1",
+                gemini_agent_config=agentplatform_genai_types.GeminiAgentConfig(
+                    gemini_agent="projects/p/locations/l/agents/bad-agent",
+                ),
+            )
+        )
+        dataset = agentplatform_genai_types.EvaluationDataset(eval_cases=[case])
+        interaction_json = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "hi"}],
+                },
+            ],
+        }
+
+        def mock_request(method, path, *args, **kwargs):
+            if "interactions/" in path:
+                return self._make_api_response(interaction_json)
+            if "agents/" in path:
+                raise RuntimeError("Agent not found")
+            return self._make_api_response({})
+
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = mock_request
+
+        result = _evals_common._resolve_interactions_for_display(
+            mock_api_client, [dataset]
+        )
+        resolved_case = result[0].eval_cases[0]
+        # Trace should still be populated even though agent config failed.
+        assert resolved_case.agent_data is not None
+        assert len(resolved_case.agent_data.turns) == 1
+        # Agent config is minimal (just agent_id, no instruction/tools).
+        agent_cfg = resolved_case.agent_data.agents["bad-agent"]
+        assert agent_cfg.agent_id == "bad-agent"
+        assert agent_cfg.instruction is None
+
+
+class TestStepToAgentEvent:
+    """Tests for _step_to_agent_event using typed GenAI SDK step objects."""
+
+    def test_user_input_step(self):
+        from google.genai._gaos.types.interactions import (
+            textcontent,
+        )  # pylint: disable=g-import-not-at-top
+        from google.genai._gaos.types.interactions import (
+            userinputstep,
+        )  # pylint: disable=g-import-not-at-top
+
+        step = userinputstep.UserInputStep(
+            content=[textcontent.TextContent(text="hello")],
+        )
+        event = _evals_common._step_to_agent_event(step)
+        assert event is not None
+        assert event.author == "user"
+        assert event.content.parts[0].text == "hello"
+
+    def test_model_output_step(self):
+        from google.genai._gaos.types.interactions import (
+            modeloutputstep,
+        )  # pylint: disable=g-import-not-at-top
+        from google.genai._gaos.types.interactions import (
+            textcontent,
+        )  # pylint: disable=g-import-not-at-top
+
+        step = modeloutputstep.ModelOutputStep(
+            content=[textcontent.TextContent(text="world")],
+        )
+        event = _evals_common._step_to_agent_event(step)
+        assert event is not None
+        assert event.author == "agent"
+        assert event.content.parts[0].text == "world"
+
+    def test_function_call_step(self):
+        from google.genai._gaos.types.interactions import (
+            functioncallstep,
+        )  # pylint: disable=g-import-not-at-top
+
+        step = functioncallstep.FunctionCallStep(
+            name="get_weather",
+            arguments={"city": "NYC"},
+            id="call_1",
+        )
+        event = _evals_common._step_to_agent_event(step)
+        assert event.content.parts[0].function_call.name == "get_weather"
+
+    def test_function_result_step(self):
+        from google.genai._gaos.types.interactions import (
+            functionresultstep,
+        )  # pylint: disable=g-import-not-at-top
+
+        step = functionresultstep.FunctionResultStep(
+            name="get_weather",
+            call_id="call_1",
+            result={"temp": "72F"},
+        )
+        event = _evals_common._step_to_agent_event(step)
+        assert event.author == "user"
+        assert event.content.parts[0].function_response.id == "call_1"
+
+    def test_unknown_step_returns_none(self):
+        """An unrecognised step type returns None."""
+        step = mock.MagicMock()
+        step.type = "some_future_step"
+        event = _evals_common._step_to_agent_event(step)
+        assert event is None
+
+    def test_empty_text_content_returns_none(self):
+        from google.genai._gaos.types.interactions import (
+            userinputstep,
+        )  # pylint: disable=g-import-not-at-top
+
+        step = userinputstep.UserInputStep(content=[])
+        event = _evals_common._step_to_agent_event(step)
+        assert event is None
+
+
+class TestInteractionDictToAgentData:
+    """Tests for _interaction_dict_to_agent_data."""
+
+    def test_single_turn_conversation(self):
+        """One user_input + model_output produces one turn."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Hello agent"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Hello! How can I help?"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        assert len(result.turns) == 1
+        events = result.turns[0].events
+        assert len(events) == 2
+        assert events[0].author == "user"
+        assert events[0].content.parts[0].text == "Hello agent"
+        assert events[1].author == "agent"
+        assert events[1].content.parts[0].text == "Hello! How can I help?"
+
+    def test_multi_turn_conversation(self):
+        """Multiple user_input steps produce multiple turns."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Turn 1 user"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Turn 1 model"}],
+                },
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Turn 2 user"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Turn 2 model"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        assert len(result.turns) == 2
+        assert result.turns[0].turn_index == 0
+        assert result.turns[1].turn_index == 1
+        # Turn 1 events
+        assert result.turns[0].events[0].content.parts[0].text == "Turn 1 user"
+        # Turn 2 events
+        assert result.turns[1].events[0].content.parts[0].text == "Turn 2 user"
+
+    def test_with_tool_calls(self):
+        """Function call/result in same turn as user_input."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "What is the weather?"}],
+                },
+                {
+                    "type": "function_call",
+                    "name": "get_weather",
+                    "arguments": {"city": "NYC"},
+                    "id": "call_1",
+                },
+                {
+                    "type": "function_result",
+                    "name": "get_weather",
+                    "call_id": "call_1",
+                    "result": {"temp": "72F"},
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "It is 72F in NYC."}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        # All in one turn since there's only one user_input.
+        assert len(result.turns) == 1
+        events = result.turns[0].events
+        assert len(events) == 4
+        assert events[1].content.parts[0].function_call.name == "get_weather"
+
+    def test_empty_interaction(self):
+        """Empty interaction produces a single turn with no events."""
+        result = _evals_common._interaction_dict_to_agent_data(
+            {"status": "completed", "steps": []}
+        )
+        assert len(result.turns) == 1
+        assert result.turns[0].events == []
+
+    def test_unknown_steps_skipped(self):
+        """Unrecognised step types are skipped, not included as events."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "hello"}],
+                },
+                {"type": "some_future_type", "data": "payload"},
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "hi"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        events = result.turns[0].events
+        assert len(events) == 2
+
+
+class TestMergeTextPartsInAgentData:
+    """Tests for _merge_text_parts_in_agent_data."""
+
+    def _make_agent_data(self, turns_dict):
+        from agentplatform._genai.types import (
+            evals as evals_types,
+        )  # pylint: disable=g-import-not-at-top
+
+        return evals_types.AgentData.model_validate({"turns": turns_dict})
+
+    def test_consecutive_agent_events_merged(self):
+        """Multiple consecutive model_output events are merged into one."""
+        agent_data = self._make_agent_data(
+            [
+                {
+                    "turn_index": 0,
+                    "events": [
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"text": "Paragraph 1."}],
+                            },
+                        },
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"text": "Paragraph 2."}],
+                            },
+                        },
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"text": "Paragraph 3."}],
+                            },
+                        },
+                    ],
+                }
+            ]
+        )
+        _evals_common._merge_text_parts_in_agent_data(agent_data)
+        events = agent_data.turns[0].events
+        assert len(events) == 1
+        assert len(events[0].content.parts) == 1
+        text = events[0].content.parts[0].text
+        assert "Paragraph 1." in text
+        assert "Paragraph 2." in text
+        assert "Paragraph 3." in text
+
+    def test_different_authors_not_merged(self):
+        """Events from different authors are not merged."""
+        agent_data = self._make_agent_data(
+            [
+                {
+                    "turn_index": 0,
+                    "events": [
+                        {
+                            "author": "user",
+                            "content": {
+                                "role": "user",
+                                "parts": [{"text": "hi"}],
+                            },
+                        },
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"text": "hello"}],
+                            },
+                        },
+                    ],
+                }
+            ]
+        )
+        _evals_common._merge_text_parts_in_agent_data(agent_data)
+        events = agent_data.turns[0].events
+        assert len(events) == 2
+
+    def test_function_call_events_not_merged(self):
+        """Events with function_call parts are not merged with text events."""
+        agent_data = self._make_agent_data(
+            [
+                {
+                    "turn_index": 0,
+                    "events": [
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"text": "Let me check."}],
+                            },
+                        },
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [{"function_call": {"name": "search"}}],
+                            },
+                        },
+                    ],
+                }
+            ]
+        )
+        _evals_common._merge_text_parts_in_agent_data(agent_data)
+        events = agent_data.turns[0].events
+        assert len(events) == 2
+
+    def test_multiple_text_parts_within_event_merged(self):
+        """Multiple text parts within a single event are merged."""
+        agent_data = self._make_agent_data(
+            [
+                {
+                    "turn_index": 0,
+                    "events": [
+                        {
+                            "author": "agent",
+                            "content": {
+                                "role": "model",
+                                "parts": [
+                                    {"text": "Part A"},
+                                    {"text": "Part B"},
+                                ],
+                            },
+                        },
+                    ],
+                }
+            ]
+        )
+        _evals_common._merge_text_parts_in_agent_data(agent_data)
+        parts = agent_data.turns[0].events[0].content.parts
+        assert len(parts) == 1
+        assert "Part A" in parts[0].text
+        assert "Part B" in parts[0].text
+
+
+class TestFetchAgentConfigDict:
+    """Tests for _fetch_agent_config_dict."""
+
+    def _make_api_response(self, body_dict):
+        resp = mock.MagicMock()
+        resp.body = json.dumps(body_dict)
+        return resp
+
+    def test_extracts_full_config(self):
+        """Extracts instruction, description, agent_type, and tools."""
+        agent_json = {
+            "system_instruction": "You are helpful.",
+            "description": "A helpful agent.",
+            "base_agent": "gemini-2.0-flash",
+            "tools": [
+                {"type": "code_execution"},
+                {"type": "google_search"},
+                {
+                    "type": "function",
+                    "function_declarations": [
+                        {"name": "search", "description": "Search"}
+                    ],
+                },
+            ],
+        }
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.return_value = self._make_api_response(agent_json)
+
+        result = _evals_common._fetch_agent_config_dict(
+            mock_api_client,
+            "projects/p/locations/l/agents/my-agent",
+        )
+        assert result.agent_id == "my-agent"
+        assert result.instruction == "You are helpful."
+        assert result.description == "A helpful agent."
+        assert result.agent_type == "gemini-2.0-flash"
+        # Built-in tools are mapped to typed Tool objects; function tool also included.
+        assert len(result.tools) == 3
+        assert any(t.code_execution is not None for t in result.tools)
+        assert any(t.google_search is not None for t in result.tools)
+        assert any(t.function_declarations is not None for t in result.tools)
+
+    def test_fetch_failure_returns_minimal_config(self):
+        """If the API call fails, returns just the agent_id."""
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = RuntimeError("not found")
+
+        result = _evals_common._fetch_agent_config_dict(
+            mock_api_client,
+            "projects/p/locations/l/agents/broken-agent",
+        )
+        assert result.agent_id == "broken-agent"
+        assert result.instruction is None
+        assert result.tools is None
+
+    def test_empty_response_body_returns_minimal_config(self):
+        """If the response body is falsy, returns just the agent_id."""
+        mock_api_client = mock.MagicMock()
+        resp = mock.MagicMock()
+        resp.body = None
+        mock_api_client.request.return_value = resp
+
+        result = _evals_common._fetch_agent_config_dict(
+            mock_api_client,
+            "projects/p/locations/l/agents/my-agent",
+        )
+        assert result.agent_id == "my-agent"
+        assert result.instruction is None
+        assert result.tools is None
+
+    def test_empty_resource_name_uses_default_agent_id(self):
+        """An empty resource name falls back to 'agent' as the agent_id."""
+        mock_api_client = mock.MagicMock()
+        mock_api_client.request.side_effect = RuntimeError("irrelevant")
+
+        result = _evals_common._fetch_agent_config_dict(
+            mock_api_client,
+            "",
+        )
+        assert result.agent_id == "agent"

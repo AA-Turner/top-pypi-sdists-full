@@ -148,7 +148,7 @@ def setup_ai_agent():
     menu = (
         "Installed coding agents detected. Which agent should we install the Fivetran plugin for?\n"
         + "\n".join(f"{i}. {name}" for i, (_, name) in enumerate(agent_list, 1))
-        + f"\n{skip_num}. Skip — I'll install manually"
+        + f"\n{skip_num}. Skip AI setup"
     )
 
     choice = input(f"{menu}\n\nPlease enter your selection: ").strip()
@@ -175,11 +175,21 @@ def setup_ai_agent():
             )
 
 
-def validate_example_directory(files_to_download: list):
+def validate_example_directory(files_to_download: list, requested_path: str = ""):
     connector_files = [
         f for f in files_to_download
         if f['local_path'].endswith("connector.py")
     ]
+
+    if len(connector_files) > 1:
+        matches = sorted({f['github_path'].rsplit('/connector.py', 1)[0] for f in connector_files})
+        print_library_log(
+            f"no connector found at '{requested_path}'; available connectors with prefix '{requested_path}':",
+            Logging.Level.WARNING
+        )
+        for match in matches:
+            print_library_log(f"{match}", log_icon=Logging.LogIcon.STEP, indent=True)
+        raise ValueError("re-run with an exact connector name from the list above")
 
     if len(connector_files) != 1:
         print_library_log(
@@ -197,8 +207,46 @@ def _resolve_repo_and_path(path_prefix: str) -> tuple:
     return CONNECTORS_GITHUB_REPO, path_prefix
 
 
+def _collect_download_files(tree: list, actual_path: str) -> tuple:
+    files_to_download = []
+    prefix_matches = set()
+    for item in tree:
+        if item['type'] != 'blob':
+            continue
+        # "actual_path + /" ensures exact directory match, preventing prefix collisions (e.g. "github" matching "github_traffic")
+        if item['path'].startswith(actual_path + "/"):
+            # strip directory prefix and leading "/" to get path relative to project root
+            relative_path = item['path'][len(actual_path):].lstrip('/')
+            # skip README when downloading the blank starter template (users write their own)
+            if actual_path == TEMPLATE_CONNECTOR_PATH and "readme" in relative_path.lower():
+                continue
+            files_to_download.append({
+                'github_path': item['path'],
+                'local_path': relative_path,
+                'size': item.get('size', 0)
+            })
+        # prefix match: collect connector dirs for suggestion when exact path not found
+        elif item['path'].startswith(actual_path) and item['path'].split('/')[-1] == 'connector.py':
+            prefix_matches.add("/".join(item['path'].split('/')[:-1]))
+    return files_to_download, prefix_matches
+
+
+def _raise_no_match(prefix_matches: set, requested_path: str):
+    if prefix_matches:
+        print_library_log(
+            f"no connector found at '{requested_path}'; available connectors with prefix '{requested_path}':",
+            Logging.Level.WARNING
+        )
+        for match in sorted(prefix_matches):
+            print_library_log(f"{match}", log_icon=Logging.LogIcon.STEP, indent=True)
+        raise ValueError("re-run with an exact connector name from the list above")
+    raise ValueError(f"no connector found matching '{requested_path}'")
+
+
 def download_git_directory(path_prefix: str, project_dir: str, non_interactive: bool):
     repo, actual_path = _resolve_repo_and_path(path_prefix)
+    requested_path = path_prefix.rstrip("/")
+    actual_path = actual_path.rstrip("/")
     try:
         tree_url = f"https://api.github.com/repos/{repo}/git/trees/{GITHUB_BRANCH}?recursive=1"
         response = rq.get(tree_url, timeout=10)
@@ -209,27 +257,19 @@ def download_git_directory(path_prefix: str, project_dir: str, non_interactive: 
             print_library_log("failed to fetch repository from GitHub", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
             return
 
-        files_to_download = []
-        for item in tree_data['tree']:
-            if item['type'] == 'blob' and item['path'].startswith(actual_path):
-                relative_path = item['path'][len(actual_path):].lstrip('/')
-                if path_prefix == TEMPLATE_CONNECTOR_PATH and "readme" in relative_path.lower():
-                    continue
-                files_to_download.append({
-                    'github_path': item['path'],
-                    'local_path': relative_path,
-                    'size': item.get('size', 0)
-                })
+        files_to_download, prefix_matches = _collect_download_files(tree_data['tree'], actual_path)
 
         if not files_to_download:
-            print_library_log("no files to download", Logging.Level.WARNING)
-            return
+            _raise_no_match(prefix_matches, requested_path)
 
-        validate_example_directory(files_to_download)
+        validate_example_directory(files_to_download, requested_path)
 
         print_library_log(f"downloading {len(files_to_download)} files from GitHub", log_icon=Logging.LogIcon.STEP)
         download_file_from_github(files_to_download, project_dir, non_interactive, repo)
 
+    except ValueError as e:
+        print_library_log(str(e), Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
     except Exception as e:
         print_library_log(f"failed to download files: {e}", Logging.Level.WARNING)
         print_library_log(f"files are available for manual download from: https://github.com/{repo}/tree/{GITHUB_BRANCH}/{actual_path}")

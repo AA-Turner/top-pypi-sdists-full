@@ -1,0 +1,2 @@
+import"./rolldown-runtime-B4f9JIsa.js";import{Mt as e,u as t}from"./vendor-vue-core-cdiTEubU.js";var n=t(`toast`,()=>{let t=e([]),n=e([]),r=e(!1);function add(e){t.value=[...t.value,e]}function remove(e){n.value=[...n.value,e]}function removeAll(){r.value=!0}function addAlert(e){add({severity:`warn`,summary:`Alert`,detail:e})}return{messagesToAdd:t,messagesToRemove:n,removeAllRequested:r,add,remove,removeAll,addAlert}});export{n as t};
+//# sourceMappingURL=toastStore-zuLUG3BZ.js.map

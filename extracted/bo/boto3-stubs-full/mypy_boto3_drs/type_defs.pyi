@@ -49,6 +49,7 @@ from .literals import (
     RecoveryInstanceDataReplicationInitiationStepNameType,
     RecoveryInstanceDataReplicationInitiationStepStatusType,
     RecoveryInstanceDataReplicationStateType,
+    RecoveryModeType,
     RecoveryResultType,
     RecoverySnapshotsOrderType,
     ReplicationConfigurationDataPlaneRoutingType,
@@ -605,6 +606,7 @@ class CreateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 class LaunchConfigurationTemplateTypeDef(TypedDict):
     launchConfigurationTemplateID: NotRequired[str]
@@ -618,6 +620,7 @@ class LaunchConfigurationTemplateTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     launchConfigurationTemplateID: str
@@ -629,6 +632,7 @@ class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
     stagingAreaSubnetId: str
@@ -866,6 +870,7 @@ class LaunchConfigurationTypeDef(TypedDict):
     licensing: LicensingTypeDef
     postLaunchEnabled: bool
     launchIntoInstanceProperties: LaunchIntoInstancePropertiesTypeDef
+    recoveryMode: RecoveryModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateLaunchConfigurationRequestTypeDef(TypedDict):
@@ -878,6 +883,7 @@ class UpdateLaunchConfigurationRequestTypeDef(TypedDict):
     licensing: NotRequired[LicensingTypeDef]
     postLaunchEnabled: NotRequired[bool]
     launchIntoInstanceProperties: NotRequired[LaunchIntoInstancePropertiesTypeDef]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 class LifeCycleLastLaunchTypeDef(TypedDict):
     initiated: NotRequired[LifeCycleLastLaunchInitiatedTypeDef]

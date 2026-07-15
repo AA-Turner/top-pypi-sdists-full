@@ -22,7 +22,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Union
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ def find(lib_name: str, pkg_name: Union[str, None] = None) -> Union[str, None]:
     sources_filtered = (
         source_clb
         for source_clb, source_name in sources
-        if os.environ.get(f"FINDLIBS_DISABLE_{source_name}", None) != "yes"
+        if os.environ.get(f"FINDLIBS_DISABLE_{source_name}", None) not in ("yes", "1")
     )
 
     for source in sources_filtered:
@@ -309,6 +309,8 @@ def load(lib_name: str, pkg_name: Union[str, None] = None) -> CDLL:
     """Convenience method to find a library and load it right away (recursively)"""
     path = find(lib_name, pkg_name)
     if not path:
-        raise ValueError(f"unable to find {pkg_name+'.' if pkg_name else ''}{lib_name}")
+        raise ModuleNotFoundError(
+            f"unable to find {pkg_name+'.' if pkg_name else ''}{lib_name}"
+        )
     else:
         return _load_globally(path)

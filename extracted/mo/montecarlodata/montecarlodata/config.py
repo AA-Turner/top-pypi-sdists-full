@@ -11,12 +11,26 @@ from montecarlodata.fs_utils import mkdirs
 
 @dataclass
 class Config:
-    mcd_id: str
-    mcd_token: str
+    mcd_id: Optional[str]
+    mcd_token: Optional[str]
     mcd_api_endpoint: str
     mcd_agent_image_host: Optional[str] = None
     mcd_agent_image_org: Optional[str] = None
     mcd_agent_image_repo: Optional[str] = None
+    # OAuth (client-credentials) auth. When set, these are used instead of mcd_id/mcd_token.
+    mcd_oauth_client_id: Optional[str] = None
+    mcd_oauth_client_secret: Optional[str] = None
+    # Deployment instance ID (e.g. us1, eu1); required for OAuth so the global gateway can route to
+    # the right instance.
+    mcd_instance_id: Optional[str] = None
+    # Optional overrides for the OAuth token / GraphQL endpoints (otherwise the SDK derives them
+    # from mcd_api_endpoint).
+    mcd_token_endpoint: Optional[str] = None
+    mcd_oauth_api_endpoint: Optional[str] = None
+
+    @property
+    def is_oauth(self) -> bool:
+        return bool(self.mcd_oauth_client_id and self.mcd_oauth_client_secret)
 
 
 class ConfigManager:
@@ -28,6 +42,16 @@ class ConfigManager:
 
     TOKEN_LENGTH = 56
     MCD_TOKEN = "mcd_token"
+    # Auth-credential options per auth type. On reconfigure we clear the opposing type's options
+    # so a re-`configure` is authoritative and never leaves stale (live) credentials on disk.
+    API_KEY_OPTIONS = ("mcd_id", "mcd_token")
+    OAUTH_OPTIONS = (
+        "mcd_oauth_client_id",
+        "mcd_oauth_client_secret",
+        "mcd_instance_id",
+        "mcd_token_endpoint",
+        "mcd_oauth_api_endpoint",
+    )
 
     def __init__(
         self,
@@ -70,18 +94,54 @@ class ConfigManager:
         with open(self._profile_config_file, "w") as cf:
             self._config.write(cf)
 
+    def remove_options(self, options) -> None:
+        """Remove the given options from the profile section, if present (in memory; persisted on
+        the next ``write``). Used to drop the opposing auth type's credentials on reconfigure."""
+        if self._profile_name in self._config.sections():
+            for option in options:
+                self._config.remove_option(self._profile_name, option)
+
     def read(self) -> Optional[Config]:
         """
         Return configuration from section (profile name) if it exists.
         Any MCD values can be overwritten by the environment. Uses system default for AWS
         if not set.
+
+        When OAuth client credentials are present (config-file or environment), they are used
+        instead of the mcd_id/mcd_token API key.
         """
         try:
+            oauth_client_id = settings.MCD_DEFAULT_OAUTH_CLIENT_ID or self._config.get(
+                self._profile_name, "mcd_oauth_client_id", fallback=None
+            )
+            oauth_client_secret = settings.MCD_DEFAULT_OAUTH_CLIENT_SECRET or self._config.get(
+                self._profile_name, "mcd_oauth_client_secret", fallback=None
+            )
+            is_oauth = bool(oauth_client_id and oauth_client_secret)
+
             return Config(
-                mcd_id=settings.MCD_DEFAULT_API_ID
-                or self._config.get(self._profile_name, "mcd_id"),
-                mcd_token=settings.MCD_DEFAULT_API_TOKEN
-                or self._config.get(self._profile_name, "mcd_token"),
+                mcd_id=(
+                    None
+                    if is_oauth
+                    else settings.MCD_DEFAULT_API_ID
+                    or self._config.get(self._profile_name, "mcd_id")
+                ),
+                mcd_token=(
+                    None
+                    if is_oauth
+                    else settings.MCD_DEFAULT_API_TOKEN
+                    or self._config.get(self._profile_name, "mcd_token")
+                ),
+                mcd_oauth_client_id=oauth_client_id,
+                mcd_oauth_client_secret=oauth_client_secret,
+                mcd_instance_id=settings.MCD_DEFAULT_INSTANCE_ID
+                or self._config.get(self._profile_name, "mcd_instance_id", fallback=None),
+                mcd_token_endpoint=self._config.get(
+                    self._profile_name, "mcd_token_endpoint", fallback=None
+                ),
+                mcd_oauth_api_endpoint=self._config.get(
+                    self._profile_name, "mcd_oauth_api_endpoint", fallback=None
+                ),
                 mcd_api_endpoint=settings.MCD_API_ENDPOINT
                 or self._config.get(
                     self._profile_name,

@@ -289,6 +289,10 @@ class AsyncDaytona:
         self._sandbox_api: SandboxApi = SandboxApi(self._api_client)
         self._object_storage_api: ObjectStorageApi = ObjectStorageApi(self._api_client)
         self._config_api: ConfigApi = ConfigApi(self._api_client)
+        self._analytics_api_url: str | None = None
+        self._analytics_api_url_fetched: bool = False
+        # Created lazily inside the running loop: py3.9 asyncio.Lock() binds the loop at construction.
+        self._analytics_api_url_lock: asyncio.Lock | None = None
 
         self.volume: AsyncVolumeService = AsyncVolumeService(VolumesApi(self._api_client))
         self.snapshot: AsyncSnapshotService = AsyncSnapshotService(
@@ -388,6 +392,17 @@ class AsyncDaytona:
 
         if hasattr(self, "_shared_session"):
             await self._shared_session.close()
+
+    async def _get_analytics_api_url(self) -> str | None:
+        """Resolves the deployment's Analytics API URL via ``/config``, cached for the client's lifetime."""
+        if self._analytics_api_url_lock is None:
+            self._analytics_api_url_lock = asyncio.Lock()
+        async with self._analytics_api_url_lock:
+            if not self._analytics_api_url_fetched:
+                config = await self._config_api.config_controller_get_config()
+                self._analytics_api_url = config.analytics_api_url
+                self._analytics_api_url_fetched = True
+            return self._analytics_api_url
 
     @overload
     async def create(
@@ -523,6 +538,25 @@ class AsyncDaytona:
         if params.auto_stop_interval is not None and params.auto_stop_interval < 0:
             raise DaytonaValidationError("auto_stop_interval must be a non-negative integer")
 
+        if params.auto_pause_interval is not None and params.auto_pause_interval < 0:
+            raise DaytonaValidationError("auto_pause_interval must be a non-negative integer")
+
+        if (
+            params.auto_stop_interval is not None
+            and params.auto_stop_interval != 0
+            and params.auto_pause_interval is not None
+            and params.auto_pause_interval != 0
+        ):
+            raise DaytonaValidationError(
+                "auto_stop_interval and auto_pause_interval are mutually exclusive."
+                + " Set at most one of them to a non-zero value"
+            )
+
+        if params.auto_pause_interval and params.auto_delete_interval == 0:
+            raise DaytonaValidationError(
+                "Ephemeral sandboxes cannot have auto-pause enabled. Set auto_pause_interval to 0"
+            )
+
         if params.auto_archive_interval is not None and params.auto_archive_interval < 0:
             raise DaytonaValidationError("auto_archive_interval must be a non-negative integer")
 
@@ -548,6 +582,7 @@ class AsyncDaytona:
             public=params.public,
             target=str(target) if target else None,
             auto_stop_interval=params.auto_stop_interval,
+            auto_pause_interval=params.auto_pause_interval,
             auto_archive_interval=params.auto_archive_interval,
             auto_delete_interval=params.auto_delete_interval,
             volumes=volumes,
@@ -622,6 +657,7 @@ class AsyncDaytona:
             self._sandbox_api,
             validated_language.value,
             self._pool_tracker,
+            analytics_api_url_provider=self._get_analytics_api_url,
         )
 
         if sandbox.state != SandboxState.STARTED:
@@ -654,11 +690,15 @@ class AsyncDaytona:
 
     @intercept_errors(message_prefix="Failed to get sandbox: ")
     @with_instrumentation()
-    async def get(self, sandbox_id_or_name: str) -> AsyncSandbox:
+    async def get(self, sandbox_id_or_name: str, request_timeout: float | None = None) -> AsyncSandbox:
         """Gets a Sandbox by its ID or name.
 
         Args:
             sandbox_id_or_name (str): The ID or name of the Sandbox to retrieve.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Returns:
             Sandbox: The Sandbox instance.
@@ -676,7 +716,9 @@ class AsyncDaytona:
             raise DaytonaValidationError("sandbox_id_or_name is required")
 
         # Get the sandbox instance
-        sandbox_instance = await self._sandbox_api.get_sandbox(sandbox_id_or_name)
+        sandbox_instance = await self._sandbox_api.get_sandbox(
+            sandbox_id_or_name, _request_timeout=http_timeout(request_timeout)
+        )
         language = self._validate_language_label(sandbox_instance.labels.get(CODE_TOOLBOX_LANGUAGE_LABEL)).value
         return AsyncSandbox(
             sandbox_instance,
@@ -684,6 +726,7 @@ class AsyncDaytona:
             self._sandbox_api,
             language,
             self._pool_tracker,
+            analytics_api_url_provider=self._get_analytics_api_url,
         )
 
     @intercept_errors(message_prefix="Failed to list sandboxes: ")
@@ -691,11 +734,16 @@ class AsyncDaytona:
     async def list(
         self,
         query: ListSandboxesQuery | None = None,
+        request_timeout: float | None = None,
     ) -> AsyncIterator[AsyncSandbox]:
         """Iterates over Sandboxes matching the given query.
 
         Args:
             query: Optional filters, sorting, and per-page size.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
 
         Yields:
             AsyncSandbox: Each Sandbox matching the query.
@@ -718,7 +766,7 @@ class AsyncDaytona:
 
         while first_page or cursor:
             first_page = False
-            response = await self._fetch_sandbox_page(q, cursor)
+            response = await self._fetch_sandbox_page(q, cursor, request_timeout)
             for sandbox in response.items:
                 language = self._validate_language_label(sandbox.labels.get(CODE_TOOLBOX_LANGUAGE_LABEL)).value
                 yield AsyncSandbox(
@@ -727,11 +775,14 @@ class AsyncDaytona:
                     self._sandbox_api,
                     language,
                     self._pool_tracker,
+                    analytics_api_url_provider=self._get_analytics_api_url,
                 )
             cursor = response.next_cursor or None
 
     @with_instrumentation(name="AsyncDaytona.list.fetch_page")
-    async def _fetch_sandbox_page(self, q: ListSandboxesQuery, cursor: str | None):
+    async def _fetch_sandbox_page(
+        self, q: ListSandboxesQuery, cursor: str | None, request_timeout: float | None = None
+    ):
         """Fetches a single page of sandboxes. Each call is one OTEL span."""
         # The shared ListSandboxesQuery is typed against the sync api-client
         # enums; the async api-client expects its own copies of those enums.
@@ -762,6 +813,7 @@ class AsyncDaytona:
             last_event_before=q.last_activity_before,
             sort=sort,
             order=order,
+            _request_timeout=http_timeout(request_timeout),
         )
 
     def _validate_language_label(self, language: str | None = None) -> CodeLanguage:

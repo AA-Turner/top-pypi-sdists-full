@@ -88,7 +88,8 @@ def strip_provider_prefix(model: str) -> tuple[Optional[str], str]:
         head, tail = model.split("/", 1)
         # Only treat as provider prefix if head matches a known provider
         if head.lower() in {"copilot", "github", "anthropic", "openai", "google",
-                             "nvidia", "minimax", "vertex", "ollama", "lmstudio"}:
+                             "nvidia", "minimax", "vertex", "ollama", "lmstudio",
+                             "openrouter"}:
             return head.lower(), tail
     return None, model
 

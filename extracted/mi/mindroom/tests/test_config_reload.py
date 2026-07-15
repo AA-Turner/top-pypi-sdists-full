@@ -18,7 +18,7 @@ import mindroom.orchestrator as orchestrator_module
 import mindroom.tool_system.plugin_imports as plugin_module
 from mindroom.bot import AgentBot
 from mindroom.config.agent import AgentConfig, CultureConfig, RoomConfig, TeamConfig
-from mindroom.config.calls import CallsConfig
+from mindroom.config.calls import CallsConfig, RealtimeCallProfile
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig, RouterConfig
 from mindroom.constants import ROUTER_AGENT_NAME, STREAM_STATUS_KEY, STREAM_STATUS_PENDING
@@ -51,6 +51,27 @@ from tests.conftest import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+
+def _calls_for(
+    agent_name: str,
+    *,
+    enabled: bool = True,
+    model: str = "gpt-realtime",
+    voice: str = "marin",
+) -> CallsConfig:
+    return CallsConfig(
+        enabled=enabled,
+        profiles={
+            "voice": RealtimeCallProfile(
+                backend="realtime",
+                model=model,
+                credentials_service="openai",
+                voice=voice,
+            ),
+        },
+        agents={agent_name: "voice"},
+    )
 
 
 def _runtime_bound_config(config: Config, runtime_root: Path | None = None) -> Config:
@@ -1802,7 +1823,7 @@ def test_config_update_plan_restarts_old_and_new_call_agents_when_calls_change()
                 "general": AgentConfig(display_name="General Agent"),
                 "writer": AgentConfig(display_name="Writer Agent"),
             },
-            calls=CallsConfig(enabled=True, agents=["general"], voice="marin"),
+            calls=_calls_for("general", voice="marin"),
             router=RouterConfig(model="default"),
         ),
     )
@@ -1812,7 +1833,7 @@ def test_config_update_plan_restarts_old_and_new_call_agents_when_calls_change()
                 "general": AgentConfig(display_name="General Agent"),
                 "writer": AgentConfig(display_name="Writer Agent"),
             },
-            calls=CallsConfig(enabled=True, agents=["writer"], voice="cedar"),
+            calls=_calls_for("writer", voice="cedar"),
             router=RouterConfig(model="default"),
         ),
     )
@@ -1829,12 +1850,71 @@ def test_config_update_plan_restarts_old_and_new_call_agents_when_calls_change()
     assert plan.entities_to_restart == {"general", "writer"}
 
 
+def test_config_update_plan_restarts_call_agents_when_profile_changes() -> None:
+    """A call profile change rebuilds managers assigned to it."""
+    old_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=_calls_for("general", model="gpt-realtime-old"),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=_calls_for("general", model="gpt-realtime-new"),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    running_entities = {ROUTER_AGENT_NAME, "general"}
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities=running_entities,
+        existing_entities=running_entities,
+        agent_bots={entity: AsyncMock() for entity in running_entities},
+    )
+
+    assert plan.entities_to_restart == {"general"}
+
+
+def test_config_update_plan_restarts_call_agent_when_profile_voice_changes() -> None:
+    """Changing a profile voice rebuilds its assigned call manager."""
+    common = {
+        "agents": {"general": AgentConfig(display_name="General Agent")},
+        "router": RouterConfig(model="default"),
+    }
+    old_config = _runtime_bound_config(
+        Config(
+            **common,
+            calls=_calls_for("general", voice="marin"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            **common,
+            calls=_calls_for("general", voice="cedar"),
+        ),
+    )
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities={ROUTER_AGENT_NAME, "general"},
+        existing_entities={ROUTER_AGENT_NAME, "general"},
+        agent_bots={ROUTER_AGENT_NAME: AsyncMock(), "general": AsyncMock()},
+    )
+
+    assert plan.entities_to_restart == {"general"}
+
+
 def test_config_update_plan_restarts_call_agents_when_authorization_changes() -> None:
     """Call managers restart so admission uses the current authorization rules."""
     old_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=True, agents=["general"]),
+            calls=_calls_for("general"),
             authorization={"global_users": ["@allowed:example.org"]},
             router=RouterConfig(model="default"),
         ),
@@ -1842,7 +1922,7 @@ def test_config_update_plan_restarts_call_agents_when_authorization_changes() ->
     new_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=True, agents=["general"]),
+            calls=_calls_for("general"),
             authorization={"global_users": ["@replacement:example.org"]},
             router=RouterConfig(model="default"),
         ),
@@ -1865,14 +1945,14 @@ def test_config_update_plan_restarts_call_agents_for_captured_policy_changes() -
     old_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=True, agents=["general"]),
+            calls=_calls_for("general"),
             router=RouterConfig(model="default"),
         ),
     )
     new_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=True, agents=["general"]),
+            calls=_calls_for("general"),
             tool_approval={"rules": [{"match": "read_file", "action": "require_approval"}]},
             router=RouterConfig(model="default"),
         ),
@@ -1895,14 +1975,14 @@ def test_config_update_plan_stops_call_agents_when_calls_are_disabled() -> None:
     old_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=True, agents=["general"]),
+            calls=_calls_for("general"),
             router=RouterConfig(model="default"),
         ),
     )
     new_config = _runtime_bound_config(
         Config(
             agents={"general": AgentConfig(display_name="General Agent")},
-            calls=CallsConfig(enabled=False, agents=["general"]),
+            calls=_calls_for("general", enabled=False),
             router=RouterConfig(model="default"),
         ),
     )

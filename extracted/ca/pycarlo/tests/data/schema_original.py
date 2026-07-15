@@ -2081,6 +2081,8 @@ class ConversationSortField(sgqlc.types.Enum):
     * `CONVERSATION_ID`None
     * `DURATION_SECONDS`None
     * `END_TIME`None
+    * `EVAL_SCORE`None
+    * `EVAL_SCORES_COUNT`None
     * `START_TIME`None
     * `STATUS`None
     * `TOTAL_TOKENS`None
@@ -2092,6 +2094,8 @@ class ConversationSortField(sgqlc.types.Enum):
         "CONVERSATION_ID",
         "DURATION_SECONDS",
         "END_TIME",
+        "EVAL_SCORE",
+        "EVAL_SCORES_COUNT",
         "START_TIME",
         "STATUS",
         "TOTAL_TOKENS",
@@ -4099,13 +4103,14 @@ class FilterValueType(sgqlc.types.Enum):
 class FindingAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `HEALTH`None
     * `MONITORING`None
     * `TRIAGE`None
     * `TROUBLESHOOTING`None
     """
 
     __schema__ = schema
-    __choices__ = ("MONITORING", "TRIAGE", "TROUBLESHOOTING")
+    __choices__ = ("HEALTH", "MONITORING", "TRIAGE", "TROUBLESHOOTING")
 
 
 class FindingAlertRole(sgqlc.types.Enum):
@@ -4207,6 +4212,7 @@ class FindingStatus(sgqlc.types.Enum):
 class FindingType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT_HEALTH`None
     * `ALERT_ESCALATED`None
     * `ALERT_REMEDIATED`None
     * `ALERT_TRIAGED_LOW`None
@@ -4217,6 +4223,7 @@ class FindingType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT_HEALTH",
         "ALERT_ESCALATED",
         "ALERT_REMEDIATED",
         "ALERT_TRIAGED_LOW",
@@ -10415,6 +10422,41 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """
 
 
+class CreateJiraTicketForAgentHealthIssueInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "finding_uuid",
+        "integration_id",
+        "project",
+        "issuetype",
+        "summary",
+        "description",
+        "fields",
+    )
+    finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
+    """UUID of the child finding carrying the agent-health issue."""
+
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """UUID of the Jira integration to create the ticket under."""
+
+    project = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="project")
+    """Jira project id."""
+
+    issuetype = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issuetype")
+    """Jira issue-type id."""
+
+    summary = sgqlc.types.Field(String, graphql_name="summary")
+    """Ticket summary; defaults to the issue title."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Ticket description; defaults to the issue's action context."""
+
+    fields = sgqlc.types.Field(JSONString, graphql_name="fields")
+    """Additional Jira fields keyed by field id (e.g. required custom
+    fields).
+    """
+
+
 class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("finding_uuid", "title", "description", "team_id")
@@ -12229,6 +12271,8 @@ class GetConversationsInput(sgqlc.types.Input):
         "before",
         "sort_field",
         "sort_direction",
+        "sort_eval_type",
+        "sort_eval_monitor_uuid",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -12269,10 +12313,34 @@ class GetConversationsInput(sgqlc.types.Input):
     """Cursor for backward pagination"""
 
     sort_field = sgqlc.types.Field(ConversationSortField, graphql_name="sortField")
-    """Field to sort by (default: start_time)"""
+    """Field to sort by (default: start_time). EVAL_SCORE sorts by one
+    (monitor, dimension) column and requires sortEvalType +
+    sortEvalMonitorUuid. EVAL_SCORES_COUNT sorts by how many eval
+    score entries each conversation carries (the length of its
+    evalScores array) — ascending puts conversations with no scores
+    first, descending puts the most-evaluated conversations first; no
+    extra inputs required.
+    """
 
     sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
     """Sort direction (default: DESC)"""
+
+    sort_eval_type = sgqlc.types.Field(String, graphql_name="sortEvalType")
+    """The eval score dimension to sort by (e.g. task_completion_score).
+    Required together with sortEvalMonitorUuid when sortField is
+    EVAL_SCORE, ignored otherwise. A sortable eval column is one
+    (monitor, dimension) pair, as surfaced by the evalType/monitorUuid
+    on each conversation's evalScores.
+    """
+
+    sort_eval_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="sortEvalMonitorUuid")
+    """The evaluation monitor whose scores order the list when sortField
+    is EVAL_SCORE (required together with sortEvalType, ignored
+    otherwise; must be one of the account's evaluation monitors).
+    Conversations are ordered by this monitor's latest stored score
+    for the sortEvalType dimension; conversations it never scored sort
+    last in both directions.
+    """
 
 
 class GetExplanationForEventRequestType(sgqlc.types.Input):
@@ -20186,6 +20254,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "action_context",
         "proposed_monitor_yaml",
         "linear_ticket",
+        "jira_ticket",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
     """UUID of the child finding carrying this issue (fresh every run)."""
@@ -20264,6 +20333,40 @@ class AgentHealthIssue(sgqlc.types.Type):
     """The Linear ticket created for this issue, if any. Null means no
     ticket has been created yet.
     """
+
+    jira_ticket = sgqlc.types.Field("AgentHealthIssueJiraTicket", graphql_name="jiraTicket")
+    """The Jira ticket created for this issue, if any. Null means no
+    ticket has been created yet.
+    """
+
+
+class AgentHealthIssueJiraTicket(sgqlc.types.Type):
+    """A Jira ticket created for an agent-health issue.  Present means a
+    ticket already exists for this issue (keyed on the issue's stable
+    identity, so it persists across pipeline runs); absent means none
+    has been created yet. Field names mirror
+    ``AgentHealthIssueLinearTicket`` so a shared ticket pill can
+    render either provider.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("identifier", "url", "origin", "created_time")
+    identifier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="identifier")
+    """Jira issue key (e.g. ENG-123)."""
+
+    url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
+    """Web URL of the Jira ticket."""
+
+    origin = sgqlc.types.Field(String, graphql_name="origin")
+    """Host of the Jira instance the ticket lives on — the creating
+    integration's server-URL host (e.g. acme.atlassian.net). Null when
+    the integration has since been removed and the origin can no
+    longer be derived; a consumer validating the ticket URL against
+    this origin should fail closed (reject the link) on null.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the Jira ticket was created from this issue."""
 
 
 class AgentHealthIssueLinearTicket(sgqlc.types.Type):
@@ -25355,6 +25458,7 @@ class Conversation(sgqlc.types.Type):
         "duration_seconds",
         "status",
         "errors_count",
+        "workflows",
         "eval_scores",
         "intent_cluster",
     )
@@ -25384,6 +25488,14 @@ class Conversation(sgqlc.types.Type):
     errors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorsCount")
     """Number of spans across all traces in this conversation that
     errored (excluding LangGraph GraphInterrupt sentinels).
+    """
+
+    workflows = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="workflows",
+    )
+    """Distinct workflow names across all traces in this conversation.
+    Empty when none of the conversation's spans carry a workflow.
     """
 
     eval_scores = sgqlc.types.Field(
@@ -26449,6 +26561,12 @@ class CreateJiraIntegration(sgqlc.types.Type):
     __field_names__ = ("jira_integration",)
     jira_integration = sgqlc.types.Field("JiraIntegrationOutput", graphql_name="jiraIntegration")
     """The integration that was created"""
+
+
+class CreateJiraTicketForAgentHealthIssue(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket",)
+    ticket = sgqlc.types.Field(AgentHealthIssueJiraTicket, graphql_name="ticket")
 
 
 class CreateJiraTicketForAlert(sgqlc.types.Type):
@@ -35357,8 +35475,10 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
     run_status = sgqlc.types.Field(GenieCollectorRunStatus, graphql_name="runStatus")
-    """Outcome of the most recent collector run: RUNNING, SUCCESS,
-    FAILED, or CANCELLED. Null before the first run.
+    """Health of the most recent collector run: RUNNING, SUCCESS, FAILED,
+    or CANCELLED. Reports FAILED whenever the last completed run
+    failed and no run has since succeeded (a retry may be in flight).
+    Null before the first run.
     """
 
     last_error = sgqlc.types.Field(String, graphql_name="lastError")
@@ -40224,6 +40344,7 @@ class Mutation(sgqlc.types.Type):
         "configure_linear_integration",
         "set_linear_webhook_secret",
         "create_linear_ticket_for_agent_health_issue",
+        "create_jira_ticket_for_agent_health_issue",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "install_genie_collector",
@@ -41904,6 +42025,29 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`CreateLinearTicketForAgentHealthIssueInput!`)None
+    """
+
+    create_jira_ticket_for_agent_health_issue = sgqlc.types.Field(
+        CreateJiraTicketForAgentHealthIssue,
+        graphql_name="createJiraTicketForAgentHealthIssue",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateJiraTicketForAgentHealthIssueInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Jira ticket for an agent-health issue
+
+    Arguments:
+
+    * `input` (`CreateJiraTicketForAgentHealthIssueInput!`)None
     """
 
     delete_agent_trace_table = sgqlc.types.Field(
@@ -76162,6 +76306,10 @@ class Query(sgqlc.types.Type):
                     "where_condition",
                     sgqlc.types.Arg(String, graphql_name="whereCondition", default=None),
                 ),
+                (
+                    "include_parent_rule_windows",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeParentRuleWindows", default=None),
+                ),
             )
         ),
     )
@@ -76180,6 +76328,10 @@ class Query(sgqlc.types.Type):
       Deprecated: Use time_series_uuid instead
     * `where_condition` (`String`): Where condition to set maintenance
       period for. Deprecated: Use time_series_uuid instead
+    * `include_parent_rule_windows` (`Boolean`): If true and the
+      monitor is a rule generated from a parent rule (e.g. a SQL rule
+      variation), windows defined on the parent rule are included as
+      well. Use the monitorId on each entry to tell them apart.
     """
 
     get_data_maintenance_entries_by_mcon = sgqlc.types.Field(
@@ -83525,6 +83677,10 @@ class Query(sgqlc.types.Type):
                     "agent_assisted",
                     sgqlc.types.Arg(Boolean, graphql_name="agentAssisted", default=None),
                 ),
+                (
+                    "triage_enabled",
+                    sgqlc.types.Arg(Boolean, graphql_name="triageEnabled", default=None),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -83547,6 +83703,13 @@ class Query(sgqlc.types.Type):
       true, returns only agent-assisted domains. When false, returns
       only domains without a provisioned agent user. When null or
       omitted, no agent-assistance filter is applied.
+    * `triage_enabled` (`Boolean`): (experimental) Filter domains by
+      whether alerts in them are effectively triaged automatically —
+      the account-level automated-triage default combined with the
+      domain's override, matching the automated-triage settings page.
+      When true, returns only domains where triage is effectively on.
+      When false, returns only domains where it is effectively off.
+      When null or omitted, no triage filter is applied.
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -106354,6 +106517,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "assignments_with_properties",
         "excluded_assignments_with_properties",
         "agent_assistant",
+        "effective_triage_enabled",
         "table_counts",
         "monitor_counts",
         "alert_counts",
@@ -106419,6 +106583,15 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     ``enabled: false`` indicates assistance is currently disabled. Use
     the per-capability ``enabled`` flags to determine current
     activity, not the nullness of this field.
+    """
+
+    effective_triage_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="effectiveTriageEnabled"
+    )
+    """(experimental) Whether alerts in this domain are effectively
+    triaged automatically. Combines the account-level automated-triage
+    default with the domain's override, matching the automated-triage
+    settings page.
     """
 
     table_counts = sgqlc.types.Field(DomainTableCounts, graphql_name="tableCounts")

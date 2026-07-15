@@ -187,11 +187,13 @@ class SQLExecution(google.protobuf.message.Message):
     SEMANTIC_EXTRAS_FIELD_NUMBER: builtins.int
     LABELS_FIELD_NUMBER: builtins.int
     DBT_NODE_STATE_FIELD_NUMBER: builtins.int
+    DEFAULT_SCHEMA_FIELD_NUMBER: builtins.int
     target_table: builtins.str
     dialect: builtins.str
     default_catalog: builtins.str
     execution_type: query_cache_protobuf.query_cache.shared_pb2.ModelExecutionType.ValueType
     sql: builtins.str
+    default_schema: builtins.str
     @property
     def tables(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[query_cache_protobuf.query_cache.shared_pb2.TableModifiedInfo]: ...
     @property
@@ -215,11 +217,14 @@ class SQLExecution(google.protobuf.message.Message):
         semantic_extras: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         labels: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         dbt_node_state: query_cache_protobuf.query_cache.shared_pb2.DbtNodeState | None = ...,
+        default_schema: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "_target_table", b"_target_table", "dbt_node_state", b"dbt_node_state", "target_table", b"target_table"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "_target_table", b"_target_table", "dbt_node_state", b"dbt_node_state", "default_catalog", b"default_catalog", "dialect", b"dialect", "execution_type", b"execution_type", "labels", b"labels", "query_dependencies", b"query_dependencies", "semantic_extras", b"semantic_extras", "sql", b"sql", "tables", b"tables", "target_table", b"target_table"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "_default_schema", b"_default_schema", "_target_table", b"_target_table", "dbt_node_state", b"dbt_node_state", "default_schema", b"default_schema", "target_table", b"target_table"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "_default_schema", b"_default_schema", "_target_table", b"_target_table", "dbt_node_state", b"dbt_node_state", "default_catalog", b"default_catalog", "default_schema", b"default_schema", "dialect", b"dialect", "execution_type", b"execution_type", "labels", b"labels", "query_dependencies", b"query_dependencies", "semantic_extras", b"semantic_extras", "sql", b"sql", "tables", b"tables", "target_table", b"target_table"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_dbt_node_state", b"_dbt_node_state"]) -> typing.Literal["dbt_node_state"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_default_schema", b"_default_schema"]) -> typing.Literal["default_schema"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_target_table", b"_target_table"]) -> typing.Literal["target_table"] | None: ...
 

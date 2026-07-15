@@ -12,7 +12,7 @@ on:
       - "Dockerfile.ops-mcp"
       - "Dockerfile.ops-mcp.dockerignore"
   repository_dispatch:
-    types: [deploy-cloud-mcp]
+    types: [deploy-cloud-mcp, deploy-agent-mcp]
   workflow_dispatch:
     inputs:
       mcp-server:
@@ -22,6 +22,7 @@ on:
         options:
           - ops-mcp
           - cloud-mcp
+          - agent-mcp
         default: ops-mcp
       pr:
         description: "PR number. When provided, deploys to the preview service instead of production."

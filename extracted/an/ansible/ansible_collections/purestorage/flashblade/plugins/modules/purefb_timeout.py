@@ -18,12 +18,12 @@ DOCUMENTATION = r"""
 ---
 module: purefb_timeout
 version_added: '1.6.0'
-short_description: Configure Pure Storage FlashBlade GUI idle timeout
+short_description: Configure Everpure FlashBlade GUI idle timeout
 description:
-- Configure GUI idle timeout for Pure Storage FlashBlade.
+- Configure GUI idle timeout for Everpure FlashBlade.
 - This does not affect existing GUI sessions.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -58,11 +58,11 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient import flashblade
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
@@ -105,15 +105,16 @@ def main():
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    if not HAS_PURESTORAGE:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)
 
     state = module.params["state"]
-    if 5 < module.params["timeout"] > 180 and module.params["timeout"] != 0:
+    if (
+        module.params["timeout"] < 5 or module.params["timeout"] > 180
+    ) and module.params["timeout"] != 0:
         module.fail_json(msg="Timeout value must be between 5 and 180 minutes")
-    blade = get_system(module)
     current_timeout = list(blade.get_arrays().items)[0].idle_timeout / 60000
     if state == "present" and current_timeout != module.params["timeout"]:
         set_timeout(module, blade)

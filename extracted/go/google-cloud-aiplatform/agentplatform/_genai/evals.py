@@ -2185,8 +2185,13 @@ class Evals(_api_module.BaseModule):
 
         agent_engine_instance = None
         agent_instance = None
+        gemini_agent_instance = None
         if agent:
-            if isinstance(agent, str) or isinstance(agent, types.AgentEngine):
+            if isinstance(agent, str) and _evals_common._is_gemini_agent_resource(
+                agent
+            ):
+                gemini_agent_instance = agent
+            elif isinstance(agent, str) or isinstance(agent, types.AgentEngine):
                 agent_engine_instance = agent
             else:
                 agent_instance = agent
@@ -2196,6 +2201,7 @@ class Evals(_api_module.BaseModule):
             model=model,
             agent_engine=agent_engine_instance,
             agent=agent_instance,
+            gemini_agent=gemini_agent_instance,
             src=src,
             dest=config.dest,
             prompt_template=config.prompt_template,
@@ -2214,6 +2220,7 @@ class Evals(_api_module.BaseModule):
             list[types.EvaluationDatasetOrDict],
         ],
         metrics: Optional[list[types.MetricOrDict]] = None,
+        agent: Optional[str] = None,
         location: Optional[str] = None,
         config: Optional[types.EvaluateMethodConfigOrDict] = None,
         **kwargs: Any,
@@ -2222,8 +2229,15 @@ class Evals(_api_module.BaseModule):
 
         Args:
           dataset: The dataset(s) to evaluate. Can be a pandas DataFrame, a single
-            `types.EvaluationDataset` or a list of `types.EvaluationDataset`.
+            `types.EvaluationDataset` or a list of `types.EvaluationDataset`. To
+            evaluate existing interactions, provide a dataset with an
+            `interaction_id` column; each interaction is resolved by the backend
+            using `agent` to populate the agent data for evaluation.
           metrics: The list of metrics to use for evaluation.
+          agent: Optional Gemini Agents API agent resource name
+            (`projects/{project}/locations/{location}/agents/{agent}`). Required
+            when the dataset contains an `interaction_id` column: the backend uses
+            it to resolve the Agent config for each referenced interaction.
           location: The location to use for the evaluation service. If not specified,
              the location configured in the client will be used. If specified,
              this will override the location set in `agentplatform.Client` only for
@@ -2274,6 +2288,7 @@ class Evals(_api_module.BaseModule):
             api_client=self._api_client,
             dataset=dataset,
             metrics=metrics,
+            agent=agent,
             dataset_schema=config.dataset_schema,
             dest=config.dest,
             location=location,
@@ -2577,10 +2592,6 @@ class Evals(_api_module.BaseModule):
         )
         return types.EvaluationDataset(eval_dataset_df=prompts_with_rubrics)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_run module is experimental, "
-        "and may change in future versions."
-    )
     def get_evaluation_run(
         self,
         *,
@@ -2618,10 +2629,6 @@ class Evals(_api_module.BaseModule):
             object.__setattr__(result, "_eval_item_map", eval_item_map)
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_run module is experimental, "
-        "and may change in future versions."
-    )
     def create_evaluation_run(
         self,
         *,
@@ -2800,10 +2807,6 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_set method is experimental, "
-        "and may change in future versions."
-    )
     def get_evaluation_set(
         self,
         *,
@@ -2828,10 +2831,6 @@ class Evals(_api_module.BaseModule):
             name = name.split("/")[-1]
         return self._get_evaluation_set(name=name, config=config)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_item method is experimental, "
-        "and may change in future versions."
-    )
     def get_evaluation_item(
         self,
         *,
@@ -2874,10 +2873,6 @@ class Evals(_api_module.BaseModule):
             )
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_item module is experimental, "
-        "and may change in future versions."
-    )
     def create_evaluation_item(
         self,
         *,
@@ -2905,10 +2900,6 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_set module is experimental, "
-        "and may change in future versions."
-    )
     def create_evaluation_set(
         self,
         *,
@@ -2934,14 +2925,11 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.generate_conversation_scenarios module is experimental, "
-        "and may change in future versions."
-    )
     def generate_conversation_scenarios(
         self,
         *,
-        agent_info: evals_types.AgentInfoOrDict,
+        agent_info: Optional[evals_types.AgentInfoOrDict] = None,
+        agent: Optional[str] = None,
         config: evals_types.UserScenarioGenerationConfigOrDict,
         allow_cross_region_model: Optional[bool] = None,
     ) -> types.EvaluationDataset:
@@ -2949,8 +2937,17 @@ class Evals(_api_module.BaseModule):
            which helps to generate conversations between a simulated user
            and the agent under test.
 
+        Exactly one of `agent_info` or `agent` must be provided. When `agent` is
+        a Gemini Agents API agent resource name, the agent is fetched and an
+        `AgentInfo` is derived from it.
+
         Args:
-            agent_info: The agent info to generate user scenarios for.
+            agent_info: The agent info to generate user scenarios for. Mutually
+                exclusive with `agent`.
+            agent: A Gemini Agents API agent resource name
+                (`projects/{p}/locations/{l}/agents/{name}`). When provided, the
+                agent is fetched and its configuration is used to build the agent
+                info. Mutually exclusive with `agent_info`.
             config: Configuration for generating user scenarios.
             allow_cross_region_model: Opt-in flag to authorize cross-region
                 routing for model inference.
@@ -2958,11 +2955,27 @@ class Evals(_api_module.BaseModule):
         Returns:
             An EvaluationDataset containing the generated user scenarios.
         """
-        parsed_agent_info = (
-            evals_types.AgentInfo.model_validate(agent_info)
-            if isinstance(agent_info, dict)
-            else agent_info
-        )
+        if agent is not None and agent_info is not None:
+            raise ValueError(
+                "Only one of `agent` or `agent_info` may be provided, not both."
+            )
+        if agent is None and agent_info is None:
+            raise ValueError("One of `agent` or `agent_info` must be provided.")
+        if agent is not None:
+            if not _evals_common._is_gemini_agent_resource(agent):
+                raise ValueError(
+                    "`agent` must be a Gemini Agents API agent resource name of the"
+                    " form projects/{project}/locations/{location}/agents/{agent}."
+                )
+            parsed_agent_info = _evals_common._agent_resource_to_agent_info(
+                agent, self._api_client
+            )
+        else:
+            parsed_agent_info = (
+                evals_types.AgentInfo.model_validate(agent_info)
+                if isinstance(agent_info, dict)
+                else agent_info
+            )
         response = self._generate_user_scenarios(
             agents=parsed_agent_info.agents,
             root_agent_id=parsed_agent_info.root_agent_id,
@@ -2971,10 +2984,6 @@ class Evals(_api_module.BaseModule):
         )
         return _evals_utils._postprocess_user_scenarios_response(response)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.generate_loss_clusters module is experimental, "
-        "and may change in future versions."
-    )
     def generate_loss_clusters(
         self,
         *,
@@ -3052,10 +3061,6 @@ class Evals(_api_module.BaseModule):
         )
         return completed.response
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_metric method is experimental, "
-        "and may change in future versions."
-    )
     def create_evaluation_metric(
         self,
         *,
@@ -3089,10 +3094,6 @@ class Evals(_api_module.BaseModule):
         # result.name is Optional[str], but we know it's always returned on creation
         return cast(str, result.name)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_metric module is experimental, "
-        "and may change in future versions."
-    )
     def get_evaluation_metric(
         self,
         *,
@@ -3105,10 +3106,6 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.list_evaluation_metrics module is experimental, "
-        "and may change in future versions."
-    )
     def list_evaluation_metrics(
         self,
         *,
@@ -3147,10 +3144,6 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.delete_evaluation_metric method is experimental, "
-        "and may change in future versions."
-    )
     def delete_evaluation_metric(
         self,
         *,
@@ -4380,10 +4373,6 @@ class AsyncEvals(_api_module.BaseModule):
 
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_run module is experimental, "
-        "and may change in future versions."
-    )
     async def get_evaluation_run(
         self,
         *,
@@ -4424,10 +4413,6 @@ class AsyncEvals(_api_module.BaseModule):
 
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_run module is experimental, "
-        "and may change in future versions."
-    )
     async def create_evaluation_run(
         self,
         *,
@@ -4609,10 +4594,6 @@ class AsyncEvals(_api_module.BaseModule):
 
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_set method is experimental, "
-        "and may change in future versions."
-    )
     async def get_evaluation_set(
         self,
         *,
@@ -4638,10 +4619,6 @@ class AsyncEvals(_api_module.BaseModule):
 
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_item method is experimental, "
-        "and may change in future versions."
-    )
     async def get_evaluation_item(
         self,
         *,
@@ -4685,10 +4662,6 @@ class AsyncEvals(_api_module.BaseModule):
 
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_item module is experimental, "
-        "and may change in future versions."
-    )
     async def create_evaluation_item(
         self,
         *,
@@ -4717,10 +4690,6 @@ class AsyncEvals(_api_module.BaseModule):
         )
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_set module is experimental, "
-        "and may change in future versions."
-    )
     async def create_evaluation_set(
         self,
         *,
@@ -4747,14 +4716,11 @@ class AsyncEvals(_api_module.BaseModule):
         )
         return result
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.generate_conversation_scenarios module is experimental, "
-        "and may change in future versions."
-    )
     async def generate_conversation_scenarios(
         self,
         *,
-        agent_info: evals_types.AgentInfoOrDict,
+        agent_info: Optional[evals_types.AgentInfoOrDict] = None,
+        agent: Optional[str] = None,
         config: evals_types.UserScenarioGenerationConfigOrDict,
         allow_cross_region_model: Optional[bool] = None,
     ) -> types.EvaluationDataset:
@@ -4762,8 +4728,17 @@ class AsyncEvals(_api_module.BaseModule):
            which helps to generate conversations between a simulated user
            and the agent under test.
 
+        Exactly one of `agent_info` or `agent` must be provided. When `agent` is
+        a Gemini Agents API agent resource name, the agent is fetched and an
+        `AgentInfo` is derived from it.
+
         Args:
-            agent_info: The agent info to generate user scenarios for.
+            agent_info: The agent info to generate user scenarios for. Mutually
+                exclusive with `agent`.
+            agent: A Gemini Agents API agent resource name
+                (`projects/{p}/locations/{l}/agents/{name}`). When provided, the
+                agent is fetched and its configuration is used to build the agent
+                info. Mutually exclusive with `agent_info`.
             config: Configuration for generating user scenarios.
             allow_cross_region_model: Opt-in flag to authorize cross-region
                 routing for model inference.
@@ -4771,11 +4746,27 @@ class AsyncEvals(_api_module.BaseModule):
         Returns:
             An EvaluationDataset containing the generated user scenarios.
         """
-        parsed_agent_info = (
-            evals_types.AgentInfo.model_validate(agent_info)
-            if isinstance(agent_info, dict)
-            else agent_info
-        )
+        if agent is not None and agent_info is not None:
+            raise ValueError(
+                "Only one of `agent` or `agent_info` may be provided, not both."
+            )
+        if agent is None and agent_info is None:
+            raise ValueError("One of `agent` or `agent_info` must be provided.")
+        if agent is not None:
+            if not _evals_common._is_gemini_agent_resource(agent):
+                raise ValueError(
+                    "`agent` must be a Gemini Agents API agent resource name of the"
+                    " form projects/{project}/locations/{location}/agents/{agent}."
+                )
+            parsed_agent_info = _evals_common._agent_resource_to_agent_info(
+                agent, self._api_client
+            )
+        else:
+            parsed_agent_info = (
+                evals_types.AgentInfo.model_validate(agent_info)
+                if isinstance(agent_info, dict)
+                else agent_info
+            )
         response = await self._generate_user_scenarios(
             agents=parsed_agent_info.agents,
             root_agent_id=parsed_agent_info.root_agent_id,
@@ -4784,10 +4775,6 @@ class AsyncEvals(_api_module.BaseModule):
         )
         return _evals_utils._postprocess_user_scenarios_response(response)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.generate_loss_clusters module is experimental, "
-        "and may change in future versions."
-    )
     async def generate_loss_clusters(
         self,
         *,
@@ -4865,10 +4852,6 @@ class AsyncEvals(_api_module.BaseModule):
         )
         return completed.response
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.create_evaluation_metric module is experimental, "
-        "and may change in future versions."
-    )
     async def create_evaluation_metric(
         self,
         *,
@@ -4899,10 +4882,6 @@ class AsyncEvals(_api_module.BaseModule):
         )
         return cast(str, result.name)
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.get_evaluation_metric module is experimental, "
-        "and may change in future versions."
-    )
     async def get_evaluation_metric(
         self,
         *,
@@ -4915,10 +4894,6 @@ class AsyncEvals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.list_evaluation_metrics module is experimental, "
-        "and may change in future versions."
-    )
     async def list_evaluation_metrics(
         self,
         *,
@@ -4957,10 +4932,6 @@ class AsyncEvals(_api_module.BaseModule):
             config=config,
         )
 
-    @_common.experimental_warning(
-        "The Vertex SDK GenAI evals.delete_evaluation_metric method is experimental, "
-        "and may change in future versions."
-    )
     async def delete_evaluation_metric(
         self,
         *,

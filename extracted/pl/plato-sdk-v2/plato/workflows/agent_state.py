@@ -1,11 +1,16 @@
-"""Pull/push a claude-code agent's resumable session state over rsync+ssh.
+"""Pull/push an agent harness's resumable session state over rsync+ssh.
 
-The workflow world's orchestrator runs a claude-code harness on a pooled agent
-VM. To make its *conversation* durable across session crashes (not just the
-journaled work), the world periodically pulls the harness's Claude Code session
-state into the tracked ``agent_state`` workspace (it rides the existing DVC
-checkpoint cadence) and pushes it back onto the fresh VM on relaunch, so the
-resumed harness can pick up the newest session with ``claude --continue``.
+The workflow world's orchestrator runs an agent harness on a pooled agent VM.
+To make its *conversation* durable across session crashes (not just the
+journaled work), the world periodically pulls the harness's session state into
+the tracked ``agent_state`` workspace (it rides the existing DVC checkpoint
+cadence) and pushes it back onto the fresh VM on relaunch, so the resumed
+harness can pick up the newest session (``claude --continue`` for claude-code,
+``codex-exec resume --last`` for codex). WHICH directories hold that state is
+harness-specific — see :data:`HARNESS_STATE_SPECS`. A harness without a spec
+gets conversation durability explicitly disabled, never mis-pathed pulls
+(the TurboTax gpt-5.6 run resumed amnesiac because codex state was silently
+not captured by the then-claude-only paths).
 
 Pull-based snapshots on purpose: NEVER NFS-mount ``~/.claude`` on the agent VM
 — long-lived append handles on FUSE-backed paths corrupt (see
@@ -29,14 +34,21 @@ import asyncio
 import json
 import logging
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ORCHESTRATOR_STATE_VERSION", "CLAUDE_HOME_DEFAULT", "AgentStateSync"]
+__all__ = [
+    "ORCHESTRATOR_STATE_VERSION",
+    "CLAUDE_HOME_DEFAULT",
+    "HARNESS_STATE_SPECS",
+    "HarnessStateSpec",
+    "AgentStateSync",
+]
 
-ORCHESTRATOR_STATE_VERSION = 1
+ORCHESTRATOR_STATE_VERSION = 2
 
 #: Default ``$HOME`` of the claude CLI process on Chronos agent VMs.
 #:
@@ -75,12 +87,94 @@ def _cwd_key(cwd: str) -> str:
     return cwd.replace("/", "-")
 
 
-class AgentStateSync:
-    """Pull/push a claude-code agent's resumable session state over rsync+ssh."""
+@dataclass(frozen=True)
+class StatePath:
+    """One remote-dir <-> ``state_dir``-subdir mapping (templated).
 
-    def __init__(self, *, state_dir: Path, ssh_key_path: Path) -> None:
+    ``remote`` and ``local`` are templates over ``{home}``, ``{cwd}``,
+    ``{cwd_key}``. ``exact_restore`` pushes with ``--delete`` so the VM dir
+    ends up exactly equal to the checkpoint: both harnesses resume "the newest
+    session in the dir" (claude ``--continue``, ``codex-exec resume --last``),
+    so any stale rollout/transcript left on the VM (e.g. a pool reset that
+    failed to wipe) could win over the restored one. The cwd scratch push must
+    stay non-deleting — it targets the live results mount and the snapshot
+    excludes ``data/`` and friends.
+    """
+
+    remote: str
+    local: str
+    excludes: tuple[str, ...] = ()
+    exact_restore: bool = True
+
+
+@dataclass(frozen=True)
+class HarnessStateSpec:
+    """Where a harness keeps its resumable conversation state on the VM.
+
+    ``marker_glob`` (relative to ``state_dir``) decides
+    :meth:`AgentStateSync.has_state` — match one file and the harness's resume
+    flag has a session to pick up.
+    """
+
+    name: str
+    paths: tuple[StatePath, ...]
+    marker_glob: str
+
+
+_CWD_STATE_PATH = StatePath(remote="{cwd}", local="cwd", excludes=_CWD_PULL_EXCLUDES, exact_restore=False)
+
+_CLAUDE_STATE_SPEC = HarnessStateSpec(
+    name="claude-code",
+    paths=(
+        StatePath(remote="{home}/.claude/projects/{cwd_key}", local="claude-projects/{cwd_key}"),
+        StatePath(remote="{home}/.claude/todos", local="claude-todos"),
+        _CWD_STATE_PATH,
+    ),
+    marker_glob="claude-projects/**/*.jsonl",
+)
+
+HARNESS_STATE_SPECS: dict[str, HarnessStateSpec] = {
+    "claude-code": _CLAUDE_STATE_SPEC,
+    # test-agent is the zero-cost e2e stand-in for a claude-code orchestrator:
+    # the state-capture e2e's payload fabricates claude-layout session files on
+    # its VM, so it aliases the claude spec — keeping the cheap e2e exercising
+    # the exact pull/manifest/push pipeline production claude runs use.
+    "test-agent": _CLAUDE_STATE_SPEC,
+    # Codex keeps session rollouts under ~/.codex/sessions/YYYY/MM/DD/*.jsonl;
+    # `codex-exec resume --last` resumes the newest one. ONLY the sessions dir
+    # is captured — ~/.codex/auth.json is a credential and must never land in
+    # a workspace checkpoint (the harness rewrites it from config each launch).
+    # Locally verified 2026-07-14 (codex-cli 0.144.4): a sessions-only restore
+    # into a clean CODEX_HOME resumes with full recall via `resume --last`.
+    "codex": HarnessStateSpec(
+        name="codex",
+        paths=(
+            StatePath(remote="{home}/.codex/sessions", local="codex-sessions"),
+            _CWD_STATE_PATH,
+        ),
+        marker_glob="codex-sessions/**/*.jsonl",
+    ),
+}
+
+
+class AgentStateSync:
+    """Pull/push an agent harness's resumable session state over rsync+ssh."""
+
+    def __init__(self, *, state_dir: Path, ssh_key_path: Path, harness: str = "claude-code") -> None:
+        spec = HARNESS_STATE_SPECS.get(harness)
+        if spec is None:
+            raise ValueError(
+                f"No agent-state spec for harness {harness!r} "
+                f"(known: {sorted(HARNESS_STATE_SPECS)}) — conversation durability "
+                "must be explicitly disabled for unknown harnesses, not mis-pathed"
+            )
+        self._spec = spec
         self._state_dir = Path(state_dir)
         self._ssh_key_path = Path(ssh_key_path)
+
+    def _resolved_paths(self, *, cwd: str, home: str) -> list[tuple[str, Path, StatePath]]:
+        subs = {"home": home, "cwd": cwd, "cwd_key": _cwd_key(cwd)}
+        return [(p.remote.format(**subs), self._state_dir / p.local.format(**subs), p) for p in self._spec.paths]
 
     @property
     def state_dir(self) -> Path:
@@ -96,23 +190,18 @@ class AgentStateSync:
         )
 
     async def pull(self, hostname: str, *, cwd: str, home: str) -> bool:
-        """Snapshot the VM's claude session state into ``state_dir``.
+        """Snapshot the VM's harness session state into ``state_dir``.
 
         Returns True if anything changed. Best-effort: any ssh/rsync failure
         logs a warning and returns False — the world's pull loop must never
         die because an agent VM is mid-teardown or unreachable.
         """
-        key = _cwd_key(cwd)
-        pulls: list[tuple[str, Path, tuple[str, ...]]] = [
-            (f"{home}/.claude/projects/{key}", self._state_dir / "claude-projects" / key, ()),
-            (f"{home}/.claude/todos", self._state_dir / "claude-todos", ()),
-            (cwd, self._state_dir / "cwd", _CWD_PULL_EXCLUDES),
-        ]
+        pulls = self._resolved_paths(cwd=cwd, home=home)
         changed = False
         failed = False
-        for remote_path, local_path, excludes in pulls:
+        for remote_path, local_path, spec_path in pulls:
             try:
-                changed |= await self._pull_one(hostname, remote_path, local_path, excludes)
+                changed |= await self._pull_one(hostname, remote_path, local_path, spec_path.excludes)
             except Exception:
                 failed = True
                 logger.warning(
@@ -127,7 +216,7 @@ class AgentStateSync:
         try:
             manifest_path = self._state_dir / "manifest.json"
             if changed or not manifest_path.exists():
-                self._write_manifest(manifest_path, cwd=cwd, home=home, cwd_key=key)
+                self._write_manifest(manifest_path, cwd=cwd, home=home, cwd_key=_cwd_key(cwd))
         except Exception:
             logger.warning("agent-state manifest write failed", exc_info=True)
             return False
@@ -170,22 +259,20 @@ class AgentStateSync:
         mount, and the snapshot excludes ``data/`` and friends — a deleting
         restore would wipe them from the mount.
         """
-        key = _cwd_key(cwd)
-        pushes: list[tuple[Path, str]] = [
-            (self._state_dir / "claude-projects" / key, f"{home}/.claude/projects/{key}"),
-            (self._state_dir / "claude-todos", f"{home}/.claude/todos"),
-            (self._state_dir / "cwd", cwd),
-        ]
-        for local_path, remote_path in pushes:
+        for remote_path, local_path, spec_path in self._resolved_paths(cwd=cwd, home=home):
             if not local_path.is_dir():
                 logger.debug("agent-state push: no local %s captured, skipping", local_path)
                 continue
-            await self._push_one(hostname, local_path, remote_path)
+            await self._push_one(hostname, local_path, remote_path, delete=spec_path.exact_restore)
 
-    async def _push_one(self, hostname: str, local_path: Path, remote_path: str) -> None:
-        cmd = [
-            "rsync",
-            "-az",
+    async def _push_one(self, hostname: str, local_path: Path, remote_path: str, *, delete: bool) -> None:
+        cmd = ["rsync", "-az"]
+        if delete:
+            # Exact restore: the VM dir must equal the checkpoint — resume
+            # picks "the newest session in the dir", so a stale file left on
+            # the VM could win over the restored conversation.
+            cmd.append("--delete")
+        cmd += [
             "--rsync-path",
             f"mkdir -p {remote_path} && rsync",
             "-e",
@@ -215,11 +302,10 @@ class AgentStateSync:
         )
 
     def has_state(self) -> bool:
-        """True iff ``state_dir/claude-projects`` contains any transcript ``.jsonl``."""
-        projects = self._state_dir / "claude-projects"
-        if not projects.is_dir():
+        """True iff the harness's marker glob matches a captured session file."""
+        if not self._state_dir.is_dir():
             return False
-        return any(projects.rglob("*.jsonl"))
+        return any(self._state_dir.glob(self._spec.marker_glob))
 
     async def _run_rsync(self, cmd: list[str], *, timeout: float) -> tuple[int, str, str]:
         """Run one rsync subprocess (transports/rsync.py invocation style) with a hard timeout."""
@@ -243,6 +329,7 @@ class AgentStateSync:
         """Atomically write ``manifest.json`` (tmp + ``os.replace``)."""
         manifest = {
             "version": ORCHESTRATOR_STATE_VERSION,
+            "harness": self._spec.name,
             "cwd": cwd,
             "home": home,
             "cwd_key": cwd_key,

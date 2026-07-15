@@ -9,22 +9,28 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from markdown_it import MarkdownIt
 from rich import box
 from rich.console import Group
-from rich.markdown import Heading, Markdown, TableElement
+from rich.markdown import CodeBlock, Heading, Markdown, TableElement
 from rich.segment import Segment
 from rich.style import Style
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
+from rich.theme import Theme as RichTheme
 from textual.reactive import reactive
 from textual.widget import Widget
 
 from dreadnode.app.tui.theme import (
     ACCENT,
+    BORDER,
     BORDER_LIGHT,
+    CODE,
+    CODE_BG,
     ERROR,
     FG,
     FG_FAINTEST,
     FG_MUTED,
     FG_SUBTLE,
+    LINK,
 )
 
 if TYPE_CHECKING:
@@ -104,21 +110,92 @@ class _BorderedTable(TableElement):
         yield table
 
 
-class ThemedMarkdown(Markdown):
-    """Rich ``Markdown`` whose headings match the TCSS conversation theme.
+class _ThemedCodeBlock(CodeBlock):
+    """Fenced code block on the conversation's own background.
 
-    See ``_ThemedHeading`` for the rationale — this subclass swaps the heading
-    element so bodies don't fall back to Rich's centered/magenta-underlined
-    defaults, and parses with the same ``gfm-like`` preset Textual's ``Markdown``
-    widget uses so content renders identically whether it came through this Rich
-    path or a Textual widget.
+    Rich's ``CodeBlock`` lets the Pygments ``code_theme`` paint the block
+    background, which clashes with the surrounding chat. The Textual
+    ``MarkdownFence`` widget (used while streaming) instead sits on
+    ``$bg-lighter`` via ``dreadnode.tcss``; we force the same background here so
+    a committed fence doesn't change colour the instant the turn commits.
+    """
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        code = str(self.text).rstrip()
+        yield Syntax(
+            code,
+            self.lexer_name,
+            theme=self.theme,
+            background_color=CODE_BG,
+            word_wrap=True,
+            padding=1,
+        )
+
+
+# Style names Rich resolves via ``console.get_style`` while rendering Markdown.
+# Rich's defaults (magenta quotes, ``bold cyan on black`` code, bold bullets)
+# don't match ``dreadnode.tcss``'s Markdown rules, and those TCSS rules only
+# reach the Textual ``Markdown`` widget — never this Rich renderable. We push
+# this theme while rendering so committed assistant messages match the
+# streaming draft. Keep in sync with the ``/* -- Markdown -- */`` block in
+# ``dreadnode.tcss``.
+_MARKDOWN_THEME = RichTheme(
+    {
+        "markdown.em": Style(italic=True),
+        "markdown.emph": Style(italic=True),
+        "markdown.strong": Style(bold=True, color=FG),
+        "markdown.code": Style(color=CODE, bgcolor=CODE_BG),
+        "markdown.code_block": Style(color=CODE, bgcolor=CODE_BG),
+        "markdown.block_quote": Style(color=FG_MUTED),
+        "markdown.list": Style(color=FG_SUBTLE),
+        "markdown.item.bullet": Style(color=FG_MUTED),
+        "markdown.item.number": Style(color=FG_MUTED),
+        "markdown.hr": Style(color=BORDER),
+        # With hyperlinks enabled Rich styles the *visible link text* via
+        # ``markdown.link_url`` (not ``markdown.link``) and wraps it in an OSC-8
+        # hyperlink — so the color must live on ``link_url`` to actually paint.
+        # Links read as near-white + underline (the underline carries the
+        # affordance); warm accent is reserved for tool calls.
+        "markdown.link": Style(color=LINK, underline=True),
+        "markdown.link_url": Style(color=LINK, underline=True),
+    },
+    inherit=True,
+)
+
+
+class ThemedMarkdown(Markdown):
+    """Rich ``Markdown`` restyled to match the TCSS conversation theme.
+
+    Committed assistant messages render through this Rich path, but the
+    ``dreadnode.tcss`` Markdown rules only style the Textual ``Markdown`` widget
+    used while streaming. To keep the stream->commit swap from visibly
+    restyling, this subclass mirrors those rules three ways: heading and table
+    *elements* are overridden (see ``_ThemedHeading`` / ``_BorderedTable``),
+    fenced code uses ``_ThemedCodeBlock`` for the conversation background, and
+    every remaining inline/block style is supplied by pushing
+    :data:`_MARKDOWN_THEME` for the duration of the render. It also parses with
+    the same ``gfm-like`` preset Textual's ``Markdown`` widget uses so content
+    renders identically through either path.
     """
 
     elements: ClassVar[dict[str, type]] = {
         **Markdown.elements,
         "heading_open": _ThemedHeading,
         "table_open": _BorderedTable,
+        "fence": _ThemedCodeBlock,
+        "code_block": _ThemedCodeBlock,
     }
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        # Push the Markdown palette so Rich's ``markdown.*`` style lookups
+        # resolve to our theme instead of its magenta/cyan defaults; the theme
+        # must stay on the stack for the whole render since styles are resolved
+        # lazily as segments are produced.
+        console.push_theme(_MARKDOWN_THEME)
+        try:
+            yield from super().__rich_console__(console, options)
+        finally:
+            console.pop_theme()
 
     def __init__(
         self,

@@ -5,16 +5,42 @@ This module provides the main MCP server for Airbyte admin operations.
 
 The server can run in two modes:
 - **stdio mode** (default): For direct MCP client connections via stdin/stdout
-- **HTTP mode**: For HTTP-based MCP connections. When `OIDC_CONFIG_URL`,
-  `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` are all set, enables Keycloak
-  OIDC authentication via `OIDCProxy`.
+- **HTTP mode**: For HTTP-based MCP connections. Transport auth is assembled by
+  `fastmcp_extensions.build_mcp_auth`, which supports two client shapes on the
+  same deployment:
+    - **Interactive** (humans in a browser): Keycloak Authorization Code + PKCE
+      via `OIDCProxy`, enabled when `OIDC_CONFIG_URL`, `OIDC_CLIENT_ID`, and
+      `OIDC_CLIENT_SECRET` are all set.
+    - **Headless** (agents, CI): the client mints its own short-lived bearer
+      token via the OAuth 2.0 client credentials grant and sends it as
+      `Authorization: Bearer <token>`. The server verifies it with a
+      `JWTVerifier` (no browser, no stored/rotating refresh token), enabled
+      when `MCP_AUTH_JWKS_URI` (or `MCP_AUTH_JWT_PUBLIC_KEY`) is set.
+  When both are configured they are combined via `MultiAuth`.
+
+For Airbyte Cloud, set `MCP_AUTH_AIRBYTE_CLOUD=true` to verify against Airbyte
+Cloud's application-client realm without hand-configuring URLs. An agent then
+mints an Airbyte Cloud access token from its `AIRBYTE_CLOUD_CLIENT_ID` /
+`AIRBYTE_CLOUD_CLIENT_SECRET` (the `<api_root>/applications/token` endpoint) and
+sends it as `Authorization: Bearer`. That single token both authenticates
+transport (verified here) and authorizes downstream Cloud API calls (the same
+header feeds `AIRBYTE_CLOUD_BEARER_TOKEN`), because an Airbyte-Cloud-issued JWT
+is itself a valid Cloud API bearer.
 
 HTTP mode environment variables:
     MCP_SERVER_URL: Public base URL for the MCP server (also used for OIDC
         redirect callbacks). Defaults to `http://localhost:8080`.
-    OIDC_CONFIG_URL: Keycloak OIDC discovery URL (enables auth when set)
+    OIDC_CONFIG_URL: Keycloak OIDC discovery URL (enables interactive auth)
     OIDC_CLIENT_ID: OAuth client ID for Keycloak
     OIDC_CLIENT_SECRET: OAuth client secret for Keycloak
+    MCP_AUTH_AIRBYTE_CLOUD: Set truthy to verify headless tokens against Airbyte
+        Cloud's application-client realm (fills the JWKS URI, issuer, audience,
+        and algorithm below with Airbyte Cloud defaults; each stays overridable)
+    MCP_AUTH_JWKS_URI: JWKS URL for verifying headless bearer tokens
+    MCP_AUTH_JWT_PUBLIC_KEY: Static public key alternative to `MCP_AUTH_JWKS_URI`
+    MCP_AUTH_ISSUER: Expected `iss` claim for headless tokens (recommended)
+    MCP_AUTH_AUDIENCE: Expected `aud` claim for headless tokens (recommended)
+    MCP_AUTH_ALGORITHM: JWT signing algorithm override (optional)
 """
 
 import asyncio
@@ -27,12 +53,15 @@ from urllib.parse import urlparse
 from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.auth.oidc_proxy import OIDCProxy
+from fastmcp.server.auth import AuthProvider
 from fastmcp.server.dependencies import get_access_token
 from fastmcp_extensions import (
+    JWTAuthConfig,
     MCPServerConfigArg,
     ToolCallTelemetryMiddleware,
     mcp_server,
+    register_landing_page,
+    resolve_mcp_auth,
 )
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -83,11 +112,29 @@ logger = logging.getLogger(__name__)
 DEFAULT_HTTP_HOST = "0.0.0.0"
 DEFAULT_HTTP_PORT = 8080
 
-# OIDC environment variable names
-OIDC_CONFIG_URL_ENV = "OIDC_CONFIG_URL"
-OIDC_CLIENT_ID_ENV = "OIDC_CLIENT_ID"
-OIDC_CLIENT_SECRET_ENV = "OIDC_CLIENT_SECRET"
+# Transport auth env vars (`OIDC_*` interactive, `MCP_AUTH_*` headless) are read
+# by `fastmcp_extensions.resolve_mcp_auth`; this server only owns the flag that
+# opts headless verification into Airbyte Cloud's application-client realm.
+MCP_AUTH_AIRBYTE_CLOUD_ENV = "MCP_AUTH_AIRBYTE_CLOUD"
+
+# Public base URL of this deployment, used to derive the mounted MCP path.
 MCP_SERVER_URL_ENV = "MCP_SERVER_URL"
+
+# Airbyte Cloud's application-client realm. Tokens minted from an Airbyte Cloud
+# `client_id`/`client_secret` via `<api_root>/applications/token` are RS256 JWTs
+# issued by this realm, and the same token is a valid Airbyte Cloud API bearer.
+# Verifying against this realm lets one token both authenticate transport and
+# authorize downstream Cloud calls. Enable with `MCP_AUTH_AIRBYTE_CLOUD=true`.
+AIRBYTE_CLOUD_REALM_ISSUER = (
+    "https://cloud.airbyte.com/auth/realms/_airbyte-application-clients"
+)
+AIRBYTE_CLOUD_JWKS_URI = f"{AIRBYTE_CLOUD_REALM_ISSUER}/protocol/openid-connect/certs"
+AIRBYTE_CLOUD_JWT_AUDIENCE = "account"
+AIRBYTE_CLOUD_JWT_ALGORITHM = "RS256"
+
+# Human-facing landing page shown when a browser GETs the MCP endpoint.
+MCP_LANDING_TITLE = "Airbyte Ops MCP Server"
+MCP_LANDING_DOCS_URL = "https://github.com/airbytehq/airbyte-ops-mcp#readme"
 
 
 def _normalize_bearer_token(value: str) -> str | None:
@@ -102,15 +149,17 @@ def _normalize_bearer_token(value: str) -> str | None:
     return None
 
 
-def _resolve_oidc_bearer_token() -> str:
-    """Resolve the upstream bearer token from OIDC auth if available.
+def _resolve_transport_bearer_token() -> str:
+    """Resolve the verified transport bearer token if available.
 
-    When the server uses OIDCProxy (Keycloak/Okta), the user's upstream
-    access token is stored by FastMCP after the OAuth flow completes.
-    This function retrieves it so Cloud API tools can use the user's
-    identity for delegated access.
+    FastMCP stores the access token of the current request after the transport
+    auth provider verifies it — the Okta token for interactive `OIDCProxy`, or
+    the client-minted JWT for headless `JWTVerifier`. Both are Airbyte Cloud
+    tokens when the server verifies against Airbyte Cloud's realm, so reusing
+    the token as the downstream Cloud API bearer gives the caller's identity
+    delegated access without a second credential.
 
-    Returns empty string when no OIDC session is active (e.g. stdio mode).
+    Returns empty string when no verified token is present (e.g. stdio mode).
     """
     access_token = get_access_token()
     if access_token and access_token.token:
@@ -118,38 +167,33 @@ def _resolve_oidc_bearer_token() -> str:
     return ""
 
 
-def _create_oidc_auth() -> OIDCProxy | None:
-    """Create an `OIDCProxy` auth provider when OIDC env vars are configured.
+def _create_auth() -> AuthProvider | None:
+    """Assemble the transport auth provider from environment configuration.
 
-    When `OIDC_CONFIG_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` are all
-    set, returns an `OIDCProxy` that handles the Keycloak Authorization Code +
-    PKCE flow for browser-based MCP clients. When any is empty, returns `None`
-    (no OIDC auth — the server falls back to header-based credential resolution).
+    Delegates env parsing to `fastmcp_extensions.resolve_mcp_auth`, which wires
+    up interactive `OIDCProxy` (from `OIDC_*`) and/or headless `JWTVerifier`
+    (from `MCP_AUTH_*`), combining them via `MultiAuth` when both are set and
+    returning `None` when neither is — so the server falls back to header-based
+    credential resolution.
+
+    When `MCP_AUTH_AIRBYTE_CLOUD` is truthy, the headless verifier defaults to
+    Airbyte Cloud's application-client realm (JWKS / issuer / audience /
+    algorithm); individual `MCP_AUTH_*` vars still override those fields. This
+    is the only provider literal the server owns.
     """
-    config_url = os.getenv(OIDC_CONFIG_URL_ENV, "")
-    client_id = os.getenv(OIDC_CLIENT_ID_ENV, "")
-    client_secret = os.getenv(OIDC_CLIENT_SECRET_ENV, "")
-
-    if not config_url or not client_id or not client_secret:
-        return None
-
-    server_url = os.getenv(
-        MCP_SERVER_URL_ENV,
-        f"http://localhost:{DEFAULT_HTTP_PORT}",
-    )
-
-    logger.info(
-        "OIDC auth enabled (issuer=%s, client_id=%s, base_url=%s)",
-        config_url,
-        client_id,
-        server_url,
-    )
-    return OIDCProxy(
-        config_url=config_url,
-        client_id=client_id,
-        client_secret=client_secret,
-        base_url=server_url,
-    )
+    jwt_defaults: JWTAuthConfig | None = None
+    if os.getenv(MCP_AUTH_AIRBYTE_CLOUD_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        jwt_defaults = JWTAuthConfig(
+            jwks_uri=AIRBYTE_CLOUD_JWKS_URI,
+            issuer=AIRBYTE_CLOUD_REALM_ISSUER,
+            audience=AIRBYTE_CLOUD_JWT_AUDIENCE,
+            algorithm=AIRBYTE_CLOUD_JWT_ALGORITHM,
+        )
+    return resolve_mcp_auth(jwt_defaults=jwt_defaults)
 
 
 # Create the MCP server with built-in server info resource
@@ -167,7 +211,7 @@ app = mcp_server(
             http_header_key="Authorization",
             env_var="AIRBYTE_CLOUD_BEARER_TOKEN",
             normalize_fn=_normalize_bearer_token,
-            default=_resolve_oidc_bearer_token,
+            default=_resolve_transport_bearer_token,
             required=False,
             sensitive=True,
         ),
@@ -187,7 +231,7 @@ app = mcp_server(
         ),
     ],
     include_standard_tool_filters=True,
-    auth=_create_oidc_auth(),
+    auth=_create_auth(),
 )
 
 
@@ -302,6 +346,30 @@ def main_http() -> None:
         f"http://localhost:{DEFAULT_HTTP_PORT}",
     )
     mcp_path = "/" if urlparse(server_url).path.strip("/") else "/mcp"
+
+    if getattr(app, "auth", None) is None:
+        logger.warning(
+            "HTTP transport starting without authentication: no interactive "
+            "OIDC or headless bearer-token auth is configured, so every "
+            "request is unauthenticated. Set `OIDC_CONFIG_URL`/`OIDC_CLIENT_ID`/"
+            "`OIDC_CLIENT_SECRET` (interactive) or `MCP_AUTH_JWKS_URI`/"
+            "`MCP_AUTH_JWT_PUBLIC_KEY` (headless) to require auth."
+        )
+
+    # The advertised endpoint must match where the MCP route is actually mounted:
+    # the bare server URL when mounted at root, otherwise the server URL + mcp_path.
+    endpoint_url = server_url if mcp_path == "/" else server_url.rstrip("/") + mcp_path
+
+    # Serve a browser-friendly landing page on GET at the MCP path. In stateless
+    # mode FastMCP only binds POST/DELETE there, so this GET route does not
+    # interfere with MCP traffic.
+    register_landing_page(
+        app,
+        path=mcp_path,
+        title=MCP_LANDING_TITLE,
+        endpoint_url=endpoint_url,
+        docs_url=MCP_LANDING_DOCS_URL,
+    )
 
     print("=" * 60, flush=True, file=sys.stderr)
     print(

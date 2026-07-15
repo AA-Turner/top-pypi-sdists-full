@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index.umd-CX2RHGBu.js","./plotly-CX4VOiKt.js"])))=>i.map(i=>d[i]);
+import{_ as o,a as n,b as a}from"./index-CFYL-qQX.js";import"./plotly-CX4VOiKt.js";import"./recharts-P5Vx6n6Z.js";function l(i){return o(this,void 0,void 0,function(){var t;return n(this,function(r){switch(r.label){case 0:return[4,a(()=>import("./index.umd-CX2RHGBu.js").then(e=>e.i),__vite__mapDeps([0,1]),import.meta.url)];case 1:return t=r.sent(),i._plugins=t,[2]}})})}export{l as loadLegacyVideoPlugins};

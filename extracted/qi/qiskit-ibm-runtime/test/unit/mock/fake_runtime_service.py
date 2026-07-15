@@ -12,13 +12,20 @@
 
 """Context managers for using with IBM Provider unit tests."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from unittest import mock
 
-from qiskit_ibm_runtime.accounts import Account
 from qiskit_ibm_runtime.api.exceptions import RequestsApiError
-from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService, RuntimeClient
-from .fake_runtime_client import BaseFakeRuntimeClient
+from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
+
 from .fake_api_backend import FakeApiBackendSpecs
+from .fake_runtime_client import BaseFakeRuntimeClient
+
+if TYPE_CHECKING:
+    from qiskit_ibm_runtime.accounts import Account
+    from qiskit_ibm_runtime.qiskit_runtime_service import RuntimeClient
 
 
 class FakeRuntimeService(QiskitRuntimeService):
@@ -71,11 +78,8 @@ class FakeRuntimeService(QiskitRuntimeService):
         ):
             super().__init__(*args, **kwargs)
 
-        # Use default if api client is somehow not set.
-        if not isinstance(self._active_api_client, BaseFakeRuntimeClient):
-            self._active_api_client = self._fake_runtime_client or BaseFakeRuntimeClient(
-                backend_specs=self._backend_specs, instance=instance
-            )
+        # Populate ._active_api_client and ._api_clients.
+        self._discover_backends_from_instance(instance)
 
     def instances(self):
         """Return a list of instances."""
@@ -90,6 +94,7 @@ class FakeRuntimeService(QiskitRuntimeService):
         self._active_api_client = self._fake_runtime_client
         self._set_api_client(crns=[None] * self._test_num_crns, channel="ibm_quantum_platform")
         self._active_api_client._job_classes = job_class  # type: ignore
+        self._api_clients[instance] = self._active_api_client
         return self._active_api_client.list_backends()  # type: ignore
 
     def _create_new_cloud_api_client(self, instance: str) -> None:

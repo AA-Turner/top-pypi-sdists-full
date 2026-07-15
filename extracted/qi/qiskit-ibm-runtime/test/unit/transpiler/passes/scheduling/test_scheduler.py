@@ -12,15 +12,14 @@
 
 """Test the dynamic circuits scheduling analysis."""
 
-from ddt import ddt, data
-
+from ddt import data, ddt
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
 from qiskit.circuit import Delay, Parameter
-from qiskit.circuit.library import XGate, Measure, Reset, CXGate, RZGate
+from qiskit.circuit.library import CXGate, Measure, Reset, RZGate, XGate
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler.exceptions import TranspilerError
 from qiskit.transpiler.passmanager import PassManager
-from qiskit.transpiler.target import Target, InstructionProperties
+from qiskit.transpiler.target import InstructionProperties, Target
 
 from qiskit_ibm_runtime.fake_provider import FakeJakartaV2
 from qiskit_ibm_runtime.transpiler.passes.scheduling.pad_delay import PadDelay
@@ -28,9 +27,7 @@ from qiskit_ibm_runtime.transpiler.passes.scheduling.scheduler import (
     ALAPScheduleAnalysis,
     ASAPScheduleAnalysis,
 )
-from qiskit_ibm_runtime.transpiler.passes.scheduling.utils import (
-    DynamicCircuitInstructionDurations,
-)
+from qiskit_ibm_runtime.transpiler.passes.scheduling.utils import DynamicCircuitInstructionDurations
 
 from .....ibm_test_case import IBMTestCase
 
@@ -3388,7 +3385,7 @@ class TestALAPSchedulingAndPaddingPass(IBMTestCase):
     def test_scheduling_nonuniform_durations(self, use_target):
         """Test scheduling uses the instruction durations correctly.
 
-        Test that scheduling withing control flow blocks uses the instruction durations on the
+        Test that scheduling within control flow blocks uses the instruction durations on the
         correct qubit indices.
         """
         backend = FakeJakartaV2()

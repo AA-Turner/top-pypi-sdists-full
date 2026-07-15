@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyan3
-Version: 2.6.1
+Version: 2.6.2
 Summary: Generate approximate call graphs for Python programs
 Keywords: call-graph,static-code-analysis,code-visualization,dependency-analysis
 Author-Email: Juha Jeronen <juha.m.jeronen@gmail.com>

@@ -7324,6 +7324,11 @@ _STRINGS.update({
     },
 
     # ── sqli_autoexploit 출력 메시지 ─────────────────────────────────────────
+    "sqli_cache_hit": {
+        "ko": "✅ [SQLI_CACHE] STAGE 1-3 캐시 복원 — oracle={oracle}  VERSION={ver}  DB={db}  USER={usr}",
+        "zh": "✅ [SQLI_CACHE] STAGE 1-3 缓存命中 — oracle={oracle}  VERSION={ver}  DB={db}  USER={usr}",
+        "en": "✅ [SQLI_CACHE] STAGE 1-3 cache restored — oracle={oracle}  VERSION={ver}  DB={db}  USER={usr}",
+    },
     "sqli_stage1": {
         "ko": "=== STAGE 1: Boolean Oracle 탐지 ===",
         "zh": "=== STAGE 1: Boolean Oracle 检测 ===",
@@ -8457,6 +8462,37 @@ _STRINGS.update({
     "tor_auto_win":        {"ko": "⚠️ Windows 자동 설치 미지원 — 수동 설치 필요", "zh": "⚠️ Windows 不支持自动安装 — 请手动安装", "en": "⚠️ Windows auto-install not supported — manual install required"},
     "proxy_hunt_done":     {"ko": "🌐 무료 프록시 {n}개 자동 수집됨", "zh": "🌐 自动收集 {n} 个免费代理", "en": "🌐 {n} free proxies auto-collected"},
     "proxy_hunt_fail":     {"ko": "⚠️ 프록시 수집 실패: {err}", "zh": "⚠️ 代理收集失败: {err}", "en": "⚠️ Proxy hunt failed: {err}"},
+    # ── v6.2.136 프록시 지속 순환 자동교정기 ──────────────────────────────────
+    "proxy_cycle_blocked": {
+        "ko": "🔄 현재 프록시 차단됨 — 다음 프록시로 자동 전환",
+        "zh": "🔄 当前代理已被封锁 — 自动切换到下一个代理",
+        "en": "🔄 Current proxy blocked — auto-rotating to next proxy",
+    },
+    "proxy_cycle_exhaust": {
+        "ko": "⚠️ 프록시 풀 소진 — 새 프록시 자동 수집 중...",
+        "zh": "⚠️ 代理池已耗尽 — 正在自动收集新代理...",
+        "en": "⚠️ Proxy pool exhausted — auto-collecting new proxies...",
+    },
+    "proxy_cycle_notice": {
+        "ko": (
+            "🔄 [PROXY_CYCLE_NOTICE] 프록시 순환 자동 교정기 작동\n"
+            "  현재 프록시({proxy})가 차단되었습니다.\n"
+            "  다음 프록시({next_proxy})로 전환하여 재시도하세요:\n"
+            "  TOOL_CALL:{{\"name\":\"sqli_with_ip_rotation\",\"args\":{{\"url\":\"<URL>\",\"param\":\"<param>\",\"proxy_list\":{pool_json}}}}}"
+        ),
+        "zh": (
+            "🔄 [PROXY_CYCLE_NOTICE] 代理轮换自动校正器已激活\n"
+            "  当前代理({proxy})已被封锁。\n"
+            "  请切换到下一个代理({next_proxy})重试:\n"
+            "  TOOL_CALL:{{\"name\":\"sqli_with_ip_rotation\",\"args\":{{\"url\":\"<URL>\",\"param\":\"<param>\",\"proxy_list\":{pool_json}}}}}"
+        ),
+        "en": (
+            "🔄 [PROXY_CYCLE_NOTICE] Proxy cycle auto-corrector triggered\n"
+            "  Current proxy ({proxy}) is blocked.\n"
+            "  Rotate to next proxy ({next_proxy}):\n"
+            "  TOOL_CALL:{{\"name\":\"sqli_with_ip_rotation\",\"args\":{{\"url\":\"<URL>\",\"param\":\"<param>\",\"proxy_list\":{pool_json}}}}}"
+        ),
+    },
     # ── v6.2.125 루프/추출 자동교정기 ─────────────────────────────────────────
     "tilde_loop_stop": {
         "ko": (
@@ -8494,6 +8530,386 @@ _STRINGS.update({
             "✅ Summarize findings so far, then TASK_COMPLETE and generate report.\n"
             "   Or switch to a completely different attack vector (Actuator/JS/IDOR)."
         ),
+    },
+    # ── v6.2.139: 취약점 강화 스캐너 ──────────────────────────────────────────
+    "full_scan_start": {
+        "ko": "🔍 [FULL_SCAN] {url} 전체 취약점 자동 스캔 시작...",
+        "zh": "🔍 [FULL_SCAN] 开始对 {url} 进行全站漏洞自动扫描...",
+        "en": "🔍 [FULL_SCAN] Starting full vulnerability scan for {url}...",
+    },
+    "full_scan_done": {
+        "ko": "✅ [FULL_SCAN] 완료 — {count}개 취약점 발견 ({types})",
+        "zh": "✅ [FULL_SCAN] 完成 — 发现 {count} 个漏洞 ({types})",
+        "en": "✅ [FULL_SCAN] Done — {count} vulnerability(s) found ({types})",
+    },
+    "full_scan_no_params": {
+        "ko": "⚠️ [FULL_SCAN] 테스트 가능한 파라미터를 찾지 못했습니다: {url}",
+        "zh": "⚠️ [FULL_SCAN] 未发现可测试参数: {url}",
+        "en": "⚠️ [FULL_SCAN] No testable parameters found: {url}",
+    },
+    "header_inject_found": {
+        "ko": "🔴 [HEADER_INJECT] {header} 헤더 주입 취약점 발견! payload={payload}",
+        "zh": "🔴 [HEADER_INJECT] 发现 {header} 请求头注入漏洞！payload={payload}",
+        "en": "🔴 [HEADER_INJECT] {header} header injection found! payload={payload}",
+    },
+    "parallel_scan_start": {
+        "ko": "⚡ [PARALLEL_SCAN] {url} [{param}] 병렬 멀티 취약점 스캔 ({types})",
+        "zh": "⚡ [PARALLEL_SCAN] {url} [{param}] 并行多漏洞扫描 ({types})",
+        "en": "⚡ [PARALLEL_SCAN] {url} [{param}] parallel multi-vuln scan ({types})",
+    },
+    "xss_plus_found": {
+        "ko": "🔴 [XSS+] XSS 취약점 확인 — param={param}, {n}개 페이로드 반사됨",
+        "zh": "🔴 [XSS+] XSS漏洞确认 — param={param}, {n}个载荷被反射",
+        "en": "🔴 [XSS+] XSS confirmed — param={param}, {n} payload(s) reflected",
+    },
+    "lfi_plus_found": {
+        "ko": "🔴 [LFI+] LFI 취약점 확인 — param={param}, 서명: {sigs}",
+        "zh": "🔴 [LFI+] LFI漏洞确认 — param={param}, 特征: {sigs}",
+        "en": "🔴 [LFI+] LFI confirmed — param={param}, signatures: {sigs}",
+    },
+    "ssrf_plus_found": {
+        "ko": "🔴 [SSRF+] SSRF 취약점 확인 — param={param}",
+        "zh": "🔴 [SSRF+] SSRF漏洞确认 — param={param}",
+        "en": "🔴 [SSRF+] SSRF confirmed — param={param}",
+    },
+    "ssti_plus_found": {
+        "ko": "🔴 [SSTI+] 템플릿 인젝션 확인 — engine={engine}",
+        "zh": "🔴 [SSTI+] 模板注入确认 — engine={engine}",
+        "en": "🔴 [SSTI+] Template injection confirmed — engine={engine}",
+    },
+    "cmdi_plus_found": {
+        "ko": "🔴 [CMDi+] 명령어 인젝션 확인 — param={param}",
+        "zh": "🔴 [CMDi+] 命令注入确认 — param={param}",
+        "en": "🔴 [CMDi+] Command injection confirmed — param={param}",
+    },
+    "auto_crawl_found": {
+        "ko": "📋 [AUTO_CRAWL] {url} 에서 {count}개 파라미터 발견",
+        "zh": "📋 [AUTO_CRAWL] 在 {url} 发现 {count} 个参数",
+        "en": "📋 [AUTO_CRAWL] Found {count} parameter(s) at {url}",
+    },
+    # ── v6.2.140 ────────────────────────────────────────────────────────────
+    "js_crawl_start": {
+        "ko": "🎭 [JS_CRAWL] Playwright JS 렌더링 크롤 시작: {url}",
+        "zh": "🎭 [JS_CRAWL] 开始 Playwright JS 渲染爬取: {url}",
+        "en": "🎭 [JS_CRAWL] Starting Playwright JS render crawl: {url}",
+    },
+    "js_crawl_done": {
+        "ko": "✅ [JS_CRAWL] {url} — 폼 {forms}개, XHR {xhr}개, 타겟 {targets}개",
+        "zh": "✅ [JS_CRAWL] {url} — 表单 {forms}个, XHR {xhr}个, 目标 {targets}个",
+        "en": "✅ [JS_CRAWL] {url} — {forms} form(s), {xhr} XHR(s), {targets} target(s)",
+    },
+    "auth_scan_start": {
+        "ko": "🔐 [AUTH_SCAN] {url} 인증 세션 스캔 시작 (user={user})",
+        "zh": "🔐 [AUTH_SCAN] 开始认证会话扫描 {url} (user={user})",
+        "en": "🔐 [AUTH_SCAN] Starting authenticated scan for {url} (user={user})",
+    },
+    "auth_login_ok": {
+        "ko": "✅ [AUTH_SCAN] 로그인 성공 — 세션 쿠키 {count}개 획득",
+        "zh": "✅ [AUTH_SCAN] 登录成功 — 获取 {count} 个会话Cookie",
+        "en": "✅ [AUTH_SCAN] Login successful — {count} session cookie(s) obtained",
+    },
+    "auth_login_fail": {
+        "ko": "❌ [AUTH_SCAN] 로그인 실패 — 세션 쿠키 없음",
+        "zh": "❌ [AUTH_SCAN] 登录失败 — 无会话Cookie",
+        "en": "❌ [AUTH_SCAN] Login failed — no session cookies",
+    },
+    "fp_verify_confirmed": {
+        "ko": "✅ [FP_VERIFY] 확인됨 [{vuln}] {param}@{url} (확신도 {conf}%)",
+        "zh": "✅ [FP_VERIFY] 已确认 [{vuln}] {param}@{url} (置信度 {conf}%)",
+        "en": "✅ [FP_VERIFY] Confirmed [{vuln}] {param}@{url} (confidence {conf}%)",
+    },
+    "fp_verify_removed": {
+        "ko": "❌ [FP_VERIFY] False Positive 제거 [{vuln}] {param}@{url} (확신도 {conf}%)",
+        "zh": "❌ [FP_VERIFY] 误报已删除 [{vuln}] {param}@{url} (置信度 {conf}%)",
+        "en": "❌ [FP_VERIFY] False positive removed [{vuln}] {param}@{url} (confidence {conf}%)",
+    },
+    "full_scan_v2_start": {
+        "ko": "🚀 [FULL_SCAN_V2] {url} 전체 스캔 v2 시작 (Playwright+FP재검증)",
+        "zh": "🚀 [FULL_SCAN_V2] 开始全站扫描v2 {url} (Playwright+FP验证)",
+        "en": "🚀 [FULL_SCAN_V2] Starting full scan v2 for {url} (Playwright+FP verify)",
+    },
+    "full_scan_v2_done": {
+        "ko": "✅ [FULL_SCAN_V2] 완료 — 확인된 취약점 {count}개 (FP {fp}개 제거)",
+        "zh": "✅ [FULL_SCAN_V2] 完成 — 确认漏洞 {count} 个 (已删除FP {fp} 个)",
+        "en": "✅ [FULL_SCAN_V2] Done — {count} confirmed vulnerability(s) ({fp} FP removed)",
+    },
+    # ── v6.2.141: 고급 스캐너 다국어 키 ────────────────────────────────────
+    "tech_fp_start": {
+        "ko": "🔬 [TECH_FP] {url} 기술 스택 탐지 시작",
+        "zh": "🔬 [TECH_FP] 开始识别 {url} 技术栈",
+        "en": "🔬 [TECH_FP] Detecting tech stack for {url}",
+    },
+    "tech_fp_done": {
+        "ko": "✅ [TECH_FP] 감지됨: {techs}",
+        "zh": "✅ [TECH_FP] 已识别: {techs}",
+        "en": "✅ [TECH_FP] Detected: {techs}",
+    },
+    "cve_scan_start": {
+        "ko": "🔎 [CVE_SCAN] {url} CVE 자동 스캔 시작 (Log4Shell/Spring4Shell/Shellshock...)",
+        "zh": "🔎 [CVE_SCAN] 开始CVE自动扫描 {url}",
+        "en": "🔎 [CVE_SCAN] Starting CVE auto-scan for {url}",
+    },
+    "cve_scan_found": {
+        "ko": "🔴 [CVE_FOUND] {cve} 확인! {note}",
+        "zh": "🔴 [CVE_FOUND] {cve} 确认! {note}",
+        "en": "🔴 [CVE_FOUND] {cve} confirmed! {note}",
+    },
+    "cve_scan_done": {
+        "ko": "✅ [CVE_SCAN] 완료 — {count}개 CVE 발견",
+        "zh": "✅ [CVE_SCAN] 完成 — 发现 {count} 个CVE",
+        "en": "✅ [CVE_SCAN] Done — {count} CVE(s) found",
+    },
+    "dom_xss_start": {
+        "ko": "🎭 [DOM_XSS] {url} [{param}] DOM XSS 스캔 시작 (Playwright)",
+        "zh": "🎭 [DOM_XSS] 开始DOM XSS扫描 {url} [{param}]",
+        "en": "🎭 [DOM_XSS] Starting DOM XSS scan for {url} [{param}]",
+    },
+    "dom_xss_found": {
+        "ko": "🔴 [DOM_XSS] DOM XSS 확인! {payload}",
+        "zh": "🔴 [DOM_XSS] DOM XSS确认! {payload}",
+        "en": "🔴 [DOM_XSS] DOM XSS confirmed! {payload}",
+    },
+    "param_fuzz_start": {
+        "ko": "🔍 [PARAM_FUZZ] {url} 파라미터 퍼징 시작 ({count}개 워드)",
+        "zh": "🔍 [PARAM_FUZZ] 开始参数Fuzz {url} ({count}个参数)",
+        "en": "🔍 [PARAM_FUZZ] Starting parameter fuzzing for {url} ({count} words)",
+    },
+    "param_fuzz_found": {
+        "ko": "🟡 [PARAM_FUZZ] 파라미터 발견: {param} (diff={diff}B)",
+        "zh": "🟡 [PARAM_FUZZ] 发现参数: {param} (diff={diff}B)",
+        "en": "🟡 [PARAM_FUZZ] Parameter found: {param} (diff={diff}B)",
+    },
+    "sqli_plus_start": {
+        "ko": "💉 [SQLI_PLUS] {url} [{param}] SQLi 강화 스캔 시작 (600+ 페이로드)",
+        "zh": "💉 [SQLI_PLUS] 开始SQLi增强扫描 {url} [{param}]",
+        "en": "💉 [SQLI_PLUS] Starting SQLi enhanced scan for {url} [{param}]",
+    },
+    "sqli_plus_found": {
+        "ko": "🔴 [SQLI_PLUS] SQLi 확인! type={type} db={db}",
+        "zh": "🔴 [SQLI_PLUS] SQLi确认! type={type} db={db}",
+        "en": "🔴 [SQLI_PLUS] SQLi confirmed! type={type} db={db}",
+    },
+    "wp_scan_start": {
+        "ko": "🔌 [WP_SCAN] {url} WordPress 특화 스캔 시작",
+        "zh": "🔌 [WP_SCAN] 开始WordPress专项扫描 {url}",
+        "en": "🔌 [WP_SCAN] Starting WordPress scan for {url}",
+    },
+    "wp_scan_found": {
+        "ko": "🔴 [WP_FOUND] [{severity}] {desc}: {path}",
+        "zh": "🔴 [WP_FOUND] [{severity}] {desc}: {path}",
+        "en": "🔴 [WP_FOUND] [{severity}] {desc}: {path}",
+    },
+    "http_method_scan_start": {
+        "ko": "📡 [HTTP_METHOD] {url} HTTP 메서드 권한 스캔 시작",
+        "zh": "📡 [HTTP_METHOD] 开始HTTP方法扫描 {url}",
+        "en": "📡 [HTTP_METHOD] Starting HTTP method scan for {url}",
+    },
+    "http_method_found": {
+        "ko": "🔴 [HTTP_METHOD] 위험 메서드 허용: {method} ({note})",
+        "zh": "🔴 [HTTP_METHOD] 危险方法已允许: {method} ({note})",
+        "en": "🔴 [HTTP_METHOD] Dangerous method allowed: {method} ({note})",
+    },
+    "api_scan_start": {
+        "ko": "🔑 [API_SCAN] {url} API 보안 스캔 시작",
+        "zh": "🔑 [API_SCAN] 开始API安全扫描 {url}",
+        "en": "🔑 [API_SCAN] Starting API security scan for {url}",
+    },
+    "api_scan_found": {
+        "ko": "🔴 [API_FOUND] [{severity}] {path}: {note}",
+        "zh": "🔴 [API_FOUND] [{severity}] {path}: {note}",
+        "en": "🔴 [API_FOUND] [{severity}] {path}: {note}",
+    },
+    "full_deep_scan_start": {
+        "ko": "🚀 [FULL_DEEP_SCAN] {url} 완전 딥 스캔 시작 (Acunetix 95% 레벨)",
+        "zh": "🚀 [FULL_DEEP_SCAN] 开始全面深度扫描 {url} (Acunetix 95%级别)",
+        "en": "🚀 [FULL_DEEP_SCAN] Starting full deep scan for {url} (Acunetix 95% level)",
+    },
+    "full_deep_scan_done": {
+        "ko": "✅ [FULL_DEEP_SCAN] 완료 — 취약점 {count}개 (CRITICAL={critical} HIGH={high} MEDIUM={medium})",
+        "zh": "✅ [FULL_DEEP_SCAN] 完成 — 漏洞 {count} 个 (CRITICAL={critical} HIGH={high} MEDIUM={medium})",
+        "en": "✅ [FULL_DEEP_SCAN] Done — {count} vulnerability(s) (CRITICAL={critical} HIGH={high} MEDIUM={medium})",
+    },
+    # ── v6.2.142: 100% Acunetix 수준 다국어 키 ─────────────────────────────
+    "sec_headers_start": {
+        "ko": "🛡️ [SEC_HEADERS] {url} 보안 헤더 검사 시작",
+        "zh": "🛡️ [SEC_HEADERS] 开始安全头检查 {url}",
+        "en": "🛡️ [SEC_HEADERS] Starting security headers check for {url}",
+    },
+    "sec_headers_score": {
+        "ko": "✅ [SEC_HEADERS] 보안점수: {score}/100 — 누락헤더 {count}개",
+        "zh": "✅ [SEC_HEADERS] 安全评分: {score}/100 — 缺少头 {count} 个",
+        "en": "✅ [SEC_HEADERS] Security score: {score}/100 — {count} missing headers",
+    },
+    "ssl_tls_start": {
+        "ko": "🔐 [SSL_TLS] {url} TLS/SSL 취약점 스캔 시작",
+        "zh": "🔐 [SSL_TLS] 开始TLS/SSL扫描 {url}",
+        "en": "🔐 [SSL_TLS] Starting TLS/SSL scan for {url}",
+    },
+    "ssl_tls_found": {
+        "ko": "🔴 [SSL_TLS] [{severity}] {type}",
+        "zh": "🔴 [SSL_TLS] [{severity}] {type}",
+        "en": "🔴 [SSL_TLS] [{severity}] {type}",
+    },
+    "info_disc_start": {
+        "ko": "🔍 [INFO_DISC] {url} 정보 노출 스캔 시작",
+        "zh": "🔍 [INFO_DISC] 开始信息泄露扫描 {url}",
+        "en": "🔍 [INFO_DISC] Starting info disclosure scan for {url}",
+    },
+    "info_disc_found": {
+        "ko": "🔴 [INFO_DISC] [{severity}] {type}: {path}",
+        "zh": "🔴 [INFO_DISC] [{severity}] {type}: {path}",
+        "en": "🔴 [INFO_DISC] [{severity}] {type}: {path}",
+    },
+    "source_exp_start": {
+        "ko": "📁 [SOURCE_EXP] {url} 소스 파일 노출 스캔 시작 (70+ 경로)",
+        "zh": "📁 [SOURCE_EXP] 开始源代码/文件暴露扫描 {url}",
+        "en": "📁 [SOURCE_EXP] Starting source exposure scan for {url}",
+    },
+    "source_exp_found": {
+        "ko": "🔴 [SOURCE_EXP] [{severity}] {path}: {desc}",
+        "zh": "🔴 [SOURCE_EXP] [{severity}] {path}: {desc}",
+        "en": "🔴 [SOURCE_EXP] [{severity}] {path}: {desc}",
+    },
+    "cors_scan_start": {
+        "ko": "🌐 [CORS] {url} CORS 잘못된 설정 스캔 시작",
+        "zh": "🌐 [CORS] 开始CORS错误配置扫描 {url}",
+        "en": "🌐 [CORS] Starting CORS misconfiguration scan for {url}",
+    },
+    "cors_found": {
+        "ko": "🔴 [CORS] [{severity}] Origin 반사: {origin}",
+        "zh": "🔴 [CORS] [{severity}] Origin反射: {origin}",
+        "en": "🔴 [CORS] [{severity}] Origin reflection: {origin}",
+    },
+    "clickjacking_start": {
+        "ko": "🖱️ [CLICKJACKING] {url} 클릭재킹 스캔 시작",
+        "zh": "🖱️ [CLICKJACKING] 开始点击劫持扫描 {url}",
+        "en": "🖱️ [CLICKJACKING] Starting clickjacking scan for {url}",
+    },
+    "clickjacking_vuln": {
+        "ko": "🔴 [CLICKJACKING] 취약! X-Frame-Options/CSP frame-ancestors 없음",
+        "zh": "🔴 [CLICKJACKING] 存在漏洞! 缺少X-Frame-Options/CSP frame-ancestors",
+        "en": "🔴 [CLICKJACKING] Vulnerable! Missing X-Frame-Options/CSP frame-ancestors",
+    },
+    "cookie_scan_start": {
+        "ko": "🍪 [COOKIE] {url} 쿠키 보안 속성 스캔 시작",
+        "zh": "🍪 [COOKIE] 开始Cookie安全属性扫描 {url}",
+        "en": "🍪 [COOKIE] Starting cookie security scan for {url}",
+    },
+    "sec_audit_start": {
+        "ko": "🔒 [SEC_AUDIT] {url} 완전 보안 감사 시작 (8종 병렬)",
+        "zh": "🔒 [SEC_AUDIT] 开始完整安全审计 {url} (8种并行)",
+        "en": "🔒 [SEC_AUDIT] Starting full security audit for {url} (8 parallel)",
+    },
+    "sec_audit_score": {
+        "ko": "✅ [SEC_AUDIT] 완료 — 보안점수 {score}/100 | CRITICAL={critical} HIGH={high}",
+        "zh": "✅ [SEC_AUDIT] 完成 — 安全评分 {score}/100 | CRITICAL={critical} HIGH={high}",
+        "en": "✅ [SEC_AUDIT] Done — score {score}/100 | CRITICAL={critical} HIGH={high}",
+    },
+    "jwt_attack_start": {
+        "ko": "🔑 [JWT] {url} JWT 공격 시작 (alg:none/blank secret/kid/jku)",
+        "zh": "🔑 [JWT] 开始JWT攻击 {url}",
+        "en": "🔑 [JWT] Starting JWT attack for {url}",
+    },
+    "jwt_attack_found": {
+        "ko": "🔴 [JWT] [{severity}] JWT 취약점: {type}",
+        "zh": "🔴 [JWT] [{severity}] JWT漏洞: {type}",
+        "en": "🔴 [JWT] [{severity}] JWT vulnerability: {type}",
+    },
+    "graphql_scan_start": {
+        "ko": "⚙️ [GRAPHQL] {url} GraphQL 보안 스캔 시작",
+        "zh": "⚙️ [GRAPHQL] 开始GraphQL安全扫描 {url}",
+        "en": "⚙️ [GRAPHQL] Starting GraphQL security scan for {url}",
+    },
+    "graphql_introspection": {
+        "ko": "🔴 [GRAPHQL] 인트로스펙션 활성화! 스키마 노출",
+        "zh": "🔴 [GRAPHQL] 内省功能已启用! Schema已暴露",
+        "en": "🔴 [GRAPHQL] Introspection enabled! Schema exposed",
+    },
+    "file_upload_start": {
+        "ko": "📤 [FILE_UPLOAD] {url} 파일 업로드 취약점 스캔 시작",
+        "zh": "📤 [FILE_UPLOAD] 开始文件上传漏洞扫描 {url}",
+        "en": "📤 [FILE_UPLOAD] Starting file upload scan for {url}",
+    },
+    "file_upload_rce": {
+        "ko": "🔴 [FILE_UPLOAD] 웹쉘 업로드 + RCE 확인! {shell_url}",
+        "zh": "🔴 [FILE_UPLOAD] Webshell上传+RCE确认! {shell_url}",
+        "en": "🔴 [FILE_UPLOAD] Webshell upload + RCE confirmed! {shell_url}",
+    },
+    "smuggling_start": {
+        "ko": "🚢 [SMUGGLING] {url} HTTP 요청 밀반입 스캔 시작",
+        "zh": "🚢 [SMUGGLING] 开始HTTP请求走私扫描 {url}",
+        "en": "🚢 [SMUGGLING] Starting HTTP request smuggling scan for {url}",
+    },
+    "idor_scan_start": {
+        "ko": "🔓 [IDOR] {url} [{param}] IDOR 자동 스캔 시작",
+        "zh": "🔓 [IDOR] 开始IDOR自动扫描 {url} [{param}]",
+        "en": "🔓 [IDOR] Starting IDOR scan for {url} [{param}]",
+    },
+    "idor_found": {
+        "ko": "🔴 [IDOR] {param}={test_id}: {data} 노출",
+        "zh": "🔴 [IDOR] {param}={test_id}: {data} 已暴露",
+        "en": "🔴 [IDOR] {param}={test_id}: {data} exposed",
+    },
+    "deser_scan_start": {
+        "ko": "⚠️ [DESER] {url} 역직렬화 취약점 스캔 시작",
+        "zh": "⚠️ [DESER] 开始反序列化漏洞扫描 {url}",
+        "en": "⚠️ [DESER] Starting deserialization scan for {url}",
+    },
+    "race_scan_start": {
+        "ko": "⚡ [RACE] {url} 경쟁 조건 스캔 시작 ({n}개 동시)",
+        "zh": "⚡ [RACE] 开始竞争条件扫描 {url} ({n}个并发)",
+        "en": "⚡ [RACE] Starting race condition scan for {url} ({n} concurrent)",
+    },
+    "oauth_scan_start": {
+        "ko": "🔐 [OAUTH] {url} OAuth/OIDC 잘못된 설정 스캔 시작",
+        "zh": "🔐 [OAUTH] 开始OAuth/OIDC配置扫描 {url}",
+        "en": "🔐 [OAUTH] Starting OAuth/OIDC misconfiguration scan for {url}",
+    },
+    # ── v6.2.143: 미션 오케스트레이터 다국어 키 ─────────────────────────────
+    "mission_start": {
+        "ko": "🎯 [MISSION] {url} 미션 시작: {mission}",
+        "zh": "🎯 [MISSION] 开始任务 {url}: {mission}",
+        "en": "🎯 [MISSION] Starting mission for {url}: {mission}",
+    },
+    "mission_chain_detected": {
+        "ko": "⚡ [MISSION_CHAIN] 다중 미션 감지 → mission_execute 자동 실행",
+        "zh": "⚡ [MISSION_CHAIN] 检测到多个任务 → 自动执行mission_execute",
+        "en": "⚡ [MISSION_CHAIN] Multi-mission detected → auto-running mission_execute",
+    },
+    "mission_step": {
+        "ko": "  ▶ [{step}/{total}] {label}...",
+        "zh": "  ▶ [{step}/{total}] {label}...",
+        "en": "  ▶ [{step}/{total}] {label}...",
+    },
+    "mission_creds_found": {
+        "ko": "🔴 [MISSION] 관리자 자격증명 탈취: {cred}",
+        "zh": "🔴 [MISSION] 获取管理员凭据: {cred}",
+        "en": "🔴 [MISSION] Admin credentials obtained: {cred}",
+    },
+    "mission_admin_login": {
+        "ko": "🔴 [MISSION] 관리자 패널 로그인 성공: {url} ({user}:{pw})",
+        "zh": "🔴 [MISSION] 管理员面板登录成功: {url} ({user}:{pw})",
+        "en": "🔴 [MISSION] Admin panel login success: {url} ({user}:{pw})",
+    },
+    "mission_webshell": {
+        "ko": "🔴 [MISSION] 웹쉘 업로드 성공: {shell_url}",
+        "zh": "🔴 [MISSION] Webshell上传成功: {shell_url}",
+        "en": "🔴 [MISSION] Webshell upload success: {shell_url}",
+    },
+    "mission_report": {
+        "ko": "📊 [MISSION_REPORT] 취약점 {count}개 | CRITICAL={critical} HIGH={high}",
+        "zh": "📊 [MISSION_REPORT] 漏洞 {count} 个 | CRITICAL={critical} HIGH={high}",
+        "en": "📊 [MISSION_REPORT] {count} finding(s) | CRITICAL={critical} HIGH={high}",
+    },
+    "mission_done": {
+        "ko": "✅ [MISSION_DONE] {url} 미션 완료",
+        "zh": "✅ [MISSION_DONE] {url} 任务完成",
+        "en": "✅ [MISSION_DONE] {url} Mission complete",
+    },
+    "mission_hint_usage": {
+        "ko": "💡 사용법: 채팅창에 'URL + 미션설명' 입력만으로 전체 공격 체인이 자동 실행됩니다.\n   예: https://target.com/ 绕过waf，sql渗透，管理员账号密码，webshell权限",
+        "zh": "💡 用法: 只需在聊天框输入'URL + 任务描述'即可自动执行完整攻击链。\n   例: https://target.com/ 绕过waf，sql渗透，管理员账号密码，webshell权限",
+        "en": "💡 Usage: Just type 'URL + mission description' in chat to auto-run the full attack chain.\n   e.g: https://target.com/ bypass waf, sql injection, admin credentials, webshell",
     },
 })
 

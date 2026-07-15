@@ -3643,12 +3643,13 @@ class DreadnodeTextualApp(App[None]):
             "expanded" if self.output_mode == "compact" else "compact"
         )
         self.output_mode = new_mode
-        from dreadnode.app.tui.widgets.conversation import CompactionSummary
+        from dreadnode.app.tui.widgets.conversation import CompactionSummary, ThinkingBlock
         from dreadnode.app.tui.widgets.tool import ToolCall as ToolCallWidget
 
-        # ^O controls tool-output verbosity only. Reasoning (ThinkingBlock) is a
-        # separate concern shown inline regardless of this toggle (ENG-6108), so
-        # it is intentionally not touched here.
+        # ^O drives every expandable surface: tool output, compaction summaries,
+        # and reasoning. Reasoning was previously excluded (ENG-6108) but that
+        # left long traces filling the viewport with no way to shorten them, so
+        # ^O now shortens/expands ThinkingBlocks too (ENG-7463).
         try:
             conv = self.query_one("#conversation", ConversationView)
             for tc in conv.query(ToolCallWidget):
@@ -3656,6 +3657,8 @@ class DreadnodeTextualApp(App[None]):
             expanded = new_mode == "expanded"
             for cs in conv.query(CompactionSummary):
                 cs.display = expanded
+            for tb in conv.query(ThinkingBlock):
+                tb.set_output_mode(new_mode)
         except Exception:
             logger.debug("Could not refresh output mode widgets")
         self._flash(f"Output: {new_mode}", severity="info")

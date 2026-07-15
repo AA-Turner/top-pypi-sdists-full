@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_ra
 version_added: '1.0.0'
-short_description: Enable or Disable Pure Storage FlashArray Remote Assist
+short_description: Enable or Disable Everpure FlashArray Remote Assist
 description:
-- Enable or Disable Remote Assist for a Pure Storage FlashArray.
+- Enable or Disable Remote Assist for a Everpure FlashArray.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -71,6 +71,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 )
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
+)
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
 )
 
 HAS_PURESTORAGE = True
@@ -178,12 +181,7 @@ def disable_ra(module, array):
         changed = True
         if not module.check_mode:
             res = array.patch_support(support=SupportPatch(remote_assist_active=False))
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Disabling Remote Assist failed. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            check_response(res, module, "Disabling Remote Assist failed")
     module.exit_json(changed=changed)
 
 

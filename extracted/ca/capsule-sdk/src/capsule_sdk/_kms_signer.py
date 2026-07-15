@@ -1,49 +1,49 @@
 from __future__ import annotations
 
-import asyncio
-import base64
-import hashlib
-import time as time_mod
+from abc import ABC, abstractmethod
+
+# Cloud platform selectors (mirror pkg/objectstore CloudGCP/CloudAWS).
+CLOUD_GCP = "gcp"
+CLOUD_AWS = "aws"
 
 
-class KMSSigner:
-    """Signs requests using GCP Cloud KMS asymmetric key."""
+class Signer(ABC):
+    """Signs API requests with a tenant's attestation key."""
 
-    def __init__(self, kms_key_name: str) -> None:
-        from google.cloud import kms  # lazy import for optional dependency
-
-        self._client = kms.KeyManagementServiceClient()
-        self._key_name = kms_key_name
-
+    @abstractmethod
     def sign_request(self, tenant_id: str, request_id: str) -> tuple[str, str]:
         """Returns (base64_signature, unix_timestamp_str)."""
-        from google.cloud.kms_v1.types import service as kms_service
+        pass
 
-        timestamp = str(int(time_mod.time()))
-        canonical = f"{tenant_id}\n{timestamp}\n{request_id}"
-        digest_bytes = hashlib.sha256(canonical.encode()).digest()
-
-        response = self._client.asymmetric_sign(
-            request=kms_service.AsymmetricSignRequest(
-                name=self._key_name,
-                digest={"sha256": digest_bytes},
-            )
-        )
-        return base64.b64encode(response.signature).decode(), timestamp
-
+    @abstractmethod
     def close(self) -> None:
-        self._client.transport.close()
+        pass
 
 
-class AsyncKMSSigner:
-    """Async wrapper around KMSSigner using asyncio.to_thread()."""
+class AsyncSigner(ABC):
+    """Async counterpart of Signer."""
 
-    def __init__(self, kms_key_name: str) -> None:
-        self._signer = KMSSigner(kms_key_name)
-
+    @abstractmethod
     async def sign_request(self, tenant_id: str, request_id: str) -> tuple[str, str]:
         """Returns (base64_signature, unix_timestamp_str)."""
-        return await asyncio.to_thread(self._signer.sign_request, tenant_id, request_id)
+        pass
 
+    @abstractmethod
     async def close(self) -> None:
-        await asyncio.to_thread(self._signer.close)
+        pass
+
+
+def new_signer(cloud_provider: str, kms_key_name: str) -> Signer:
+    """Constructs a Signer for the cloud platform (gcp or aws)."""
+    if cloud_provider == CLOUD_AWS:
+        raise NotImplementedError("AWS KMS signer not yet implemented")
+    from capsule_sdk._gcp_kms_signer import GCPKMSSigner
+    return GCPKMSSigner(kms_key_name)
+
+
+def new_async_signer(cloud_provider: str, kms_key_name: str) -> AsyncSigner:
+    """Constructs an AsyncSigner for the cloud platform (gcp or aws)."""
+    if cloud_provider == CLOUD_AWS:
+        raise NotImplementedError("AWS KMS signer not yet implemented")
+    from capsule_sdk._gcp_kms_signer import AsyncGCPKMSSigner
+    return AsyncGCPKMSSigner(kms_key_name)

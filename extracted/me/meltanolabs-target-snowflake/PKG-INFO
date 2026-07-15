@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltanolabs-target-snowflake
-Version: 0.18.13
+Version: 0.18.14
 Summary: Singer target for Snowflake, built with the Meltano SDK for Singer Targets.
 Author: Ken Payne
 Maintainer-email: Meltano Team and Community <hello@meltano.com>
@@ -14,11 +14,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: certifi==2026.4.22
+Requires-Dist: certifi==2026.6.17
 Requires-Dist: cryptography>=40
-Requires-Dist: singer-sdk[sql]~=0.53.3
+Requires-Dist: singer-sdk[sql]~=0.54.5
 Requires-Dist: snowflake-connector-python[secure-local-storage]~=4.0
-Requires-Dist: snowflake-sqlalchemy==1.9.0
+Requires-Dist: snowflake-sqlalchemy==1.11.0
 Requires-Dist: sqlalchemy~=2.0.31
 Description-Content-Type: text/markdown
 

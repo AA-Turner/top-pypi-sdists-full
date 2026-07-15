@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_securityhub.type_defs import AcceptAdministratorInvitationRequestTypeDef
+    from mypy_boto3_securityhub.type_defs import AIDetailsTypeDef
 
-    data: AcceptAdministratorInvitationRequestTypeDef = ...
+    data: AIDetailsTypeDef = ...
     ```
 """
 
@@ -44,6 +44,7 @@ from .literals import (
     CspmConnectorStatusType,
     CspmEnablementStatusType,
     DateRangeComparisonType,
+    DiscoveryTypeType,
     EnablementStatusType,
     FeatureStatusType,
     FindingHistoryUpdateSourceTypeType,
@@ -76,6 +77,7 @@ from .literals import (
     ResourcesNumberFieldType,
     ResourcesStringFieldType,
     ResourcesTrendsStringFieldType,
+    ResourceSubCategoryType,
     RuleStatusType,
     RuleStatusV2Type,
     ScopeTypeType,
@@ -108,6 +110,7 @@ else:
 
 
 __all__ = (
+    "AIDetailsTypeDef",
     "AcceptAdministratorInvitationRequestTypeDef",
     "AcceptInvitationRequestTypeDef",
     "AccountDetailsTypeDef",
@@ -1371,6 +1374,7 @@ __all__ = (
     "ResourceDetailsUnionTypeDef",
     "ResourceFindingsSummaryTypeDef",
     "ResourceGroupByRuleTypeDef",
+    "ResourceInfoTypeDef",
     "ResourceOutputTypeDef",
     "ResourceOwnerAccountTypeDef",
     "ResourceOwnerOrgTypeDef",
@@ -1555,6 +1559,20 @@ __all__ = (
     "WorkflowTypeDef",
     "WorkflowUpdateTypeDef",
 )
+
+
+class AIDetailsTypeDef(TypedDict):
+    HostResourceGuid: NotRequired[str]
+    HostResourceType: NotRequired[str]
+    CanonicalId: NotRequired[str]
+    SelfHostedAIModelResourceCount: NotRequired[int]
+    SelfHostedAIAgentResourceCount: NotRequired[int]
+    SelfHostedAIModelServingResourceCount: NotRequired[int]
+    SelfHostedAIExternalEndpointResourceCount: NotRequired[int]
+    SelfHostedAIDevelopmentResourceCount: NotRequired[int]
+    SelfHostedAIAgentFrameworkResourceCount: NotRequired[int]
+    SelfHostedAIAgentToolsAndIdentityResourceCount: NotRequired[int]
+    SelfHostedTotalAIResourceCount: NotRequired[int]
 
 
 class AcceptAdministratorInvitationRequestTypeDef(TypedDict):
@@ -5022,6 +5040,10 @@ class VulnerabilityVendorTypeDef(TypedDict):
     VendorSeverity: NotRequired[str]
     VendorCreatedAt: NotRequired[str]
     VendorUpdatedAt: NotRequired[str]
+
+
+class ResourceInfoTypeDef(TypedDict):
+    AIDetails: NotRequired[AIDetailsTypeDef]
 
 
 class CreateMembersRequestTypeDef(TypedDict):
@@ -9939,6 +9961,9 @@ class ResourceResultTypeDef(TypedDict):
     ResourceCreationTimeDt: NotRequired[str]
     FindingsSummary: NotRequired[list[ResourceFindingsSummaryTypeDef]]
     ResourceTags: NotRequired[list[ResourceTagTypeDef]]
+    ResourceSubCategory: NotRequired[ResourceSubCategoryType]
+    DiscoveryType: NotRequired[DiscoveryTypeType]
+    ResourceInfo: NotRequired[ResourceInfoTypeDef]
 
 
 class ResourcesTrendsMetricsResultTypeDef(TypedDict):

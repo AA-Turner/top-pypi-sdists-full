@@ -49,6 +49,24 @@ class TestConnectionConfig:
         cfg = ConnectionConfig.resolve(tenant_id="my-tenant")
         assert cfg.kms_key_name == _kms_key_name("my-tenant")
 
+    def test_cloud_provider_defaults_to_gcp(self) -> None:
+        cfg = ConnectionConfig.resolve(tenant_id="my-tenant")
+        assert cfg.cloud_provider == "gcp"
+
+    def test_cloud_provider_env_fallback(self) -> None:
+        mp = pytest.MonkeyPatch()
+        mp.setenv("CAPSULE_CLOUD_PROVIDER", "aws")
+        try:
+            cfg = ConnectionConfig.resolve(tenant_id="my-tenant")
+            assert cfg.cloud_provider == "aws"
+        finally:
+            mp.undo()
+
+    def test_aws_has_no_default_key_name(self) -> None:
+        cfg = ConnectionConfig.resolve(tenant_id="my-tenant", cloud_provider="aws")
+        assert cfg.cloud_provider == "aws"
+        assert cfg.kms_key_name is None
+
     def test_defaults(self) -> None:
         # Clear env vars if set
         env_backup = {}

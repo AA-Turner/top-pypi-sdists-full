@@ -112,7 +112,6 @@ R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 F = TypeVar("F", bound=Callable[..., Any])
 
 TEMP_SEND_WF_NAME = "<temp>.temp_send_workflow"
-DEBOUNCER_WORKFLOW_NAME = "_dbos_debouncer_workflow"
 DEFAULT_POLLING_INTERVAL = 1.0
 
 
@@ -350,7 +349,7 @@ def normalize_step_options(opts: Optional[StepOptions]) -> StepOptions:
     return {**DEFAULT_STEP_OPTIONS, **(opts or {})}
 
 
-def _init_workflow(
+def _assemble_workflow_status(
     dbos: "DBOS",
     ctx: DBOSContext,
     *,
@@ -361,13 +360,11 @@ def _init_workflow(
     queue: Optional[str],
     workflow_timeout_ms: Optional[int],
     workflow_deadline_epoch_ms: Optional[int],
-    max_recovery_attempts: Optional[int],
     enqueue_options: Optional[EnqueueOptionsInternal],
-    is_recovery_request: Optional[bool],
-    is_dequeued_request: Optional[bool],
     serialization_type: Optional[WorkflowSerializationFormat],
     child_workflow_id: Optional[str] = None,
-) -> tuple[WorkflowStatusInternal, bool]:
+) -> WorkflowStatusInternal:
+    """Build (without persisting) the status row for a new workflow."""
     # If launching child, capture ID before to_thread dispatch, so a concurrent end_workflow() on shutdown can't blank the id read here.
     wfid = (
         child_workflow_id
@@ -464,6 +461,14 @@ def _init_workflow(
             if enqueue_options is not None
             else None
         ),
+        "debounce_deadline_epoch_ms": (
+            enqueue_options["debounce_deadline_epoch_ms"]
+            if enqueue_options is not None
+            else None
+        ),
+        "is_debounced": (
+            enqueue_options["is_debounced"] if enqueue_options is not None else False
+        ),
         "attributes": ctx.workflow_attributes,
         # schedule_name is only set by the persistent scheduler, which builds
         # the workflow status directly rather than going through this path.
@@ -472,6 +477,42 @@ def _init_workflow(
     # Consume the attributes from the workflow's context so that workflows
     # started inside this workflow do not inherit them.
     ctx.workflow_attributes = None
+    return status
+
+
+def _init_workflow(
+    dbos: "DBOS",
+    ctx: DBOSContext,
+    *,
+    inputs: WorkflowInputs,
+    wf_name: str,
+    class_name: Optional[str],
+    config_name: Optional[str],
+    queue: Optional[str],
+    workflow_timeout_ms: Optional[int],
+    workflow_deadline_epoch_ms: Optional[int],
+    max_recovery_attempts: Optional[int],
+    enqueue_options: Optional[EnqueueOptionsInternal],
+    is_recovery_request: Optional[bool],
+    is_dequeued_request: Optional[bool],
+    serialization_type: Optional[WorkflowSerializationFormat],
+    child_workflow_id: Optional[str] = None,
+) -> tuple[WorkflowStatusInternal, bool]:
+    status = _assemble_workflow_status(
+        dbos,
+        ctx,
+        inputs=inputs,
+        wf_name=wf_name,
+        class_name=class_name,
+        config_name=config_name,
+        queue=queue,
+        workflow_timeout_ms=workflow_timeout_ms,
+        workflow_deadline_epoch_ms=workflow_deadline_epoch_ms,
+        enqueue_options=enqueue_options,
+        serialization_type=serialization_type,
+        child_workflow_id=child_workflow_id,
+    )
+    wfid = status["workflow_uuid"]
 
     # Synchronously record the status and inputs for workflows
     try:
@@ -527,6 +568,66 @@ def _init_workflow(
     status["workflow_deadline_epoch_ms"] = workflow_deadline_epoch_ms
     status["status"] = wf_status
     return status, should_execute
+
+
+def prepare_enqueued_workflow(
+    dbos: "DBOS",
+    func: "Callable[..., Any]",
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    *,
+    queue_name: str,
+    workflow_id: str,
+    queue_partition_key: Optional[str] = None,
+) -> WorkflowStatusInternal:
+    """Build (without persisting) an ENQUEUED status row for func on queue_name.
+
+    For batch enqueuers (e.g. the Kafka consumer) that persist many rows in one
+    transaction via SystemDatabase.init_workflows. Ignores any ambient DBOS
+    context: the workflow ID and enqueue options are passed explicitly.
+    """
+    fself: Optional[object] = None
+    if hasattr(func, "__self__"):
+        fself = func.__self__
+    if fself is not None:
+        args = (fself,) + args
+
+    fi = get_func_info(func)
+    if fi is None:
+        raise DBOSWorkflowFunctionNotFoundError(
+            "<NONE>",
+            f"{func.__name__} is not a registered workflow function",
+        )
+    serialization_type = fi.serialization_type
+    if serialization_type is None:
+        serialization_type = WorkflowSerializationFormat.DEFAULT
+
+    func = cast("Workflow[P, R]", func.__orig_func)  # type: ignore
+
+    inputs: WorkflowInputs = {"args": args, "kwargs": kwargs}
+    enqueue_options = EnqueueOptionsInternal(
+        deduplication_id=None,
+        priority=None,
+        app_version=None,
+        queue_partition_key=queue_partition_key,
+        delay_until_epoch_ms=None,
+        debounce_deadline_epoch_ms=None,
+        is_debounced=False,
+    )
+    return _assemble_workflow_status(
+        dbos,
+        DBOSContext(),  # fresh context: no parent, auth, or attributes
+        inputs=inputs,
+        wf_name=get_dbos_func_name(func),
+        class_name=get_dbos_class_name(fi, func, args),
+        config_name=get_config_name(fi, func, args),
+        queue=queue_name,
+        workflow_timeout_ms=None,
+        workflow_deadline_epoch_ms=None,
+        enqueue_options=enqueue_options,
+        serialization_type=serialization_type,
+        child_workflow_id=workflow_id,
+    )
 
 
 def _serialize_exception_for_persistence(
@@ -786,6 +887,20 @@ def execute_workflow_by_id(
     status = dbos._sys_db.get_workflow_status(workflow_id)
     if not status:
         raise DBOSRecoveryError(workflow_id, "Workflow status not found")
+    if not workflow_id.strip():
+        # Empty or whitespace workflow IDs are not allowed
+        recovery_error = DBOSRecoveryError(
+            workflow_id, "Cannot recover a workflow with an empty or whitespace-only ID"
+        )
+        error_str = _serialize_exception_for_persistence(
+            recovery_error, status["serialization"], dbos._serializer
+        )
+        dbos._sys_db.update_workflow_outcome(
+            workflow_id,
+            WorkflowStatusString.ERROR.value,
+            error=error_str,
+        )
+        raise recovery_error
     try:
         inputs: WorkflowInputs = deserialize_args(
             status["inputs"], status["serialization"], dbos._serializer
@@ -957,6 +1072,10 @@ def start_workflow(
         delay_until_epoch_ms=(
             local_ctx.delay_until_epoch_ms if local_ctx is not None else None
         ),
+        debounce_deadline_epoch_ms=(
+            local_ctx.debounce_deadline_epoch_ms if local_ctx is not None else None
+        ),
+        is_debounced=(local_ctx.is_debounced if local_ctx is not None else False),
     )
     new_wf_ctx = DBOSContext.create_start_workflow_child(local_ctx)
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow
@@ -1077,6 +1196,10 @@ async def start_workflow_async(
         delay_until_epoch_ms=(
             local_ctx.delay_until_epoch_ms if local_ctx is not None else None
         ),
+        debounce_deadline_epoch_ms=(
+            local_ctx.debounce_deadline_epoch_ms if local_ctx is not None else None
+        ),
+        is_debounced=(local_ctx.is_debounced if local_ctx is not None else False),
     )
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow
 
@@ -1226,20 +1349,11 @@ def workflow_wrapper(
         wfOutcome = Outcome[R].make(functools.partial(func, *args, **kwargs))
 
         workflow_id = None
+        # Holds the initialized status so the invoke step can be built once the workflow is cleared to execute.
+        init_status: dict[str, WorkflowStatusInternal] = {}
 
-        def init_wf() -> Callable[[Callable[[], R]], R]:
-
-            def recorded_result(
-                c_wfid: str, dbos: "DBOS"
-            ) -> Callable[[Callable[[], R]], R]:
-                def recorded_result_inner(func: Callable[[], R]) -> R:
-                    r: R = dbos._sys_db.await_workflow_result(
-                        c_wfid, polling_interval=DEFAULT_POLLING_INTERVAL
-                    )
-                    return r
-
-                return recorded_result_inner
-
+        def check_and_init() -> Union[NoResult, R]:
+            """Initialize the workflow row, returning its recorded result to skip an already-completed workflow's body or NoResult to run it."""
             nonlocal workflow_id
             workflow_id = child_wfid
 
@@ -1250,12 +1364,17 @@ def workflow_wrapper(
                     get_dbos_func_name(func),
                 )
                 if r and r["error"]:
-                    e: Exception = deserialize_exception(
+                    raise deserialize_exception(
                         r["error"], r["serialization"], dbos._sys_db.serializer
                     )
-                    raise e
                 elif r and r["child_workflow_id"]:
-                    return recorded_result(r["child_workflow_id"], dbos)
+                    return cast(
+                        R,
+                        dbos._sys_db.await_workflow_result(
+                            r["child_workflow_id"],
+                            polling_interval=DEFAULT_POLLING_INTERVAL,
+                        ),
+                    )
 
             status, should_execute = _init_workflow(
                 dbos,
@@ -1275,15 +1394,6 @@ def workflow_wrapper(
                 child_workflow_id=child_wfid,
             )
 
-            def get_recorded_result(_func: Callable[[], R]) -> R:
-                return cast(
-                    R,
-                    dbos._sys_db.await_workflow_result(
-                        status["workflow_uuid"],
-                        polling_interval=DEFAULT_POLLING_INTERVAL,
-                    ),
-                )
-
             # TODO: maybe modify the parameters if they've been changed by `_init_workflow`
             dbos.logger.debug(
                 f"Running workflow, id: {child_wfid}, name: {get_dbos_func_name(func)}"
@@ -1298,12 +1408,22 @@ def workflow_wrapper(
                 )
 
             if should_execute:
-                return _get_wf_invoke_func(dbos, status)
-            else:
-                dbos.logger.debug(
-                    f"Workflow {status['workflow_uuid']} already run with status {status['status']}"
-                )
-                return get_recorded_result
+                init_status["status"] = status
+                return NoResult()
+            # Already completed: return the recorded result without re-running the body.
+            dbos.logger.debug(
+                f"Workflow {status['workflow_uuid']} already run with status {status['status']}"
+            )
+            return cast(
+                R,
+                dbos._sys_db.await_workflow_result(
+                    status["workflow_uuid"],
+                    polling_interval=DEFAULT_POLLING_INTERVAL,
+                ),
+            )
+
+        def get_wf_invoke() -> Callable[[Callable[[], R]], R]:
+            return _get_wf_invoke_func(dbos, init_status["status"])
 
         def record_get_result(func: Callable[[], R]) -> R:
             """
@@ -1329,7 +1449,8 @@ def workflow_wrapper(
             return r
 
         outcome = (
-            wfOutcome.wrap(init_wf, dbos=dbos)
+            wfOutcome.wrap(get_wf_invoke, dbos=dbos)
+            .intercept(check_and_init, dbos=dbos)
             .also(DBOSAssumeRole(rr))
             .also(EnterDBOSWorkflow(attributes, newwfctx))
             .then(record_get_result, dbos=dbos)

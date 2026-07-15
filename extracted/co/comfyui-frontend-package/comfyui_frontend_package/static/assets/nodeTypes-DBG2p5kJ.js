@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";var e=new Set([`Preview3D`,`PreviewGaussianSplat`,`PreviewPointCloud`]),t=new Set([...e,`Load3D`,`Load3DAdvanced`,`SaveGLB`]),isLoad3dPreviewNode=t=>e.has(t),isLoad3dNode=e=>t.has(e);window.comfyAPI=window.comfyAPI||{},window.comfyAPI.nodeTypes=window.comfyAPI.nodeTypes||{},window.comfyAPI.nodeTypes.isLoad3dPreviewNode=isLoad3dPreviewNode,window.comfyAPI.nodeTypes.isLoad3dNode=isLoad3dNode;export{isLoad3dPreviewNode as n,isLoad3dNode as t};
-//# sourceMappingURL=nodeTypes-DBG2p5kJ.js.map

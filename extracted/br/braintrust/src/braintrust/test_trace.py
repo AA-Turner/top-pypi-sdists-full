@@ -1,7 +1,7 @@
 """Tests for Trace functionality."""
 
 import pytest
-from braintrust.trace import CachedSpanFetcher, LocalTrace, SpanData
+from braintrust.trace import CachedSpanFetcher, LocalTrace, SpanData, SpanFetcher
 
 
 # Helper to create mock spans
@@ -40,6 +40,28 @@ class TestCachedSpanFetcher:
         assert call_count == 1
         assert len(result) == 3
         assert {s.span_id for s in result} == {"span-1", "span-2", "span-3"}
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_after_typed_fetch_has_no_duplicates(self):
+        """A typed fetch followed by a full fetch must not duplicate spans."""
+        all_spans = [
+            make_span("fn-1", "function"),
+            make_span("llm-1", "llm"),
+            make_span("llm-2", "llm"),
+        ]
+
+        async def fetch_fn(span_type):
+            if span_type:
+                return [s for s in all_spans if s.span_attributes["type"] in span_type]
+            return all_spans
+
+        fetcher = CachedSpanFetcher(fetch_fn=fetch_fn)
+        await fetcher.get_spans(["llm"])
+        result = await fetcher.get_spans()
+
+        span_ids = [s.span_id for s in result]
+        assert sorted(span_ids) == ["fn-1", "llm-1", "llm-2"]
+        assert len(span_ids) == len(set(span_ids)), f"duplicate spans: {span_ids}"
 
     @pytest.mark.asyncio
     async def test_fetch_preserves_span_result_fields(self):
@@ -328,6 +350,48 @@ class TestCachedSpanFetcher:
         assert call_args[0] is None or call_args[0] == []
         assert len(result) == 1
 
+    @pytest.mark.parametrize(
+        ("brainstore_realtime", "expected"),
+        [
+            (None, True),
+            (False, False),
+        ],
+    )
+    def test_span_fetcher_threads_realtime_setting(self, brainstore_realtime, expected):
+        calls = []
+        state = _DummyState(calls)
+        kwargs = dict(
+            object_type="project_logs",
+            object_id="project-1",
+            root_span_id="root-1",
+            state=state,
+        )
+        if brainstore_realtime is not None:
+            kwargs["brainstore_realtime"] = brainstore_realtime
+        fetcher = SpanFetcher(**kwargs)
+
+        assert list(fetcher.fetch()) == []
+        assert calls[0]["json"]["brainstore_realtime"] is expected
+
+    @pytest.mark.asyncio
+    async def test_cached_span_fetcher_threads_realtime_setting(self):
+        calls = []
+        state = _DummyState(calls)
+
+        async def get_state():
+            return state
+
+        fetcher = CachedSpanFetcher(
+            object_type="project_logs",
+            object_id="project-1",
+            root_span_id="root-1",
+            get_state=get_state,
+            brainstore_realtime=False,
+        )
+
+        assert await fetcher.get_spans() == []
+        assert calls[0]["json"]["brainstore_realtime"] is False
+
 
 class _DummySpanCache:
     def get_by_root_span_id(self, root_span_id: str):
@@ -335,11 +399,35 @@ class _DummySpanCache:
 
 
 class _DummyState:
-    def __init__(self):
+    def __init__(self, api_calls=None):
         self.span_cache = _DummySpanCache()
+        self.api_calls = api_calls
 
     def login(self):
         return None
+
+    def api_conn(self):
+        return _DummyApiConn(self.api_calls)
+
+
+class _DummyResponse:
+    text = ""
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return {"data": []}
+
+
+class _DummyApiConn:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def post(self, path, *args, **kwargs):
+        if self.calls is not None:
+            self.calls.append({"path": path, "args": args, **kwargs})
+        return _DummyResponse()
 
 
 class TestLocalTraceGetThread:

@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_console
 version_added: '1.0.0'
-short_description: Enable or Disable Pure Storage FlashArray Console Lock
+short_description: Enable or Disable Everpure FlashArray Console Lock
 description:
-- Enablke or Disable root lockout from the array at the physical console for a Pure Storage FlashArray.
+- Enablke or Disable root lockout from the array at the physical console for a Everpure FlashArray.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -70,8 +70,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
     get_array,
     purefa_argument_spec,
 )
-from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
-    LooseVersion,
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    get_with_context,
+    check_response,
 )
 
 CONTEXT_VERSION = "2.38"
@@ -80,30 +81,20 @@ CONTEXT_VERSION = "2.38"
 def update_console(module, array):
     """Update Console Lockout setting"""
     changed = False
-    api_version = array.get_rest_version()
-    if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-        current_state = list(
-            array.get_arrays(context_names=[module.params["context"]]).items
-        )[0].console_lock_enabled
-    else:
-        current_state = list(array.get_arrays().items)[0].console_lock_enabled
+    res = get_with_context(array, "get_arrays", CONTEXT_VERSION, module)
+    current_state = list(res.items)[0].console_lock_enabled
     new_state = bool(module.params["state"] == "enable")
     if current_state != new_state:
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
-                res = array.patch_arrays(
-                    array=Arrays(console_lock_enabled=new_state),
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.patch_arrays(array=Arrays(console_lock_enabled=new_state))
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Enabling Console Lock failed. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            res = get_with_context(
+                array,
+                "patch_arrays",
+                CONTEXT_VERSION,
+                module,
+                array=Arrays(console_lock_enabled=new_state),
+            )
+            check_response(res, module, "Enabling Console Lock failed")
     module.exit_json(changed=changed)
 
 

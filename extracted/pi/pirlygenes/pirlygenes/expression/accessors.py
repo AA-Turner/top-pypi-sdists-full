@@ -17,9 +17,9 @@ This module bundles the curated cross-cohort expression panels that
 normalization helpers needed to make them comparable across columns:
 
 * :func:`pan_cancer_expression` — wide-form ``Symbol × tissue/cancer``
-  panel: 50 HPA normal tissues (nTPM) + 33 TCGA cancer types (FPKM)
-  with optional deterministic TPM companion columns derived from those
-  FPKM columns and optional added normalized analysis columns.
+  panel: 50 HPA normal tissues (nTPM), 33 TCGA cancer types (observed FPKM
+  provenance + deterministic TPM companions), and five TPM-only computed
+  tumor rollups, with optional added normalized analysis columns.
 * :func:`cancer_reference_expression` — long- or wide-form non-TCGA
   tumor reference summaries (CLL-map, MMRF, TARGET, GEO, etc.) exposed
   on a common TPM / clean-TPM contract for downstream consumers.
@@ -78,6 +78,7 @@ import numpy as np
 import pandas as pd
 
 from ..gene_families import gene_family_ids
+from ..gene_ids import strip_version
 from ..gene_names import get_alias_as_list, get_reverse_alias_as_list
 from ..load_dataset import get_data
 from .normalize import (
@@ -171,12 +172,18 @@ def _add_pan_normalized_value_cols(
     value_cols: Sequence[str],
     normalize: str,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Add normalized TPM/nTPM analysis columns without overwriting inputs."""
+    """Add normalized TPM/nTPM analysis columns without overwriting inputs.
+
+    Every derived column preserves its source column's availability mask.  In
+    particular, ``normalize_expression(..., censored_fill="fixed_fraction")``
+    fills missing inputs with zero internally; restoring the mask here keeps an
+    unavailable rollup value distinct from a measured biological zero.
+    """
     out = df.copy()
     target_cols = []
     for col in value_cols:
         target = _pan_normalized_col_name(col, normalize)
-        out[target] = normalized_df[col]
+        out[target] = normalized_df[col].mask(df[col].isna())
         target_cols.append(target)
     return out, target_cols
 
@@ -211,6 +218,121 @@ def _rename_pan_expression_columns_entity_first(df: pd.DataFrame) -> pd.DataFram
     names. The accessor returns entity-first names for readability.
     """
     return df.rename(columns={c: _pan_public_col_name(c) for c in df.columns})
+
+
+_PAN_COMPUTED_ROLLUP_MEMBERS = {
+    "BTC": ("CHOL",),
+    "CRC": ("COAD", "READ"),
+    "NET": ("NET_PANCREAS", "NET_MIDGUT", "NET_RECTAL", "NET_LUNG"),
+    "NSCLC": ("LUAD", "LUSC"),
+    "SGC": ("ADCC",),
+}
+_PAN_ROLLUP_MEMBER_CODES = tuple(dict.fromkeys(
+    member
+    for members in _PAN_COMPUTED_ROLLUP_MEMBERS.values()
+    for member in members
+))
+
+
+def _oncoref_canonicalize_gene_rows(
+    df: pd.DataFrame,
+    *,
+    value_cols: Sequence[str],
+) -> pd.DataFrame:
+    """Collapse a wide linear-expression frame onto oncoref's gene-id space.
+
+    The compatibility adapter deliberately uses oncoref's public alias resolver,
+    rather than pirlygenes' proteoform-oriented sequence-identity map.  Alias and
+    retired rows are summed with ``min_count=1`` before any normalization, which
+    is the same rule used by oncoref's expression accessors and preserves an
+    all-missing source cell as missing.
+    """
+    from oncoref.gene_ids import resolve_ensembl_id, unversioned
+
+    canonical = df["Ensembl_Gene_ID"].astype(str).map(resolve_ensembl_id)
+    if not canonical.duplicated().any():
+        return df.assign(Ensembl_Gene_ID=canonical.to_numpy())
+
+    original = df["Ensembl_Gene_ID"].astype(str).map(unversioned)
+    is_primary = original.to_numpy() == canonical.to_numpy()
+    work = df.assign(
+        Ensembl_Gene_ID=canonical.to_numpy(),
+        _primary=is_primary,
+    )
+    work = work.sort_values("_primary", ascending=False, kind="stable").drop(
+        columns="_primary"
+    )
+    sum_cols = [col for col in value_cols if col in work.columns]
+    keep_cols = [
+        col
+        for col in work.columns
+        if col != "Ensembl_Gene_ID" and col not in sum_cols
+    ]
+    grouped = work.groupby("Ensembl_Gene_ID", sort=False)
+    parts = []
+    if keep_cols:
+        parts.append(grouped[keep_cols].first())
+    if sum_cols:
+        parts.append(grouped[sum_cols].sum(min_count=1))
+    out = pd.concat(parts, axis=1).reset_index()
+    return out[list(df.columns)]
+
+
+@lru_cache(maxsize=1)
+def _load_pan_rollup_frame() -> pd.DataFrame:
+    """Read the small persisted pan-cancer rollup artifact.
+
+    The artifact is baked from oncoref's selected source for each member cohort
+    (see ``scripts/generate_pan_cancer_expression_rollups.py``), canonicalized
+    before pooling, and shipped in the wheel. This avoids both an eager scan of
+    the multi-million-row reference summary and the gene-wise source fallback
+    that a generic all-source cohort pivot would introduce.
+    """
+    rollups = get_data("pan-cancer-expression-rollups", copy=False)
+    value_cols = [f"TPM_{code}" for code in _PAN_COMPUTED_ROLLUP_MEMBERS]
+    missing = [
+        col
+        for col in ["Ensembl_Gene_ID", *value_cols]
+        if col not in rollups.columns
+    ]
+    if missing:
+        raise ValueError(
+            "pan-cancer-expression-rollups has an invalid schema; missing "
+            f"{missing!r}"
+        )
+    return _oncoref_canonicalize_gene_rows(
+        rollups,
+        value_cols=value_cols,
+    )
+
+
+def _pan_computed_rollup_frame() -> pd.DataFrame:
+    """Return canonical ENSG + five persisted raw-TPM rollups."""
+    return _load_pan_rollup_frame()
+
+
+@lru_cache(maxsize=1)
+def _pan_reference_frame() -> pd.DataFrame:
+    """Canonical raw pan-cancer matrix via the oncoref compatibility adapter.
+
+    The version-pinned pirlygenes pan matrix remains the fast persisted source.
+    We canonicalize it with oncoref's delegated alias map, sum duplicate linear
+    loci, derive deterministic TPM companions, and join five persisted rollups
+    baked from oncoref's selected sources. This produces oncoref's canonical
+    semantics without its eager multi-million-row summary scan or a runtime
+    dependency on oncoref's separate expression data bundle.
+    """
+    raw = get_data("pan-cancer-expression", copy=False)
+    id_cols = {"Ensembl_Gene_ID", "Symbol"}
+    value_cols = [col for col in raw.columns if col not in id_cols]
+    raw = _oncoref_canonicalize_gene_rows(raw, value_cols=value_cols)
+    raw, _ = add_tpm_columns_from_fpkm(raw)
+    return raw.merge(
+        _pan_computed_rollup_frame(),
+        on="Ensembl_Gene_ID",
+        how="left",
+        sort=False,
+    )
 
 
 def _resolve_id_col(df: pd.DataFrame) -> Optional[str]:
@@ -355,14 +477,32 @@ def filter_to_genes(
     """Subset rows to a caller-provided list of symbols or Ensembl IDs.
 
     Match is case-insensitive against both ``Symbol`` (or ``symbol``)
-    and the Ensembl-ID column.
+    and the Ensembl-ID column. Ensembl version suffixes are ignored, so
+    ``ENSG00000146648`` and ``ENSG00000146648.17`` are equivalent.
     """
+    if isinstance(genes, str):
+        genes = [genes]
     targets = set()
     for gene in genes:
         name = str(gene).strip()
         targets.add(name.upper())
         targets.update(alias.upper() for alias in get_alias_as_list(name))
         targets.update(alias.upper() for alias in get_reverse_alias_as_list(name))
+    ensembl_targets = {
+        strip_version(target).upper()
+        for target in targets
+        if target.upper().startswith("ENSG")
+    }
+    if ensembl_targets:
+        # The pan-cancer frame is keyed in oncoref's canonical ENSG space.  Keep
+        # raw targets for generic/non-canonical frames, but add the delegated
+        # alias-map targets so legacy and retired IDs still hit canonical rows.
+        from oncoref.gene_ids import resolve_ensembl_id
+
+        ensembl_targets.update(
+            resolve_ensembl_id(target).upper()
+            for target in tuple(ensembl_targets)
+        )
     id_col = _resolve_id_col(df)
     sym_col = next(
         (c for c in ("Symbol", "symbol", "Gene_Symbol") if c in df.columns),
@@ -374,7 +514,10 @@ def filter_to_genes(
         )
     mask = pd.Series(False, index=df.index)
     if id_col is not None:
-        mask |= df[id_col].astype(str).str.upper().isin(targets)
+        ids = df[id_col].astype(str).str.upper()
+        mask |= ids.isin(targets)
+        if ensembl_targets:
+            mask |= ids.map(strip_version).isin(ensembl_targets)
     if sym_col is not None:
         mask |= df[sym_col].astype(str).str.upper().isin(targets)
     return df[mask].reset_index(drop=True)
@@ -681,6 +824,21 @@ def _reference_code_set() -> frozenset:
     )
 
 
+@lru_cache(maxsize=1)
+def _oncoref_reference_code_set() -> frozenset:
+    """Reference codes served by the delegated oncoref source-union view."""
+    import oncoref
+
+    availability = oncoref.cancer_reference_expression_availability(
+        normalize="tpm_clean",
+        sample_qc="all",
+        reference_source="summary_rows_all",
+    )
+    return frozenset(
+        availability.loc[availability["available"], "cancer_code"].astype(str)
+    )
+
+
 def _reference_indices_by_code() -> dict:
     """Cached ``{cancer_code: positional-row-index array}`` over the reference
     frame, so per-code slicing avoids a full-frame ``astype(str).isin`` scan."""
@@ -696,7 +854,7 @@ def _reference_indices_by_code() -> dict:
 
 
 def _has_cancer_reference(code: str) -> bool:
-    return code in _reference_code_set()
+    return code in _oncoref_reference_code_set()
 
 
 def _load_cancer_expression_source_candidates() -> pd.DataFrame:
@@ -793,7 +951,7 @@ def _resolve_expression_reference_code(code: str) -> str | None:
     from ..gene_sets_cancer import cancer_type_registry
 
     registry = cancer_type_registry().set_index("code")
-    reference_codes = _reference_code_set()
+    reference_codes = _oncoref_reference_code_set()
     pan_codes = _pan_expression_codes()
     return _resolve_expression_reference_code_from_lookups(
         code,
@@ -1214,44 +1372,80 @@ def cancer_reference_expression(
     """
     modes = _resolve_reference_normalize_modes(normalize)
     _validate_reference_format(format)
-    df = _load_cancer_reference_expression()
     codes = _resolve_cancer_types(cancer_types, expand_aggregates=True)
-    idx_by_code = _reference_indices_by_code()
-    if codes is not None:
-        # Slice via the cached code→row-positions index instead of an
-        # .astype(str).isin() scan of the full ~1M-row frame — the latter cost
-        # ~15 s across the suite when called once per cancer code (#278 f/u).
-        available_codes = [c for c in dict.fromkeys(codes) if c in idx_by_code]
-        if available_codes:
-            positions = np.concatenate([idx_by_code[c] for c in available_codes])
-            df = df.iloc[positions]
-        else:
-            df = df.iloc[0:0]
-        wide_codes = [code for code in codes if code in set(available_codes)]
-    else:
-        available_codes = list(idx_by_code.keys())
-        wide_codes = available_codes
-    if genes is not None:
-        df = filter_to_genes(df, genes)
-    if exclude_microarray_proxy:
-        # drop cross-platform-incomparable microarray-proxy members so the
-        # remaining all:-union view is pipeline-homogeneous and poolable.
-        df = df[~df["processing_pipeline"].astype(str)
-                .str.contains("microarray_tpm_proxy", na=False)]
-    if source_kind is not None:
-        # source:node selector — keep only members of the given cohort kind(s).
-        kinds = {source_kind} if isinstance(source_kind, str) else set(source_kind)
-        cr = get_data("cohort-registry")
-        cohort_kind = dict(zip(cr["cohort_id"].astype(str),
-                               cr["kind"].astype(str)))
-        df = df[df["source_cohort"].astype(str).map(cohort_kind).isin(kinds)]
-    if source_cohort is not None:
-        # origin/cohort-level precision (e.g. the Treehouse TCGA subset).
-        cohorts = ({source_cohort} if isinstance(source_cohort, str)
-                   else set(source_cohort))
-        df = df[df["source_cohort"].astype(str).isin(cohorts)]
+    import oncoref
 
-    base_cols = ["Ensembl_Gene_ID", "Symbol", "cancer_code", "source_cohort"]
+    # oncoref owns the empirical rows. Pirlygenes requests the all-source,
+    # all-sample summary view because that is this accessor's historical public
+    # contract. TPM_log1p is a legacy pirlygenes label derived exactly from raw
+    # TPM after delegation because log1p is monotonic for all three quantiles.
+    delegated_modes = []
+    for mode in modes:
+        delegated = "tpm" if mode == "tpm_log1p" else mode
+        if delegated not in delegated_modes:
+            delegated_modes.append(delegated)
+    delegated_genes = genes
+    if genes is not None:
+        requested_genes = [genes] if isinstance(genes, str) else list(genes)
+        delegated_genes = list(dict.fromkeys(
+            alias
+            for gene in requested_genes
+            for alias in (
+                str(gene),
+                *get_alias_as_list(str(gene)),
+                *get_reverse_alias_as_list(str(gene)),
+            )
+        ))
+    delegated_long = oncoref.cancer_reference_expression(
+        codes,
+        genes=delegated_genes,
+        normalize=delegated_modes,
+        format="long",
+        include_provenance=include_provenance,
+        on_missing="empty",
+        sample_qc="all",
+        reference_source="summary_rows_all",
+        gene_id_style="pirlygenes",
+        gene_universe="pirlygenes",
+        source_kind=source_kind,
+        source_cohort=source_cohort,
+        exclude_microarray_proxy=exclude_microarray_proxy,
+        pool=pool,
+        collapse_cdna_identical=collapse_cdna_identical,
+        collapse_protein_identical=collapse_protein_identical,
+    )
+    availability = delegated_long.attrs.get("availability", [])
+    delegated_available_codes = list(dict.fromkeys(
+        str(row["cancer_code"])
+        for row in availability
+        if row.get("available")
+    ))
+
+    source_labels = {
+        "tpm": "tpm_raw",
+        "tpm_log1p": "tpm_raw",
+        "tpm_clean": "tpm_clean",
+        "tpm_clean_log1p": "tpm_clean_log1p",
+    }
+    public_labels = {
+        mode: _REFERENCE_VALUE_COLUMNS[mode][3]
+        for mode in modes
+    }
+    frames = []
+    for mode in modes:
+        part = delegated_long.loc[
+            delegated_long["normalization"].astype(str).eq(source_labels[mode])
+        ].copy()
+        if mode == "tpm_log1p":
+            for col in ("expression", "q1", "q3"):
+                part[col] = np.log1p(pd.to_numeric(part[col], errors="coerce"))
+        part["normalization"] = public_labels[mode]
+        frames.append(part)
+    long = pd.concat(frames, ignore_index=True) if frames else delegated_long.iloc[0:0]
+
+    _id_cols = ["Ensembl_Gene_ID", "Symbol", "Proteoform_ID",
+                "Member_Ensembl_Gene_IDs"]
+    base_cols = ["cancer_code", "source_cohort"]
     provenance_cols = [
         "source_project",
         "source_version",
@@ -1260,67 +1454,11 @@ def cancer_reference_expression(
         "processing_pipeline",
         "notes",
     ]
-    frames = []
-    for mode in modes:
-        expr, q1, q3, label = _reference_expr_value(df, mode)
-        cols = list(base_cols)
-        if include_provenance:
-            cols += [c for c in provenance_cols if c in df.columns]
-        part = df[cols].copy()
-        part["normalization"] = label
-        part["expression"] = expr
-        part["q1"] = q1
-        part["q3"] = q3
-        frames.append(part)
-    long = pd.concat(frames, ignore_index=True)
-
-    if collapse_protein_identical:
-        from .protein_groups import collapse_protein_identical_loci_long
-        long = collapse_protein_identical_loci_long(
-            long,
-            group_keys=["cancer_code", "source_cohort", "normalization"],
-            sum_cols=["expression", "q1", "q3"],
-            max_cols=("n_detected",),
-        )
-
-    if collapse_cdna_identical:
-        from .protein_groups import collapse_cdna_identical_loci_long
-        long = collapse_cdna_identical_loci_long(
-            long,
-            group_keys=["cancer_code", "source_cohort", "normalization"],
-            sum_cols=["expression", "q1", "q3"],
-            max_cols=("n_detected",),
-        )
-
-    if pool:
-        long = _pool_union_rows(long, include_provenance=include_provenance)
-
-    # Dual gene/proteoform identifiers on every row, so consumers can work at
-    # either level: `Proteoform_ID` is the stable proteoform key each row maps to
-    # (= `Ensembl_Gene_ID` on the proteoform frame; the gene's proteoform on the
-    # per-ENSG gene frame), and `Member_Ensembl_Gene_IDs` is the constituent real
-    # ENSGs (the gene view; = the gene's own ENSG when not folded).
-    from ..gene_ids import strip_version
-    from .protein_groups import canonical_to_symbol, member_to_canonical
-    # Proteoform_ID uses the SAME proteoform space as the frame, so it equals
-    # Ensembl_Gene_ID on a collapsed frame (cDNA xor protein) and is the matching
-    # gene->proteoform bridge on the gene frame (cDNA = the matrix default).
-    _kind = "protein" if collapse_protein_identical else "cdna"
-    _m2c, _c2s = member_to_canonical(_kind), canonical_to_symbol(_kind)
-    _ids = long["Ensembl_Gene_ID"].astype(str)
-    _pid = {}
-    for u in _ids.unique():               # per-id key (no dedup); idempotent on a
-        s = strip_version(u)              # proteoform ID (not a member -> itself)
-        _pid[u] = _c2s.get(_m2c.get(s, s), s)
-    long = long.assign(Proteoform_ID=_ids.map(_pid))
-    if "Member_Ensembl_Gene_IDs" not in long.columns:
-        long = long.assign(Member_Ensembl_Gene_IDs=long["Ensembl_Gene_ID"])
-    # keep the four identifier columns grouped + consistently ordered (so the gene
-    # and proteoform frames share one schema)
-    _id_cols = ["Ensembl_Gene_ID", "Symbol", "Proteoform_ID",
-                "Member_Ensembl_Gene_IDs"]
-    long = long[[c for c in _id_cols if c in long.columns]
-                + [c for c in long.columns if c not in _id_cols]]
+    output_cols = [*_id_cols, *base_cols]
+    if include_provenance:
+        output_cols.extend(provenance_cols)
+    output_cols.extend(["normalization", "expression", "q1", "q3"])
+    long = long[[col for col in output_cols if col in long.columns]]
     long = _string_id_columns(
         long,
         "Ensembl_Gene_ID",
@@ -1331,11 +1469,11 @@ def cancer_reference_expression(
         "source_cohort",
         "normalization",
     )
+    long.attrs["reference_backend"] = "oncoref"
+    long.attrs["reference_source"] = "summary_rows_all"
 
     if format == "long":
         return long
-    if format != "wide":
-        raise ValueError("format must be 'long' or 'wide'")
 
     wide = long[["Ensembl_Gene_ID", "Symbol"]].drop_duplicates().copy()
     for (code, label), group in long.groupby(["cancer_code", "normalization"]):
@@ -1348,6 +1486,9 @@ def cancer_reference_expression(
             on="Ensembl_Gene_ID",
             how="left",
         )
+    wide_codes = delegated_available_codes or list(
+        dict.fromkeys(long["cancer_code"].astype(str))
+    )
     expected_value_cols = [
         f"{code}_{_REFERENCE_VALUE_COLUMNS[mode][3]}"
         for code in wide_codes
@@ -1357,7 +1498,9 @@ def cancer_reference_expression(
         if col not in wide.columns:
             wide[col] = np.nan
     wide = wide[["Ensembl_Gene_ID", "Symbol", *expected_value_cols]]
-    return _string_id_columns(wide, "Ensembl_Gene_ID", "Symbol")
+    wide = _string_id_columns(wide, "Ensembl_Gene_ID", "Symbol")
+    wide.attrs.update(long.attrs)
+    return wide
 
 
 # ---------- accessors: unified normalization views (#319) ----------
@@ -2031,9 +2174,20 @@ def pan_cancer_expression(
 
     50 normal tissues from HPA v23 consensus (``<tissue>_nTPM`` columns)
     plus 33 TCGA cancer types from HPA pathology + GDC/STAR reprocessing
-    (``<code>_FPKM`` in native units). The accessor always appends
-    deterministic ``<code>_TPM`` companion columns derived from the FPKM
-    columns, preserving the raw FPKM columns for provenance.
+    (``<code>_FPKM`` in native units with deterministic ``<code>_TPM``
+    companions). Five computed tumor rollups (``BTC``/``CRC``/``NET``/
+    ``NSCLC``/``SGC``) are built from sample-weighted TPM cohort medians and
+    therefore have ``<code>_TPM`` but no synthetic FPKM. TPM and every requested
+    analysis derivative are available uniformly across all tumor entities;
+    FPKM is retained only as source provenance where it actually exists.
+
+    An oncoref compatibility adapter canonicalizes the version-pinned local
+    matrix with oncoref's alias map, collapses duplicate loci, and composes the
+    TPM-only rollups from pirlygenes' selected-source rollup artifact. All
+    normalization below runs locally on that canonical data, so this view stays
+    identical in method to :func:`cancer_reference_expression` without an eager
+    scan of oncoref's separate reference-summary bundle. See
+    :func:`_pan_reference_frame`.
 
     Parameters
     ----------
@@ -2044,8 +2198,8 @@ def pan_cancer_expression(
         combined; dependencies are inserted automatically. ``"TPM"`` and
         ``"tpm"`` are equivalent.
 
-        - ``"tpm_clean"`` (default) — first ensure deterministic
-          ``<code>_TPM`` columns exist from ``<code>_FPKM``, then add
+        - ``"tpm_clean"`` (default) — start from the uniform TPM/nTPM
+          analysis columns (including TPM-only computed rollups), then add
           ``<tissue>_nTPM_clean`` and ``<code>_TPM_clean`` columns with
           mtDNA / NUMT / rRNA / MALAT1+NEAT1 rows zeroed
           and each column's sum pinned back to 10⁶. This is the
@@ -2054,12 +2208,13 @@ def pan_cancer_expression(
           removed. Base ``<tissue>_nTPM`` and ``<code>_TPM`` columns,
           plus raw ``<code>_FPKM`` columns, remain unchanged.
         - ``None`` — raw/provenance view: raw TCGA ``<code>_FPKM``
-          values and HPA ``<tissue>_nTPM`` values are preserved, while
-          deterministic ``<code>_TPM`` analysis columns are generated
-          from ``<code>_FPKM``. No artifact-gene cleanup, HK scaling,
-          percentile-rank, or log transform is applied.
-        - ``"tpm"`` / ``"TPM"`` — add missing ``<code>_TPM`` companion
-          columns from ``<code>_FPKM`` while preserving raw FPKM.
+          values, HPA ``<tissue>_nTPM`` values, deterministic TCGA
+          ``<code>_TPM`` companions, and TPM-only computed rollups are
+          preserved. No artifact-gene cleanup, HK scaling, percentile-rank,
+          or log transform is applied.
+        - ``"tpm"`` / ``"TPM"`` — the uniform tumor-analysis view: every
+          TCGA and computed-rollup entity has ``<code>_TPM``; raw TCGA FPKM
+          provenance remains available where present.
         - ``"tpm_log1p"`` — add ``<tissue>_nTPM_log1p`` and
           ``<code>_TPM_log1p`` columns using natural ``log1p`` over the
           TPM-scale analysis columns. Implies ``"tpm"``.
@@ -2101,8 +2256,10 @@ def pan_cancer_expression(
     if "tpm" not in normalize_modes:
         normalize_modes.insert(0, "tpm")
 
-    df = get_data("pan-cancer-expression")
-    df, _ = add_tpm_columns_from_fpkm(df)
+    # The cached compatibility view already contains deterministic TPM
+    # companions for every FPKM cohort. Copy it before adding bridge and
+    # normalization columns so callers can mutate independently.
+    df = _pan_reference_frame().copy()
 
     # Proteoform duality (uniform with cancer_reference_expression): always add the
     # gene-view Proteoform_ID / Member_Ensembl_Gene_IDs bridge columns; optionally
@@ -2266,6 +2423,11 @@ def cancer_enriched_genes(
 ) -> pd.DataFrame:
     """Genes enriched in one cancer type vs the pan-cancer median.
 
+    The comparison population is the original 33 source cohorts. Computed
+    rollups are not independent observations and are therefore never included
+    in the background. When a rollup is itself the target, its member cohorts
+    are excluded from the background as well.
+
     Parameters
     ----------
     cancer_type
@@ -2288,14 +2450,27 @@ def cancer_enriched_genes(
         normalize="hk",
         drop_technical_rna=True,
     )
-    tpm_cols = [c for c in df.columns if c.endswith("_TPM_hk")]
     target_col = f"{code}_TPM_hk"
     if target_col not in df.columns:
         raise ValueError(
             f"no HK-normalized TPM column for {cancer_type!r} "
             f"(resolved to {code!r})"
         )
-    other_cols = [c for c in tpm_cols if c != target_col]
+    # Paired FPKM provenance distinguishes the 33 source cohorts from the
+    # TPM-only computed rollups. Including rollups here would count source
+    # cohorts more than once (for example LUAD both directly and via NSCLC).
+    source_cols = [
+        col
+        for col in df.columns
+        if col.endswith("_TPM_hk")
+        and f"{col[:-len('_TPM_hk')]}_FPKM" in df.columns
+    ]
+    excluded_codes = {code, *_PAN_COMPUTED_ROLLUP_MEMBERS.get(code, ())}
+    other_cols = [
+        col
+        for col in source_cols
+        if col[:-len("_TPM_hk")] not in excluded_codes
+    ]
     result = df[["Ensembl_Gene_ID", "Symbol"]].copy()
     result["expression"] = df[target_col].astype(float)
     result["other_median"] = df[other_cols].astype(float).median(axis=1)
@@ -2319,7 +2494,9 @@ def hpa_cell_type_expression() -> pd.DataFrame:
     aggregated across the public HPA single-cell datasets. Useful for
     interpreting which cell type drives a sample's signal.
     """
-    return get_data("hpa-cell-type-expression").copy()
+    import oncoref
+
+    return oncoref.hpa_cell_type_expression()
 
 
 def estimate_signatures() -> pd.DataFrame:

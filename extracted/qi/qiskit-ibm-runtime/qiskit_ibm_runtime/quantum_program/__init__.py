@@ -35,6 +35,8 @@ Classes
 
     QuantumProgram
     QuantumProgramItem
+    CircuitItem
+    SamplexItem
 """
 
-from .quantum_program import QuantumProgram, QuantumProgramItem
+from .quantum_program import CircuitItem, QuantumProgram, QuantumProgramItem, SamplexItem

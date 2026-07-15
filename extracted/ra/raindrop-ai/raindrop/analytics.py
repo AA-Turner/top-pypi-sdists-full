@@ -33,6 +33,7 @@ from raindrop.local_debugger import (
     UNSET,
     resolve_local_workshop_url,
 )
+from raindrop.model_usage import normalize_model_usage_span
 from raindrop.redact import perform_pii_redaction
 from raindrop._state import ClientState, ModuleBackedState, RaindropState
 from raindrop import _tracing as _rd_tracing
@@ -47,6 +48,7 @@ from traceloop.sdk.tracing.tracing import (
     set_entity_path,
 )
 from opentelemetry.trace import get_current_span
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry import trace
 from opentelemetry import context as context_api
 from opentelemetry.semconv_ai import SpanAttributes
@@ -956,10 +958,17 @@ def track(
     event_id: Optional[str] = None,
     timestamp: Optional[str] = None,
     properties: Optional[Dict[str, Any]] = None,
-    convo_id: Optional[str] = None,
     attachments: Optional[List[Attachment]] = None,
     state: Optional[RaindropState] = None,
 ) -> str | None:
+    """Track a plain, non-AI event.
+
+    Plain events have no conversation association: dawn's ingest
+    ``TrackEventSchema`` is ``.strict()`` with no ``convo_id`` field, so there
+    is no server-side home for one here. To group events into a conversation,
+    use ``track_ai`` / ``begin`` (partials), which carry ``convo_id`` on the
+    AI-data branch.
+    """
     try:
         st = _resolve_state(state)
         if not _check_write_key(state=st):
@@ -972,7 +981,6 @@ def track(
             event=event,
             timestamp=timestamp or _get_timestamp(),
             properties=properties or {},
-            convo_id=convo_id,
             attachments=attachments,
         )
         payload.properties["$context"] = _get_context()
@@ -980,6 +988,7 @@ def track(
             payload.properties["raindrop.wizardSession"] = st._wizard_session
 
         data = payload.model_dump(mode="json")
+
         if st.redact_pii:
             data = perform_pii_redaction(data)
 
@@ -1500,10 +1509,22 @@ def begin(
     input: Optional[str] = None,
     attachments: Optional[List[Attachment]] = None,
     convo_id: Optional[str] = None,
+    model: Optional[str] = None,
     state: Optional[RaindropState] = None,
 ) -> Interaction:
     """
     Starts (or resumes) an interaction and returns a helper object.
+
+    ``model`` is nested under ``ai_data`` on the wire (the partial-ai-fields
+    nested contract), matching the TS ``begin()`` model parameter. Use
+    ``Interaction.set_model()`` to attach or change the model mid-lifecycle.
+
+    Note: ``model`` alone is metadata, not AI text. An interaction opened with
+    only ``model`` (no ``input``) and then finished with no ``output`` is
+    dropped by the empty-AI-event gate (see ``_should_drop_empty_ai_event``,
+    which mirrors the Rust SDK) with a warning — it would otherwise render as
+    a phantom ``ai_generation`` row. Provide ``input`` and/or ``output`` for
+    the event to ship.
     """
     st = _resolve_state(state)
     if not isinstance(user_id, str) or not user_id.strip():
@@ -1526,11 +1547,14 @@ def begin(
 
     eid = event_id or str(uuid.uuid4())
 
-    # Instantiate ai_data if either input or convo_id is supplied so that convo_id isn't lost when input is set later
+    # Instantiate ai_data if any AI field (input / convo_id / model) is
+    # supplied so none is lost when another is set later.
     ai_data_partial = None
-    if input is not None or convo_id is not None:
+    if input is not None or convo_id is not None or model is not None:
         capped_input = _cap_text(input, state=st) if input is not None else None
-        ai_data_partial = PartialAIData(input=capped_input, convo_id=convo_id)
+        ai_data_partial = PartialAIData(
+            model=model, input=capped_input, convo_id=convo_id
+        )
 
     # Combine properties with initial_fields, giving precedence to initial_fields if keys clash
     final_properties = (properties or {}).copy()
@@ -1825,6 +1849,17 @@ def _configure(
                 PROJECT_ID_HEADER: resolved_project_id,
                 **caller_headers,
             }
+
+    caller_span_postprocess = traceloop_kwargs.pop(
+        "span_postprocess_callback", None
+    )
+
+    def span_postprocess_callback(span: ReadableSpan) -> None:
+        if caller_span_postprocess is not None:
+            caller_span_postprocess(span)
+        normalize_model_usage_span(span)
+
+    traceloop_kwargs["span_postprocess_callback"] = span_postprocess_callback
 
     # --- One span pipeline per process --------------------------------------
     # OTel/Traceloop is a process singleton: one tracer provider, one OTLP

@@ -1,6 +1,8 @@
 import sys
 
 import click
+import questionary
+from pycarlo.core import Session
 
 import montecarlodata.settings as settings
 from montecarlodata.agent_traces.commands import agent_traces
@@ -20,6 +22,22 @@ from montecarlodata.mcp.commands import mcp
 from montecarlodata.platform.commands import platform
 from montecarlodata.secrets.commands import secrets
 from montecarlodata.tools import dump_help
+
+# CLI authentication types (for `configure`).
+AUTH_TYPE_API_KEY = "api-key"
+AUTH_TYPE_OAUTH = "oauth"
+
+
+def _validate_instance_id(value: str) -> str:
+    """Validate an instance id via the SDK (the single source of truth), re-raising as a UsageError
+    so the flag/prompt re-asks on invalid input.
+
+    Used both for the --mcd-instance-id flag and as a click prompt value_proc.
+    """
+    try:
+        return Session.validate_instance_id(value)
+    except ValueError as e:
+        raise click.UsageError(str(e)) from e
 
 
 @click.group(help="Monte Carlo's CLI.")
@@ -68,16 +86,92 @@ def entry_point(ctx, profile, config_path):
     default=settings.DEFAULT_CONFIG_PATH,
     type=click.Path(dir_okay=True),
 )
-@click.option("--mcd-id", prompt="Key ID", help="Monte Carlo token user ID.")
-@click.option("--mcd-token", prompt="Secret", help="Monte Carlo token value.", hide_input=True)
-def configure(profile_name, config_path, mcd_id, mcd_token):
+@click.option(
+    "--oauth",
+    is_flag=True,
+    default=False,
+    help="Configure using OAuth client credentials.",
+)
+@click.option(
+    "--api-key",
+    "api_key",
+    is_flag=True,
+    default=False,
+    help="Configure using an API key.",
+)
+@click.option("--mcd-id", default=None, help="Monte Carlo token user ID (API key auth).")
+@click.option("--mcd-token", default=None, help="Monte Carlo token value (API key auth).")
+@click.option(
+    "--mcd-oauth-client-id", default=None, help="Monte Carlo OAuth client ID (OAuth auth)."
+)
+@click.option(
+    "--mcd-oauth-client-secret",
+    default=None,
+    help="Monte Carlo OAuth client secret (OAuth auth).",
+)
+@click.option(
+    "--mcd-instance-id",
+    default=None,
+    help="Monte Carlo deployment instance ID, e.g. us1, eu1 (OAuth auth).",
+)
+def configure(
+    profile_name,
+    config_path,
+    oauth,
+    api_key,
+    mcd_id,
+    mcd_token,
+    mcd_oauth_client_id,
+    mcd_oauth_client_secret,
+    mcd_instance_id,
+):
     """
     Special subcommand for configuring the CLI
     """
-    ConfigManager(profile_name=profile_name, base_path=config_path).write(
-        mcd_id=mcd_id,
-        mcd_token=mcd_token,
-    )
+    if oauth and api_key:
+        raise click.UsageError("Specify only one of --oauth or --api-key.")
+
+    # --oauth / --api-key select the auth type non-interactively; otherwise ask (arrow-key picker).
+    if oauth:
+        auth_type = AUTH_TYPE_OAUTH
+    elif api_key:
+        auth_type = AUTH_TYPE_API_KEY
+    else:
+        auth_type = questionary.select(
+            "Authentication type",
+            choices=[AUTH_TYPE_API_KEY, AUTH_TYPE_OAUTH],
+            default=AUTH_TYPE_API_KEY,
+        ).ask()
+        if auth_type is None:  # user cancelled (e.g. Ctrl-C)
+            raise click.Abort()
+
+    config_manager = ConfigManager(profile_name=profile_name, base_path=config_path)
+    if auth_type == AUTH_TYPE_OAUTH:
+        # Reconfiguring is authoritative: drop any prior API-key credentials so a switched-over
+        # profile doesn't keep stale (and live) secrets on disk.
+        config_manager.remove_options(ConfigManager.API_KEY_OPTIONS)
+        config_manager.write(
+            mcd_oauth_client_id=mcd_oauth_client_id or click.prompt("Client ID"),
+            mcd_oauth_client_secret=(
+                mcd_oauth_client_secret or click.prompt("Client Secret", hide_input=True)
+            ),
+            mcd_instance_id=(
+                _validate_instance_id(mcd_instance_id)
+                if mcd_instance_id
+                else click.prompt(
+                    "Instance ID (e.g. us1, eu1; see Account Information -> Instance ID)",
+                    value_proc=_validate_instance_id,
+                )
+            ),
+        )
+    else:
+        # Drop any prior OAuth credentials so the switched-over profile is authoritative and OAuth
+        # (which wins in Config.read) doesn't keep overriding the new API key.
+        config_manager.remove_options(ConfigManager.OAUTH_OPTIONS)
+        config_manager.write(
+            mcd_id=mcd_id or click.prompt("Key ID"),
+            mcd_token=mcd_token or click.prompt("Secret", hide_input=True),
+        )
 
 
 @click.command(help="Validate that the CLI can Connect to Monte Carlo.")

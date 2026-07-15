@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefa_hg
 version_added: '1.0.0'
-short_description: Manage hostgroups on Pure Storage FlashArrays
+short_description: Manage hostgroups on Everpure FlashArrays
 description:
-- Create, delete or modify hostgroups on Pure Storage FlashArrays.
+- Create, delete or modify hostgroups on Everpure FlashArrays.
 author:
-- Pure Storage ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -163,57 +163,58 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 from ansible_collections.purestorage.flasharray.plugins.module_utils.version import (
     LooseVersion,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+    get_with_context,
+    post_with_context,
+    patch_with_context,
+    delete_with_context,
+)
 
 CONTEXT_API_VERSION = "2.38"
 
 
 def rename_exists(module, array):
     """Determine if rename target already exists"""
-    api_version = array.get_rest_version()
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        return bool(
-            array.get_host_groups(
-                names=[module.params["rename"]],
-                context_names=[module.params["context"]],
-            ).status_code
-            == 200
-        )
-    return bool(
-        array.get_host_groups(names=[module.params["rename"]]).status_code == 200
+    res = get_with_context(
+        array,
+        "get_host_groups",
+        CONTEXT_API_VERSION,
+        module,
+        names=[module.params["rename"]],
     )
+    return bool(res.status_code == 200)
 
 
 def get_hostgroup_hosts(module, array):
-    api_version = array.get_rest_version()
     hostgroup = None
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        res = array.get_host_groups_hosts(
-            group_names=[module.params["name"]],
-            context_names=[module.params["context"]],
-        )
-    else:
-        res = array.get_host_groups_hosts(group_names=[module.params["name"]])
+    res = get_with_context(
+        array,
+        "get_host_groups_hosts",
+        CONTEXT_API_VERSION,
+        module,
+        group_names=[module.params["name"]],
+    )
     if res.status_code == 200:
         hostgroup = list(res.items)
     return hostgroup
 
 
 def get_hostgroup(module, array):
-    api_version = array.get_rest_version()
     hostgroup = None
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        res = array.get_host_groups(
-            names=[module.params["name"]], context_names=[module.params["context"]]
-        )
-    else:
-        res = array.get_host_groups(names=[module.params["name"]])
+    res = get_with_context(
+        array,
+        "get_host_groups",
+        CONTEXT_API_VERSION,
+        module,
+        names=[module.params["name"]],
+    )
     if res.status_code == 200:
         hostgroup = list(res.items)[0]
     return hostgroup
 
 
 def make_hostgroup(module, array):
-    api_version = array.get_rest_version()
     if module.params["rename"]:
         module.fail_json(
             msg="Hostgroup {0} does not exist - rename failed.".format(
@@ -222,118 +223,84 @@ def make_hostgroup(module, array):
         )
     changed = True
     if not module.check_mode:
-        if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-            res = array.post_host_groups(
-                names=[module.params["name"]], context_names=[module.params["context"]]
-            )
-        else:
-            res = array.post_host_groups(names=[module.params["name"]])
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Failed to create hostgroup {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
-                )
-            )
+        res = post_with_context(
+            array,
+            "post_host_groups",
+            CONTEXT_API_VERSION,
+            module,
+            names=[module.params["name"]],
+        )
+        check_response(
+            res, module, f"Failed to create hostgroup {module.params['name']}"
+        )
         if module.params["host"]:
-            if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                res = array.post_host_groups_hosts(
-                    context_names=[module.params["context"]],
-                    group_names=[module.params["name"]],
-                    member_names=module.params["host"],
-                )
-            else:
-                res = array.post_host_groups_hosts(
-                    group_names=[module.params["name"]],
-                    member_names=module.params["host"],
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to add host to hostgroup. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
+            res = post_with_context(
+                array,
+                "post_host_groups_hosts",
+                CONTEXT_API_VERSION,
+                module,
+                group_names=[module.params["name"]],
+                member_names=module.params["host"],
+            )
+            check_response(res, module, "Failed to add host to hostgroup")
         if module.params["volume"]:
             if len(module.params["volume"]) == 1 and module.params["lun"]:
-                if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                    res = array.post_connections(
-                        host_group_names=[module.params["name"]],
-                        context_names=[module.params["context"]],
-                        volume_names=[module.params["volume"][0]],
-                        connection=ConnectionPost(lun=module.params["lun"]),
-                    )
-                else:
-                    res = array.post_connections(
-                        host_group_names=[module.params["name"]],
-                        volume_names=[module.params["volume"][0]],
-                        connection=ConnectionPost(lun=module.params["lun"]),
-                    )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to add volume {0} with LUN ID {1}. Error: {2}".format(
-                            module.params["volume"][0],
-                            module.params["lun"],
-                            res.errors[0].message,
-                        )
-                    )
+                res = post_with_context(
+                    array,
+                    "post_connections",
+                    CONTEXT_API_VERSION,
+                    module,
+                    host_group_names=[module.params["name"]],
+                    volume_names=[module.params["volume"][0]],
+                    connection=ConnectionPost(lun=module.params["lun"]),
+                )
+                check_response(
+                    res,
+                    module,
+                    f"Failed to add volume {module.params['volume'][0]} with LUN ID {module.params['lun']}",
+                )
             else:
-                if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                    res = array.post_connections(
-                        host_group_names=[module.params["name"]],
-                        context_names=[module.params["context"]],
-                        volume_names=module.params["volume"],
-                    )
-                else:
-                    res = array.post_connections(
-                        host_group_names=[module.params["name"]],
-                        volume_names=module.params["volume"],
-                    )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to add volumes to hostgroup. Error: {0}".format(
-                            res.errors[0].message
-                        )
-                    )
+                res = post_with_context(
+                    array,
+                    "post_connections",
+                    CONTEXT_API_VERSION,
+                    module,
+                    host_group_names=[module.params["name"]],
+                    volume_names=module.params["volume"],
+                )
+                check_response(res, module, "Failed to add volumes to hostgroup")
     module.exit_json(changed=changed)
 
 
 def update_hostgroup(module, array):
-    api_version = array.get_rest_version()
     changed = False
     renamed = False
     hgroup = get_hostgroup_hosts(module, array)
     current_hostgroup = module.params["name"]
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        volumes = list(
-            array.get_connections(
-                host_group_names=[module.params["name"]],
-                context_names=[module.params["context"]],
-            ).items
-        )
-    else:
-        volumes = list(
-            array.get_connections(host_group_names=[module.params["name"]]).items
-        )
+    volumes = list(
+        get_with_context(
+            array,
+            "get_connections",
+            CONTEXT_API_VERSION,
+            module,
+            host_group_names=[module.params["name"]],
+        ).items
+    )
     if module.params["state"] == "present":
         if module.params["rename"]:
             if not rename_exists(module, array):
                 if not module.check_mode:
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.patch_host_groups(
-                            names=[module.params["name"]],
-                            context_names=[module.params["context"]],
-                            host_group=HostGroupPatch(name=module.params["rename"]),
-                        )
-                    else:
-                        res = array.patch_host_groups(
-                            names=[module.params["name"]],
-                            host_group=HostGroupPatch(name=module.params["rename"]),
-                        )
-                    if res.status_code != 200:
-                        module.fail_json(
-                            msg="Rename to {0} failed. Error: {1}".format(
-                                module.params["rename"], res.errors[0].message
-                            )
-                        )
+                    res = patch_with_context(
+                        array,
+                        "patch_host_groups",
+                        CONTEXT_API_VERSION,
+                        module,
+                        names=[module.params["name"]],
+                        host_group=HostGroupPatch(name=module.params["rename"]),
+                    )
+                    check_response(
+                        res, module, f"Rename to {module.params['rename']} failed"
+                    )
                     current_hostgroup = module.params["rename"]
                     renamed = True
             else:
@@ -350,27 +317,17 @@ def update_hostgroup(module, array):
             new_hosts = list(set(hosts).difference(hghosts))
             if new_hosts:
                 if not module.check_mode:
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.patch_hosts(
-                            host=HostPatch(
-                                host_group=ReferenceNoId(name=current_hostgroup)
-                            ),
-                            names=new_hosts,
-                            context_names=[module.params["context"]],
-                        )
-                    else:
-                        res = array.patch_hosts(
-                            host=HostPatch(
-                                host_group=ReferenceNoId(name=current_hostgroup)
-                            ),
-                            names=new_hosts,
-                        )
-                    if res.status_code != 200:
-                        module.fail_json(
-                            msg="Failed to add host(s) to hostgroup. Error: {0}".format(
-                                res.errors[0].message
-                            )
-                        )
+                    res = patch_with_context(
+                        array,
+                        "patch_hosts",
+                        CONTEXT_API_VERSION,
+                        module,
+                        host=HostPatch(
+                            host_group=ReferenceNoId(name=current_hostgroup)
+                        ),
+                        names=new_hosts,
+                    )
+                    check_response(res, module, "Failed to add host(s) to hostgroup")
                 changed = True
         if module.params["volume"]:
             if volumes:
@@ -379,102 +336,72 @@ def update_hostgroup(module, array):
                 new_volumes = list(set(vols).difference(set(current_vols)))
                 if len(new_volumes) == 1 and module.params["lun"]:
                     if not module.check_mode:
-                        if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(
-                            api_version
-                        ):
-                            res = array.post_connections(
-                                host_group_names=[current_hostgroup],
-                                context_names=[module.params["context"]],
-                                volume_names=[new_volumes[0]],
-                                connection=ConnectionPost(lun=module.params["lun"]),
-                            )
-                        else:
-                            res = array.post_connections(
-                                host_group_names=[current_hostgroup],
-                                volume_names=[new_volumes[0]],
-                                connection=ConnectionPost(lun=module.params["lun"]),
-                            )
-                        if res.status_code != 200:
-                            module.fail_json(
-                                msg="Failed to add volume {0} with LUN ID {1}. Error: {2}".format(
-                                    new_volumes[0],
-                                    module.params["lun"],
-                                    res.errors[0].message,
-                                )
-                            )
+                        res = post_with_context(
+                            array,
+                            "post_connections",
+                            CONTEXT_API_VERSION,
+                            module,
+                            host_group_names=[current_hostgroup],
+                            volume_names=[new_volumes[0]],
+                            connection=ConnectionPost(lun=module.params["lun"]),
+                        )
+                        check_response(
+                            res,
+                            module,
+                            f"Failed to add volume {new_volumes[0]} with LUN ID {module.params['lun']}",
+                        )
                     changed = True
                 else:
                     for cvol in new_volumes:
                         if not module.check_mode:
-                            if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(
-                                api_version
-                            ):
-                                res = array.post_connections(
-                                    host_group_names=[current_hostgroup],
-                                    context_names=[module.params["context"]],
-                                    volume_names=[cvol],
-                                )
-                            else:
-                                res = array.post_connections(
-                                    host_group_names=[current_hostgroup],
-                                    volume_names=[cvol],
-                                )
-                            if res.status_code != 200:
-                                module.fail_json(
-                                    msg="Failed to connect volume {0} to hostgroup {1}. Error: {2}".format(
-                                        cvol, current_hostgroup, res.errors[0].message
-                                    )
-                                )
+                            res = post_with_context(
+                                array,
+                                "post_connections",
+                                CONTEXT_API_VERSION,
+                                module,
+                                host_group_names=[current_hostgroup],
+                                volume_names=[cvol],
+                            )
+                            check_response(
+                                res,
+                                module,
+                                f"Failed to connect volume {cvol} to hostgroup {current_hostgroup}",
+                            )
                         changed = True
             else:
                 if len(module.params["volume"]) == 1 and module.params["lun"]:
                     if not module.check_mode:
-                        if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(
-                            api_version
-                        ):
-                            res = array.post_connections(
-                                host_group_names=[current_hostgroup],
-                                context_names=[module.params["context"]],
-                                volume_names=[module.params["volume"][0]],
-                                connection=ConnectionPost(lun=module.params["lun"]),
-                            )
-                        else:
-                            res = array.post_connections(
-                                host_group_names=[current_hostgroup],
-                                volume_names=[module.params["volume"][0]],
-                                connection=ConnectionPost(lun=module.params["lun"]),
-                            )
-                        if res.status_code != 200:
-                            module.fail_json(
-                                msg="Failed to add volume {0} with LUN ID {1}. Error: {2}".format(
-                                    module.params["volume"],
-                                    module.params["lun"],
-                                    res.errors[0].message,
-                                )
-                            )
+                        res = post_with_context(
+                            array,
+                            "post_connections",
+                            CONTEXT_API_VERSION,
+                            module,
+                            host_group_names=[current_hostgroup],
+                            volume_names=[module.params["volume"][0]],
+                            connection=ConnectionPost(lun=module.params["lun"]),
+                        )
+                        check_response(
+                            res,
+                            module,
+                            f"Failed to add volume {module.params['volume']} with LUN ID {module.params['lun']}",
+                        )
                     changed = True
                 else:
                     for cvol in module.params["volume"]:
                         if not module.check_mode:
-                            if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(
-                                api_version
-                            ):
-                                res = array.post_connections(
-                                    host_group_names=[current_hostgroup],
-                                    context_names=[module.params["context"]],
-                                    volume_names=[cvol],
-                                )
-                            else:
-                                res = array.post_connections(
-                                    host_group_names=[current_hostgroup],
-                                    volume_names=[cvol],
-                                )
-                            if res.status_code != 200:
-                                module.fail_json(
-                                    msg="Failed to connect volume {0} to hostgroup {1}. Error: {2}".format(
-                                        cvol, current_hostgroup, res.errors[0].message
-                                    )
-                                )
+                            res = post_with_context(
+                                array,
+                                "post_connections",
+                                CONTEXT_API_VERSION,
+                                module,
+                                host_group_names=[current_hostgroup],
+                                volume_names=[cvol],
+                            )
+                            check_response(
+                                res,
+                                module,
+                                f"Failed to connect volume {cvol} to hostgroup {current_hostgroup}",
+                            )
                         changed = True
     else:
         if module.params["host"]:
@@ -485,22 +412,19 @@ def update_hostgroup(module, array):
             old_hosts = list(set(old_hosts).intersection(hosts))
             if old_hosts:
                 if not module.check_mode:
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.delete_host_groups_hosts(
-                            group_names=[current_hostgroup],
-                            member_names=old_hosts,
-                            context_names=[module.params["context"]],
-                        )
-                    else:
-                        res = array.delete_host_groups_hosts(
-                            group_names=[current_hostgroup], member_names=old_hosts
-                        )
-                    if res.status_code != 200:
-                        module.fail_json(
-                            msg="Failed to remove hosts {0} from hostgroup {1}. Error: {2}".format(
-                                old_hosts, current_hostgroup, res.errors[0].message
-                            )
-                        )
+                    res = delete_with_context(
+                        array,
+                        "delete_host_groups_hosts",
+                        CONTEXT_API_VERSION,
+                        module,
+                        group_names=[current_hostgroup],
+                        member_names=old_hosts,
+                    )
+                    check_response(
+                        res,
+                        module,
+                        f"Failed to remove hosts {old_hosts} from hostgroup {current_hostgroup}",
+                    )
                 changed = True
         if module.params["volume"]:
             old_vols = list(module.params["volume"])
@@ -510,65 +434,57 @@ def update_hostgroup(module, array):
             if old_volumes:
                 changed = True
                 if not module.check_mode:
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.delete_connections(
-                            host_group_names=[current_hostgroup],
-                            volume_names=old_volumes,
-                            context_names=[module.params["context"]],
-                        )
-                    else:
-                        res = array.delete_connections(
-                            host_group_names=[current_hostgroup],
-                            volume_names=old_volumes,
-                        )
-                    if res.status_code != 200:
-                        module.fail_json(
-                            msg="Failed to disconnect volume {0} from hostgroup {1}. Error: {2}".format(
-                                cvol, current_hostgroup, res.errors[0].message
-                            )
-                        )
+                    res = delete_with_context(
+                        array,
+                        "delete_connections",
+                        CONTEXT_API_VERSION,
+                        module,
+                        host_group_names=[current_hostgroup],
+                        volume_names=old_volumes,
+                    )
+                    check_response(
+                        res,
+                        module,
+                        f"Failed to disconnect volumes from hostgroup {current_hostgroup}",
+                    )
     changed = changed or renamed
     module.exit_json(changed=changed)
 
 
 def delete_hostgroup(module, array):
-    api_version = array.get_rest_version()
     changed = False
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        res = array.get_connections(
-            host_group_names=[module.params["name"]],
-            context_names=[module.params["context"]],
-        )
-    else:
-        res = array.get_connections(host_group_names=[module.params["name"]])
+    res = get_with_context(
+        array,
+        "get_connections",
+        CONTEXT_API_VERSION,
+        module,
+        host_group_names=[module.params["name"]],
+    )
     if res.status_code == 200:
         vols = list(res.items)
     else:
-        module.fail_json(
-            msg="Failed to get volume connection for hostgroup {0}. Error: {1}".format(
-                module.params["hostgroup"], res.errors[0].message
-            )
+        check_response(
+            res,
+            module,
+            f"Failed to get volume connection for hostgroup {module.params['name']}",
         )
     remove_vols = [vol.volume.name for vol in vols]
     if remove_vols:
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                res = array.delete_connections(
-                    host_group_names=[module.params["name"]],
-                    volume_names=remove_vols,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.delete_connections(
-                    host_group_names=[module.params["name"]], volume_names=remove_vols
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to disconnect volumes {0} from hostgroup {1} Error: {2}".format(
-                        vols, module.params["name"], res.errors[0].message
-                    )
-                )
+            res = delete_with_context(
+                array,
+                "delete_connections",
+                CONTEXT_API_VERSION,
+                module,
+                host_group_names=[module.params["name"]],
+                volume_names=remove_vols,
+            )
+            check_response(
+                res,
+                module,
+                f"Failed to disconnect volumes from hostgroup {module.params['name']}",
+            )
     hgroup = get_hostgroup_hosts(module, array)
     hghosts = []
     for host in hgroup:
@@ -576,34 +492,23 @@ def delete_hostgroup(module, array):
     if hghosts:
         changed = True
         if not module.check_mode:
-            if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                res = array.delete_host_groups_hosts(
-                    group_names=[hgroup[0].group.name],
-                    member_names=hghosts,
-                    context_names=[module.params["context"]],
-                )
-            else:
-                res = array.delete_host_groups_hosts(
-                    group_names=[hgroup[0].group.name], member_names=hghosts
-                )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to remove hosts from hostgroup. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
-    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-        res = array.delete_host_groups(
-            names=[module.params["name"]], context_names=[module.params["context"]]
-        )
-    else:
-        res = array.delete_host_groups(names=[module.params["name"]])
-    if res.status_code != 200:
-        module.fail_json(
-            msg="Failed to delete hostgroup {0}. Error: {1}".format(
-                module.params["name"], res.errors[0].message
+            res = delete_with_context(
+                array,
+                "delete_host_groups_hosts",
+                CONTEXT_API_VERSION,
+                module,
+                group_names=[hgroup[0].group.name],
+                member_names=hghosts,
             )
-        )
+            check_response(res, module, "Failed to remove hosts from hostgroup")
+    res = delete_with_context(
+        array,
+        "delete_host_groups",
+        CONTEXT_API_VERSION,
+        module,
+        names=[module.params["name"]],
+    )
+    check_response(res, module, f"Failed to delete hostgroup {module.params['name']}")
     module.exit_json(changed=changed)
 
 
@@ -627,15 +532,24 @@ def main():
     state = module.params["state"]
     array = get_array(module)
     api_version = array.get_rest_version()
+    if (
+        LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version)
+        and not module.params["context"]
+    ):
+        # If no context is provided set the context to the local array name
+        fleet_res = array.get_fleets()
+        if fleet_res.status_code == 200 and list(fleet_res.items):
+            module.params["context"] = list(array.get_arrays().items)[0].name
     hostgroup = get_hostgroup(module, array)
 
     if module.params["host"]:
-        if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-            res = array.get_hosts(
-                names=module.params["host"], context_names=[module.params["context"]]
-            )
-        else:
-            res = array.get_hosts(names=module.params["host"])
+        res = get_with_context(
+            array,
+            "get_hosts",
+            CONTEXT_API_VERSION,
+            module,
+            names=module.params["host"],
+        )
         if res.status_code == 400:
             module.fail_json(msg="Host {0} not found".format(res.errors[0].context))
     if module.params["lun"] and state == "present":
@@ -650,12 +564,13 @@ def main():
         )
 
     if module.params["volume"]:
-        if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-            res = array.get_volumes(
-                names=module.params["volume"], context_names=[module.params["context"]]
-            )
-        else:
-            res = array.get_volumes(names=module.params["volume"])
+        res = get_with_context(
+            array,
+            "get_volumes",
+            CONTEXT_API_VERSION,
+            module,
+            names=module.params["volume"],
+        )
         if res.status_code == 400:
             module.fail_json(msg="Volume {0} not found".format(res.errors[0].context))
     if hostgroup and state == "present":

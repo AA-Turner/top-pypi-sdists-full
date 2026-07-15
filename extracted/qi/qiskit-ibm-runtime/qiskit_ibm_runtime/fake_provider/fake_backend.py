@@ -12,40 +12,35 @@
 
 """Base class for dummy backends."""
 
-from typing import Any
-import logging
-import warnings
+from __future__ import annotations
+
 import json
+import logging
 import os
+import warnings
+from typing import TYPE_CHECKING, Any
 
-from qiskit import QuantumCircuit
-
-from qiskit.providers import BackendV2, Job
-from qiskit.utils import optionals as _optionals
-from qiskit.transpiler import Target
-from qiskit.providers import Options
-
+from qiskit.providers import BackendV2
 from qiskit.providers.basic_provider import BasicSimulator
+from qiskit.utils import optionals as _optionals
 
-from qiskit_ibm_runtime.utils.backend_converter import convert_to_target
-from qiskit_ibm_runtime.utils.backend_decoder import (
+from ..models import BackendConfiguration, BackendProperties, BackendStatus
+from ..models.exceptions import BackendPropertyError
+from ..utils.backend_converter import convert_to_target
+from ..utils.backend_decoder import (
+    configuration_from_server_data,
     decode_backend_configuration,
     properties_from_server_data,
 )
+from .backend_encoder import BackendEncoder
 
-from .. import QiskitRuntimeService
-from ..utils.backend_encoder import BackendEncoder
-from ..utils.backend_decoder import configuration_from_server_data
+if TYPE_CHECKING:
+    from qiskit import QuantumCircuit
+    from qiskit.providers import Job, Options
+    from qiskit.transpiler import Target
 
-from ..models import (
-    BackendProperties,
-    BackendConfiguration,
-    BackendStatus,
-    QasmBackendConfiguration,
-)
-from ..models.exceptions import (
-    BackendPropertyError,
-)
+    from ..models import QasmBackendConfiguration
+    from ..qiskit_runtime_service import QiskitRuntimeService
 
 logger = logging.getLogger(__name__)
 
@@ -315,9 +310,7 @@ class FakeBackendV2(BackendV2):
             basic_device_gate_errors,
             basic_device_readout_errors,
         )
-        from qiskit_aer.noise.passes import (
-            RelaxationNoisePass,
-        )
+        from qiskit_aer.noise.passes import RelaxationNoisePass
 
         if self._props_dict is None:
             self._set_props_dict_from_json()
@@ -398,6 +391,9 @@ class FakeBackendV2(BackendV2):
             ValueError: if the provided service is a non-QiskitRuntimeService instance.
             Exception: If the real target doesn't exist or can't be accessed
         """
+        # Use runtime imports, to prevent `FakeBackendV2` to depend on `QiskitRuntimeService``.
+        from ..qiskit_runtime_service import QiskitRuntimeService
+
         if not isinstance(service, QiskitRuntimeService):
             raise ValueError(
                 "The provided service to update the fake backend is invalid. A "

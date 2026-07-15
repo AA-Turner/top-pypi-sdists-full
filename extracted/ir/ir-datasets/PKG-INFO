@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ir_datasets
-Version: 0.6.1
+Version: 0.6.2
 Summary: provides a common interface to many IR ad-hoc ranking benchmarks, training datasets, etc.
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>

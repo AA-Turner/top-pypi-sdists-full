@@ -5,10 +5,11 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 import requests
 from boto3 import Session
 from box import Box, BoxList
+from pycarlo.core import Session as PycarloSession
 from retry import retry
 
 import montecarlodata.settings as settings
-from montecarlodata.common.common import boxify
+from montecarlodata.common.common import boxify, create_session
 from montecarlodata.common.data import MonolithResponse
 from montecarlodata.config import Config
 from montecarlodata.errors import abort_on_gql_errors, complain_and_abort, manage_errors
@@ -28,8 +29,19 @@ class GqlWrapper(Wrapper):
     def __init__(self, config: Config, command_name: str, **kwargs):
         self._mcd_id = config.mcd_id
         self._mcd_token = config.mcd_token
-        self._endpoint = config.mcd_api_endpoint
         self._command_name = command_name
+
+        self._is_oauth = config.is_oauth
+        self._session: Optional[PycarloSession] = None
+        if self._is_oauth:
+            # Delegate the OAuth client-credentials grant (token minting, endpoint derivation and
+            # per-process caching) to the SDK. The Session derives the OAuth GraphQL and token
+            # endpoints from the base API endpoint unless explicitly overridden.
+            session = create_session(config)
+            self._session = session
+            self._endpoint = session.endpoint
+        else:
+            self._endpoint = config.mcd_api_endpoint
 
         super().__init__(**kwargs)
 
@@ -105,13 +117,18 @@ class GqlWrapper(Wrapper):
         variables: Optional[Dict] = None,
     ) -> Optional[Dict]:
         headers = {
-            "x-mcd-id": self._mcd_id,
-            "x-mcd-token": self._mcd_token,
             "x-mcd-telemetry-reason": "cli",
             "x-mcd-telemetry-service": service,
             "x-mcd-telemetry-command": self._command_name,
             "Content-Type": "application/json",
         }
+        if self._is_oauth:
+            assert self._session is not None
+            headers["Authorization"] = f"Bearer {self._session.get_access_token()}"
+        else:
+            assert self._mcd_id is not None and self._mcd_token is not None
+            headers["x-mcd-id"] = self._mcd_id
+            headers["x-mcd-token"] = self._mcd_token
         payload = {"query": query, "variables": variables or {}}
 
         if settings.MCD_USER_ID_HEADER:

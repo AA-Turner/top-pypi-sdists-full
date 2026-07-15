@@ -49,6 +49,7 @@ from .literals import (
     RecoveryInstanceDataReplicationInitiationStepNameType,
     RecoveryInstanceDataReplicationInitiationStepStatusType,
     RecoveryInstanceDataReplicationStateType,
+    RecoveryModeType,
     RecoveryResultType,
     RecoverySnapshotsOrderType,
     ReplicationConfigurationDataPlaneRoutingType,
@@ -687,6 +688,7 @@ class CreateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 
 class LaunchConfigurationTemplateTypeDef(TypedDict):
@@ -701,6 +703,7 @@ class LaunchConfigurationTemplateTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 
 class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
@@ -713,6 +716,7 @@ class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     exportBucketArn: NotRequired[str]
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 
 class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -978,6 +982,7 @@ class LaunchConfigurationTypeDef(TypedDict):
     licensing: LicensingTypeDef
     postLaunchEnabled: bool
     launchIntoInstanceProperties: LaunchIntoInstancePropertiesTypeDef
+    recoveryMode: RecoveryModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -991,6 +996,7 @@ class UpdateLaunchConfigurationRequestTypeDef(TypedDict):
     licensing: NotRequired[LicensingTypeDef]
     postLaunchEnabled: NotRequired[bool]
     launchIntoInstanceProperties: NotRequired[LaunchIntoInstancePropertiesTypeDef]
+    recoveryMode: NotRequired[RecoveryModeType]
 
 
 class LifeCycleLastLaunchTypeDef(TypedDict):

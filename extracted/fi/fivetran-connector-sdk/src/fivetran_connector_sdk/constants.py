@@ -1,7 +1,7 @@
 import os
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0706.002"
+TESTER_VERSION = "2.26.0714.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"

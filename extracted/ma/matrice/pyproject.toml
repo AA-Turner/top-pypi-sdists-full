@@ -1,0 +1,162 @@
+[build-system]
+requires = [
+    "setuptools>=65.0.0",
+    "wheel",
+    "mypy==1.13.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice"
+dynamic = ["version"]
+description = "Common server utilities for Matrice.ai services"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+keywords = ["matrice", "common", "utilities", "mypyc", "compiled"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+# Runtime dependencies. `matrice_common` is imported at package import time
+# (src/matrice/__init__.py), so it MUST be installed alongside `matrice` for a
+# clean-venv install to be importable. Left unpinned to avoid constraining consumers.
+dependencies = [
+    "matrice_common",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.3",
+    "pytest-cov==6.0.0",
+    "pytest-mock>=3.0",
+    "pytest-asyncio>=0.21",
+    "pytest-timeout==2.3.1",
+    "fakeredis>=2.20",
+    "respx>=0.20",
+    "ruff==0.11.12",
+    "bandit[toml]==1.9.4",
+    "mypy==1.13.0",
+    "pre-commit==4.2.0",
+    "pip-audit==2.7.3",
+    "safety==3.2.11",
+    "matrice_common",
+    "torch",
+    "torchvision",
+    "numpy",
+    "scikit-learn",
+    "structlog",
+    "sentry-sdk",
+    "requests",
+    "Pillow",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "--cov=matrice",
+    "--cov-report=term-missing",
+    "--cov-fail-under=0",
+    "--timeout=30",
+    "--timeout-method=thread",
+    "--strict-markers",
+]
+markers = [
+    "slow: long-running test, excluded from the fast suite",
+    "integration: multi-component wiring test (fakes only)",
+    "e2e: end-to-end test, excluded from the fast suite",
+    "requires_redis: needs a real Redis; excluded from the fast suite",
+    "requires_kafka: needs a real Kafka; excluded from the fast suite",
+    "requires_network: needs real network egress; excluded from the fast suite",
+    "requires_docker: needs a real Docker daemon; excluded from the fast suite",
+    "requires_gpu: needs a real GPU/CUDA; excluded from the fast suite",
+    "real_sleep: opt out of the autouse no-op time.sleep patch",
+]
+
+[tool.coverage.run]
+source = ["matrice"]
+omit = [
+    # Package init + generated type stub (nothing executable to measure).
+    "src/matrice/__init__.py",
+    "src/matrice/__init__.pyi",
+    # 13-line backward-compat re-export shim.
+    "src/matrice/actionTracker.py",
+    # Spawns real subprocesses / local CLI harness — out of the fast, mocked suite.
+    "src/matrice/local_testing.py",
+    # BYOM test-harness & mock utilities (test-support code, not product API surface).
+    "src/matrice/testing.py",
+    # Large orchestrator with a __main__ entrypoint; out of the module-family scope.
+    "src/matrice/inference_orchestrator.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "pass",
+]
+
+[tool.mypy]
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+  "torchvision",
+  "torchvision.*",
+  "sklearn",
+  "sklearn.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "matrice_data_processing",
+  "matrice_data_processing.*",
+  "matrice_streaming",
+  "matrice_streaming.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "pycocotools",
+  "pycocotools.*",
+  "pydantic",
+  "pydantic.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples"]
+skips = ["B101", "B110", "B404", "B603", "B607"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 120
+target-version = ["py38"]

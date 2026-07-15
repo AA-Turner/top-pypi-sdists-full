@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.18.1
+Version: 2.18.2
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -158,6 +158,9 @@ Requires-Dist: transformers[torch]>=4.56.0; extra == "llama-nemotron-embed-vl-1b
 Requires-Dist: torchvision>=0.22.0; extra == "llama-nemotron-embed-vl-1b-v2"
 Requires-Dist: flash-attn>=2.6.3; extra == "llama-nemotron-embed-vl-1b-v2"
 Requires-Dist: accelerate; extra == "llama-nemotron-embed-vl-1b-v2"
+Provides-Extra: nemotron-3-embed
+Requires-Dist: sentence-transformers>=5.4.1; extra == "nemotron-3-embed"
+Requires-Dist: transformers[torch]>=5.2.0; extra == "nemotron-3-embed"
 Provides-Extra: multimodal-sbert
 Requires-Dist: sentence-transformers>=5.4.0; extra == "multimodal-sbert"
 Requires-Dist: transformers>=5.3.0; extra == "multimodal-sbert"

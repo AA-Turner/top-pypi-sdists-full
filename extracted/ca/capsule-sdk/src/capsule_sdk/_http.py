@@ -22,7 +22,8 @@ from capsule_sdk._errors import (
     CapsuleRequestTimeoutError,
     CapsuleServiceUnavailable,
 )
-from capsule_sdk._kms_signer import KMSSigner
+from capsule_sdk._kms_signer import Signer, new_signer
+from capsule_sdk._trace import trace_headers
 
 _RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
 _MAX_RETRIES = 3
@@ -64,10 +65,10 @@ class HttpClient:
             timeout=httpx.Timeout(config.request_timeout),
         )
 
-        self._signer: KMSSigner | None = None
+        self._signer: Signer | None = None
         if config.kms_key_name:
             try:
-                self._signer = KMSSigner(config.kms_key_name)
+                self._signer = new_signer(config.cloud_provider, config.kms_key_name)
             except Exception as exc:
                 logger.warning(
                     "KMS signer unavailable (%s); proceeding without request signing. "
@@ -170,7 +171,7 @@ class HttpClient:
     ) -> bytes:
         """Streaming GET that returns raw bytes (for file download)."""
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id}
+        headers = {"X-Request-Id": request_id, **trace_headers()}
         if extra_headers:
             headers.update(extra_headers)
         timeout_value = self._resolve_timeout(timeout, self._config.operation_timeout)
@@ -215,7 +216,7 @@ class HttpClient:
     ) -> dict[str, Any]:
         """POST with raw binary body, returns JSON response (for file upload)."""
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id, "Content-Type": "application/octet-stream"}
+        headers = {"X-Request-Id": request_id, "Content-Type": "application/octet-stream", **trace_headers()}
         if extra_headers:
             headers.update(extra_headers)
         timeout_value = self._resolve_timeout(timeout, self._config.operation_timeout)
@@ -258,7 +259,7 @@ class HttpClient:
     ) -> dict[str, Any]:
         """POST to a host agent with a bounded operation timeout."""
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id}
+        headers = {"X-Request-Id": request_id, **trace_headers()}
         if extra_headers:
             headers.update(extra_headers)
         timeout_value = self._resolve_timeout(timeout, self._config.operation_timeout)
@@ -301,7 +302,7 @@ class HttpClient:
     ) -> Iterator[dict[str, Any]]:
         """POST and stream back ndjson lines. Yields dicts."""
         request_id = request_id or str(uuid.uuid4())
-        headers = {"X-Request-Id": request_id, "Accept": "application/x-ndjson"}
+        headers = {"X-Request-Id": request_id, "Accept": "application/x-ndjson", **trace_headers()}
         if extra_headers:
             headers.update(extra_headers)
         timeout_value = self._resolve_timeout(timeout, self._config.operation_timeout)
@@ -365,7 +366,7 @@ class HttpClient:
 
         body_bytes = json.dumps(json_body, separators=(",", ":")).encode() if json_body else b""
 
-        req_headers: dict[str, str] = {"X-Request-Id": request_id}
+        req_headers: dict[str, str] = {"X-Request-Id": request_id, **trace_headers()}
         if self._signer:
             sig, ts = self._signer.sign_request(self._config.tenant_id, request_id)
             req_headers["X-KMS-Signature"] = sig

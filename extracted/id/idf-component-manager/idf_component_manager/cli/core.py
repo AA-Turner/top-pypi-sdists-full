@@ -3,16 +3,19 @@
 import sys
 import typing as t
 
-import click
+import rich_click as click
+from esp_pylib.excepthook import install_exception_reporting
 
 from idf_component_tools import error, setup_logging
 from idf_component_tools.__version__ import __version__ as idf_component_manager_version
+from idf_component_tools.environment import ComponentManagerSettings
 from idf_component_tools.errors import FatalError, WarningAsExceptionError
 
 from .autocompletion import init_autocomplete
 from .cache import init_cache
 from .component import init_component
 from .config import init_config
+from .cooking import init_cooking
 from .manifest import init_manifest
 from .project import init_project
 from .registry import init_registry
@@ -35,6 +38,7 @@ def initialize_cli():
     )
     def cli(warnings_as_errors):
         setup_logging(warnings_as_errors)
+        install_exception_reporting()
 
     @cli.command()
     def version():
@@ -46,6 +50,7 @@ def initialize_cli():
     cli.add_command(init_autocomplete())
     cli.add_command(init_cache())
     cli.add_command(init_component())
+    cli.add_command(init_cooking())
     cli.add_command(init_manifest())
     cli.add_command(init_project())
     cli.add_command(init_registry())
@@ -58,6 +63,8 @@ def safe_cli():
     """
     CLI entry point with error handling.
     """
+    if ComponentManagerSettings().NO_COLORS:
+        click.rich_click.COLOR_SYSTEM = None
     try:
         cli = initialize_cli()
         cli()

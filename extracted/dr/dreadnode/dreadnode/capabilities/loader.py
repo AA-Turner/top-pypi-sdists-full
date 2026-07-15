@@ -491,6 +491,8 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
         dependencies=parsed.get("dependencies"),
         checks=parsed.get("checks"),
         flags=parsed.get("flags"),
+        produces=parsed.get("produces"),
+        items=parsed.get("items"),
     )
 
 

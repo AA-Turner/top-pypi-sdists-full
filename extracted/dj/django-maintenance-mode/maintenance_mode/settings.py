@@ -10,6 +10,9 @@ if not hasattr(settings, "MAINTENANCE_MODE"):
 if not hasattr(settings, "MAINTENANCE_MODE_GET_CLIENT_IP_ADDRESS"):
     settings.MAINTENANCE_MODE_GET_CLIENT_IP_ADDRESS = None
 
+if not hasattr(settings, "MAINTENANCE_MODE_GET_AUTHENTICATED_USER"):
+    settings.MAINTENANCE_MODE_GET_AUTHENTICATED_USER = None
+
 if not hasattr(settings, "MAINTENANCE_MODE_GET_CONTEXT"):
     settings.MAINTENANCE_MODE_GET_CONTEXT = None
 
@@ -40,6 +43,12 @@ if not hasattr(settings, "MAINTENANCE_MODE_IGNORE_URLS"):
 if not hasattr(settings, "MAINTENANCE_MODE_LOGOUT_AUTHENTICATED_USER"):
     settings.MAINTENANCE_MODE_LOGOUT_AUTHENTICATED_USER = False
 
+if not hasattr(settings, "MAINTENANCE_MODE_LOGOUT_STAFF_USER"):
+    settings.MAINTENANCE_MODE_LOGOUT_STAFF_USER = None
+
+if not hasattr(settings, "MAINTENANCE_MODE_LOGOUT_SUPERUSER"):
+    settings.MAINTENANCE_MODE_LOGOUT_SUPERUSER = None
+
 if not hasattr(settings, "MAINTENANCE_MODE_REDIRECT_URL"):
     settings.MAINTENANCE_MODE_REDIRECT_URL = None
 
@@ -53,6 +62,9 @@ if not hasattr(settings, "MAINTENANCE_MODE_STATE_BACKEND"):
     settings.MAINTENANCE_MODE_STATE_BACKEND = (
         "maintenance_mode.backends.LocalFileBackend"
     )
+
+if not hasattr(settings, "MAINTENANCE_MODE_CACHE_BACKEND"):
+    settings.MAINTENANCE_MODE_CACHE_BACKEND = None
 
 if not hasattr(settings, "MAINTENANCE_MODE_STATE_BACKEND_FALLBACK_VALUE"):
     settings.MAINTENANCE_MODE_STATE_BACKEND_FALLBACK_VALUE = False

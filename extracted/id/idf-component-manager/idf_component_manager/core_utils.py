@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import json
 import re
@@ -7,13 +7,13 @@ import typing as t
 from pathlib import Path
 
 from ruamel.yaml import YAML
-from tqdm import tqdm
 
 from idf_component_tools import notice
 from idf_component_tools.constants import DEFAULT_NAMESPACE, MANIFEST_FILENAME
 from idf_component_tools.errors import ComponentModifiedError, FatalError, ModifiedComponent
 from idf_component_tools.file_tools import (
     check_unexpected_component_files,
+    validate_example_path_format,
 )
 from idf_component_tools.manager import ManifestManager, UploadMode
 from idf_component_tools.manifest import Manifest
@@ -26,19 +26,12 @@ CREATE_PROJECT_FROM_EXAMPLE_NAME_REGEX = (
     r'^((?P<namespace>{slug})\/)?'
     r'(?P<component>{slug})'
     r'(?P<version>[<=>!^~\*].+)?:'
-    r'(?P<example>[/a-zA-Z\d_\-\.\+]+)$'
+    r'(?P<example>.+)$'
 ).format(slug=SLUG_BODY_REGEX)
 
 COMPONENT_FULL_NAME_WITH_SPEC_REGEX = (
     r'^((?P<namespace>{slug})\/)?(?P<component>{slug})(?P<version>[<=>!^~\*].+)?'
 ).format(slug=SLUG_BODY_REGEX)
-
-
-class ProgressBar(tqdm):
-    """Wrapper for tqdm for updating progress bar status"""
-
-    def update_to(self, count: t.Union[int, float]) -> t.Optional[bool]:
-        return self.update(count - self.n)
 
 
 def dist_name(name: str, version: str) -> str:
@@ -140,6 +133,7 @@ def parse_example(example: str, namespace: str) -> t.Tuple[str, str, str]:
     component = match.group('component')
     version_spec = match.group('version') or '*'
     example_name = match.group('example')
+    validate_example_path_format(example_name)
 
     try:
         SimpleSpec(version_spec)
@@ -174,46 +168,6 @@ def parse_component_name_spec(
         )
 
     return namespace, name, spec
-
-
-def collect_directories(dir_path: Path) -> t.List[str]:
-    if not dir_path.is_dir():
-        return []
-
-    return [
-        entry.name
-        for entry in dir_path.iterdir()
-        if entry.is_dir() and not entry.name.startswith('.')
-    ]
-
-
-def check_examples_folder(
-    examples_manifest: t.List[t.Dict[str, str]],
-    working_path: Path,
-) -> None:
-    example_folders = {'examples': collect_directories(working_path / 'examples')}
-    error_paths = []
-    for example_info in examples_manifest:
-        example_path = example_info['path']
-
-        if not (working_path / example_path).is_dir():
-            error_paths.append(str(working_path / example_path))
-            continue
-
-        if example_path in example_folders.keys():
-            raise FatalError(
-                'Some paths in the `examples` block in the manifest are listed multiple times: {}. '
-                'Please make paths unique and delete duplicate paths'.format(example_path)
-            )
-
-        example_folders[example_path] = [Path(example_path).name]
-
-    if error_paths:
-        raise FatalError(
-            "Example directory doesn't exist: {}.\n"
-            'Please check the path of the custom example folder in `examples` field '
-            'in `idf_component.yml` file'.format(', '.join(error_paths))
-        )
 
 
 def try_remove_dependency_from_manifest(manifest_path: Path, dependency: str) -> bool:

@@ -1232,7 +1232,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Social account ID (required)
             ad_account_id: Platform ad account ID (required)
             platform
-            type: Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences (each item carries a `spec`); the other types return uploaded/derived audiences."""
+            type: Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences; the other types return uploaded/derived audiences."""
         client = _get_client()
         try:
             response = client.ad_audiences.list_ad_audiences(
@@ -1938,12 +1938,20 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get campaign analytics
 
-        Args:
-            campaign_id: Platform campaign id (platformCampaignId). (required)
-            platform: Disambiguate when the campaign id exists across platforms (e.g. facebook, instagram).
-            from_date: Start of date range (YYYY-MM-DD). Defaults to 90 days ago.
-            to_date: End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
-            breakdowns: Comma-separated breakdown dimensions (Meta only): age, gender, country, publisher_platform, device_platform, region, platform_position, impression_device, video_asset, image_asset, body_asset, title_asset."""
+            Args:
+                campaign_id: Platform campaign id (platformCampaignId). (required)
+                platform: Disambiguate when the campaign id exists across platforms (e.g. facebook, instagram).
+                from_date: Start of date range (YYYY-MM-DD). Defaults to 90 days ago.
+                to_date: End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
+                breakdowns: Comma-separated breakdown dimensions.
+
+        **Meta**: age, gender, country, publisher_platform, device_platform, region,
+        platform_position, impression_device, video_asset, image_asset, body_asset, title_asset.
+
+        **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
+        company, company_size, country, region. Rows carry the raw pivot `value`
+        plus a resolved `name`. LinkedIn serves these aggregated over the whole
+        range, delays the data 12-24h, and omits segments with fewer than 3 events."""
         client = _get_client()
         try:
             response = client.ads.get_campaign_analytics(
@@ -1973,11 +1981,20 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get ad analytics
 
-        Args:
-            ad_id: (required)
-            from_date: Start of date range (YYYY-MM-DD). Defaults to 90 days ago.
-            to_date: End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
-            breakdowns: Comma-separated breakdown dimensions. Meta: age, gender, country, publisher_platform, device_platform, region. TikTok: gender, age, country_code, platform, ac, language."""
+            Args:
+                ad_id: (required)
+                from_date: Start of date range (YYYY-MM-DD). Defaults to 90 days ago.
+                to_date: End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
+                breakdowns: Comma-separated breakdown dimensions.
+
+        **Meta**: age, gender, country, publisher_platform, device_platform, region.
+
+        **TikTok**: gender, age, country_code, platform, ac, language.
+
+        **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
+        company, company_size, country, region. Rows carry the raw pivot `value`
+        plus a resolved `name`. LinkedIn serves these aggregated over the whole
+        range, delays the data 12-24h, and omits segments with fewer than 3 events."""
         client = _get_client()
         try:
             response = client.ads.get_ad_analytics(
@@ -2226,6 +2243,7 @@ def register_generated_tools(mcp, _get_client):
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
         special_ad_categories: list[str] | None = None,
         link_url: str | None = None,
@@ -2255,6 +2273,10 @@ def register_generated_tools(mcp, _get_client):
                 roas_average_floor: Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
         `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
         `bid_constraints.roas_average_floor` × 10000 (Meta uses fixed-point integers).
+                platform_specific_data: Platform-specific options. The platform is derived from `accountId`;
+        sending options for a different platform returns a 400. LinkedIn
+        (campaign bidding and delivery controls) is the only platform with
+        options today.
                 tracking: Meta only. Tracking specs (pixel, URL tags).
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 link_url: TikTok-only. Custom destination URL for the Spark Ad. Without this, TikTok
@@ -2297,6 +2319,7 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
+                platform_specific_data=platform_specific_data,
                 tracking=tracking,
                 special_ad_categories=special_ad_categories,
                 link_url=link_url,
@@ -2381,6 +2404,7 @@ def register_generated_tools(mcp, _get_client):
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         brand_identity: dict[str, Any] | None = None,
@@ -2397,7 +2421,22 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_name: Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
                 ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
                 tracking: Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the "Website events" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied on the legacy single-creative shape, every ad of the multi-creative shape, and the attach shape. NOTE: tracking lives on the AD object and is not inherited from the ad set, so pass it on EVERY attach call that should carry the pixel.
-                goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `catalog_sales` (Advantage+ catalog ads, e.g. vehicle inventory) requires `promotedObject.productSetId` + `promotedObject.pixelId` + `promotedObject.customEventType` and builds a catalog TEMPLATE creative from the copy fields (headline/body/description/linkUrl/callToAction, which may carry catalog template tags like {{product.name}} or {{vehicle.make}}) — no imageUrl/video is sent, Meta renders the visuals per catalog item; discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets; single shape only (no creatives[]/adSetId/dynamicCreative/placementAssets); `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
+                goal: Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
+
+        **Meta**
+        - `conversions`: OUTCOME_SALES. Requires `promotedObject.pixelId` and `promotedObject.customEventType` with a commerce event such as PURCHASE or START_TRIAL.
+        - `lead_conversion`: OUTCOME_LEADS optimizing website pixel leads. Same pixel and event fields, but with a leads-class event such as LEAD, SUBMIT_APPLICATION, SCHEDULE or CONTACT. Meta gates conversion events by objective, so leads-class events are rejected under `conversions`.
+        - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
+        - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
+        - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
+
+        **TikTok**
+        - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code such as ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM. To inherit pixel and event from an existing ad group, pass `adSetId` instead.
+
+        **LinkedIn**
+        - `engagement`, `traffic`, `awareness` and `video_views` create standalone Direct Sponsored Content ads. `traffic` requires `linkUrl`; `video_views` requires `video`.
+        - `job_applicants` requires a `platformSpecificData.jobs` creative.
+        - For `lead_generation` or `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach.
@@ -2416,7 +2455,7 @@ def register_generated_tools(mcp, _get_client):
                 body: Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). Max: Google=90, Pinterest=500.
                 description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead.
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter.
-                link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination).
+                link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description.
                 lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
                 image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
@@ -2563,6 +2602,10 @@ def register_generated_tools(mcp, _get_client):
                 roas_average_floor: Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
         `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
         `bid_constraints.roas_average_floor` × 10000.
+                platform_specific_data: Platform-specific options. The platform is derived from `accountId`;
+        sending options for a different platform returns a 400. LinkedIn
+        (campaign bidding and delivery controls) is the only platform with
+        options today.
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -2683,6 +2726,7 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
+                platform_specific_data=platform_specific_data,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 brand_identity=brand_identity,
@@ -5024,6 +5068,8 @@ def register_generated_tools(mcp, _get_client):
         match_mode: str = "contains",
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
+        dm_message_variations: list[str] | None = None,
+        comment_reply_variations: list[str] | None = None,
         link_tracking: bool = True,
         click_tag: str | None = None,
     ) -> str:
@@ -5042,6 +5088,8 @@ def register_generated_tools(mcp, _get_client):
             dm_message: DM text to send to commenter. Max 640 chars when buttons are set, otherwise ~1000. (required)
             buttons: Optional inline DM buttons (1-3). Phone buttons are Facebook-only. Omit or pass [] for a plain-text DM.
             comment_reply: Optional public reply to the comment
+            dm_message_variations: Optional alternate DM texts for random rotation. When set, each triggered comment sends one picked at random from [dmMessage, ...dmMessageVariations], so repeat commenters get slightly different DMs (helps avoid identical-message patterns). Up to 5. Buttons are attached to whichever text is picked, not varied.
+            comment_reply_variations: Optional alternate public replies, rotated at random alongside commentReply (picked independently of the DM). Up to 5.
             link_tracking: Wrap link buttons in the DM in a tracked redirect so clicks are counted (Link Clicks / CTR). Pass false to send links exactly as written. Defaults to on.
             click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences."""
         client = _get_client()
@@ -5059,6 +5107,8 @@ def register_generated_tools(mcp, _get_client):
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
+                dm_message_variations=dm_message_variations,
+                comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
             )
@@ -5104,6 +5154,8 @@ def register_generated_tools(mcp, _get_client):
         dm_message: str | None = None,
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
+        dm_message_variations: list[str] | None = None,
+        comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
         is_active: bool | None = None,
@@ -5118,6 +5170,8 @@ def register_generated_tools(mcp, _get_client):
             dm_message
             buttons: Inline DM buttons (1-3). Pass [] to clear all buttons.
             comment_reply
+            dm_message_variations: Alternate DM texts for random rotation (see create). Pass [] to clear.
+            comment_reply_variations: Alternate public replies for random rotation. Pass [] to clear.
             link_tracking: Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched.
             click_tag: Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it.
             is_active"""
@@ -5131,6 +5185,8 @@ def register_generated_tools(mcp, _get_client):
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
+                dm_message_variations=dm_message_variations,
+                comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
                 is_active=is_active,
@@ -9370,14 +9426,18 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Port numbers in
 
-        Args:
-            phone_numbers: E.164 numbers to port in. (required)
-            end_user: End-user / current-carrier account info that authorizes the port. (required)
-            loa_document_id: Document id from POST /v1/phone-numbers/port-in/documents (kind=loa). (required)
-            invoice_document_id: Document id from POST /v1/phone-numbers/port-in/documents (kind=invoice). (required)
-            foc_datetime_requested: Requested port date; the carrier confirms the actual FOC later. Defaults to one week out (shifted off weekends) when omitted.
-            customer_reference
-            port_type: Whether the losing account ports all its numbers (full) or keeps some (partial)."""
+            Args:
+                phone_numbers: E.164 numbers to port in. (required)
+                end_user: End-user / current-carrier account info that authorizes the port. The
+        losing carrier matches every field against its records and rejects the
+        whole port on a mismatch — enter values exactly as they appear on the
+        carrier bill.
+         (required)
+                loa_document_id: Document id from POST /v1/phone-numbers/port-in/documents (kind=loa). (required)
+                invoice_document_id: Document id from POST /v1/phone-numbers/port-in/documents (kind=invoice). (required)
+                foc_datetime_requested: Requested port date; the carrier confirms the actual FOC later. Defaults to one week out (shifted off weekends) when omitted.
+                customer_reference
+                port_type: Whether the losing account ports all its numbers (full) or keeps some (partial)."""
         client = _get_client()
         try:
             response = client.phone_numbers.create_phone_number_port_in(
@@ -10805,10 +10865,13 @@ def register_generated_tools(mcp, _get_client):
                 phone_numbers: Your numbers this registration covers. (required)
                 brand: Required for 10DLC. The legal entity behind the traffic (TCR brand).
                 campaign: Required for 10DLC. What you'll send and how recipients opt in/out.
-        Opt-in/opt-out/help auto-responses must name the registered brand and
-        carry the carrier-required disclosures; submissions that don't (or that
-        are blank) are automatically rewritten to a compliant, brand-named
-        template before the campaign is filed.
+        The opt-in/opt-out/help auto-responses (`optinMessage`,
+        `optoutMessage`, `helpMessage`) are optional: when omitted, a
+        compliant, brand-named template with the carrier-required
+        disclosures is generated for you. If you do send them, they must
+        name the registered brand and carry the disclosures — submissions
+        that don't are rewritten to the compliant template before the
+        campaign is filed.
                 toll_free: Required for toll_free."""
         client = _get_client()
         try:
@@ -10877,6 +10940,26 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.sms.verify_sms_registration_otp(id=id, otp_pin=otp_pin)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Re-send the sole-prop OTP",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_resend_sms_registration_otp(id: str) -> str:
+        """Re-send the sole-prop OTP
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.sms.resend_sms_registration_otp(id=id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"

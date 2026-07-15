@@ -172,8 +172,20 @@ class ApiClient:
         json_data: dict[str, t.Any] | None = None,
         data: dict[str, t.Any] | None = None,
         headers: dict[str, str] | None = None,
+        *,
+        timeout: float | None = None,
     ) -> httpx.Response:
         """Make a raw HTTP request without raising on errors."""
+        if timeout is not None:
+            return self._client.request(
+                method,
+                path,
+                params=params,
+                json=json_data,
+                data=data,
+                headers=headers,
+                timeout=timeout,
+            )
         return self._client.request(
             method,
             path,
@@ -191,9 +203,22 @@ class ApiClient:
         json_data: dict[str, t.Any] | None = None,
         data: dict[str, t.Any] | None = None,
         headers: dict[str, str] | None = None,
+        *,
+        timeout: float | None = None,
     ) -> httpx.Response:
         """Make an HTTP request and raise on errors."""
-        response = self._request(method, path, params, json_data, data, headers)
+        if timeout is None:
+            response = self._request(method, path, params, json_data, data, headers)
+        else:
+            response = self._request(
+                method,
+                path,
+                params,
+                json_data,
+                data,
+                headers,
+                timeout=timeout,
+            )
         if response.status_code == 401:
             raise AuthenticationError(self._get_error_message(response))
         if response.status_code == 404:
@@ -2249,10 +2274,20 @@ class ApiClient:
         response = self.request("GET", f"/org/{org}/capabilities/facets", params=params)
         return t.cast("dict[str, t.Any]", response.json())
 
-    def list_capability_versions(self, org: str, name: str) -> dict[str, t.Any]:
+    def list_capability_versions(
+        self,
+        org: str,
+        name: str,
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, t.Any]:
         """GET /org/{org}/capabilities/{name}/versions - List all versions."""
         safe_name = _url_quote(name, safe="")
-        response = self.request("GET", f"/org/{org}/capabilities/{safe_name}/versions")
+        response = self.request(
+            "GET",
+            f"/org/{org}/capabilities/{safe_name}/versions",
+            timeout=timeout,
+        )
         return t.cast("dict[str, t.Any]", response.json())
 
     def get_capability(self, org: str, name: str, version: str | None = None) -> dict[str, t.Any]:

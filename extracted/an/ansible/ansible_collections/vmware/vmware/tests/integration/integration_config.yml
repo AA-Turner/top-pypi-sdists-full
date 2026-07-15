@@ -1,5 +1,0 @@
----
-vcenter_hostname: eco-vcenter-server.lab.eng.tlv2.redhat.com
-vcenter_username: vmware_content_ci@ecosystem.content.vsphere
-vcenter_password: Jenk!nsGo1
-tiny_prefix: test-vmware-2112

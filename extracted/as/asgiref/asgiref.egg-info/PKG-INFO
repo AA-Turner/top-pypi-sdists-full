@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgiref
-Version: 3.11.1
+Version: 3.12.1
 Summary: ASGI specs, helper code, and adapters
 Home-page: https://github.com/django/asgiref/
 Author: Django Software Foundation
@@ -17,19 +17,21 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: typing_extensions>=4; python_version < "3.11"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"
-Requires-Dist: mypy>=1.14.0; extra == "tests"
+Provides-Extra: mypy
+Requires-Dist: mypy>=1.14.0; extra == "mypy"
 Dynamic: license-file
 
 asgiref
@@ -130,7 +132,7 @@ file handles for incoming POST bodies).
 Dependencies
 ------------
 
-``asgiref`` requires Python 3.9 or higher.
+``asgiref`` requires Python 3.10 or higher.
 
 
 Contributing

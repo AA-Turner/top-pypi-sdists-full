@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthoganalytics
-Version: 7.22.2
+Version: 7.22.4
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -59,7 +59,7 @@ Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: django<6.0,>=5.2.8; extra == "test"
+Requires-Dist: django<6.0,>=5.2.15; extra == "test"
 Requires-Dist: openai>=2.0; extra == "test"
 Requires-Dist: anthropic>=0.72; extra == "test"
 Requires-Dist: langgraph>=1.0; extra == "test"

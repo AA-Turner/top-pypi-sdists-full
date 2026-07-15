@@ -1,0 +1,2 @@
+import"./rolldown-runtime-B4f9JIsa.js";import{Jn as e,Ki as t,Mi as n}from"./promotionUtils-D8H-kUDi.js";import{ct as r}from"./vendor-vueuse-s-Yt6xRb.js";import{t as i}from"./refreshRemoteConfig-CBlMYVw5.js";e().registerExtension({name:`Comfy.Cloud.RemoteConfig`,setup:async()=>{let{isLoggedIn:e}=t(),{isActiveSubscription:a}=n();r([e,a],()=>{e.value&&i()},{debounce:256,immediate:!0}),setInterval(()=>void i(),6e5)}});
+//# sourceMappingURL=cloudRemoteConfig-DrYOW8Tj.js.map

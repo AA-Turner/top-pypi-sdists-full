@@ -657,6 +657,9 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
     try:
         yield
     finally:
+        if not synchronous:
+            with suppress(Exception):
+                await asyncio.wait_for(asyncio.shield(warm_future), timeout=2)
         # Workers stop BEFORE MCP teardown
         if registry and registry.worker_manager:
             await registry.worker_manager.stop()
@@ -4327,7 +4330,7 @@ def _check_capability_updates(
     ) -> tuple[str, str | None, str]:
         identity, owner, name, installed_ver, _source = item
         try:
-            resp = api.list_capability_versions(owner, name)
+            resp = api.list_capability_versions(owner, name, timeout=timeout)
             latest = resp.get("latest")
             if isinstance(latest, dict):
                 return identity, latest.get("version"), installed_ver
@@ -4356,7 +4359,7 @@ def _check_capability_updates(
     except Exception:
         logger.debug("Capability update check failed", exc_info=True)
     finally:
-        executor.shutdown(wait=False, cancel_futures=True)
+        executor.shutdown(wait=True, cancel_futures=True)
 
     return updates
 

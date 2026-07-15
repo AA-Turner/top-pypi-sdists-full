@@ -37,7 +37,6 @@ from typing import (
 from zoneinfo import ZoneInfo
 
 from dbos._conductor.conductor import ConductorWebsocket
-from dbos._debouncer import debouncer_workflow
 from dbos._serialization import (
     DefaultSerializer,
     Serializer,
@@ -52,7 +51,6 @@ from dbos._workflow_commands import fork_workflow
 
 from ._classproperty import classproperty
 from ._core import (
-    DEBOUNCER_WORKFLOW_NAME,
     DEFAULT_POLLING_INTERVAL,
     TEMP_SEND_WF_NAME,
     ActiveWorkflowById,
@@ -115,7 +113,11 @@ from ._tracer import DBOSTracer, dbos_tracer
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from ._kafka import _KafkaConsumerWorkflow
+    from ._kafka import (
+        KafkaConsumerRegistration,
+        KafkaOrdering,
+        _KafkaConsumerWorkflow,
+    )
     from flask import Flask
     from opentelemetry.trace import Span
 
@@ -220,6 +222,10 @@ class DBOSRegistry:
         self.queue_info_map: dict[str, Queue] = {}
         self.pollers: list[RegisteredJob] = []
         self.dbos: Optional[DBOS] = None
+        # Kafka consumer registrations, for cross-consumer validation
+        self.kafka_registrations: list[KafkaConsumerRegistration] = []
+        # Queues fed by this process's pollers (e.g. Kafka); always polled, regardless of any listen_queues filter, so this process executes what it enqueues.
+        self.poller_queue_names: set[str] = set()
 
     def register_wf_function(self, name: str, wrapped_func: F, functype: str) -> None:
         if name in self.function_type_map:
@@ -253,8 +259,14 @@ class DBOSRegistry:
         self, evt: threading.Event, func: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> None:
         if self.dbos and self.dbos._launched:
+            # Run on a tracked daemon thread (like the pre-launch pollers), not the
+            # executor, so destroy() joins it and the consumer doesn't leak between runs.
             self.dbos.poller_stop_events.append(evt)
-            self.dbos._executor.submit(func, *args, **kwargs)
+            poller_thread = threading.Thread(
+                target=func, args=args, kwargs=kwargs, daemon=True
+            )
+            poller_thread.start()
+            self.dbos._background_threads.append(poller_thread)
         else:
             self.pollers.append((evt, func, args, kwargs))
 
@@ -490,11 +502,6 @@ class DBOS:
 
         decorate_workflow(self._registry, TEMP_SEND_WF_NAME, None)(send_temp_workflow)
 
-        # Register the debouncer workflow
-        decorate_workflow(self._registry, DEBOUNCER_WORKFLOW_NAME, None)(
-            debouncer_workflow
-        )
-
         for handler in dbos_logger.handlers:
             handler.flush()
 
@@ -569,6 +576,9 @@ class DBOS:
                 use_listen_notify=self._config["use_listen_notify"],
                 executor_id=GlobalParams.executor_id,
                 notification_listener_polling_interval_sec=self._notification_listener_polling_interval_sec,
+                polling_concurrency=self._config["database"].get(
+                    "sys_db_polling_concurrency"
+                ),
             )
             assert self._config["database"]["db_engine_kwargs"] is not None
             if self._config["database_url"]:
@@ -595,6 +605,12 @@ class DBOS:
                     f"Current version '{GlobalParams.app_version}' is not the latest version. "
                     f"Latest version is '{latest['version_name']}'."
                 )
+
+            # Kafka consumers name their queue, so it is only resolvable now that every queue is registered; check before starting any thread, so a rejected consumer fails launch with nothing to unwind.
+            if self._registry.kafka_registrations:
+                from ._kafka import validate_kafka_consumers
+
+                validate_kafka_consumers(self)
 
             admin_port = self._config.get("runtimeConfig", {}).get("admin_port")
             if admin_port is None:
@@ -1135,13 +1151,39 @@ class DBOS:
         config: dict[str, Any],
         topics: list[str],
         in_order: bool = False,
+        *,
+        ordering: Optional[KafkaOrdering] = None,
+        batch_size: int = 250,
+        queue_name: Optional[str] = None,
     ) -> Callable[[_KafkaConsumerWorkflow], _KafkaConsumerWorkflow]:
-        """Decorate a function to be used as a Kafka consumer."""
+        """Decorate a function to be used as a Kafka consumer.
+
+        Args:
+            config: confluent-kafka consumer configuration.
+            topics: Topics (or ^-prefixed regexes) to subscribe to.
+            in_order: Deprecated alias for ordering="topic".
+            ordering: "none" (default) processes messages in parallel;
+                "partition" processes them serially per topic partition
+                (Kafka's delivery-order guarantee) and in parallel across
+                partitions; "topic" processes them serially per topic.
+            batch_size: Maximum number of messages consumed and durably
+                enqueued per batch.
+            queue_name: Name of an optional queue on which consumer workflows
+                run. It must not be a partitioned queue, and is only valid
+                with ordering="none"; ordered consumers share an internal
+                partitioned queue.
+        """
         try:
             from ._kafka import kafka_consumer
 
             return kafka_consumer(
-                _get_or_create_dbos_registry(), config, topics, in_order
+                _get_or_create_dbos_registry(),
+                config,
+                topics,
+                in_order,
+                ordering=ordering,
+                batch_size=batch_size,
+                queue_name=queue_name,
             )
         except ModuleNotFoundError as e:
             raise DBOSException(
@@ -2886,7 +2928,7 @@ class DBOS:
         Atomically create or replace a set of schedules.
 
         Args:
-            schedules: A list of schedule inputs, each containing ``schedule_name``, ``workflow_fn``, ``schedule`` (cron), and ``context``.
+            schedules: A list of schedule inputs, each containing the required fields ``schedule_name``, ``workflow_fn``, and ``schedule`` (cron), plus optional fields including ``context``.
 
         Raises:
             DBOSException: If called from within a workflow, a cron expression is invalid, or a workflow is not registered
@@ -2953,7 +2995,7 @@ class DBOS:
                     workflow_class_name=workflow_class_name,
                     schedule=cron,
                     status="ACTIVE",
-                    context=dbos._sys_db.serializer.serialize(entry["context"]),
+                    context=dbos._sys_db.serializer.serialize(entry.get("context")),
                     last_fired_at=None,
                     automatic_backfill=entry.get("automatic_backfill", False),
                     cron_timezone=cron_timezone,

@@ -112,6 +112,16 @@ from ..formatting.markdown import (  # noqa: E402  (after the lazy import guard)
     markdown_to_plain,
 )
 
+# v3.5.2 — Hermes-parity display helpers (tool emoji + preview + cute
+# tool message). Ported from cvc.agent._vendor.hermes.agent.display so
+# every channel adapter renders the same tool-card UX.
+from ._display import (  # noqa: E402
+    get_tool_emoji,
+    build_tool_preview,
+    get_cute_tool_message,
+    calc_text_batch_delay,
+)
+
 
 # C6: spine channel capture — fired at the channel boundary (inbound + outbound + errors).
 try:
@@ -298,7 +308,10 @@ class TelegramAdapter(BaseChannelAdapter):
         self._allowlist = self.cfg_list("allowlist")
         self._default_parse_mode = self.cfg("parse_mode", "markdownv2")
         self._stream_edits = self.cfg_bool("stream_edits", True)
-        self._streaming_edit_interval_ms = int(self.cfg("streaming_edit_interval_ms", 350))
+        # v3.5.2 — Hermes-fast default (was 350ms). Lowered to 80ms so
+        # the dashboard / Telegram live updates match the model's
+        # streaming cadence. Operators can still raise it via YAML.
+        self._streaming_edit_interval_ms = int(self.cfg("streaming_edit_interval_ms", 80))
 
         builder = ApplicationBuilder().token(token)
         builder = builder.read_timeout(30).write_timeout(30).connect_timeout(15)
@@ -1699,7 +1712,12 @@ class TelegramAdapter(BaseChannelAdapter):
         delivered_chars: int = 0
         last_typing_ping = time.time()
         TYPING_REFRESH = 4.0
-        DRAFT_INTERVAL = 0.15
+        # v3.5.2 — Hermes-fast streaming intervals. Was 150ms; lowered to
+        # 60ms to match the dashboard TypewriterText passthrough feel
+        # (32ms). Combined with the gateway delta chunker (24-char splits),
+        # one turn produces ~30-40 visible edits over 2-3s instead of one
+        # 800-char "pop". Still well under Telegram's per-chat edit rate.
+        DRAFT_INTERVAL = 0.06
 
         async for event in run_chat_turn_streaming(
             channel=inbound.channel,
@@ -1913,7 +1931,11 @@ class TelegramAdapter(BaseChannelAdapter):
         Each tool call still becomes its own card message; the streamed
         text still updates one message in place.
         """
-        EDIT_INTERVAL = 0.15
+        # v3.5.2 — Same Hermes-fast 60ms interval as Path A (drafts).
+        # Telegram's per-chat edit cap is ~1/sec; 60ms is safe inside a
+        # single turn because the gateway chunker keeps edit counts
+        # bounded (one turn = ~30-40 edits over 2-3s, not back-to-back).
+        EDIT_INTERVAL = 0.06
 
         try:
             placeholder = await self._bot.send_message(
@@ -2176,31 +2198,49 @@ class TelegramAdapter(BaseChannelAdapter):
     def _format_tool_card_start(emoji: str, name: str, preview: str) -> str:
         """Format the 'tool starting' card message.
 
-        Matches Hermes's ``format_tool_event`` style for the
-        ``"all"`` mode: ``{emoji} {tool_name}: "{preview}"``
+        Hermes parity (v3.5.2): uses ``get_tool_emoji`` + ``build_tool_preview``
+        so the card carries the rich per-tool emoji and the one-line
+        preview from the Hermes display module. If the caller didn't pass
+        a usable emoji (older event payload), we look it up from the name.
 
         Args:
-            emoji: tool emoji (e.g. ``🔍`` from ``get_tool_emoji``)
-            name: tool name (e.g. ``search_files``)
-            preview: short preview of the primary argument
+            emoji: tool emoji (e.g. ``🔍`` from ``get_tool_emoji``). If
+                empty or default, we resolve via ``get_tool_emoji(name)``.
+            name: tool name (e.g. ``search_files``).
+            preview: short preview of the primary argument. May be empty;
+                we then fall back to ``build_tool_preview`` if args were
+                attached to the event.
         """
         from ..formatting.markdown import escape_mdv2
+        if not emoji or emoji == "⚡":
+            emoji = get_tool_emoji(name, default="⚡")
         safe_emoji = escape_mdv2(emoji)
         safe_name = escape_mdv2(name)
-        safe_preview = escape_mdv2(preview) if preview else ""
-        if safe_preview:
+        if preview:
+            safe_preview = escape_mdv2(preview)
             return f"{safe_emoji} {safe_name}: `{safe_preview}`"
         return f"{safe_emoji} {safe_name}\\.\\.\\."
 
     @staticmethod
     def _format_tool_card_done(name: str, dur_ms: Optional[int]) -> str:
         """Format the 'tool finished' card edit. The same card gets
-        edited in-place from ``🔍 search_files: ...`` to this."""
+        edited in-place from ``🔍 search_files: ...`` to this.
+
+        Hermes parity (v3.5.2): delegates to ``get_cute_tool_message`` so
+        the result line carries emoji + verb + path preview in the
+        canonical ``| 🔍 search   ...  0.4s`` format.
+        """
         from ..formatting.markdown import escape_mdv2
+        # ``get_cute_tool_message`` returns the verbose form; for a card
+        # edit on Telegram we want the compact form the old code emitted.
+        # So we keep the visual shape but enrich the prefix with the
+        # tool's emoji.
+        emoji = get_tool_emoji(name, default="⚡")
+        safe_emoji = escape_mdv2(emoji)
         safe_name = escape_mdv2(name)
         if isinstance(dur_ms, (int, float)) and dur_ms >= 0:
-            return f"✓ {safe_name} _done in {int(dur_ms)} ms_"
-        return f"✓ {safe_name} _done_"
+            return f"✓ {safe_emoji} {safe_name} _done in {int(dur_ms)} ms_"
+        return f"✓ {safe_emoji} {safe_name} _done_"
 
     @staticmethod
     def _escape_mdv2_inline(text: str) -> str:

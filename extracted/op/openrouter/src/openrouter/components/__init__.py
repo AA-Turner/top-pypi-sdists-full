@@ -611,8 +611,6 @@ if TYPE_CHECKING:
         ChatUsagePromptTokensDetails,
         ChatUsagePromptTokensDetailsTypedDict,
         ChatUsageTypedDict,
-        ServerToolUseDetails,
-        ServerToolUseDetailsTypedDict,
     )
     from .chatusermessage import (
         ChatUserMessage,
@@ -1641,6 +1639,20 @@ if TYPE_CHECKING:
         ModerationPluginTypedDict,
     )
     from .multimodalmedia import MultimodalMedia, MultimodalMediaTypedDict
+    from .namespacefunctiontool import (
+        AllowedCaller,
+        NamespaceFunctionTool,
+        NamespaceFunctionToolType,
+        NamespaceFunctionToolTypedDict,
+    )
+    from .namespacetool import (
+        NamespaceTool,
+        NamespaceToolTool,
+        NamespaceToolToolTypedDict,
+        NamespaceToolType,
+        NamespaceToolTypedDict,
+        UnknownNamespaceToolTool,
+    )
     from .notfoundresponseerrordata import (
         NotFoundResponseErrorData,
         NotFoundResponseErrorDataTypedDict,
@@ -2423,6 +2435,10 @@ if TYPE_CHECKING:
     )
     from .searchqualitylevel import SearchQualityLevel
     from .security import Security, SecurityTypedDict
+    from .servertoolusedetails import (
+        ServerToolUseDetails,
+        ServerToolUseDetailsTypedDict,
+    )
     from .serviceunavailableresponseerrordata import (
         ServiceUnavailableResponseErrorData,
         ServiceUnavailableResponseErrorDataTypedDict,
@@ -2875,6 +2891,7 @@ __all__ = [
     "AgentMessageItemTypeInputImage",
     "AgentMessageItemTypedDict",
     "AgentTypedDict",
+    "AllowedCaller",
     "AllowedTools",
     "AllowedToolsTypedDict",
     "AllowedToolsUnion",
@@ -3965,6 +3982,14 @@ __all__ = [
     "NameStrReplaceEditor",
     "NameWebSearch1",
     "NameWebSearch2",
+    "NamespaceFunctionTool",
+    "NamespaceFunctionToolType",
+    "NamespaceFunctionToolTypedDict",
+    "NamespaceTool",
+    "NamespaceToolTool",
+    "NamespaceToolToolTypedDict",
+    "NamespaceToolType",
+    "NamespaceToolTypedDict",
     "Never",
     "NeverTypedDict",
     "NotFoundResponseErrorData",
@@ -4786,6 +4811,7 @@ __all__ = [
     "UnknownFormat",
     "UnknownFormats",
     "UnknownImageStreamingResponseData",
+    "UnknownNamespaceToolTool",
     "UnknownObservabilityDestination",
     "UnknownOpenAIResponseCustomToolCallOutputOutput1",
     "UnknownOpenAIResponseFunctionToolCallOutputOutput1",
@@ -5331,8 +5357,6 @@ _dynamic_imports: dict[str, str] = {
     "ChatUsagePromptTokensDetails": ".chatusage",
     "ChatUsagePromptTokensDetailsTypedDict": ".chatusage",
     "ChatUsageTypedDict": ".chatusage",
-    "ServerToolUseDetails": ".chatusage",
-    "ServerToolUseDetailsTypedDict": ".chatusage",
     "ChatUserMessage": ".chatusermessage",
     "ChatUserMessageContent": ".chatusermessage",
     "ChatUserMessageContentTypedDict": ".chatusermessage",
@@ -6134,6 +6158,16 @@ _dynamic_imports: dict[str, str] = {
     "ModerationPluginTypedDict": ".moderationplugin",
     "MultimodalMedia": ".multimodalmedia",
     "MultimodalMediaTypedDict": ".multimodalmedia",
+    "AllowedCaller": ".namespacefunctiontool",
+    "NamespaceFunctionTool": ".namespacefunctiontool",
+    "NamespaceFunctionToolType": ".namespacefunctiontool",
+    "NamespaceFunctionToolTypedDict": ".namespacefunctiontool",
+    "NamespaceTool": ".namespacetool",
+    "NamespaceToolTool": ".namespacetool",
+    "NamespaceToolToolTypedDict": ".namespacetool",
+    "NamespaceToolType": ".namespacetool",
+    "NamespaceToolTypedDict": ".namespacetool",
+    "UnknownNamespaceToolTool": ".namespacetool",
     "NotFoundResponseErrorData": ".notfoundresponseerrordata",
     "NotFoundResponseErrorDataTypedDict": ".notfoundresponseerrordata",
     "ObservabilityArizeDestination": ".observabilityarizedestination",
@@ -6709,6 +6743,8 @@ _dynamic_imports: dict[str, str] = {
     "SearchQualityLevel": ".searchqualitylevel",
     "Security": ".security",
     "SecurityTypedDict": ".security",
+    "ServerToolUseDetails": ".servertoolusedetails",
+    "ServerToolUseDetailsTypedDict": ".servertoolusedetails",
     "ServiceUnavailableResponseErrorData": ".serviceunavailableresponseerrordata",
     "ServiceUnavailableResponseErrorDataTypedDict": ".serviceunavailableresponseerrordata",
     "ShellCallItem": ".shellcallitem",

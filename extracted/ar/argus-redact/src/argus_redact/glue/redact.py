@@ -419,11 +419,18 @@ def _detect(
     entities = filter_self_reference(entities, hints)
     timing["merge_ms"] = (time.perf_counter() - t0) * 1000
 
-    # Apply type filtering
+    # Apply type filtering. A bare str is a plausible caller mistake (they meant
+    # a one-element list): set("phone") silently becomes {'p','h','o','n','e'},
+    # which filters out every real entity type and returns success with zero
+    # redaction — a silent leak. Fail closed instead of fail-open.
     if types is not None:
+        if isinstance(types, str):
+            raise TypeError("types must be a list of type names, not a str")
         type_set = set(types)
         entities = [e for e in entities if e.type in type_set]
     elif types_exclude is not None:
+        if isinstance(types_exclude, str):
+            raise TypeError("types_exclude must be a list of type names, not a str")
         exclude_set = set(types_exclude)
         entities = [e for e in entities if e.type not in exclude_set]
 
@@ -471,7 +478,7 @@ def _replace_and_emit(
     )
     effective_lang = lang if isinstance(lang, str) else (lang[0] if lang else "zh")
     if effective_lang == "en":
-        redacted = normalize_grammar_en(redacted, result_key)
+        redacted = normalize_grammar_en(redacted, list(result_key.values()))
     timing["replace_ms"] = (time.perf_counter() - t0) * 1000
 
     # Emit telemetry — zero overhead when no hook set
@@ -576,6 +583,21 @@ def redact(
             stacklevel=2,
         )
 
+    # Resolve config from file path — BEFORE the profile merge below, so
+    # `config` is always a dict (or None) by the time profile_config.update()
+    # runs. (Was below the profile block; a str config there crashed with
+    # "ValueError: dictionary update sequence element #0 has length 1".)
+    if isinstance(config, str):
+        config_path = Path(config)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config}")
+        if config_path.suffix in (".yaml", ".yml"):
+            import yaml
+
+            config = yaml.safe_load(_safe_read_text(config_path))
+        else:
+            config = json.loads(_safe_read_text(config_path))
+
     # Resolve profile → types filter + strategy overrides
     if profile is not None:
         from argus_redact.specs.profiles import get_profile
@@ -589,18 +611,6 @@ def redact(
             if config:
                 profile_config.update(config)
             config = profile_config
-
-    # Resolve config from file path
-    if isinstance(config, str):
-        config_path = Path(config)
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config}")
-        if config_path.suffix in (".yaml", ".yml"):
-            import yaml
-
-            config = yaml.safe_load(_safe_read_text(config_path))
-        else:
-            config = json.loads(_safe_read_text(config_path))
 
     # Resolve key
     existing_key: dict | None = None
@@ -726,7 +736,7 @@ def redact(
                 entities=tuple(entity_details),
                 stats=stats,
                 risk=risk,
-                residual_personal_data=residual_personal_data(entities, config),
+                residual_personal_data=residual_personal_data(entities),
                 security_events=tuple(security_events),
             )
 

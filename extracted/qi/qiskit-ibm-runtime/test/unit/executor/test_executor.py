@@ -13,18 +13,16 @@
 """Tests the `Executor` class."""
 
 from unittest.mock import patch
+
 from pydantic import ValidationError
-
-from test.utils import get_mocked_backend, get_mocked_session
-
 from qiskit.circuit import QuantumCircuit
+
 from qiskit_ibm_runtime.executor import Executor
-from qiskit_ibm_runtime.options_models.executor_options import (
-    ExecutorOptions,
-    ExecutionOptions,
-)
 from qiskit_ibm_runtime.options_models.environment_options import EnvironmentOptions
+from qiskit_ibm_runtime.options_models.execution_options import ExecutionOptions
+from qiskit_ibm_runtime.options_models.executor_options import ExecutorOptions
 from qiskit_ibm_runtime.quantum_program import QuantumProgram
+from test.utils import get_mocked_backend, get_mocked_session
 
 from ...ibm_test_case import IBMTestCase
 
@@ -147,7 +145,7 @@ class TestExecutor(IBMTestCase):
         self.program.append_circuit_item(circuit=QuantumCircuit(1))
 
     def test_run_of_session_is_selected(self):
-        """Test ``Executor.run`` selects the service ``run`` method, if session specified."""
+        """Test ``Executor.run`` selects the service ``run`` method, if session is specified."""
         backend_name = "ibm_hello"
         session = get_mocked_session(get_mocked_backend(backend_name))
         with (
@@ -159,7 +157,7 @@ class TestExecutor(IBMTestCase):
             self.assertEqual(selected_run, "session")
 
     def test_run_of_service_is_selected(self):
-        """Test ``Executor.run`` selects the service ``run`` method, if session not specified."""
+        """Test ``Executor.run`` selects the service ``run`` method, if session is not specified."""
         backend = get_mocked_backend()
         with patch.object(backend.service, "_run", return_value="service"):
             executor = Executor(mode=backend)

@@ -90,7 +90,7 @@ default_treebanks = {
     "sa":      "vedic",
     "sd":      "isra",
     "sk":      "snk",
-    "sl":      "ssj",
+    "sl":      "combined",
     "sme":     "giella",
     "sq":      "combined",
     "sr":      "set",
@@ -311,6 +311,7 @@ default_charlms = {
     "pt": "oscar2023",
     "ru": "newswiki",
     "sd": "isra",
+    "sl": "oscar2023",
     "sv": "conll17",
     "te": "oscar2022",
     "th": "oscar",
@@ -1070,6 +1071,7 @@ TRANSFORMER_NICKNAMES = {
     "KBLab/roberta-base-swedish-cased":            "kb-swedish-roberta",
     "KBLab/megatron-bert-base-swedish-cased-600k": "kb-swedish-megatron",
     "AI-Nordics/bert-large-swedish-cased":         "ai-nordics-bert-large",
+    "AI-Sweden-Models/roberta-large-1160k":        "ai-sweden-roberta-large",
 
     # ta: tamil
     "monsoon-nlp/tamillion":         "tamillion",

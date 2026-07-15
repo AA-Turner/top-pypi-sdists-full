@@ -1,5 +1,15 @@
 # Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
-from typing import Dict, List, Mapping, Optional, Protocol, Set, Tuple, Union, cast
+from typing import (
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from glide_shared.commands.bitmap import (
     BitFieldGet,
@@ -17,6 +27,7 @@ from glide_shared.commands.core_options import (
     ExpirySet,
     HashFieldConditionalChange,
     InsertPosition,
+    MigrateOptions,
     OnlyIfEqual,
     UpdateOptions,
     _build_sort_args,
@@ -67,7 +78,7 @@ from .cluster_scan_cursor import ClusterScanCursor
 class CoreCommands(Protocol):
     def _execute_command(
         self,
-        request_type: RequestType.ValueType,
+        request_type: int,
         args: List[TEncodable],
         route: Optional[Route] = ...,
         response_buffer: Optional[memoryview] = ...,
@@ -75,7 +86,7 @@ class CoreCommands(Protocol):
 
     def _execute_batch(
         self,
-        commands: List[Tuple[RequestType.ValueType, List[TEncodable]]],
+        commands: List[Tuple[int, List[TEncodable]]],
         is_atomic: bool,
         raise_on_error: bool,
         retry_server_error: bool = False,
@@ -2387,6 +2398,17 @@ class CoreCommands(Protocol):
             A simple OK response.
         """
         return cast(TOK, self._execute_command(RequestType.Select, [str(index)]))
+
+    def reset(self) -> bytes:
+        """
+        Reset the connection state.
+
+        See [valkey.io](https://valkey.io/commands/reset/) for details.
+
+        Returns:
+            bytes: The string "RESET".
+        """
+        return cast(bytes, self._execute_command(RequestType.Reset, []))
 
     def srem(self, key: TEncodable, members: List[TEncodable]) -> int:
         """
@@ -6917,6 +6939,49 @@ class CoreCommands(Protocol):
         return cast(
             TOK,
             self._execute_command(RequestType.Restore, args),
+        )
+
+    def migrate(
+        self,
+        host: str,
+        port: int,
+        key: TEncodable,
+        destination_db: int,
+        timeout: int,
+        options: Optional[MigrateOptions] = None,
+    ) -> str:
+        """
+        Atomically transfers a key from a source Valkey instance to a destination Valkey instance.
+        On success, the key is deleted from the source instance.
+
+        See [valkey.io](https://valkey.io/commands/migrate/) for details.
+
+        Args:
+            host (str): The host of the destination Valkey instance.
+            port (int): The port of the destination Valkey instance.
+            key (TEncodable): The key to migrate.
+            destination_db (int): The database index on the destination instance.
+            timeout (int): The maximum idle time in milliseconds for the bulk-transfer.
+            options (Optional[MigrateOptions]): Additional migration options.
+
+        Returns:
+            str: "OK" on success, or "NOKEY" if the key was not found.
+
+        Examples:
+            >>> client.migrate("127.0.0.1", 6380, "mykey", 0, 5000)
+        """
+        args: List[TEncodable] = [
+            host,
+            str(port),
+            key,
+            str(destination_db),
+            str(timeout),
+        ]
+        if options:
+            args.extend(options.to_args())
+        return cast(
+            str,
+            self._execute_command(RequestType.Migrate, args),
         )
 
     def sscan(

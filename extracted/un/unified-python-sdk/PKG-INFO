@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.59.7
+Version: 0.59.8
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -1091,6 +1091,7 @@ asyncio.run(main())
 * [get_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_group) - Retrieve a group
 * [get_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_location) - Retrieve a location
 * [get_hris_payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_payslip) - Retrieve a payslip
+* [get_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_taxonomy) - Retrieve a taxonomy
 * [get_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeoff) - Retrieve a timeoff
 * [get_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeshift) - Retrieve a timeshift
 * [list_hris_bankaccounts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_bankaccounts) - List all bankaccounts
@@ -1103,6 +1104,7 @@ asyncio.run(main())
 * [list_hris_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_groups) - List all groups
 * [list_hris_locations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_locations) - List all locations
 * [list_hris_payslips](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_payslips) - List all payslips
+* [list_hris_taxonomies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_taxonomies) - List all taxonomies
 * [list_hris_timeoffs](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeoffs) - List all timeoffs
 * [list_hris_timeshifts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeshifts) - List all timeshifts
 * [patch_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_bankaccount) - Update a bankaccount
@@ -1895,6 +1897,11 @@ asyncio.run(main())
 * [update_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#update_task_comment) - Update a comment
 * [update_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#update_task_project) - Update a project
 * [update_task_task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#update_task_task) - Update a task
+
+### [Taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md)
+
+* [get_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#get_hris_taxonomy) - Retrieve a taxonomy
+* [list_hris_taxonomies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxonomy/README.md#list_hris_taxonomies) - List all taxonomies
 
 ### [Taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md)
 

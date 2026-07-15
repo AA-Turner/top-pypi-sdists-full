@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.26.1
+Version: 1.27.0
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Home-Page: https://docs.zizmor.sh
@@ -84,13 +84,6 @@ Grafana Labs
 <img src="https://avatars.githubusercontent.com/u/2314423?s=100&v=4" width="100px">
 <br>
 Trail of Bits
-</a>
-</td>
-<td align="center" valign="top" width="15%">
-<a href="https://www.shipfox.io">
-<img src="https://avatars.githubusercontent.com/u/163036520?s=100&v=4" width="100px">
-<br>
-Shipfox
 </a>
 </td>
 <td align="center" valign="top" width="15%">

@@ -12,22 +12,29 @@
 
 """Estimator primitive."""
 
-from collections.abc import Iterable
-import logging
+from __future__ import annotations
 
-from qiskit.providers import BackendV2
+import logging
+from typing import TYPE_CHECKING
 
 from qiskit.primitives.base import BaseEstimatorV2
-from qiskit.primitives.containers import EstimatorPubLike
 from qiskit.primitives.containers.estimator_pub import EstimatorPub
 
-from .runtime_job_v2 import RuntimeJobV2
-from .options.estimator_options import EstimatorOptions
+from qiskit_ibm_runtime.utils.deprecation import issue_deprecation_msg
+
 from .base_primitive import BasePrimitiveV2
+from .options.estimator_options import EstimatorOptions
 from .utils import validate_estimator_pubs
 
-from .session import Session
-from .batch import Batch
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from qiskit.primitives.containers import EstimatorPubLike
+    from qiskit.providers import BackendV2
+
+    from .batch import Batch
+    from .runtime_job_v2 import RuntimeJobV2
+    from .session import Session
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +148,16 @@ class EstimatorV2(BasePrimitiveV2[EstimatorOptions], Estimator, BaseEstimatorV2)
             if precision <= 0:
                 raise ValueError("The precision value must be strictly greater than 0.")
         coerced_pubs = [EstimatorPub.coerce(pub, precision) for pub in pubs]
+
+        if len({pub.precision for pub in coerced_pubs}) > 1:
+            issue_deprecation_msg(
+                msg="Specifying different 'precision' across pubs is deprecated",
+                version="0.48.0",
+                remedy="Submit one job for each desired precision instead. "
+                "To reduce overhead, Consider submitting these jobs inside a Batch execution mode.",
+                stacklevel=2,
+            )
+
         validate_estimator_pubs(coerced_pubs)
         return self._run(coerced_pubs)
 

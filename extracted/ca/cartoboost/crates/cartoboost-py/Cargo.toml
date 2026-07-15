@@ -1,6 +1,6 @@
 [package]
 name = "cartoboost-py"
-version = "0.3.5"
+version = "0.3.8"
 edition.workspace = true
 license.workspace = true
 description = "PyO3 bindings for the CartoBoost Python package"
@@ -20,16 +20,15 @@ cartoboost-neural = { path = "../cartoboost-neural" }
 cartoboost-prob = { path = "../cartoboost-prob" }
 cartoboost-spatial-econ = { path = "../cartoboost-spatial-econ" }
 chrono.workspace = true
-numpy = "0.24"
+numpy = "0.26"
 pyo3.workspace = true
 rayon = "1.11"
 serde_json.workspace = true
 
 [features]
-# The published extension is CPU-only.  Accelerator implementations remain
-# explicit preview builds and must never be pulled into the stable wheel by
-# target detection or an unconditional dependency feature.
-preview-cuda = ["cartoboost-geo-st/cuda", "cartoboost-neural/cuda"]
-preview-rocm = ["cartoboost-geo-st/rocm", "cartoboost-neural/rocm"]
-preview-metal = ["cartoboost-geo-st/metal", "cartoboost-neural/metal"]
-preview-webgpu = ["cartoboost-geo-st/webgpu", "cartoboost-neural/webgpu"]
+# Optional accelerator backends are exposed by their backend names and are
+# enabled only when explicitly requested at build time.
+cuda = ["cartoboost-geo-st/cuda", "cartoboost-neural/cuda"]
+rocm = ["cartoboost-geo-st/rocm", "cartoboost-neural/rocm"]
+metal = ["cartoboost-geo-st/metal", "cartoboost-neural/metal"]
+webgpu = ["cartoboost-geo-st/webgpu", "cartoboost-neural/webgpu"]

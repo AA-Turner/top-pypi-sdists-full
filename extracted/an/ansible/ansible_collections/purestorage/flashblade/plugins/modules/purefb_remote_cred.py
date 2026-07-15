@@ -24,7 +24,7 @@ description:
 - You must have a correctly configured remote array or target
 - This module is B(not) idempotent when updating existing remote credentials
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -84,20 +84,26 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import (
         ObjectStoreRemoteCredentialsPost,
         ObjectStoreRemoteCredentialsPatch,
     )
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 CONTEXT_API_VERSION = "2.17"
@@ -106,44 +112,42 @@ CONTEXT_API_VERSION = "2.17"
 def get_connected(module, blade):
     """Return connected device or None"""
     api_version = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in api_version:
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         connected_blades = list(
             blade.get_array_connections(context_names=[module.params["context"]]).items
         )
     else:
         connected_blades = list(blade.get_array_connections().items)
-    for target in range(len(connected_blades)):
+    for target in connected_blades:
         if (
-            connected_blades[target].remote.name == module.params["target"]
-            or connected_blades[target].management_address == module.params["target"]
-        ) and connected_blades[target].status in [
+            target.remote.name == module.params["target"]
+            or target.management_address == module.params["target"]
+        ) and target.status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return connected_blades[target].remote.name
-    if CONTEXT_API_VERSION in api_version:
+            return target.remote.name
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         connected_targets = list(
             blade.get_targets(context_names=[module.params["context"]]).items
         )
     else:
         connected_targets = list(blade.get_targets().items)
-    for target in range(len(connected_targets)):
-        if connected_targets[target].name == module.params[
-            "target"
-        ] and connected_targets[target].status in [
+    for target in connected_targets:
+        if target.name == module.params["target"] and target.status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return connected_targets[target].name
+            return target.name
     return None
 
 
 def get_remote_cred(module, blade):
     """Return Remote Credential or None"""
     api_version = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in api_version:
+    if CONTEXT_API_VERSION in api_version and module.params["context"]:
         res = blade.get_object_store_remote_credentials(
             names=[module.params["target"] + "/" + module.params["name"]],
             context_names=[module.params["context"]],
@@ -167,7 +171,7 @@ def create_credential(module, blade):
             access_key_id=module.params["access_key"],
             secret_access_key=module.params["secret"],
         )
-        if CONTEXT_API_VERSION in api_version:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.post_object_store_remote_credentials(
                 names=[remote_cred],
                 remote_credentials=remote_credentials,
@@ -180,7 +184,7 @@ def create_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create remote credential {0}. Error: {1}".format(
-                    remote_cred, res.errors[0].message
+                    remote_cred, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -196,7 +200,7 @@ def update_credential(module, blade):
             access_key_id=module.params["access_key"],
             secret_access_key=module.params["secret"],
         )
-        if CONTEXT_API_VERSION in api_version:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.patch_object_store_remote_credentials(
                 names=[remote_cred],
                 remote_credentials=new_attr,
@@ -209,7 +213,7 @@ def update_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to update remote credential {0}. Error: {1}".format(
-                    remote_cred, res.errors[0].message
+                    remote_cred, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -221,7 +225,7 @@ def delete_credential(module, blade):
     api_version = list(blade.get_versions().items)
     if not module.check_mode:
         remote_cred = module.params["target"] + "/" + module.params["name"]
-        if CONTEXT_API_VERSION in api_version:
+        if CONTEXT_API_VERSION in api_version and module.params["context"]:
             res = blade.delete_object_store_remote_credentials(
                 names=[remote_cred], context_names=[module.params["context"]]
             )
@@ -230,7 +234,7 @@ def delete_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete remote credential {0}. Error: {1}".format(
-                    remote_cred, res.errors[0].message
+                    remote_cred, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -255,10 +259,16 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITY_FB:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version and not module.params["context"]:
+        # If no context is provided set the context to the local array name
+        fleet_res = blade.get_fleets()
+        if fleet_res.status_code == 200 and list(fleet_res.items):
+            module.params["context"] = list(blade.get_arrays().items)[0].name
     target = get_connected(module, blade)
 
     if not target:

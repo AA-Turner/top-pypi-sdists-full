@@ -12,16 +12,22 @@
 
 """Client for accessing IBM Quantum runtime service."""
 
+from __future__ import annotations
+
 import logging
-from typing import Any
-from datetime import datetime as python_datetime
-from requests import Response
+from typing import TYPE_CHECKING, Any
 
 from qiskit_ibm_runtime.api.session import RetrySession
 
-from .backend import BaseBackendClient
 from ..rest.runtime import Runtime
-from ..client_parameters import ClientParameters
+from .backend import BaseBackendClient
+
+if TYPE_CHECKING:
+    from datetime import datetime as python_datetime
+
+    from requests import Response
+
+    from ..client_parameters import ClientParameters
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +219,7 @@ class RuntimeClient(BaseBackendClient):
         instance: str | None = None,
         max_time: int | None = None,
         mode: str | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a session.
 
@@ -221,8 +228,11 @@ class RuntimeClient(BaseBackendClient):
             instance: The service instance to use.
             max_time: Maximum duration of the session.
             mode: Execution mode.
+            kwargs: Keyword arguments to add to the payload.
         """
-        return self._api.runtime_session(session_id=None).create(backend, instance, max_time, mode)
+        return self._api.runtime_session(session_id=None).create(
+            backend, instance, max_time, mode, **kwargs
+        )
 
     def cancel_session(self, session_id: str) -> None:
         """Close all jobs in the runtime session.

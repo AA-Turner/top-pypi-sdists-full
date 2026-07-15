@@ -19210,7 +19210,7 @@ class SemanticModelKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'semanticModelKey'
-    ASPECT_INFO = {'keyForEntity': 'semanticModel', 'entityCategory': 'core', 'entityAspects': ['semanticModelInfo', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications']}
+    ASPECT_INFO = {'keyForEntity': 'semanticModel', 'entityCategory': 'core', 'entityAspects': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SemanticModelKey")
 
     def __init__(self,
@@ -20627,7 +20627,7 @@ class MetricInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'metricInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metric.MetricInfo")
 
     def __init__(self,
@@ -27626,7 +27626,7 @@ class SemanticFieldClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.semanticmodel.SemanticField")
     def __init__(self,
-        name: str,
+        schemaField: "SchemaFieldClass",
         type: Union[str, "SemanticFieldTypeClass"],
         expression: "MetricExpressionClass",
         dimension: Union[None, "DimensionClass"]=None,
@@ -27634,14 +27634,14 @@ class SemanticFieldClass(DictWrapper):
     ):
         super().__init__()
         
-        self.name = name
+        self.schemaField = schemaField
         self.type = type
         self.expression = expression
         self.dimension = dimension
         self.aiContext = aiContext
     
     def _restore_defaults(self) -> None:
-        self.name = str()
+        self.schemaField = SchemaFieldClass._construct_with_defaults()
         self.type = SemanticFieldTypeClass.DIMENSION
         self.expression = MetricExpressionClass._construct_with_defaults()
         self.dimension = self.RECORD_SCHEMA.fields_dict["dimension"].default
@@ -27649,13 +27649,14 @@ class SemanticFieldClass(DictWrapper):
     
     
     @property
-    def name(self) -> str:
-        """The name of this field as exposed by the semantic layer."""
-        return self._inner_dict.get('name')  # type: ignore
+    def schemaField(self) -> "SchemaFieldClass":
+        """Inline SchemaField describing this field's schema and identity for column-level lineage edges and as the anchor for
+    column-level governance (tags, glossary terms, description)."""
+        return self._inner_dict.get('schemaField')  # type: ignore
     
-    @name.setter
-    def name(self, value: str) -> None:
-        self._inner_dict['name'] = value
+    @schemaField.setter
+    def schemaField(self, value: "SchemaFieldClass") -> None:
+        self._inner_dict['schemaField'] = value
     
     
     @property
@@ -27721,7 +27722,7 @@ class SemanticModelInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'semanticModelInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.semanticmodel.SemanticModelInfo")
 
     def __init__(self,

@@ -68,6 +68,7 @@ from dbt_state.utils import (
     DBT_VERSION,
 )
 from dbt_state.decision_logger import create_decision_logger, BaseDecisionLogger
+from dbt_state.node_hash_calculator import ModelNodeHashCalculator, create_node_hash_calculator
 from query_cache_common.constants import NO_OP_STATUS, SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
 from query_cache_common.models import shared_models
 from query_cache_common.models.services import (
@@ -1180,6 +1181,7 @@ class RunCache:
                 target_table=target_table,
                 dialect=dialect,
                 default_catalog=default_catalog,
+                default_schema=self._adapter_ext.DEFAULT_SCHEMA_NAME,
                 execution_type=execution_type,
                 sql=sql,
                 semantic_extras={},
@@ -1193,6 +1195,7 @@ class RunCache:
                     node_config
                 ),
                 clone_chain_depth_limit=self.clone_chain_depth_limit,
+                dbt_node_state=self._build_dbt_node_state(node),
             ), EnrichmentTimings(last_modified_duration_ms=last_modified_duration_ms)
 
         view_traversal_start = perf_counter()
@@ -1218,8 +1221,17 @@ class RunCache:
             self._adapter_ext.clear_last_modified_cache(unresolvable)
             now_ms = self._get_heuristic_now_epoch()
             if now_ms:
+                unresolvable_without_override = [
+                    fqn for fqn in unresolvable if fqn not in overrides
+                ]
+                if unresolvable_without_override:
+                    events.fire_warn_event(
+                        "Could not determine freshness for {}; treating as modified."
+                        " Configure loaded_at_field or loaded_at_query to set freshness timestamp.",
+                        ", ".join(unresolvable_without_override),
+                    )
                 overrides.update(
-                    {fqn: (lambda v=now_ms: v) for fqn in unresolvable if fqn not in overrides}
+                    {fqn: (lambda v=now_ms: v) for fqn in unresolvable_without_override}
                 )
 
         last_modified_epoch = self._adapter_ext.get_last_modified_epoch(
@@ -1259,6 +1271,7 @@ class RunCache:
             target_table=target_table,
             dialect=dialect,
             default_catalog=default_catalog,
+            default_schema=self._adapter_ext.DEFAULT_SCHEMA_NAME,
             execution_type=execution_type,
             sql=sql,
             semantic_extras=semantic_extras,
@@ -1274,6 +1287,7 @@ class RunCache:
             clone_table_properties=self._get_table_properties(node),
             stale_upstream_policy=self._run_cache_config.resolve_stale_upstream_policy(node_config),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
+            dbt_node_state=self._build_dbt_node_state(node),
         ), EnrichmentTimings(
             view_traversal_duration_ms=view_traversal_duration_ms,
             last_modified_duration_ms=last_modified_duration_ms,
@@ -1310,6 +1324,27 @@ class RunCache:
             "dbt_node_fqn": ".".join(node.fqn),
             "dbt_node_unique_id": unique_id,
         }
+
+    def _build_dbt_node_state(self, node: ModelOrSnapshotOrTestNode) -> shared_models.DbtNodeState:
+        calculator = create_node_hash_calculator(node, self._manifest)
+
+        node_contract_hash: t.Optional[str] = None
+        if isinstance(calculator, ModelNodeHashCalculator):
+            node_contract_hash = calculator.node_contract_hash
+
+        return shared_models.DbtNodeState(
+            node_unique_id=node.unique_id,
+            target_name=self._config.target_name,
+            project_name=self._config.project_name,
+            resource_type=node.resource_type,
+            node_hash=calculator.calculate_node_hash(),
+            node_body_hash=calculator.node_body_hash,
+            node_configs_hash=calculator.node_configs_hash,
+            node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
+            node_macros_hash=calculator.node_macros_hash,
+            node_contract_hash=node_contract_hash,
+            profile_name=self._config.profile_name,
+        )
 
     def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:
         if isinstance(node, (GenericTestNode, SingularTestNode)):

@@ -8136,7 +8136,6 @@ def lookup(ctx, **kwargs):
 @click.pass_context
 def bulk_lookup(ctx, guids, **kwargs):
     result = lookups.bulk_lookup(ctx, list(guids), **kwargs)
-    print(result.to_dict()["guid_to_name_list"])
 
     table = PrettyTable(
         [

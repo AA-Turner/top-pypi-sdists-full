@@ -1,6 +1,6 @@
 [project]
 name = "wyzeapy"
-version = "0.6.0"
+version = "0.6.1"
 description = "A library for interacting with Wyze devices"
 authors = [
     { name = "Katie Mulliken", email = "katie@mulliken.net" },
@@ -10,6 +10,7 @@ requires-python = ">=3.11.0"
 dependencies = [
     "aiohttp>=3.11.12,<4.0.0",
     "aiodns>=3.2.0,<5.0.0",
+    "certifi>=2024.2.2",
     "pycryptodome>=3.21.0,<4.0.0",
 ]
 

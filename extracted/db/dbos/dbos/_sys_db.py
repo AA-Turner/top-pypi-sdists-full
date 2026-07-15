@@ -34,6 +34,7 @@ from sqlalchemy.sql import func
 from dbos._debug_trigger import DebugTriggers
 from dbos._utils import (
     INTERNAL_QUEUE_NAME,
+    PollingLimiter,
     generate_uuid,
     retriable_postgres_exception,
     retriable_sqlite_exception,
@@ -232,6 +233,10 @@ class WorkflowStatusInternal(TypedDict):
     delay_until_epoch_ms: Optional[int]
     attributes: Optional[Dict[str, Any]]
     schedule_name: Optional[str]
+    # Absolute cap (Unix epoch ms) beyond which bounces may not extend the delay; None if not debounced or no timeout.
+    debounce_deadline_epoch_ms: Optional[int]
+    # True if this workflow's dedup ID is a debounce key to clear on the DELAYED->ENQUEUED transition.
+    is_debounced: bool
 
 
 class MetricData(TypedDict):
@@ -255,6 +260,21 @@ class EnqueueOptionsInternal(TypedDict):
     queue_partition_key: Optional[str]
     # The UNIX epoch timestamp before which the workflow should not be dequeued
     delay_until_epoch_ms: Optional[int]
+    # Absolute cap (Unix epoch ms) beyond which bounces may not extend the delay; None if not debounced or no timeout.
+    debounce_deadline_epoch_ms: Optional[int]
+    # True if this workflow's dedup ID is a debounce key to clear on the DELAYED->ENQUEUED transition.
+    is_debounced: bool
+
+
+class DebounceResult(TypedDict):
+    # The winner's workflow ID if an existing debounced DELAYED workflow was extended; None if no bounce occurred.
+    bounced_workflow_id: Optional[str]
+    # The current holder of (queue_name, deduplication_id) when no bounce occurred, or None if the key is unheld.
+    holder_workflow_id: Optional[str]
+    # Whether the holder is itself a debounced workflow.
+    holder_is_debounced: bool
+    # The holder's workflow name; a mismatch with the caller's means a debounce-key collision between workflows.
+    holder_workflow_name: Optional[str]
 
 
 class RecordedResult(TypedDict):
@@ -484,6 +504,10 @@ def db_retry(
     return decorator
 
 
+# Fallback pool size for defaulting polling concurrency when the engine's is unknown (mirrors configure_db_engine_parameters).
+DEFAULT_SYS_DB_POOL_SIZE = 20
+
+
 class SystemDatabase(ABC):
 
     @staticmethod
@@ -496,6 +520,7 @@ class SystemDatabase(ABC):
         executor_id: Optional[str],
         use_listen_notify: bool = True,
         notification_listener_polling_interval_sec: float = 1.0,
+        polling_concurrency: Optional[int] = None,
     ) -> "SystemDatabase":
         """Factory method to create the appropriate SystemDatabase implementation based on URL."""
         if system_database_url.startswith("sqlite"):
@@ -510,6 +535,7 @@ class SystemDatabase(ABC):
                 executor_id=executor_id,
                 use_listen_notify=use_listen_notify,
                 notification_listener_polling_interval_sec=notification_listener_polling_interval_sec,
+                polling_concurrency=polling_concurrency,
             )
         else:
             from ._sys_db_postgres import PostgresSystemDatabase
@@ -523,6 +549,7 @@ class SystemDatabase(ABC):
                 executor_id=executor_id,
                 use_listen_notify=use_listen_notify,
                 notification_listener_polling_interval_sec=notification_listener_polling_interval_sec,
+                polling_concurrency=polling_concurrency,
             )
 
     def __init__(
@@ -536,6 +563,7 @@ class SystemDatabase(ABC):
         executor_id: Optional[str],
         use_listen_notify: bool = True,
         notification_listener_polling_interval_sec: float = 1.0,
+        polling_concurrency: Optional[int] = None,
     ):
         import sqlalchemy.dialects.postgresql as pg
         import sqlalchemy.dialects.sqlite as sq
@@ -584,6 +612,15 @@ class SystemDatabase(ABC):
         )
         self._engine_kwargs = engine_kwargs
 
+        # Cap concurrent polling reads (default half the pool, min 1; non-positive disables) so a storm can't starve the control plane. See PollingLimiter.
+        effective_pool_size = self._get_effective_pool_size(base_engine, engine_kwargs)
+        polling_limit = (
+            polling_concurrency
+            if polling_concurrency is not None
+            else max(1, effective_pool_size // 2)
+        )
+        self.poll_limiter = PollingLimiter(polling_limit)
+
         self.notifications_map = ThreadSafeEventDict()
         self.workflow_events_map = ThreadSafeEventDict()
         self.streams_map = ThreadSafeEventDict()
@@ -595,8 +632,35 @@ class SystemDatabase(ABC):
         self._listener_thread_lock = threading.Lock()
         self._listener_running = False
 
+        # Per-partition-key created_at cursors: keep per-key queue order monotonic across batches
+        self._batch_created_at_lock = threading.Lock()
+        self._batch_created_at_cursors: Dict[str, int] = {}
+
         # Now we can run background processes
         self._run_background_processes = True
+
+    @staticmethod
+    def _get_effective_pool_size(
+        engine: sa.Engine, engine_kwargs: Dict[str, Any]
+    ) -> int:
+        """Determine the system database pool's effective max size, used to
+        default the polling concurrency to half the pool.
+
+        Prefer the engine's actual configured pool size (so a custom engine is
+        respected), then the configured ``pool_size`` kwarg, then a default. A
+        NullPool reports no size; fall through to the default in that case."""
+        pool_size = getattr(engine.pool, "size", None)
+        if callable(pool_size):
+            try:
+                actual = pool_size()
+                if actual and actual > 0:
+                    return int(actual)
+            except Exception:
+                pass
+        configured = engine_kwargs.get("pool_size")
+        if configured and configured > 0:
+            return int(configured)
+        return DEFAULT_SYS_DB_POOL_SIZE
 
     @abstractmethod
     def _create_engine(
@@ -660,7 +724,7 @@ class SystemDatabase(ABC):
                 ),
                 else_=SystemSchema.workflow_status.c.recovery_attempts,
             ),
-            "updated_at": sa.func.extract("epoch", sa.func.now()) * 1000,
+            "updated_at": self._now_ms_sql(),
         }
         # Don't update an existing executor ID when enqueueing a workflow.
         if wf_status not in _enqueued_statuses:
@@ -696,6 +760,8 @@ class SystemDatabase(ABC):
                 delay_until_epoch_ms=status["delay_until_epoch_ms"],
                 attributes=status["attributes"],
                 schedule_name=status["schedule_name"],
+                debounce_deadline_epoch_ms=status["debounce_deadline_epoch_ms"],
+                is_debounced=status["is_debounced"],
             )
             .on_conflict_do_update(
                 index_elements=["workflow_uuid"],
@@ -954,9 +1020,98 @@ class SystemDatabase(ABC):
                 )
                 .values(
                     delay_until_epoch_ms=resolved,
-                    updated_at=func.extract("epoch", func.now()) * 1000,
+                    updated_at=self._now_ms_sql(),
                 )
             )
+
+    def debounce_delayed_workflow(
+        self,
+        *,
+        workflow_name: str,
+        queue_name: str,
+        deduplication_id: str,
+        delay_until_epoch_ms: int,
+        inputs: str,
+        serialization: Optional[str],
+        conn: Optional[sa.Connection] = None,
+    ) -> DebounceResult:
+        """Extend an existing debounced DELAYED workflow's delay and update its inputs.
+
+        Performed as a single atomic transaction. The new delay is capped at the
+        workflow's debounce_deadline_epoch_ms, if one is set. Matching on
+        workflow_name ensures a debounce-key collision between different workflows
+        (e.g. "a"+"b-c" vs "a-b"+"c") never overwrites another workflow's inputs.
+        If nothing matched, returns the current holder (or that the key is unheld)
+        so the caller can decide whether to start fresh or surface a conflict.
+
+        Runs on ``conn`` if given, joining its transaction (e.g. a checkpointed
+        step's via call_txn_as_step); otherwise in its own retried transaction.
+        """
+
+        def _do(c: sa.Connection) -> DebounceResult:
+            wsc = SystemSchema.workflow_status.c
+            # Cap the new delay at the debounce deadline, if any (CASE not LEAST/min, for Postgres/SQLite portability).
+            capped_delay = sa.case(
+                (
+                    sa.and_(
+                        wsc.debounce_deadline_epoch_ms.isnot(None),
+                        wsc.debounce_deadline_epoch_ms < delay_until_epoch_ms,
+                    ),
+                    wsc.debounce_deadline_epoch_ms,
+                ),
+                else_=delay_until_epoch_ms,
+            )
+            updated = c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .where(wsc.name == workflow_name)
+                .where(wsc.queue_name == queue_name)
+                .where(wsc.deduplication_id == deduplication_id)
+                .where(wsc.status == WorkflowStatusString.DELAYED.value)
+                .where(wsc.is_debounced == True)
+                .values(
+                    delay_until_epoch_ms=capped_delay,
+                    inputs=inputs,
+                    serialization=serialization,
+                    updated_at=self._now_ms_sql(),
+                )
+                .returning(wsc.workflow_uuid)
+            ).fetchone()
+            if updated is not None:
+                return {
+                    "bounced_workflow_id": updated[0],
+                    "holder_workflow_id": None,
+                    "holder_is_debounced": False,
+                    "holder_workflow_name": None,
+                }
+            # No match: the key is unheld, or held by a non-debounced or name-colliding workflow.
+            holder = c.execute(
+                sa.select(wsc.workflow_uuid, wsc.is_debounced, wsc.name)
+                .where(wsc.queue_name == queue_name)
+                .where(wsc.deduplication_id == deduplication_id)
+            ).fetchone()
+            if holder is None:
+                return {
+                    "bounced_workflow_id": None,
+                    "holder_workflow_id": None,
+                    "holder_is_debounced": False,
+                    "holder_workflow_name": None,
+                }
+            return {
+                "bounced_workflow_id": None,
+                "holder_workflow_id": holder[0],
+                "holder_is_debounced": bool(holder[1]),
+                "holder_workflow_name": holder[2],
+            }
+
+        if conn is not None:
+            return _do(conn)
+
+        @db_retry()
+        def _standalone() -> DebounceResult:
+            with self.engine.begin() as c:
+                return _do(c)
+
+        return _standalone()
 
     def update_workflow_attributes(
         self, workflow_id: str, attributes: Optional[Dict[str, Any]]
@@ -1369,6 +1524,8 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.delay_until_epoch_ms,
                     SystemSchema.workflow_status.c.attributes,
                     SystemSchema.workflow_status.c.schedule_name,
+                    SystemSchema.workflow_status.c.debounce_deadline_epoch_ms,
+                    SystemSchema.workflow_status.c.is_debounced,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
             ).fetchone()
             if row is None:
@@ -1405,39 +1562,15 @@ class SystemDatabase(ABC):
                 "delay_until_epoch_ms": row[24],
                 "attributes": row[25],
                 "schedule_name": row[26],
+                "debounce_deadline_epoch_ms": row[27],
+                "is_debounced": bool(row[28]),
             }
             return status
 
     @db_retry()
-    def get_deduplicated_workflow(
-        self, queue_name: str, deduplication_id: str
-    ) -> Optional[str]:
-        """
-        Get the workflow ID associated with a given queue name and deduplication ID.
-
-        Args:
-            queue_name: The name of the queue
-            deduplication_id: The deduplication ID
-
-        Returns:
-            The workflow UUID if found, None otherwise
-        """
-        with self.engine.begin() as c:
-            row = c.execute(
-                sa.select(SystemSchema.workflow_status.c.workflow_uuid).where(
-                    SystemSchema.workflow_status.c.queue_name == queue_name,
-                    SystemSchema.workflow_status.c.deduplication_id == deduplication_id,
-                )
-            ).fetchone()
-
-            if row is None:
-                return None
-            workflow_id: str = row[0]
-            return workflow_id
-
-    @db_retry()
     def _read_workflow_result_row(self, workflow_id: str) -> Optional[Any]:
-        with self.engine.begin() as c:
+        # Polling read under the limiter; acquired inside the db_retry body so the permit frees across backoff (like check_first_workflow_id).
+        with self.poll_limiter, self.engine.begin() as c:
             return c.execute(
                 sa.select(
                     SystemSchema.workflow_status.c.status,
@@ -1498,7 +1631,8 @@ class SystemDatabase(ABC):
         """
         if not workflow_ids:
             raise ValueError("workflow_ids must not be empty")
-        with self.engine.begin() as c:
+        # This is a polling read (wait_first): run it under the polling limiter.
+        with self.poll_limiter, self.engine.begin() as c:
             row = c.execute(
                 sa.select(
                     SystemSchema.workflow_status.c.workflow_uuid,
@@ -2923,7 +3057,8 @@ class SystemDatabase(ABC):
         """
         normalized_topic = topic if topic is not None else _dbos_null_topic
         try:
-            with self.engine.begin() as c:
+            # This is a polling read: run it under the polling limiter.
+            with self.poll_limiter, self.engine.begin() as c:
                 rows = c.execute(
                     sa.select(SystemSchema.notifications.c.topic).where(
                         SystemSchema.notifications.c.destination_uuid == workflow_uuid,
@@ -3548,7 +3683,8 @@ class SystemDatabase(ABC):
         Used as a fallback in case the notification listener thread drops a notification.
         """
         try:
-            with self.engine.begin() as c:
+            # This is a polling read: run it under the polling limiter.
+            with self.poll_limiter, self.engine.begin() as c:
                 rows = c.execute(
                     sa.select(
                         SystemSchema.workflow_events.c.value,
@@ -3658,7 +3794,13 @@ class SystemDatabase(ABC):
             return [row[0] for row in rows]
 
     def transition_delayed_workflows(self) -> None:
-        """Transition DELAYED workflows whose delay has expired to ENQUEUED."""
+        """Transition DELAYED workflows whose delay has expired to ENQUEUED.
+
+        For debounced workflows, clear the deduplication_id in the same atomic
+        update: the ID is a debounce key held only while the workflow is DELAYED,
+        so a later debounce with the same key starts a fresh workflow instead of
+        bouncing this one (which is now committed to running).
+        """
         now_ms = int(time.time() * 1000)
         with self.engine.begin() as c:
             c.execute(
@@ -3668,7 +3810,16 @@ class SystemDatabase(ABC):
                     == WorkflowStatusString.DELAYED.value
                 )
                 .where(SystemSchema.workflow_status.c.delay_until_epoch_ms <= now_ms)
-                .values(status=WorkflowStatusString.ENQUEUED.value)
+                .values(
+                    status=WorkflowStatusString.ENQUEUED.value,
+                    deduplication_id=sa.case(
+                        (
+                            SystemSchema.workflow_status.c.is_debounced == True,
+                            None,
+                        ),
+                        else_=SystemSchema.workflow_status.c.deduplication_id,
+                    ),
+                )
             )
 
     def start_queued_workflows(
@@ -3751,8 +3902,24 @@ class SystemDatabase(ABC):
                 available_tasks = max(0, queue._concurrency - global_pending_workflows)
                 max_tasks = min(max_tasks, available_tasks)
 
+            latest_version = c.execute(
+                sa.select(SystemSchema.application_versions.c.version_name)
+                .order_by(SystemSchema.application_versions.c.version_timestamp.desc())
+                .limit(1)
+            ).scalar()
+            is_latest_version = latest_version is None or latest_version == app_version
+
+            version_predicate = (
+                SystemSchema.workflow_status.c.application_version == app_version
+            )
+            if is_latest_version:
+                version_predicate = sa.or_(
+                    SystemSchema.workflow_status.c.application_version == app_version,
+                    SystemSchema.workflow_status.c.application_version.is_(None),
+                )
+
             # Retrieve the first max_tasks workflows in the queue.
-            # Only retrieve workflows of the local version (or without version set)
+            # Only dequeue workflows of the local version; version-less ones only when this worker runs the latest version.
             skip_locks = queue._concurrency is None
             query = (
                 sa.select(
@@ -3764,13 +3931,7 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.status
                     == WorkflowStatusString.ENQUEUED.value
                 )
-                .where(
-                    sa.or_(
-                        SystemSchema.workflow_status.c.application_version
-                        == app_version,
-                        SystemSchema.workflow_status.c.application_version.is_(None),
-                    )
-                )
+                .where(version_predicate)
                 # Unless global concurrency is set, use skip_locked to only select
                 # rows that can be locked. If global concurrency is set, use no_wait
                 # to ensure all processes have a consistent view of the table.
@@ -3830,10 +3991,7 @@ class SystemDatabase(ABC):
                                         None
                                     ),
                                 ),
-                                sa.cast(
-                                    sa.func.extract("epoch", sa.func.now()) * 1000,
-                                    sa.BigInteger,
-                                )
+                                start_time_ms
                                 + SystemSchema.workflow_status.c.workflow_timeout_ms,
                             ),
                             else_=SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
@@ -3989,6 +4147,123 @@ class SystemDatabase(ABC):
             )
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
         return wf_status, workflow_deadline_epoch_ms, should_execute
+
+    def _max_partition_key_created_at(self, keys: List[str]) -> Dict[str, int]:
+        """Highest created_at among still-active (ENQUEUED/PENDING) rows per partition key, to seed the in-memory cursor so per-key order survives a restart/rebalance."""
+        if not keys:
+            return {}
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.workflow_status.c.queue_partition_key,
+                    sa.func.max(SystemSchema.workflow_status.c.created_at),
+                )
+                .where(SystemSchema.workflow_status.c.queue_partition_key.in_(keys))
+                .where(
+                    SystemSchema.workflow_status.c.status.in_(
+                        [
+                            WorkflowStatusString.ENQUEUED.value,
+                            WorkflowStatusString.PENDING.value,
+                        ]
+                    )
+                )
+                .group_by(SystemSchema.workflow_status.c.queue_partition_key)
+            ).fetchall()
+        return {row[0]: row[1] for row in rows if row[1] is not None}
+
+    def init_workflows(self, statuses: List[WorkflowStatusInternal]) -> Set[str]:
+        """
+        Batch-insert ENQUEUED workflow status rows in a single transaction.
+
+        Rows whose workflow_uuid already exists are skipped rather than updated,
+        making this idempotent under redelivery (e.g. Kafka). Returns the IDs of
+        the rows actually inserted.
+        """
+        if len(statuses) == 0:
+            return set()
+        # Stamp created_at monotonic within each partition key so per-key order holds across batches; unordered rows (no key) get wall-clock time.
+        now_ms = int(time.time() * 1000)
+        # On first sight of a key, seed its cursor from the DB high-water mark so per-key order survives a restart/rebalance instead of resetting to wall-clock.
+        batch_keys = {
+            s["queue_partition_key"]
+            for s in statuses
+            if s["queue_partition_key"] is not None
+        }
+        with self._batch_created_at_lock:
+            unseen_keys = [
+                k for k in batch_keys if k not in self._batch_created_at_cursors
+            ]
+        seeds = self._max_partition_key_created_at(unseen_keys)
+        created_ats: List[int] = []
+        with self._batch_created_at_lock:
+            for seeded_key, seeded_max in seeds.items():
+                # Advance past the DB high-water mark; max() guards a concurrent batch that already advanced this key.
+                self._batch_created_at_cursors[seeded_key] = max(
+                    self._batch_created_at_cursors.get(seeded_key, 0), seeded_max + 1
+                )
+            next_for_key: Dict[str, int] = {}
+            for status in statuses:
+                key = status["queue_partition_key"]
+                if key is None:
+                    created_ats.append(now_ms)
+                    continue
+                value = next_for_key.get(key)
+                if value is None:
+                    value = max(now_ms, self._batch_created_at_cursors.get(key, 0))
+                created_ats.append(value)
+                next_for_key[key] = value + 1
+            self._batch_created_at_cursors.update(next_for_key)
+        rows: List[Dict[str, Any]] = []
+        for i, status in enumerate(statuses):
+            assert status["status"] == WorkflowStatusString.ENQUEUED.value
+            assert status["deduplication_id"] is None
+            rows.append(
+                {
+                    "workflow_uuid": status["workflow_uuid"],
+                    "status": status["status"],
+                    "name": status["name"],
+                    "class_name": status["class_name"],
+                    "config_name": status["config_name"],
+                    "output": None,
+                    "error": None,
+                    "executor_id": status["executor_id"],
+                    "application_version": status["app_version"],
+                    "application_id": status["app_id"],
+                    "authenticated_user": status["authenticated_user"],
+                    "authenticated_roles": status["authenticated_roles"],
+                    "assumed_role": status["assumed_role"],
+                    "queue_name": status["queue_name"],
+                    "recovery_attempts": 0,
+                    "workflow_timeout_ms": status["workflow_timeout_ms"],
+                    "workflow_deadline_epoch_ms": status["workflow_deadline_epoch_ms"],
+                    "deduplication_id": None,
+                    "priority": status["priority"],
+                    "inputs": status["inputs"],
+                    "serialization": status["serialization"],
+                    "queue_partition_key": status["queue_partition_key"],
+                    "parent_workflow_id": status["parent_workflow_id"],
+                    "owner_xid": None,
+                    "delay_until_epoch_ms": status["delay_until_epoch_ms"],
+                    "attributes": status["attributes"],
+                    "schedule_name": status["schedule_name"],
+                    "created_at": created_ats[i],
+                    "updated_at": created_ats[i],
+                }
+            )
+        inserted: Set[str] = set()
+        # Chunk to stay well under bind-parameter limits (~29 params per row).
+        chunk_size = 500
+        with self.engine.begin() as conn:
+            for start in range(0, len(rows), chunk_size):
+                chunk = rows[start : start + chunk_size]
+                result = conn.execute(
+                    self.dialect.insert(SystemSchema.workflow_status)
+                    .values(chunk)
+                    .on_conflict_do_nothing(index_elements=["workflow_uuid"])
+                    .returning(SystemSchema.workflow_status.c.workflow_uuid)
+                )
+                inserted.update(row[0] for row in result)
+        return inserted
 
     def _apply_caller_schema(self, conn: Union[sa.Connection, Session]) -> None:
         """Translate the placeholder schema on a caller-owned Connection/Session (the caller's own statements are unaffected)."""
@@ -4204,7 +4479,8 @@ class SystemDatabase(ABC):
     def read_stream(self, workflow_uuid: str, key: str, offset: int) -> Any:
         """Read the value at the specified offset for the given workflow_uuid and key."""
 
-        with self.engine.begin() as c:
+        # Polling read (listener-less clients poll the offset) under the limiter; inside db_retry so the permit frees across backoff.
+        with self.poll_limiter, self.engine.begin() as c:
             result = c.execute(
                 sa.select(
                     SystemSchema.streams.c.value, SystemSchema.streams.c.serialization
@@ -4224,8 +4500,13 @@ class SystemDatabase(ABC):
             return deserialize_value(result[0], result[1], self.serializer)
 
     def garbage_collect(
-        self, cutoff_epoch_timestamp_ms: Optional[int], rows_threshold: Optional[int]
+        self,
+        cutoff_epoch_timestamp_ms: Optional[int],
+        rows_threshold: Optional[int],
+        batch_size: Optional[int],
     ) -> Optional[tuple[int, list[str]]]:
+        if batch_size is not None and batch_size < 1:
+            raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
         if rows_threshold is not None:
             with self.engine.begin() as c:
                 # Get the created_at timestamp of the rows_threshold newest row
@@ -4248,25 +4529,54 @@ class SystemDatabase(ABC):
         if cutoff_epoch_timestamp_ms is None:
             return None
 
-        with self.engine.begin() as c:
-            # Delete all workflows older than cutoff that are NOT PENDING, ENQUEUED, or DELAYED
-            c.execute(
-                sa.delete(SystemSchema.workflow_status)
-                .where(
-                    SystemSchema.workflow_status.c.created_at
-                    < cutoff_epoch_timestamp_ms
-                )
-                .where(
-                    ~SystemSchema.workflow_status.c.status.in_(
-                        [
-                            WorkflowStatusString.PENDING.value,
-                            WorkflowStatusString.ENQUEUED.value,
-                            WorkflowStatusString.DELAYED.value,
-                        ]
-                    )
-                )
-            )
+        # Delete all workflows older than cutoff that are NOT PENDING, ENQUEUED, or DELAYED
+        gc_filter = sa.and_(
+            SystemSchema.workflow_status.c.created_at < cutoff_epoch_timestamp_ms,
+            ~SystemSchema.workflow_status.c.status.in_(
+                [
+                    WorkflowStatusString.PENDING.value,
+                    WorkflowStatusString.ENQUEUED.value,
+                    WorkflowStatusString.DELAYED.value,
+                ]
+            ),
+        )
 
+        if batch_size is None:
+            with self.engine.begin() as c:
+                c.execute(sa.delete(SystemSchema.workflow_status).where(gc_filter))
+        else:
+            # Batch-delete by advancing a created_at watermark, one committed transaction per batch
+            watermark = 0
+            while True:
+                with self.engine.begin() as c:
+                    # Find the created_at of the batch_size-th oldest eligible row above the watermark
+                    step = c.execute(
+                        sa.select(SystemSchema.workflow_status.c.created_at)
+                        .where(
+                            gc_filter,
+                            SystemSchema.workflow_status.c.created_at > watermark,
+                        )
+                        .order_by(SystemSchema.workflow_status.c.created_at)
+                        .limit(1)
+                        .offset(batch_size - 1)
+                    ).scalar()
+                    if step is None:
+                        # Final batch: delete every remaining eligible row, even below the watermark
+                        c.execute(
+                            sa.delete(SystemSchema.workflow_status).where(gc_filter)
+                        )
+                        break
+                    # Delete the batch; created_at ties may push it slightly over batch_size
+                    c.execute(
+                        sa.delete(SystemSchema.workflow_status).where(
+                            gc_filter,
+                            SystemSchema.workflow_status.c.created_at > watermark,
+                            SystemSchema.workflow_status.c.created_at <= step,
+                        )
+                    )
+                watermark = step
+
+        with self.engine.begin() as c:
             # Then, get the IDs of all remaining old workflows
             pending_enqueued_result = c.execute(
                 sa.select(SystemSchema.workflow_status.c.workflow_uuid).where(
@@ -4503,6 +4813,8 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_status.c.completed_at,
                         SystemSchema.workflow_status.c.attributes,
                         SystemSchema.workflow_status.c.schedule_name,
+                        SystemSchema.workflow_status.c.debounce_deadline_epoch_ms,
+                        SystemSchema.workflow_status.c.is_debounced,
                         # owner_xid is intentionally omitted: it is a transient
                         # transaction-ownership token, not logical workflow state
                         # (get_workflow_status also returns None for it), and a
@@ -4547,6 +4859,8 @@ class SystemDatabase(ABC):
                     "completed_at": status_row[30],
                     "attributes": status_row[31],
                     "schedule_name": status_row[32],
+                    "debounce_deadline_epoch_ms": status_row[33],
+                    "is_debounced": status_row[34],
                 }
 
                 # Export operation_outputs
@@ -4708,6 +5022,10 @@ class SystemDatabase(ABC):
                         completed_at=status.get("completed_at"),
                         attributes=status.get("attributes"),
                         schedule_name=status.get("schedule_name"),
+                        debounce_deadline_epoch_ms=status.get(
+                            "debounce_deadline_epoch_ms"
+                        ),
+                        is_debounced=status.get("is_debounced", False),
                     )
                 )
 
@@ -5181,4 +5499,5 @@ class SystemDatabase(ABC):
                 "error": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
-            return result
+        DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
+        return result

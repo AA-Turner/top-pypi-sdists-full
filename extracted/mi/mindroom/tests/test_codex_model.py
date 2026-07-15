@@ -22,11 +22,18 @@ from agno.utils.models.claude import format_messages as claude_format_messages
 from openai.types.responses import Response, ResponseOutputItemDoneEvent, ResponseTextDeltaEvent
 
 from mindroom import codex_model
-from mindroom.codex_model import _CODEX_BASE_URL, CodexResponses, _borrow_codex_key, normalize_codex_model_id
+from mindroom.codex_model import (
+    _CODEX_BASE_URL,
+    CodexResponses,
+    _borrow_codex_key,
+    _codex_home_path,
+    normalize_codex_model_id,
+)
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig
 from mindroom.constants import resolve_runtime_paths
 from mindroom.model_loading import get_model_instance
+from mindroom.openai_responses_model import MindRoomOpenAIResponses
 from mindroom.openai_tool_search import (
     _DEFERRED_TOOL_NAMES_ATTR,
     install_openai_deferred_tool_search,
@@ -70,6 +77,14 @@ def _write_codex_auth(codex_home: Path, access_token: str, refresh_value: str) -
 def test_normalize_codex_model_id_uses_endpoint_slug(configured_id: str, endpoint_id: str) -> None:
     """The public GPT-5.6 alias should resolve to the slug accepted by the Codex endpoint."""
     assert normalize_codex_model_id(configured_id) == endpoint_id
+
+
+def test_codex_home_expands_explicit_tilde(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit Codex home paths should expand a user-home prefix like the default path."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+    assert _codex_home_path(codex_home="~/custom-codex") == tmp_path / "custom-codex"
 
 
 def test_borrow_codex_key_uses_unexpired_chatgpt_access_token(tmp_path: Path) -> None:
@@ -475,14 +490,29 @@ class _FakeCodexClient:
         ("codex", "gpt-5-codex", False),
         ("codex", "gpt-4.1", False),
         ("codex", "codex-mini-latest", False),
-        # The plain openai provider speaks Chat Completions; tool search is Responses-only.
-        ("openai", "gpt-5.6", False),
+        ("openai", "gpt-5.6", True),
         ("anthropic", "claude-opus-4-8", False),
     ],
 )
 def test_openai_native_tool_search_supported_gating(provider: str, model_id: str, *, expected: bool) -> None:
-    """Codex-family providers qualify when the model id parses to gpt-5.4 or newer."""
+    """OpenAI and Codex providers qualify when the model id parses to gpt-5.4 or newer."""
     assert openai_native_tool_search_supported(provider, model_id) is expected
+
+
+def test_openai_native_tool_search_rejects_custom_compatible_base_url() -> None:
+    """Chat-Completions-compatible endpoints do not implicitly opt into the Responses API."""
+    assert not openai_native_tool_search_supported(
+        "openai",
+        "gpt-5.6",
+        base_url="http://localhost:9292/v1",
+    )
+    assert openai_native_tool_search_supported(
+        "openai",
+        "gpt-5.6",
+        base_url="https://api.openai.com/v1/",
+    )
+    assert openai_native_tool_search_supported("openai", "gpt-5.6", base_url="")
+    assert not openai_native_tool_search_supported("openai", "gpt-5.6", base_url=123)
 
 
 def test_install_openai_deferred_tool_search_ignores_non_responses_models_and_empty_sets() -> None:
@@ -511,6 +541,20 @@ def test_codex_deferred_tool_search_tags_tools_and_injects_search_tool() -> None
     assert "defer_loading" not in wire_tools[1]
     for deferred_tool in wire_tools[2:]:
         assert deferred_tool["defer_loading"] is True
+
+
+def test_openai_responses_deferred_tool_search_tags_tools_and_injects_search_tool() -> None:
+    """The regular OpenAI Responses model uses the same native deferred-tool wire format."""
+    model = MindRoomOpenAIResponses(id="gpt-5.6", api_key="test-key")
+    install_openai_deferred_tool_search(model, deferred_tool_names=frozenset({"sleep"}))
+
+    request_params = model.get_request_params(tools=[_agno_tool("always_tool"), _agno_tool("sleep")])
+
+    wire_tools = request_params["tools"]
+    assert wire_tools[0] == {"type": "tool_search"}
+    assert [tool.get("name") for tool in wire_tools] == [None, "always_tool", "sleep"]
+    assert "defer_loading" not in wire_tools[1]
+    assert wire_tools[2]["defer_loading"] is True
 
 
 def test_codex_deferred_tool_search_leaves_requests_without_matching_tools_unchanged() -> None:

@@ -1,37 +1,36 @@
 Metadata-Version: 2.4
 Name: requests-hardened
-Version: 1.2.2
+Version: 1.3.0
 Summary: A library that overrides the default behaviors of the requests library, and adds new security features.
-License: BSD-3-Clause
-License-File: LICENSE
 Author: Saleor Commerce
-Author-email: hello@saleor.io
-Requires-Python: >=3.10,<4.0
+Author-email: Saleor Commerce <hello@saleor.io>>
+License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Security
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: BSD
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Topic :: Security
-Requires-Dist: requests (>=2.32.3,<3.0.0)
-Project-URL: Changelog, https://github.com/saleor/requests-hardened/releases/
+Requires-Dist: requests>=2.32.3,<3.0.0
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/saleor/requests-hardened/
-Project-URL: Issues, https://github.com/saleor/requests-hardened/issues
 Project-URL: Source, https://github.com/saleor/requests-hardened/
+Project-URL: Issues, https://github.com/saleor/requests-hardened/issues
+Project-URL: Changelog, https://github.com/saleor/requests-hardened/releases/
 Description-Content-Type: text/x-rst
 
 =================
@@ -178,4 +177,3 @@ Full Example
 .. |pypi-implementations| image:: https://img.shields.io/pypi/implementation/requests-hardened.svg
   :alt: Supported Implementations
   :target: `PyPI`_
-

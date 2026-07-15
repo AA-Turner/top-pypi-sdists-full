@@ -9,7 +9,7 @@ import onnxruntime as rt
 
 from onnx_asr.adapters import SeAdapter, TextResultsAsrAdapter
 from onnx_asr.asr import Asr, Preprocessor
-from onnx_asr.models.gigaam import GigaamV2Ctc, GigaamV2Rnnt, GigaamV3E2eCtc, GigaamV3E2eRnnt
+from onnx_asr.models.gigaam import GigaamMultilingualCtc, GigaamV2Ctc, GigaamV2Rnnt, GigaamV3E2eCtc, GigaamV3E2eRnnt
 from onnx_asr.models.kaldi import KaldiTransducer
 from onnx_asr.models.nemo import NemoConformerAED, NemoConformerCtc, NemoConformerRnnt, NemoConformerTdt
 from onnx_asr.models.pyannote import PyAnnoteVad
@@ -17,7 +17,7 @@ from onnx_asr.models.silero import SileroVad
 from onnx_asr.models.tone import TOneCtc
 from onnx_asr.models.wespeaker import WespeakerEmbeddings
 from onnx_asr.models.whisper import WhisperHf, WhisperOrt
-from onnx_asr.onnx import OnnxSessionOptions, Provider, get_onnx_providers, update_onnx_providers
+from onnx_asr.onnx import OnnxSessionOptions, Provider, TensorRtOptions, get_onnx_providers, update_onnx_providers
 from onnx_asr.preprocessors.numpy_preprocessor import (
     GigaamPreprocessorNumpy,
     KaldiPreprocessorNumpy,
@@ -40,6 +40,8 @@ AsrNames = Literal[
     "gigaam-v3-rnnt",
     "gigaam-v3-e2e-ctc",
     "gigaam-v3-e2e-rnnt",
+    "gigaam-multilingual-ctc",
+    "gigaam-multilingual-large-ctc",
     "nemo-fastconformer-ru-ctc",
     "nemo-fastconformer-ru-rnnt",
     "nemo-parakeet-ctc-0.6b",
@@ -97,6 +99,8 @@ def create_asr_resolver(
         "gigaam-v3-rnnt": GigaamV2Rnnt,
         "gigaam-v3-e2e-ctc": GigaamV3E2eCtc,
         "gigaam-v3-e2e-rnnt": GigaamV3E2eRnnt,
+        "gigaam-multilingual-ctc": GigaamMultilingualCtc,
+        "gigaam-multilingual-large-ctc": GigaamMultilingualCtc,
         "nemo-fastconformer-ru-ctc": NemoConformerCtc,
         "nemo-fastconformer-ru-rnnt": NemoConformerRnnt,
         "nemo-parakeet-ctc-0.6b": NemoConformerCtc,
@@ -151,6 +155,15 @@ class PreprocessorRuntimeConfig(OnnxSessionOptions, total=False):
     use_numpy_preprocessors: bool | None
     """Use NumPy preprocessors backend instead of ONNX."""
 
+    use_conv_preprocessors: bool | None
+    """Use Conv-based STFT in ONNX preprocessors.
+
+    op.STFT has no kernel in the CUDA execution provider (the STFT node falls
+    back to CPU with host/device copies around it). The Conv-based graph runs
+    natively on every provider.
+    None - auto (enabled when a CUDA execution provider is used).
+    """
+
 
 class Manager:
     """Manager for models creation."""
@@ -175,21 +188,24 @@ class Manager:
         }
 
         if preprocessor_config is None:
-            self.preprocessor_config = update_onnx_providers(
-                self.default_onnx_config,
-                new_options={"TensorrtExecutionProvider": {"trt_fp16_enable": False}},
-                excluded_providers=OnnxPreprocessor._get_excluded_providers(),
-            )
-            self.preprocessor_max_workers: int | None = 1
-            self.use_numpy_preprocessors = None
-        else:
-            self.preprocessor_max_workers = preprocessor_config.pop("max_concurrent_workers", 1)
-            self.use_numpy_preprocessors = preprocessor_config.pop("use_numpy_preprocessors")
-            self.preprocessor_config = preprocessor_config
+            preprocessor_config = {}
+
+        self.preprocessor_max_workers = preprocessor_config.pop("max_concurrent_workers", 1)
+        self.use_numpy_preprocessors = preprocessor_config.pop("use_numpy_preprocessors", None)
+        self.use_conv_preprocessors = preprocessor_config.pop("use_conv_preprocessors", None)
+
+        self.preprocessor_config = preprocessor_config or update_onnx_providers(
+            self.default_onnx_config,
+            new_options={"TensorrtExecutionProvider": {"trt_fp16_enable": False}},
+        )
 
         providers = get_onnx_providers(self.preprocessor_config)
         if self.use_numpy_preprocessors is None:
             self.use_numpy_preprocessors = not providers or providers[0] == "CPUExecutionProvider"
+        if self.use_conv_preprocessors is None:
+            self.use_conv_preprocessors = self.use_numpy_preprocessors is False and (
+                not providers or providers[0] not in TensorRtOptions.get_provider_names()
+            )
 
         if resampler_config is None:
             resampler_config = update_onnx_providers(
@@ -213,6 +229,8 @@ class Manager:
                 preprocessor = WhisperPreprocessorNumpy(name)
             else:
                 raise ModelNotSupportedError(name)
+        elif self.use_conv_preprocessors and name != "wespeaker":
+            preprocessor = OnnxPreprocessor(f"{name}_conv", self.preprocessor_config)
         else:
             preprocessor = OnnxPreprocessor(name, self.preprocessor_config)
 
@@ -306,6 +324,7 @@ def load_model(
                 GigaAM v2 (`gigaam-v2-ctc` | `gigaam-v2-rnnt`)
                 GigaAM v3 (`gigaam-v3-ctc` | `gigaam-v3-rnnt` |
                            `gigaam-v3-e2e-ctc` | `gigaam-v3-e2e-rnnt`)
+                GigaAM Multilingual (`gigaam-multilingual-ctc` | `gigaam-multilingual-large-ctc`)
                 Kaldi Transducer (`kaldi-rnnt`)
                 NeMo Conformer (`nemo-conformer-ctc` | `nemo-conformer-rnnt` | `nemo-conformer-tdt` |
                                 `nemo-conformer-aed`)

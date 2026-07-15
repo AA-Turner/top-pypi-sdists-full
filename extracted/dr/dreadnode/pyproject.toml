@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.33"
+version = "2.0.34"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -78,6 +78,16 @@ claude-code = [
     # Foreign-harness engine (engine: claude-code). Wraps the `claude` CLI's
     # stream-json protocol — the CLI must also be on PATH at runtime.
     "claude-agent-sdk>=0.1.0",
+]
+
+nova-sonic = [
+    # Amazon Nova Sonic speech-to-speech target (`nova_sonic_target`) — AWS
+    # Bedrock bidirectional streaming. NOTE: `aws-sdk-bedrock-runtime` requires
+    # Python >=3.12, so on 3.11 the marker skips it and Nova S2S is unavailable.
+    "boto3>=1.40.0",
+    "awscrt>=0.27.0",
+    "smithy-aws-core>=0.7.0; python_version >= '3.12'",
+    "aws-sdk-bedrock-runtime>=0.7.0; python_version >= '3.12'",
 ]
 
 all = ["dreadnode[scoring,training,video]"]

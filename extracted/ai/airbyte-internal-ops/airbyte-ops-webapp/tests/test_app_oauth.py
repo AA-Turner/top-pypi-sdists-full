@@ -235,6 +235,8 @@ def test_connector_versions_path_hosts_connector_version_manager_app() -> None:
     assert "Airbyte Ops \u2014 Connector Versions" in response.text
     assert 'const toolName = "manage_connector_versions";' in response.text
     assert 'const toolArgs = {"query": "destination-snowflake"};' in response.text
+    assert "mcp-log-panel" not in response.text
+    assert "/api/logs" not in response.text
 
 
 def test_generic_fastmcp_app_routes_are_removed() -> None:
@@ -248,6 +250,8 @@ def test_generic_fastmcp_app_routes_are_removed() -> None:
             Route("/launch", unused_route),
             Route("/api/launch", unused_route, methods=["POST"]),
             Route("/api/logs", unused_route),
+            Route("/api/logs/bridge", unused_route, methods=["POST"]),
+            Route("/api/logs/clear", unused_route, methods=["POST"]),
             Route("/ui-resource", unused_route),
         ]
     )
@@ -259,8 +263,26 @@ def test_generic_fastmcp_app_routes_are_removed() -> None:
     assert "/picker-app" not in route_paths
     assert "/launch" not in route_paths
     assert "/api/launch" not in route_paths
-    assert "/api/logs" in route_paths
+    assert "/api/logs" not in route_paths
+    assert "/api/logs/bridge" not in route_paths
+    assert "/api/logs/clear" not in route_paths
     assert "/ui-resource" in route_paths
+
+
+def test_production_message_log_discards_mcp_messages() -> None:
+    fake_token = "fake-sensitive-access-token"
+    message_log = serve_module._NullMessageLog()
+
+    message_log.log_request(
+        {
+            "method": "tools/call",
+            "params": {"arguments": {"auth_bearer_token": fake_token}},
+        }
+    )
+    message_log.log_response({"result": {"google_access_token": fake_token}})
+    message_log.log_bridge({"state": {"auth_bearer_token": fake_token}})
+
+    assert message_log.get_since() == []
 
 
 def test_local_display_url_uses_localhost() -> None:

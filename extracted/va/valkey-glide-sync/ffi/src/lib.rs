@@ -39,13 +39,14 @@ use std::slice::from_raw_parts;
 use std::str;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::{Condvar, OnceLock};
 use std::{
     ffi::{CString, c_void},
-    mem,
     os::raw::{c_char, c_double, c_long, c_ulong},
 };
 use tokio::runtime::Builder;
 use tokio::runtime::Runtime;
+use uuid::Uuid;
 
 #[repr(C)]
 pub struct ScriptHashBuffer {
@@ -223,11 +224,11 @@ impl Default for CommandResponse {
     }
 }
 
-#[repr(C)]
 /// IMPORTANT: This enum is mirrored in python/glide-shared/src/lib.rs (fast response parser,
 /// `convert` function) and declared in the CFFI definitions in
 /// python/glide-shared/glide_shared/_glide_ffi.py. Any changes here must be reflected in both.
 #[derive(Debug, Default, Clone)]
+#[repr(C)]
 pub enum ResponseType {
     #[default]
     Null = 0,
@@ -328,6 +329,7 @@ pub type PubSubCallback = unsafe extern "C-unwind" fn(
 /// * `resolved_host_len` must be a valid pointer to a writable `usize`.
 /// * The callback must write the resolved host into `resolved_host_buf` and set `resolved_host_len`.
 pub type AddressResolverCallback = unsafe extern "C-unwind" fn(
+    client_id: usize,
     host: *const u8,
     host_len: usize,
     port: u16,
@@ -339,6 +341,7 @@ pub type AddressResolverCallback = unsafe extern "C-unwind" fn(
 /// A wrapper around an FFI address resolver callback that implements the `AddressResolver` trait.
 struct FFIAddressResolver {
     callback: AddressResolverCallback,
+    client_id: usize,
 }
 
 // SAFETY: The callback is a C function pointer that is safe to send across threads.
@@ -359,6 +362,7 @@ impl redis::AddressResolver for FFIAddressResolver {
 
         let resolved_port = unsafe {
             (self.callback)(
+                self.client_id,
                 host.as_ptr(),
                 host.len(),
                 port,
@@ -546,9 +550,224 @@ pub enum ClientType {
     SyncClient,
 }
 
+const FRAME_SIZE: usize = 32;
+/// Maximum total pubsub payload size sent inline through the pipe.
+/// Messages larger than this use a heap pointer in a standard 32-byte frame
+/// to avoid blocking other clients' responses during multi-read accumulation.
+const MAX_INLINE_PUBSUB: usize = 1 << 16; // 64 KiB
+struct SharedPipeWriter {
+    buffer: std::sync::Mutex<Vec<u8>>,
+    condvar: Condvar,
+    /// Kept for potential future use (e.g. graceful shutdown via close(pipe_fd)).
+    #[allow(dead_code)]
+    pipe_fd: i32,
+}
+static ASYNC_PIPE: OnceLock<SharedPipeWriter> = OnceLock::new();
+impl SharedPipeWriter {
+    fn push_success(&self, cid: u64, rid: usize, rp: usize, ap: usize) {
+        let mut b = self.buffer.lock().unwrap();
+        b.extend_from_slice(&cid.to_ne_bytes());
+        b.extend_from_slice(&(rid as u64).to_ne_bytes());
+        b.extend_from_slice(&(rp as u64).to_ne_bytes());
+        b.extend_from_slice(&(ap as u64).to_ne_bytes());
+        drop(b);
+        self.condvar.notify_one();
+    }
+    fn push_error(&self, cid: u64, rid: usize, et: RequestErrorType, em: String) {
+        let cs = CString::new(em).unwrap_or_else(|_| CString::new("unknown error").unwrap());
+        let p = CString::into_raw(cs) as u64;
+        // Pack error_type in top byte, pointer in low 56 bits.
+        // On standard x86_64/aarch64 userspace, pointers use at most 48 bits.
+        let pk = ((et as u64) << 56) | (p & 0x00FFFFFFFFFFFFFF);
+        let mut b = self.buffer.lock().unwrap();
+        b.extend_from_slice(&cid.to_ne_bytes());
+        b.extend_from_slice(&(rid as u64).to_ne_bytes());
+        b.extend_from_slice(&0u64.to_ne_bytes());
+        b.extend_from_slice(&pk.to_ne_bytes());
+        drop(b);
+        self.condvar.notify_one();
+    }
+    /// Push a pubsub message with inline data (no heap pointer transfer).
+    /// Format: cid(8) sentinel(8) total_len(8) unused(8) + kind(4) msg_len(4) msg(...) ch_len(4) ch(...) pat_len(4) pat(...)
+    /// The 32-byte header is followed by variable-length payload.
+    fn push_pubsub_inline(
+        &self,
+        cid: u64,
+        kind: i32,
+        message: &[u8],
+        channel: &[u8],
+        pattern: &[u8],
+    ) {
+        let payload_len = 4 + 4 + message.len() + 4 + channel.len() + 4 + pattern.len();
+        let mut b = self.buffer.lock().unwrap();
+        // 32-byte frame header
+        b.extend_from_slice(&cid.to_ne_bytes());
+        b.extend_from_slice(&u64::MAX.to_ne_bytes()); // sentinel
+        b.extend_from_slice(&(payload_len as u64).to_ne_bytes()); // total payload len
+        b.extend_from_slice(&0u64.to_ne_bytes()); // unused
+        // Inline payload
+        b.extend_from_slice(&kind.to_ne_bytes());
+        b.extend_from_slice(&(message.len() as u32).to_ne_bytes());
+        b.extend_from_slice(message);
+        b.extend_from_slice(&(channel.len() as u32).to_ne_bytes());
+        b.extend_from_slice(channel);
+        b.extend_from_slice(&(pattern.len() as u32).to_ne_bytes());
+        b.extend_from_slice(pattern);
+        drop(b);
+        self.condvar.notify_one();
+    }
+
+    /// Push a large pubsub message as a heap-allocated flat buffer.
+    /// Same wire format as inline payload but delivered via pointer to avoid
+    /// blocking the pipe for other clients during multi-read accumulation.
+    /// Python frees via free_pubsub_pointer_payload(ptr, len).
+    fn push_pubsub_pointer(
+        &self,
+        cid: u64,
+        kind: i32,
+        message: &[u8],
+        channel: &[u8],
+        pattern: &[u8],
+    ) {
+        let payload_len = 4 + 4 + message.len() + 4 + channel.len() + 4 + pattern.len();
+        let mut buf = Vec::with_capacity(payload_len);
+        buf.extend_from_slice(&kind.to_ne_bytes());
+        buf.extend_from_slice(&(message.len() as u32).to_ne_bytes());
+        buf.extend_from_slice(message);
+        buf.extend_from_slice(&(channel.len() as u32).to_ne_bytes());
+        buf.extend_from_slice(channel);
+        buf.extend_from_slice(&(pattern.len() as u32).to_ne_bytes());
+        buf.extend_from_slice(pattern);
+        let boxed = buf.into_boxed_slice();
+        let ptr = Box::into_raw(boxed) as *mut u8 as u64;
+        // Pack length with pointer-mode flag in bit 63
+        let len_with_flag = (payload_len as u64) | (1u64 << 63);
+        let mut b = self.buffer.lock().unwrap();
+        b.extend_from_slice(&cid.to_ne_bytes());
+        b.extend_from_slice(&u64::MAX.to_ne_bytes()); // sentinel
+        b.extend_from_slice(&ptr.to_ne_bytes());
+        b.extend_from_slice(&len_with_flag.to_ne_bytes());
+        drop(b);
+        self.condvar.notify_one();
+    }
+}
+
+/// No-op success callback — safe to call from any thread (no GIL needed).
+#[unsafe(no_mangle)]
+pub extern "C" fn noop_success_callback(_index: usize, _msg: *const CommandResponse) {}
+
+/// No-op failure callback — safe to call from any thread (no GIL needed).
+#[unsafe(no_mangle)]
+pub extern "C" fn noop_failure_callback(
+    _index: usize,
+    _msg: *const c_char,
+    _err_type: RequestErrorType,
+) {
+}
+
+/// Free a heap-allocated pubsub payload buffer (pointer-mode frame).
+///
+/// # Safety
+/// `ptr` must be a valid pointer from a pointer-mode pubsub frame, or null.
+/// `len` must be the original payload length.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn free_pubsub_pointer_payload(ptr: *mut u8, len: usize) {
+    if !ptr.is_null() {
+        let _ = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
+    }
+}
+
+/// Free an error string delivered via the shared pipe error frame.
+///
+/// # Safety
+/// `ptr` must be a valid pointer returned in a pipe error frame, or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn free_pipe_error_string(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        let _ = unsafe { CString::from_raw(ptr) };
+    }
+}
+
+/// Initialize the process-wide shared pipe for async response delivery.
+/// Spawns a dedicated OS flush thread with adaptive batching.
+///
+/// # Safety
+/// Must be called with a valid writable pipe file descriptor.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn init_async_pipe(pipe_write_fd: i32) {
+    ASYNC_PIPE.get_or_init(|| {
+        let w = SharedPipeWriter {
+            buffer: std::sync::Mutex::new(Vec::with_capacity(FRAME_SIZE * 64)),
+            condvar: Condvar::new(),
+            pipe_fd: pipe_write_fd,
+        };
+        let fd = pipe_write_fd;
+        std::thread::Builder::new()
+            .name("glide-async-pipe-flush".into())
+            .spawn(move || {
+                let flush_threshold: usize = std::env::var("GLIDE_PIPE_FLUSH_THRESHOLD")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(1);
+                while let Some(sw) = ASYNC_PIPE.get() {
+                    let data = {
+                        let mut buf = sw.buffer.lock().unwrap();
+                        while buf.is_empty() {
+                            buf = sw.condvar.wait(buf).unwrap();
+                        }
+                        // Flush threshold: if frames buffered <= threshold, flush immediately
+                        // to minimize latency. If more are queued, yield briefly to let more
+                        // accumulate for batch efficiency (amortizes syscall cost).
+                        // Configurable via GLIDE_PIPE_FLUSH_THRESHOLD (default: 1).
+                        let fc = buf.len() / FRAME_SIZE;
+                        if fc <= flush_threshold {
+                            let mut d = Vec::with_capacity(FRAME_SIZE * 4);
+                            std::mem::swap(&mut *buf, &mut d);
+                            d
+                        } else {
+                            drop(buf);
+                            std::thread::yield_now();
+                            let mut buf = sw.buffer.lock().unwrap();
+                            let mut d = Vec::with_capacity(FRAME_SIZE * 64);
+                            std::mem::swap(&mut *buf, &mut d);
+                            d
+                        }
+                    };
+                    if data.is_empty() {
+                        continue;
+                    }
+                    let mut off = 0;
+                    while off < data.len() {
+                        let w = unsafe {
+                            libc::write(
+                                fd,
+                                data[off..].as_ptr() as *const libc::c_void,
+                                data.len() - off,
+                            )
+                        };
+                        if w > 0 {
+                            off += w as usize;
+                        } else if w == 0 {
+                            break;
+                        } else {
+                            let e = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                            if e == libc::EINTR || e == libc::EAGAIN {
+                                continue;
+                            }
+                            break; // EPIPE/EBADF — fd is gone
+                        }
+                    }
+                }
+            })
+            .expect("flush thread");
+        w
+    });
+}
+
 /// A `GlideClient` adapter.
 pub struct ClientAdapter {
     runtime: Runtime,
+    pipe_client_id: std::sync::atomic::AtomicU64,
     /// Background runtime for spawned tasks (connection drivers, reconnection, cluster manager).
     /// Only used by sync clients with current_thread main runtime — tokio::spawn calls during
     /// client creation are directed here via _guard so they run independently of block_on.
@@ -591,7 +810,51 @@ impl ClientAdapter {
                 failure_callback,
                 allow_stack_response,
             } => {
-                // Spawn the request for async client
+                let cid = self
+                    .pipe_client_id
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                if cid != 0 && ASYNC_PIPE.get().is_some() {
+                    self.runtime.spawn(async move {
+                        match request_future.await {
+                            Ok(value) => {
+                                let buf = response_buf.map(|rb| (rb.0, rb.1));
+                                match valkey_value_to_arena_response(value, buf) {
+                                    Ok((root_ptr, arena_ptr)) => {
+                                        if let Some(w) = ASYNC_PIPE.get() {
+                                            w.push_success(
+                                                cid,
+                                                request_id,
+                                                root_ptr as usize,
+                                                arena_ptr as usize,
+                                            );
+                                        }
+                                    }
+                                    Err(err) => {
+                                        if let Some(w) = ASYNC_PIPE.get() {
+                                            w.push_error(
+                                                cid,
+                                                request_id,
+                                                errors::error_type(&err),
+                                                errors::error_message(&err),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                if let Some(w) = ASYNC_PIPE.get() {
+                                    w.push_error(
+                                        cid,
+                                        request_id,
+                                        errors::error_type(&err),
+                                        errors::error_message(&err),
+                                    );
+                                }
+                            }
+                        }
+                    });
+                    return std::ptr::null_mut();
+                }
                 self.runtime.spawn(async move {
                     let result = request_future.await;
                     let _ = Self::handle_result(
@@ -786,21 +1049,29 @@ impl ClientAdapter {
         error_type: RequestErrorType,
         request_id: usize,
     ) -> *mut CommandResult {
-        //logger_core::log(logger_core::Level::Error, "ffi", &error_string);
         match self.core.client_type {
             ClientType::AsyncClient {
                 success_callback: _,
                 failure_callback,
                 allow_stack_response: _,
             } => {
-                unsafe {
-                    Self::send_async_custom_error(
-                        failure_callback,
-                        error_string,
-                        error_type,
-                        request_id,
-                    )
-                };
+                let cid = self
+                    .pipe_client_id
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                if cid != 0 && ASYNC_PIPE.get().is_some() {
+                    if let Some(w) = ASYNC_PIPE.get() {
+                        w.push_error(cid, request_id, error_type, error_string);
+                    }
+                } else {
+                    unsafe {
+                        Self::send_async_custom_error(
+                            failure_callback,
+                            error_string,
+                            error_type,
+                            request_id,
+                        )
+                    };
+                }
                 std::ptr::null_mut()
             }
             ClientType::SyncClient => {
@@ -909,16 +1180,42 @@ impl From<redis::PushKind> for PushKind {
 /// - `false` if there was an error processing the message (e.g., conversion failed).
 ///
 /// # Safety
-/// This function is unsafe because it:
-/// - Dereferences raw pointers
-/// - Calls an FFI function (`pubsub_callback`) that may have undefined behavior
-/// - Creates and destroys vectors via `Vec::from_raw_parts`
-/// - Assumes push_msg.data contains valid BulkString values
+/// Extract pubsub message/channel/pattern bytes from a PushInfo.
+/// Returns (message, channel, pattern) as owned byte vectors.
+fn extract_pubsub_data(push_msg: &redis::PushInfo) -> (Vec<u8>, Vec<u8>, Option<Vec<u8>>) {
+    let strings: Vec<&[u8]> = push_msg
+        .data
+        .iter()
+        .filter_map(|v| {
+            if let Value::BulkString(s) = v {
+                Some(s.as_slice())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if strings.len() >= 3 {
+        (
+            strings[2].to_vec(),
+            strings[1].to_vec(),
+            Some(strings[0].to_vec()),
+        )
+    } else if strings.len() == 2 {
+        (strings[1].to_vec(), strings[0].to_vec(), None)
+    } else {
+        (vec![], vec![], None)
+    }
+}
+
+/// Process a push notification by invoking the pubsub callback with extracted message data.
 ///
-/// The caller must ensure:
-/// - `pubsub_callback` is a valid function pointer to a properly implemented callback
-/// - `client_adapter_ptr` is a valid usize representing a client adapter pointer
-/// - Memory allocated during conversion is properly freed after the callback completes
+/// # Safety
+/// This function is unsafe because it:
+/// - Dereferences raw pointers (the callback and client_adapter_ptr)
+/// - Calls an extern C function pointer (pubsub_callback)
+/// - Passes raw pointers that must remain valid for the callback duration
+/// - The caller must ensure client_adapter_ptr points to a valid ClientAdapter
 unsafe fn process_push_notification(
     push_msg: redis::PushInfo,
     pubsub_callback: PubSubCallback,
@@ -956,11 +1253,20 @@ unsafe fn process_push_notification(
             pattern_ptr,
             pattern_len,
         );
-        // Free memory
-        let _ = Vec::from_raw_parts(message_ptr, message_len as usize, message_len as usize);
-        let _ = Vec::from_raw_parts(channel, channel_len as usize, channel_len as usize);
+        // Free memory — allocated via Box::into_raw(vec.into_boxed_slice())
+        let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            message_ptr,
+            message_len as usize,
+        ));
+        let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            channel,
+            channel_len as usize,
+        ));
         if !pattern_ptr.is_null() {
-            let _ = Vec::from_raw_parts(pattern_ptr, pattern_len as usize, pattern_len as usize);
+            let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                pattern_ptr,
+                pattern_len as usize,
+            ));
         }
     }
 }
@@ -970,6 +1276,7 @@ fn create_client_internal(
     client_type: ClientType,
     pubsub_callback: Option<PubSubCallback>,
     address_resolver: Option<AddressResolverCallback>,
+    client_id: usize,
 ) -> Result<*const ClientAdapter, String> {
     let request = connection_request::ConnectionRequest::parse_from_bytes(connection_request_bytes)
         .map_err(|err| err.to_string())?;
@@ -989,9 +1296,16 @@ fn create_client_internal(
         ClientType::AsyncClient { .. } => {
             // Async clients need a background worker thread to drive the reactor
             // since the calling thread is owned by the foreign language's event loop.
+            // GLIDE_TOKIO_WORKER_THREADS controls the number of tokio worker threads
+            // (default 1). More workers can help concurrent large-response workloads.
+            let worker_threads = std::env::var("GLIDE_TOKIO_WORKER_THREADS")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(1)
+                .max(1);
             Builder::new_multi_thread()
                 .enable_all()
-                .worker_threads(1)
+                .worker_threads(worker_threads)
                 .thread_name("Valkey-GLIDE thread")
                 .build()
                 .map_err(|err| {
@@ -1034,6 +1348,7 @@ fn create_client_internal(
         if let Some(resolver_callback) = address_resolver {
             connection_request.address_resolver = Some(Arc::new(FFIAddressResolver {
                 callback: resolver_callback,
+                client_id,
             }));
         }
 
@@ -1043,6 +1358,7 @@ fn create_client_internal(
     };
 
     // Create the client adapter that will be returned and used as conn_ptr
+    let is_sync = matches!(client_type, ClientType::SyncClient);
     let core = Arc::new(CommandExecutionCore {
         client,
         client_type,
@@ -1050,6 +1366,7 @@ fn create_client_internal(
     let pubsub_callback_store = Arc::new(std::sync::RwLock::new(pubsub_callback));
     let client_adapter = Arc::new(ClientAdapter {
         runtime,
+        pipe_client_id: std::sync::atomic::AtomicU64::new(client_id as u64),
         background_runtime,
         core,
         pubsub_callback: pubsub_callback_store.clone(),
@@ -1063,20 +1380,66 @@ fn create_client_internal(
         .as_ref()
         .unwrap_or(&client_adapter.runtime);
     let callback_store = pubsub_callback_store.clone();
-    spawn_runtime.spawn(async move {
-        while let Some(push_msg) = push_rx.recv().await {
-            if (push_msg.kind == redis::PushKind::Message
-                || push_msg.kind == redis::PushKind::PMessage
-                || push_msg.kind == redis::PushKind::SMessage)
-                && let Ok(guard) = callback_store.read()
-                && let Some(callback) = *guard
-            {
-                unsafe {
-                    process_push_notification(push_msg, callback, client_adapter_ptr);
+    let pipe_cid = client_id as u64;
+    if is_sync {
+        // Sync clients: direct callback (CFFI acquires GIL automatically).
+        spawn_runtime.spawn(async move {
+            while let Some(push_msg) = push_rx.recv().await {
+                if (push_msg.kind == redis::PushKind::Message
+                    || push_msg.kind == redis::PushKind::PMessage
+                    || push_msg.kind == redis::PushKind::SMessage)
+                    && let Ok(guard) = callback_store.read()
+                    && let Some(callback) = *guard
+                {
+                    unsafe {
+                        process_push_notification(push_msg, callback, client_adapter_ptr);
+                    }
                 }
             }
-        }
-    });
+        });
+    } else {
+        // Async clients: route through ASYNC_PIPE.
+        spawn_runtime.spawn(async move {
+            while let Some(push_msg) = push_rx.recv().await {
+                if pipe_cid != 0 {
+                    // Wait for ASYNC_PIPE if not yet initialized (brief spin during startup)
+                    let w = loop {
+                        if let Some(w) = ASYNC_PIPE.get() {
+                            break w;
+                        }
+                        std::hint::spin_loop();
+                    };
+                    if push_msg.kind == redis::PushKind::Message
+                        || push_msg.kind == redis::PushKind::PMessage
+                        || push_msg.kind == redis::PushKind::SMessage
+                        || push_msg.kind == redis::PushKind::Disconnection
+                    {
+                        let (message, channel, pattern) = extract_pubsub_data(&push_msg);
+                        let kind: i32 = PushKind::from(push_msg.kind) as i32;
+                        let pat_slice = pattern.as_deref().unwrap_or(&[]);
+                        let total_len = message.len() + channel.len() + pat_slice.len();
+                        if total_len > MAX_INLINE_PUBSUB {
+                            w.push_pubsub_pointer(pipe_cid, kind, &message, &channel, pat_slice);
+                        } else {
+                            w.push_pubsub_inline(pipe_cid, kind, &message, &channel, pat_slice);
+                        }
+                    }
+                    continue;
+                }
+                // Fallback: direct callback (Go/other languages)
+                if (push_msg.kind == redis::PushKind::Message
+                    || push_msg.kind == redis::PushKind::PMessage
+                    || push_msg.kind == redis::PushKind::SMessage)
+                    && let Ok(guard) = callback_store.read()
+                    && let Some(callback) = *guard
+                {
+                    unsafe {
+                        process_push_notification(push_msg, callback, client_adapter_ptr);
+                    }
+                }
+            }
+        });
+    }
 
     Ok(Arc::into_raw(client_adapter))
 }
@@ -1107,6 +1470,7 @@ pub unsafe extern "C-unwind" fn create_client(
     client_type: *const ClientType,
     pubsub_callback: PubSubCallback,
     address_resolver: AddressResolverCallback,
+    client_id: usize,
 ) -> *const ConnectionResponse {
     assert!(!connection_request_bytes.is_null());
     let request_bytes =
@@ -1132,6 +1496,7 @@ pub unsafe extern "C-unwind" fn create_client(
         client_type.clone(),
         callback_opt,
         resolver_opt,
+        client_id,
     ) {
         Err(err) => ConnectionResponse {
             conn_ptr: std::ptr::null(),
@@ -1189,6 +1554,7 @@ pub unsafe extern "C-unwind" fn create_client(
 ///   - `periodic_checks`: Health check configuration with either `manual_interval` (object with `duration_in_sec`) or `disabled` (bool) (object)
 ///   - `iam_credentials`: AWS IAM authentication with `cluster_name`, `region`, `service_type` ("ELASTICACHE" or "MEMORYDB"), and optional `refresh_interval_seconds` (object)
 ///   - `pubsub_subscriptions`: Pre-subscribe to channels on connection - map of channel type (0=Exact, 1=Pattern, 2=Sharded) to array of channel names (object)
+///   - `client_side_cache`: Client-side caching configuration with `max_cache_kb` (u64, required), `entry_ttl_ms` (u64, required, 0 = no expiration), optional `eviction_policy` ("LRU" or "LFU", defaults to LRU), and optional `enable_metrics` (bool, defaults to false). The `cache_id` is auto-generated internally. (object)
 ///
 /// * `client_type`: Type of client to create (sync/async).
 ///
@@ -1264,6 +1630,17 @@ pub unsafe extern "C-unwind" fn create_client(
 ///     "}"
 /// "}";
 /// create_client_from_uri("valkey://localhost:6379", pubsub_opts, &client_type, 0);
+///
+/// // Client-side caching
+/// const char* cache_opts = "{"
+///     "\"client_side_cache\": {"
+///         "\"max_cache_kb\": 2048,"
+///         "\"entry_ttl_ms\": 60000,"
+///         "\"eviction_policy\": \"LRU\","
+///         "\"enable_metrics\": true"
+///     "}"
+/// "}";
+/// create_client_from_uri("valkey://localhost:6379", cache_opts, &client_type, 0);
 /// ```
 ///
 /// # Safety
@@ -1310,7 +1687,8 @@ pub unsafe extern "C-unwind" fn create_client_from_uri(
                     ),
                 },
                 Ok(bytes) => {
-                    match create_client_internal(&bytes, client_type.clone(), callback_opt, None) {
+                    match create_client_internal(&bytes, client_type.clone(), callback_opt, None, 0)
+                    {
                         Err(err) => ConnectionResponse {
                             conn_ptr: std::ptr::null(),
                             connection_error_message: CString::into_raw(
@@ -1456,6 +1834,7 @@ fn is_known_connection_options_json_key(key: &str) -> bool {
             | "periodic_checks"
             | "iam_credentials"
             | "pubsub_subscriptions"
+            | "client_side_cache"
     )
 }
 
@@ -1902,6 +2281,70 @@ fn apply_json_options(
         request.pubsub_subscriptions = ::protobuf::MessageField::some(subscriptions);
     }
 
+    // Handle client_side_cache
+    if let Some(cache) = obj.get("client_side_cache") {
+        let cache_obj = cache
+            .as_object()
+            .ok_or_else(|| "client_side_cache must be an object".to_string())?;
+
+        if cache_obj.contains_key("cache_id") {
+            return Err(
+                "client_side_cache.cache_id is not accepted; it is generated internally"
+                    .to_string(),
+            );
+        }
+
+        let mut config = connection_request::ClientSideCache::new();
+
+        // max_cache_kb (required)
+        let max_cache_kb = cache_obj
+            .get("max_cache_kb")
+            .ok_or_else(|| "client_side_cache.max_cache_kb is required".to_string())?;
+        config.max_cache_kb = max_cache_kb.as_u64().ok_or_else(|| {
+            "client_side_cache.max_cache_kb must be a positive integer".to_string()
+        })?;
+        if config.max_cache_kb == 0 {
+            return Err("client_side_cache.max_cache_kb must be greater than 0".to_string());
+        }
+
+        // entry_ttl_ms (required)
+        let entry_ttl_ms = cache_obj
+            .get("entry_ttl_ms")
+            .ok_or_else(|| "client_side_cache.entry_ttl_ms is required".to_string())?;
+        config.entry_ttl_ms = entry_ttl_ms.as_u64().ok_or_else(|| {
+            "client_side_cache.entry_ttl_ms must be a non-negative integer".to_string()
+        })?;
+
+        // eviction_policy (optional, defaults to LRU)
+        if let Some(policy) = cache_obj.get("eviction_policy") {
+            let policy_str = policy
+                .as_str()
+                .ok_or_else(|| "client_side_cache.eviction_policy must be a string".to_string())?;
+            let policy_enum = match policy_str.to_uppercase().as_str() {
+                "LRU" => connection_request::EvictionPolicy::LRU,
+                "LFU" => connection_request::EvictionPolicy::LFU,
+                _ => {
+                    return Err(format!(
+                        "Unknown eviction_policy: {}. Valid values are: LRU, LFU",
+                        policy_str
+                    ));
+                }
+            };
+            config.eviction_policy = Some(::protobuf::EnumOrUnknown::new(policy_enum));
+        }
+
+        // enable_metrics (optional, defaults to false)
+        if let Some(metrics) = cache_obj.get("enable_metrics") {
+            config.enable_metrics = metrics
+                .as_bool()
+                .ok_or_else(|| "client_side_cache.enable_metrics must be a boolean".to_string())?;
+        }
+
+        // Auto-generate cache_id after all validation passes (not accepted from JSON input)
+        config.cache_id = Uuid::new_v4().to_string().into();
+        request.client_side_cache = ::protobuf::MessageField::some(config);
+    }
+
     Ok(())
 }
 
@@ -2022,12 +2465,12 @@ unsafe fn free_command_response_elements(command_response: CommandResponse) {
     let sets_value_len = command_response.sets_value_len;
     if !string_value.is_null() {
         let len = string_value_len as usize;
-        unsafe { Vec::from_raw_parts(string_value, len, len) };
+        let _ = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(string_value, len)) };
     }
     if !array_value.is_null() {
         let len = array_value_len as usize;
-        let vec = unsafe { Vec::from_raw_parts(array_value, len, len) };
-        for element in vec.into_iter() {
+        let boxed = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(array_value, len)) };
+        for element in Vec::from(boxed).into_iter() {
             unsafe { free_command_response_elements(element) };
         }
     }
@@ -2039,8 +2482,8 @@ unsafe fn free_command_response_elements(command_response: CommandResponse) {
     }
     if !sets_value.is_null() {
         let len = sets_value_len as usize;
-        let vec = unsafe { Vec::from_raw_parts(sets_value, len, len) };
-        for element in vec.into_iter() {
+        let boxed = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(sets_value, len)) };
+        for element in Vec::from(boxed).into_iter() {
             unsafe { free_command_response_elements(element) };
         }
     }
@@ -2081,12 +2524,12 @@ unsafe fn convert_double_pointer_to_vec<'a>(
     result
 }
 
-fn convert_vec_to_pointer<T>(mut vec: Vec<T>) -> (*mut T, c_long) {
-    vec.shrink_to_fit();
-    let vec_ptr = vec.as_mut_ptr();
+fn convert_vec_to_pointer<T>(vec: Vec<T>) -> (*mut T, c_long) {
+    // into_boxed_slice guarantees capacity == len (unlike shrink_to_fit which is a hint).
+    // This is critical because from_raw_parts later uses len as capacity for dealloc.
     let len = vec.len() as c_long;
-    mem::forget(vec);
-    (vec_ptr, len)
+    let ptr = Box::into_raw(vec.into_boxed_slice()) as *mut T;
+    (ptr, len)
 }
 
 // ==================== Arena-based response builder ====================
@@ -2100,15 +2543,37 @@ pub struct ResponseArena {
     strings: Vec<Vec<u8>>,
 }
 
+const MAX_ARENA_POOL_SIZE: usize = 16;
+thread_local! { static ARENA_POOL: std::cell::RefCell<Vec<ResponseArena>> = const { std::cell::RefCell::new(Vec::new()) }; }
 impl ResponseArena {
-    fn new(value: &Value) -> Self {
-        let node_count = Self::count_nodes(value);
-        ResponseArena {
-            nodes: Vec::with_capacity(node_count),
-            strings: Vec::new(),
-        }
+    fn from_pool(value: &Value) -> Self {
+        let nc = Self::count_nodes(value);
+        ARENA_POOL.with(|p| {
+            let mut p = p.borrow_mut();
+            if let Some(mut a) = p.pop() {
+                a.nodes.clear();
+                a.nodes.reserve(nc);
+                a.strings.clear();
+                a
+            } else {
+                ResponseArena {
+                    nodes: Vec::with_capacity(nc),
+                    strings: Vec::new(),
+                }
+            }
+        })
     }
+    fn return_to_pool(self) {
+        ARENA_POOL.with(|p| {
+            let mut p = p.borrow_mut();
+            if p.len() < MAX_ARENA_POOL_SIZE {
+                p.push(self);
+            }
+        });
+    }
+}
 
+impl ResponseArena {
     /// Count total CommandResponse nodes needed for a Value tree.
     /// Maps use wrapper nodes: 1 wrapper per entry + key nodes + value nodes.
     fn count_nodes(value: &Value) -> usize {
@@ -2131,14 +2596,6 @@ impl ResponseArena {
 
     /// Allocate a node in the arena, returning its index.
     fn alloc_node(&mut self) -> usize {
-        debug_assert!(
-            self.nodes.len() < self.nodes.capacity(),
-            "Arena node Vec would reallocate ({} nodes, capacity {}). \
-             This means count_nodes() underestimated — all previously handed-out \
-             pointers would be invalidated after finalize().",
-            self.nodes.len(),
-            self.nodes.capacity(),
-        );
         let idx = self.nodes.len();
         self.nodes.push(CommandResponse::default());
         idx
@@ -2366,7 +2823,7 @@ fn valkey_value_to_arena_response(
     value: Value,
     response_buf: Option<(*mut u8, usize)>,
 ) -> RedisResult<(*mut CommandResponse, *mut ResponseArena)> {
-    let mut arena = ResponseArena::new(&value);
+    let mut arena = ResponseArena::from_pool(&value);
     arena.build(value, response_buf)?;
     Ok(arena.finalize())
 }
@@ -2378,173 +2835,9 @@ fn valkey_value_to_arena_response(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn free_response_arena(arena_ptr: *mut ResponseArena) {
     if !arena_ptr.is_null() {
-        unsafe { drop(Box::from_raw(arena_ptr)) };
+        let arena = unsafe { *Box::from_raw(arena_ptr) };
+        arena.return_to_pool();
     }
-}
-
-#[allow(dead_code)]
-fn valkey_value_to_command_response(
-    value: Value,
-    response_buf: Option<(*mut u8, usize)>,
-) -> RedisResult<CommandResponse> {
-    let mut command_response = CommandResponse::default();
-    let result: RedisResult<CommandResponse> = match value {
-        Value::Nil => Ok(command_response),
-        Value::SimpleString(text) => {
-            let vec: Vec<u8> = text.into_bytes();
-            let (vec_ptr, len) = convert_vec_to_pointer(vec);
-            command_response.string_value = vec_ptr as *mut c_char;
-            command_response.string_value_len = len;
-            command_response.response_type = ResponseType::String;
-            Ok(command_response)
-        }
-        Value::BulkString(data) => {
-            let data = if let Some((buf, buf_len)) = response_buf {
-                if data.len() > buf_len {
-                    return Err(RedisError::from((
-                        ErrorKind::ClientError,
-                        "Value size exceeds buffer capacity",
-                        format!(
-                            "value is {} bytes but buffer is {} bytes",
-                            data.len(),
-                            buf_len
-                        ),
-                    )));
-                }
-                // Copy data directly into the caller's buffer; the command response
-                // will carry the number of bytes written instead of the data itself.
-                unsafe {
-                    std::ptr::copy_nonoverlapping(data.as_ptr(), buf, data.len());
-                }
-                data.len().to_string().into_bytes()
-            } else {
-                data
-            };
-            let (vec_ptr, len) = convert_vec_to_pointer(data);
-            command_response.string_value = vec_ptr as *mut c_char;
-            command_response.string_value_len = len;
-            command_response.response_type = ResponseType::String;
-            Ok(command_response)
-        }
-        Value::VerbatimString { format: _, text } => {
-            let vec: Vec<u8> = text.into_bytes();
-            let (vec_ptr, len) = convert_vec_to_pointer(vec);
-            command_response.string_value = vec_ptr as *mut c_char;
-            command_response.string_value_len = len;
-            command_response.response_type = ResponseType::String;
-            Ok(command_response)
-        }
-        Value::Okay => {
-            command_response.response_type = ResponseType::Ok;
-            Ok(command_response)
-        }
-        Value::Int(num) => {
-            command_response.int_value = num;
-            command_response.response_type = ResponseType::Int;
-            Ok(command_response)
-        }
-        Value::Double(num) => {
-            command_response.float_value = num;
-            command_response.response_type = ResponseType::Float;
-            Ok(command_response)
-        }
-        Value::Boolean(boolean) => {
-            command_response.bool_value = boolean;
-            command_response.response_type = ResponseType::Bool;
-            Ok(command_response)
-        }
-        Value::Array(array) => {
-            let vec: Result<Vec<CommandResponse>, RedisError> = array
-                .into_iter()
-                .map(|v| valkey_value_to_command_response(v, None))
-                .collect();
-            let (vec_ptr, len) = convert_vec_to_pointer(vec?);
-            command_response.array_value = vec_ptr;
-            command_response.array_value_len = len;
-            command_response.response_type = ResponseType::Array;
-            Ok(command_response)
-        }
-        Value::Map(map) => {
-            let result: Result<Vec<CommandResponse>, RedisError> = map
-                .into_iter()
-                .map(|(key, val)| {
-                    let mut map_response = CommandResponse::default();
-
-                    let map_key = match valkey_value_to_command_response(key, None) {
-                        Ok(map_key) => map_key,
-                        Err(err) => return Err(err),
-                    };
-                    map_response.map_key = Box::into_raw(Box::new(map_key));
-
-                    let map_val = match valkey_value_to_command_response(val, None) {
-                        Ok(map_val) => map_val,
-                        Err(err) => return Err(err),
-                    };
-                    map_response.map_value = Box::into_raw(Box::new(map_val));
-
-                    Ok(map_response)
-                })
-                .collect::<Result<Vec<CommandResponse>, RedisError>>();
-
-            let (vec_ptr, len) = convert_vec_to_pointer(result?);
-            command_response.array_value = vec_ptr;
-            command_response.array_value_len = len;
-            command_response.response_type = ResponseType::Map;
-            Ok(command_response)
-        }
-        Value::Set(array) => {
-            let vec: Result<Vec<CommandResponse>, RedisError> = array
-                .into_iter()
-                .map(|v| valkey_value_to_command_response(v, None))
-                .collect();
-            let (vec_ptr, len) = convert_vec_to_pointer(vec?);
-            command_response.sets_value = vec_ptr;
-            command_response.sets_value_len = len;
-            command_response.response_type = ResponseType::Sets;
-            Ok(command_response)
-        }
-        Value::ServerError(server_error) => {
-            let error_message: String = error_message(&server_error.into());
-            // Convert the formatted string to bytes
-            let bytes = error_message.into_bytes();
-            // Process the bytes as before
-            let (vec_ptr, len) = convert_vec_to_pointer(bytes);
-            command_response.string_value = vec_ptr as *mut c_char;
-            command_response.string_value_len = len;
-            command_response.response_type = ResponseType::Error;
-
-            // Return as Ok to continue transaction processing
-            Ok(command_response)
-        }
-        Value::Push { kind, data } => {
-            // Create kind entry
-            let mut kind_entry = CommandResponse::default();
-            let map_key =
-                valkey_value_to_command_response(Value::SimpleString("kind".to_string()), None)?;
-            kind_entry.map_key = Box::into_raw(Box::new(map_key));
-            let map_val =
-                valkey_value_to_command_response(Value::SimpleString(format!("{:?}", kind)), None)?;
-            kind_entry.map_value = Box::into_raw(Box::new(map_val));
-
-            // Create values entry
-            let mut values_entry = CommandResponse::default();
-            let map_key =
-                valkey_value_to_command_response(Value::SimpleString("values".to_string()), None)?;
-            values_entry.map_key = Box::into_raw(Box::new(map_key));
-            let map_val = valkey_value_to_command_response(Value::Array(data), None)?;
-            values_entry.map_value = Box::into_raw(Box::new(map_val));
-
-            let (map_ptr, map_len) = convert_vec_to_pointer(vec![kind_entry, values_entry]);
-            command_response.array_value = map_ptr;
-            command_response.array_value_len = map_len;
-            command_response.response_type = ResponseType::Map;
-
-            Ok(command_response)
-        }
-        // TODO: Add support for other return types.
-        _ => todo!(),
-    };
-    result
 }
 
 /// Executes a command.
@@ -2658,6 +2951,7 @@ pub unsafe extern "C-unwind" fn command_with_buffer(
 
     // Check if compression is enabled before converting args
     let compression_manager = client_adapter.core.client.compression_manager();
+
     let should_process_compression = compression_manager
         .as_ref()
         .map(|cm| cm.is_enabled())
@@ -3232,27 +3526,48 @@ pub unsafe extern "C-unwind" fn get_cache_metrics(
     metrics_type: i32,
 ) -> *mut CommandResult {
     let client_adapter = unsafe {
-        // we increment the strong count to ensure that the client is not dropped just because we turned it into an Arc.
         Arc::increment_strong_count(client_adapter_ptr);
         Arc::from_raw(client_adapter_ptr as *mut ClientAdapter)
     };
 
     let client = client_adapter.core.client.clone();
-    client_adapter.execute_request(request_id, async move {
-        match CacheMetricsType::from_i32(metrics_type) {
-            Some(CacheMetricsType::HitRate) => client.cache_hit_rate(),
-            Some(CacheMetricsType::MissRate) => client.cache_miss_rate(),
-            Some(CacheMetricsType::EntryCount) => client.cache_entry_count(),
-            Some(CacheMetricsType::Evictions) => client.cache_evictions(),
-            Some(CacheMetricsType::Expirations) => client.cache_expirations(),
-            Some(CacheMetricsType::TotalLookups) => client.cache_total_lookups(),
-            None => Err(RedisError::from((
-                ErrorKind::ClientError,
-                "Invalid cache metrics type",
-                format!("Unsupported metrics type: {}", metrics_type),
-            ))),
+    let result = match CacheMetricsType::from_i32(metrics_type) {
+        Some(CacheMetricsType::HitRate) => client.cache_hit_rate(),
+        Some(CacheMetricsType::MissRate) => client.cache_miss_rate(),
+        Some(CacheMetricsType::EntryCount) => client.cache_entry_count(),
+        Some(CacheMetricsType::Evictions) => client.cache_evictions(),
+        Some(CacheMetricsType::Expirations) => client.cache_expirations(),
+        Some(CacheMetricsType::TotalLookups) => client.cache_total_lookups(),
+        None => Err(RedisError::from((
+            ErrorKind::ClientError,
+            "Invalid cache metrics type",
+            format!("Unsupported metrics type: {}", metrics_type),
+        ))),
+    };
+    // For pipe clients (Python async) and sync clients, return directly.
+    // For callback clients (Go, etc.), use execute_request to invoke callbacks.
+    let cid = client_adapter
+        .pipe_client_id
+        .load(std::sync::atomic::Ordering::Relaxed);
+    // Python pipe clients have cid != 0 AND ASYNC_PIPE initialized.
+    // Go/other clients may have cid != 0 for address resolver but no pipe.
+    let is_pipe_or_sync = matches!(client_adapter.core.client_type, ClientType::SyncClient)
+        || (cid != 0 && ASYNC_PIPE.get().is_some());
+    if is_pipe_or_sync {
+        match result {
+            Ok(value) => match valkey_value_to_arena_response(value, None) {
+                Ok((root_ptr, arena_ptr)) => Box::into_raw(Box::new(CommandResult {
+                    response: root_ptr,
+                    command_error: std::ptr::null_mut(),
+                    arena: arena_ptr,
+                })),
+                Err(err) => create_error_result_with_redis_error(err),
+            },
+            Err(err) => create_error_result_with_redis_error(err),
         }
-    })
+    } else {
+        client_adapter.execute_request(request_id, async move { result })
+    }
 }
 
 /// Executes a Lua script.
@@ -3592,6 +3907,9 @@ pub(crate) unsafe fn create_route(
     }
 }
 
+/// Applies compression to command arguments if compression is enabled.
+///
+/// For `CustomCommand`, resolves the actual request type from the command name (first arg)
 /// Convert [`CmdInfo`] to a [`Cmd`].
 ///
 /// # Safety
@@ -3810,6 +4128,109 @@ pub extern "C" fn create_batch_otel_span() -> u64 {
         ),
     );
     span_ptr
+}
+
+/// Converts a nullable C string pointer to an optional UTF-8 string slice.
+///
+/// # Safety
+/// * If `ptr` is not null, it must point to a valid, null-terminated C string.
+/// * The pointed-to memory must remain valid for the returned string slice lifetime.
+unsafe fn optional_c_str<'a>(
+    ptr: *const c_char,
+    field_name: &str,
+) -> Result<Option<&'a str>, String> {
+    if ptr.is_null() {
+        return Ok(None);
+    }
+
+    unsafe { CStr::from_ptr(ptr) }
+        .to_str()
+        .map(Some)
+        .map_err(|err| format!("{field_name} is not valid UTF-8: {err}"))
+}
+
+/// Converts a required C string pointer to a UTF-8 string slice.
+///
+/// # Safety
+/// * If `ptr` is not null, it must point to a valid, null-terminated C string.
+/// * The pointed-to memory must remain valid for the returned string slice lifetime.
+unsafe fn required_c_str<'a>(ptr: *const c_char, field_name: &str) -> Result<&'a str, String> {
+    if ptr.is_null() {
+        return Err(format!("{field_name} pointer is null"));
+    }
+
+    unsafe { CStr::from_ptr(ptr) }
+        .to_str()
+        .map_err(|err| format!("{field_name} is not valid UTF-8: {err}"))
+}
+
+fn span_to_ffi_pointer(span: GlideSpan) -> u64 {
+    let arc = Arc::new(span);
+    let ptr = Arc::into_raw(arc);
+    ptr as u64
+}
+
+unsafe fn create_span_with_remote_context(
+    span_name: &str,
+    trace_id: *const c_char,
+    span_id: *const c_char,
+    trace_flags: u8,
+    trace_state: *const c_char,
+    function_name: &str,
+) -> u64 {
+    let trace_id = match unsafe { required_c_str(trace_id, "trace_id") } {
+        Ok(value) => value,
+        Err(err) => {
+            logger_core::log_warn(
+                "ffi_otel",
+                format!("{function_name}: {err}. Creating independent span as fallback."),
+            );
+            return span_to_ffi_pointer(GlideOpenTelemetry::new_span(span_name));
+        }
+    };
+
+    let span_id = match unsafe { required_c_str(span_id, "span_id") } {
+        Ok(value) => value,
+        Err(err) => {
+            logger_core::log_warn(
+                "ffi_otel",
+                format!("{function_name}: {err}. Creating independent span as fallback."),
+            );
+            return span_to_ffi_pointer(GlideOpenTelemetry::new_span(span_name));
+        }
+    };
+
+    let trace_state = match unsafe { optional_c_str(trace_state, "trace_state") } {
+        Ok(value) => value,
+        Err(err) => {
+            logger_core::log_warn(
+                "ffi_otel",
+                format!("{function_name}: {err}. Creating independent span as fallback."),
+            );
+            return span_to_ffi_pointer(GlideOpenTelemetry::new_span(span_name));
+        }
+    };
+
+    let span = match GlideSpan::new_with_remote_context(
+        span_name,
+        trace_id,
+        span_id,
+        trace_flags,
+        trace_state,
+    ) {
+        Ok(span) => span,
+        Err(err) => {
+            logger_core::log_warn(
+                "ffi_otel",
+                format!(
+                    "{function_name}: failed to create span with remote context: {err}. Creating independent span as fallback.",
+                ),
+            );
+            GlideOpenTelemetry::new_span(span_name)
+        }
+    };
+
+    span_to_ffi_pointer(span)
 }
 
 /// Creates an OpenTelemetry batch span with a parent span and returns a pointer to the span as u64.
@@ -4057,6 +4478,65 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
         ),
     );
     span_ptr
+}
+
+/// Creates an OpenTelemetry span with the given request type as a child of a remote span context.
+/// Invalid remote context falls back to creating an independent span.
+///
+/// # Safety
+/// * `trace_id`, `span_id`, and `trace_state` may be null.
+/// * Any non-null string pointer must point to a valid, null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn create_otel_span_with_trace_context(
+    request_type: RequestType,
+    trace_id: *const c_char,
+    span_id: *const c_char,
+    trace_flags: u8,
+    trace_state: *const c_char,
+) -> u64 {
+    let command_name =
+        match extract_command_name(request_type, "create_otel_span_with_trace_context") {
+            Some(name) => name,
+            None => return 0,
+        };
+
+    unsafe {
+        create_span_with_remote_context(
+            &command_name,
+            trace_id,
+            span_id,
+            trace_flags,
+            trace_state,
+            "create_otel_span_with_trace_context",
+        )
+    }
+}
+
+/// Creates an OpenTelemetry batch span as a child of a remote span context.
+/// Invalid remote context falls back to creating an independent batch span.
+///
+/// # Safety
+/// * `trace_id`, `span_id`, and `trace_state` may be null.
+/// * Any non-null string pointer must point to a valid, null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn create_batch_otel_span_with_trace_context(
+    trace_id: *const c_char,
+    span_id: *const c_char,
+    trace_flags: u8,
+    trace_state: *const c_char,
+) -> u64 {
+    let command_name = "Batch";
+
+    unsafe {
+        create_span_with_remote_context(
+            command_name,
+            trace_id,
+            span_id,
+            trace_flags,
+            trace_state,
+            "create_batch_otel_span_with_trace_context",
+        )
+    }
 }
 
 /// Drops an OpenTelemetry span given its pointer as u64.
@@ -4638,5 +5118,228 @@ pub unsafe extern "C" fn unregister_pubsub_callback(
         Err(_) => CString::new("Failed to acquire write lock on pubsub callback")
             .unwrap()
             .into_raw(),
+    }
+}
+
+// ─── MonitorClient FFI ────────────────────────────────────────────────────────
+
+use glide_core::client::{MonitorClient, MonitorLine, MonitorLineCallback, NodeAddress};
+
+/// Callback invoked for each parsed MONITOR line.
+/// `client_ptr` is the opaque pointer returned in `ConnectionResponse.conn_ptr`.
+/// String fields are UTF-8, not null-terminated. `args_json` is a JSON array string.
+///
+/// # Safety
+/// The string pointers (`client_addr`, `command`, `args_json`) are only valid for
+/// the duration of the callback invocation. They must not be stored or accessed
+/// after the callback returns.
+pub type MonitorCallback = unsafe extern "C-unwind" fn(
+    client_ptr: usize,
+    timestamp: f64,
+    db: i64,
+    client_addr: *const u8,
+    client_addr_len: i64,
+    command: *const u8,
+    command_len: i64,
+    args_json: *const u8,
+    args_json_len: i64,
+);
+
+struct MonitorAdapter {
+    client: std::mem::ManuallyDrop<MonitorClient>,
+    runtime: Runtime,
+}
+
+impl Drop for MonitorAdapter {
+    fn drop(&mut self) {
+        // SAFETY: we are in drop; client will not be used again.
+        let client = unsafe { std::mem::ManuallyDrop::take(&mut self.client) };
+        self.runtime.block_on(client.stop_async());
+    }
+}
+
+/// Create a MonitorClient connected to the first address in `connection_request_bytes`.
+///
+/// Returns a `ConnectionResponse`. On success, `conn_ptr` is the monitor client handle
+/// and `connection_error_message` is null. On failure, `conn_ptr` is null and
+/// `connection_error_message` contains the error. The caller must free the returned
+/// `ConnectionResponse` by calling `free_connection_response`.
+///
+/// # Safety
+/// - `connection_request_bytes` must point to `connection_request_len` valid bytes
+///   containing a serialized `ConnectionRequest` protobuf.
+/// - `monitor_callback` must be a valid function pointer that remains valid for the
+///   lifetime of the returned client.
+/// - The returned `ConnectionResponse` must be freed with `free_connection_response`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn create_monitor_client(
+    connection_request_bytes: *const u8,
+    connection_request_len: usize,
+    monitor_callback: MonitorCallback,
+) -> *const ConnectionResponse {
+    let request_bytes =
+        unsafe { std::slice::from_raw_parts(connection_request_bytes, connection_request_len) };
+    let connection_request =
+        match glide_core::connection_request::ConnectionRequest::parse_from_bytes(request_bytes) {
+            Ok(r) => r,
+            Err(e) => {
+                let err_msg = CString::new(format!("Failed to parse connection request: {e}"))
+                    .unwrap_or_default();
+                return Box::into_raw(Box::new(ConnectionResponse {
+                    conn_ptr: std::ptr::null(),
+                    connection_error_message: err_msg.into_raw(),
+                }));
+            }
+        };
+    // Extract address, tls, and auth from the protobuf ConnectionRequest BEFORE .into(),
+    // so this compiles against the mock-glide-core stub (which lacks these fields).
+    let Some(proto_addr) = connection_request.addresses.first() else {
+        let err_msg = CString::new("No addresses provided").unwrap_or_default();
+        return Box::into_raw(Box::new(ConnectionResponse {
+            conn_ptr: std::ptr::null(),
+            connection_error_message: err_msg.into_raw(),
+        }));
+    };
+    let address = NodeAddress {
+        host: proto_addr.host.to_string(),
+        port: proto_addr.port as u16,
+    };
+    let tls_mode = match connection_request.tls_mode.enum_value_or_default() {
+        glide_core::connection_request::TlsMode::NoTls => glide_core::client::TlsMode::NoTls,
+        glide_core::connection_request::TlsMode::SecureTls => {
+            glide_core::client::TlsMode::SecureTls
+        }
+        glide_core::connection_request::TlsMode::InsecureTls => {
+            glide_core::client::TlsMode::InsecureTls
+        }
+    };
+    let redis_conn_info = redis::RedisConnectionInfo {
+        db: connection_request.database_id as i64,
+        username: connection_request
+            .authentication_info
+            .as_ref()
+            .and_then(|a| {
+                if a.username.is_empty() {
+                    None
+                } else {
+                    Some(a.username.to_string())
+                }
+            }),
+        password: connection_request
+            .authentication_info
+            .as_ref()
+            .and_then(|a| {
+                if a.password.is_empty() {
+                    None
+                } else {
+                    Some(a.password.to_string())
+                }
+            }),
+        protocol: redis::ProtocolVersion::RESP2,
+        client_name: if connection_request.client_name.is_empty() {
+            None
+        } else {
+            Some(connection_request.client_name.to_string())
+        },
+        lib_name: if connection_request.lib_name.is_empty() {
+            None
+        } else {
+            Some(connection_request.lib_name.to_string())
+        },
+        server_assisted_cache: false,
+        cache: None,
+    };
+
+    let runtime = match Builder::new_multi_thread().enable_all().build() {
+        Ok(r) => r,
+        Err(e) => {
+            let err_msg =
+                CString::new(format!("Failed to create runtime: {e}")).unwrap_or_default();
+            return Box::into_raw(Box::new(ConnectionResponse {
+                conn_ptr: std::ptr::null(),
+                connection_error_message: err_msg.into_raw(),
+            }));
+        }
+    };
+
+    // ptr_cell is written once (Release) after Box::into_raw, before any real
+    // monitor lines can arrive. The closure reads it with Acquire. Safe because
+    // close_monitor_client blocks (via stop_async) until the task exits before
+    // freeing the adapter.
+    let ptr_cell = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let ptr_cell_clone = ptr_cell.clone();
+
+    let on_line: MonitorLineCallback = std::sync::Arc::new(move |line: MonitorLine| {
+        let ptr = ptr_cell_clone.load(std::sync::atomic::Ordering::Acquire);
+        if ptr == 0 {
+            return;
+        }
+        let client_addr_bytes = line.client_addr.as_bytes();
+        let command_bytes = line.command.as_bytes();
+        let args_json = serde_json::to_string(&line.args).unwrap_or_else(|_| "[]".to_string());
+        let args_bytes = args_json.as_bytes();
+        unsafe {
+            monitor_callback(
+                ptr,
+                line.timestamp,
+                line.db,
+                client_addr_bytes.as_ptr(),
+                client_addr_bytes.len() as i64,
+                command_bytes.as_ptr(),
+                command_bytes.len() as i64,
+                args_bytes.as_ptr(),
+                args_bytes.len() as i64,
+            );
+        }
+    });
+
+    let monitor_client = match runtime
+        .block_on(async { MonitorClient::new(&address, redis_conn_info, tls_mode, on_line).await })
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let err_msg =
+                CString::new(format!("Failed to create monitor client: {e}")).unwrap_or_default();
+            return Box::into_raw(Box::new(ConnectionResponse {
+                conn_ptr: std::ptr::null(),
+                connection_error_message: err_msg.into_raw(),
+            }));
+        }
+    };
+
+    let adapter = Box::new(MonitorAdapter {
+        client: std::mem::ManuallyDrop::new(monitor_client),
+        runtime,
+    });
+    let conn_ptr = Box::into_raw(adapter) as *const c_void;
+    // Store ptr after MonitorClient::new returns. There is a brief window between
+    // new() returning and this store where the background task could invoke the
+    // callback with ptr == 0, causing those lines to be silently dropped. In
+    // practice this is benign: new() returns only after MONITOR +OK, and the
+    // server sends lines only for commands issued after that point. However,
+    // callers should not rely on receiving lines issued concurrently with
+    // create_monitor_client returning.
+    ptr_cell.store(conn_ptr as usize, std::sync::atomic::Ordering::Release);
+
+    Box::into_raw(Box::new(ConnectionResponse {
+        conn_ptr,
+        connection_error_message: std::ptr::null(),
+    }))
+}
+
+/// Stop and free a MonitorClient created by `create_monitor_client`.
+///
+/// # Safety
+/// - `client_ptr` must be a `conn_ptr` returned by `create_monitor_client`.
+/// - Must not be called more than once for the same pointer. Calling it twice
+///   is undefined behaviour (double-free). The caller is responsible for
+///   nulling or discarding the pointer after this call.
+/// - Must not be called concurrently with any active monitor callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn close_monitor_client(client_ptr: *const c_void) {
+    if !client_ptr.is_null() {
+        // Drop calls runtime.block_on(client.stop_async()), ensuring the task
+        // has fully exited before the adapter memory is freed.
+        let _ = unsafe { Box::from_raw(client_ptr as *mut MonitorAdapter) };
     }
 }

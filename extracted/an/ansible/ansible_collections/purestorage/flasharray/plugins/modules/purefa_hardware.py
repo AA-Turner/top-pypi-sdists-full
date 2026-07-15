@@ -22,7 +22,7 @@ short_description: Manage FlashArray Hardware Identification
 description:
 - Enable or disable FlashArray visual identification lights
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -67,6 +67,9 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
     get_array,
     purefa_argument_spec,
 )
+from ansible_collections.purestorage.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
 
 
 def main():
@@ -96,12 +99,11 @@ def main():
                         identify_enabled=module.params["enabled"]
                     ),
                 )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to set identification LED for {0}. Error: {1}".format(
-                            module.params["name"], res.errors[0].message
-                        )
-                    )
+                check_response(
+                    res,
+                    module,
+                    f"Failed to set identification LED for {module.params['name']}",
+                )
 
     module.exit_json(changed=changed)
 

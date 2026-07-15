@@ -16,7 +16,7 @@ from fontTools.cffLib import (
 from fontTools.misc.arrayTools import unionRect
 from fontTools.misc.roundTools import noRound, otRound
 from fontTools.pens.boundsPen import ControlBoundsPen
-from fontTools.pens.pointPen import SegmentToPointPen
+from fontTools.pens.pointPen import PointToSegmentPen, SegmentToPointPen
 from fontTools.pens.reverseContourPen import ReverseContourPen
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.ttGlyphPen import TTGlyphPointPen
@@ -30,6 +30,7 @@ from ufo2ft.constants import (
     COLOR_LAYERS_KEY,
     COLOR_PALETTES_KEY,
     COLR_CLIP_BOXES_KEY,
+    EXPLICIT_CLOSING_LINE_KEY,
     GLYPHS_MATH_CONSTANTS_KEY,
     GLYPHS_MATH_EXTENDED_SHAPE_KEY,
     GLYPHS_MATH_PREFIX,
@@ -1458,7 +1459,10 @@ class OutlineOTFCompiler(BaseOutlineCompiler):
         if width is not None:
             width = otRound(width)
         pen = T2CharStringPen(width, self.allGlyphs, roundTolerance=self.roundTolerance)
-        glyph.draw(pen)
+        if glyph.lib.get(EXPLICIT_CLOSING_LINE_KEY):
+            glyph.drawPoints(PointToSegmentPen(pen, outputImpliedClosingLine=True))
+        else:
+            glyph.draw(pen)
         charString = pen.getCharString(private, globalSubrs, optimize=self.optimizeCFF)
         return charString
 
@@ -1861,7 +1865,10 @@ class OutlineTTFCompiler(BaseOutlineCompiler):
         for name in sorted(self.glyphOrder, key=lambda n: maxComponentDepths.get(n, 0)):
             ttGlyph = ttGlyphs[name]
             self.instructionCompiler.compileGlyphInstructions(ttGlyph, name)
-            glyf[name] = ttGlyph
+            # assign the inner dict directly instead of via glyf[name] = ...; the latter
+            # checks membership against glyphOrder on every assignment and is O(n^2)
+            # for the whole font.
+            glyf.glyphs[name] = ttGlyph
 
         # update various maxp fields based on glyf without needing to compile the font
         if "maxp" in self.otf:

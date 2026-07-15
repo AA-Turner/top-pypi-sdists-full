@@ -15,32 +15,55 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
-from samplomatic.tensor_interface import TensorSpecification, PauliLindbladMapSpecification
-
-from qiskit.circuit import QuantumCircuit
-from ibm_quantum_schemas.executor.version_1_0 import (
-    ParamsModel,
-    CircuitItemModel,
-    SamplexItemModel,
-    QuantumProgramModel,
-    QuantumProgramResultModel,
-)
 from ibm_quantum_schemas.common import (
-    PauliLindbladMapModel,
-    SamplexModelSSV1ToSSV3,
     F64TensorModel,
-    TensorModel,
+    PauliLindbladMapModel,
     QpyDataV13ToV17Model,
+    SamplexModelSSV1ToSSV3,
+    TensorModel,
 )
-from ...utils.utils import get_qpy_version, get_ssv_version
+from ibm_quantum_schemas.executor.version_1_0 import (
+    CircuitItemModel,
+    ParamsModel,
+    QuantumProgramModel,
+    SamplexItemModel,
+)
+from samplomatic.tensor_interface import PauliLindbladMapSpecification, TensorSpecification
 
-
-from ..quantum_program import QuantumProgram, CircuitItem, SamplexItem
-from ...results.quantum_program import QuantumProgramResult, ChunkPart, ChunkSpan, Metadata
 from ...options_models.executor_options import ExecutorOptions
+from ...utils.utils import get_qpy_version, get_ssv_version
+from ..quantum_program import CircuitItem, QuantumProgram, SamplexItem
+
+if TYPE_CHECKING:
+    from ibm_quantum_schemas.executor.version_1_0.models import DataTree as DataTreeModel
+    from qiskit.circuit import QuantumCircuit
+
+    from ..datatree import DataTree
+
+
+def passthrough_data_to_1_0(passthrough_data: DataTree) -> DataTreeModel:
+    """Convert passthrough data to schema model."""
+    if isinstance(passthrough_data, dict):
+        return {k: passthrough_data_to_1_0(v) for k, v in passthrough_data.items()}
+    if isinstance(passthrough_data, (list, tuple)):
+        return [passthrough_data_to_1_0(v) for v in passthrough_data]
+    if isinstance(passthrough_data, np.ndarray):
+        return TensorModel.from_numpy(passthrough_data)
+    return passthrough_data
+
+
+def passthrough_data_from_1_0(passthrough_data: DataTree) -> DataTreeModel:
+    """Convert passthrough data to schema model."""
+    if isinstance(passthrough_data, TensorModel):
+        return passthrough_data.to_numpy()
+    if isinstance(passthrough_data, dict):
+        return {k: passthrough_data_from_1_0(v) for k, v in passthrough_data.items()}
+    if isinstance(passthrough_data, list):
+        return [passthrough_data_from_1_0(el) for el in passthrough_data]
+    return passthrough_data
 
 
 def quantum_program_from_1_0(model: ParamsModel) -> tuple[QuantumProgram, ExecutorOptions]:
@@ -86,7 +109,7 @@ def quantum_program_from_1_0(model: ParamsModel) -> tuple[QuantumProgram, Execut
         shots=program_model.shots,
         items=items,
         meas_level=program_model.meas_level,
-        passthrough_data=program_model.passthrough_data,
+        passthrough_data=passthrough_data_from_1_0(program_model.passthrough_data),
     )
     quantum_program._semantic_role = program_model.semantic_role
 
@@ -146,30 +169,8 @@ def quantum_program_to_1_0(program: QuantumProgram, options: ExecutorOptions) ->
             circuits=QpyDataV13ToV17Model.from_python(circuits, qpy_version=get_qpy_version(17)),
             items=model_items,
             meas_level=program.meas_level,
-            passthrough_data=program.passthrough_data,
+            passthrough_data=passthrough_data_to_1_0(program.passthrough_data),
             semantic_role=program._semantic_role,
         ),
         options=options_dict,
     )
-
-
-def quantum_program_result_from_1_0(model: QuantumProgramResultModel) -> QuantumProgramResult:
-    """Convert a V1.0 model to a :class:`QuantumProgramResult`."""
-    metadata = Metadata(
-        chunk_timing=[
-            ChunkSpan(
-                span.start.replace(tzinfo=timezone.utc),
-                span.stop.replace(tzinfo=timezone.utc),
-                [ChunkPart(part.idx_item, part.size) for part in span.parts],
-            )
-            for span in model.metadata.chunk_timing
-        ]
-    )
-
-    result = QuantumProgramResult(
-        data=[{name: val.to_numpy() for name, val in item.results.items()} for item in model.data],
-        metadata=metadata,
-        passthrough_data=model.passthrough_data,
-    )
-    result._semantic_role = model.semantic_role
-    return result

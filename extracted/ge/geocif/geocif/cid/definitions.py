@@ -111,6 +111,29 @@ dict_esi4wk = {
     "MIN_ESI4WK": ["ESI", "Minimum ESI 4WK"],
     "STD_ESI4WK": ["ESI", "Standard deviation of ESI 4WK"],
     "AUC_ESI4WK": ["ESI", "Area under the curve of ESI 4WK"],
+    # Drought depth/duration/spread encodings of ESI 4WK. MIN alone captures
+    # only the single worst instant; these encode how LOW and how LONG ESI
+    # stays depressed, which screens far stronger for poppy yield (leakage-safe
+    # LOOCV: MIN+AUCDEF ~0.42 vs MIN ~0.22). Percentiles (P05..P30) are robust
+    # drought-depth; AUCDEF<t>/FRACLO<t> are fixed-threshold deficit/duration
+    # (pure per-window functions -> leakage-free, unlike region-climatology
+    # thresholds); high percentiles + CV/IQR/RANGE are low-r "might still help
+    # nonlinearly" candidates. Thresholds (30/40/50) sit around the ESI
+    # distribution (~p10/p25/median for the poppy AOI). All computed by the
+    # generic aggregators in indices.aggregate_eo_values.
+    "P05_ESI4WK":  ["ESI", "5th percentile of ESI 4WK"],
+    "P10_ESI4WK":  ["ESI", "10th percentile of ESI 4WK"],
+    "P20_ESI4WK":  ["ESI", "20th percentile of ESI 4WK"],
+    "P30_ESI4WK":  ["ESI", "30th percentile of ESI 4WK"],
+    "P70_ESI4WK":  ["ESI", "70th percentile of ESI 4WK"],
+    "P90_ESI4WK":  ["ESI", "90th percentile of ESI 4WK"],
+    "AUCDEF40_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 40 (integrated drought)"],
+    "AUCDEF50_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 50 (integrated drought)"],
+    "FRACLO30_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 30"],
+    "FRACLO40_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 40"],
+    "CV_ESI4WK":    ["ESI", "Coefficient of variation of ESI 4WK"],
+    "IQR_ESI4WK":   ["ESI", "Interquartile range of ESI 4WK"],
+    "RANGE_ESI4WK": ["ESI", "Range (max-min) of ESI 4WK"],
 }
 
 dict_hindex = {

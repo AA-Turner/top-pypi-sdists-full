@@ -220,162 +220,6 @@ def augment_telugu(sents):
             new_sents.append(new_sentence)
     return sents + new_sents
 
-COMMA_SEPARATED_RE = re.compile(" ([a-zA-Z]+)[,] ([a-zA-Z]+) ")
-def augment_comma_separations(sents, ratio=0.03):
-    """Find some fraction of the sentences which match "asdf, zzzz" and squish them to "asdf,zzzz"
-
-    This leaves the tokens and all of the other data the same.  The
-    only change made is to change SpaceAfter=No for the "," token and
-    adjust the #text line, with the assumption that the conllu->txt
-    conversion will correctly handle this change.
-
-    This was particularly an issue for Spanish-AnCora, but it's
-    reasonable to think it could happen to any dataset.  Currently
-    this just operates on commas and ascii letters to avoid
-    accidentally squishing anything that shouldn't be squished.
-
-    UD_Spanish-AnCora 2.7 had a problem is with this sentence:
-    # orig_file_sentence 143#5
-    In this sentence, there was a comma smashed next to a token.
-
-    Fixing just this one sentence is not sufficient to tokenize
-    "asdf,zzzz" as desired, so we also augment by some fraction where
-    we have squished "asdf, zzzz" into "asdf,zzzz".
-
-    This exact example was later fixed in UD 2.8, but it should still
-    potentially be useful for compensating for typos.
-    """
-    new_sents = []
-    for sentence in sents:
-        for text_idx, text_line in enumerate(sentence):
-            # look for the line that starts with "# text".
-            # keep going until we find it, or silently ignore it
-            # if the dataset isn't in that format
-            if text_line.startswith("# text"):
-                break
-        else:
-            continue
-
-        match = COMMA_SEPARATED_RE.search(sentence[text_idx])
-        if match and random.random() < ratio:
-            for idx, word in enumerate(sentence):
-                if word.startswith("#"):
-                    continue
-                # find() doesn't work because we wind up finding substrings
-                if word.split("\t")[1] != match.group(1):
-                    continue
-                if sentence[idx+1].split("\t")[1] != ',':
-                    continue
-                if sentence[idx+2].split("\t")[1] != match.group(2):
-                    continue
-                break
-            if idx == len(sentence) - 1:
-                # this can happen with MWTs.  we may actually just
-                # want to skip MWTs anyway, so no big deal
-                continue
-            # now idx+1 should be the line with the comma in it
-            comma = sentence[idx+1]
-            pieces = comma.split("\t")
-            assert pieces[1] == ','
-            pieces[-1] = add_space_after_no(pieces[-1])
-            comma = "\t".join(pieces)
-            new_sent = sentence[:idx+1] + [comma] + sentence[idx+2:]
-
-            text_offset = sentence[text_idx].find(match.group(1) + ", " + match.group(2))
-            text_len = len(match.group(1) + ", " + match.group(2))
-            new_text = sentence[text_idx][:text_offset] + match.group(1) + "," + match.group(2) + sentence[text_idx][text_offset+text_len:]
-            new_sent[text_idx] = new_text
-
-            new_sents.append(new_sent)
-
-    print("Added %d new sentences with asdf, zzzz -> asdf,zzzz" % len(new_sents))
-            
-    return sents + new_sents
-
-def augment_move_comma(sents, ratio=0.02):
-    """
-    Move the comma from after a word to before the next word some fraction of the time
-
-    We looks for this exact pattern:
-      w1, w2
-    and replace it with
-      w1 ,w2
-
-    The idea is that this is a relatively common typo, but the tool
-    won't learn how to tokenize it without some help.
-
-    Note that this modification replaces the original text.
-    """
-    new_sents = []
-    num_operations = 0
-    for sentence in sents:
-        if random.random() > ratio:
-            new_sents.append(sentence)
-            continue
-
-        found = False
-        for word_idx, word in enumerate(sentence):
-            if word.startswith("#"):
-                continue
-            if word_idx == 0 or word_idx >= len(sentence) - 2:
-                continue
-            pieces = word.split("\t")
-            if pieces[1] == ',' and not has_space_after_no(pieces[-1]):
-                # found a comma with a space after it
-                prev_word = sentence[word_idx-1]
-                if not has_space_after_no(prev_word.split("\t")[-1]):
-                    # unfortunately, the previous word also had a
-                    # space after it.  does not fit what we are
-                    # looking for
-                    continue
-                # also, want to skip instances near MWT or copy nodes,
-                # since those are harder to rearrange
-                next_word = sentence[word_idx+1]
-                if MWT_OR_COPY_RE.match(next_word.split("\t")[0]):
-                    continue
-                if MWT_OR_COPY_RE.match(prev_word.split("\t")[0]):
-                    continue
-                # at this point, the previous word has no space and the comma does
-                found = True
-                break
-
-        if not found:
-            new_sents.append(sentence)
-            continue
-
-        new_sentence = list(sentence)
-
-        pieces = new_sentence[word_idx].split("\t")
-        pieces[-1] = add_space_after_no(pieces[-1])
-        new_sentence[word_idx] = "\t".join(pieces)
-
-        pieces = new_sentence[word_idx-1].split("\t")
-        prev_word = pieces[1]
-        pieces[-1] = remove_space_after_no(pieces[-1])
-        new_sentence[word_idx-1] = "\t".join(pieces)
-
-        next_word = new_sentence[word_idx+1].split("\t")[1]
-
-        for text_idx, text_line in enumerate(sentence):
-            # look for the line that starts with "# text".
-            # keep going until we find it, or silently ignore it
-            # if the dataset isn't in that format
-            if text_line.startswith("# text"):
-                old_chunk = prev_word + ", " + next_word
-                new_chunk = prev_word + " ," + next_word
-                word_idx = text_line.find(old_chunk)
-                if word_idx < 0:
-                    raise RuntimeError("Unexpected #text line which did not contain the original text to be modified.  Looking for\n" + old_chunk + "\n" + text_line)
-                new_text_line = text_line[:word_idx] + new_chunk + text_line[word_idx+len(old_chunk):]
-                new_sentence[text_idx] = new_text_line
-                break
-
-        new_sents.append(new_sentence)
-        num_operations = num_operations + 1
-
-    print("Swapped 'w1, w2' for 'w1 ,w2' %d times" % num_operations)
-    return new_sents
-
 def augment_apos(sents):
 
     """
@@ -682,8 +526,6 @@ def augment_punct(sents):
     """
     new_sents = augment_apos(sents)
     new_sents = augment_quotes(new_sents)
-    new_sents = augment_move_comma(new_sents)
-    new_sents = augment_comma_separations(new_sents)
     new_sents = augment_initial_punct(new_sents)
     new_sents = augment_ellipses(new_sents)
     new_sents = augment_brackets(new_sents)
@@ -1170,6 +1012,44 @@ def build_combined_french_dataset(paths, model_type, dataset):
 
     return sents
 
+def build_combined_slovenian_dataset(paths, model_type, dataset):
+    # According to Kaja Dobrovoljc (and Claude), the annotation schemes for these two datasets are very compatible
+    udbase_dir = paths["UDBASE"]
+    if dataset == 'train':
+        train_treebanks = ["UD_Slovenian-SSJ", "UD_Slovenian-SST"]
+        sents = []
+        for treebank in train_treebanks:
+            conllu_file = common.find_treebank_dataset_file(treebank, udbase_dir, "train", "conllu", fail=True)
+            new_sents = read_sentences_from_conllu(conllu_file)
+            print("Read %d sentences from %s" % (len(new_sents), conllu_file))
+            sents.extend(new_sents)
+
+    else:
+        ssj_conllu = common.find_treebank_dataset_file("UD_Slovenian-SSJ", udbase_dir, dataset, "conllu")
+        sents = read_sentences_from_conllu(ssj_conllu)
+
+    return sents
+
+def build_extra_combined_slovenian_dataset(paths, model_type, dataset, args):
+    if dataset != 'train' or (model_type != common.ModelType.LEMMA and model_type != common.ModelType.POS):
+        return []
+
+    base_path = os.path.join(paths["STANZA_EXTERN_DIR"], "slovenian", "SUK.CoNLL-U")
+    if not os.path.exists(base_path):
+        raise FileNotFoundError("Cannot find SUK extra data.  Please download from https://www.clarin.si/repository/xmlui/handle/11356/1959 and put it in %s" % base_path)
+
+    all_sents = []
+    for path in ["ssj500k-tag.ud.conllu", "ambiga.ud.conllu"]:
+        path = os.path.join(base_path, path)
+        if not os.path.exists(path):
+            raise FileNotFoundError("Expected to find SUK extra data in %s, but the directory %s exists.  Did you download the right version?" % (path, base_path))
+
+        sents = read_sentences_from_conllu(path)
+        print("Read %d sentences from %s for %s information" % (len(sents), path, model_type.name))
+        all_sents.extend(sents)
+    return all_sents
+
+
 def build_combined_finnish_dataset(paths, model_type, dataset):
     """
     Combine the TDT dataset with a small file of tokenization fixes
@@ -1266,6 +1146,7 @@ COMBINED_FNS = {
     "he_combined": build_combined_hebrew_dataset,
     "it_combined": build_combined_italian_dataset,
     "ja_combined": build_combined_japanese_dataset,
+    "sl_combined": build_combined_slovenian_dataset,
     "sq_combined": build_combined_albanian_dataset,
 }
 
@@ -1276,6 +1157,7 @@ COMBINED_EXTRA_FNS = {
     "fi_combined": build_extra_combined_finnish_dataset,
     "fr_combined": build_extra_combined_french_dataset,
     "it_combined": build_extra_combined_italian_dataset,
+    "sl_combined": build_extra_combined_slovenian_dataset,
     "es_combined": build_extra_combined_spanish_dataset,
 }
 

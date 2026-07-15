@@ -4284,30 +4284,31 @@ class BackendProxyArgsDict(TypedDict):
     """
     The URL of the proxy server.
     """
-    username: pulumi.Input[_builtins.str]
-    """
-    The username to connect to the proxy server.
-    """
     password: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The password to connect to the proxy server.
+    """
+    username: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The username to connect to the proxy server.
     """
 
 @pulumi.input_type
 class BackendProxyArgs:
     def __init__(__self__, *,
                  url: pulumi.Input[_builtins.str],
-                 username: pulumi.Input[_builtins.str],
-                 password: pulumi.Input[Optional[_builtins.str]] = None):
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] url: The URL of the proxy server.
-        :param pulumi.Input[_builtins.str] username: The username to connect to the proxy server.
         :param pulumi.Input[_builtins.str] password: The password to connect to the proxy server.
+        :param pulumi.Input[_builtins.str] username: The username to connect to the proxy server.
         """
         pulumi.set(__self__, "url", url)
-        pulumi.set(__self__, "username", username)
         if password is not None:
             pulumi.set(__self__, "password", password)
+        if username is not None:
+            pulumi.set(__self__, "username", username)
 
     @_builtins.property
     @pulumi.getter
@@ -4323,18 +4324,6 @@ class BackendProxyArgs:
 
     @_builtins.property
     @pulumi.getter
-    def username(self) -> pulumi.Input[_builtins.str]:
-        """
-        The username to connect to the proxy server.
-        """
-        return pulumi.get(self, "username")
-
-    @username.setter
-    def username(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "username", value)
-
-    @_builtins.property
-    @pulumi.getter
     def password(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The password to connect to the proxy server.
@@ -4344,6 +4333,18 @@ class BackendProxyArgs:
     @password.setter
     def password(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def username(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The username to connect to the proxy server.
+        """
+        return pulumi.get(self, "username")
+
+    @username.setter
+    def username(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "username", value)
 
 
 class BackendServiceFabricClusterArgsDict(TypedDict):
@@ -8929,7 +8930,7 @@ class ServiceSecurityArgsDict(TypedDict):
     """
     triple_des_ciphers_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
-    Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)? 
+    Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)?
 
     > **Note:** This maps to the `Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168` field
     """
@@ -9009,7 +9010,7 @@ class ServiceSecurityArgs:
         :param pulumi.Input[_builtins.bool] tls_rsa_with_aes256_gcm_sha384_ciphers_enabled: Should the `TLS_RSA_WITH_AES_256_GCM_SHA384` cipher be enabled? Defaults to `false`.
                
                > **Note:** This maps to the `Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_256_GCM_SHA384` field
-        :param pulumi.Input[_builtins.bool] triple_des_ciphers_enabled: Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)? 
+        :param pulumi.Input[_builtins.bool] triple_des_ciphers_enabled: Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)?
                
                > **Note:** This maps to the `Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168` field
         """
@@ -9366,7 +9367,7 @@ class ServiceSecurityArgs:
     @pulumi.getter(name="tripleDesCiphersEnabled")
     def triple_des_ciphers_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)? 
+        Should the `TLS_RSA_WITH_3DES_EDE_CBC_SHA` cipher be enabled for alL TLS versions (1.0, 1.1 and 1.2)?
 
         > **Note:** This maps to the `Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168` field
         """

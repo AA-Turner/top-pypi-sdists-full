@@ -12,27 +12,28 @@
 
 """Integration tests for account management."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import requests
-from ibm_cloud_sdk_core.authenticators import (
-    IAMAuthenticator,
-)
 from ibm_cloud_sdk_core import ApiException
-from ibm_platform_services import (
-    ResourceControllerV2,
-    GlobalSearchV2,
-)
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from ibm_platform_services import GlobalSearchV2, ResourceControllerV2
 
-from qiskit_ibm_runtime import QiskitRuntimeService, IBMInputValueError
-from qiskit_ibm_runtime.fake_provider.local_service import QiskitRuntimeLocalService
-from qiskit_ibm_runtime.utils.utils import (
-    get_resource_controller_api_url,
-    get_iam_api_url,
+from qiskit_ibm_runtime import IBMInputValueError, QiskitRuntimeService
+from qiskit_ibm_runtime.accounts.utils import (
     get_global_search_api_url,
+    get_iam_api_url,
+    get_resource_controller_api_url,
 )
+from qiskit_ibm_runtime.fake_provider.local_service import QiskitRuntimeLocalService
+
 from ..ibm_test_case import IBMIntegrationTestCase
-from ..decorators import IntegrationTestDependencies
+
+if TYPE_CHECKING:
+    from ..decorators import IntegrationTestDependencies
 
 
 def _get_service_instance_name_for_crn(
@@ -83,7 +84,7 @@ class TestQuantumPlatform(IBMIntegrationTestCase):
             message = logs.output[1]
             self.assertIn("Free and trial", message)
 
-        # no defualt instance and plans_preference
+        # no default instance and plans_preference
         with self.assertLogs("qiskit_ibm_runtime", level="WARNING") as logs:
             service = QiskitRuntimeService(
                 token=self.dependencies.token,
@@ -96,7 +97,7 @@ class TestQuantumPlatform(IBMIntegrationTestCase):
             self.assertNotIn("Free and trial", message)
             self.assertIn("available account instances are", message)
 
-        # no defualt instance and region
+        # no default instance and region
         region = "us-east"
         with self.assertLogs("qiskit_ibm_runtime", level="WARNING") as logs:
             service = QiskitRuntimeService(

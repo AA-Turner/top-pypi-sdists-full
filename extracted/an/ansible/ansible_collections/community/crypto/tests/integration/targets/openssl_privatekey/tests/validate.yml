@@ -4,7 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - ansible.builtin.set_fact:
-    system_potentially_has_no_algorithm_support: "{{ ansible_facts.os_family == 'FreeBSD' }}"
+    system_potentially_has_no_algorithm_support: >-
+      {{
+        ansible_facts.os_family == 'FreeBSD'
+        or (ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_major_version | int < 26)
+      }}
 
 - name: "({{ select_crypto_backend }}) Read private key"
   ansible.builtin.slurp:
@@ -139,7 +143,12 @@
   ansible.builtin.assert:
     that:
       - (item is succeeded and item is changed) or
-        (item is failed and 'Cryptography backend does not support the algorithm required for ' in item.msg and system_potentially_has_no_algorithm_support)
+        (item is failed
+            and (
+                'Cryptography backend does not support the algorithm required for ' in item.msg
+                or 'A newer cryptography version, or one built with an appropriate backend, is needed for type=' in item.msg
+            )
+            and system_potentially_has_no_algorithm_support)
   loop: "{{ privatekey_t1_generate.results }}"
   when: "'skip_reason' not in item"
   loop_control:
@@ -149,7 +158,12 @@
   ansible.builtin.assert:
     that:
       - (item is succeeded and item is not changed) or
-        (item is failed and 'Cryptography backend does not support the algorithm required for ' in item.msg and system_potentially_has_no_algorithm_support)
+        (item is failed
+            and (
+                'Cryptography backend does not support the algorithm required for ' in item.msg
+                or 'A newer cryptography version, or one built with an appropriate backend, is needed for type=' in item.msg
+            )
+            and system_potentially_has_no_algorithm_support)
   loop: "{{ privatekey_t1_idempotency.results }}"
   when: "'skip_reason' not in item"
   loop_control:

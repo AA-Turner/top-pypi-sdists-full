@@ -5,11 +5,7 @@ use github_actions_models::{
         Uses,
         expr::{ExplicitExpr, LoE},
     },
-    workflow::{
-        Job, Trigger, Workflow,
-        event::OptionalBody,
-        job::{RunsOn, StepBody},
-    },
+    workflow::{Job, Trigger, Workflow, event::OptionalBody, job},
 };
 
 fn load_workflow(name: &str) -> Workflow {
@@ -28,8 +24,10 @@ fn test_load_all() {
         let sample_workflow = sample_workflow.unwrap().path();
         let workflow_contents = std::fs::read_to_string(&sample_workflow).unwrap();
 
-        let wf = yaml_serde::from_str::<Workflow>(&workflow_contents);
-        assert!(wf.is_ok(), "failed to parse {sample_workflow:?}");
+        match yaml_serde::from_str::<Workflow>(&workflow_contents) {
+            Ok(_) => (),
+            Err(e) => panic!("{sample_workflow:?}: {e}"),
+        }
     }
 }
 
@@ -49,24 +47,21 @@ fn test_pip_audit_ci() {
     assert_eq!(test_job.name, None);
     assert_eq!(
         test_job.runs_on,
-        LoE::Literal(RunsOn::Target(vec!["ubuntu-latest".to_string()]))
+        LoE::Literal(job::RunsOn::Target(vec!["ubuntu-latest".to_string()]))
     );
     assert_eq!(test_job.steps.len(), 3);
 
-    let StepBody::Uses {
-        uses,
-        with: LoE::Literal(with),
-    } = &test_job.steps[0].body
-    else {
+    let job::Step::Uses(uses) = &test_job.steps[0] else {
         panic!("expected uses step");
     };
-    assert_eq!(uses, &Uses::parse("actions/checkout@v4.1.1").unwrap());
-    assert!(with.is_empty());
+    assert_eq!(&uses.uses, &Uses::parse("actions/checkout@v4.1.1").unwrap());
+    assert!(matches!(&uses.with, LoE::Literal(with) if with.is_empty()));
 
-    let StepBody::Uses {
+    let job::Step::Uses(job::UsesStep {
         uses,
         with: LoE::Literal(with),
-    } = &test_job.steps[1].body
+        ..
+    }) = &test_job.steps[1]
     else {
         panic!("expected uses step");
     };
@@ -75,11 +70,12 @@ fn test_pip_audit_ci() {
     assert_eq!(with["cache"].to_string(), "pip");
     assert_eq!(with["cache-dependency-path"].to_string(), "pyproject.toml");
 
-    let StepBody::Run {
+    let job::Step::Run(job::RunStep {
         run,
         working_directory,
         shell,
-    } = &test_job.steps[2].body
+        ..
+    }) = &test_job.steps[2]
     else {
         panic!("expected run step");
     };

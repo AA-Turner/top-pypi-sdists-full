@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspark
-Version: 4.1.2
+Version: 4.2.0
 Summary: Apache Spark Python API
 Home-page: https://github.com/apache/spark/tree/master/python
 Author: Spark Developers
@@ -13,10 +13,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
 Requires-Dist: py4j<0.10.9.10,>=0.10.9.7
 Provides-Extra: ml
 Requires-Dist: numpy>=1.21; extra == "ml"
@@ -24,15 +25,15 @@ Provides-Extra: mllib
 Requires-Dist: numpy>=1.21; extra == "mllib"
 Provides-Extra: sql
 Requires-Dist: pandas>=2.2.0; extra == "sql"
-Requires-Dist: pyarrow>=15.0.0; extra == "sql"
+Requires-Dist: pyarrow>=18.0.0; extra == "sql"
 Requires-Dist: numpy>=1.21; extra == "sql"
 Provides-Extra: pandas-on-spark
 Requires-Dist: pandas>=2.2.0; extra == "pandas-on-spark"
-Requires-Dist: pyarrow>=15.0.0; extra == "pandas-on-spark"
+Requires-Dist: pyarrow>=18.0.0; extra == "pandas-on-spark"
 Requires-Dist: numpy>=1.21; extra == "pandas-on-spark"
 Provides-Extra: connect
 Requires-Dist: pandas>=2.2.0; extra == "connect"
-Requires-Dist: pyarrow>=15.0.0; extra == "connect"
+Requires-Dist: pyarrow>=18.0.0; extra == "connect"
 Requires-Dist: grpcio>=1.76.0; extra == "connect"
 Requires-Dist: grpcio-status>=1.76.0; extra == "connect"
 Requires-Dist: googleapis-common-protos>=1.71.0; extra == "connect"
@@ -40,7 +41,7 @@ Requires-Dist: zstandard>=0.25.0; extra == "connect"
 Requires-Dist: numpy>=1.21; extra == "connect"
 Provides-Extra: pipelines
 Requires-Dist: pandas>=2.2.0; extra == "pipelines"
-Requires-Dist: pyarrow>=15.0.0; extra == "pipelines"
+Requires-Dist: pyarrow>=18.0.0; extra == "pipelines"
 Requires-Dist: numpy>=1.21; extra == "pipelines"
 Requires-Dist: grpcio>=1.76.0; extra == "pipelines"
 Requires-Dist: grpcio-status>=1.76.0; extra == "pipelines"
@@ -54,6 +55,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

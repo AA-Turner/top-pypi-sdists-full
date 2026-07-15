@@ -69,9 +69,44 @@ class ConfigTest(TestCase):
         create_directory_mock.assert_not_called()
 
     def test_read(self):
-        self._parser_mock.get.side_effect = _SAMPLE_OPTIONS.values()
+        self._parser_mock.get.side_effect = self._fake_get(_SAMPLE_OPTIONS)
         self.assertEqual(self._service.read(), Config(**_SAMPLE_OPTIONS))
+
+    def test_read_oauth(self):
+        options = {
+            "mcd_oauth_client_id": "client-id",
+            "mcd_oauth_client_secret": "client-secret",
+            "mcd_instance_id": "us1",
+            "mcd_api_endpoint": "https://api.getmontecarlo.com/graphql",
+            "mcd_agent_image_host": "docker.io",
+            "mcd_agent_image_org": "montecarlodata",
+            "mcd_agent_image_repo": "agent",
+        }
+        self._parser_mock.get.side_effect = self._fake_get(options)
+
+        config = self._service.read()
+        assert config is not None
+        self.assertTrue(config.is_oauth)
+        self.assertEqual(config.mcd_oauth_client_id, "client-id")
+        self.assertEqual(config.mcd_oauth_client_secret, "client-secret")
+        self.assertEqual(config.mcd_instance_id, "us1")
+        # OAuth mode does not read/require the API key.
+        self.assertIsNone(config.mcd_id)
+        self.assertIsNone(config.mcd_token)
 
     def test_read_with_no_section(self):
         self._parser_mock.get.side_effect = configparser.NoSectionError(_SAMPLE_PROFILE_NAME)
         self.assertIsNone(self._service.read())
+
+    @staticmethod
+    def _fake_get(values: dict):
+        _unset = object()
+
+        def get(section: str, option: str, fallback=_unset):
+            if option in values:
+                return values[option]
+            if fallback is not _unset:
+                return fallback
+            raise configparser.NoOptionError(option, section)
+
+        return get

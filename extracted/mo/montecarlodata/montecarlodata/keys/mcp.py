@@ -1,8 +1,9 @@
 from typing import Any, Callable, Optional, cast
 
 import click
-from pycarlo.core import Client, Mutation, Query, Session
+from pycarlo.core import Client, Mutation, Query
 
+from montecarlodata.common.common import create_session
 from montecarlodata.config import Config
 from montecarlodata.errors import complain_and_abort, manage_errors
 
@@ -18,11 +19,7 @@ class McpKeyService:
         print_func: Optional[Callable] = None,
     ):
         self._command_name = command_name
-        self._client = pycarlo_client or Client(
-            Session(
-                endpoint=config.mcd_api_endpoint, mcd_id=config.mcd_id, mcd_token=config.mcd_token
-            )
-        )
+        self._client = pycarlo_client or Client(create_session(config))
         self._print_func = print_func or click.echo
         self._abort_on_error = True
 

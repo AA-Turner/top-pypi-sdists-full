@@ -191,6 +191,14 @@ def audit_project(
 
     check_readme_structure(repo_root, Violation, violations)
     check_codecov_target(repo_root, Violation, violations)
+    # hook-bypass: line-limit
+    # PS-HOOK-001: a `language: system` pre-commit hook invoking a Python tool
+    # is a $PATH lottery — it resolves to whichever venv is active at commit
+    # time. figrecipe's testmon hook ran ZERO tests fleet-wide while blocking
+    # every Python commit; davinci-resolve-mcp's took >14 min per commit.
+    from ._check_precommit_hooks import check_ps_hook_001_precommit_system_hooks
+
+    check_ps_hook_001_precommit_system_hooks(repo_root, Violation, violations)
     from ._check_dev_extras_complete import check_dev_extras_complete
 
     check_dev_extras_complete(repo_root, Violation, violations)
@@ -198,6 +206,16 @@ def audit_project(
     from ._check_optional_deps_guarded import check_ps148_optional_deps_guarded
 
     check_ps148_optional_deps_guarded(repo_root, distribution, Violation, violations)
+    # PS-214/215: all-or-nothing extras + dead install-remedy strings.
+    # See scitex-writer PR #322 (reference incident: editor = [] extra +
+    # "pip install scitex-writer[editor]" remedy that installs nothing).
+    from ._check_empty_extras import check_ps214_empty_extras
+
+    check_ps214_empty_extras(repo_root, Violation, violations)
+    # hook-bypass: line-limit
+    from ._check_install_remedy_strings import check_ps215_broken_install_remedy
+
+    check_ps215_broken_install_remedy(repo_root, distribution, Violation, violations)
     # hook-bypass: line-limit
     from ._check_console_script_core_deps import (
         check_ps213_console_script_core_deps,

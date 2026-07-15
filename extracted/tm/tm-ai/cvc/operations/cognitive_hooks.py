@@ -475,6 +475,29 @@ class CognitiveHookManager:
                 if dream.contradictions:
                     summary += f", {len(dream.contradictions)} contradictions detected"
                 logger.info("dreaming: %s", summary)
+
+                # ── Counterfactual self-test (Fable5 Phase 4) ──────────
+                # The soul self-tests at the same cadence it dreams:
+                # generate one probe against the world model's weakest
+                # spot, persist the committed prediction, queue for the
+                # owner to grade. Non-fatal by design.
+                try:
+                    from cvc.operations.counterfactual import run_counterfactual_cycle
+                    from cvc.core.user_model import UserModelManager
+
+                    umm = UserModelManager(self.cvc_root)
+                    narrative = umm.load_current_model().soul_narrative
+                    probe = await run_counterfactual_cycle(
+                        cvc_root=self.cvc_root,
+                        adapter=self.adapter,
+                        model=self.engine.config.model,
+                        soul_narrative=narrative,
+                    )
+                    if probe:
+                        summary += f"; self-test probe {probe.probe_id} queued"
+                except Exception as cf_exc:  # noqa: BLE001
+                    logger.debug("counterfactual cycle failed (non-fatal): %s", cf_exc)
+
                 return summary
             return "Not enough commits to dream yet (need ≥3)."
         except Exception as e:

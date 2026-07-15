@@ -23,16 +23,6 @@ test_steps: &test_steps
             make install-with-end-user-tests
 
 jobs:
-  run-test-3-8:
-    docker:
-      - image: python:3.8
-    <<: *test_steps
-
-  run-test-3-9:
-    docker:
-      - image: python:3.9
-    <<: *test_steps
-
   run-test-3-10:
     docker:
       - image: python:3.10
@@ -50,7 +40,7 @@ jobs:
 
   deploy:
     docker:
-      - image: python:3.8.6
+      - image: python:3.10
 
     steps:
       - checkout
@@ -89,8 +79,6 @@ workflows:
 
   build:
     jobs:
-      - run-test-3-8
-      - run-test-3-9
       - run-test-3-10
       - run-test-3-11
       - run-test-3-12
@@ -99,8 +87,6 @@ workflows:
           name: publish-docs-dev
           context: aws-dev
           requires:
-            - run-test-3-8
-            - run-test-3-9
             - run-test-3-10
             - run-test-3-11
             - run-test-3-12
@@ -111,10 +97,6 @@ workflows:
 
   deploy:
     jobs:
-      - run-test-3-8:
-          <<: *deploy_filter
-      - run-test-3-9:
-          <<: *deploy_filter
       - run-test-3-10:
           <<: *deploy_filter
       - run-test-3-11:
@@ -123,8 +105,6 @@ workflows:
           <<: *deploy_filter
       - deploy:
           requires:
-            - run-test-3-8
-            - run-test-3-9
             - run-test-3-10
             - run-test-3-11
             - run-test-3-12

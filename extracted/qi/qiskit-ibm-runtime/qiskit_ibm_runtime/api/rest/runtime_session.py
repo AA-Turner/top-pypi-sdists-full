@@ -12,11 +12,16 @@
 
 """Runtime Session REST adapter."""
 
-from typing import Any
-from .base import RestAdapterBase
-from ..session import RetrySession
-from ..exceptions import RequestsApiError
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from ...exceptions import IBMRuntimeError
+from ..exceptions import RequestsApiError
+from .base import RestAdapterBase
+
+if TYPE_CHECKING:
+    from ..session import RetrySession
 
 
 class RuntimeSession(RestAdapterBase):
@@ -45,6 +50,7 @@ class RuntimeSession(RestAdapterBase):
         instance: str | None = None,
         max_time: int | None = None,
         mode: str | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a session."""
         url = self.get_url("self")
@@ -57,6 +63,7 @@ class RuntimeSession(RestAdapterBase):
             payload["instance"] = instance
         if max_time:
             payload["max_ttl"] = max_time
+        payload.update(kwargs)
         return self.session.post(url, json=payload, headers=self._HEADER_JSON_CONTENT).json()
 
     def cancel(self) -> None:

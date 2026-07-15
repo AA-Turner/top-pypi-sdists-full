@@ -72,7 +72,7 @@ def _setup_provider_choice() -> list[str]:
         return sorted(set(keys))
     except Exception:
         return ["anthropic", "openai", "google", "vertex", "ollama", "lmstudio",
-                "github", "copilot", "nvidia", "minimax", "passthrough"]
+                "github", "copilot", "nvidia", "minimax", "openrouter", "passthrough"]
 
 
 # ---------------------------------------------------------------------------
@@ -1617,6 +1617,94 @@ def setup(provider: str | None, model: str, api_key: str, first_run: bool = Fals
         # No API key needed — ADC handles auth
         api_key = ""
 
+    elif provider == "openrouter":
+        # ── OpenRouter — key FIRST, then fetch the full live catalog ──────
+        # Rationale: OpenRouter serves 400+ models and which ones are usable
+        # (free vs. paid) depends on the account behind the key. Collecting
+        # the key before showing any model list lets us call /api/v1/key to
+        # detect the account tier and /api/v1/models for the real, uncapped
+        # catalog — instead of a stale 20-model offline snapshot.
+        console.print("[bold #CC3333]  STEP 2 of 5[/bold #CC3333]  [bold white]API Key[/bold white]")
+        console.print()
+
+        or_env_val = os.environ.get("OPENROUTER_API_KEY", "")
+        from cvc.core.models import GlobalConfig as GC_Check
+        or_existing_gc = GC_Check.load()
+        or_saved_key = or_existing_gc.api_keys.get("openrouter", "")
+
+        if api_key:
+            or_key = api_key
+        elif or_env_val:
+            masked = or_env_val[:8] + "…" + or_env_val[-4:]
+            _success(f"Found in environment: [bold]OPENROUTER_API_KEY[/bold] ({masked})")
+            console.print("  [dim]Using environment variable — no need to enter it again.[/dim]")
+            or_key = or_env_val
+        elif or_saved_key:
+            masked = or_saved_key[:8] + "…" + or_saved_key[-4:]
+            _success(f"Found saved key ({masked})")
+            console.print("  [dim]Using previously saved key. Press Enter to keep it.[/dim]")
+            new_key = click.prompt(
+                "  Paste new key (or Enter to keep existing)",
+                default="", hide_input=True, show_default=False,
+            ).strip()
+            or_key = new_key if new_key else or_saved_key
+        else:
+            console.print("  [dim]Get your key →[/dim] [bold underline]https://openrouter.ai/keys[/bold underline]")
+            console.print()
+            or_key = click.prompt("  Paste your API key", hide_input=True).strip()
+
+        if not or_key:
+            _error("An OpenRouter API key is required.")
+            return
+        api_key = or_key
+        console.print()
+
+        console.print("[dim]Verifying key and fetching the full OpenRouter catalog...[/dim]")
+        from cvc.providers.openrouter_live import (
+            fetch_key_info, fetch_all_openrouter_models, order_for_account,
+        )
+        key_info = fetch_key_info(or_key)
+        if key_info is None:
+            _warn("Could not verify key tier (network issue or invalid key) — showing full catalog anyway.")
+        else:
+            tier_label = "Free tier" if key_info.is_free_tier else "Paid / pay-as-you-go"
+            _success(f"Account tier: [bold]{tier_label}[/bold]")
+
+        try:
+            all_or_models = fetch_all_openrouter_models(or_key)
+        except Exception as exc:
+            _error(f"Failed to fetch OpenRouter model catalog: {exc}")
+            return
+        if not all_or_models:
+            _error("OpenRouter returned no models — check your connection and try again.")
+            return
+
+        ordered = order_for_account(all_or_models, key_info)
+        _success(f"Fetched [bold]{len(all_or_models)}[/bold] models from OpenRouter's live catalog")
+        console.print()
+
+        console.print("[bold #CC3333]  STEP 3 of 5[/bold #CC3333]  [bold white]Pick a model[/bold white]")
+        console.print()
+
+        from cvc.agent.menus import arrow_select
+        m_opts = [(m.id, m.id) for m in ordered]
+        m_descs = [f"{'free' if m.free else 'paid'}{'' if m.supports_tools else ' · no tool-calling'}" for m in ordered]
+        or_choice = arrow_select(
+            f"Pick a model  ({len(ordered)} available)",
+            m_opts,
+            descriptions=m_descs,
+        )
+        if or_choice is None:
+            console.print("  [bold red]Model selection is required.[/bold red]")
+            return
+        chosen_model = or_choice
+        _success(f"Model: [bold]{chosen_model}[/bold]")
+        console.print()
+
+        # Key already collected/verified above — skip the generic Step 3
+        # (API Key) block below by jumping straight past it.
+        models = []  # sentinel: signals "already fully handled" to the code below
+        _openrouter_key_already_set = True
     else:
         console.print("[bold #CC3333]  STEP 2 of 5[/bold #CC3333]  [bold white]Pick a model[/bold white]")
         console.print()
@@ -1633,7 +1721,7 @@ def setup(provider: str | None, model: str, api_key: str, first_run: bool = Fals
             except Exception:
                 pass
 
-    if provider != "github":
+    if provider != "github" and provider != "openrouter":
         table = Table(
             box=box.ROUNDED,
             border_style="dim",
@@ -1655,7 +1743,10 @@ def setup(provider: str | None, model: str, api_key: str, first_run: bool = Fals
             Panel(table, border_style="#8B0000", title=f"[bold white]{provider.title()} Models[/bold white]", padding=(1, 1))
         )
 
-    if not model and models:
+    if provider == "openrouter":
+        # Model + key already fully handled in the OpenRouter branch above.
+        pass
+    elif not model and models:
         from cvc.agent.menus import arrow_select
         m_opts = [(mid, mid) for mid, desc, tier in models]
         m_descs = [f"{desc} ({tier})" for mid, desc, tier in models]
@@ -1695,11 +1786,12 @@ def setup(provider: str | None, model: str, api_key: str, first_run: bool = Fals
             return
         chosen_model = typed
 
-    _success(f"Model: [bold]{chosen_model}[/bold]")
-    console.print()
+    if provider != "openrouter":
+        _success(f"Model: [bold]{chosen_model}[/bold]")
+        console.print()
 
     # ─── Step 3: API Key ─────────────────────────────────────────────────
-    if provider not in ("github", "vertex"):
+    if provider not in ("github", "vertex", "openrouter"):
         # github: OAuth token collected above; vertex: key already collected in Step 2 flow
         console.print("[bold #CC3333]  STEP 3 of 5[/bold #CC3333]  [bold white]API Key[/bold white]")
         console.print()

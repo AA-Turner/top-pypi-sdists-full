@@ -476,6 +476,28 @@ class VersionState(_common.CaseInSensitiveEnum):
     """Used to indicate the version is unstable."""
 
 
+class QuotaState(_common.CaseInSensitiveEnum):
+    """Output only. The user accelerator quota state."""
+
+    QUOTA_STATE_UNSPECIFIED = "QUOTA_STATE_UNSPECIFIED"
+    """Unspecified quota state. Quota information not available."""
+    QUOTA_STATE_USER_HAS_QUOTA = "QUOTA_STATE_USER_HAS_QUOTA"
+    """User has enough accelerator quota for the machine type."""
+    QUOTA_STATE_NO_USER_QUOTA = "QUOTA_STATE_NO_USER_QUOTA"
+    """User does not have enough accelerator quota for the machine type."""
+
+
+class FeedbackType(_common.CaseInSensitiveEnum):
+    """The type of the feedback."""
+
+    FEEDBACK_TYPE_UNSPECIFIED = "FEEDBACK_TYPE_UNSPECIFIED"
+    """Default value."""
+    THUMBS_UP = "THUMBS_UP"
+    """Indicates positive feedback (e.g., a "thumbs up")."""
+    THUMBS_DOWN = "THUMBS_DOWN"
+    """Indicates a thumbs down feedback (e.g., a "thumbs down")."""
+
+
 class EvaluationItemType(_common.CaseInSensitiveEnum):
     """The type of the EvaluationItem."""
 
@@ -1873,6 +1895,10 @@ class Metric(_common.BaseModel):
         default=None,
         description="""The resource name of the metric definition. Example: projects/{project}/locations/{location}/evaluationMetrics/{evaluation_metric_id}""",
     )
+    result_parsing_function: Optional[str] = Field(
+        default=None,
+        description="""Optional. A Python function string used to parse the raw output of the LLM judge model. The function must be named `parse_results` and accept a list of model response strings. It should return a dictionary with `score` (float) and `explanation` (str) keys.""",
+    )
 
     # Allow extra fields to support metric-specific config fields.
     model_config = ConfigDict(extra="allow")
@@ -1957,6 +1983,11 @@ class LLMMetric(Metric):
     rubric_group_name: Optional[str] = Field(
         default=None,
         description="""Optional. The name of the column in the EvaluationDataset containing the list of rubrics to use for this metric.""",
+    )
+
+    result_parsing_function: Optional[str] = Field(
+        default=None,
+        description="""Optional. A Python function string used to parse the raw output of the LLM judge model. The function must be named `parse_results` and accept a list of model response strings. It should return a dictionary with `score` (float) and `explanation` (str) keys.""",
     )
 
     @field_validator("prompt_template", mode="before")
@@ -2099,6 +2130,9 @@ class MetricDict(TypedDict, total=False):
 
     metric_resource_name: Optional[str]
     """The resource name of the metric definition. Example: projects/{project}/locations/{location}/evaluationMetrics/{evaluation_metric_id}"""
+
+    result_parsing_function: Optional[str]
+    """Optional. A Python function string used to parse the raw output of the LLM judge model. The function must be named `parse_results` and accept a list of model response strings. It should return a dictionary with `score` (float) and `explanation` (str) keys."""
 
 
 MetricOrDict = Union[Metric, MetricDict]
@@ -2576,10 +2610,7 @@ EvaluationRunConfigOrDict = Union[EvaluationRunConfig, EvaluationRunConfigDict]
 
 
 class EvaluationRunAgentConfig(_common.BaseModel):
-    """This field is experimental and may change in future versions.
-
-    Agent config for an evaluation run.
-    """
+    """Agent config for an evaluation run."""
 
     developer_instruction: Optional[genai_types.Content] = Field(
         default=None, description="""The developer instruction for the agent."""
@@ -2590,10 +2621,7 @@ class EvaluationRunAgentConfig(_common.BaseModel):
 
 
 class EvaluationRunAgentConfigDict(TypedDict, total=False):
-    """This field is experimental and may change in future versions.
-
-    Agent config for an evaluation run.
-    """
+    """Agent config for an evaluation run."""
 
     developer_instruction: Optional[genai_types.Content]
     """The developer instruction for the agent."""
@@ -2681,10 +2709,7 @@ AgentRunConfigOrDict = Union[AgentRunConfig, AgentRunConfigDict]
 
 
 class EvaluationRunInferenceConfig(_common.BaseModel):
-    """This field is experimental and may change in future versions.
-
-    Configuration that describes an agent.
-    """
+    """Configuration that describes an agent."""
 
     agent_config: Optional[EvaluationRunAgentConfig] = Field(
         default=None, description="""The agent config."""
@@ -2707,10 +2732,7 @@ class EvaluationRunInferenceConfig(_common.BaseModel):
 
 
 class EvaluationRunInferenceConfigDict(TypedDict, total=False):
-    """This field is experimental and may change in future versions.
-
-    Configuration that describes an agent.
-    """
+    """Configuration that describes an agent."""
 
     agent_config: Optional[EvaluationRunAgentConfigDict]
     """The agent config."""
@@ -3470,23 +3492,21 @@ class EvalCase(_common.BaseModel):
     )
     intermediate_events: Optional[list[evals_types.Event]] = Field(
         default=None,
-        description="""This field is experimental and may change in future versions. Intermediate events of a single turn in an agent run or intermediate events of the last turn for multi-turn an agent run.""",
+        description="""Intermediate events of a single turn in an agent run or intermediate events of the last turn for multi-turn an agent run.""",
     )
     agent_info: Optional[evals_types.AgentInfo] = Field(
         default=None,
-        description="""This field is experimental and may change in future versions. The agent info of the agent under evaluation. This can be extended for multi-agent evaluation.""",
+        description="""The agent info of the agent under evaluation. This can be extended for multi-agent evaluation.""",
     )
     agent_data: Optional[evals_types.AgentData] = Field(
-        default=None,
-        description="""This field is experimental and may change in future versions. The agent data of the agent under evaluation.""",
+        default=None, description="""The agent data of the agent under evaluation."""
     )
     user_scenario: Optional[evals_types.UserScenario] = Field(
-        default=None,
-        description="""This field is experimental and may change in future versions. The user scenario for the evaluation case.""",
+        default=None, description="""The user scenario for the evaluation case."""
     )
     interactions_data_source: Optional[InteractionsDataSource] = Field(
         default=None,
-        description="""This field is experimental and may change in future versions. Source for populating agent data from an Interactions API interaction. When set, the backend fetches the interaction (and the Gemini Agent config) and parses it into agent data for evaluation; agent_data must not also be set.""",
+        description="""Source for populating agent data from an Interactions API interaction. When set, the backend fetches the interaction (and the Gemini Agent config) and parses it into agent data for evaluation; agent_data must not also be set.""",
     )
     # Allow extra fields to support custom metric prompts and stay backward compatible.
     model_config = ConfigDict(frozen=True, extra="allow")
@@ -3517,19 +3537,19 @@ class EvalCaseDict(TypedDict, total=False):
     """Unique identifier for the evaluation case."""
 
     intermediate_events: Optional[list[evals_types.Event]]
-    """This field is experimental and may change in future versions. Intermediate events of a single turn in an agent run or intermediate events of the last turn for multi-turn an agent run."""
+    """Intermediate events of a single turn in an agent run or intermediate events of the last turn for multi-turn an agent run."""
 
     agent_info: Optional[evals_types.AgentInfo]
-    """This field is experimental and may change in future versions. The agent info of the agent under evaluation. This can be extended for multi-agent evaluation."""
+    """The agent info of the agent under evaluation. This can be extended for multi-agent evaluation."""
 
     agent_data: Optional[evals_types.AgentData]
-    """This field is experimental and may change in future versions. The agent data of the agent under evaluation."""
+    """The agent data of the agent under evaluation."""
 
     user_scenario: Optional[evals_types.UserScenario]
-    """This field is experimental and may change in future versions. The user scenario for the evaluation case."""
+    """The user scenario for the evaluation case."""
 
     interactions_data_source: Optional[InteractionsDataSourceDict]
-    """This field is experimental and may change in future versions. Source for populating agent data from an Interactions API interaction. When set, the backend fetches the interaction (and the Gemini Agent config) and parses it into agent data for evaluation; agent_data must not also be set."""
+    """Source for populating agent data from an Interactions API interaction. When set, the backend fetches the interaction (and the Gemini Agent config) and parses it into agent data for evaluation; agent_data must not also be set."""
 
 
 EvalCaseOrDict = Union[EvalCase, EvalCaseDict]
@@ -3712,7 +3732,7 @@ class EvaluationResult(_common.BaseModel):
     )
     agent_info: Optional[evals_types.AgentInfo] = Field(
         default=None,
-        description="""This field is experimental and may change in future versions. The agent info of the agent under evaluation. This can be extended for multi-agent evaluation.""",
+        description="""The agent info of the agent under evaluation. This can be extended for multi-agent evaluation.""",
     )
 
     def show(self, candidate_names: Optional[List[str]] = None) -> None:
@@ -3746,7 +3766,7 @@ class EvaluationResultDict(TypedDict, total=False):
     """Metadata for the evaluation run."""
 
     agent_info: Optional[evals_types.AgentInfo]
-    """This field is experimental and may change in future versions. The agent info of the agent under evaluation. This can be extended for multi-agent evaluation."""
+    """The agent info of the agent under evaluation. This can be extended for multi-agent evaluation."""
 
 
 EvaluationResultOrDict = Union[EvaluationResult, EvaluationResultDict]
@@ -3781,8 +3801,7 @@ class EvaluationRun(_common.BaseModel):
         default=None, description="""The evaluation config for the evaluation run."""
     )
     inference_configs: Optional[dict[str, EvaluationRunInferenceConfig]] = Field(
-        default=None,
-        description="""This field is experimental and may change in future versions. The inference configs for the evaluation run.""",
+        default=None, description="""The inference configs for the evaluation run."""
     )
     labels: Optional[dict[str, str]] = Field(default=None, description="""""")
     analysis_configs: Optional[list[AnalysisConfig]] = Field(
@@ -3884,7 +3903,7 @@ class EvaluationRunDict(TypedDict, total=False):
     """The evaluation config for the evaluation run."""
 
     inference_configs: Optional[dict[str, EvaluationRunInferenceConfigDict]]
-    """This field is experimental and may change in future versions. The inference configs for the evaluation run."""
+    """The inference configs for the evaluation run."""
 
     labels: Optional[dict[str, str]]
     """"""
@@ -23558,6 +23577,1041 @@ _GetPublisherModelRequestParametersOrDict = Union[
 ]
 
 
+class RecommendSpecConfig(_common.BaseModel):
+    """Config for recommending spec."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    check_machine_availability: Optional[bool] = Field(
+        default=None,
+        description="""Whether to check per-region machine availability.""",
+    )
+    check_user_quota: Optional[bool] = Field(
+        default=None,
+        description="""Whether to filter to regions with user accelerator quota.""",
+    )
+
+
+class RecommendSpecConfigDict(TypedDict, total=False):
+    """Config for recommending spec."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    check_machine_availability: Optional[bool]
+    """Whether to check per-region machine availability."""
+
+    check_user_quota: Optional[bool]
+    """Whether to filter to regions with user accelerator quota."""
+
+
+RecommendSpecConfigOrDict = Union[RecommendSpecConfig, RecommendSpecConfigDict]
+
+
+class _RecommendSpecRequestParameters(_common.BaseModel):
+    """Parameters for recommending spec."""
+
+    parent: Optional[str] = Field(default=None, description="""""")
+    gcs_uri: Optional[str] = Field(default=None, description="""""")
+    config: Optional[RecommendSpecConfig] = Field(default=None, description="""""")
+
+
+class _RecommendSpecRequestParametersDict(TypedDict, total=False):
+    """Parameters for recommending spec."""
+
+    parent: Optional[str]
+    """"""
+
+    gcs_uri: Optional[str]
+    """"""
+
+    config: Optional[RecommendSpecConfigDict]
+    """"""
+
+
+_RecommendSpecRequestParametersOrDict = Union[
+    _RecommendSpecRequestParameters, _RecommendSpecRequestParametersDict
+]
+
+
+class RecommendSpecResponseMachineAndModelContainerSpec(_common.BaseModel):
+    """A machine and model container spec."""
+
+    container_spec: Optional[ModelContainerSpec] = Field(
+        default=None, description="""Output only. The model container spec."""
+    )
+    machine_spec: Optional[MachineSpec] = Field(
+        default=None, description="""Output only. The machine spec."""
+    )
+
+
+class RecommendSpecResponseMachineAndModelContainerSpecDict(TypedDict, total=False):
+    """A machine and model container spec."""
+
+    container_spec: Optional[ModelContainerSpecDict]
+    """Output only. The model container spec."""
+
+    machine_spec: Optional[MachineSpecDict]
+    """Output only. The machine spec."""
+
+
+RecommendSpecResponseMachineAndModelContainerSpecOrDict = Union[
+    RecommendSpecResponseMachineAndModelContainerSpec,
+    RecommendSpecResponseMachineAndModelContainerSpecDict,
+]
+
+
+class RecommendSpecResponseRecommendation(_common.BaseModel):
+    """Recommendation of one deployment option for the given custom weights model in one region. Contains the machine and container spec, and user accelerator quota state."""
+
+    region: Optional[str] = Field(
+        default=None, description="""The region for the deployment spec (machine)."""
+    )
+    spec: Optional[RecommendSpecResponseMachineAndModelContainerSpec] = Field(
+        default=None,
+        description="""Output only. The machine and model container specs.""",
+    )
+    user_quota_state: Optional[QuotaState] = Field(
+        default=None, description="""Output only. The user accelerator quota state."""
+    )
+
+
+class RecommendSpecResponseRecommendationDict(TypedDict, total=False):
+    """Recommendation of one deployment option for the given custom weights model in one region. Contains the machine and container spec, and user accelerator quota state."""
+
+    region: Optional[str]
+    """The region for the deployment spec (machine)."""
+
+    spec: Optional[RecommendSpecResponseMachineAndModelContainerSpecDict]
+    """Output only. The machine and model container specs."""
+
+    user_quota_state: Optional[QuotaState]
+    """Output only. The user accelerator quota state."""
+
+
+RecommendSpecResponseRecommendationOrDict = Union[
+    RecommendSpecResponseRecommendation, RecommendSpecResponseRecommendationDict
+]
+
+
+class RecommendSpecResponse(_common.BaseModel):
+    """Response for recommending spec."""
+
+    base_model: Optional[str] = Field(
+        default=None,
+        description="""Output only. The base model used to finetune the custom model.""",
+    )
+    recommendations: Optional[list[RecommendSpecResponseRecommendation]] = Field(
+        default=None,
+        description="""Output only. Recommendations of deployment options for the given custom weights model.""",
+    )
+    specs: Optional[list[RecommendSpecResponseMachineAndModelContainerSpec]] = Field(
+        default=None,
+        description="""Output only. The machine and model container specs.""",
+    )
+
+
+class RecommendSpecResponseDict(TypedDict, total=False):
+    """Response for recommending spec."""
+
+    base_model: Optional[str]
+    """Output only. The base model used to finetune the custom model."""
+
+    recommendations: Optional[list[RecommendSpecResponseRecommendationDict]]
+    """Output only. Recommendations of deployment options for the given custom weights model."""
+
+    specs: Optional[list[RecommendSpecResponseMachineAndModelContainerSpecDict]]
+    """Output only. The machine and model container specs."""
+
+
+RecommendSpecResponseOrDict = Union[RecommendSpecResponse, RecommendSpecResponseDict]
+
+
+class CreateRuntimeFeedbackEntryConfig(_common.BaseModel):
+    """Config for creating a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    feedback_labels: Optional[list[str]] = Field(
+        default=None,
+        description="""Specific labels for feedback (non-factual, offensive, etc.).""",
+    )
+    feedback_text: Optional[str] = Field(
+        default=None,
+        description="""Qualitative free-form comments provided by the user.""",
+    )
+    user_id: Optional[str] = Field(
+        default=None, description="""User provided identifier."""
+    )
+    source: Optional[str] = Field(
+        default=None, description="""Originating UI surface (e.g. 'ADK Web UI')."""
+    )
+    custom_metadata: Optional[dict[str, str]] = Field(
+        default=None,
+        description=""" Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc.""",
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class CreateRuntimeFeedbackEntryConfigDict(TypedDict, total=False):
+    """Config for creating a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    feedback_labels: Optional[list[str]]
+    """Specific labels for feedback (non-factual, offensive, etc.)."""
+
+    feedback_text: Optional[str]
+    """Qualitative free-form comments provided by the user."""
+
+    user_id: Optional[str]
+    """User provided identifier."""
+
+    source: Optional[str]
+    """Originating UI surface (e.g. 'ADK Web UI')."""
+
+    custom_metadata: Optional[dict[str, str]]
+    """ Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+CreateRuntimeFeedbackEntryConfigOrDict = Union[
+    CreateRuntimeFeedbackEntryConfig, CreateRuntimeFeedbackEntryConfigDict
+]
+
+
+class _CreateRuntimeFeedbackEntryRequestParameters(_common.BaseModel):
+    """Parameters for creating a Feedback Entry."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Resource name of the Runtime to create the Feedback Entry in.""",
+    )
+    feedback_type: Optional[FeedbackType] = Field(
+        default=None, description="""The type of feedback provided."""
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="""The ID of the session to which the feedback relates to.""",
+    )
+    event_id: Optional[str] = Field(
+        default=None,
+        description="""The ID of the event to which the feedback relates to.""",
+    )
+    config: Optional[CreateRuntimeFeedbackEntryConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _CreateRuntimeFeedbackEntryRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating a Feedback Entry."""
+
+    name: Optional[str]
+    """Resource name of the Runtime to create the Feedback Entry in."""
+
+    feedback_type: Optional[FeedbackType]
+    """The type of feedback provided."""
+
+    session_id: Optional[str]
+    """The ID of the session to which the feedback relates to."""
+
+    event_id: Optional[str]
+    """The ID of the event to which the feedback relates to."""
+
+    config: Optional[CreateRuntimeFeedbackEntryConfigDict]
+    """"""
+
+
+_CreateRuntimeFeedbackEntryRequestParametersOrDict = Union[
+    _CreateRuntimeFeedbackEntryRequestParameters,
+    _CreateRuntimeFeedbackEntryRequestParametersDict,
+]
+
+
+class FeedbackEntry(_common.BaseModel):
+    """A Feedback Entry."""
+
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when the feedback entry was created.""",
+    )
+    custom_metadata: Optional[dict[str, str]] = Field(
+        default=None,
+        description="""Optional. Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc.""",
+    )
+    event_id: Optional[str] = Field(
+        default=None,
+        description="""Required. The ID of the event to which the feedback relates to.""",
+    )
+    feedback_labels: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. Specific labels for feedback (non-factual, offensive, etc.).""",
+    )
+    feedback_text: Optional[str] = Field(
+        default=None,
+        description="""Optional. Qualitative free-form comments provided by the user.""",
+    )
+    feedback_type: Optional[FeedbackType] = Field(
+        default=None, description="""Required. The type of feedback provided."""
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the feedback entry. Format: 'projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}'.""",
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="""Required. The ID of the session to which the feedback relates to.""",
+    )
+    source: Optional[str] = Field(
+        default=None,
+        description="""Optional. Originating UI surface (e.g. 'ADK Web UI').""",
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when the feedback entry was last updated.""",
+    )
+    user_id: Optional[str] = Field(
+        default=None, description="""Optional. User provided identifier."""
+    )
+
+
+class FeedbackEntryDict(TypedDict, total=False):
+    """A Feedback Entry."""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when the feedback entry was created."""
+
+    custom_metadata: Optional[dict[str, str]]
+    """Optional. Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc."""
+
+    event_id: Optional[str]
+    """Required. The ID of the event to which the feedback relates to."""
+
+    feedback_labels: Optional[list[str]]
+    """Optional. Specific labels for feedback (non-factual, offensive, etc.)."""
+
+    feedback_text: Optional[str]
+    """Optional. Qualitative free-form comments provided by the user."""
+
+    feedback_type: Optional[FeedbackType]
+    """Required. The type of feedback provided."""
+
+    name: Optional[str]
+    """Identifier. The resource name of the feedback entry. Format: 'projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}'."""
+
+    session_id: Optional[str]
+    """Required. The ID of the session to which the feedback relates to."""
+
+    source: Optional[str]
+    """Optional. Originating UI surface (e.g. 'ADK Web UI')."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. Timestamp when the feedback entry was last updated."""
+
+    user_id: Optional[str]
+    """Optional. User provided identifier."""
+
+
+FeedbackEntryOrDict = Union[FeedbackEntry, FeedbackEntryDict]
+
+
+class RuntimeFeedbackEntryOperation(_common.BaseModel):
+    """Operation that has a Runtime Feedback Entry as a response."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[FeedbackEntry] = Field(
+        default=None, description="""The Runtime Feedback Entry."""
+    )
+
+
+class RuntimeFeedbackEntryOperationDict(TypedDict, total=False):
+    """Operation that has a Runtime Feedback Entry as a response."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[FeedbackEntryDict]
+    """The Runtime Feedback Entry."""
+
+
+RuntimeFeedbackEntryOperationOrDict = Union[
+    RuntimeFeedbackEntryOperation, RuntimeFeedbackEntryOperationDict
+]
+
+
+class DeleteRuntimeFeedbackEntryConfig(_common.BaseModel):
+    """Config for deleting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class DeleteRuntimeFeedbackEntryConfigDict(TypedDict, total=False):
+    """Config for deleting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+DeleteRuntimeFeedbackEntryConfigOrDict = Union[
+    DeleteRuntimeFeedbackEntryConfig, DeleteRuntimeFeedbackEntryConfigDict
+]
+
+
+class _DeleteRuntimeFeedbackEntryRequestParameters(_common.BaseModel):
+    """Parameters for deleting a Feedback Entry."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the Feedback Entry to delete."""
+    )
+    config: Optional[DeleteRuntimeFeedbackEntryConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteRuntimeFeedbackEntryRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting a Feedback Entry."""
+
+    name: Optional[str]
+    """Name of the Feedback Entry to delete."""
+
+    config: Optional[DeleteRuntimeFeedbackEntryConfigDict]
+    """"""
+
+
+_DeleteRuntimeFeedbackEntryRequestParametersOrDict = Union[
+    _DeleteRuntimeFeedbackEntryRequestParameters,
+    _DeleteRuntimeFeedbackEntryRequestParametersDict,
+]
+
+
+class DeleteRuntimeFeedbackEntryOperation(_common.BaseModel):
+    """Operation for deleting a Feedback Entry."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteRuntimeFeedbackEntryOperationDict(TypedDict, total=False):
+    """Operation for deleting a Feedback Entry."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteRuntimeFeedbackEntryOperationOrDict = Union[
+    DeleteRuntimeFeedbackEntryOperation, DeleteRuntimeFeedbackEntryOperationDict
+]
+
+
+class GetRuntimeFeedbackConfig(_common.BaseModel):
+    """Config for getting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRuntimeFeedbackConfigDict(TypedDict, total=False):
+    """Config for getting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetRuntimeFeedbackConfigOrDict = Union[
+    GetRuntimeFeedbackConfig, GetRuntimeFeedbackConfigDict
+]
+
+
+class _GetRuntimeFeedbackRequestParameters(_common.BaseModel):
+    """Parameters for getting a Runtime Feedback Entry."""
+
+    name: Optional[str] = Field(
+        default=None, description="""The name of the feedback entry to retrieve."""
+    )
+    config: Optional[GetRuntimeFeedbackConfig] = Field(default=None, description="""""")
+
+
+class _GetRuntimeFeedbackRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a Runtime Feedback Entry."""
+
+    name: Optional[str]
+    """The name of the feedback entry to retrieve."""
+
+    config: Optional[GetRuntimeFeedbackConfigDict]
+    """"""
+
+
+_GetRuntimeFeedbackRequestParametersOrDict = Union[
+    _GetRuntimeFeedbackRequestParameters, _GetRuntimeFeedbackRequestParametersDict
+]
+
+
+class ListRuntimeFeedbackEntriesConfig(_common.BaseModel):
+    """Config for listing Feedback Entries."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.""",
+    )
+    order_by: Optional[str] = Field(
+        default=None, description="""A comma-separated list of fields to order by."""
+    )
+
+
+class ListRuntimeFeedbackEntriesConfigDict(TypedDict, total=False):
+    """Config for listing Feedback Entries."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request."""
+
+    order_by: Optional[str]
+    """A comma-separated list of fields to order by."""
+
+
+ListRuntimeFeedbackEntriesConfigOrDict = Union[
+    ListRuntimeFeedbackEntriesConfig, ListRuntimeFeedbackEntriesConfigDict
+]
+
+
+class _ListRuntimeFeedbackEntriesRequestParameters(_common.BaseModel):
+    """Parameters for listing Feedback Entries."""
+
+    parent: Optional[str] = Field(
+        default=None,
+        description="""Resource name of the Runtime to list the Feedback Entries from.""",
+    )
+    config: Optional[ListRuntimeFeedbackEntriesConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ListRuntimeFeedbackEntriesRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing Feedback Entries."""
+
+    parent: Optional[str]
+    """Resource name of the Runtime to list the Feedback Entries from."""
+
+    config: Optional[ListRuntimeFeedbackEntriesConfigDict]
+    """"""
+
+
+_ListRuntimeFeedbackEntriesRequestParametersOrDict = Union[
+    _ListRuntimeFeedbackEntriesRequestParameters,
+    _ListRuntimeFeedbackEntriesRequestParametersDict,
+]
+
+
+class ListRuntimeFeedbackEntriesResponse(_common.BaseModel):
+    """Response for listing Feedback Entries."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    feedback_entries: Optional[list[FeedbackEntry]] = Field(
+        default=None, description="""List of Feedback Entries."""
+    )
+
+
+class ListRuntimeFeedbackEntriesResponseDict(TypedDict, total=False):
+    """Response for listing Feedback Entries."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    feedback_entries: Optional[list[FeedbackEntryDict]]
+    """List of Feedback Entries."""
+
+
+ListRuntimeFeedbackEntriesResponseOrDict = Union[
+    ListRuntimeFeedbackEntriesResponse, ListRuntimeFeedbackEntriesResponseDict
+]
+
+
+class UpdateRuntimeFeedbackEntryConfig(_common.BaseModel):
+    """Config for updating a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    update_mask: Optional[str] = Field(
+        default=None,
+        description="""The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask.""",
+    )
+    feedback_type: Optional[FeedbackType] = Field(
+        default=None, description="""The type of feedback provided."""
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="""The ID of the session to which the feedback relates to.""",
+    )
+    event_id: Optional[str] = Field(
+        default=None,
+        description="""The ID of the event to which the feedback relates to.""",
+    )
+    feedback_labels: Optional[list[str]] = Field(
+        default=None,
+        description="""Specific labels for feedback (non-factual, offensive, etc.).""",
+    )
+    feedback_text: Optional[str] = Field(
+        default=None,
+        description="""Qualitative free-form comments provided by the user.""",
+    )
+    user_id: Optional[str] = Field(
+        default=None, description="""User provided identifier."""
+    )
+    source: Optional[str] = Field(
+        default=None, description="""Originating UI surface (e.g. 'ADK Web UI')."""
+    )
+    custom_metadata: Optional[dict[str, str]] = Field(
+        default=None,
+        description=""" Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc.""",
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class UpdateRuntimeFeedbackEntryConfigDict(TypedDict, total=False):
+    """Config for updating a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    update_mask: Optional[str]
+    """The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask."""
+
+    feedback_type: Optional[FeedbackType]
+    """The type of feedback provided."""
+
+    session_id: Optional[str]
+    """The ID of the session to which the feedback relates to."""
+
+    event_id: Optional[str]
+    """The ID of the event to which the feedback relates to."""
+
+    feedback_labels: Optional[list[str]]
+    """Specific labels for feedback (non-factual, offensive, etc.)."""
+
+    feedback_text: Optional[str]
+    """Qualitative free-form comments provided by the user."""
+
+    user_id: Optional[str]
+    """User provided identifier."""
+
+    source: Optional[str]
+    """Originating UI surface (e.g. 'ADK Web UI')."""
+
+    custom_metadata: Optional[dict[str, str]]
+    """ Additional key-value metadata associated with the feedback. Allows the collect data for which there is no dedicated field in the resource, ex. version, LLM temperature etc."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+UpdateRuntimeFeedbackEntryConfigOrDict = Union[
+    UpdateRuntimeFeedbackEntryConfig, UpdateRuntimeFeedbackEntryConfigDict
+]
+
+
+class _UpdateRuntimeFeedbackEntryRequestParameters(_common.BaseModel):
+    """Parameters for updating a Feedback Entry."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the Feedback Entry."""
+    )
+    config: Optional[UpdateRuntimeFeedbackEntryConfig] = Field(
+        default=None, description="""Config for updating a Feedback Entry."""
+    )
+
+
+class _UpdateRuntimeFeedbackEntryRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating a Feedback Entry."""
+
+    name: Optional[str]
+    """Name of the Feedback Entry."""
+
+    config: Optional[UpdateRuntimeFeedbackEntryConfigDict]
+    """Config for updating a Feedback Entry."""
+
+
+_UpdateRuntimeFeedbackEntryRequestParametersOrDict = Union[
+    _UpdateRuntimeFeedbackEntryRequestParameters,
+    _UpdateRuntimeFeedbackEntryRequestParametersDict,
+]
+
+
+class GetRuntimeFeedbackEntryConfig(_common.BaseModel):
+    """Config for getting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRuntimeFeedbackEntryConfigDict(TypedDict, total=False):
+    """Config for getting a Feedback Entry."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetRuntimeFeedbackEntryConfigOrDict = Union[
+    GetRuntimeFeedbackEntryConfig, GetRuntimeFeedbackEntryConfigDict
+]
+
+
+class _GetRuntimeFeedbackOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation with a Feedback Entry as a response."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetRuntimeFeedbackEntryConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetRuntimeFeedbackOperationParametersDict(TypedDict, total=False):
+    """Parameters for getting an operation with a Feedback Entry as a response."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetRuntimeFeedbackEntryConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetRuntimeFeedbackOperationParametersOrDict = Union[
+    _GetRuntimeFeedbackOperationParameters, _GetRuntimeFeedbackOperationParametersDict
+]
+
+
+class GetRuntimeFeedbackContextConfig(_common.BaseModel):
+    """Config for getting a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRuntimeFeedbackContextConfigDict(TypedDict, total=False):
+    """Config for getting a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetRuntimeFeedbackContextConfigOrDict = Union[
+    GetRuntimeFeedbackContextConfig, GetRuntimeFeedbackContextConfigDict
+]
+
+
+class _GetRuntimeFeedbackContextRequestParameters(_common.BaseModel):
+    """Parameters for getting a Runtime Feedback Context."""
+
+    name: Optional[str] = Field(
+        default=None, description="""The name of the Feedback Context to retrieve."""
+    )
+    config: Optional[GetRuntimeFeedbackContextConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetRuntimeFeedbackContextRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a Runtime Feedback Context."""
+
+    name: Optional[str]
+    """The name of the Feedback Context to retrieve."""
+
+    config: Optional[GetRuntimeFeedbackContextConfigDict]
+    """"""
+
+
+_GetRuntimeFeedbackContextRequestParametersOrDict = Union[
+    _GetRuntimeFeedbackContextRequestParameters,
+    _GetRuntimeFeedbackContextRequestParametersDict,
+]
+
+
+class FeedbackContext(_common.BaseModel):
+    """A Feedback Context."""
+
+    context_events: Optional[list[SessionEvent]] = Field(
+        default=None,
+        description="""Optional. Events from the conversation relevant to the parent feedback entry.""",
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the feedback context. Format: 'projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}/feedbackContext'.""",
+    )
+
+
+class FeedbackContextDict(TypedDict, total=False):
+    """A Feedback Context."""
+
+    context_events: Optional[list[SessionEventDict]]
+    """Optional. Events from the conversation relevant to the parent feedback entry."""
+
+    name: Optional[str]
+    """Identifier. The resource name of the feedback context. Format: 'projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}/feedbackContext'."""
+
+
+FeedbackContextOrDict = Union[FeedbackContext, FeedbackContextDict]
+
+
+class GetRuntimeFeedbackContextOperationConfig(_common.BaseModel):
+    """Config for getting a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRuntimeFeedbackContextOperationConfigDict(TypedDict, total=False):
+    """Config for getting a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetRuntimeFeedbackContextOperationConfigOrDict = Union[
+    GetRuntimeFeedbackContextOperationConfig,
+    GetRuntimeFeedbackContextOperationConfigDict,
+]
+
+
+class _GetRuntimeFeedbackContextOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation with a Feedback Context as a response."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetRuntimeFeedbackContextOperationConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetRuntimeFeedbackContextOperationParametersDict(TypedDict, total=False):
+    """Parameters for getting an operation with a Feedback Context as a response."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetRuntimeFeedbackContextOperationConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetRuntimeFeedbackContextOperationParametersOrDict = Union[
+    _GetRuntimeFeedbackContextOperationParameters,
+    _GetRuntimeFeedbackContextOperationParametersDict,
+]
+
+
+class RuntimeFeedbackContextOperation(_common.BaseModel):
+    """Operation that has a Runtime Feedback Context as a response."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[FeedbackContext] = Field(
+        default=None, description="""The Runtime Feedback Context."""
+    )
+
+
+class RuntimeFeedbackContextOperationDict(TypedDict, total=False):
+    """Operation that has a Runtime Feedback Context as a response."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[FeedbackContextDict]
+    """The Runtime Feedback Context."""
+
+
+RuntimeFeedbackContextOperationOrDict = Union[
+    RuntimeFeedbackContextOperation, RuntimeFeedbackContextOperationDict
+]
+
+
+class UpdateRuntimeFeedbackContextConfig(_common.BaseModel):
+    """Config for updating a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    update_mask: Optional[str] = Field(
+        default=None,
+        description="""The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask.""",
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class UpdateRuntimeFeedbackContextConfigDict(TypedDict, total=False):
+    """Config for updating a Feedback Context."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    update_mask: Optional[str]
+    """The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+UpdateRuntimeFeedbackContextConfigOrDict = Union[
+    UpdateRuntimeFeedbackContextConfig, UpdateRuntimeFeedbackContextConfigDict
+]
+
+
+class _UpdateRuntimeFeedbackContextRequestParameters(_common.BaseModel):
+    """Parameters for updating a Feedback Context."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the Feedback Context. Format: projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}/feedbackContext""",
+    )
+    context_events: Optional[list[SessionEvent]] = Field(
+        default=None,
+        description="""Events from the conversation relevant to the parent Feedback Entry.""",
+    )
+    config: Optional[UpdateRuntimeFeedbackContextConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _UpdateRuntimeFeedbackContextRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating a Feedback Context."""
+
+    name: Optional[str]
+    """Name of the Feedback Context. Format: projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/feedbackEntries/{feedback_entry}/feedbackContext"""
+
+    context_events: Optional[list[SessionEventDict]]
+    """Events from the conversation relevant to the parent Feedback Entry."""
+
+    config: Optional[UpdateRuntimeFeedbackContextConfigDict]
+    """"""
+
+
+_UpdateRuntimeFeedbackContextRequestParametersOrDict = Union[
+    _UpdateRuntimeFeedbackContextRequestParameters,
+    _UpdateRuntimeFeedbackContextRequestParametersDict,
+]
+
+
 class PromptOptimizerConfig(_common.BaseModel):
     """VAPO Prompt Optimizer Config."""
 
@@ -25663,6 +26717,56 @@ class ListPublisherModelDeployOptionsConfigDict(TypedDict, total=False):
 
 ListPublisherModelDeployOptionsConfigOrDict = Union[
     ListPublisherModelDeployOptionsConfig, ListPublisherModelDeployOptionsConfigDict
+]
+
+
+class ListCustomModelDeployOptionsConfig(_common.BaseModel):
+    """Config for listing custom model deploy options."""
+
+    filter_by_user_quota: Optional[bool] = Field(
+        default=True,
+        description="""Whether to filter recommendations to regions with user quota.
+
+      Only takes effect when ``check_machine_availability=True``; the specs
+      fallback returned when ``check_machine_availability=False`` carries no
+      per-region quota information, so this flag is ignored in that mode.
+      """,
+    )
+    check_machine_availability: Optional[bool] = Field(
+        default=True,
+        description="""Whether to check per-region machine availability.
+
+      When True (the default), the API returns per-region recommendations
+      that include the machine spec, region and user quota state. When
+      False, the API returns a flat list of specs without per-region or
+      quota information (and ``filter_by_user_quota`` has no effect).
+      """,
+    )
+
+
+class ListCustomModelDeployOptionsConfigDict(TypedDict, total=False):
+    """Config for listing custom model deploy options."""
+
+    filter_by_user_quota: Optional[bool]
+    """Whether to filter recommendations to regions with user quota.
+
+      Only takes effect when ``check_machine_availability=True``; the specs
+      fallback returned when ``check_machine_availability=False`` carries no
+      per-region quota information, so this flag is ignored in that mode.
+      """
+
+    check_machine_availability: Optional[bool]
+    """Whether to check per-region machine availability.
+
+      When True (the default), the API returns per-region recommendations
+      that include the machine spec, region and user quota state. When
+      False, the API returns a flat list of specs without per-region or
+      quota information (and ``filter_by_user_quota`` has no effect).
+      """
+
+
+ListCustomModelDeployOptionsConfigOrDict = Union[
+    ListCustomModelDeployOptionsConfig, ListCustomModelDeployOptionsConfigDict
 ]
 
 

@@ -97,6 +97,8 @@ from testmu._helpers import (
     get_vision_coordinates,
     scroll_until_element,
     textual_analyzer,
+    derive,
+    condition_compute,
     get_cookies,
     prime_dialog,
 )
@@ -178,4 +180,7 @@ __all__ = [
     "get_cookies",
     "prime_dialog",
     "AutohealExhausted",
+    # Derivation recompute helpers (recorded code_js re-evaluation)
+    "derive",
+    "condition_compute",
 ]

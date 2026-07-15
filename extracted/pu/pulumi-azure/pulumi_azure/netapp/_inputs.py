@@ -27,6 +27,16 @@ __all__ = [
     'SnapshotPolicyMonthlyScheduleArgsDict',
     'SnapshotPolicyWeeklyScheduleArgs',
     'SnapshotPolicyWeeklyScheduleArgsDict',
+    'VolumeBucketFileSystemNfsUserArgs',
+    'VolumeBucketFileSystemNfsUserArgsDict',
+    'VolumeBucketKeyVaultArgs',
+    'VolumeBucketKeyVaultArgsDict',
+    'VolumeBucketWithServerFileSystemNfsUserArgs',
+    'VolumeBucketWithServerFileSystemNfsUserArgsDict',
+    'VolumeBucketWithServerKeyVaultArgs',
+    'VolumeBucketWithServerKeyVaultArgsDict',
+    'VolumeBucketWithServerServerArgs',
+    'VolumeBucketWithServerServerArgsDict',
     'VolumeCoolAccessArgs',
     'VolumeCoolAccessArgsDict',
     'VolumeDataProtectionAdvancedRansomwareArgs',
@@ -706,6 +716,350 @@ class SnapshotPolicyWeeklyScheduleArgs:
         pulumi.set(self, "snapshots_to_keep", value)
 
 
+class VolumeBucketFileSystemNfsUserArgsDict(TypedDict):
+    group_id: pulumi.Input[_builtins.int]
+    """
+    The POSIX group ID used by the bucket when accessing volume data over NFS.
+    """
+    user_id: pulumi.Input[_builtins.int]
+    """
+    The POSIX user ID used by the bucket when accessing volume data over NFS.
+    """
+
+@pulumi.input_type
+class VolumeBucketFileSystemNfsUserArgs:
+    def __init__(__self__, *,
+                 group_id: pulumi.Input[_builtins.int],
+                 user_id: pulumi.Input[_builtins.int]):
+        """
+        :param pulumi.Input[_builtins.int] group_id: The POSIX group ID used by the bucket when accessing volume data over NFS.
+        :param pulumi.Input[_builtins.int] user_id: The POSIX user ID used by the bucket when accessing volume data over NFS.
+        """
+        pulumi.set(__self__, "group_id", group_id)
+        pulumi.set(__self__, "user_id", user_id)
+
+    @_builtins.property
+    @pulumi.getter(name="groupId")
+    def group_id(self) -> pulumi.Input[_builtins.int]:
+        """
+        The POSIX group ID used by the bucket when accessing volume data over NFS.
+        """
+        return pulumi.get(self, "group_id")
+
+    @group_id.setter
+    def group_id(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "group_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="userId")
+    def user_id(self) -> pulumi.Input[_builtins.int]:
+        """
+        The POSIX user ID used by the bucket when accessing volume data over NFS.
+        """
+        return pulumi.get(self, "user_id")
+
+    @user_id.setter
+    def user_id(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "user_id", value)
+
+
+class VolumeBucketKeyVaultArgsDict(TypedDict):
+    certificate_key_vault_uri: pulumi.Input[_builtins.str]
+    """
+    The URI of the Azure Key Vault that stores the bucket server certificate.
+    """
+    certificate_name: pulumi.Input[_builtins.str]
+    """
+    The name of the certificate object inside the Key Vault.
+    """
+    credentials_key_vault_uri: pulumi.Input[_builtins.str]
+    """
+    The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+    """
+    credentials_secret_name: pulumi.Input[_builtins.str]
+    """
+    The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+
+    > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+    """
+
+@pulumi.input_type
+class VolumeBucketKeyVaultArgs:
+    def __init__(__self__, *,
+                 certificate_key_vault_uri: pulumi.Input[_builtins.str],
+                 certificate_name: pulumi.Input[_builtins.str],
+                 credentials_key_vault_uri: pulumi.Input[_builtins.str],
+                 credentials_secret_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] certificate_key_vault_uri: The URI of the Azure Key Vault that stores the bucket server certificate.
+        :param pulumi.Input[_builtins.str] certificate_name: The name of the certificate object inside the Key Vault.
+        :param pulumi.Input[_builtins.str] credentials_key_vault_uri: The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+        :param pulumi.Input[_builtins.str] credentials_secret_name: The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+               
+               > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+        """
+        pulumi.set(__self__, "certificate_key_vault_uri", certificate_key_vault_uri)
+        pulumi.set(__self__, "certificate_name", certificate_name)
+        pulumi.set(__self__, "credentials_key_vault_uri", credentials_key_vault_uri)
+        pulumi.set(__self__, "credentials_secret_name", credentials_secret_name)
+
+    @_builtins.property
+    @pulumi.getter(name="certificateKeyVaultUri")
+    def certificate_key_vault_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The URI of the Azure Key Vault that stores the bucket server certificate.
+        """
+        return pulumi.get(self, "certificate_key_vault_uri")
+
+    @certificate_key_vault_uri.setter
+    def certificate_key_vault_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "certificate_key_vault_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="certificateName")
+    def certificate_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the certificate object inside the Key Vault.
+        """
+        return pulumi.get(self, "certificate_name")
+
+    @certificate_name.setter
+    def certificate_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "certificate_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsKeyVaultUri")
+    def credentials_key_vault_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+        """
+        return pulumi.get(self, "credentials_key_vault_uri")
+
+    @credentials_key_vault_uri.setter
+    def credentials_key_vault_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "credentials_key_vault_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsSecretName")
+    def credentials_secret_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+
+        > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+        """
+        return pulumi.get(self, "credentials_secret_name")
+
+    @credentials_secret_name.setter
+    def credentials_secret_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "credentials_secret_name", value)
+
+
+class VolumeBucketWithServerFileSystemNfsUserArgsDict(TypedDict):
+    group_id: pulumi.Input[_builtins.int]
+    """
+    The POSIX group ID used by the bucket when accessing volume data over NFS.
+    """
+    user_id: pulumi.Input[_builtins.int]
+    """
+    The POSIX user ID used by the bucket when accessing volume data over NFS.
+    """
+
+@pulumi.input_type
+class VolumeBucketWithServerFileSystemNfsUserArgs:
+    def __init__(__self__, *,
+                 group_id: pulumi.Input[_builtins.int],
+                 user_id: pulumi.Input[_builtins.int]):
+        """
+        :param pulumi.Input[_builtins.int] group_id: The POSIX group ID used by the bucket when accessing volume data over NFS.
+        :param pulumi.Input[_builtins.int] user_id: The POSIX user ID used by the bucket when accessing volume data over NFS.
+        """
+        pulumi.set(__self__, "group_id", group_id)
+        pulumi.set(__self__, "user_id", user_id)
+
+    @_builtins.property
+    @pulumi.getter(name="groupId")
+    def group_id(self) -> pulumi.Input[_builtins.int]:
+        """
+        The POSIX group ID used by the bucket when accessing volume data over NFS.
+        """
+        return pulumi.get(self, "group_id")
+
+    @group_id.setter
+    def group_id(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "group_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="userId")
+    def user_id(self) -> pulumi.Input[_builtins.int]:
+        """
+        The POSIX user ID used by the bucket when accessing volume data over NFS.
+        """
+        return pulumi.get(self, "user_id")
+
+    @user_id.setter
+    def user_id(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "user_id", value)
+
+
+class VolumeBucketWithServerKeyVaultArgsDict(TypedDict):
+    certificate_key_vault_uri: pulumi.Input[_builtins.str]
+    """
+    The URI of the Azure Key Vault that stores the bucket server certificate.
+    """
+    certificate_name: pulumi.Input[_builtins.str]
+    """
+    The name of the certificate object inside the Key Vault.
+    """
+    credentials_key_vault_uri: pulumi.Input[_builtins.str]
+    """
+    The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+    """
+    credentials_secret_name: pulumi.Input[_builtins.str]
+    """
+    The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+
+    > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+    """
+
+@pulumi.input_type
+class VolumeBucketWithServerKeyVaultArgs:
+    def __init__(__self__, *,
+                 certificate_key_vault_uri: pulumi.Input[_builtins.str],
+                 certificate_name: pulumi.Input[_builtins.str],
+                 credentials_key_vault_uri: pulumi.Input[_builtins.str],
+                 credentials_secret_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] certificate_key_vault_uri: The URI of the Azure Key Vault that stores the bucket server certificate.
+        :param pulumi.Input[_builtins.str] certificate_name: The name of the certificate object inside the Key Vault.
+        :param pulumi.Input[_builtins.str] credentials_key_vault_uri: The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+        :param pulumi.Input[_builtins.str] credentials_secret_name: The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+               
+               > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+        """
+        pulumi.set(__self__, "certificate_key_vault_uri", certificate_key_vault_uri)
+        pulumi.set(__self__, "certificate_name", certificate_name)
+        pulumi.set(__self__, "credentials_key_vault_uri", credentials_key_vault_uri)
+        pulumi.set(__self__, "credentials_secret_name", credentials_secret_name)
+
+    @_builtins.property
+    @pulumi.getter(name="certificateKeyVaultUri")
+    def certificate_key_vault_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The URI of the Azure Key Vault that stores the bucket server certificate.
+        """
+        return pulumi.get(self, "certificate_key_vault_uri")
+
+    @certificate_key_vault_uri.setter
+    def certificate_key_vault_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "certificate_key_vault_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="certificateName")
+    def certificate_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the certificate object inside the Key Vault.
+        """
+        return pulumi.get(self, "certificate_name")
+
+    @certificate_name.setter
+    def certificate_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "certificate_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsKeyVaultUri")
+    def credentials_key_vault_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The URI of the Azure Key Vault used to store the generated bucket access and secret keys. May be the same vault as `certificate_key_vault_uri` but the documentation recommends using two separate vaults.
+        """
+        return pulumi.get(self, "credentials_key_vault_uri")
+
+    @credentials_key_vault_uri.setter
+    def credentials_key_vault_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "credentials_key_vault_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsSecretName")
+    def credentials_secret_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the secret in `credentials_key_vault_uri` that stores the generated bucket credentials. The Key Vault secret value is a JSON document with `access_key_id` and `secret_access_key` properties.
+
+        > **Note:** When `key_vault` is used, the parent NetApp account must have a system-assigned managed identity (`identity { type = "SystemAssigned" }` on `netapp.Account`). That identity is the principal that needs Key Vault access. Grant it `Get, List, Update, Create, Import, ManageContacts, GetIssuers, ListIssuers, SetIssuers, DeleteIssuers` certificate permissions on `certificate_key_vault_uri` and `Get, List, Set, Delete` secret permissions on `credentials_key_vault_uri`.
+        """
+        return pulumi.get(self, "credentials_secret_name")
+
+    @credentials_secret_name.setter
+    def credentials_secret_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "credentials_secret_name", value)
+
+
+class VolumeBucketWithServerServerArgsDict(TypedDict):
+    fqdn: pulumi.Input[_builtins.str]
+    """
+    The DNS name that resolves to the bucket endpoint IP address.
+    """
+    certificate_pem: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Base64-encoded PEM blob containing the server certificate concatenated with the private key. Used when the certificate is supplied directly instead of via Key Vault. Mutually exclusive with `key_vault`.
+    """
+    on_certificate_conflict_action: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Behaviour when an existing certificate already matches during a certificate rotation. Possible values are `Update` and `Fail`. Defaults to `Fail`.
+    """
+
+@pulumi.input_type
+class VolumeBucketWithServerServerArgs:
+    def __init__(__self__, *,
+                 fqdn: pulumi.Input[_builtins.str],
+                 certificate_pem: pulumi.Input[Optional[_builtins.str]] = None,
+                 on_certificate_conflict_action: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] fqdn: The DNS name that resolves to the bucket endpoint IP address.
+        :param pulumi.Input[_builtins.str] certificate_pem: Base64-encoded PEM blob containing the server certificate concatenated with the private key. Used when the certificate is supplied directly instead of via Key Vault. Mutually exclusive with `key_vault`.
+        :param pulumi.Input[_builtins.str] on_certificate_conflict_action: Behaviour when an existing certificate already matches during a certificate rotation. Possible values are `Update` and `Fail`. Defaults to `Fail`.
+        """
+        pulumi.set(__self__, "fqdn", fqdn)
+        if certificate_pem is not None:
+            pulumi.set(__self__, "certificate_pem", certificate_pem)
+        if on_certificate_conflict_action is not None:
+            pulumi.set(__self__, "on_certificate_conflict_action", on_certificate_conflict_action)
+
+    @_builtins.property
+    @pulumi.getter
+    def fqdn(self) -> pulumi.Input[_builtins.str]:
+        """
+        The DNS name that resolves to the bucket endpoint IP address.
+        """
+        return pulumi.get(self, "fqdn")
+
+    @fqdn.setter
+    def fqdn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "fqdn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="certificatePem")
+    def certificate_pem(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Base64-encoded PEM blob containing the server certificate concatenated with the private key. Used when the certificate is supplied directly instead of via Key Vault. Mutually exclusive with `key_vault`.
+        """
+        return pulumi.get(self, "certificate_pem")
+
+    @certificate_pem.setter
+    def certificate_pem(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "certificate_pem", value)
+
+    @_builtins.property
+    @pulumi.getter(name="onCertificateConflictAction")
+    def on_certificate_conflict_action(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Behaviour when an existing certificate already matches during a certificate rotation. Possible values are `Update` and `Fail`. Defaults to `Fail`.
+        """
+        return pulumi.get(self, "on_certificate_conflict_action")
+
+    @on_certificate_conflict_action.setter
+    def on_certificate_conflict_action(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "on_certificate_conflict_action", value)
+
+
 class VolumeCoolAccessArgsDict(TypedDict):
     coolness_period_in_days: pulumi.Input[_builtins.int]
     """
@@ -1371,7 +1725,7 @@ class VolumeGroupOracleVolumeArgsDict(TypedDict):
     """
     proximity_placement_group_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost. 
+    The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost.
 
     > **Note:** For Oracle application, it is required to have PPG enabled so Azure NetApp Files can pin the volumes next to your compute resources, please check [Requirements and considerations for application volume group for Oracle](https://learn.microsoft.com/en-us/azure/azure-netapp-files/application-volume-group-oracle-considerations) for details and other requirements. Note that this cannot be used together with `zone`.
     """
@@ -1430,7 +1784,7 @@ class VolumeGroupOracleVolumeArgs:
         :param pulumi.Input[_builtins.str] id: The ID of the Application Volume Group.
         :param pulumi.Input[_builtins.str] key_vault_private_endpoint_id: The Private Endpoint ID for Key Vault, which is required when using customer-managed keys. This is required with `encryption_key_source`. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] network_features: Indicates which network feature to use, Possible values are `Basic`, `Basic_Standard`, `Standard` and `Standard_Basic`. It defaults to `Basic` if not defined. This is a feature in public preview and for more information about it and how to register, please refer to [Configure network features for an Azure NetApp Files volume](https://docs.microsoft.com/en-us/azure/azure-netapp-files/configure-network-features). This is required if enabling customer managed keys encryption scenario.
-        :param pulumi.Input[_builtins.str] proximity_placement_group_id: The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost. 
+        :param pulumi.Input[_builtins.str] proximity_placement_group_id: The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost.
                
                > **Note:** For Oracle application, it is required to have PPG enabled so Azure NetApp Files can pin the volumes next to your compute resources, please check [Requirements and considerations for application volume group for Oracle](https://learn.microsoft.com/en-us/azure/azure-netapp-files/application-volume-group-oracle-considerations) for details and other requirements. Note that this cannot be used together with `zone`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to the Application Volume Group.
@@ -1700,7 +2054,7 @@ class VolumeGroupOracleVolumeArgs:
     @pulumi.getter(name="proximityPlacementGroupId")
     def proximity_placement_group_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost. 
+        The ID of the proximity placement group (PPG). Changing this forces a new Application Volume Group to be created and data will be lost.
 
         > **Note:** For Oracle application, it is required to have PPG enabled so Azure NetApp Files can pin the volumes next to your compute resources, please check [Requirements and considerations for application volume group for Oracle](https://learn.microsoft.com/en-us/azure/azure-netapp-files/application-volume-group-oracle-considerations) for details and other requirements. Note that this cannot be used together with `zone`.
         """

@@ -124,29 +124,33 @@ class InteractiveSessionPolicy(SessionPolicy):
 
 
 class HeadlessSessionPolicy(SessionPolicy):
-    """Autonomous mode — bounded execution, no human in the loop.
+    """Autonomous mode with an optional step budget and no human in the loop.
 
     The runtime reads ``is_autonomous=True`` and resolves
     ``ask_user()`` to ``deny`` instantly without touching any
-    transport. ``max_steps`` is enforced by an ``AgentStep`` hook that
-    emits ``Finish(reason="max_steps=N reached")`` once the turn has
-    run ``max_steps`` react cycles. The reset on ``AgentStart`` makes
-    the counter per-turn rather than per-session, so a long chat with
-    multiple turns each gets the full budget.
+    transport. When set, ``max_steps`` is enforced by an ``AgentStep`` hook
+    that emits ``Finish(reason="max_steps=N reached")`` once the turn has run
+    ``max_steps`` react cycles. Explicit ``None`` keeps the session autonomous
+    without adding a policy step ceiling. The reset on ``AgentStart`` makes the
+    counter per-turn rather than per-session, so a long chat with multiple turns
+    each gets the full budget.
     """
 
     name: t.ClassVar[str] = "headless"
     is_autonomous: t.ClassVar[bool] = True
     display_label: t.ClassVar[str] = "auto"
 
-    max_steps: int = Field(default=30, gt=0)
+    max_steps: int | None = Field(default=30, gt=0)
 
     _count: int = PrivateAttr(default=0)
 
     def required_facets(self) -> "set[PolicyFacet]":
         from dreadnode.agents.engines.base import PolicyFacet
 
-        return super().required_facets() | {PolicyFacet.STEP_BUDGET}
+        facets = super().required_facets()
+        if self.max_steps is not None:
+            facets.add(PolicyFacet.STEP_BUDGET)
+        return facets
 
     @hook(AgentStart)
     async def reset_step_count(self, _event: AgentStart) -> None:
@@ -154,6 +158,8 @@ class HeadlessSessionPolicy(SessionPolicy):
 
     @hook(AgentStep)
     async def stop_on_max_steps(self, _event: AgentStep) -> Finish | None:
+        if self.max_steps is None:
+            return None
         self._count += 1
         if self._count >= self.max_steps:
             return Finish(reason=f"max_steps={self.max_steps} reached")

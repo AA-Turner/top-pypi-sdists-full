@@ -3,7 +3,22 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from capsule_sdk._kms_signer import CLOUD_AWS, CLOUD_GCP
 from capsule_sdk._version import __version__
+
+
+def _default_kms_key_name(cloud_provider: str, tenant_id: str) -> str | None:
+    """Derives the default attestation key name for a tenant.
+
+    GCP: the Cloud KMS resource path. AWS: no safe default (the key ARN/alias
+    depends on account and region), so it must be provided explicitly.
+    """
+    if cloud_provider == CLOUD_AWS:
+        return None
+    return (
+        f"projects/{tenant_id}/locations/global/keyRings/capsule"
+        f"/cryptoKeys/capsule-attestation/cryptoKeyVersions/1"
+    )
 
 
 @dataclass(frozen=True)
@@ -12,6 +27,7 @@ class ConnectionConfig:
 
     control_plane_addr: str
     kms_key_name: str | None
+    cloud_provider: str
     tenant_id: str
     api_proxy_addr: str
     request_timeout: float
@@ -30,6 +46,7 @@ class ConnectionConfig:
         *,
         control_plane_addr: str | None = None,
         kms_key_name: str | None = None,
+        cloud_provider: str | None = None,
         tenant_id: str,
         api_proxy_addr: str | None = None,
         timeout: float = 30.0,
@@ -45,12 +62,11 @@ class ConnectionConfig:
         if not resolved_tenant_id:
             raise ValueError("tenant_id is required. Pass it directly or set CAPSULE_TENANT_ID.")
 
+        resolved_cloud_provider = cloud_provider or os.environ.get("CAPSULE_CLOUD_PROVIDER") or CLOUD_GCP
+
         resolved_kms_key_name = kms_key_name or os.environ.get("CAPSULE_KMS_KEY_NAME")
         if not resolved_kms_key_name:
-            resolved_kms_key_name = (
-                f"projects/{resolved_tenant_id}/locations/global/keyRings/capsule"
-                f"/cryptoKeys/capsule-attestation/cryptoKeyVersions/1"
-            )
+            resolved_kms_key_name = _default_kms_key_name(resolved_cloud_provider, resolved_tenant_id)
 
         resolved_api_proxy_addr = (api_proxy_addr or os.environ.get("CAPSULE_API_PROXY_ADDR", "")).rstrip("/")
         resolved_request_timeout = (
@@ -70,6 +86,7 @@ class ConnectionConfig:
         return cls(
             control_plane_addr=resolved_control_plane_addr,
             kms_key_name=resolved_kms_key_name,
+            cloud_provider=resolved_cloud_provider,
             tenant_id=resolved_tenant_id,
             api_proxy_addr=resolved_api_proxy_addr,
             request_timeout=resolved_request_timeout,

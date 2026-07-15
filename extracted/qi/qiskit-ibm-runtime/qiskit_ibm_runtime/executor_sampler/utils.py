@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 from qiskit.circuit import BoxOp
@@ -22,8 +21,12 @@ from qiskit.circuit import BoxOp
 from ..exceptions import IBMInputValueError
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from qiskit.circuit import QuantumCircuit
     from qiskit.primitives.containers.sampler_pub import SamplerPub
+
+    from ..options_models.twirling_options import TwirlingOptions
 
 
 def validate_no_boxes(circuit: QuantumCircuit) -> None:
@@ -44,15 +47,51 @@ def validate_no_boxes(circuit: QuantumCircuit) -> None:
             )
 
 
-def extract_shots_from_pubs(pubs: list[SamplerPub], default_shots: int | None = None) -> int:
-    """Extract and validate shots value from a list of ``SamplerPub``` objects.
+def validate_meas_type_twirling(meas_type: str | None, enable_measure: bool | None) -> None:
+    """Validate measurement twirling is compatible with the requested ``meas_type``.
+
+    Measurement twirling flips bits before measurement and XOR-corrects them in
+    post-processing, which requires classified bit results. Kerneled returns are complex
+    IQ data, so the correction cannot be applied.
+
+    Args:
+        meas_type: The requested measurement return type.
+        enable_measure: Whether measurement twirling is enabled.
+
+    Raises:
+        IBMInputValueError: If ``enable_measure`` is set with a non-classified ``meas_type``.
+    """
+    if meas_type in {"kerneled", "avg_kerneled"} and enable_measure:
+        raise IBMInputValueError(
+            f"'meas_type={meas_type}' and measurement twirling are not compatible. "
+            "Set `twirling.enable_measure=False` or `execution.meas_type='classified'`"
+        )
+
+
+def validate_twirling_option_fileds_are_not_none(options: TwirlingOptions) -> None:
+    """Validate that twirling options fields are not ``None``.
+
+    Args:
+        options: The options to validate
+
+    Raises:
+        IBMInputValueError: If ``options.enable_gates`` or ``options.enable_measure`` are ``None``.
+    """
+    if options.enable_gates is None:
+        raise IBMInputValueError("``enable_gates`` is ``None``, expected ``True`` or ``False``.")
+    if options.enable_measure is None:
+        raise IBMInputValueError("``enable_measure`` is ``None``, expected ``True`` or ``False``.")
+
+
+def extract_shots_from_pubs(pubs: Sequence[SamplerPub], default_shots: int | None = None) -> int:
+    """Extract and validate shots value from a sequence of ``SamplerPub`` objects.
 
     This function determines the shots value by examining all pubs and ensures
     that all pubs have the same number of shots. If a pub doesn't specify shots,
     the default_shots value is used.
 
     Args:
-        pubs: List of sampler pubs to extract shots from.
+        pubs: Sequence of sampler pubs to extract shots from.
         default_shots: Default number of shots if not specified in pubs.
 
     Returns:
@@ -69,46 +108,3 @@ def extract_shots_from_pubs(pubs: list[SamplerPub], default_shots: int | None = 
     if len(pub_shots) != 1:
         raise IBMInputValueError(f"All pubs must have the same number of shots. Found: {pub_shots}")
     return next(iter(pub_shots))
-
-
-def calculate_twirling_shots(
-    pub_shots: int,
-    num_randomizations: int | str,
-    shots_per_randomization: int | str,
-) -> tuple[int, int]:
-    """Calculate num_randomizations and shots_per_randomization for twirling.
-
-    Implements the logic from TwirlingOptions documentation:
-
-    - If both "auto": shots_per_randomization = max(64, ceil(shots/32))
-                     num_randomizations = ceil(shots/shots_per_randomization)
-    - If only num_randomizations "auto": num_randomizations = ceil(shots/shots_per_randomization)
-    - If only ``shots_per_randomization`` "auto":
-      shots_per_randomization = ceil(shots/num_randomizations)
-
-    Args:
-        pub_shots: Total shots requested for the pub.
-        num_randomizations: Number of randomizations (or "auto").
-        shots_per_randomization: Shots per randomization (or "auto").
-
-    Returns:
-        Tuple of (num_randomizations, shots_per_randomization).
-    """
-    if num_randomizations == "auto" and shots_per_randomization == "auto":
-        # Both auto: shots_per_rand = max(64, ceil(shots/32))
-        shots_per_rand = max(64, math.ceil(pub_shots / 32))
-        num_rand = math.ceil(pub_shots / shots_per_rand)
-    elif num_randomizations == "auto":
-        # Only num_rand auto
-        shots_per_rand = int(shots_per_randomization)
-        num_rand = math.ceil(pub_shots / shots_per_rand)
-    elif shots_per_randomization == "auto":
-        # Only shots_per_rand auto
-        num_rand = int(num_randomizations)
-        shots_per_rand = math.ceil(pub_shots / num_rand)
-    else:
-        # Both specified
-        num_rand = int(num_randomizations)
-        shots_per_rand = int(shots_per_randomization)
-
-    return num_rand, shots_per_rand

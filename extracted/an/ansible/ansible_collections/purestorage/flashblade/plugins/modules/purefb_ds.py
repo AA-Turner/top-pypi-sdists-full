@@ -27,7 +27,7 @@ description:
   will always cause a change, even if the password given isn't different from
   the current. This makes this part of the module non-idempotent..
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -194,17 +194,20 @@ RETURN = r"""
 
 NO_SMB_VERSION = "2.16"
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import DirectoryService
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 
@@ -220,7 +223,7 @@ def delete_ds(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Fetch {0} Directory Service failed. Error: {1}".format(
-                    module.params["dstype"], res.errors[0].message
+                    module.params["dstype"], get_error_message(res)
                 )
             )
         dirserv = list(res.items)[0]
@@ -270,7 +273,7 @@ def delete_ds(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Delete Directory Service {0} failed. Error: {1}".format(
-                        ds_name, res.errors[0].message
+                        ds_name, get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -290,7 +293,7 @@ def update_ds(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="Fetch {0} Directory Service failed. Error: {1}".format(
-                module.params["dstype"], res.errors[0].message
+                module.params["dstype"], get_error_message(res)
             )
         )
     ds_now = list(res.items)[0]
@@ -353,7 +356,7 @@ def update_ds(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change directory service {0}. Error: {1}".format(
-                        ds_name, res.errors[0].message
+                        ds_name, get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -423,7 +426,7 @@ def create_ds(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Create Directory Service {0} failed. Error: {1}".format(
-                    ds_name, res.errors[0].message
+                    ds_name, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -437,26 +440,26 @@ def test_ds(module, blade):
             test_server = module.params["nfs_server"] + "_nfs"
     test_response = []
     response = list(blade.get_directory_services_test(names=[test_server]).items)
-    for component in range(len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": response[component].component_address,
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_address": component.component_address,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
-                "result_details": getattr(response[component], "result_details", ""),
+                "result_details": getattr(component, "result_details", ""),
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=False, test_response=test_response)
@@ -497,7 +500,7 @@ def main():
         mutually_exclusive=mutually_exclusive,
         supports_check_mode=True,
     )
-    if not HAS_PURITY_FB:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]
@@ -522,12 +525,12 @@ def main():
     ds_enabled = dirserv.enabled
     ldap_uri = False
     set_ldap = False
-    for uri in range(len(dirserv.uris)):
-        if "ldap" in dirserv.uris[uri].lower():
+    for uri in dirserv.uris:
+        if "ldap" in uri.lower():
             ldap_uri = True
     if module.params["uri"]:
-        for uri in range(len(module.params["uri"])):
-            if "ldap" in module.params["uri"][uri].lower():
+        for uri in module.params["uri"]:
+            if "ldap" in uri.lower():
                 set_ldap = True
     if not module.params["uri"] and ldap_uri or module.params["uri"] and set_ldap:
         if module.params["nis_servers"] or module.params["nis_domain"]:

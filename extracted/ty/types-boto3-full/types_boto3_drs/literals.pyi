@@ -63,6 +63,7 @@ __all__ = (
     "RecoveryInstanceDataReplicationInitiationStepNameType",
     "RecoveryInstanceDataReplicationInitiationStepStatusType",
     "RecoveryInstanceDataReplicationStateType",
+    "RecoveryModeType",
     "RecoveryResultType",
     "RecoverySnapshotsOrderType",
     "RegionName",
@@ -265,6 +266,7 @@ RecoveryInstanceDataReplicationStateType = Literal[
     "STALLED",
     "STOPPED",
 ]
+RecoveryModeType = Literal["FAST", "OPTIMAL"]
 RecoveryResultType = Literal[
     "ASSOCIATE_FAIL",
     "ASSOCIATE_SUCCESS",

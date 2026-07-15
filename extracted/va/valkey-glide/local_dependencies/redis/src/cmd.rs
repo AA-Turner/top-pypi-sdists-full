@@ -6,6 +6,7 @@ use futures_util::{
 };
 #[cfg(feature = "aio")]
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::{borrow::Borrow, fmt, io};
 
 use crate::pipeline::Pipeline;
@@ -22,8 +23,12 @@ pub enum Arg<D> {
     Cursor,
 }
 
+/// Atomic phase value: command is queued but not yet sent.
+pub const PHASE_QUEUED: u8 = 0;
+/// Atomic phase value: command has been sent to a node.
+pub const PHASE_SENT: u8 = 1;
+
 /// Represents redis commands.
-#[derive(Clone)]
 pub struct Cmd {
     data: Vec<u8>,
     // Arg::Simple contains the offset that marks the end of the argument
@@ -35,6 +40,11 @@ pub struct Cmd {
     span: Option<GlideSpan>,
     //  A flag indicating whether this is a fenced command  (will have PING appended to ensure ordering)
     is_fenced: bool,
+    /// Whether this is a blocking command (e.g. XREAD BLOCK, BLPOP). When true,
+    /// the response-wait warning in the multiplexed connection is suppressed for
+    /// waits that are within the blocking window, because long waits are expected
+    /// and not indicative of a slow connection.
+    is_blocking: bool,
     /// Per-command response timeout. When set, overrides the connection-level
     /// response_timeout for this specific command. Used to propagate the
     /// caller's request_timeout into the multiplexed connection layer.
@@ -44,6 +54,34 @@ pub struct Cmd {
     /// timeout from internal pipeline cleanup.
     #[cfg(feature = "cluster-async")]
     inflight_tracker: Option<crate::cluster_async::InflightRequestTracker>,
+    /// Inline watchdog phase: 0 = Queued, 1 = Sent. Updated atomically by the
+    /// routing layer after connection resolution.
+    pub watchdog_phase: AtomicU8,
+    /// Number of retries attempted. Incremented by the routing layer.
+    pub watchdog_retry_count: AtomicU8,
+}
+
+// Manual Clone implementation: AtomicU8 and OnceLock don't implement Clone,
+// and watchdog state should reset to defaults on clone (each clone represents
+// a new command attempt).
+impl Clone for Cmd {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            args: self.args.clone(),
+            cursor: self.cursor,
+            no_response: self.no_response,
+            span: self.span.clone(),
+            is_fenced: self.is_fenced,
+            is_blocking: self.is_blocking,
+            response_timeout: self.response_timeout,
+            #[cfg(feature = "cluster-async")]
+            inflight_tracker: self.inflight_tracker.clone(),
+            // Reset watchdog fields — each clone is a fresh command attempt
+            watchdog_phase: AtomicU8::new(PHASE_QUEUED),
+            watchdog_retry_count: AtomicU8::new(0),
+        }
+    }
 }
 
 /// The PING command used to fence other commands for ordering guarantees
@@ -97,6 +135,7 @@ struct AsyncIterInner<'a, T: FromRedisValue + 'a> {
 
 /// Represents the state of AsyncIter
 #[cfg(feature = "aio")]
+#[allow(clippy::large_enum_variant)]
 enum IterOrFuture<'a, T: FromRedisValue + 'a> {
     Iter(AsyncIterInner<'a, T>),
     Future(BoxFuture<'a, (AsyncIterInner<'a, T>, Option<T>)>),
@@ -364,9 +403,12 @@ impl Cmd {
             no_response: false,
             span: None,
             is_fenced: false,
+            is_blocking: false,
             response_timeout: None,
             #[cfg(feature = "cluster-async")]
             inflight_tracker: None,
+            watchdog_phase: AtomicU8::new(PHASE_QUEUED),
+            watchdog_retry_count: AtomicU8::new(0),
         }
     }
 
@@ -379,9 +421,12 @@ impl Cmd {
             no_response: false,
             span: None,
             is_fenced: false,
+            is_blocking: false,
             response_timeout: None,
             #[cfg(feature = "cluster-async")]
             inflight_tracker: None,
+            watchdog_phase: AtomicU8::new(PHASE_QUEUED),
+            watchdog_retry_count: AtomicU8::new(0),
         }
     }
 
@@ -617,9 +662,9 @@ impl Cmd {
         })
     }
 
-    // Get a reference to the argument at `idx`
+    /// Get a reference to the argument at `idx`.
     #[cfg(feature = "cluster")]
-    pub(crate) fn arg_idx(&self, idx: usize) -> Option<&[u8]> {
+    pub fn arg_idx(&self, idx: usize) -> Option<&[u8]> {
         if idx >= self.args.len() {
             return None;
         }
@@ -675,6 +720,22 @@ impl Cmd {
         self.is_fenced
     }
 
+    /// Mark this command as blocking (e.g. XREAD BLOCK, BLPOP). Blocking
+    /// commands intentionally wait for a server event and thus have long
+    /// response times; the pipeline layer suppresses its response-wait warning
+    /// for these commands to avoid spurious noise.
+    #[inline]
+    pub fn set_is_blocking(&mut self, blocking: bool) -> &mut Cmd {
+        self.is_blocking = blocking;
+        self
+    }
+
+    /// Check whether this command is a blocking command.
+    #[inline]
+    pub fn is_blocking(&self) -> bool {
+        self.is_blocking
+    }
+
     /// Set a per-command response timeout that overrides the connection default.
     #[inline]
     pub fn set_response_timeout(&mut self, timeout: Option<std::time::Duration>) {
@@ -693,6 +754,15 @@ impl Cmd {
     #[inline]
     pub fn set_inflight_tracker(&mut self, tracker: crate::cluster_async::InflightRequestTracker) {
         self.inflight_tracker = Some(tracker);
+    }
+
+    /// Mark the command as sent and record the resolved node address.
+    /// Called from the routing layer after connection resolution.
+    /// Zero heap allocation for addresses ≤63 bytes (inline storage).
+    /// Record a retry attempt on this command.
+    #[inline]
+    pub fn mark_retry(&self) {
+        self.watchdog_retry_count.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -802,5 +872,37 @@ mod tests {
 
         cmd.set_response_timeout(None);
         assert_eq!(cmd.response_timeout(), None);
+    }
+
+    #[test]
+    fn test_is_blocking_defaults_to_false() {
+        let cmd = Cmd::new();
+        assert!(
+            !cmd.is_blocking(),
+            "new Cmd must default to is_blocking=false"
+        );
+    }
+
+    #[test]
+    fn test_set_is_blocking_round_trip() {
+        let mut cmd = Cmd::new();
+        cmd.arg("XREAD").arg("BLOCK").arg("5000");
+
+        assert!(!cmd.is_blocking());
+        cmd.set_is_blocking(true);
+        assert!(cmd.is_blocking());
+
+        cmd.set_is_blocking(false);
+        assert!(!cmd.is_blocking());
+    }
+
+    #[test]
+    fn test_is_blocking_preserved_on_clone() {
+        let mut cmd = Cmd::new();
+        cmd.arg("BLPOP").arg("mylist").arg("0");
+        cmd.set_is_blocking(true);
+
+        let cloned = cmd.clone();
+        assert!(cloned.is_blocking(), "clone must preserve is_blocking=true");
     }
 }

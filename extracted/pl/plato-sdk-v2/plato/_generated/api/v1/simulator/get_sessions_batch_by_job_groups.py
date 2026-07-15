@@ -46,7 +46,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> BatchSessionsResponse:
-    """Get Sessions Batch By Job Groups"""
+    """Get paginated sessions for multiple job group IDs"""
 
     request_args = _build_request_args(
         page=page,
@@ -67,7 +67,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> BatchSessionsResponse:
-    """Get Sessions Batch By Job Groups"""
+    """Get paginated sessions for multiple job group IDs"""
 
     request_args = _build_request_args(
         page=page,

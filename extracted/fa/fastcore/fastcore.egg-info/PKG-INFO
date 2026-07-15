@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 2.0.5
+Version: 2.1.0
 Summary: Python supercharged for fastai development
 Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
 License: Apache-2.0
@@ -12,7 +12,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.11
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev

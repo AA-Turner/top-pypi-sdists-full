@@ -254,39 +254,6 @@ class StateMachine:
                 # Get the identifier of this check
                 check_id = api_state.get_system_check_id(table_ref, check_ref)
 
-                if (
-                    to_check
-                    and to_check.labels is not None
-                    and to_check.labels != (from_check.labels if from_check else None)
-                ):
-                    actions.append(
-                        LabelAction(
-                            prev=from_check.labels if from_check else None,
-                            new=to_check.labels,
-                            table_ref=table_ref,
-                            check_ref=check_ref,
-                            check_id=check_id,
-                        )
-                    )
-
-                if (
-                    to_check
-                    and to_check.notification_channels is not None
-                    and to_check.notification_channels
-                    != (from_check.notification_channels if from_check else None)
-                ):
-                    actions.append(
-                        NotificationChannelAction(
-                            prev=from_check.notification_channels
-                            if from_check
-                            else None,
-                            new=to_check.notification_channels,
-                            table_ref=table_ref,
-                            check_ref=check_ref,
-                            check_id=check_id,
-                        )
-                    )
-
                 if comparison_from_check := from_check:
                     comparison_from_check = copy(from_check)
                     comparison_from_check.labels = None
@@ -321,12 +288,16 @@ class StateMachine:
                                 if k != "priority_level"
                             }
 
-                if (
-                    to_check and not from_check
-                ):  # Creation is not allowed, print a warning
+                # When a system check doesn't exist on the server (from_check is
+                # None), it will only come into existence if the table is being
+                # configured for the first time (which creates system checks).
+                table_being_configured = not from_table.config and to_table.config
+                if to_check and not from_check and not table_being_configured:
                     print(f"Warning: Not creating {check_ref} on {table_ref}")
+                    continue
                 elif from_check and not to_check:
                     print(f"Warning: Not destroying {check_ref} on {table_ref}")
+                    continue
                 elif (
                     comparison_to_check != comparison_from_check
                 ):  # Destruction is not allowed for system checks, only modification
@@ -334,6 +305,39 @@ class StateMachine:
                         CheckAction(
                             prev=comparison_from_check,
                             new=comparison_to_check,
+                            table_ref=table_ref,
+                            check_ref=check_ref,
+                            check_id=check_id,
+                        )
+                    )
+
+                if (
+                    to_check
+                    and to_check.labels is not None
+                    and to_check.labels != (from_check.labels if from_check else None)
+                ):
+                    actions.append(
+                        LabelAction(
+                            prev=from_check.labels if from_check else None,
+                            new=to_check.labels,
+                            table_ref=table_ref,
+                            check_ref=check_ref,
+                            check_id=check_id,
+                        )
+                    )
+
+                if (
+                    to_check
+                    and to_check.notification_channels is not None
+                    and to_check.notification_channels
+                    != (from_check.notification_channels if from_check else None)
+                ):
+                    actions.append(
+                        NotificationChannelAction(
+                            prev=from_check.notification_channels
+                            if from_check
+                            else None,
+                            new=to_check.notification_channels,
                             table_ref=table_ref,
                             check_ref=check_ref,
                             check_id=check_id,
